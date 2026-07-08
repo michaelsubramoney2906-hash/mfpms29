@@ -1,0 +1,14 @@
+{
+  "id": "79e73c9e-d665-4daf-8731-02c0e54263ef",
+  "fullName": "Thandiwe Mazwi",
+  "email": "mazwitc@nkangaladm.gov.za",
+  "jobFunction": "Divisional Manager : Records",
+  "department": "Corporate Services",
+  "source": "azure_ad",
+  "role": "tenant_user",
+  "tenantId": "nkangala_auto",
+  "manager": "NM Motshwene",
+  "directorate": "Corporate",
+  "reportTo": "",
+  "level": "3"
+}

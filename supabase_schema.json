@@ -1,0 +1,13 @@
+{
+  "paths": [
+    "/",
+    "/azure_configs",
+    "/messages",
+    "/users"
+  ],
+  "definitions": [
+    "azure_configs",
+    "messages",
+    "users"
+  ]
+}

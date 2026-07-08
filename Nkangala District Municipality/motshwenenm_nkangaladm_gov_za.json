@@ -1,0 +1,16 @@
+{
+  "id": "ff8907b4-995c-4b0f-9532-1eeff30c360a",
+  "fullName": "Nkululeko Motshwene",
+  "email": "motshwenenm@nkangaladm.gov.za",
+  "jobFunction": "Manager: Corporate Services",
+  "department": "Corporate Services",
+  "source": "azure_ad",
+  "role": "tenant_user",
+  "tenantId": "nkangala_auto",
+  "manager": "ML Mahlangu",
+  "directorate": "Corporate",
+  "reportTo": "",
+  "level": "2",
+  "signatureType": "draw",
+  "signatureData": ""
+}

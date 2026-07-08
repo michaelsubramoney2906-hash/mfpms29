@@ -1,0 +1,16 @@
+{
+  "id": "222a65cf-53d8-4a6a-87dc-b6ddac6be7fe",
+  "fullName": "Mandla L. Mahlangu",
+  "email": "mahlanguml@nkangaladm.gov.za",
+  "jobFunction": "Municipal Manager",
+  "department": "Office of Municipal Manager",
+  "source": "azure_ad",
+  "role": "tenant_user",
+  "tenantId": "nkangala_auto",
+  "manager": "Mayor Ngwenya",
+  "directorate": "",
+  "reportTo": "",
+  "level": "1",
+  "signatureType": "draw",
+  "signatureData": ""
+}

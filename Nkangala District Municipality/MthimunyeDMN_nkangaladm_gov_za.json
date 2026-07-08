@@ -1,0 +1,16 @@
+{
+  "id": "8e752579-61e5-4c96-9be5-c8e31b695a2a",
+  "fullName": "Nokuthula D. Mthimunye",
+  "email": "MthimunyeDMN@nkangaladm.gov.za",
+  "jobFunction": "Senior IT Administrator",
+  "department": "Information and Communication Technology",
+  "source": "azure_ad",
+  "role": "tenant_user",
+  "tenantId": "nkangala_auto",
+  "manager": "Samuel Bongani Nkosi",
+  "directorate": "",
+  "reportTo": "",
+  "level": "1",
+  "signatureType": "draw",
+  "signatureData": ""
+}

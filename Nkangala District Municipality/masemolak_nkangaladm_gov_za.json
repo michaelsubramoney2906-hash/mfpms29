@@ -1,0 +1,16 @@
+{
+  "id": "76fe3208-6198-4b59-a258-dfab2396ab38",
+  "fullName": "Katlego Masemola",
+  "email": "masemolak@nkangaladm.gov.za",
+  "jobFunction": "Internal Auditor",
+  "department": "Internal Audit",
+  "source": "azure_ad",
+  "role": "tenant_user",
+  "tenantId": "nkangala_auto",
+  "manager": "Kgomotso Gwangwa",
+  "directorate": "Office of the MM",
+  "reportTo": "",
+  "level": "1",
+  "signatureType": "draw",
+  "signatureData": ""
+}

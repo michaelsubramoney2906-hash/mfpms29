@@ -1,0 +1,16 @@
+{
+  "id": "44b3558d-d92b-4e5e-9c5a-732bdcab1e16",
+  "fullName": "Phillemon M. Radebe",
+  "email": "RadebePM@nkangaladm.gov.za",
+  "jobFunction": "Leading Fire Fighter",
+  "department": "Community Development Services",
+  "source": "azure_ad",
+  "role": "tenant_user",
+  "tenantId": "nkangala_auto",
+  "manager": "Mpho P. Manweli",
+  "directorate": "Community Services",
+  "reportTo": "Mpho P. Manweli",
+  "level": "7",
+  "signatureType": "draw",
+  "signatureData": ""
+}

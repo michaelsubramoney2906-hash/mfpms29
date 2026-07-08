@@ -1,0 +1,16 @@
+{
+  "id": "73cef05f-c01d-40d8-8d44-bf1a40835d1c",
+  "fullName": "Cert",
+  "email": "Cert@nkangaladm.gov.za",
+  "jobFunction": "",
+  "department": "",
+  "source": "azure_ad",
+  "role": "Standard User",
+  "tenantId": "nkangala_auto",
+  "manager": "",
+  "directorate": "",
+  "reportTo": "",
+  "level": "1",
+  "signatureType": "draw",
+  "signatureData": ""
+}

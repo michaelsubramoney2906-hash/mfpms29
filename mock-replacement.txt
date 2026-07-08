@@ -1,0 +1,208 @@
+  // Extract from PA document via Mock Logic
+  app.post("/api/tenant/:tenantId/performance-agreements/extract", async (req, res) => {
+    const { tenantId } = req.params;
+    const { fileName, mimeType, fileData, sdbipLayer } = req.body;
+
+    try {
+      console.log(`Starting MOCK extraction for tenant ${tenantId}, file ${fileName}, mimeType ${mimeType}`);
+
+      const isSecondLayer = sdbipLayer === '2nd Layer';
+      const extractionKey = isSecondLayer ? 'pa_extract_sdbip_2nd' : 'pa_extract_sdbip_3rd';
+
+      const extractedData = {
+        sdbip23: [
+          {
+            id: `sdbip23_${Date.now()}_1`,
+            refNum: "1",
+            strategicObj: "Good Governance",
+            bsd: "N",
+            led: "N",
+            mfvm: "N",
+            ggpp: "Y",
+            midt: "N",
+            sr: "N",
+            kpas: "KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION",
+            operationalActivity: isSecondLayer ? "Governance oversight" : "Maintain clean audit opinion by 30 December 2025",
+            kpi: "Maintain clean audit opinion by 30 December 2025",
+            weight: "10",
+            compliance: "compliant",
+            uom: "Report",
+            mscoaTracking: "N/A",
+            baseline: "1",
+            annualTarget: "1",
+            budgetAllocation: "OPEX",
+            q1: "N/A",
+            q2: "1",
+            q3: "N/A",
+            q4: "N/A",
+            poe: "AG's Audit Report",
+            isCustom: true
+          }
+        ],
+        jobCompetencies: [
+          {
+            id: `comp_${Date.now()}_1`,
+            name: "Strategic Leadership",
+            category: "Core Managerial",
+            description: "Ability to provide coaching and direction to the team.",
+            requiredRating: 4,
+            currentRating: 0,
+            weight: 20,
+            evidence: "Team feedback and performance records.",
+            isCustom: true
+          }
+        ],
+        pdp: [
+          {
+            "Skills performance gap (in order of priority)": "Advanced Digital Processing",
+            "Outcomes expected": "Improved processing time",
+            "Suggested training and/or development activity": "Advanced MS Excel / Access",
+            "Suggested mode of delivery": "Online Course",
+            "Suggested time frame": "Q1 2026",
+            "Work opportunity created to practice skills/development area": "Data consolidation task",
+            "Support person": "IT Manager"
+          }
+        ],
+        draftingHTML: `<div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; color: #333;">
+    <h1 style="text-align: center; color: #000; border-bottom: 2px solid #000; padding-bottom: 10px;">PERFORMANCE AGREEMENT</h1>
+    
+    <p>Entered into by and between:</p>
+    <p><strong>The Municipality</strong> herein represented by the Municipal Manager</p>
+    <p>And</p>
+    <p><strong>The Employee</strong></p>
+    
+    <h2 style="margin-top: 30px; border-bottom: 1px solid #ccc; padding-bottom: 5px;">1. Purpose of this Agreement</h2>
+    <p>The purpose of this agreement is to:</p>
+    <ul>
+        <li>Comply with the provisions of applicable legislation.</li>
+        <li>Specify objectives and targets defined and agreed with the employee.</li>
+    </ul>
+
+    <h2 style="margin-top: 30px; border-bottom: 1px solid #ccc; padding-bottom: 5px;">2. SDBIP Extract</h2>
+    <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+        <thead>
+            <tr style="background-color: #f2f2f2;">
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Ref</th>
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Strategic Objective</th>
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">KPI</th>
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Weight</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td style="border: 1px solid #ddd; padding: 8px;">1</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">Good Governance</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">Maintain clean audit</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">10</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2 style="margin-top: 30px; border-bottom: 1px solid #ccc; padding-bottom: 5px;">3. Job Competencies</h2>
+    <ul>
+        <li><strong>Strategic Leadership</strong> (Weight: 20) - Ability to provide coaching and direction.</li>
+    </ul>
+
+    <h2 style="margin-top: 30px; border-bottom: 1px solid #ccc; padding-bottom: 5px;">4. Personal Development Plan (PDP)</h2>
+    <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+        <thead>
+            <tr style="background-color: #f2f2f2;">
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Skills Gap</th>
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Suggested Training</th>
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Time Frame</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td style="border: 1px solid #ddd; padding: 8px;">Advanced Digital Processing</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">Advanced MS Excel</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">Q1 2026</td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <div style="margin-top: 50px; display: flex; justify-content: space-between;">
+        <div style="width: 45%;">
+            <p>___________________________</p>
+            <p><strong>Employee Signature</strong></p>
+            <p>Date: _______________</p>
+        </div>
+        <div style="width: 45%;">
+            <p>___________________________</p>
+            <p><strong>Manager Signature</strong></p>
+            <p>Date: _______________</p>
+        </div>
+    </div>
+</div>`
+      };
+
+      const supabase = getSupabase();
+      
+      // Save SDBIP
+      if (extractedData.sdbip23 && extractedData.sdbip23.length > 0) {
+        await supabase.from('messages').upsert({
+          id: `${extractionKey}_${tenantId}`,
+          tenant_id: tenantId,
+          sender_id: 'pa_extraction_engine',
+          sender_email: 'extraction@system.local',
+          sender_name: 'Extraction Engine',
+          content: JSON.stringify(extractedData.sdbip23),
+          message_type: 'sdbip23_list',
+          created_at: new Date().toISOString()
+        });
+      }
+      
+      // Save JSC to tenant level - Note: mapping uniquely to users profile
+      if (extractedData.jobCompetencies && extractedData.jobCompetencies.length > 0) {
+        await supabase.from('messages').upsert({
+          id: `job_competencies_${tenantId}`,
+          tenant_id: tenantId,
+          sender_id: 'pa_extraction_engine',
+          sender_email: 'extraction@system.local',
+          sender_name: 'Extraction Engine',
+          content: JSON.stringify({ competencies: extractedData.jobCompetencies }),
+          message_type: 'job_specific_competencies',
+          created_at: new Date().toISOString()
+        });
+      }
+      
+      // Save PDP
+      if (extractedData.pdp && extractedData.pdp.length > 0) {
+        await supabase.from('messages').upsert({
+          id: `pdp_${tenantId}`,
+          tenant_id: tenantId,
+          sender_id: 'pa_extraction_engine',
+          sender_email: 'extraction@system.local',
+          sender_name: 'Extraction Engine',
+          content: JSON.stringify({ items: extractedData.pdp }),
+          message_type: 'pdp_list',
+          created_at: new Date().toISOString()
+        });
+      }
+      
+      // Save Drafting HTML
+      if (extractedData.draftingHTML) {
+         await supabase.from('messages').upsert({
+          id: `draft_doc_${tenantId}`,
+          tenant_id: tenantId,
+          sender_id: 'pa_extraction_engine',
+          sender_email: 'extraction@system.local',
+          sender_name: 'Extraction Engine',
+          content: JSON.stringify({ html: extractedData.draftingHTML }),
+          message_type: 'drafting_suite_doc',
+          created_at: new Date().toISOString()
+        });     
+      }
+
+      res.json({ success: true, extractedCount: {
+        sdbip: (extractedData.sdbip23 || []).length,
+        jsc: (extractedData.jobCompetencies || []).length,
+        pdp: (extractedData.pdp || []).length,
+        draftingHTMLBytes: extractedData.draftingHTML ? extractedData.draftingHTML.length : 0
+      }});
+    } catch (err: any) {
+      console.error("Extraction error:", err);
+      res.status(500).json({ error: err.message || JSON.stringify(err) });
+    }
+  });
+

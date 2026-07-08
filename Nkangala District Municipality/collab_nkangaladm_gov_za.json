@@ -1,0 +1,16 @@
+{
+  "id": "dbdc1a68-3958-4ad6-82c5-e12422acc4f2",
+  "fullName": "Collab Admin",
+  "email": "collab@nkangaladm.gov.za",
+  "jobFunction": "",
+  "department": "",
+  "source": "azure_ad",
+  "role": "Standard User",
+  "tenantId": "nkangala_auto",
+  "manager": "",
+  "directorate": "",
+  "reportTo": "",
+  "level": "1",
+  "signatureType": "draw",
+  "signatureData": ""
+}

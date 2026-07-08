@@ -1,0 +1,16 @@
+{
+  "id": "2ba5488b-f4df-4b1f-a2e7-baacc1af8237",
+  "fullName": "Kabedi P. Chepape",
+  "email": "ChepapeKP@nkangaladm.gov.za",
+  "jobFunction": "Leading Fire Fighter",
+  "department": "Community Development Services",
+  "source": "azure_ad",
+  "role": "tenant_user",
+  "tenantId": "nkangala_auto",
+  "manager": "Mpho P. Manweli",
+  "directorate": "Community Services",
+  "reportTo": "Mpho P. Manweli",
+  "level": "7",
+  "signatureType": "draw",
+  "signatureData": ""
+}

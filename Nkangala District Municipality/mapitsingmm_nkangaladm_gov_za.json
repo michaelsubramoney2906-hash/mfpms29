@@ -1,0 +1,16 @@
+{
+  "id": "a27a6a4b-3e5b-408c-9bc7-aeb2b5bf123b",
+  "fullName": "Monantsi Mapitsing",
+  "email": "mapitsingmm@nkangaladm.gov.za",
+  "jobFunction": "Chief Fire Officer",
+  "department": "Community Development Services",
+  "source": "azure_ad",
+  "role": "tenant_user",
+  "tenantId": "nkangala_auto",
+  "manager": "Vusi Mahlangu",
+  "directorate": "Community Services",
+  "reportTo": "Vusi Mahlangu",
+  "level": "3",
+  "signatureType": "draw",
+  "signatureData": ""
+}

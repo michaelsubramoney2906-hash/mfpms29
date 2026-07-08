@@ -1,0 +1,16 @@
+{
+  "id": "ddcea1c6-0891-459f-a8dc-136ae53f5253",
+  "fullName": "spSvcAcc",
+  "email": "ithelpdesk@nkangaladm.gov.za",
+  "jobFunction": "",
+  "department": "",
+  "source": "azure_ad",
+  "role": "Standard User",
+  "tenantId": "nkangala_auto",
+  "manager": "",
+  "directorate": "",
+  "reportTo": "",
+  "level": "1",
+  "signatureType": "draw",
+  "signatureData": ""
+}

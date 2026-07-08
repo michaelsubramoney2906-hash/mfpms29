@@ -1,0 +1,14 @@
+{
+  "id": "b4f47e9e-4246-4eac-aca7-9eb98d5386b4",
+  "fullName": "Naume Nkosi",
+  "email": "nkosinm@nkangaladm.gov.za",
+  "jobFunction": "Communications Officer",
+  "department": "Corporate Services",
+  "source": "azure_ad",
+  "role": "Standard User",
+  "tenantId": "nkangala_auto",
+  "manager": "Phaswana K. Madihlaba",
+  "directorate": "Corporate Services",
+  "reportTo": "Phaswana K. Madihlaba",
+  "level": "1"
+}

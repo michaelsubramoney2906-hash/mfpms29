@@ -1,0 +1,16 @@
+{
+  "id": "64a5f153-619e-41ba-8957-a907150c5ef3",
+  "fullName": "Jackson Skosana",
+  "email": "SkosanaJ@nkangaladm.gov.za",
+  "jobFunction": "Manager: Technical Services",
+  "department": "Technical Services",
+  "source": "azure_ad",
+  "role": "tenant_user",
+  "tenantId": "nkangala_auto",
+  "manager": "Xolisi Bembe",
+  "directorate": "Technical",
+  "reportTo": "",
+  "level": "2",
+  "signatureType": "draw",
+  "signatureData": ""
+}

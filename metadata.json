@@ -1,0 +1,6 @@
+{
+  "name": "Mzansi Flow PMS",
+  "description": "A multi-tenant performance management system for South African municipalities.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

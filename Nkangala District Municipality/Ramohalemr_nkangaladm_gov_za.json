@@ -1,0 +1,16 @@
+{
+  "id": "e1ca135c-4c82-4874-bf1e-6034fd5e473c",
+  "fullName": "Matome R. Ramohale",
+  "email": "Ramohalemr@nkangaladm.gov.za",
+  "jobFunction": "Chief Fire Officer",
+  "department": "Community Development Services",
+  "source": "azure_ad",
+  "role": "tenant_user",
+  "tenantId": "nkangala_auto",
+  "manager": "Vusi Mahlangu",
+  "directorate": "Community Services",
+  "reportTo": "Vusi Mahlangu",
+  "level": "3",
+  "signatureType": "draw",
+  "signatureData": ""
+}

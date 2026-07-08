@@ -1,0 +1,16 @@
+{
+  "id": "42b8ddf0-979d-4238-a088-53d583956b33",
+  "fullName": "Ali S. Msiza",
+  "email": "MsizaAS@nkangaladm.gov.za",
+  "jobFunction": "Manager Finance",
+  "department": "Finance Services",
+  "source": "azure_ad",
+  "role": "Standard User",
+  "tenantId": "nkangala_auto",
+  "manager": "Alice Stander",
+  "directorate": "Finance",
+  "reportTo": "",
+  "level": "2",
+  "signatureType": "draw",
+  "signatureData": ""
+}

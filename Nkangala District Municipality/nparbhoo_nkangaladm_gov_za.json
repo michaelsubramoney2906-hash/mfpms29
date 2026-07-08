@@ -1,0 +1,14 @@
+{
+  "id": "f21d45d5-c5fb-4bd0-99fa-4b9aba3564c9",
+  "fullName": "Nirupa Parbhoo",
+  "email": "nparbhoo@nkangaladm.gov.za",
+  "jobFunction": "Accountant",
+  "department": "Finance Services",
+  "source": "azure_ad",
+  "role": "Standard User",
+  "tenantId": "nkangala_auto",
+  "manager": "Andile N Hlongwa",
+  "directorate": "Finance",
+  "reportTo": "",
+  "level": "1"
+}

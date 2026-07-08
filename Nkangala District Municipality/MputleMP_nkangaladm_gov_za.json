@@ -1,0 +1,16 @@
+{
+  "id": "1c92b96e-9e51-4b04-be63-84aac8d96418",
+  "fullName": "Mapula P. Mputle",
+  "email": "MputleMP@nkangaladm.gov.za",
+  "jobFunction": "Leading Fire Fighter",
+  "department": "Community Development Services",
+  "source": "azure_ad",
+  "role": "tenant_user",
+  "tenantId": "nkangala_auto",
+  "manager": "Mpho P. Manweli",
+  "directorate": "Community Services",
+  "reportTo": "Mpho P. Manweli",
+  "level": "7",
+  "signatureType": "draw",
+  "signatureData": ""
+}

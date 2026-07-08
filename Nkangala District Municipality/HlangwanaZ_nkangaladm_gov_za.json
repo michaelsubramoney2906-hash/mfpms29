@@ -1,0 +1,16 @@
+{
+  "id": "e250484e-2d02-4666-8d63-3b05e255e889",
+  "fullName": "Zinhle Hlangwana",
+  "email": "HlangwanaZ@nkangaladm.gov.za",
+  "jobFunction": "SCM Clerk",
+  "department": "Finance Services",
+  "source": "azure_ad",
+  "role": "tenant_user",
+  "tenantId": "nkangala_auto",
+  "manager": "Cedric Makitla",
+  "directorate": "Finance",
+  "reportTo": "",
+  "level": "1",
+  "signatureType": "draw",
+  "signatureData": ""
+}

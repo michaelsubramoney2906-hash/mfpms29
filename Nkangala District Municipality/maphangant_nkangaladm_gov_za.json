@@ -1,0 +1,16 @@
+{
+  "id": "46e1c9d7-d059-4132-9191-1d20fee67a88",
+  "fullName": "Nomhle Maphanga",
+  "email": "maphangant@nkangaladm.gov.za",
+  "jobFunction": "Legal Advisor",
+  "department": "Corporate Services",
+  "source": "azure_ad",
+  "role": "tenant_user",
+  "tenantId": "nkangala_auto",
+  "manager": "ML Mahlangu",
+  "directorate": "Corporate",
+  "reportTo": "",
+  "level": "2",
+  "signatureType": "draw",
+  "signatureData": ""
+}

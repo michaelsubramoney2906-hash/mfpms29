@@ -1,0 +1,16 @@
+{
+  "id": "bef0f58c-565f-4dca-afdb-0b936f95f383",
+  "fullName": "Amos D. Twala",
+  "email": "TwalaAD@nkangaladm.gov.za",
+  "jobFunction": "Chief Audit Executive",
+  "department": "Internal Audit",
+  "source": "azure_ad",
+  "role": "tenant_user",
+  "tenantId": "nkangala_auto",
+  "manager": "ML Mahlangu",
+  "directorate": "Office of the MM",
+  "reportTo": "",
+  "level": "2",
+  "signatureType": "draw",
+  "signatureData": ""
+}

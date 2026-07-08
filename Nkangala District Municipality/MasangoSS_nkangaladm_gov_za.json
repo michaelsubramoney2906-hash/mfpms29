@@ -1,0 +1,16 @@
+{
+  "id": "0352bcd3-4cc1-42c3-908d-b1f42e43b6fa",
+  "fullName": "Saya Masango",
+  "email": "MasangoSS@nkangaladm.gov.za",
+  "jobFunction": "Engineering Technician",
+  "department": "Technical Services",
+  "source": "azure_ad",
+  "role": "tenant_user",
+  "tenantId": "nkangala_auto",
+  "manager": "Siphokazi Wakeni",
+  "directorate": "Technical",
+  "reportTo": "",
+  "level": "1",
+  "signatureType": "draw",
+  "signatureData": ""
+}

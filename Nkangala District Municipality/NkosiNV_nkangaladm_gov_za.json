@@ -1,0 +1,16 @@
+{
+  "id": "e410d412-d91c-41a9-a2f5-c5016b2b0140",
+  "fullName": "Nqobile V. Nkosi",
+  "email": "NkosiNV@nkangaladm.gov.za",
+  "jobFunction": "Secretary: CFO",
+  "department": "Finance Services",
+  "source": "azure_ad",
+  "role": "tenant_user",
+  "tenantId": "nkangala_auto",
+  "manager": "Alice Stander",
+  "directorate": "Finance",
+  "reportTo": "",
+  "level": "1",
+  "signatureType": "draw",
+  "signatureData": ""
+}

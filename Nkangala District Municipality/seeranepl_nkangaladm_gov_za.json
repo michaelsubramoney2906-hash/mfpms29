@@ -1,0 +1,16 @@
+{
+  "id": "bbd6a71c-09e3-4d39-b7be-bb24b220175b",
+  "fullName": "Peggy L. Seerane",
+  "email": "seeranepl@nkangaladm.gov.za",
+  "jobFunction": "Internal Auditor",
+  "department": "Internal Audit",
+  "source": "azure_ad",
+  "role": "tenant_user",
+  "tenantId": "nkangala_auto",
+  "manager": "Kgomotso Gwangwa",
+  "directorate": "Office of the MM",
+  "reportTo": "",
+  "level": "1",
+  "signatureType": "draw",
+  "signatureData": ""
+}
