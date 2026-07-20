@@ -120,6 +120,169 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ rowId: string; type: 'row' | 'q1' | 'q2' | 'midTerm' | 'q3' | 'q4' } | null>(null);
 
+  // Smart Filtering states
+  const [searchRef, setSearchRef] = useState('');
+  const [selectedKpa, setSelectedKpa] = useState('ALL');
+  const [selectedNationalKpa, setSelectedNationalKpa] = useState('ALL');
+
+  // Computed unique KPA functional areas
+  const uniqueKpas = React.useMemo(() => {
+    const kpaSet = new Set<string>();
+    rows.forEach(row => {
+      if (row.kpas && row.kpas.trim()) {
+        kpaSet.add(row.kpas.trim());
+      }
+    });
+    return Array.from(kpaSet).sort();
+  }, [rows]);
+
+  // Reactive Smart Filtered Rows
+  const filteredRows = React.useMemo(() => {
+    return rows.filter((row) => {
+      // 1. Search by ref number or KPI description
+      if (searchRef.trim() !== '') {
+        const query = searchRef.toLowerCase();
+        const matchesRef = row.refNum?.toLowerCase().includes(query);
+        const matchesKpi = row.kpi?.toLowerCase().includes(query);
+        const matchesObj = row.strategicObj?.toLowerCase().includes(query);
+        if (!matchesRef && !matchesKpi && !matchesObj) {
+          return false;
+        }
+      }
+
+      // 2. Filter by KPA Functional Area
+      if (selectedKpa !== 'ALL') {
+        if (row.kpas !== selectedKpa) {
+          return false;
+        }
+      }
+
+      // 3. Filter by National Key Performance Areas (BSD, LED, MFVM, GGPP, MIDT, SR)
+      if (selectedNationalKpa !== 'ALL') {
+        const key = selectedNationalKpa.toLowerCase(); // 'bsd', 'led', etc.
+        const val = row[key as keyof SdbipRow];
+        if (!val || typeof val !== 'string' || val.trim() === '') {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [rows, searchRef, selectedKpa, selectedNationalKpa]);
+
+  const renderSmartFilterPanel = () => {
+    return (
+      <div className="bg-slate-50 p-4 border border-slate-200 rounded-xl space-y-3">
+        <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+          <span className="w-2.5 h-2.5 bg-indigo-600 rounded-full animate-pulse"></span>
+          <h4 className="text-[11px] font-black uppercase tracking-wider text-slate-700">SDBIP Scorecard Smart Filter Panel</h4>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          
+          {/* 1. Search Bar */}
+          <div className="space-y-1">
+            <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500">
+              Search Ref / KPI Keyword
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                value={searchRef}
+                onChange={(e) => setSearchRef(e.target.value)}
+                placeholder="e.g. REF-01 or Water Upgrade..."
+                className="w-full bg-white border border-slate-200 hover:border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300 rounded-lg p-2 text-xs text-slate-800 transition-all focus:outline-none"
+              />
+              {searchRef && (
+                <button 
+                  onClick={() => setSearchRef('')} 
+                  className="absolute right-2 top-2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* 2. KPA Functional Area Filter */}
+          <div className="space-y-1">
+            <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500">
+              KPA Functional Area
+            </label>
+            <select
+              value={selectedKpa}
+              onChange={(e) => setSelectedKpa(e.target.value)}
+              className="w-full bg-white border border-slate-200 hover:border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none transition-all"
+            >
+              <option value="ALL">All Functional Areas ({uniqueKpas.length})</option>
+              {uniqueKpas.map((kpa) => (
+                <option key={kpa} value={kpa}>{kpa}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* 3. National Key Performance Areas */}
+          <div className="space-y-1">
+            <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500">
+              National Key Performance Area
+            </label>
+            <select
+              value={selectedNationalKpa}
+              onChange={(e) => setSelectedNationalKpa(e.target.value)}
+              className="w-full bg-white border border-slate-200 hover:border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none transition-all"
+            >
+              <option value="ALL">All National KPAs (BSD, LED, MFVM, GGPP, MIDT, SR)</option>
+              <option value="BSD">Basic Service Delivery (BSD)</option>
+              <option value="LED">Local Economic Development (LED)</option>
+              <option value="MFVM">Municipal Finance Viability & Management (MFVM)</option>
+              <option value="GGPP">Good Governance & Public Participation (GGPP)</option>
+              <option value="MIDT">Municipal Institutional Development & Transformation (MIDT)</option>
+              <option value="SR">Spatial Rationale (SR)</option>
+            </select>
+          </div>
+
+        </div>
+
+        {/* Filter helper stats / badge pill indicators */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-200/60 text-[10px] text-slate-500 font-medium">
+          <div className="flex items-center gap-2">
+            <span>Filtered: <strong>{filteredRows.length}</strong> of <strong>{rows.length}</strong> records</span>
+            {(searchRef || selectedKpa !== 'ALL' || selectedNationalKpa !== 'ALL') && (
+              <button
+                onClick={() => {
+                  setSearchRef('');
+                  setSelectedKpa('ALL');
+                  setSelectedNationalKpa('ALL');
+                }}
+                className="text-indigo-600 hover:text-indigo-800 font-bold uppercase tracking-wider bg-indigo-50 px-2 py-0.5 rounded border border-indigo-150 transition-colors cursor-pointer"
+              >
+                Clear All Filters
+              </button>
+            )}
+          </div>
+          
+          {/* Active pills of filters */}
+          <div className="flex items-center gap-1.5">
+            {searchRef && (
+              <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-200 flex items-center gap-1 text-[9px] uppercase tracking-wider font-extrabold">
+                Query: "{searchRef}"
+              </span>
+            )}
+            {selectedKpa !== 'ALL' && (
+              <span className="bg-indigo-50 text-indigo-800 px-2 py-0.5 rounded border border-indigo-200 flex items-center gap-1 text-[9px] uppercase tracking-wider font-extrabold">
+                KPA: {selectedKpa}
+              </span>
+            )}
+            {selectedNationalKpa !== 'ALL' && (
+              <span className="bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded border border-emerald-200 flex items-center gap-1 text-[9px] uppercase tracking-wider font-extrabold">
+                Nat-KPA: {selectedNationalKpa}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // New row input variables
   const [newRowData, setNewRowData] = useState<Partial<SdbipRow>>({
     refNum: '',
@@ -867,7 +1030,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-50 p-4 border border-slate-200 rounded-xl select-none text-slate-700">
               <div className="flex items-center gap-3">
                 <Info className="w-4 h-4 text-indigo-600" />
-                <span className="text-xs font-bold">Currently viewing: <strong className="text-slate-900 font-black">{rows.length}</strong> active SDBIP top layer log items. Click cells directly to modify text.</span>
+                <span className="text-xs font-bold">Currently viewing: <strong className="text-slate-900 font-black">{filteredRows.length}</strong> of <strong className="text-slate-900 font-bold">{rows.length}</strong> active SDBIP top layer log items. Click cells directly to modify text.</span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <button 
@@ -878,6 +1041,9 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                 </button>
               </div>
             </div>
+
+            {/* Smart Filter Panel */}
+            {renderSmartFilterPanel()}
 
             {/* Large Wide Spreadsheet Table Container */}
             <div className="overflow-auto border border-slate-200 rounded-xl relative bg-white h-[580px] max-h-[68vh]">
@@ -915,7 +1081,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
 
                 {/* Body Rows */}
                 <tbody className="text-xs font-medium text-slate-800 divide-y divide-slate-100">
-                  {rows.map((row) => (
+                  {filteredRows.map((row) => (
                     <tr key={row.id} className="group hover:bg-slate-50/70 transition-colors">
                       
                       {/* Ref Num */}
@@ -1271,7 +1437,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-50 p-4 border border-slate-200 rounded-xl select-none text-slate-700">
               <div className="flex items-center gap-3">
                 <Database className="w-4 h-4 text-indigo-600" />
-                <span className="text-xs font-bold">Currently reporting on: <strong className="text-slate-900 font-black">{rows.length}</strong> SDBIP top layer items. All fields are editable and auto-expand.</span>
+                <span className="text-xs font-bold">Currently reporting on: <strong className="text-slate-900 font-black">{filteredRows.length}</strong> of <strong className="text-slate-900 font-bold">{rows.length}</strong> SDBIP top layer items. All fields are editable and auto-expand.</span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <button 
@@ -1282,6 +1448,9 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                 </button>
               </div>
             </div>
+
+            {/* Smart Filter Panel */}
+            {renderSmartFilterPanel()}
 
             <div className="overflow-auto border border-slate-200 rounded-xl relative bg-white h-[580px] max-h-[68vh]">
               <table className="w-full text-left border-collapse table-fixed min-w-[7072px]">
@@ -1332,8 +1501,8 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                     <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-amber-50 text-amber-955 font-bold text-center">Q3 POE</th>
                     <th className="p-3 border-r border-slate-200 w-24 sticky top-0 z-20 bg-amber-50 text-amber-900 text-center">Q3 TARGET</th>
                     <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-amber-100 text-amber-900 border-b-2 border-amber-200">Q3 ACTUAL</th>
-                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-amber-200 text-amber-950 border-b-2 border-amber-300">Q3 VARIANCE</th>
-                    <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-amber-300 text-amber-950 border-b-2 border-amber-400">Q3 CORRECTIVE MEASURE</th>
+                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-amber-200 text-amber-955 border-b-2 border-amber-300">Q3 VARIANCE</th>
+                    <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-amber-300 text-amber-955 border-b-2 border-amber-400">Q3 CORRECTIVE MEASURE</th>
 
                     {/* Q4 Reporting */}
                     <th className="p-3 border-r border-slate-200 w-36 sticky top-0 z-20 bg-teal-50 text-teal-955 font-bold text-center border-b-2 border-teal-200">Q4 EXPENDITURE</th>
@@ -1350,7 +1519,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                 </thead>
 
                 <tbody className="text-xs font-medium text-slate-800 divide-y divide-slate-100">
-                  {rows.map((row) => (
+                  {filteredRows.map((row) => (
                     <tr key={row.id} className="group hover:bg-slate-50/70 transition-colors">
                       <td className="p-2 border-r border-slate-150 sticky left-0 z-10 bg-white group-hover:bg-slate-50/95 transition-colors font-mono text-[11px]">{row.refNum}</td>
                       <td className="p-2 border-r border-slate-150 text-[11px] leading-tight text-slate-500 overflow-hidden text-ellipsis whitespace-normal">{row.strategicObj}</td>
