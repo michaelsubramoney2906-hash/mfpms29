@@ -43,6 +43,25 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate }: U
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 25;
 
+  const [municipalities, setMunicipalities] = useState<Tenant[]>(tenants);
+
+  useEffect(() => {
+    const fetchMunicipalities = async () => {
+      try {
+        const res = await fetch("/api/municipalities");
+        if (res.ok) {
+          const list = await res.json();
+          if (Array.isArray(list) && list.length > 0) {
+            setMunicipalities(list);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching municipalities from Supabase:", err);
+      }
+    };
+    fetchMunicipalities();
+  }, []);
+
   const [azureTargetTenantId, setAzureTargetTenantId] = useState<string>(activeTenantId === 'global' ? tenants[0].id : activeTenantId);
   const [activeSessions, setActiveSessions] = useState<any[]>([]);
   const [sessionFetchTime, setSessionFetchTime] = useState<string>('');
@@ -99,11 +118,11 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate }: U
       setAzureTargetTenantId(activeTenantId);
     } else {
       // Just ensure it's a valid local tenant id when switching to global, maybe keep it same if it's already one of them
-      if (!tenants.find(t => t.id === azureTargetTenantId)) {
-        setAzureTargetTenantId(tenants[0].id);
+      if (!municipalities.find(t => t.id === azureTargetTenantId)) {
+        setAzureTargetTenantId(municipalities[0]?.id || 'tenant-1');
       }
     }
-  }, [activeTenantId]);
+  }, [activeTenantId, municipalities]);
 
   useEffect(() => {
     fetchAzureConfigFor(azureTargetTenantId);
@@ -117,9 +136,9 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate }: U
   useEffect(() => {
     setFormData(prev => ({ 
       ...prev, 
-      selectedTenant: activeTenantId === 'global' ? tenants[0].id : activeTenantId 
+      selectedTenant: activeTenantId === 'global' ? (municipalities[0]?.id || 'tenant-1') : activeTenantId 
     }));
-  }, [activeTenantId]);
+  }, [activeTenantId, municipalities]);
 
   const [editingUser, setEditingUser] = useState<any | null>(null);
   const [jobSearchQuery, setJobSearchQuery] = useState('');
@@ -1048,7 +1067,7 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate }: U
                                     email: u.email,
                                     fullName: u.fullName || '',
                                     role: u.role === 'Global Administrator' || u.role === 'admin' || u.role === 'Systems Administrator' ? 'admin' : 'tenant_user',
-                                    tenantId: u.tenantId || tenants[0]?.id || '',
+                                    tenantId: u.tenantId || municipalities[0]?.id || '',
                                     id: u.id,
                                     jobFunction: u.jobFunction || '',
                                     department: u.department || '',
@@ -1325,7 +1344,7 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate }: U
                     {formData.systemRole === 'Global Administrator' ? (
                       <option value="global">System-Wide Access (Global)</option>
                     ) : (
-                      tenants.map(t => <option key={t.id} value={t.id}>{t.name}</option>)
+                      municipalities.map(t => <option key={t.id} value={t.id}>{t.name}</option>)
                     )}
                   </select>
                   {currentUser.role !== 'admin' && <p className="text-[10px] text-gray-400 mt-1 uppercase font-bold">Locked to your designated tenant.</p>}
@@ -1358,7 +1377,7 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate }: U
                     onChange={e => setAzureTargetTenantId(e.target.value)}
                     className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:border-green-600 outline-none text-sm font-bold text-gray-900"
                   >
-                    {tenants.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    {municipalities.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                   </select>
                 </div>
               )}
@@ -1557,7 +1576,7 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate }: U
                 </thead>
                 <tbody className="divide-y divide-gray-100 text-xs">
                   {activeSessions.map((session: any) => {
-                    const mappedTenant = tenants.find(t => t.id === session.tenantId);
+                    const mappedTenant = municipalities.find(t => t.id === session.tenantId);
                     const tenantName = mappedTenant ? mappedTenant.name : 'Unknown Agency';
                     
                     return (
@@ -1600,7 +1619,7 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate }: U
                                   email: session.email,
                                   fullName: session.fullName || '',
                                   role: session.role === 'Global Administrator' || session.role === 'admin' || session.role === 'Systems Administrator' ? 'admin' : 'tenant_user',
-                                  tenantId: session.tenantId || tenants[0]?.id || '',
+                                  tenantId: session.tenantId || municipalities[0]?.id || '',
                                   id: session.userId || session.email,
                                   systemRole: session.systemRole || session.role || 'Standard User'
                                 });

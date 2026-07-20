@@ -5,12 +5,10 @@
   "jobFunction": "Leading Fire Fighter",
   "department": "Community Development Services",
   "source": "azure_ad",
-  "role": "tenant_user",
+  "role": "Standard User",
   "tenantId": "nkangala_auto",
   "manager": "Mpho P. Manweli",
   "directorate": "Community Services",
   "reportTo": "Mpho P. Manweli",
-  "level": "7",
-  "signatureType": "draw",
-  "signatureData": ""
+  "level": "7"
 }

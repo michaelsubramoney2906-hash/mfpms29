@@ -8,6 +8,7 @@ import fs from "fs";
 import { createClient } from "@supabase/supabase-js";
 import { GoogleGenAI, Type } from "@google/genai";
 import mammoth from "mammoth";
+import * as XLSX from "xlsx";
 import { NKANGALA_HARDCODED_DATA } from "./fred_hardcoded_data";
 
 function getSupabase() {
@@ -605,15 +606,16 @@ Map them strictly to the following JSON structure without deviation inside the "
         };
       } else if (engineType === "agreement_to_plan_engine") {
         extractionPrompt = `You are a highly precise document parser and strict data extraction engine.
-You MUST analyze the entire provided document exhaustively and extract ALL Key Performance Areas (KPAs) and Key Performance Indicators (KPIs) exactly as written.
+You MUST analyze the entire provided document exhaustively and extract ALL Key Performance Areas (KPAs) and Key Performance Indicators (KPIs) exactly as they are written in the document.
 
- CRITICAL REQUIREMENT - EXHAUSTIVE KPI EXTRACTION & MAPPING:
-1. There are exactly 7 Key Performance Areas (KPAs). You MUST extract all 7 KPAs.
-2. Under these KPAs, there is a complete sequence of KPIs starting from M_01 up to M_92 (M_01, M_02, M_03 ... M_92). You are STRICTLY FORBIDDEN from omitting, summarizing, or stopping early. You MUST extract every single one of these 92 KPIs!
-3. Under KPA 7 (Skills Development), there are 5 additional KPIs numbered U_01 to U_05. You MUST identify and extract these 5 KPIs as well.
-4. For EVERY extracted KPI (all 92 numbered KPIs from M_01 to M_92, plus the 5 KPIs U_01 to U_05 under KPA 7 - making a total of 97 KPIs), you MUST distribute/map its code and description (e.g. "[M_01] KPI Description") into the 'Annual_Planner_Grid' under the correct quarter arrays (Quarter_1, Quarter_2, Quarter_3, Quarter_4) based on their specified target terms or reporting schedule. Ensure that this information is exported and mapped correctly to the annual performance planner grid. If no specific quarter is mentioned, distribute them evenly across the quarters so that NO KPI IS LEFT OUT.
-5. For EVERY extracted KPI, identify and extract the "Total Budget allocated R'000" column/value associated with it in the performance agreement document. Map this value into the 'Total_Budget_Allocated_R000' field in the JSON structure. If no budget is allocated or found for a KPI, leave it as an empty string.
-6. Ensure every single extracted KPI is represented in the Annual_Planner_Grid. Do not leave any of the 97 KPIs out.
+CRITICAL MAPPING & IDENTIFICATION RULES:
+1. Extract ALL Key Performance Areas (KPAs) with their respective numbers and descriptions exactly as written in the document.
+2. For every KPI under each KPA, extract its exact code (ID) as written in the document (e.g., "M_01", "M_02", "P_01", "P_02", etc.).
+3. STRICT RE-MAPPING LIMITATION:
+   - You MUST extract all "M" prefix IDs (e.g., "M_01", "M_02") and "P" prefix IDs (e.g., "P_01", "P_02") exactly as written. DO NOT sequentially re-map, renumber, or change these IDs. Keep them exactly as found in the performance agreement document!
+   - The ONLY time sequential re-mapping must take place is when a KPI has NO code/ID in the document (empty or unassigned). In this case, prefix it with "U_" and number it sequentially starting from "U_01" onwards (e.g., "U_01", "U_02", etc.).
+4. For every extracted KPI, extract its exact description and the associated budget "Total Budget allocated R'000" column/value from the document. Map this value into the 'Total_Budget_Allocated_R000' field. If no budget is specified, leave it as an empty string.
+5. In the 'Annual_Planner_Grid' object, distribute the extracted KPI codes (such as "M_01", "P_01", "U_01") across the correct quarter arrays (Quarter_1, Quarter_2, Quarter_3, Quarter_4) based on their specified targets or reporting schedule in the document. If no specific quarters are mentioned, distribute them evenly so that every extracted KPI code appears at least once.
 
 Format your response exactly according to the following JSON schema:
 {"Document_Reference": "","Performance_Plan": {"KPAs": [{"KPA_Number": "","KPA_Description": "","Associated_KPIs": [{"KPI_Code": "","KPI_Description": "","Total_Budget_Allocated_R000": ""}]}], "Annual_Planner_Grid": {"Quarter_1": [],"Quarter_2": [],"Quarter_3": [],"Quarter_4": []}}}`;
@@ -734,17 +736,138 @@ Format your response exactly according to the following JSON schema:
           },
           required: ["Employee_Details", "Job_Specific_Competencies_Module", "Personal_Development_Plan_Module", "Performance_Plan_Module"]
         };
+      } else if (engineType === "cfo_competencies_engine") {
+        extractionPrompt = `You are a highly precise document parser and strict data extraction engine.
+You MUST analyze the entire provided document exhaustively and extract ALL CFO Core Competencies from the table in the performance agreement exactly as they are written in the document.
+
+CRITICAL EXTRACTION RULES:
+1. Extract ALL CFO Core Competencies. Typically these are found in a specific competency or assessment table within the Performance Agreement (often with columns like Competency, Components, Competency Definition, Weighting % / Weighting % (100%), etc.).
+2. Do NOT summarize, guess, or use creative reasoning. Your only task is to extract exact text blocks.
+3. For each extracted competency, map exactly:
+   - "Competency" (the name of the competency, map to competency)
+   - "Components" (the key parts, sub-components, or components listed under or alongside it, map to components)
+   - "Competency_Definition" (the exact definition or behavioral indicator text, map to competency definition)
+   - "Weighting_Percent" (the weighting percentage number, e.g. "25" or "20", map to weighting % (100%))
+
+Format your response exactly according to the following JSON schema:
+{"Employee_Name": "", "CFO_Core_Competencies": [{"Competency": "", "Components": "", "Competency_Definition": "", "Weighting_Percent": ""}]}`;
+
+        responseSchema = {
+          type: Type.OBJECT,
+          properties: {
+            Employee_Name: { type: Type.STRING },
+            CFO_Core_Competencies: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  Competency: { type: Type.STRING },
+                  Components: { type: Type.STRING },
+                  Competency_Definition: { type: Type.STRING },
+                  Weighting_Percent: { type: Type.STRING }
+                },
+                required: ["Competency", "Components", "Competency_Definition", "Weighting_Percent"]
+              }
+            }
+          },
+          required: ["Employee_Name", "CFO_Core_Competencies"]
+        };
+      } else if (engineType === "ped_competencies_engine") {
+        extractionPrompt = `You are a highly precise document parser and strict data extraction engine.
+You MUST analyze the entire provided document exhaustively and extract ALL PED (Planning & Economic Development) Core Competencies from the table in the performance agreement exactly as they are written in the document.
+
+CRITICAL EXTRACTION RULES:
+1. Extract ALL PED Core Competencies. Typically these are found in a specific competency or assessment table within the Performance Agreement (often with columns like Competency, Components, Competency Definition, Weighting % / Weighting % (100%), etc.).
+2. Do NOT summarize, guess, or use creative reasoning. Your only task is to extract exact text blocks.
+3. For each extracted competency, map exactly:
+   - "Competency" (the name of the competency, map to competency)
+   - "Components" (the key parts, sub-components, or components listed under or alongside it, map to components)
+   - "Competency_Definition" (the exact definition or behavioral indicator text, map to competency definition)
+   - "Weighting_Percent" (the weighting percentage number, e.g. "25" or "20", map to weighting % (100%))
+
+Format your response exactly according to the following JSON schema:
+{"Employee_Name": "", "PED_Core_Competencies": [{"Competency": "", "Components": "", "Competency_Definition": "", "Weighting_Percent": ""}]}`;
+
+        responseSchema = {
+          type: Type.OBJECT,
+          properties: {
+            Employee_Name: { type: Type.STRING },
+            PED_Core_Competencies: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  Competency: { type: Type.STRING },
+                  Components: { type: Type.STRING },
+                  Competency_Definition: { type: Type.STRING },
+                  Weighting_Percent: { type: Type.STRING }
+                },
+                required: ["Competency", "Components", "Competency_Definition", "Weighting_Percent"]
+              }
+            }
+          },
+          required: ["Employee_Name", "PED_Core_Competencies"]
+        };
+      } else if (engineType === "corporate_services_competencies_engine") {
+        extractionPrompt = `You are a highly precise document parser and strict data extraction engine.
+Your ONLY goal is to extract the Core Competencies Assessment or CCR (Core Competency Requirements) table from the provided Corporate Services performance agreement document. The document belongs to Mmaphiri R. Rampedi.
+
+CRITICAL EXTRACTION RULES - READ CAREFULLY:
+1. STRICTLY EXCLUDE Key Performance Areas (KPAs), Key Performance Indicators (KPIs), or any other performance plan tables.
+2. Locate the EXACT table that lists the core competencies. Look for headers such as "Core Managerial Competencies", "Core Occupational Competencies", "Components", "Competency Definition", and "Weighting".
+3. EXHAUSTIVE EXTRACTION: You MUST extract EVERY SINGLE ROW from the core competencies table. Do not skip or omit any competencies.
+4. VERBATIM COPY: For EACH row, extract the exact text for these four columns/fields:
+   - "Competency": The exact name of the competency (e.g., "Financial Management", "People Management", "Strategic Capability").
+   - "Components": The exact list of components, elements, or skills listed. Copy the entire text VERBATIM.
+   - "Competency_Definition": The exact, full text of the competency definition. If it spans multiple paragraphs or bullet points, copy ALL OF THEM verbatim. DO NOT SUMMARIZE or shorten it.
+   - "Weighting_Percent": The exact weighting number (e.g., "15", "10").
+5. DO NOT make up your own definitions. DO NOT truncate text. If a definition is long, you MUST include all the text exactly as written.
+6. Identify the Employee Name from the agreement.
+
+Format your response exactly according to the following JSON schema:
+{"Employee_Name": "", "Corporate_Services_Core_Competencies": [{"Competency": "", "Components": "", "Competency_Definition": "", "Weighting_Percent": ""}]}`;
+
+        responseSchema = {
+          type: Type.OBJECT,
+          properties: {
+            Employee_Name: { type: Type.STRING },
+            Corporate_Services_Core_Competencies: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  Competency: { type: Type.STRING },
+                  Components: { type: Type.STRING },
+                  Competency_Definition: { type: Type.STRING },
+                  Weighting_Percent: { type: Type.STRING }
+                },
+                required: ["Competency", "Components", "Competency_Definition", "Weighting_Percent"]
+              }
+            }
+          },
+          required: ["Employee_Name", "Corporate_Services_Core_Competencies"]
+        };
       } else {
         throw new Error(`Select a valid cognitive extraction engine.`);
       }
 
       // Override mimeType with magic bytes if mismatch
       let activeMimeType = mimeType;
-      if (fileData.startsWith("JVBERi")) {
+      const lowerName = (fileName || "").toLowerCase();
+      const isPdf = lowerName.endsWith(".pdf") || (mimeType && mimeType.includes("pdf"));
+      const isExcel = lowerName.endsWith(".xlsx") || lowerName.endsWith(".xls") || lowerName.endsWith(".csv") || (mimeType && (mimeType.includes("sheet") || mimeType.includes("excel") || mimeType.includes("spreadsheet") || mimeType.includes("csv")));
+      const isWord = lowerName.endsWith(".docx") || lowerName.endsWith(".doc") || (mimeType && (mimeType.includes("word") || mimeType.includes("msword") || mimeType.includes("officedocument.wordprocessingml")));
+
+      if (fileData.startsWith("JVBERi") || isPdf) {
         activeMimeType = "application/pdf";
-      } else if (fileData.startsWith("UEsDB") || fileData.startsWith("UEsFB")) {
+      } else if (isExcel) {
+        activeMimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+      } else if (isWord || fileData.startsWith("UEsDB") || fileData.startsWith("UEsFB")) {
         activeMimeType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
       }
+
+      let parsedAsExcel = false;
+      let sheetText = "";
 
       if (activeMimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || activeMimeType === 'application/msword') {
         try {
@@ -756,8 +879,44 @@ Format your response exactly according to the following JSON schema:
             { text: extractionPrompt }
           ];
         } catch (docxErr: any) {
-          console.error("Mammoth DOCX parsing failed:", docxErr);
-          throw new Error(`Could not parse DOCX/DOC file. Details: ${docxErr.message || docxErr}. Please ensure it is a valid Word document or try uploading a PDF instead.`);
+          console.error("Mammoth DOCX parsing failed, attempting Excel fallback:", docxErr);
+          try {
+            const buffer = Buffer.from(fileData, 'base64');
+            const workbook = XLSX.read(buffer, { type: 'buffer' });
+            sheetText = "";
+            workbook.SheetNames.forEach(sheetName => {
+              const worksheet = workbook.Sheets[sheetName];
+              const csv = XLSX.utils.sheet_to_csv(worksheet);
+              sheetText += `Sheet Name: ${sheetName}\n${csv}\n\n`;
+            });
+            parsedAsExcel = true;
+            parts = [
+              { text: `Excel Spreadsheet Content (CSV Format):\n${sheetText}` },
+              { text: extractionPrompt }
+            ];
+            console.log("Excel fallback parsed successfully!");
+          } catch (excelErr: any) {
+            console.error("Excel fallback also failed:", excelErr);
+            throw new Error(`Could not parse DOCX/DOC file. Details: ${docxErr.message || docxErr}. Please ensure it is a valid Word document or try uploading a PDF instead.`);
+          }
+        }
+      } else if (activeMimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || activeMimeType === 'application/vnd.ms-excel') {
+        try {
+          const buffer = Buffer.from(fileData, 'base64');
+          const workbook = XLSX.read(buffer, { type: 'buffer' });
+          sheetText = "";
+          workbook.SheetNames.forEach(sheetName => {
+            const worksheet = workbook.Sheets[sheetName];
+            const csv = XLSX.utils.sheet_to_csv(worksheet);
+            sheetText += `Sheet Name: ${sheetName}\n${csv}\n\n`;
+          });
+          parts = [
+            { text: `Excel Spreadsheet Content (CSV Format):\n${sheetText}` },
+            { text: extractionPrompt }
+          ];
+        } catch (excelErr: any) {
+          console.error("Excel parsing failed:", excelErr);
+          throw new Error(`Could not parse Excel spreadsheet. Details: ${excelErr.message || excelErr}. Please ensure it is a valid spreadsheet.`);
         }
       } else if (activeMimeType === 'application/pdf') {
         parts = [
@@ -825,11 +984,13 @@ Format your response exactly according to the following JSON schema:
 
       // Save output strictly to Supabase - zero local state
       const supabase = getSupabase();
-      const storageId = `fred_ext_${engineType}_${tenantId}`;
+      const resolvedTenantId = await resolveTenantId(tenantId, userEmail);
+      const userSuffix = userEmail && userEmail !== 'default' ? `_${userEmail.toLowerCase().trim()}` : '';
+      const storageId = `fred_ext_${engineType}_${resolvedTenantId}${userSuffix}`;
 
       await supabase.from('messages').upsert({
         id: storageId,
-        tenant_id: tenantId,
+        tenant_id: resolvedTenantId,
         sender_id: 'fred_extraction',
         sender_email: 'fred@system.local',
         sender_name: 'Fred Extraction Agent',
@@ -840,6 +1001,142 @@ Format your response exactly according to the following JSON schema:
 
       console.log(`Successfully stored ${engineType} extracted data in Supabase with id: ${storageId}`);
 
+      if (engineType === "cfo_competencies_engine") {
+        try {
+          const cfoCompetencies = extractedData.CFO_Core_Competencies || [];
+          const mappedCfoRows = cfoCompetencies.map((comp: any, idx: number) => ({
+            id: `cfo-row-ext-${idx}-${Date.now()}`,
+            competency: comp.Competency || '',
+            components: comp.Components || '',
+            definition: comp.Competency_Definition || '',
+            weighting: comp.Weighting_Percent ? String(comp.Weighting_Percent).replace(/[^0-9.]/g, '') : '0'
+          }));
+
+          const docId = `core_competencies_${resolvedTenantId}${userSuffix}`;
+          const { data: existingDoc } = await supabase
+            .from('messages')
+            .select('content')
+            .eq('id', docId)
+            .maybeSingle();
+
+          let currentItems = [];
+          let currentPedItems = [];
+          if (existingDoc && existingDoc.content) {
+            try {
+              const parsedDoc = JSON.parse(existingDoc.content);
+              currentItems = parsedDoc.items || [];
+              currentPedItems = parsedDoc.pedItems || [];
+            } catch (pErr) {
+              console.error("Error parsing existing core competencies:", pErr);
+            }
+          }
+
+          await supabase.from('messages').upsert({
+            id: docId,
+            tenant_id: resolvedTenantId,
+            sender_id: 'core_competencies_editor_tool',
+            sender_email: 'system@editor.local',
+            sender_name: 'Core Competencies Editor',
+            content: JSON.stringify({ items: currentItems, cfoItems: mappedCfoRows, pedItems: currentPedItems }),
+            message_type: 'core_competencies_list',
+            created_at: new Date().toISOString()
+          });
+          console.log(`Successfully auto-mapped CFO core competencies to ${docId} in Supabase`);
+        } catch (syncErr) {
+          console.error("Failed to auto-sync CFO core competencies to Core Competencies module:", syncErr);
+        }
+      } else if (engineType === "ped_competencies_engine") {
+        try {
+          const pedCompetencies = extractedData.PED_Core_Competencies || [];
+          const mappedPedRows = pedCompetencies.map((comp: any, idx: number) => ({
+            id: `ped-row-ext-${idx}-${Date.now()}`,
+            competency: comp.Competency || '',
+            components: comp.Components || '',
+            definition: comp.Competency_Definition || '',
+            weighting: comp.Weighting_Percent ? String(comp.Weighting_Percent).replace(/[^0-9.]/g, '') : '0'
+          }));
+
+          const docId = `core_competencies_${resolvedTenantId}${userSuffix}`;
+          const { data: existingDoc } = await supabase
+            .from('messages')
+            .select('content')
+            .eq('id', docId)
+            .maybeSingle();
+
+          let currentItems = [];
+          let currentCfoItems = [];
+          if (existingDoc && existingDoc.content) {
+            try {
+              const parsedDoc = JSON.parse(existingDoc.content);
+              currentItems = parsedDoc.items || [];
+              currentCfoItems = parsedDoc.cfoItems || [];
+            } catch (pErr) {
+              console.error("Error parsing existing core competencies:", pErr);
+            }
+          }
+
+          await supabase.from('messages').upsert({
+            id: docId,
+            tenant_id: resolvedTenantId,
+            sender_id: 'core_competencies_editor_tool',
+            sender_email: 'system@editor.local',
+            sender_name: 'Core Competencies Editor',
+            content: JSON.stringify({ items: currentItems, cfoItems: currentCfoItems, pedItems: mappedPedRows }),
+            message_type: 'core_competencies_list',
+            created_at: new Date().toISOString()
+          });
+          console.log(`Successfully auto-mapped PED core competencies to ${docId} in Supabase`);
+        } catch (syncErr) {
+          console.error("Failed to auto-sync PED core competencies to Core Competencies module:", syncErr);
+        }
+      } else if (engineType === "corporate_services_competencies_engine") {
+        try {
+          const corpCompetencies = extractedData.Corporate_Services_Core_Competencies || [];
+          const mappedCorpRows = corpCompetencies.map((comp: any, idx: number) => ({
+            id: `corp-row-ext-${idx}-${Date.now()}`,
+            competency: comp.Competency || '',
+            components: comp.Components || '',
+            definition: comp.Competency_Definition || '',
+            weighting: comp.Weighting_Percent ? String(comp.Weighting_Percent).replace(/[^0-9.]/g, '') : '0'
+          }));
+
+          const docId = `core_competencies_${resolvedTenantId}${userSuffix}`;
+          const { data: existingDoc } = await supabase
+            .from('messages')
+            .select('content')
+            .eq('id', docId)
+            .maybeSingle();
+
+          let currentItems = [];
+          let currentCfoItems = [];
+          let currentPedItems = [];
+          if (existingDoc && existingDoc.content) {
+            try {
+              const parsedDoc = JSON.parse(existingDoc.content);
+              currentItems = parsedDoc.items || [];
+              currentCfoItems = parsedDoc.cfoItems || [];
+              currentPedItems = parsedDoc.pedItems || [];
+            } catch (pErr) {
+              console.error("Error parsing existing core competencies:", pErr);
+            }
+          }
+
+          await supabase.from('messages').upsert({
+            id: docId,
+            tenant_id: resolvedTenantId,
+            sender_id: 'core_competencies_editor_tool',
+            sender_email: 'system@editor.local',
+            sender_name: 'Core Competencies Editor',
+            content: JSON.stringify({ items: currentItems, cfoItems: currentCfoItems, pedItems: currentPedItems, corporateServicesItems: mappedCorpRows }),
+            message_type: 'core_competencies_list',
+            created_at: new Date().toISOString()
+          });
+          console.log(`Successfully auto-mapped Corporate Services core competencies to ${docId} in Supabase`);
+        } catch (syncErr) {
+          console.error("Failed to auto-sync Corporate Services core competencies to Core Competencies module:", syncErr);
+        }
+      }
+
       res.json({ success: true, data: extractedData });
     } catch (err: any) {
       console.error("Fred Extraction Error:", err);
@@ -849,10 +1146,13 @@ Format your response exactly according to the following JSON schema:
 
   // Endpoints to get previously saved extraction records from Supabase
   app.get("/api/tenant/:tenantId/fred-extraction/:engineType", async (req, res) => {
-    const { tenantId, engineType } = req.params;
+    const { tenantId: routeTenantId, engineType } = req.params;
+    const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
     try {
       const supabase = getSupabase();
-      const storageId = `fred_ext_${engineType}_${tenantId}`;
+      const resolvedTenantId = await resolveTenantId(routeTenantId, userId);
+      const userSuffix = userId && userId !== 'default' ? `_${userId}` : '';
+      const storageId = `fred_ext_${engineType}_${resolvedTenantId}${userSuffix}`;
       const { data, error } = await supabase
         .from('messages')
         .select('content')
@@ -1740,6 +2040,43 @@ Format your response exactly according to the following JSON schema:
       });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
+    }
+  });
+
+  // 3. Fetch all 257 municipalities from Supabase
+  app.get("/api/municipalities", async (req: any, res: any) => {
+    try {
+      const supabase = getSupabase();
+      if (!supabase) {
+        return res.status(500).json({ error: "Supabase not configured." });
+      }
+      const { data, error } = await supabase
+        .from('messages')
+        .select('content')
+        .eq('id', 'municipalities_list')
+        .maybeSingle();
+
+      if (error) {
+        console.error("Error fetching municipalities from Supabase:", error.message);
+        return res.json(getTenantsList());
+      }
+
+      if (data && data.content) {
+        try {
+          const list = JSON.parse(data.content);
+          if (Array.isArray(list) && list.length > 0) {
+            return res.json(list);
+          }
+        } catch (parseErr) {
+          console.error("Error parsing municipalities JSON from Supabase:", parseErr);
+        }
+      }
+
+      // Fallback
+      return res.json(getTenantsList());
+    } catch (err: any) {
+      console.error("Failed to fetch municipalities from Supabase:", err);
+      return res.json(getTenantsList());
     }
   });
 
@@ -3136,7 +3473,7 @@ Format your response exactly according to the following JSON schema:
       const { data, error } = await supabase
         .from('users')
         .select('tenant_id')
-        .eq('email', userId.toLowerCase().trim())
+        .ilike('email', userId.toLowerCase().trim())
         .maybeSingle();
       if (!error && data && data.tenant_id) {
         return data.tenant_id;
@@ -3298,10 +3635,13 @@ Format your response exactly according to the following JSON schema:
 
   // Core Competencies Routes
   app.get("/api/tenant/:tenantId/core-competencies", async (req, res) => {
-    const { tenantId } = req.params;
+    const { tenantId: routeTenantId } = req.params;
+    const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
     try {
       const supabase = getSupabase();
-      const documentId = `core_competencies_${tenantId}`;
+      const resolvedTenantId = await resolveTenantId(routeTenantId, userId);
+      const userSuffix = userId && userId !== 'default' ? `_${userId}` : '';
+      const documentId = `core_competencies_${resolvedTenantId}${userSuffix}`;
       const { data, error } = await supabase
         .from('messages')
         .select('content')
@@ -3329,20 +3669,23 @@ Format your response exactly according to the following JSON schema:
   });
 
   app.post("/api/tenant/:tenantId/core-competencies", async (req, res) => {
-    const { tenantId } = req.params;
-    const { items } = req.body;
+    const { tenantId: routeTenantId } = req.params;
+    const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
+    const { items, cfoItems, pedItems, corporateServicesItems } = req.body;
     try {
       const supabase = getSupabase();
-      const documentId = `core_competencies_${tenantId}`;
+      const resolvedTenantId = await resolveTenantId(routeTenantId, userId);
+      const userSuffix = userId && userId !== 'default' ? `_${userId}` : '';
+      const documentId = `core_competencies_${resolvedTenantId}${userSuffix}`;
       const { error } = await supabase
-        .from('messages')
-        .upsert({ 
+         .from('messages')
+         .upsert({ 
           id: documentId,
-          tenant_id: tenantId,
+          tenant_id: resolvedTenantId,
           sender_id: 'core_competencies_editor_tool',
           sender_email: 'core@system.local',
           sender_name: 'Core Competencies Editor',
-          content: JSON.stringify({ items }),
+          content: JSON.stringify({ items, cfoItems, pedItems, corporateServicesItems }),
           message_type: 'core_competencies_list',
           created_at: new Date().toISOString()
         });
@@ -3458,28 +3801,50 @@ Format your response exactly according to the following JSON schema:
     const { tenantId } = req.params;
     try {
       const supabase = getSupabase();
+      
+      // If global or nkangala variant, load all performance agreements, then filter appropriately in memory.
+      // This is extremely robust and ensures that when administrators/managers log out of impersonation,
+      // or view cross-tenant dashboards, they can retrieve agreements saved under other tenants/users.
+      const queryTenantPattern = 'pplan_%';
       const { data, error } = await supabase
         .from('messages')
         .select('id, content')
-        .like('id', `pplan_${tenantId}_%`);
+        .like('id', queryTenantPattern);
 
       if (error) {
         console.error("Supabase load team pplans error:", error.message);
         return res.status(500).json({ error: error.message });
       }
 
+      const tenantList = [tenantId];
+      if (tenantId === 'nkangala_auto' || tenantId === 'tenant-240' || tenantId === 'tenant-229') {
+        tenantList.push('nkangala_auto');
+        tenantList.push('tenant-240');
+        tenantList.push('tenant-229');
+      }
+
       const teamPlans = [];
       if (data) {
         for (const row of data) {
           try {
-            const parsed = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
-            const emailIdentifier = row.id.replace(`pplan_${tenantId}_`, '');
-            // Simple validation that it's a valid pplan
-            if (parsed && parsed.metadata) {
-              teamPlans.push({
-                userId: emailIdentifier,
-                plan: parsed
-              });
+            // Row ID format: pplan_<tenant>_<email>
+            const idParts = row.id.split('_');
+            if (idParts.length >= 3 && idParts[0] === 'pplan') {
+              const rowTenant = idParts[1];
+              const emailIdentifier = idParts.slice(2).join('_');
+
+              // Filter in-memory if the current context is not 'global'
+              if (tenantId !== 'global' && !tenantList.includes(rowTenant)) {
+                continue;
+              }
+
+              const parsed = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
+              if (parsed && parsed.metadata) {
+                teamPlans.push({
+                  userId: emailIdentifier,
+                  plan: parsed
+                });
+              }
             }
           } catch(e) {}
         }
@@ -3779,15 +4144,26 @@ Format your response exactly according to the following JSON schema:
       
       const extractionPrompt = "You are an AI assistant processing a Performance Agreement document. Extract the following information EXACTLY based on the document: 1. SDBIP 2nd/3rd layer operational indicators and targets (kpi, weights, quarters, poe). 2. Job Specific Competencies (name, description, weight, requiredRating, etc.). 3. Personal Development Plan (PDP) items.";
 
-      // Detect file type using magic bytes to override potentially misconfigured/incorrect user MIME types
+      // Override mimeType with magic bytes if mismatch
       let activeMimeType = mimeType;
-      if (fileData.startsWith("JVBERi")) {
-        console.log("Magic bytes match PDF. Overriding mimeType to application/pdf.");
+      const lowerName = (fileName || "").toLowerCase();
+      const isPdf = lowerName.endsWith(".pdf") || (mimeType && mimeType.includes("pdf"));
+      const isExcel = lowerName.endsWith(".xlsx") || lowerName.endsWith(".xls") || lowerName.endsWith(".csv") || (mimeType && (mimeType.includes("sheet") || mimeType.includes("excel") || mimeType.includes("spreadsheet") || mimeType.includes("csv")));
+      const isWord = lowerName.endsWith(".docx") || lowerName.endsWith(".doc") || (mimeType && (mimeType.includes("word") || mimeType.includes("msword") || mimeType.includes("officedocument.wordprocessingml")));
+
+      if (fileData.startsWith("JVBERi") || isPdf) {
+        console.log("Magic bytes or extension match PDF. Overriding mimeType to application/pdf.");
         activeMimeType = "application/pdf";
-      } else if (fileData.startsWith("UEsDB") || fileData.startsWith("UEsFB")) {
-        console.log("Magic bytes match ZIP/DOCX. Overriding mimeType to OpenXML Word.");
+      } else if (isExcel) {
+        console.log("Magic bytes or extension match Excel. Overriding mimeType to Excel Spreadsheet.");
+        activeMimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+      } else if (isWord || fileData.startsWith("UEsDB") || fileData.startsWith("UEsFB")) {
+        console.log("Magic bytes or extension match ZIP/DOCX. Overriding mimeType to OpenXML Word.");
         activeMimeType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
       }
+
+      let parsedAsExcel = false;
+      let sheetText = "";
 
       if (activeMimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || activeMimeType === 'application/msword') {
         try {
@@ -3799,8 +4175,44 @@ Format your response exactly according to the following JSON schema:
             { text: extractionPrompt }
           ];
         } catch (docxErr: any) {
-          console.error("Mammoth PA parsing failed:", docxErr);
-          throw new Error(`Could not parse DOCX/DOC file. Details: ${docxErr.message || docxErr}. Please ensure it is a valid Word document or try uploading a PDF instead.`);
+          console.error("Mammoth PA parsing failed, attempting Excel fallback:", docxErr);
+          try {
+            const buffer = Buffer.from(fileData, 'base64');
+            const workbook = XLSX.read(buffer, { type: 'buffer' });
+            sheetText = "";
+            workbook.SheetNames.forEach(sheetName => {
+              const worksheet = workbook.Sheets[sheetName];
+              const csv = XLSX.utils.sheet_to_csv(worksheet);
+              sheetText += `Sheet Name: ${sheetName}\n${csv}\n\n`;
+            });
+            parsedAsExcel = true;
+            parts = [
+              { text: `Excel Spreadsheet Content (CSV Format):\n${sheetText}` },
+              { text: extractionPrompt }
+            ];
+            console.log("Excel fallback parsed successfully!");
+          } catch (excelErr: any) {
+            console.error("Excel fallback also failed:", excelErr);
+            throw new Error(`Could not parse DOCX/DOC file. Details: ${docxErr.message || docxErr}. Please ensure it is a valid Word document or try uploading a PDF instead.`);
+          }
+        }
+      } else if (activeMimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || activeMimeType === 'application/vnd.ms-excel') {
+        try {
+          const buffer = Buffer.from(fileData, 'base64');
+          const workbook = XLSX.read(buffer, { type: 'buffer' });
+          sheetText = "";
+          workbook.SheetNames.forEach(sheetName => {
+            const worksheet = workbook.Sheets[sheetName];
+            const csv = XLSX.utils.sheet_to_csv(worksheet);
+            sheetText += `Sheet Name: ${sheetName}\n${csv}\n\n`;
+          });
+          parts = [
+            { text: `Excel Spreadsheet Content (CSV Format):\n${sheetText}` },
+            { text: extractionPrompt }
+          ];
+        } catch (excelErr: any) {
+          console.error("Excel parsing failed:", excelErr);
+          throw new Error(`Could not parse Excel spreadsheet. Details: ${excelErr.message || excelErr}. Please ensure it is a valid spreadsheet.`);
         }
       } else if (activeMimeType === 'application/pdf') {
         parts = [
@@ -3813,7 +4225,7 @@ Format your response exactly according to the following JSON schema:
           { text: extractionPrompt }
         ];
       } else {
-        throw new Error(`Unsupported MIME type: ${mimeType} (Detected: ${activeMimeType}). Please upload a valid PDF or Word (.docx) file.`);
+        throw new Error(`Unsupported MIME type: ${mimeType} (Detected: ${activeMimeType}). Please upload a valid PDF, Word (.docx) or Excel (.xlsx) file.`);
       }
 
       const ai = new GoogleGenAI({ apiKey });
@@ -4030,6 +4442,7 @@ Format your response exactly according to the following JSON schema:
       if (!reqDocumentId && userId && userId !== 'default') {
         documentId = `draft_doc_${tenantId}_${userId}`;
       }
+      documentId = documentId.toLowerCase();
       
       let { data, error } = await supabase
         .from('messages')
@@ -4081,11 +4494,13 @@ Format your response exactly according to the following JSON schema:
       if (userId && userId !== 'default') {
         if (htmlDocumentId) {
           const resolvedHtmlDocumentId = htmlDocumentId.replace(`_${routeTenantId}`, `_${tenantId}`).replace(routeTenantId, tenantId);
-          documentId = resolvedHtmlDocumentId.includes(userId) ? resolvedHtmlDocumentId : `${resolvedHtmlDocumentId}_${userId}`;
+          documentId = resolvedHtmlDocumentId.toLowerCase().includes(userId.toLowerCase()) ? resolvedHtmlDocumentId : `${resolvedHtmlDocumentId}_${userId}`;
         } else {
           documentId = `draft_doc_${tenantId}_${userId}`;
         }
       }
+      documentId = documentId.toLowerCase();
+      
       const { error } = await supabase
         .from('messages')
         .upsert({ 
@@ -4783,6 +5198,72 @@ Format your response exactly according to the following JSON schema:
     }
   });
 
+  // Generic load endpoint for NEDA subsidiary portal
+  app.get("/api/neda/:tenantId/:key", async (req, res) => {
+    const { tenantId, key } = req.params;
+    try {
+      const supabase = getSupabase();
+      if (!supabase) return res.status(500).json({ error: "No DB connection available." });
+      
+      const documentId = `neda_${tenantId}_${key}`;
+      const { data, error } = await supabase
+        .from('messages')
+        .select('content')
+        .eq('id', documentId)
+        .maybeSingle();
+
+      if (error) {
+        console.error(`Supabase load NEDA ${key} error:`, error.message);
+        return res.json({ data: null });
+      }
+
+      if (data && data.content) {
+        try {
+          const parsed = JSON.parse(data.content);
+          return res.json({ data: parsed });
+        } catch (parseErr) {
+          console.error(`Error parsing NEDA ${key} JSON:`, parseErr);
+        }
+      }
+      return res.json({ data: null });
+    } catch (err: any) {
+      console.error(`NEDA ${key} load exception:`, err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Generic save endpoint for NEDA subsidiary portal
+  app.post("/api/neda/:tenantId/:key", async (req, res) => {
+    const { tenantId, key } = req.params;
+    const payload = req.body;
+    try {
+      const supabase = getSupabase();
+      if (!supabase) return res.status(500).json({ error: "No DB connection available." });
+
+      const documentId = `neda_${tenantId}_${key}`;
+      const { error } = await supabase
+        .from('messages')
+        .upsert({ 
+          id: documentId,
+          tenant_id: tenantId,
+          content: JSON.stringify(payload),
+          sender_id: 'NEDA_SYSTEM',
+          message_type: 'neda_document',
+          created_at: new Date().toISOString()
+        }, { onConflict: 'id' });
+
+      if (error) {
+        console.error(`Supabase save NEDA ${key} error:`, error.message);
+        return res.status(500).json({ error: error.message });
+      }
+
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error(`NEDA ${key} save exception:`, err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
@@ -4817,6 +5298,31 @@ Format your response exactly according to the following JSON schema:
         console.log(`---- SET SYSTEM SESSION KICKOFF ON STARTUP: ${currentISO} ----`);
       } catch (kickoffErr: any) {
         console.log("Error inside startup session kickoff routine:", kickoffErr.message);
+      }
+
+      try {
+        const localList = getTenantsList();
+        if (localList.length > 0) {
+          const { data: existing } = await supabase
+            .from('messages')
+            .select('id')
+            .eq('id', 'municipalities_list')
+            .maybeSingle();
+          if (!existing) {
+            await supabase.from('messages').insert({
+              id: 'municipalities_list',
+              content: JSON.stringify(localList),
+              tenant_id: 'global',
+              sender_id: 'system',
+              sender_email: 'system@local',
+              sender_name: 'System Administrator',
+              created_at: new Date().toISOString()
+            });
+            console.log("---- SEEDED 257 MUNICIPALITIES LIST TO SUPABASE ----");
+          }
+        }
+      } catch (seedErr: any) {
+        console.log("Error inside startup municipalities list seeding routine:", seedErr.message);
       }
 
       try {

@@ -6,6 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { LandingPage } from './components/LandingPage';
 import { Dashboard } from './components/Dashboard';
+import { NEDAPortal } from './components/NEDAPortal';
 import { SecurityShield } from './components/SecurityShield';
 import type { User } from './types';
 
@@ -125,7 +126,8 @@ export default function App() {
                 manager: data.internalUser?.manager,
                 reportTo: data.internalUser?.reportTo || data.internalUser?.report_to,
                 level: data.internalUser?.level,
-                systemRole: data.internalUser?.system_role || data.internalUser?.systemRole || data.internalUser?.role || 'Standard User'
+                systemRole: data.internalUser?.system_role || data.internalUser?.systemRole || data.internalUser?.role || 'Standard User',
+                portalMode: (sessionStorage.getItem('preferredPortalMode') || 'municipality') as any
               });
               try {
                 window.history.replaceState(null, '', window.location.pathname);
@@ -170,7 +172,8 @@ export default function App() {
                 manager: data.internalUser?.manager,
                 reportTo: data.internalUser?.reportTo || data.internalUser?.report_to,
                 level: data.internalUser?.level,
-                systemRole: data.internalUser?.system_role || data.internalUser?.systemRole || data.internalUser?.role || 'Standard User'
+                systemRole: data.internalUser?.system_role || data.internalUser?.systemRole || data.internalUser?.role || 'Standard User',
+                portalMode: (sessionStorage.getItem('preferredPortalMode') || 'municipality') as any
               });
             }
           })
@@ -230,12 +233,21 @@ export default function App() {
       )}
       <div className="flex-1 flex flex-col min-h-0">
         <SecurityShield user={user}>
-          <Dashboard 
-            key={user.email} 
-            user={user} 
-            onLogout={handleLogout} 
-            onImpersonate={handleImpersonate} 
-          />
+          {user.portalMode === 'neda' ? (
+            <NEDAPortal 
+              key={`${user.email}_neda`}
+              user={user} 
+              onLogout={handleLogout} 
+              onImpersonate={handleImpersonate} 
+            />
+          ) : (
+            <Dashboard 
+              key={user.email} 
+              user={user} 
+              onLogout={handleLogout} 
+              onImpersonate={handleImpersonate} 
+            />
+          )}
         </SecurityShield>
       </div>
     </div>

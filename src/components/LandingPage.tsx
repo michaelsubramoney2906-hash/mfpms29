@@ -10,6 +10,14 @@ interface LandingPageProps {
 }
 
 export function LandingPage({ onLogin }: LandingPageProps) {
+  const [portalMode, setPortalMode] = useState<'municipality' | 'neda'>(() => {
+    return (sessionStorage.getItem('preferredPortalMode') as any) || 'municipality';
+  });
+
+  useEffect(() => {
+    sessionStorage.setItem('preferredPortalMode', portalMode);
+  }, [portalMode]);
+
   const [email, setEmail] = useState('');
   const defaultTenant = tenants.find(t => t.name === "Nkangala District Municipality")?.id || tenants[0].id;
   const [selectedTenant, setSelectedTenant] = useState(defaultTenant);
@@ -112,7 +120,8 @@ export function LandingPage({ onLogin }: LandingPageProps) {
       manager: internalProfile?.manager,
       reportTo: internalProfile?.reportTo,
       level: internalProfile?.level,
-      systemRole: internalProfile?.systemRole || internalProfile?.role || 'Standard User'
+      systemRole: internalProfile?.systemRole || internalProfile?.role || 'Standard User',
+      portalMode: portalMode
     };
 
     onLogin(finalUser);
@@ -251,10 +260,48 @@ export function LandingPage({ onLogin }: LandingPageProps) {
         <div className="w-full md:w-[480px] bg-white overflow-y-auto hide-scrollbar">
           <div className="min-h-full w-full px-12 py-12 flex flex-col justify-center">
             <div className="w-full">
+              
+              {/* Portal Mode Switcher */}
+              <div className="flex bg-gray-100 p-1 rounded-lg mb-8">
+                <button
+                  type="button"
+                  onClick={() => setPortalMode('municipality')}
+                  className={`flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest rounded transition-all cursor-pointer text-center ${
+                    portalMode === 'municipality'
+                      ? 'bg-slate-900 text-white shadow-md'
+                      : 'text-gray-500 hover:text-gray-950'
+                  }`}
+                >
+                  Nkangala Municipality
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPortalMode('neda')}
+                  className={`flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest rounded transition-all cursor-pointer text-center ${
+                    portalMode === 'neda'
+                      ? 'bg-emerald-600 text-white shadow-md'
+                      : 'text-gray-500 hover:text-gray-950'
+                  }`}
+                >
+                  NEDA Subsidiary
+                </button>
+              </div>
+
               <div className="mb-8 transform scale-[0.85] origin-top-left">
-            <Logo />
-            <p className="text-sm text-gray-500 mt-6 font-medium">Welcome back. Please sign in to access your municipality's tenant.</p>
-          </div>
+                {portalMode === 'neda' ? (
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="w-6 h-6 bg-emerald-600 rounded flex items-center justify-center text-white font-black text-xs">N</span>
+                    <span className="text-sm font-black uppercase tracking-widest text-emerald-800">NEDA Subsidiary</span>
+                  </div>
+                ) : (
+                  <Logo />
+                )}
+                <p className="text-sm text-gray-500 mt-6 font-medium">
+                  {portalMode === 'neda'
+                    ? "Access Nkangala Economic Development Agency's autonomous administrative suite."
+                    : "Welcome back. Please sign in to access your municipality's tenant."}
+                </p>
+              </div>
 
           <div className="space-y-6">
             <button

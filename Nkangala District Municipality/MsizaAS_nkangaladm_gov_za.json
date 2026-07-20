@@ -10,7 +10,5 @@
   "manager": "Alice Stander",
   "directorate": "Finance",
   "reportTo": "",
-  "level": "2",
-  "signatureType": "draw",
-  "signatureData": ""
+  "level": "2"
 }

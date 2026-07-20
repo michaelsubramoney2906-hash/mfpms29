@@ -5,12 +5,10 @@
   "jobFunction": "Information Security Officer",
   "department": "Information and Communication Technology",
   "source": "azure_ad",
-  "role": "tenant_user",
+  "role": "Standard User",
   "tenantId": "nkangala_auto",
   "manager": "SB Nkosi",
   "directorate": "Office of the MM",
   "reportTo": "",
-  "level": "1",
-  "signatureType": "draw",
-  "signatureData": ""
+  "level": "1"
 }

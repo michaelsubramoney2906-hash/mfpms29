@@ -35,6 +35,7 @@ export interface User {
   loginTime?: string;
   loginKickoffRef?: string;
   level?: string;
+  portalMode?: 'municipality' | 'neda';
 }
 
 export type UserProfile = User;

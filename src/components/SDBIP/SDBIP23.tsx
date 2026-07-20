@@ -70,6 +70,7 @@ export function SDBIP23({ currentUser, activeTenantId, onClose }: SDBIP23Props) 
   const [userList, setUserList] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -121,6 +122,138 @@ export function SDBIP23({ currentUser, activeTenantId, onClose }: SDBIP23Props) 
     responsibleUnit: ''
   });
 
+  const syncEveryoneKpisAndKpas = async (silent: boolean = false, currentRows?: SDBIP23Row[]) => {
+    try {
+      if (!silent) setIsSyncing(true);
+      
+      // 1. Fetch all users in the tenant
+      const uRes = await fetch(`/api/tenant/${activeTenantId}/users`);
+      if (!uRes.ok) throw new Error("Failed to fetch tenant users list");
+      const usersData = await uRes.json();
+      setUserList(usersData);
+
+      // 2. Fetch all team performance plans
+      const pplansRes = await fetch(`/api/tenant/${activeTenantId}/team-pplans`);
+      let teamPlans: any[] = [];
+      if (pplansRes.ok) {
+        const teamPlansJson = await pplansRes.json();
+        if (teamPlansJson && Array.isArray(teamPlansJson.teamPlans)) {
+          teamPlans = teamPlansJson.teamPlans;
+        }
+      }
+
+      // 3. Fetch each user's captured KPIs (individual profiles) in parallel
+      const kpisPromises = usersData.map(async (user: any) => {
+        try {
+          const kRes = await fetch(`/api/tenant/${activeTenantId}/kpis?userId=${user.email}`);
+          if (kRes.ok) {
+            const kJson = await kRes.json();
+            return { email: user.email, kpis: Array.isArray(kJson.kpis) ? kJson.kpis : [] };
+          }
+        } catch(e) {
+          console.warn(`Failed to fetch individual KPIs for ${user.email}:`, e);
+        }
+        return { email: user.email, kpis: [] };
+      });
+      const allUserKpis = await Promise.all(kpisPromises);
+
+      // 4. Merge everything!
+      const targetBaseRows = currentRows || rows;
+      const mergedRows = [...targetBaseRows];
+
+      // Helper to add or update a row in mergedRows
+      const upsertSdbipRow = (kpi: any, userEmail: string, source: string) => {
+        const kNo = (kpi.kpiNo || kpi.refNum || kpi.id || '').trim();
+        if (!kNo) return;
+
+        // Find match in current SDBIP rows (match on refNum)
+        const matchIdx = mergedRows.findIndex(
+          r => r.refNum && r.refNum.toLowerCase().trim() === kNo.toLowerCase()
+        );
+
+        const matchedProfile = usersData.find((u: any) => u.email.toLowerCase() === userEmail.toLowerCase());
+        const userDept = matchedProfile?.department || '';
+        const userManager = matchedProfile?.manager || 'Line Manager';
+
+        const newRow: SDBIP23Row = {
+          id: matchIdx >= 0 ? mergedRows[matchIdx].id : `sdbip23_${Date.now()}_sync_${Math.floor(Math.random() * 1000000)}`,
+          refNum: kNo,
+          strategicObj: kpi.strategicGoal || kpi.strategicObj || (matchIdx >= 0 ? mergedRows[matchIdx].strategicObj : 'Strategic Core Priority'),
+          bsd: kpi.bsd ? 'Y' : 'N',
+          led: kpi.led ? 'Y' : 'N',
+          mfvm: kpi.mfvm ? 'Y' : 'N',
+          ggpp: kpi.ggpp ? 'Y' : 'N',
+          midt: kpi.midt ? 'Y' : 'N',
+          sr: kpi.sr ? 'Y' : 'N',
+          kpas: kpi.kpa || kpi.kpas || (matchIdx >= 0 ? mergedRows[matchIdx].kpas : 'KPA 1: Basic Service Delivery and Infrastructure Development'),
+          operationalActivity: kpi.operationalActivity || (matchIdx >= 0 ? mergedRows[matchIdx].operationalActivity : `Captured KPI from ${source}`),
+          kpi: kpi.kpi || (matchIdx >= 0 ? mergedRows[matchIdx].kpi : ''),
+          compliance: kpi.compliance || 'compliant',
+          uom: kpi.uom || '',
+          mscoaTracking: kpi.mscoaTracking || kpi.mscoaCode || '',
+          baseline: kpi.baseline || '',
+          annualTarget: kpi.annualTarget || '',
+          budgetAllocation: kpi.budget || kpi.budgetAllocation || '',
+          q1: kpi.q1Target || kpi.q1 || '',
+          q2: kpi.q2Target || kpi.q2 || '',
+          q3: kpi.q3Target || kpi.q3 || '',
+          q4: kpi.q4Target || kpi.q4 || '',
+          weight: kpi.weighting || kpi.weight || '',
+          poe: kpi.poe || '',
+          responsibleUnit: userDept,
+          evaluationUser: userEmail,
+          reviewManager: userManager,
+          poeStatus: matchIdx >= 0 ? mergedRows[matchIdx].poeStatus : 'In Cloud (Profile Backup / POE / PA KPI\'s & KPA\'s)',
+          q1PoeDocs: kpi.q1PoeDocs || (matchIdx >= 0 ? mergedRows[matchIdx].q1PoeDocs : []),
+          q2PoeDocs: kpi.q2PoeDocs || (matchIdx >= 0 ? mergedRows[matchIdx].q2PoeDocs : []),
+          q3PoeDocs: kpi.q3PoeDocs || (matchIdx >= 0 ? mergedRows[matchIdx].q3PoeDocs : []),
+          q4PoeDocs: kpi.q4PoeDocs || (matchIdx >= 0 ? mergedRows[matchIdx].q4PoeDocs : [])
+        };
+
+        if (matchIdx >= 0) {
+          mergedRows[matchIdx] = { ...mergedRows[matchIdx], ...newRow };
+        } else {
+          mergedRows.push(newRow);
+        }
+      };
+
+      // Merge from Performance Plans (pplan)
+      teamPlans.forEach((tp: any) => {
+        if (tp.plan && Array.isArray(tp.plan.items)) {
+          tp.plan.items.forEach((item: any) => {
+            upsertSdbipRow(item, tp.userId, `${tp.userId}'s Performance Plan`);
+          });
+        }
+      });
+
+      // Merge from individual user KPIs
+      allUserKpis.forEach((uk: any) => {
+        if (Array.isArray(uk.kpis)) {
+          uk.kpis.forEach((kpi: any) => {
+            upsertSdbipRow(kpi, uk.email, `${uk.email}'s Individual KPIs`);
+          });
+        }
+      });
+
+      setRows(mergedRows);
+      await saveRowsToDatabase(mergedRows);
+      
+      if (!silent) {
+        setSuccessToast("Successfully synchronized everyone's KPIs & KPAs from Profiles and Performance Plans!");
+        setTimeout(() => setSuccessToast(null), 4000);
+      }
+      return mergedRows;
+    } catch(err: any) {
+      console.error("Sync everyone's KPIs/KPAs error:", err);
+      if (!silent) {
+        alert(`Error synchronizing KPI & KPA data: ${err.message}`);
+      }
+      return currentRows || rows;
+    } finally {
+      if (!silent) setIsSyncing(false);
+    }
+  };
+
   // Load from server & fetch system users to determine manager
   useEffect(() => {
     async function loadData() {
@@ -130,7 +263,7 @@ export function SDBIP23({ currentUser, activeTenantId, onClose }: SDBIP23Props) 
         const uRes = await fetch(`/api/tenant/${activeTenantId}/users`);
         let usersData: any[] = [];
         if (uRes.ok) {
-          usersData = await uRes.ok ? await uRes.json() : [];
+          usersData = await uRes.json();
           setUserList(usersData);
         }
 
@@ -166,26 +299,15 @@ export function SDBIP23({ currentUser, activeTenantId, onClose }: SDBIP23Props) 
           }
         }
 
-        // AUTO SYNC ALL KPIS FROM GLOBAL `kpis` MESSAGES IF AVAILABLE
-        // We fetch the KPI messages and merge missing ones into SDBIP
-        try {
-          // Because /api/tenant/global/kpis or fetching all messages takes API route
-          // The prompt requested auto capture. We'll rely on the KPI_IPMS logic which auto-pushes,
-          // OR pull them here if possible. Relying on KPI_IPMS push is cleaner.
-        } catch(e) {}
+        let baseItems = dedupedItems.length > 0 ? dedupedItems : DEFAULT_SDBIP23_ROWS.map(r => ({
+          ...r,
+          evaluationUser: currentUser.email,
+          reviewManager: autoManager
+        }));
 
-        if (dedupedItems.length > 0) {
-          setRows(dedupedItems);
-        } else {
-          // Fallback, dynamically set logged-in user details to defaults
-          const startingList = DEFAULT_SDBIP23_ROWS.map(r => ({
-            ...r,
-            evaluationUser: currentUser.email,
-            reviewManager: autoManager
-          }));
-          setRows(startingList);
-          await saveRowsToDatabase(startingList);
-        }
+        // AUTO SYNC ALL KPIS FROM GLOBAL `kpis` MESSAGES AND PPLANS IF AVAILABLE
+        await syncEveryoneKpisAndKpas(true, baseItems);
+
       } catch (err) {
         console.error("SDBIP23 initialization failed:", err);
         setRows(DEFAULT_SDBIP23_ROWS);
@@ -619,6 +741,22 @@ export function SDBIP23({ currentUser, activeTenantId, onClose }: SDBIP23Props) 
             className="px-4 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 font-bold border border-purple-500/30 text-white text-xs transition flex items-center gap-1.5 cursor-pointer"
           >
             Adopt 3rd Layer (PA)
+          </button>
+
+          <button 
+            onClick={() => syncEveryoneKpisAndKpas(false)}
+            disabled={isSyncing}
+            className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 font-bold border border-indigo-500/30 text-white text-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+          >
+            {isSyncing ? (
+              <>
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Syncing...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="w-3.5 h-3.5" /> Sync Everyone's KPIs/KPAs
+              </>
+            )}
           </button>
 
           <button 

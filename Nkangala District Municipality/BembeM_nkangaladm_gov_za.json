@@ -5,7 +5,7 @@
   "jobFunction": "Municipal Engineer",
   "department": "Office of the Municipal Manager",
   "source": "azure_ad",
-  "role": "tenant_user",
+  "role": "Standard User",
   "tenantId": "nkangala_auto",
   "manager": "Mandla L Mahlangu",
   "directorate": "Technical",

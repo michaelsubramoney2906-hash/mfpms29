@@ -109,6 +109,19 @@ interface PATemplate {
   pulledFilteredPplanItems?: any[] | null;
   pulledPdpItems?: any[] | null;
   pulledCompetencyRows?: any[] | null;
+  pulledCfoCompetencyRows?: any[] | null;
+  pulledPedCompetencyRows?: any[] | null;
+  employeeSignature?: string | null;
+  employeeName?: string | null;
+  employeePosition?: string | null;
+  employeeDate?: string | null;
+  supervisorSignature?: string | null;
+  supervisorName?: string | null;
+  supervisorPosition?: string | null;
+  supervisorDate?: string | null;
+  sigDay?: string;
+  sigMonth?: string;
+  sigYear?: string;
 }
 
 export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
@@ -116,6 +129,12 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notification, setNotification] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  const isMikeViewer = React.useMemo(() => {
+    if (!currentUser) return false;
+    const email = (currentUser.email || '').toLowerCase().trim();
+    return email === 'mike@massivedynamixdistributors.com';
+  }, [currentUser]);
 
   // Checks if the logged-in user is the Municipal Manager (Mandla L. Mahlangu)
   const isMandlaMahlangu = React.useMemo(() => {
@@ -224,6 +243,22 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
   const [pulledFilteredPplanItems, setPulledFilteredPplanItems] = useState<any[] | null>(null);
   const [pulledPdpItems, setPulledPdpItems] = useState<any[] | null>(null);
   const [pulledCompetencyRows, setPulledCompetencyRows] = useState<any[] | null>(null);
+  const [pulledCfoCompetencyRows, setPulledCfoCompetencyRows] = useState<any[] | null>(null);
+  const [pulledPedCompetencyRows, setPulledPedCompetencyRows] = useState<any[] | null>(null);
+
+  // Signatures State
+  const [employeeSignature, setEmployeeSignature] = useState<string | null>(null);
+  const [employeeName, setEmployeeName] = useState<string | null>(null);
+  const [employeePosition, setEmployeePosition] = useState<string | null>(null);
+  const [employeeDate, setEmployeeDate] = useState<string | null>(null);
+  const [supervisorSignature, setSupervisorSignature] = useState<string | null>(null);
+  const [supervisorName, setSupervisorName] = useState<string | null>(null);
+  const [supervisorPosition, setSupervisorPosition] = useState<string | null>(null);
+  const [supervisorDate, setSupervisorDate] = useState<string | null>(null);
+
+  const [sigDay, setSigDay] = useState<string>('_____');
+  const [sigMonth, setSigMonth] = useState<string>('__________________');
+  const [sigYear, setSigYear] = useState<string>('2026');
 
   // Helper for parsing chapter number and name
   const parseHeading = (fullHeading: string, defaultNo: string) => {
@@ -241,6 +276,8 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
   const [pullingFilteredPplan, setPullingFilteredPplan] = useState(false);
   const [pullingPdp, setPullingPdp] = useState(false);
   const [pullingCompetencies, setPullingCompetencies] = useState(false);
+  const [pullingCfoCompetencies, setPullingCfoCompetencies] = useState(false);
+  const [pullingPedCompetencies, setPullingPedCompetencies] = useState(false);
 
   // Targets for Pushing
   const [mmPushEmail, setMmPushEmail] = useState('mandlaml@nkangaladm.gov.za');
@@ -273,6 +310,65 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
     } finally {
       setFetchingUsers(false);
     }
+  };
+
+  // Signature Search Modal logic
+  const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
+  const [signatureModalTarget, setSignatureModalTarget] = useState<'employee' | 'supervisor'>('employee');
+  const [adSearchQuery, setAdSearchQuery] = useState('');
+  const [adSearchResults, setAdSearchResults] = useState<any[]>([]);
+  const [isSearchingAd, setIsSearchingAd] = useState(false);
+
+  const openSignatureModal = (target: 'employee' | 'supervisor') => {
+    setSignatureModalTarget(target);
+    setIsSignatureModalOpen(true);
+    setAdSearchQuery('');
+    setIsSearchingAd(true);
+    fetch(`/api/azure-search?q=`)
+      .then(res => res.json())
+      .then(data => {
+        setAdSearchResults(data);
+        setIsSearchingAd(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setIsSearchingAd(false);
+      });
+  };
+
+  const handleSearchAdUsers = async (query: string) => {
+    setAdSearchQuery(query);
+    setIsSearchingAd(true);
+    try {
+      const res = await fetch(`/api/azure-search?q=${encodeURIComponent(query)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setAdSearchResults(data);
+      }
+    } catch (err) {
+      console.error("Error searching Azure AD users:", err);
+    } finally {
+      setIsSearchingAd(false);
+    }
+  };
+
+  const handleSelectUserForSignature = (user: any) => {
+    const dateStr = new Date().toLocaleDateString('en-ZA', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '-');
+    const positionText = user.jobFunction || user.job_function || user.position || user.title || "Senior Manager";
+    if (signatureModalTarget === 'employee') {
+      setEmployeeSignature(user.signatureData || user.fullName);
+      setEmployeeName(user.fullName);
+      setEmployeePosition(positionText);
+      setEmployeeDate(dateStr);
+    } else {
+      setSupervisorSignature(user.signatureData || user.fullName);
+      setSupervisorName(user.fullName);
+      setSupervisorPosition(positionText);
+      setSupervisorDate(dateStr);
+    }
+    setIsSignatureModalOpen(false);
+    setAdSearchQuery('');
+    setAdSearchResults([]);
   };
 
   const getQueryForField = (field: 'MM' | 'CFO' | 'TS' | 'CS' | 'SS' | 'PE' | 'CUSTOM') => {
@@ -483,56 +579,18 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
   ];
 
   const RenderCoreCompetenciesBelowKpa = () => {
-    const rowsToUse = (pulledCompetencyRows && pulledCompetencyRows.length > 0) 
-      ? pulledCompetencyRows 
-      : defaultCoreCompetenciesFallback;
-
-    return (
-      <div className="space-y-4 mt-8 pt-6 border-t border-slate-200 select-text" style={{ borderColor }}>
-        <h4 className="font-extrabold text-xs uppercase tracking-wider flex items-center gap-2" style={{ color: headingColor }}>
-          <Layers className="w-4 h-4 text-indigo-600 shrink-0" />
-          Core Competencies
-        </h4>
-        <div className="border rounded-xl overflow-hidden" style={{ borderColor }}>
-          <table className="w-full text-left text-[9px] border-collapse bg-white">
-            <thead className="bg-slate-50 uppercase text-[8px] font-black tracking-widest text-slate-500 border-b select-none" style={{ borderColor, color: headingColor }}>
-              <tr>
-                <th className="p-2 border-b border-r w-1/5" style={{ borderColor }}>Competency</th>
-                <th className="p-2 border-b border-r w-1/5" style={{ borderColor }}>Basic</th>
-                <th className="p-2 border-b border-r w-1/5" style={{ borderColor }}>Competent</th>
-                <th className="p-2 border-b border-r w-1/5" style={{ borderColor }}>Advanced</th>
-                <th className="p-2 border-b w-1/5" style={{ borderColor }}>Superior</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y font-medium text-slate-700" style={{ borderColor }}>
-              {rowsToUse.map((row, i) => (
-                <tr key={i} className="hover:bg-slate-50/85 transition">
-                  <td className="p-2 border-r font-bold align-top leading-tight text-slate-900" style={{ borderColor }}>
-                    {row.title || row.competency || row.name || 'Core Competency'}
-                  </td>
-                  <td className="p-2 border-r align-top leading-normal" style={{ borderColor }}>
-                    {row.basic || '-'}
-                  </td>
-                  <td className="p-2 border-r align-top leading-normal" style={{ borderColor }}>
-                    {row.competent || '-'}
-                  </td>
-                  <td className="p-2 border-r align-top leading-normal" style={{ borderColor }}>
-                    {row.advanced || '-'}
-                  </td>
-                  <td className="p-2 align-top leading-normal" style={{ borderColor }}>
-                    {row.superior || '-'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
+    return null;
   };
 
   const RenderCompetenciesTable = () => {
     if (!pulledCompetencyRows || pulledCompetencyRows.length === 0) return null;
+
+    // Do not render standard competencies table for CFO or PED templates if they have specific rows populated
+    const isCfoTemplate = templateName.toLowerCase().includes('cfo');
+    const isPedTemplate = templateName.toLowerCase().includes('ped');
+    if (isCfoTemplate && pulledCfoCompetencyRows && pulledCfoCompetencyRows.length > 0) return null;
+    if (isPedTemplate && pulledPedCompetencyRows && pulledPedCompetencyRows.length > 0) return null;
+
     return (
       <div className="space-y-4 mt-6 break-inside-avoid">
         <h5 className="font-bold text-[10px] uppercase tracking-tight" style={{ color: headingColor }}>
@@ -566,7 +624,91 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
     );
   };
 
+  const RenderCfoCompetenciesTable = () => {
+    if (!pulledCfoCompetencyRows || pulledCfoCompetencyRows.length === 0) return null;
+    
+    // Only render for CFO template
+    const isCfoTemplate = templateName.toLowerCase().includes('cfo');
+    if (!isCfoTemplate) return null;
+
+    return (
+      <div className="space-y-4 mt-6 break-inside-avoid">
+        <h5 className="font-bold text-[10px] uppercase tracking-tight" style={{ color: headingColor }}>
+          Adopted CFO Core Competencies Table
+        </h5>
+        <div className="border rounded overflow-hidden" style={{ borderColor }}>
+          <table className="w-full text-left text-[9px] border-collapse bg-white">
+            <thead className="bg-slate-50 uppercase text-[8px] font-black tracking-widest text-slate-500">
+              <tr>
+                <th className="p-1.5 border-b border-r" style={{ borderColor }}>Competency</th>
+                <th className="p-1.5 border-b border-r" style={{ borderColor }}>Components</th>
+                <th className="p-1.5 border-b border-r" style={{ borderColor }}>Competency Definition</th>
+                <th className="p-1.5 border-b text-center w-24 font-bold" style={{ borderColor }}>Weighting % (100%)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pulledCfoCompetencyRows.map((row, i) => (
+                <tr key={i} className="border-b last:border-b-0" style={{ borderColor }}>
+                  <td className="p-1.5 border-r font-bold align-top text-slate-900" style={{ borderColor }}>{row.competency || 'Core Competency'}</td>
+                  <td className="p-1.5 border-r align-top text-slate-600" style={{ borderColor }}>{row.components || '-'}</td>
+                  <td className="p-1.5 border-r align-top text-slate-700" style={{ borderColor }}>{row.definition || '-'}</td>
+                  <td className="p-1.5 align-top font-mono text-indigo-600 font-bold text-center" style={{ borderColor }}>{row.weighting || '0'}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
+  const RenderPedCompetenciesTable = () => {
+    if (!pulledPedCompetencyRows || pulledPedCompetencyRows.length === 0) return null;
+    
+    // Only render for PED template
+    const isPedTemplate = templateName.toLowerCase().includes('ped');
+    if (!isPedTemplate) return null;
+
+    return (
+      <div className="space-y-4 mt-6 break-inside-avoid">
+        <h5 className="font-bold text-[10px] uppercase tracking-tight" style={{ color: headingColor }}>
+          Adopted PED Core Competencies Table
+        </h5>
+        <div className="border rounded overflow-hidden" style={{ borderColor }}>
+          <table className="w-full text-left text-[9px] border-collapse bg-white">
+            <thead className="bg-slate-50 uppercase text-[8px] font-black tracking-widest text-slate-500">
+              <tr>
+                <th className="p-1.5 border-b border-r" style={{ borderColor }}>Competency</th>
+                <th className="p-1.5 border-b border-r" style={{ borderColor }}>Components</th>
+                <th className="p-1.5 border-b border-r" style={{ borderColor }}>Competency Definition</th>
+                <th className="p-1.5 border-b text-center w-24 font-bold" style={{ borderColor }}>Weighting % (100%)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pulledPedCompetencyRows.map((row, i) => (
+                <tr key={i} className="border-b last:border-b-0" style={{ borderColor }}>
+                  <td className="p-1.5 border-r font-bold align-top text-slate-900" style={{ borderColor }}>{row.competency || 'Core Competency'}</td>
+                  <td className="p-1.5 border-r align-top text-slate-600" style={{ borderColor }}>{row.components || '-'}</td>
+                  <td className="p-1.5 border-r align-top text-slate-700" style={{ borderColor }}>{row.definition || '-'}</td>
+                  <td className="p-1.5 align-top font-mono text-indigo-600 font-bold text-center" style={{ borderColor }}>{row.weighting || '0'}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
   const RenderCustomTables = ({ sectionId }: { sectionId: string }) => {
+    const isSection15 = sectionId === "section-1782677903090" || (() => {
+      const sec = dynamicSections.find(s => s.id === sectionId);
+      return sec && (sec.heading.trim().startsWith("15") || sec.heading.toLowerCase().includes("15."));
+    })();
+    if (isMandlaMahlangu && isSection15) {
+      return null;
+    }
+
     const tables = customTables.filter(t => t.sectionId === sectionId);
     if (tables.length === 0) return null;
 
@@ -697,6 +839,89 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
     }
   };
 
+  const handlePullCfoCompetencies = async () => {
+    setPullingCfoCompetencies(true);
+    try {
+      const res = await fetch(`/api/tenant/${activeTenantId}/core-competencies?t=${Date.now()}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.cfoItems)) {
+          setPulledCfoCompetencyRows(data.cfoItems);
+          triggerNotification(`Successfully pulled all ${data.cfoItems.length} CFO Core Competencies!`, "success");
+        } else {
+          setPulledCfoCompetencyRows([]);
+          triggerNotification("No CFO Competency rows found. Please ensure they are populated in the Core Competencies CFO Tab.", "error");
+        }
+      } else {
+        throw new Error("Failed to load CFO Competencies data.");
+      }
+    } catch (err: any) {
+      console.error(err);
+      triggerNotification("Error pulling CFO Competencies: " + err.message, "error");
+    } finally {
+      setPullingCfoCompetencies(false);
+    }
+  };
+
+  const handlePullPedCompetencies = async () => {
+    setPullingPedCompetencies(true);
+    try {
+      const res = await fetch(`/api/tenant/${activeTenantId}/core-competencies?t=${Date.now()}`);
+      if (res.ok) {
+        const data = await res.json();
+        const pedRowsToUse = (data && Array.isArray(data.pedItems) && data.pedItems.length > 0)
+          ? data.pedItems
+          : [
+              {
+                id: 'ped-row-1',
+                competency: 'Strategic Land Use & Spatial Planning',
+                components: 'Spatial Development Framework (SDF), Land Use Management Scheme (LUMS), GIS Alignment',
+                definition: 'Formulates and implements integrated spatial strategies and land-use policies aligned with municipal development goals.',
+                weighting: '25'
+              },
+              {
+                id: 'ped-row-2',
+                competency: 'Local Economic Development (LED)',
+                components: 'LED Strategy, SMME support, job creation programs, investment promotion, tourism coordination',
+                definition: 'Designs and executes programs that stimulate sustainable local economic growth, competitiveness, and enterprise support.',
+                weighting: '25'
+              },
+              {
+                id: 'ped-row-3',
+                competency: 'Integrated Human Settlements',
+                components: 'Housing needs assessment, informal settlement upgrading, social housing oversight',
+                definition: 'Coordinates housing development strategies to deliver sustainable and well-located human settlements.',
+                weighting: '20'
+              },
+              {
+                id: 'ped-row-4',
+                competency: 'Project Portfolio Management (PED)',
+                components: 'MIG projects, economic infrastructure projects, development progress tracking, CapEx control',
+                definition: 'Directs the execution of human settlements, land use, and LED capital projects effectively.',
+                weighting: '15'
+              },
+              {
+                id: 'ped-row-5',
+                competency: 'Intergovernmental Relations & Funding Alignment',
+                components: 'Community consultation, public-private partnerships, MIG & grant fund utilization',
+                definition: 'Leverages inter-governmental programs and funding models to implement economic growth policies.',
+                weighting: '15'
+              }
+            ];
+
+        setPulledPedCompetencyRows(pedRowsToUse);
+        triggerNotification(`Successfully pulled all ${pedRowsToUse.length} PED Core Competencies!`, "success");
+      } else {
+        throw new Error("Failed to load PED Competencies data.");
+      }
+    } catch (err: any) {
+      console.error(err);
+      triggerNotification("Error pulling PED Competencies: " + err.message, "error");
+    } finally {
+      setPullingPedCompetencies(false);
+    }
+  };
+
   const handlePullCompetencies = async () => {
     setPullingCompetencies(true);
     try {
@@ -803,6 +1028,8 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
         pulledFilteredPplanItems,
         pulledPdpItems,
         pulledCompetencyRows,
+        pulledCfoCompetencyRows,
+        pulledPedCompetencyRows,
         includeJSC: true,
         userSignatures: `${targetTitle.toUpperCase()}: ${normalizedEmail}\nEXECUTIVE MAYOR`,
         pushedBy: (currentUser?.email || '').toLowerCase().trim(),
@@ -1022,7 +1249,20 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
         pulledPplanItems,
         pulledFilteredPplanItems,
         pulledPdpItems,
-        pulledCompetencyRows
+        pulledCompetencyRows,
+        pulledCfoCompetencyRows,
+        pulledPedCompetencyRows,
+        employeeSignature,
+        employeeName,
+        employeePosition,
+        employeeDate,
+        supervisorSignature,
+        supervisorName,
+        supervisorPosition,
+        supervisorDate,
+        sigDay,
+        sigMonth,
+        sigYear
       };
 
       // Merge current active template into the compiled templates pool
@@ -1055,7 +1295,19 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
     setHeadingCover(tpl.headingCover || 'COVER PAGE');
     setHeadingRegulatoryInfo(tpl.headingRegulatoryInfo || 'Regulatory Information & Definitions');
     if (tpl.dynamicSections) {
-      setDynamicSections(tpl.dynamicSections);
+      const cleaned = tpl.dynamicSections.map(sec => {
+        const isSec15 = sec.id === "section-1782677903090" || sec.heading.trim().startsWith("15") || sec.heading.toLowerCase().includes("15.");
+        if (isMandlaMahlangu && isSec15) {
+          const regex = /(thus,?\s*done\s*and\s*signed\s*on\s*this[\s\S]*|thus,?\s*co-signed[\s\S]*)$/gi;
+          return {
+            ...sec,
+            content1: (sec.content1 || '').replace(regex, '').trim(),
+            content2: (sec.content2 || '').replace(regex, '').trim()
+          };
+        }
+        return sec;
+      });
+      setDynamicSections(cleaned);
     }
     setHeadingPurpose(tpl.headingPurpose || '1. Purpose');
     setHeadingValidity(tpl.headingValidity || '2. Validity of Agreement');
@@ -1083,7 +1335,7 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
     setHeadingAnnexB(tpl.headingAnnexB || 'Annexure B: Personal Development Plan (PDP)');
     setHeadingAnnexC(tpl.headingAnnexC || 'Annexure C: Disclosure of Interest');
 
-    setCoverPage(tpl.coverPage);
+    setCoverPage(tpl.coverPage !== undefined && tpl.coverPage !== null ? tpl.coverPage : 'PERFORMANCE AGREEMENT\n\nENTERED INTO BY AND BETWEEN:\nThe {municipalityName} herein represented by the Executive Mayor\n\n&\n\nMandla L. Mahlangu\n\nMunicipal Manager\n\nFOR THE FINANCIAL YEAR: 2025/2026');
     setRegulatoryInfoText(tpl.regulatoryInfoText || 'This section defines regulatory requirements and definition of terms used throughout this document. It outlines the scope of regulatory compliance under the Municipal Systems Act.');
     setPurpose(tpl.purpose);
     setValidity(tpl.validity);
@@ -1130,6 +1382,22 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
     setPulledFilteredPplanItems(tpl.pulledFilteredPplanItems !== undefined ? tpl.pulledFilteredPplanItems : null);
     setPulledPdpItems(tpl.pulledPdpItems !== undefined ? tpl.pulledPdpItems : null);
     setPulledCompetencyRows(tpl.pulledCompetencyRows !== undefined ? tpl.pulledCompetencyRows : null);
+    setPulledCfoCompetencyRows(tpl.pulledCfoCompetencyRows !== undefined ? tpl.pulledCfoCompetencyRows : null);
+    setPulledPedCompetencyRows(tpl.pulledPedCompetencyRows !== undefined ? tpl.pulledPedCompetencyRows : null);
+
+    // Signatures Loading
+    setEmployeeSignature(tpl.employeeSignature !== undefined ? tpl.employeeSignature : null);
+    setEmployeeName(tpl.employeeName !== undefined ? tpl.employeeName : null);
+    setEmployeePosition(tpl.employeePosition !== undefined ? tpl.employeePosition : null);
+    setEmployeeDate(tpl.employeeDate !== undefined ? tpl.employeeDate : null);
+    setSupervisorSignature(tpl.supervisorSignature !== undefined ? tpl.supervisorSignature : null);
+    setSupervisorName(tpl.supervisorName !== undefined ? tpl.supervisorName : null);
+    setSupervisorPosition(tpl.supervisorPosition !== undefined ? tpl.supervisorPosition : null);
+    setSupervisorDate(tpl.supervisorDate !== undefined ? tpl.supervisorDate : null);
+
+    setSigDay(tpl.sigDay !== undefined ? tpl.sigDay : '_____');
+    setSigMonth(tpl.sigMonth !== undefined ? tpl.sigMonth : '__________________');
+    setSigYear(tpl.sigYear !== undefined ? tpl.sigYear : '2026');
   };
 
   useEffect(() => {
@@ -1618,269 +1886,385 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
                     <ArrowRight className="w-3.5 h-3.5 text-indigo-400" />
                   )}
                 </button>
+
+                {pulledCompetencyRows !== null && (
+                  <button
+                    id="btn-remove-adopted-competencies"
+                    type="button"
+                    onClick={() => {
+                      setPulledCompetencyRows(null);
+                      triggerNotification("Removed adopted core competencies table", "success");
+                    }}
+                    className="w-full text-left font-bold text-[10px] px-3 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100 flex items-center justify-between transition-all cursor-pointer"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                      Remove Adopted Core Competencies Table
+                    </span>
+                    <span className="text-[8.5px] font-bold text-rose-600 uppercase">Clear Table</span>
+                  </button>
+                )}
+
+                {isMikeViewer && (
+                  <>
+                    <button
+                      id="btn-adopt-cfo-competencies"
+                      type="button"
+                      disabled={pullingCfoCompetencies}
+                      onClick={handlePullCfoCompetencies}
+                      className={`w-full text-left font-bold text-[10px] px-3 py-2 rounded-lg border flex items-center justify-between transition-all cursor-pointer ${
+                        pulledCfoCompetencyRows !== null 
+                          ? 'bg-emerald-50 border-emerald-300 text-emerald-800' 
+                          : 'bg-indigo-50 hover:bg-indigo-100/80 border-indigo-100 text-indigo-900'
+                      }`}
+                    >
+                      <span className="flex items-center gap-1.5 leading-snug">
+                        <Briefcase className="w-3.5 h-3.5 text-indigo-600 flex-shrink-0" />
+                        Adopt entire core competencies table and information contained in there, from core competencies cfo tab
+                      </span>
+                      {pullingCfoCompetencies ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" />
+                      ) : pulledCfoCompetencyRows !== null ? (
+                        <span className="text-[8px] bg-emerald-200 text-emerald-800 px-1.5 py-0.5 rounded-full font-black uppercase flex-shrink-0">
+                          {pulledCfoCompetencyRows.length} CFO Competencies Loaded
+                        </span>
+                      ) : (
+                        <ArrowRight className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0" />
+                      )}
+                    </button>
+
+                    {pulledCfoCompetencyRows !== null && (
+                      <button
+                        id="btn-remove-adopted-cfo-competencies"
+                        type="button"
+                        onClick={() => {
+                          setPulledCfoCompetencyRows(null);
+                          triggerNotification("Removed adopted CFO core competencies table", "success");
+                        }}
+                        className="w-full text-left font-bold text-[10px] px-3 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100 flex items-center justify-between transition-all cursor-pointer"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                          Remove Adopted CFO Core Competencies Table
+                        </span>
+                        <span className="text-[8.5px] font-bold text-rose-600 uppercase">Clear Table</span>
+                      </button>
+                    )}
+                  </>
+                )}
+
+                {isMikeViewer && (
+                  <>
+                    <button
+                      id="btn-adopt-ped-competencies"
+                      type="button"
+                      disabled={pullingPedCompetencies}
+                      onClick={handlePullPedCompetencies}
+                      className={`w-full text-left font-bold text-[10px] px-3 py-2 rounded-lg border flex items-center justify-between transition-all cursor-pointer ${
+                        pulledPedCompetencyRows !== null 
+                          ? 'bg-emerald-50 border-emerald-300 text-emerald-800' 
+                          : 'bg-indigo-50 hover:bg-indigo-100/80 border-indigo-100 text-indigo-900'
+                      }`}
+                    >
+                      <span className="flex items-center gap-1.5 leading-snug">
+                        <Briefcase className="w-3.5 h-3.5 text-indigo-600 flex-shrink-0" />
+                        Adopt entire core competencies table and information contained in there, from core competencies PED tab
+                      </span>
+                      {pullingPedCompetencies ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" />
+                      ) : pulledPedCompetencyRows !== null ? (
+                        <span className="text-[8px] bg-emerald-200 text-emerald-800 px-1.5 py-0.5 rounded-full font-black uppercase flex-shrink-0">
+                          {pulledPedCompetencyRows.length} PED Competencies Loaded
+                        </span>
+                      ) : (
+                        <ArrowRight className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0" />
+                      )}
+                    </button>
+
+                    {pulledPedCompetencyRows !== null && (
+                      <button
+                        id="btn-remove-adopted-ped-competencies"
+                        type="button"
+                        onClick={() => {
+                          setPulledPedCompetencyRows(null);
+                          triggerNotification("Removed adopted PED core competencies table", "success");
+                        }}
+                        className="w-full text-left font-bold text-[10px] px-3 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100 flex items-center justify-between transition-all cursor-pointer"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                          Remove Adopted PED Core Competencies Table
+                        </span>
+                        <span className="text-[8.5px] font-bold text-rose-600 uppercase">Clear Table</span>
+                      </button>
+                    )}
+                  </>
+                )}
               </div>
             </div>
 
             {/* Sub-section 3: Broadcast / Push To Profiles Suite */}
-            <div className="bg-white p-3 rounded-xl border border-indigo-100 space-y-3 shadow-sm text-[10px]">
-              <span className="text-[10px] uppercase font-black text-indigo-900 block border-b border-indigo-50 pb-1.5 flex items-center gap-1">
-                <Users className="w-3.5 h-3.5 text-indigo-500" />
-                Statutory Template Push Matrix (6 Profiles)
-              </span>
-              <p className="text-[9px] text-gray-500 leading-tight">
-                Push the currently configured, styled template document containing all custom chapters and live adopted grids directly as the active workspace draft for each officer.
-              </p>
+            {isMikeViewer && (
+              <div className="bg-white p-3 rounded-xl border border-indigo-100 space-y-3 shadow-sm text-[10px]">
+                <span className="text-[10px] uppercase font-black text-indigo-900 block border-b border-indigo-50 pb-1.5 flex items-center gap-1">
+                  <Users className="w-3.5 h-3.5 text-indigo-500" />
+                  Statutory Template Push Matrix (6 Profiles)
+                </span>
+                <p className="text-[9px] text-gray-500 leading-tight">
+                  Push the currently configured, styled template document containing all custom chapters and live adopted grids directly as the active workspace draft for each officer.
+                </p>
 
-              <div className="space-y-2 pt-1 divide-y divide-gray-100">
-                
-                {/* MM Push */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 first:pt-0">
-                  <div className="flex-1 min-w-0 relative">
-                    <span className="text-[10px] font-extrabold text-slate-800 block">Municipal Manager</span>
-                    <input
-                      type="text"
-                      value={mmPushEmail}
-                      onChange={e => setMmPushEmail(e.target.value)}
-                      onFocus={() => setActiveSearchField('MM')}
-                      placeholder="Search or enter email..."
-                      className="w-full text-[9px] px-1.5 py-1 border border-slate-200 rounded font-mono text-slate-600 outline-none focus:border-indigo-400"
-                    />
-                    {renderAutocompleteFor('MM')}
-                  </div>
-                  <button
-                    type="button"
-                    disabled={pushingStates['Municipal Manager'] === 'loading'}
-                    onClick={() => handlePushToProfile('Municipal Manager', mmPushEmail)}
-                    className="sm:self-end bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-black text-[9px] uppercase px-3 py-1.5 rounded-md transition inline-flex items-center gap-1 shadow-sm shrink-0 cursor-pointer"
-                  >
-                    {pushingStates['Municipal Manager'] === 'loading' && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
-                    {pushingStates['Municipal Manager'] === 'success' ? 'Pushed ✓' : 'Push'}
-                  </button>
-                </div>
-
-                {/* CFO Push */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2">
-                  <div className="flex-1 min-w-0 relative">
-                    <span className="text-[10px] font-extrabold text-slate-800 block">Chief Financial Officer</span>
-                    <input
-                      type="text"
-                      value={cfoPushEmail}
-                      onChange={e => setCfoPushEmail(e.target.value)}
-                      onFocus={() => setActiveSearchField('CFO')}
-                      placeholder="Search or enter email..."
-                      className="w-full text-[9px] px-1.5 py-1 border border-slate-200 rounded font-mono text-slate-600 outline-none focus:border-indigo-400"
-                    />
-                    {renderAutocompleteFor('CFO')}
-                  </div>
-                  <button
-                    type="button"
-                    disabled={pushingStates['Chief Financial Officer'] === 'loading'}
-                    onClick={() => handlePushToProfile('Chief Financial Officer', cfoPushEmail)}
-                    className="sm:self-end bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-black text-[9px] uppercase px-3 py-1.5 rounded-md transition inline-flex items-center gap-1 shadow-sm shrink-0 cursor-pointer"
-                  >
-                    {pushingStates['Chief Financial Officer'] === 'loading' && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
-                    {pushingStates['Chief Financial Officer'] === 'success' ? 'Pushed ✓' : 'Push'}
-                  </button>
-                </div>
-
-                {/* TS Push */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2">
-                  <div className="flex-1 min-w-0 relative">
-                    <span className="text-[10px] font-extrabold text-slate-800 block">Technical Services Director</span>
-                    <input
-                      type="text"
-                      value={tsPushEmail}
-                      onChange={e => setTsPushEmail(e.target.value)}
-                      onFocus={() => setActiveSearchField('TS')}
-                      placeholder="Search or enter email..."
-                      className="w-full text-[9px] px-1.5 py-1 border border-slate-200 rounded font-mono text-slate-600 outline-none focus:border-indigo-400"
-                    />
-                    {renderAutocompleteFor('TS')}
-                  </div>
-                  <button
-                    type="button"
-                    disabled={pushingStates['Technical Services Director'] === 'loading'}
-                    onClick={() => handlePushToProfile('Technical Services Director', tsPushEmail)}
-                    className="sm:self-end bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-black text-[9px] uppercase px-3 py-1.5 rounded-md transition inline-flex items-center gap-1 shadow-sm shrink-0 cursor-pointer"
-                  >
-                    {pushingStates['Technical Services Director'] === 'loading' && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
-                    {pushingStates['Technical Services Director'] === 'success' ? 'Pushed ✓' : 'Push'}
-                  </button>
-                </div>
-
-                {/* CS Push */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2">
-                  <div className="flex-1 min-w-0 relative">
-                    <span className="text-[10px] font-extrabold text-slate-800 block">Corporate Services Director</span>
-                    <input
-                      type="text"
-                      value={csPushEmail}
-                      onChange={e => setCsPushEmail(e.target.value)}
-                      onFocus={() => setActiveSearchField('CS')}
-                      placeholder="Search or enter email..."
-                      className="w-full text-[9px] px-1.5 py-1 border border-slate-200 rounded font-mono text-slate-600 outline-none focus:border-indigo-400"
-                    />
-                    {renderAutocompleteFor('CS')}
-                  </div>
-                  <button
-                    type="button"
-                    disabled={pushingStates['Corporate Services Director'] === 'loading'}
-                    onClick={() => handlePushToProfile('Corporate Services Director', csPushEmail)}
-                    className="sm:self-end bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-black text-[9px] uppercase px-3 py-1.5 rounded-md transition inline-flex items-center gap-1 shadow-sm shrink-0 cursor-pointer"
-                  >
-                    {pushingStates['Corporate Services Director'] === 'loading' && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
-                    {pushingStates['Corporate Services Director'] === 'success' ? 'Pushed ✓' : 'Push'}
-                  </button>
-                </div>
-
-                {/* SS Push */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2">
-                  <div className="flex-1 min-w-0 relative">
-                    <span className="text-[10px] font-extrabold text-slate-800 block">Social Services Director</span>
-                    <input
-                      type="text"
-                      value={ssPushEmail}
-                      onChange={e => setSsPushEmail(e.target.value)}
-                      onFocus={() => setActiveSearchField('SS')}
-                      placeholder="Search or enter email..."
-                      className="w-full text-[9px] px-1.5 py-1 border border-slate-200 rounded font-mono text-slate-600 outline-none"
-                    />
-                    {renderAutocompleteFor('SS')}
-                  </div>
-                  <button
-                    type="button"
-                    disabled={pushingStates['Social Services Director'] === 'loading'}
-                    onClick={() => handlePushToProfile('Social Services Director', ssPushEmail)}
-                    className="sm:self-end bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-black text-[9px] uppercase px-3 py-1.5 rounded-md transition inline-flex items-center gap-1 shadow-sm shrink-0 cursor-pointer"
-                  >
-                    {pushingStates['Social Services Director'] === 'loading' && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
-                    {pushingStates['Social Services Director'] === 'success' ? 'Pushed ✓' : 'Push'}
-                  </button>
-                </div>
-
-                {/* PE Push */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2">
-                  <div className="flex-1 min-w-0 relative">
-                    <span className="text-[10px] font-extrabold text-slate-800 block">Development Planning Director</span>
-                    <input
-                      type="text"
-                      value={pePushEmail}
-                      onChange={e => setPePushEmail(e.target.value)}
-                      onFocus={() => setActiveSearchField('PE')}
-                      placeholder="Search or enter email..."
-                      className="w-full text-[9px] px-1.5 py-1 border border-slate-200 rounded font-mono text-slate-600 outline-none"
-                    />
-                    {renderAutocompleteFor('PE')}
-                  </div>
-                  <button
-                    type="button"
-                    disabled={pushingStates['Development Planning Director'] === 'loading'}
-                    onClick={() => handlePushToProfile('Development Planning Director', pePushEmail)}
-                    className="sm:self-end bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-black text-[9px] uppercase px-3 py-1.5 rounded-md transition inline-flex items-center gap-1 shadow-sm shrink-0 cursor-pointer"
-                  >
-                    {pushingStates['Development Planning Director'] === 'loading' && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
-                    {pushingStates['Development Planning Director'] === 'success' ? 'Pushed ✓' : 'Push'}
-                  </button>
-                </div>
-
-                {/* Custom User Search Push Block */}
-                <div className="flex flex-col gap-2 pt-3 mt-2 border-t border-dashed border-indigo-150">
-                  <span className="text-[10px] font-black text-indigo-900 block flex items-center gap-1">
-                    <Users className="w-3 h-3 text-indigo-500" />
-                    Push to any other User from Registry / User Management
-                  </span>
+                <div className="space-y-2 pt-1 divide-y divide-gray-100">
                   
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <div>
-                      <span className="text-[9px] font-bold text-slate-700 block">Custom Title / Role</span>
+                  {/* MM Push */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 first:pt-0">
+                    <div className="flex-1 min-w-0 relative">
+                      <span className="text-[10px] font-extrabold text-slate-800 block">Municipal Manager</span>
                       <input
                         type="text"
-                        placeholder="e.g. Risk Manager, Audit Committee"
-                        value={customPushTitle}
-                        onChange={e => setCustomPushTitle(e.target.value)}
-                        className="w-full text-[9px] px-1.5 py-1 border border-slate-200 rounded text-slate-700 outline-none focus:border-indigo-400"
+                        value={mmPushEmail}
+                        onChange={e => setMmPushEmail(e.target.value)}
+                        onFocus={() => setActiveSearchField('MM')}
+                        placeholder="Search or enter email..."
+                        className="w-full text-[9px] px-1.5 py-1 border border-slate-200 rounded font-mono text-slate-600 outline-none focus:border-indigo-400"
                       />
+                      {renderAutocompleteFor('MM')}
                     </div>
+                    <button
+                      type="button"
+                      disabled={pushingStates['Municipal Manager'] === 'loading'}
+                      onClick={() => handlePushToProfile('Municipal Manager', mmPushEmail)}
+                      className="sm:self-end bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-black text-[9px] uppercase px-3 py-1.5 rounded-md transition inline-flex items-center gap-1 shadow-sm shrink-0 cursor-pointer"
+                    >
+                      {pushingStates['Municipal Manager'] === 'loading' && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
+                      {pushingStates['Municipal Manager'] === 'success' ? 'Pushed ✓' : 'Push'}
+                    </button>
+                  </div>
+
+                  {/* CFO Push */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2">
+                    <div className="flex-1 min-w-0 relative">
+                      <span className="text-[10px] font-extrabold text-slate-800 block">Chief Financial Officer</span>
+                      <input
+                        type="text"
+                        value={cfoPushEmail}
+                        onChange={e => setCfoPushEmail(e.target.value)}
+                        onFocus={() => setActiveSearchField('CFO')}
+                        placeholder="Search or enter email..."
+                        className="w-full text-[9px] px-1.5 py-1 border border-slate-200 rounded font-mono text-slate-600 outline-none focus:border-indigo-400"
+                      />
+                      {renderAutocompleteFor('CFO')}
+                    </div>
+                    <button
+                      type="button"
+                      disabled={pushingStates['Chief Financial Officer'] === 'loading'}
+                      onClick={() => handlePushToProfile('Chief Financial Officer', cfoPushEmail)}
+                      className="sm:self-end bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-black text-[9px] uppercase px-3 py-1.5 rounded-md transition inline-flex items-center gap-1 shadow-sm shrink-0 cursor-pointer"
+                    >
+                      {pushingStates['Chief Financial Officer'] === 'loading' && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
+                      {pushingStates['Chief Financial Officer'] === 'success' ? 'Pushed ✓' : 'Push'}
+                    </button>
+                  </div>
+
+                  {/* TS Push */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2">
+                    <div className="flex-1 min-w-0 relative">
+                      <span className="text-[10px] font-extrabold text-slate-800 block">Technical Services Director</span>
+                      <input
+                        type="text"
+                        value={tsPushEmail}
+                        onChange={e => setTsPushEmail(e.target.value)}
+                        onFocus={() => setActiveSearchField('TS')}
+                        placeholder="Search or enter email..."
+                        className="w-full text-[9px] px-1.5 py-1 border border-slate-200 rounded font-mono text-slate-600 outline-none focus:border-indigo-400"
+                      />
+                      {renderAutocompleteFor('TS')}
+                    </div>
+                    <button
+                      type="button"
+                      disabled={pushingStates['Technical Services Director'] === 'loading'}
+                      onClick={() => handlePushToProfile('Technical Services Director', tsPushEmail)}
+                      className="sm:self-end bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-black text-[9px] uppercase px-3 py-1.5 rounded-md transition inline-flex items-center gap-1 shadow-sm shrink-0 cursor-pointer"
+                    >
+                      {pushingStates['Technical Services Director'] === 'loading' && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
+                      {pushingStates['Technical Services Director'] === 'success' ? 'Pushed ✓' : 'Push'}
+                    </button>
+                  </div>
+
+                  {/* CS Push */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2">
+                    <div className="flex-1 min-w-0 relative">
+                      <span className="text-[10px] font-extrabold text-slate-800 block">Corporate Services Director</span>
+                      <input
+                        type="text"
+                        value={csPushEmail}
+                        onChange={e => setCsPushEmail(e.target.value)}
+                        onFocus={() => setActiveSearchField('CS')}
+                        placeholder="Search or enter email..."
+                        className="w-full text-[9px] px-1.5 py-1 border border-slate-200 rounded font-mono text-slate-600 outline-none focus:border-indigo-400"
+                      />
+                      {renderAutocompleteFor('CS')}
+                    </div>
+                    <button
+                      type="button"
+                      disabled={pushingStates['Corporate Services Director'] === 'loading'}
+                      onClick={() => handlePushToProfile('Corporate Services Director', csPushEmail)}
+                      className="sm:self-end bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-black text-[9px] uppercase px-3 py-1.5 rounded-md transition inline-flex items-center gap-1 shadow-sm shrink-0 cursor-pointer"
+                    >
+                      {pushingStates['Corporate Services Director'] === 'loading' && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
+                      {pushingStates['Corporate Services Director'] === 'success' ? 'Pushed ✓' : 'Push'}
+                    </button>
+                  </div>
+
+                  {/* SS Push */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2">
+                    <div className="flex-1 min-w-0 relative">
+                      <span className="text-[10px] font-extrabold text-slate-800 block">Social Services Director</span>
+                      <input
+                        type="text"
+                        value={ssPushEmail}
+                        onChange={e => setSsPushEmail(e.target.value)}
+                        onFocus={() => setActiveSearchField('SS')}
+                        placeholder="Search or enter email..."
+                        className="w-full text-[9px] px-1.5 py-1 border border-slate-200 rounded font-mono text-slate-600 outline-none"
+                      />
+                      {renderAutocompleteFor('SS')}
+                    </div>
+                    <button
+                      type="button"
+                      disabled={pushingStates['Social Services Director'] === 'loading'}
+                      onClick={() => handlePushToProfile('Social Services Director', ssPushEmail)}
+                      className="sm:self-end bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-black text-[9px] uppercase px-3 py-1.5 rounded-md transition inline-flex items-center gap-1 shadow-sm shrink-0 cursor-pointer"
+                    >
+                      {pushingStates['Social Services Director'] === 'loading' && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
+                      {pushingStates['Social Services Director'] === 'success' ? 'Pushed ✓' : 'Push'}
+                    </button>
+                  </div>
+
+                  {/* PE Push */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2">
+                    <div className="flex-1 min-w-0 relative">
+                      <span className="text-[10px] font-extrabold text-slate-800 block">Development Planning Director</span>
+                      <input
+                        type="text"
+                        value={pePushEmail}
+                        onChange={e => setPePushEmail(e.target.value)}
+                        onFocus={() => setActiveSearchField('PE')}
+                        placeholder="Search or enter email..."
+                        className="w-full text-[9px] px-1.5 py-1 border border-slate-200 rounded font-mono text-slate-600 outline-none"
+                      />
+                      {renderAutocompleteFor('PE')}
+                    </div>
+                    <button
+                      type="button"
+                      disabled={pushingStates['Development Planning Director'] === 'loading'}
+                      onClick={() => handlePushToProfile('Development Planning Director', pePushEmail)}
+                      className="sm:self-end bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-black text-[9px] uppercase px-3 py-1.5 rounded-md transition inline-flex items-center gap-1 shadow-sm shrink-0 cursor-pointer"
+                    >
+                      {pushingStates['Development Planning Director'] === 'loading' && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
+                      {pushingStates['Development Planning Director'] === 'success' ? 'Pushed ✓' : 'Push'}
+                    </button>
+                  </div>
+
+                  {/* Custom User Search Push Block */}
+                  <div className="flex flex-col gap-2 pt-3 mt-2 border-t border-dashed border-indigo-150">
+                    <span className="text-[10px] font-black text-indigo-900 block flex items-center gap-1">
+                      <Users className="w-3 h-3 text-indigo-500" />
+                      Push to any other User from Registry / User Management
+                    </span>
                     
-                    <div className="relative">
-                      <span className="text-[9px] font-bold text-slate-700 block">Search Name/Email in Registry</span>
-                      <div className="relative">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <span className="text-[9px] font-bold text-slate-700 block">Custom Title / Role</span>
                         <input
                           type="text"
-                          placeholder="Search registry or type email..."
-                          value={customPushEmail}
-                          onChange={e => setCustomPushEmail(e.target.value)}
-                          onFocus={() => setActiveSearchField('CUSTOM')}
-                          className="w-full text-[9px] px-1.5 py-1 border border-slate-200 rounded font-mono text-slate-600 outline-none focus:border-indigo-400"
+                          placeholder="e.g. Risk Manager, Audit Committee"
+                          value={customPushTitle}
+                          onChange={e => setCustomPushTitle(e.target.value)}
+                          className="w-full text-[9px] px-1.5 py-1 border border-slate-200 rounded text-slate-700 outline-none focus:border-indigo-400"
                         />
-                        {fetchingUsers && (
-                          <Loader2 className="w-2.5 h-2.5 animate-spin text-indigo-600 absolute right-1.5 top-1.5" />
-                        )}
                       </div>
                       
-                      {activeSearchField === 'CUSTOM' && (
-                        <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-40 overflow-y-auto divide-y divide-slate-100">
-                          <div className="p-1 text-[8px] font-bold text-indigo-500 bg-indigo-50/50 sticky top-0 flex justify-between items-center">
-                            <span>Registry User Selector</span>
-                            <button 
-                              type="button" 
-                              onClick={(e) => { 
-                                e.stopPropagation(); 
-                                setActiveSearchField(null); 
-                              }} 
-                              className="text-gray-400 hover:text-gray-600 text-[10px] font-black"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                          {getFilteredUsersForField('CUSTOM').length === 0 ? (
-                            <div className="p-2 text-center text-gray-400 text-[8px]">No matching users found</div>
-                          ) : (
-                            getFilteredUsersForField('CUSTOM').map((u, idx) => (
-                              <button
-                                key={idx}
-                                type="button"
-                                onClick={() => {
-                                  setCustomPushEmail(u.email);
-                                  if (!customPushTitle) {
-                                    setCustomPushTitle(u.jobFunction || u.job_function || u.role || 'Officer');
-                                  }
-                                  setActiveSearchField(null);
-                                }}
-                                className="w-full text-left p-1.5 hover:bg-indigo-50 transition flex flex-col gap-0.5 text-[9px]"
-                              >
-                                <span className="font-extrabold text-slate-800">{u.fullName || u.full_name || 'No Name'}</span>
-                                <span className="text-[8px] text-gray-500 font-mono">{u.email}</span>
-                                {(u.jobFunction || u.job_function || u.department) && (
-                                  <span className="text-[7.5px] text-indigo-600 font-medium bg-indigo-50 px-1 py-0.2 rounded self-start">
-                                    {u.jobFunction || u.job_function || ''} {u.department ? `(${u.department})` : ''}
-                                  </span>
-                                )}
-                              </button>
-                            ))
+                      <div className="relative">
+                        <span className="text-[9px] font-bold text-slate-700 block">Search Name/Email in Registry</span>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            placeholder="Search registry or type email..."
+                            value={customPushEmail}
+                            onChange={e => setCustomPushEmail(e.target.value)}
+                            onFocus={() => setActiveSearchField('CUSTOM')}
+                            className="w-full text-[9px] px-1.5 py-1 border border-slate-200 rounded font-mono text-slate-600 outline-none focus:border-indigo-400"
+                          />
+                          {fetchingUsers && (
+                            <Loader2 className="w-2.5 h-2.5 animate-spin text-indigo-600 absolute right-1.5 top-1.5" />
                           )}
                         </div>
-                      )}
+                        
+                        {activeSearchField === 'CUSTOM' && (
+                          <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-40 overflow-y-auto divide-y divide-slate-100">
+                            <div className="p-1 text-[8px] font-bold text-indigo-500 bg-indigo-50/50 sticky top-0 flex justify-between items-center">
+                              <span>Registry User Selector</span>
+                              <button 
+                                type="button" 
+                                onClick={(e) => { 
+                                  e.stopPropagation(); 
+                                  setActiveSearchField(null); 
+                                }} 
+                                className="text-gray-400 hover:text-gray-600 text-[10px] font-black"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                            {getFilteredUsersForField('CUSTOM').length === 0 ? (
+                              <div className="p-2 text-center text-gray-400 text-[8px]">No matching users found</div>
+                            ) : (
+                              getFilteredUsersForField('CUSTOM').map((u, idx) => (
+                                <button
+                                  key={idx}
+                                  type="button"
+                                  onClick={() => {
+                                    setCustomPushEmail(u.email);
+                                    if (!customPushTitle) {
+                                      setCustomPushTitle(u.jobFunction || u.job_function || u.role || 'Officer');
+                                    }
+                                    setActiveSearchField(null);
+                                  }}
+                                  className="w-full text-left p-1.5 hover:bg-indigo-50 transition flex flex-col gap-0.5 text-[9px]"
+                                >
+                                  <span className="font-extrabold text-slate-800">{u.fullName || u.full_name || 'No Name'}</span>
+                                  <span className="text-[8px] text-gray-500 font-mono">{u.email}</span>
+                                  {(u.jobFunction || u.job_function || u.department) && (
+                                    <span className="text-[7.5px] text-indigo-600 font-medium bg-indigo-50 px-1 py-0.2 rounded self-start">
+                                      {u.jobFunction || u.job_function || ''} {u.department ? `(${u.department})` : ''}
+                                    </span>
+                                  )}
+                                </button>
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
+                    
+                    <button
+                      type="button"
+                      disabled={pushingStates[customPushTitle || 'Custom Officer'] === 'loading' || !customPushEmail}
+                      onClick={() => handlePushToProfile(customPushTitle || 'Custom Officer', customPushEmail)}
+                      className="mt-1 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-black text-[9px] uppercase px-3 py-1.5 rounded-md transition inline-flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                    >
+                      {pushingStates[customPushTitle || 'Custom Officer'] === 'loading' ? (
+                        <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                      ) : (
+                        <Users className="w-3 h-3" />
+                      )}
+                      {pushingStates[customPushTitle || 'Custom Officer'] === 'success' ? 'Draft Pushed ✓' : 'Push Draft to Registry User'}
+                    </button>
                   </div>
-                  
-                  <button
-                    type="button"
-                    disabled={pushingStates[customPushTitle || 'Custom Officer'] === 'loading' || !customPushEmail}
-                    onClick={() => handlePushToProfile(customPushTitle || 'Custom Officer', customPushEmail)}
-                    className="mt-1 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-black text-[9px] uppercase px-3 py-1.5 rounded-md transition inline-flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
-                  >
-                    {pushingStates[customPushTitle || 'Custom Officer'] === 'loading' ? (
-                      <Loader2 className="w-2.5 h-2.5 animate-spin" />
-                    ) : (
-                      <Users className="w-3 h-3" />
-                    )}
-                    {pushingStates[customPushTitle || 'Custom Officer'] === 'success' ? 'Draft Pushed ✓' : 'Push Draft to Registry User'}
-                  </button>
-                </div>
 
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           <div className="space-y-4">
@@ -2338,7 +2722,7 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
               {muniLogo && (
                 <img src={muniLogo} alt="Municipality Logo" className="w-24 h-24 object-contain mb-8" />
               )}
-              {coverPage.replace('{municipalityName}', municipalityName)}
+              {(coverPage || '').replace('{municipalityName}', municipalityName)}
             </div>
 
             {/* Visual Page Break for Web Preview */}
@@ -2403,16 +2787,22 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
             <div className="space-y-8" style={{ breakBefore: 'page' }}>
               
               {dynamicSections.map((sec, i) => {
-                const isSection6 = sec.heading.trim().startsWith('6') || sec.heading.toLowerCase().includes('6.');
+                const isSection6 = sec.heading.trim().startsWith('6') || sec.heading.toLowerCase().includes('6.') || sec.heading.toLowerCase().includes('competenc');
                 return (
                 <div key={sec.id} className="space-y-3">
                   <h4 className="font-extrabold border-b pb-1 text-xs uppercase tracking-wider" style={{ color: headingColor, borderColor: borderColor }}>
                     {sec.heading}
                   </h4>
-                  <div className="leading-normal whitespace-pre-wrap text-[11px] min-h-[1.5em]">{sec.content1}</div>
+                  <div className="leading-normal whitespace-pre-wrap text-[11px] min-h-[1.5em]">
+                    {isMandlaMahlangu && (sec.id === "section-1782677903090" || sec.heading.trim().startsWith("15") || sec.heading.toLowerCase().includes("15."))
+                      ? (sec.content1 || '').replace(/(thus,?\s*done\s*and\s*signed\s*on\s*this[\s\S]*|thus,?\s*co-signed[\s\S]*)$/gi, '').trim()
+                      : sec.content1}
+                  </div>
                   <RenderCustomTables sectionId={sec.id} />
                   {sec.content2 && <div className="leading-normal whitespace-pre-wrap text-[11px] min-h-[1.5em] mt-2">{sec.content2}</div>}
                   {isSection6 && <RenderCompetenciesTable />}
+                  {isSection6 && <RenderCfoCompetenciesTable />}
+                  {isSection6 && <RenderPedCompetenciesTable />}
                 </div>
               )})}
             </div>
@@ -2429,27 +2819,145 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
               <h4 className="font-extrabold border-b pb-1 text-xs uppercase tracking-wider" style={{ color: headingColor, borderColor: borderColor }}>
                 {headingSignatures}
               </h4>
-              <p className="text-[10px] text-slate-500 leading-normal italic">
-                Thus co-signed and authorized by the participating municipal administrative representatives on this _____ day of __________________ 2025.
-              </p>
+              <div className="text-[10px] text-slate-500 leading-normal italic flex flex-wrap items-center gap-1">
+                <span>Thus co-signed and authorized by the participating municipal administrative representatives on this</span>
+                <input
+                  type="text"
+                  value={sigDay}
+                  onChange={e => setSigDay(e.target.value)}
+                  className="border-b border-dashed border-slate-400 outline-none text-center bg-transparent font-bold w-10 px-0.5 text-[10px] focus:border-indigo-500"
+                  placeholder="day"
+                />
+                <span>day of</span>
+                <input
+                  type="text"
+                  value={sigMonth}
+                  onChange={e => setSigMonth(e.target.value)}
+                  className="border-b border-dashed border-slate-400 outline-none text-center bg-transparent font-bold w-28 px-0.5 text-[10px] focus:border-indigo-500"
+                  placeholder="month"
+                />
+                <input
+                  type="text"
+                  value={sigYear}
+                  onChange={e => setSigYear(e.target.value)}
+                  className="border-b border-dashed border-slate-400 outline-none text-center bg-transparent font-bold w-14 px-0.5 text-[10px] focus:border-indigo-500"
+                  placeholder="year"
+                />.
+              </div>
               
               <div className="grid grid-cols-2 gap-4 text-[10px] mt-4">
                 {/* Employee Box */}
-                <div className="border rounded-xl p-3 space-y-2 bg-slate-50/50" style={{ borderColor: borderColor }}>
-                  <span className="font-bold text-slate-800 block uppercase tracking-wider text-[8px]">Officer / Employee Representative</span>
-                  <div className="h-12 border border-dashed rounded flex items-center justify-center text-[8px] text-slate-400 font-mono italic">
-                    [ Place Signature Here ]
+                <div className="border rounded-xl p-3 space-y-2 bg-slate-50/50 flex flex-col justify-between" style={{ borderColor: borderColor }}>
+                  <div>
+                    <span className="font-bold text-slate-800 block uppercase tracking-wider text-[8px]">
+                      {isMandlaMahlangu ? "Municipal Manager (Employee)" : "Officer / Employee Representative"}
+                    </span>
+                    
+                    {/* Slot for Name and Position above signature */}
+                    <div className="mt-1.5 mb-2 space-y-1 text-[9px] text-slate-700 bg-white/60 p-1.5 rounded border border-slate-100">
+                      <div><span className="font-bold text-slate-500">Name:</span> {employeeName || "________________________"}</div>
+                      <div><span className="font-bold text-slate-500">Position:</span> {employeePosition || (isMandlaMahlangu ? "Municipal Manager" : "________________________")}</div>
+                    </div>
+
+                    <div className="h-14 border border-dashed rounded flex flex-col items-center justify-center bg-white p-1 relative group overflow-hidden">
+                      {employeeSignature ? (
+                        <div className="flex flex-col items-center">
+                          {employeeSignature.startsWith('http') ? (
+                            <img src={employeeSignature} className="max-h-10 max-w-full object-contain" referrerPolicy="no-referrer" alt="Employee Signature" />
+                          ) : (
+                            <span className="font-serif italic text-sm tracking-wide text-indigo-700">{employeeSignature}</span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-[8px] text-slate-400 font-mono italic">[ Place Signature Here ]</span>
+                      )}
+                    </div>
                   </div>
-                  <p className="text-[9px] text-slate-600 font-medium">Date: ________________________</p>
+                  <div className="flex items-center justify-between gap-2 pt-1">
+                    <p className="text-[9px] text-slate-600 font-medium">
+                      Date: <span className="font-mono text-slate-900 font-bold">{employeeDate || "________________________"}</span>
+                    </p>
+                    <div className="flex items-center gap-1">
+                      {employeeSignature && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEmployeeSignature(null);
+                            setEmployeeName(null);
+                            setEmployeePosition(null);
+                            setEmployeeDate(null);
+                          }}
+                          className="text-rose-600 hover:text-rose-700 font-bold text-[8px] cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => openSignatureModal('employee')}
+                        className="px-2 py-0.5 text-[8.5px] bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold border border-indigo-100 rounded flex items-center gap-0.5 cursor-pointer transition"
+                      >
+                        <Search className="w-2.5 h-2.5" /> Sign AD
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Supervisor Box */}
-                <div className="border rounded-xl p-3 space-y-2 bg-slate-50/50" style={{ borderColor: borderColor }}>
-                  <span className="font-bold text-slate-800 block uppercase tracking-wider text-[8px]">Supervisor / Executive Mayor Approval</span>
-                  <div className="h-12 border border-dashed rounded flex items-center justify-center text-[8px] text-slate-400 font-mono italic">
-                    [ Place Signature Here ]
+                <div className="border rounded-xl p-3 space-y-2 bg-slate-50/50 flex flex-col justify-between" style={{ borderColor: borderColor }}>
+                  <div>
+                    <span className="font-bold text-slate-800 block uppercase tracking-wider text-[8px]">
+                      {isMandlaMahlangu ? "Executive Mayor (on behalf of Nkangala District Municipality)" : "Supervisor / Executive Mayor Approval"}
+                    </span>
+                    
+                    {/* Slot for Name and Position above signature */}
+                    <div className="mt-1.5 mb-2 space-y-1 text-[9px] text-slate-700 bg-white/60 p-1.5 rounded border border-slate-100">
+                      <div><span className="font-bold text-slate-500">Name:</span> {supervisorName || "________________________"}</div>
+                      <div><span className="font-bold text-slate-500">Position:</span> {supervisorPosition || (isMandlaMahlangu ? "Executive Mayor" : "________________________")}</div>
+                    </div>
+
+                    <div className="h-14 border border-dashed rounded flex flex-col items-center justify-center bg-white p-1 relative group overflow-hidden">
+                      {supervisorSignature ? (
+                        <div className="flex flex-col items-center">
+                          {supervisorSignature.startsWith('http') ? (
+                            <img src={supervisorSignature} className="max-h-10 max-w-full object-contain" referrerPolicy="no-referrer" alt="Supervisor Signature" />
+                          ) : (
+                            <span className="font-serif italic text-sm tracking-wide text-indigo-700">{supervisorSignature}</span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-[8px] text-slate-400 font-mono italic">[ Place Signature Here ]</span>
+                      )}
+                    </div>
                   </div>
-                  <p className="text-[9px] text-slate-600 font-medium">Date: ________________________</p>
+                  <div className="flex items-center justify-between gap-2 pt-1">
+                    <p className="text-[9px] text-slate-600 font-medium">
+                      Date: <span className="font-mono text-slate-900 font-bold">{supervisorDate || "________________________"}</span>
+                    </p>
+                    <div className="flex items-center gap-1">
+                      {supervisorSignature && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSupervisorSignature(null);
+                            setSupervisorName(null);
+                            setSupervisorPosition(null);
+                            setSupervisorDate(null);
+                          }}
+                          className="text-rose-600 hover:text-rose-700 font-bold text-[8px] cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => openSignatureModal('supervisor')}
+                        className="px-2 py-0.5 text-[8.5px] bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold border border-indigo-100 rounded flex items-center gap-0.5 cursor-pointer transition"
+                      >
+                        <Search className="w-2.5 h-2.5" /> Sign AD
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2747,7 +3255,7 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
                   </h1>
                   <div className="h-1 w-20 bg-rose-800 mx-auto" style={{ backgroundColor: headingColor }} />
                   <p className="text-sm font-bold leading-relaxed whitespace-pre-wrap px-8 font-serif" style={{ color: textColor }}>
-                    {coverPage.replace('{municipalityName}', municipalityName)}
+                    {(coverPage || '').replace('{municipalityName}', municipalityName)}
                   </p>
                 </div>
 
@@ -2859,16 +3367,22 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
                   {/* Chapters Content */}
                   <div className="space-y-8">
                     {dynamicSections.map(sec => {
-                      const isSection6 = sec.heading.trim().startsWith('6') || sec.heading.toLowerCase().includes('6.');
+                      const isSection6 = sec.heading.trim().startsWith('6') || sec.heading.toLowerCase().includes('6.') || sec.heading.toLowerCase().includes('competenc');
                       return (
                       <div key={sec.id} className="space-y-3">
                         <h4 className="font-extrabold border-b pb-1 text-xs uppercase tracking-wider" style={{ color: headingColor, borderColor: borderColor }}>
                           {sec.heading}
                         </h4>
-                        <div className="leading-normal whitespace-pre-wrap text-[10px] min-h-[1.5em]">{sec.content1}</div>
+                        <div className="leading-normal whitespace-pre-wrap text-[10px] min-h-[1.5em]">
+                          {isMandlaMahlangu && (sec.id === "section-1782677903090" || sec.heading.trim().startsWith("15") || sec.heading.toLowerCase().includes("15."))
+                            ? (sec.content1 || '').replace(/(thus,?\s*done\s*and\s*signed\s*on\s*this[\s\S]*|thus,?\s*co-signed[\s\S]*)$/gi, '').trim()
+                            : sec.content1}
+                        </div>
                         <RenderCustomTables sectionId={sec.id} />
                         {sec.content2 && <div className="leading-normal whitespace-pre-wrap text-[10px] min-h-[1.5em] mt-2">{sec.content2}</div>}
                         {isSection6 && <RenderCompetenciesTable />}
+                        {isSection6 && <RenderCfoCompetenciesTable />}
+                        {isSection6 && <RenderPedCompetenciesTable />}
                       </div>
                     )})}
                   </div>
@@ -2909,27 +3423,145 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
                     <h4 className="font-extrabold border-b pb-1 text-xs uppercase tracking-wider" style={{ color: headingColor, borderColor: borderColor }}>
                       {headingSignatures}
                     </h4>
-                    <p className="text-[10px] text-slate-500 leading-normal italic">
-                      Thus co-signed and authorized by the participating municipal administrative representatives on this _____ day of __________________ 2025.
-                    </p>
+                    <div className="text-[10px] text-slate-500 leading-normal italic flex flex-wrap items-center gap-1">
+                      <span>Thus co-signed and authorized by the participating municipal administrative representatives on this</span>
+                      <input
+                        type="text"
+                        value={sigDay}
+                        onChange={e => setSigDay(e.target.value)}
+                        className="border-b border-dashed border-slate-400 outline-none text-center bg-transparent font-bold w-10 px-0.5 text-[10px] focus:border-indigo-500"
+                        placeholder="day"
+                      />
+                      <span>day of</span>
+                      <input
+                        type="text"
+                        value={sigMonth}
+                        onChange={e => setSigMonth(e.target.value)}
+                        className="border-b border-dashed border-slate-400 outline-none text-center bg-transparent font-bold w-28 px-0.5 text-[10px] focus:border-indigo-500"
+                        placeholder="month"
+                      />
+                      <input
+                        type="text"
+                        value={sigYear}
+                        onChange={e => setSigYear(e.target.value)}
+                        className="border-b border-dashed border-slate-400 outline-none text-center bg-transparent font-bold w-14 px-0.5 text-[10px] focus:border-indigo-500"
+                        placeholder="year"
+                      />.
+                    </div>
                     
                     <div className="grid grid-cols-2 gap-4 text-[10px]">
                       {/* Employee Box */}
-                      <div className="border rounded-xl p-3 space-y-2 bg-slate-50/50" style={{ borderColor: borderColor }}>
-                        <span className="font-bold text-slate-800 block uppercase tracking-wider text-[8px]">Officer / Employee Representative</span>
-                        <div className="h-12 border border-dashed rounded flex items-center justify-center text-[8px] text-slate-400 font-mono italic">
-                          [ Place Signature Here ]
+                      <div className="border rounded-xl p-3 space-y-2 bg-slate-50/50 flex flex-col justify-between" style={{ borderColor: borderColor }}>
+                        <div>
+                          <span className="font-bold text-slate-800 block uppercase tracking-wider text-[8px]">
+                            {isMandlaMahlangu ? "Municipal Manager (Employee)" : "Officer / Employee Representative"}
+                          </span>
+                          
+                          {/* Slot for Name and Position above signature */}
+                          <div className="mt-1.5 mb-2 space-y-1 text-[9px] text-slate-700 bg-white/60 p-1.5 rounded border border-slate-100">
+                            <div><span className="font-bold text-slate-500">Name:</span> {employeeName || "________________________"}</div>
+                            <div><span className="font-bold text-slate-500">Position:</span> {employeePosition || (isMandlaMahlangu ? "Municipal Manager" : "________________________")}</div>
+                          </div>
+
+                          <div className="h-14 border border-dashed rounded flex flex-col items-center justify-center bg-white p-1 relative group overflow-hidden">
+                            {employeeSignature ? (
+                              <div className="flex flex-col items-center">
+                                {employeeSignature.startsWith('http') ? (
+                                  <img src={employeeSignature} className="max-h-10 max-w-full object-contain" referrerPolicy="no-referrer" alt="Employee Signature" />
+                                ) : (
+                                  <span className="font-serif italic text-sm tracking-wide text-indigo-700">{employeeSignature}</span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-[8px] text-slate-400 font-mono italic">[ Place Signature Here ]</span>
+                            )}
+                          </div>
                         </div>
-                        <p className="text-[9px] text-slate-600 font-medium">Date: ________________________</p>
+                        <div className="flex items-center justify-between gap-2 pt-1">
+                          <p className="text-[9px] text-slate-600 font-medium">
+                            Date: <span className="font-mono text-slate-900 font-bold">{employeeDate || "________________________"}</span>
+                          </p>
+                          <div className="flex items-center gap-1">
+                            {employeeSignature && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEmployeeSignature(null);
+                                  setEmployeeName(null);
+                                  setEmployeePosition(null);
+                                  setEmployeeDate(null);
+                                }}
+                                className="text-rose-600 hover:text-rose-700 font-bold text-[8px] cursor-pointer"
+                              >
+                                Clear
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => openSignatureModal('employee')}
+                              className="px-2 py-0.5 text-[8.5px] bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold border border-indigo-100 rounded flex items-center gap-0.5 cursor-pointer transition"
+                            >
+                              <Search className="w-2.5 h-2.5" /> Sign AD
+                            </button>
+                          </div>
+                        </div>
                       </div>
 
                       {/* Supervisor Box */}
-                      <div className="border rounded-xl p-3 space-y-2 bg-slate-50/50" style={{ borderColor: borderColor }}>
-                        <span className="font-bold text-slate-800 block uppercase tracking-wider text-[8px]">Supervisor / Executive Mayor Approval</span>
-                        <div className="h-12 border border-dashed rounded flex items-center justify-center text-[8px] text-slate-400 font-mono italic">
-                          [ Place Signature Here ]
+                      <div className="border rounded-xl p-3 space-y-2 bg-slate-50/50 flex flex-col justify-between" style={{ borderColor: borderColor }}>
+                        <div>
+                          <span className="font-bold text-slate-800 block uppercase tracking-wider text-[8px]">
+                            {isMandlaMahlangu ? "Executive Mayor (on behalf of Nkangala District Municipality)" : "Supervisor / Executive Mayor Approval"}
+                          </span>
+                          
+                          {/* Slot for Name and Position above signature */}
+                          <div className="mt-1.5 mb-2 space-y-1 text-[9px] text-slate-700 bg-white/60 p-1.5 rounded border border-slate-100">
+                            <div><span className="font-bold text-slate-500">Name:</span> {supervisorName || "________________________"}</div>
+                            <div><span className="font-bold text-slate-500">Position:</span> {supervisorPosition || (isMandlaMahlangu ? "Executive Mayor" : "________________________")}</div>
+                          </div>
+
+                          <div className="h-14 border border-dashed rounded flex flex-col items-center justify-center bg-white p-1 relative group overflow-hidden">
+                            {supervisorSignature ? (
+                              <div className="flex flex-col items-center">
+                                {supervisorSignature.startsWith('http') ? (
+                                  <img src={supervisorSignature} className="max-h-10 max-w-full object-contain" referrerPolicy="no-referrer" alt="Supervisor Signature" />
+                                ) : (
+                                  <span className="font-serif italic text-sm tracking-wide text-indigo-700">{supervisorSignature}</span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-[8px] text-slate-400 font-mono italic">[ Place Signature Here ]</span>
+                            )}
+                          </div>
                         </div>
-                        <p className="text-[9px] text-slate-600 font-medium">Date: ________________________</p>
+                        <div className="flex items-center justify-between gap-2 pt-1">
+                          <p className="text-[9px] text-slate-600 font-medium">
+                            Date: <span className="font-mono text-slate-900 font-bold">{supervisorDate || "________________________"}</span>
+                          </p>
+                          <div className="flex items-center gap-1">
+                            {supervisorSignature && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSupervisorSignature(null);
+                                  setSupervisorName(null);
+                                  setSupervisorPosition(null);
+                                  setSupervisorDate(null);
+                                }}
+                                className="text-rose-600 hover:text-rose-700 font-bold text-[8px] cursor-pointer"
+                              >
+                                Clear
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => openSignatureModal('supervisor')}
+                              className="px-2 py-0.5 text-[8.5px] bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold border border-indigo-100 rounded flex items-center gap-0.5 cursor-pointer transition"
+                            >
+                              <Search className="w-2.5 h-2.5" /> Sign AD
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -3027,6 +3659,114 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
                 </div>
               </div>
 
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AZURE AD SIGNATURE SELECTION MODAL */}
+      {isSignatureModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-fade-in font-sans">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-lg w-full overflow-hidden flex flex-col h-[500px]">
+            {/* Header */}
+            <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-indigo-50 text-indigo-700 rounded-lg">
+                  <Users className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-800">Search Azure AD Directory</h3>
+                  <p className="text-[10px] text-slate-500 font-medium">Select a user to sign for {signatureModalTarget === 'employee' ? 'Officer / Employee' : 'Municipal Manager / Supervisor'}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSignatureModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Search Input */}
+            <div className="p-4 bg-white border-b border-slate-50">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search by name, email, department or function..."
+                  value={adSearchQuery}
+                  onChange={(e) => handleSearchAdUsers(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            {/* Results */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-2 bg-slate-50/50">
+              {isSearchingAd ? (
+                <div className="flex flex-col items-center justify-center h-full space-y-2">
+                  <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-xs text-slate-500 font-medium">Searching Nkangala AD directory...</span>
+                </div>
+              ) : adSearchResults.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-center space-y-1.5 p-6">
+                  <Users className="w-8 h-8 text-slate-300 animate-pulse" />
+                  <span className="text-xs font-bold text-slate-700">No matching users found</span>
+                  <span className="text-[10px] text-slate-400 max-w-[240px]">We couldn't find any user profiles matching "{adSearchQuery}" in the directory.</span>
+                </div>
+              ) : (
+                <div className="grid gap-2">
+                  {adSearchResults.map((user) => (
+                    <div
+                      key={user.id || user.email}
+                      className="p-3 bg-white hover:bg-indigo-50/30 border border-slate-100 hover:border-indigo-100 rounded-xl transition flex items-center justify-between gap-4 shadow-sm"
+                    >
+                      <div className="min-w-0 flex-1 flex gap-2.5 items-start">
+                        <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold text-xs shrink-0 mt-0.5 border border-slate-200">
+                          {user.fullName ? user.fullName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : '?'}
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="text-xs font-bold text-slate-800 truncate">{user.fullName}</h4>
+                          <p className="text-[10px] text-slate-500 font-mono truncate">{user.email}</p>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {user.jobFunction && (
+                              <span className="text-[8px] bg-indigo-50 text-indigo-700 font-bold px-1.5 py-0.5 rounded">
+                                {user.jobFunction}
+                              </span>
+                            )}
+                            {user.department && (
+                              <span className="text-[8px] bg-slate-100 text-slate-600 font-bold px-1.5 py-0.5 rounded">
+                                {user.department}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col items-end shrink-0 gap-1.5">
+                        {user.signatureData ? (
+                          <div className="flex items-center gap-1 text-[8px] text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
+                            <Check className="w-2.5 h-2.5" /> Signature Saved
+                          </div>
+                        ) : (
+                          <div className="text-[8px] text-amber-600 font-medium bg-amber-50 px-1.5 py-0.5 rounded border border-amber-100">
+                            Digital text signature fallback
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleSelectUserForSignature(user)}
+                          className="px-2.5 py-1 text-[10px] bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-lg shadow-md hover:shadow-lg active:scale-95 transition cursor-pointer"
+                        >
+                          Select
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

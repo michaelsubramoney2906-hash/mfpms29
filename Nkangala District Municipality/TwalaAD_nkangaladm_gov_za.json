@@ -5,12 +5,10 @@
   "jobFunction": "Chief Audit Executive",
   "department": "Internal Audit",
   "source": "azure_ad",
-  "role": "tenant_user",
+  "role": "Standard User",
   "tenantId": "nkangala_auto",
   "manager": "ML Mahlangu",
   "directorate": "Office of the MM",
   "reportTo": "",
-  "level": "2",
-  "signatureType": "draw",
-  "signatureData": ""
+  "level": "2"
 }

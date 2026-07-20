@@ -61,7 +61,36 @@ export interface SdbipRow {
   midTermPoes?: string[];
   q3Poes?: string[];
   q4Poes?: string[];
+  poeDesc?: string;
+  q1PoeDesc?: string;
+  q2PoeDesc?: string;
+  midTermPoeDesc?: string;
+  q3PoeDesc?: string;
+  q4PoeDesc?: string;
+  q1Expenditure?: string;
+  q2Expenditure?: string;
+  midTermExpenditure?: string;
+  q3Expenditure?: string;
+  q4Expenditure?: string;
 }
+
+const isOpex = (budget: string): boolean => {
+  return budget ? budget.toLowerCase().includes('opex') : false;
+};
+
+const parseBudgetNum = (budgetStr: string): number => {
+  if (!budgetStr) return 0;
+  const clean = budgetStr.replace(/[^\d]/g, '');
+  return parseInt(clean, 10) || 0;
+};
+
+const isFieldDisabled = (variance: string | undefined): boolean => {
+  if (!variance) return true;
+  const clean = variance.replace(/[^0-9.-]/g, '').trim();
+  if (clean === '0' || clean === '-0' || clean === '') return true;
+  const num = parseFloat(clean);
+  return isNaN(num) || num === 0;
+};
 
 export interface SdbipPoeFile {
   id: string;
@@ -70,6 +99,7 @@ export interface SdbipPoeFile {
   date: string;
   size: string;
   refNum: string;
+  description?: string;
 }
 
 export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
@@ -78,10 +108,17 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
   const [rows, setRows] = useState<SdbipRow[]>([]);
   const [poes, setPoes] = useState<SdbipPoeFile[]>([]);
   const [loading, setLoading] = useState(false);
-  const [poeModal, setPoeModal] = useState<{ isOpen: boolean; rowId: string | null; refNum: string }>({ isOpen: false, rowId: null, refNum: '' });
+  const [poeModal, setPoeModal] = useState<{ 
+    isOpen: boolean; 
+    rowId: string | null; 
+    refNum: string; 
+    quarter?: 'q1' | 'q2' | 'midTerm' | 'q3' | 'q4' | 'general';
+  }>({ isOpen: false, rowId: null, refNum: '' });
   const [poeFileName, setPoeFileName] = useState('');
   const [poeFileSize, setPoeFileSize] = useState('1.5 MB');
+  const [poeDescription, setPoeDescription] = useState('');
   const [successToast, setSuccessToast] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ rowId: string; type: 'row' | 'q1' | 'q2' | 'midTerm' | 'q3' | 'q4' } | null>(null);
 
   // New row input variables
   const [newRowData, setNewRowData] = useState<Partial<SdbipRow>>({
@@ -224,6 +261,143 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     return `${valA} + ${valB}`;
   };
 
+  const calcAnnualTarget = (q1: string | undefined, q2: string | undefined, q3: string | undefined, q4: string | undefined) => {
+    const q1Val = (q1 || '').trim();
+    const q2Val = (q2 || '').trim();
+    const q3Val = (q3 || '').trim();
+    const q4Val = (q4 || '').trim();
+    if (!q1Val && !q2Val && !q3Val && !q4Val) return '';
+
+    const parseNum = (s: string) => {
+      const cleaned = s.replace(/[^0-9.-]/g, '');
+      return cleaned ? parseFloat(cleaned) : NaN;
+    };
+
+    const n1 = parseNum(q1Val);
+    const n2 = parseNum(q2Val);
+    const n3 = parseNum(q3Val);
+    const n4 = parseNum(q4Val);
+
+    const numbers = [n1, n2, n3, n4].filter(n => !isNaN(n));
+    if (numbers.length > 0) {
+      const total = numbers.reduce((sum, val) => sum + val, 0);
+      const hasR = q1Val.startsWith('R') || q2Val.startsWith('R') || q3Val.startsWith('R') || q4Val.startsWith('R');
+      return (hasR ? 'R ' : '') + total.toLocaleString();
+    }
+
+    return [q1Val, q2Val, q3Val, q4Val].filter(Boolean).join(' + ');
+  };
+
+  const getRagDetails = (row: SdbipRow) => {
+    const quarters = [
+      { target: row.q1, actual: row.q1Actual },
+      { target: row.q2, actual: row.q2Actual },
+      { target: row.q3, actual: row.q3Actual },
+      { target: row.q4, actual: row.q4Actual }
+    ];
+
+    const parseNum = (s: string | undefined) => {
+      if (s === undefined || s === null) return NaN;
+      const cleaned = s.toString().replace(/[^0-9.-]/g, '');
+      if (!cleaned) return NaN;
+      return parseFloat(cleaned);
+    };
+
+    let totalTarget = 0;
+    let totalActual = 0;
+    let hasReportingData = false;
+
+    for (const q of quarters) {
+      const t = parseNum(q.target);
+      const a = parseNum(q.actual);
+
+      if (!isNaN(t) && !isNaN(a)) {
+        totalTarget += t;
+        totalActual += a;
+        hasReportingData = true;
+      }
+    }
+
+    if (!hasReportingData) {
+      return {
+        status: 'none' as const,
+        face: '😐',
+        label: 'No Data',
+        bgClass: 'bg-slate-50',
+        borderClass: 'border-slate-200',
+        textClass: 'text-slate-500',
+        tooltip: 'No target/actual data entered.'
+      };
+    }
+
+    if (totalTarget === 0) {
+      if (totalActual >= 0) {
+        return {
+          status: 'green' as const,
+          face: '😊',
+          label: 'Happy',
+          bgClass: 'bg-emerald-50',
+          borderClass: 'border-emerald-200',
+          textClass: 'text-emerald-700',
+          tooltip: 'No target set, performance is positive.'
+        };
+      } else {
+        return {
+          status: 'red' as const,
+          face: '😡',
+          label: 'Angry',
+          bgClass: 'bg-rose-50',
+          borderClass: 'border-rose-200',
+          textClass: 'text-rose-700',
+          tooltip: 'No target set, performance is negative.'
+        };
+      }
+    }
+
+    const achievementRate = totalActual / totalTarget;
+    const ratePercent = Math.round(achievementRate * 100);
+
+    if (achievementRate >= 1.0) {
+      return {
+        status: 'green' as const,
+        face: '😊',
+        label: 'Happy',
+        bgClass: 'bg-emerald-50',
+        borderClass: 'border-emerald-200',
+        textClass: 'text-emerald-700',
+        tooltip: `Exceeds or meets target! Achievement Rate: ${ratePercent}% (${totalActual} actual vs ${totalTarget} target)`
+      };
+    } else if (achievementRate >= 0.70) {
+      return {
+        status: 'amber' as const,
+        face: '☹️',
+        label: 'Sad',
+        bgClass: 'bg-amber-50',
+        borderClass: 'border-amber-200',
+        textClass: 'text-amber-700',
+        tooltip: `Under target with minor variance. Achievement Rate: ${ratePercent}% (${totalActual} actual vs ${totalTarget} target)`
+      };
+    } else {
+      return {
+        status: 'red' as const,
+        face: '😡',
+        label: 'Angry',
+        bgClass: 'bg-rose-50',
+        borderClass: 'border-rose-200',
+        textClass: 'text-rose-700',
+        tooltip: `Significant underperformance. Achievement Rate: ${ratePercent}% (${totalActual} actual vs ${totalTarget} target)`
+      };
+    }
+  };
+
+  const calculateRagStatus = (row: SdbipRow): 'red' | 'amber' | 'green' => {
+    const details = getRagDetails(row);
+    if (details.status === 'none') {
+      return 'red';
+    }
+    return details.status;
+  };
+
   const calcVar = (target: string | undefined, actual: string | undefined) => {
     const tVal = (target || '').trim();
     const aVal = (actual || '').trim();
@@ -249,6 +423,11 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
       if (r.id === rowId) {
         let updatedRow = { ...r, [field]: value };
         
+        // Auto-calculate Annual Target if quarterly targets are modified
+        if (field === 'q1' || field === 'q2' || field === 'q3' || field === 'q4') {
+          updatedRow.annualTarget = calcAnnualTarget(updatedRow.q1, updatedRow.q2, updatedRow.q3, updatedRow.q4);
+        }
+
         // Auto-calculate Mid Term values
         if (field === 'q1' || field === 'q2') {
           const midValue = combineInfo(updatedRow.q1, updatedRow.q2);
@@ -265,6 +444,12 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
         updatedRow.q3Variance = calcVar(updatedRow.q3, updatedRow.q3Actual);
         updatedRow.q4Variance = calcVar(updatedRow.q4, updatedRow.q4Actual);
         
+        // Auto-calculate RAG Status if actual or target values change
+        if (field === 'q1' || field === 'q2' || field === 'q3' || field === 'q4' ||
+            field === 'q1Actual' || field === 'q2Actual' || field === 'q3Actual' || field === 'q4Actual') {
+          updatedRow.ragStatus = calculateRagStatus(updatedRow);
+        }
+
         return updatedRow;
       }
       return r;
@@ -273,9 +458,23 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     saveRows(updated);
   };
 
-  const triggerUploadModal = (rowId: string, refNum: string) => {
-    setPoeModal({ isOpen: true, rowId, refNum });
-    setPoeFileName(`poe_evidence_ref_${refNum.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()}.pdf`);
+  const triggerUploadModal = (rowId: string, refNum: string, quarter: 'q1' | 'q2' | 'midTerm' | 'q3' | 'q4' | 'general' = 'general') => {
+    setPoeModal({ isOpen: true, rowId, refNum, quarter });
+    const suffix = quarter !== 'general' ? `_${quarter}` : '';
+    setPoeFileName(`poe_evidence_ref_${refNum.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()}${suffix}.pdf`);
+    
+    // Find existing description to pre-populate if any
+    const existingRow = rows.find(r => r.id === rowId);
+    if (existingRow) {
+      if (quarter === 'general') setPoeDescription(existingRow.poeDesc || '');
+      else if (quarter === 'q1') setPoeDescription(existingRow.q1PoeDesc || '');
+      else if (quarter === 'q2') setPoeDescription(existingRow.q2PoeDesc || '');
+      else if (quarter === 'midTerm') setPoeDescription(existingRow.midTermPoeDesc || '');
+      else if (quarter === 'q3') setPoeDescription(existingRow.q3PoeDesc || '');
+      else if (quarter === 'q4') setPoeDescription(existingRow.q4PoeDesc || '');
+    } else {
+      setPoeDescription('');
+    }
   };
 
   const handlePoeSubmit = (e: React.FormEvent) => {
@@ -283,25 +482,52 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     if (!poeFileName.trim()) return;
 
     if (!poeModal.rowId) return;
+    const quarter = poeModal.quarter || 'general';
 
     // Append to virtual POEs list for Backup Archive
     const newPoe: SdbipPoeFile = {
       id: `poe-${Date.now()}`,
       name: poeFileName.trim(),
-      type: 'SDBIP Portfolio of Evidence',
+      type: `${quarter !== 'general' ? quarter.toUpperCase() + ' ' : ''}SDBIP Portfolio of Evidence`,
       date: new Date().toISOString().replace('T', ' ').substring(0, 16),
       size: poeFileSize,
-      refNum: poeModal.refNum
+      refNum: poeModal.refNum,
+      description: poeDescription.trim()
     };
 
     const updatedPoes = [newPoe, ...poes];
     setPoes(updatedPoes);
     savePoes(updatedPoes);
 
-    // Update row cell to "Uploaded - Visit Backup"
+    // Update row cell & its correct poe fields
     const updatedRows = rows.map(r => {
       if (r.id === poeModal.rowId) {
-        return { ...r, poeStatus: 'Uploaded - Visit Backup' };
+        const u = { ...r };
+        if (quarter === 'general') {
+          u.poeStatus = 'Uploaded - Visit Backup';
+          u.poeDesc = poeDescription.trim();
+        } else if (quarter === 'q1') {
+          u.q1Poes = Array.from(new Set([...(u.q1Poes || []), poeFileName.trim()]));
+          u.q1PoeDesc = poeDescription.trim();
+          u.poeStatus = 'Attached';
+        } else if (quarter === 'q2') {
+          u.q2Poes = Array.from(new Set([...(u.q2Poes || []), poeFileName.trim()]));
+          u.q2PoeDesc = poeDescription.trim();
+          u.poeStatus = 'Attached';
+        } else if (quarter === 'midTerm') {
+          u.midTermPoes = Array.from(new Set([...(u.midTermPoes || []), poeFileName.trim()]));
+          u.midTermPoeDesc = poeDescription.trim();
+          u.poeStatus = 'Attached';
+        } else if (quarter === 'q3') {
+          u.q3Poes = Array.from(new Set([...(u.q3Poes || []), poeFileName.trim()]));
+          u.q3PoeDesc = poeDescription.trim();
+          u.poeStatus = 'Attached';
+        } else if (quarter === 'q4') {
+          u.q4Poes = Array.from(new Set([...(u.q4Poes || []), poeFileName.trim()]));
+          u.q4PoeDesc = poeDescription.trim();
+          u.poeStatus = 'Attached';
+        }
+        return u;
       }
       return r;
     });
@@ -376,12 +602,42 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     setTimeout(() => setSuccessToast(null), 3500);
   };
 
+  const clearQuarterPoe = (rowId: string, quarter: 'q1' | 'q2' | 'midTerm' | 'q3' | 'q4') => {
+    const updated = rows.map(r => {
+      if (r.id === rowId) {
+        const u = { ...r };
+        if (quarter === 'q1') {
+          u.q1Poes = [];
+          u.q1PoeDesc = '';
+        } else if (quarter === 'q2') {
+          u.q2Poes = [];
+          u.q2PoeDesc = '';
+        } else if (quarter === 'midTerm') {
+          u.midTermPoes = [];
+          u.midTermPoeDesc = '';
+        } else if (quarter === 'q3') {
+          u.q3Poes = [];
+          u.q3PoeDesc = '';
+        } else if (quarter === 'q4') {
+          u.q4Poes = [];
+          u.q4PoeDesc = '';
+        }
+        return u;
+      }
+      return r;
+    });
+    setRows(updated);
+    saveRows(updated);
+    setSuccessToast(`${quarter.toUpperCase()} POE data deleted successfully!`);
+    setTimeout(() => setSuccessToast(null), 3000);
+  };
+
   const deleteRowHandler = (rowId: string) => {
-    if (confirm("Are you sure you want to delete this row from SDBIP top-layer?")) {
-      const updated = rows.filter(r => r.id !== rowId);
-      setRows(updated);
-      saveRows(updated);
-    }
+    const updated = rows.filter(r => r.id !== rowId);
+    setRows(updated);
+    saveRows(updated);
+    setSuccessToast("SDBIP Row deleted successfully!");
+    setTimeout(() => setSuccessToast(null), 3000);
   };
 
   const exportToCSV = () => {
@@ -392,7 +648,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
       "Annual Target", "Budget Allocation", "Weight", "Score",
       "Q1 Target", "Q1 Actual", "Q1 Variance", "Q1 Corrective",
       "Q2 Target", "Q2 Actual", "Q2 Variance", "Q2 Corrective",
-      "Mid-Term Target", "Mid-Term Actual", "Mid-Term Variance", "Mid-Term Corrective",
+      "Mid-Term Expenditure", "Mid-Term POE Description", "Mid-Term Target", "Mid-Term Actual", "Mid-Term Variance", "Mid-Term Corrective",
       "Q3 Target", "Q3 Actual", "Q3 Variance", "Q3 Corrective",
       "Q4 Target", "Q4 Actual", "Q4 Variance", "Q4 Corrective",
       "Responsible Unit", "POE Status"
@@ -405,7 +661,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
       r.annualTarget, r.budgetAllocation, r.weight, r.score,
       r.q1, r.q1Actual, r.q1Variance, r.q1Corrective,
       r.q2, r.q2Actual, r.q2Variance, r.q2Corrective,
-      r.midTermTarget, r.midTermActual, r.midTermVariance, r.midTermCorrective,
+      r.midTermExpenditure, r.midTermPoeDesc, r.midTermTarget, r.midTermActual, r.midTermVariance, r.midTermCorrective,
       r.q3, r.q3Actual, r.q3Variance, r.q3Corrective,
       r.q4, r.q4Actual, r.q4Variance, r.q4Corrective,
       r.responsibleUnit, r.poeStatus
@@ -624,45 +880,46 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
             </div>
 
             {/* Large Wide Spreadsheet Table Container */}
-            <div className="flex-1 overflow-auto border border-slate-200 rounded-xl relative bg-white min-h-[400px]">
+            <div className="overflow-auto border border-slate-200 rounded-xl relative bg-white h-[580px] max-h-[68vh]">
               
-              <table className="w-full text-left border-collapse select-text table-fixed min-w-[2300px]">
+              <table className="w-full text-left border-collapse select-text table-fixed min-w-[2380px]">
                 
                 {/* Headers */}
                 <thead className="sticky top-0 bg-slate-100 z-20 border-b-2 border-slate-200 text-[10px] font-black tracking-wider uppercase text-slate-700 font-mono">
                   <tr>
-                    <th className="p-3 border-r border-slate-200 w-24 sticky left-0 z-30 bg-slate-100">REF NUMBER</th>
-                    <th className="p-3 border-r border-slate-200 w-64">STRATEGIC OBJECTIVES</th>
-                    <th className="p-3 border-r border-slate-200 w-64">KPI</th>
-                    <th className="p-3 border-r border-slate-200 w-20 text-center bg-blue-100 text-blue-900">BSD (X)</th>
-                    <th className="p-3 border-r border-slate-200 w-20 text-center bg-emerald-100 text-emerald-900">LED (X)</th>
-                    <th className="p-3 border-r border-slate-200 w-20 text-center bg-amber-100 text-amber-900">MFVM (X)</th>
-                    <th className="p-3 border-r border-slate-200 w-20 text-center bg-purple-100 text-purple-900">GGPP (X)</th>
-                    <th className="p-3 border-r border-slate-200 w-20 text-center bg-rose-100 text-rose-900">MIDT (X)</th>
-                    <th className="p-3 border-r border-slate-200 w-52">KPA FUNCTIONAL AREA</th>
-                    <th className="p-3 border-r border-slate-200 w-48">UNIT OF MEASURE</th>
-                    <th className="p-3 border-r border-slate-200 w-44">MSCOA TRACKING</th>
-                    <th className="p-3 border-r border-slate-200 w-40">BASELINE</th>
-                    <th className="p-3 border-r border-slate-200 w-44">ANNUAL TARGET</th>
-                    <th className="p-3 border-r border-slate-200 w-40">BUDGET ALLOCATION</th>
-                    <th className="p-3 border-r border-slate-200 w-32">1ST QUARTER</th>
-                    <th className="p-3 border-r border-slate-200 w-32">2ND QUARTER</th>
-                    <th className="p-3 border-r border-slate-200 w-32 text-center bg-rose-100 text-rose-900">MID TERM</th>
-                    <th className="p-3 border-r border-slate-200 w-32">3RD QUARTER</th>
-                    <th className="p-3 border-r border-slate-200 w-32">4TH QUARTER</th>
-                    <th className="p-3 border-r border-slate-200 w-48">RESPONSIBLE UNIT</th>
-                    <th className="p-3 border-r border-slate-200 w-48 text-center bg-indigo-50 text-indigo-900 border-l border-indigo-200">POE AND DESCRIPTION</th>
-                    <th className="p-3 w-16 text-center">ACTIONS</th>
+                    <th className="p-3 border-r border-slate-200 w-24 sticky top-0 left-0 z-30 bg-slate-100">REF NUMBER</th>
+                    <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-slate-100">STRATEGIC OBJECTIVES</th>
+                    <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-slate-100">KPI</th>
+                    <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-blue-100 text-blue-900">BSD (X)</th>
+                    <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-emerald-100 text-emerald-900">LED (X)</th>
+                    <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-amber-100 text-amber-900">MFVM (X)</th>
+                    <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-purple-100 text-purple-900">GGPP (X)</th>
+                    <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-rose-100 text-rose-900">MIDT (X)</th>
+                    <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-orange-100 text-orange-900">SR (X)</th>
+                    <th className="p-3 border-r border-slate-200 w-52 sticky top-0 z-20 bg-slate-100">KPA FUNCTIONAL AREA</th>
+                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-slate-100">UNIT OF MEASURE</th>
+                    <th className="p-3 border-r border-slate-200 w-44 sticky top-0 z-20 bg-slate-100">MSCOA TRACKING</th>
+                    <th className="p-3 border-r border-slate-200 w-40 sticky top-0 z-20 bg-slate-100">BASELINE</th>
+                    <th className="p-3 border-r border-slate-200 w-44 sticky top-0 z-20 bg-slate-100">ANNUAL TARGET</th>
+                    <th className="p-3 border-r border-slate-200 w-40 sticky top-0 z-20 bg-slate-100">BUDGET ALLOCATION</th>
+                    <th className="p-3 border-r border-slate-200 w-32 sticky top-0 z-20 bg-slate-100">1ST QUARTER</th>
+                    <th className="p-3 border-r border-slate-200 w-32 sticky top-0 z-20 bg-slate-100">2ND QUARTER</th>
+                    <th className="p-3 border-r border-slate-200 w-32 text-center sticky top-0 z-20 bg-rose-100 text-rose-900">MID TERM</th>
+                    <th className="p-3 border-r border-slate-200 w-32 sticky top-0 z-20 bg-slate-100">3RD QUARTER</th>
+                    <th className="p-3 border-r border-slate-200 w-32 sticky top-0 z-20 bg-slate-100">4TH QUARTER</th>
+                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-slate-100">RESPONSIBLE UNIT</th>
+                    <th className="p-3 border-r border-slate-200 w-48 text-center sticky top-0 z-20 bg-indigo-50 text-indigo-900 border-l border-indigo-200">POE AND DESCRIPTION</th>
+                    <th className="p-3 w-16 text-center sticky top-0 z-20 bg-slate-100">ACTIONS</th>
                   </tr>
                 </thead>
 
                 {/* Body Rows */}
                 <tbody className="text-xs font-medium text-slate-800 divide-y divide-slate-100">
                   {rows.map((row) => (
-                    <tr key={row.id} className="hover:bg-slate-50/70 transition-colors">
+                    <tr key={row.id} className="group hover:bg-slate-50/70 transition-colors">
                       
                       {/* Ref Num */}
-                      <td className="p-2 border-r border-slate-150 sticky left-0 z-10 bg-white drop-shadow-[1px_0_0_rgba(203,213,225,1)]">
+                      <td className="p-2 border-r border-slate-150 sticky left-0 z-10 bg-white group-hover:bg-slate-50/95 transition-colors drop-shadow-[1px_0_0_rgba(203,213,225,1)]">
                         <input 
                           type="text" 
                           value={row.refNum || ''}
@@ -736,6 +993,16 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                           value={row.midt || ''}
                           onChange={(e) => handleCellChange(row.id, 'midt', e.target.value)}
                           className="w-8 mx-auto bg-transparent border-0 p-1 focus:ring-1 focus:ring-indigo-300 rounded text-center font-bold text-rose-900"
+                        />
+                      </td>
+
+                      {/* SR (Spatial Rationale) */}
+                      <td className="p-2 border-r border-slate-150 text-center bg-orange-50/50">
+                        <input 
+                          type="text" 
+                          value={row.sr || ''}
+                          onChange={(e) => handleCellChange(row.id, 'sr', e.target.value)}
+                          className="w-8 mx-auto bg-transparent border-0 p-1 focus:ring-1 focus:ring-indigo-300 rounded text-center font-bold text-orange-900"
                         />
                       </td>
 
@@ -862,11 +1129,16 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                       <td className="p-2 border-r border-indigo-200 text-center bg-indigo-50/40">
                         {row.poeStatus.includes('Uploaded') ? (
                           <div className="flex flex-col items-center gap-1 select-none">
-                            <span className="text-[10px] bg-emerald-100 text-emerald-800 font-black px-2 py-1 rounded-md border border-emerald-200">
+                            <span className="text-[10px] bg-emerald-100 text-emerald-800 font-black px-2 py-1 rounded-md border border-emerald-200 max-w-[150px] truncate">
                               Uploaded - Visit Backup
                             </span>
+                            {row.poeDesc && (
+                              <p className="text-[9px] text-slate-500 italic max-w-[150px] truncate leading-tight" title={row.poeDesc}>
+                                "{row.poeDesc}"
+                              </p>
+                            )}
                             <button 
-                              onClick={() => triggerUploadModal(row.id, row.refNum)}
+                              onClick={() => triggerUploadModal(row.id, row.refNum, 'general')}
                               className="text-[9px] text-[#4F46E5] hover:underline font-bold"
                             >
                               Update document
@@ -874,7 +1146,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                           </div>
                         ) : (
                           <button 
-                            onClick={() => triggerUploadModal(row.id, row.refNum)}
+                            onClick={() => triggerUploadModal(row.id, row.refNum, 'general')}
                             className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-indigo-600 text-white rounded-lg text-[10px] font-bold hover:bg-indigo-700 hover:scale-[1.02] duration-150"
                           >
                             <Upload className="w-3 h-3" /> Upload Link
@@ -884,13 +1156,35 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
 
                       {/* Action columns */}
                       <td className="p-2 text-center h-full">
-                        <button 
-                          onClick={() => deleteRowHandler(row.id)}
-                          className="text-slate-300 hover:text-rose-500 transition-colors"
-                          title="Delete SDBIP line"
-                        >
-                          <Trash2 className="w-3.5 h-3.5 mx-auto" />
-                        </button>
+                        {confirmDelete?.rowId === row.id && confirmDelete?.type === 'row' ? (
+                          <div className="flex gap-1 justify-center items-center">
+                            <button
+                              onClick={() => {
+                                deleteRowHandler(row.id);
+                                setConfirmDelete(null);
+                              }}
+                              className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[9px] font-bold cursor-pointer hover:bg-rose-700"
+                              title="Confirm delete line"
+                            >
+                              Yes
+                            </button>
+                            <button
+                              onClick={() => setConfirmDelete(null)}
+                              className="px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded text-[9px] font-bold cursor-pointer hover:bg-slate-300"
+                              title="Cancel"
+                            >
+                              No
+                            </button>
+                          </div>
+                        ) : (
+                          <button 
+                            onClick={() => setConfirmDelete({ rowId: row.id, type: 'row' })}
+                            className="text-slate-300 hover:text-rose-500 transition-colors"
+                            title="Delete SDBIP line"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 mx-auto" />
+                          </button>
+                        )}
                       </td>
 
                     </tr>
@@ -989,117 +1283,184 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
               </div>
             </div>
 
-            <div className="flex-1 overflow-auto border border-slate-200 rounded-xl relative bg-white min-h-[400px]">
-              <table className="w-full text-left border-collapse table-fixed min-w-[5000px]">
+            <div className="overflow-auto border border-slate-200 rounded-xl relative bg-white h-[580px] max-h-[68vh]">
+              <table className="w-full text-left border-collapse table-fixed min-w-[7072px]">
                 <thead className="sticky top-0 bg-slate-100 z-20 border-b-2 border-slate-200 text-[10px] font-black tracking-wider uppercase text-slate-700 font-mono">
                   <tr>
                     {/* Fixed Info Columns */}
-                    <th className="p-3 border-r border-slate-200 w-24 sticky left-0 z-30 bg-slate-100">REF NUMBER</th>
-                    <th className="p-3 border-r border-slate-200 w-64">STRATEGIC OBJECTIVES</th>
-                    <th className="p-3 border-r border-slate-200 w-20 text-center bg-blue-100 text-blue-900">BSD (X)</th>
-                    <th className="p-3 border-r border-slate-200 w-20 text-center bg-emerald-100 text-emerald-900">LED (X)</th>
-                    <th className="p-3 border-r border-slate-200 w-20 text-center bg-amber-100 text-amber-900">MFVM (X)</th>
-                    <th className="p-3 border-r border-slate-200 w-20 text-center bg-indigo-100 text-indigo-900">GGPP (X)</th>
-                    <th className="p-3 border-r border-slate-200 w-20 text-center bg-rose-100 text-rose-900">MIDT (X)</th>
-                    <th className="p-3 border-r border-slate-200 w-64">KPI</th>
-                    <th className="p-3 border-r border-slate-200 w-52">KPA FUNCTIONAL AREA</th>
-                    <th className="p-3 border-r border-slate-200 w-44">ANNUAL TARGET</th>
-                    <th className="p-3 border-r border-slate-200 w-32 text-center bg-slate-200 text-slate-900">RAG STATUS</th>
-
+                    <th className="p-3 border-r border-slate-200 w-24 sticky top-0 left-0 z-30 bg-slate-100">REF NUMBER</th>
+                    <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-slate-100">STRATEGIC OBJECTIVES</th>
+                    <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-slate-100">KPI</th>
+                    <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-blue-100 text-blue-900">BSD (X)</th>
+                    <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-emerald-100 text-emerald-900">LED (X)</th>
+                    <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-amber-100 text-amber-900">MFVM (X)</th>
+                    <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-indigo-100 text-indigo-900">GGPP (X)</th>
+                    <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-rose-100 text-rose-900">MIDT (X)</th>
+                    <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-orange-100 text-orange-900">SR (X)</th>
+                    <th className="p-3 border-r border-slate-200 w-52 sticky top-0 z-20 bg-slate-100">KPA FUNCTIONAL AREA</th>
+                    <th className="p-3 border-r border-slate-200 w-40 sticky top-0 z-20 bg-slate-100">BASELINE</th>
+                    <th className="p-3 border-r border-slate-200 w-44 sticky top-0 z-20 bg-slate-100">ANNUAL TARGET</th>
+                    <th className="p-3 border-r border-slate-200 w-40 sticky top-0 z-20 bg-slate-100">TOTAL BUDGET</th>
+                    <th className="p-3 border-r border-slate-200 w-32 text-center sticky top-0 z-20 bg-slate-200 text-slate-900">RAG STATUS</th>
+                    
                     {/* Q1 Reporting */}
-                    <th className="p-3 border-r border-slate-200 w-32 bg-indigo-50 text-indigo-900">Q1 TARGET</th>
-                    <th className="p-3 border-r border-slate-200 w-48 bg-indigo-100 text-indigo-900 border-b-2 border-indigo-200">Q1 ACTUAL</th>
-                    <th className="p-3 border-r border-slate-200 w-48 bg-indigo-200 text-indigo-950 border-b-2 border-indigo-300">Q1 VARIANCE</th>
-                    <th className="p-3 border-r border-slate-200 w-64 bg-indigo-300 text-indigo-950 border-b-2 border-indigo-400">Q1 CORRECTIVE MEASURE</th>
+                    <th className="p-3 border-r border-slate-200 w-36 sticky top-0 z-20 bg-teal-50 text-teal-955 font-bold text-center border-b-2 border-teal-200">Q1 EXPENDITURE</th>
+                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-indigo-50 text-indigo-955 font-bold text-center">Q1 POE</th>
+                    <th className="p-3 border-r border-slate-200 w-24 sticky top-0 z-20 bg-indigo-50 text-indigo-900 text-center">Q1 TARGET</th>
+                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-indigo-100 text-indigo-900 border-b-2 border-indigo-200">Q1 ACTUAL</th>
+                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-indigo-200 text-indigo-955 border-b-2 border-indigo-300">Q1 VARIANCE</th>
+                    <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-indigo-300 text-indigo-955 border-b-2 border-indigo-400">Q1 CORRECTIVE MEASURE</th>
 
                     {/* Q2 Reporting */}
-                    <th className="p-3 border-r border-slate-200 w-32 bg-blue-50 text-blue-900">Q2 TARGET</th>
-                    <th className="p-3 border-r border-slate-200 w-48 bg-blue-100 text-blue-900 border-b-2 border-blue-200">Q2 ACTUAL</th>
-                    <th className="p-3 border-r border-slate-200 w-48 bg-blue-200 text-blue-950 border-b-2 border-blue-300">Q2 VARIANCE</th>
-                    <th className="p-3 border-r border-slate-200 w-64 bg-blue-300 text-blue-950 border-b-2 border-blue-400">Q2 CORRECTIVE MEASURE</th>
+                    <th className="p-3 border-r border-slate-200 w-36 sticky top-0 z-20 bg-teal-50 text-teal-955 font-bold text-center border-b-2 border-teal-200">Q2 EXPENDITURE</th>
+                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-blue-50 text-blue-955 font-bold text-center">Q2 POE</th>
+                    <th className="p-3 border-r border-slate-200 w-24 sticky top-0 z-20 bg-blue-50 text-blue-900 text-center">Q2 TARGET</th>
+                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-blue-100 text-blue-900 border-b-2 border-blue-200">Q2 ACTUAL</th>
+                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-blue-200 text-blue-955 border-b-2 border-blue-300">Q2 VARIANCE</th>
+                    <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-blue-300 text-blue-955 border-b-2 border-blue-400">Q2 CORRECTIVE MEASURE</th>
 
                     {/* Mid Term Reporting */}
-                    <th className="p-3 border-r border-slate-200 w-32 bg-emerald-50 text-emerald-900 border-b-2 border-emerald-100">MID TERM TARGET</th>
-                    <th className="p-3 border-r border-slate-200 w-48 bg-emerald-100 text-emerald-900 border-b-2 border-emerald-200">MID TERM ACTUAL</th>
-                    <th className="p-3 border-r border-slate-200 w-48 bg-emerald-200 text-emerald-900 border-b-2 border-emerald-300">MID TERM VARIANCE</th>
-                    <th className="p-3 border-r border-slate-200 w-64 bg-emerald-300 text-emerald-950 border-b-2 border-emerald-400">MID TERM CORRECTIVE MEASURE</th>
+                    <th className="p-3 border-r border-slate-200 w-36 sticky top-0 z-20 bg-teal-50 text-teal-955 font-bold text-center border-b-2 border-teal-200">MID TERM EXPENDITURE</th>
+                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-emerald-50 text-emerald-955 font-bold text-center border-b-2 border-emerald-200">MID TERM POE</th>
+                    <th className="p-3 border-r border-slate-200 w-32 sticky top-0 z-20 bg-emerald-50 text-emerald-900 border-b-2 border-emerald-100">MID TERM TARGET</th>
+                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-emerald-100 text-emerald-900 border-b-2 border-emerald-200">MID TERM ACTUAL</th>
+                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-emerald-200 text-emerald-900 border-b-2 border-emerald-300">MID TERM VARIANCE</th>
+                    <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-emerald-300 text-emerald-950 border-b-2 border-emerald-400">MID TERM CORRECTIVE MEASURE</th>
 
                     {/* Q3 Reporting */}
-                    <th className="p-3 border-r border-slate-200 w-32 bg-amber-50 text-amber-900">Q3 TARGET</th>
-                    <th className="p-3 border-r border-slate-200 w-48 bg-amber-100 text-amber-900 border-b-2 border-amber-200">Q3 ACTUAL</th>
-                    <th className="p-3 border-r border-slate-200 w-48 bg-amber-200 text-amber-950 border-b-2 border-amber-300">Q3 VARIANCE</th>
-                    <th className="p-3 border-r border-slate-200 w-64 bg-amber-300 text-amber-950 border-b-2 border-amber-400">Q3 CORRECTIVE MEASURE</th>
+                    <th className="p-3 border-r border-slate-200 w-36 sticky top-0 z-20 bg-teal-50 text-teal-955 font-bold text-center border-b-2 border-teal-200">Q3 EXPENDITURE</th>
+                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-amber-50 text-amber-955 font-bold text-center">Q3 POE</th>
+                    <th className="p-3 border-r border-slate-200 w-24 sticky top-0 z-20 bg-amber-50 text-amber-900 text-center">Q3 TARGET</th>
+                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-amber-100 text-amber-900 border-b-2 border-amber-200">Q3 ACTUAL</th>
+                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-amber-200 text-amber-950 border-b-2 border-amber-300">Q3 VARIANCE</th>
+                    <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-amber-300 text-amber-950 border-b-2 border-amber-400">Q3 CORRECTIVE MEASURE</th>
 
                     {/* Q4 Reporting */}
-                    <th className="p-3 border-r border-slate-200 w-32 bg-rose-50 text-rose-900">Q4 TARGET</th>
-                    <th className="p-3 border-r border-slate-200 w-48 bg-rose-100 text-rose-900 border-b-2 border-rose-200">Q4 ACTUAL</th>
-                    <th className="p-3 border-r border-slate-200 w-48 bg-rose-200 text-rose-950 border-b-2 border-rose-300">Q4 VARIANCE</th>
-                    <th className="p-3 border-r border-slate-200 w-64 bg-rose-300 text-rose-950 border-b-2 border-rose-400">Q4 CORRECTIVE MEASURE</th>
+                    <th className="p-3 border-r border-slate-200 w-36 sticky top-0 z-20 bg-teal-50 text-teal-955 font-bold text-center border-b-2 border-teal-200">Q4 EXPENDITURE</th>
+                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-rose-50 text-rose-955 font-bold text-center">Q4 POE</th>
+                    <th className="p-3 border-r border-slate-200 w-24 sticky top-0 z-20 bg-rose-50 text-rose-900 text-center">Q4 TARGET</th>
+                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-rose-100 text-rose-900 border-b-2 border-rose-200">Q4 ACTUAL</th>
+                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-rose-200 text-rose-955 border-b-2 border-rose-300">Q4 VARIANCE</th>
+                    <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-rose-300 text-rose-955 border-b-2 border-rose-400">Q4 CORRECTIVE MEASURE</th>
 
-                    <th className="p-3 w-28 text-center bg-slate-50 text-slate-900 border-b-2 border-slate-200 font-bold">SCORE</th>
+                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-slate-100">RESPONSIBLE UNIT</th>
+
+                    <th className="p-3 w-28 text-center bg-slate-50 text-slate-900 border-b-2 border-slate-200 font-bold sticky top-0 z-20">SCORE</th>
                   </tr>
                 </thead>
 
                 <tbody className="text-xs font-medium text-slate-800 divide-y divide-slate-100">
                   {rows.map((row) => (
-                    <tr key={row.id} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="p-2 border-r border-slate-150 sticky left-0 z-10 bg-white font-mono text-[11px]">{row.refNum}</td>
+                    <tr key={row.id} className="group hover:bg-slate-50/70 transition-colors">
+                      <td className="p-2 border-r border-slate-150 sticky left-0 z-10 bg-white group-hover:bg-slate-50/95 transition-colors font-mono text-[11px]">{row.refNum}</td>
                       <td className="p-2 border-r border-slate-150 text-[11px] leading-tight text-slate-500 overflow-hidden text-ellipsis whitespace-normal">{row.strategicObj}</td>
+                      <td className="p-2 border-r border-slate-150 text-[11px] leading-tight font-bold text-slate-700">{row.kpi}</td>
                       <td className="p-2 border-r border-slate-150 text-center bg-blue-50/30 font-bold text-blue-600">{row.bsd}</td>
                       <td className="p-2 border-r border-slate-150 text-center bg-emerald-50/30 font-bold text-emerald-600">{row.led}</td>
                       <td className="p-2 border-r border-slate-150 text-center bg-amber-50/30 font-bold text-amber-600">{row.mfvm}</td>
                       <td className="p-2 border-r border-slate-150 text-center bg-indigo-50/30 font-bold text-indigo-600">{row.ggpp}</td>
                       <td className="p-2 border-r border-slate-150 text-center bg-rose-50/30 font-bold text-rose-600">{row.midt}</td>
-                      <td className="p-2 border-r border-slate-150 text-[11px] leading-tight font-bold text-slate-700">{row.kpi}</td>
+                      <td className="p-2 border-r border-slate-150 text-center bg-orange-50/30 font-bold text-orange-600">{row.sr}</td>
                       <td className="p-2 border-r border-slate-150 text-[11px] text-slate-500">{row.kpas}</td>
+                      <td className="p-2 border-r border-slate-150 text-[11px] text-slate-600">{row.baseline}</td>
                       <td className="p-2 border-r border-slate-150 text-[11px] font-black text-indigo-700">{row.annualTarget}</td>
+                      <td className="p-2 border-r border-slate-150 text-[11px] font-bold text-slate-700">{row.budgetAllocation || 'Opex'}</td>
                       
                       {/* RAG Status */}
-                      <td className="p-2 border-r border-slate-150 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <button 
-                            onClick={() => handleCellChange(row.id, 'ragStatus', 'red')}
-                            className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${row.ragStatus === 'red' ? 'bg-red-500 border-red-700 shadow-inner' : 'bg-red-200 border-red-300 hover:bg-red-300'}`}
-                            title="Not Complete"
-                          >
-                            {row.ragStatus === 'red' && <span className="text-[10px]">☹️</span>}
-                          </button>
-                          <button 
-                            onClick={() => handleCellChange(row.id, 'ragStatus', 'amber')}
-                            className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${row.ragStatus === 'amber' ? 'bg-amber-500 border-amber-700 shadow-inner' : 'bg-amber-200 border-amber-300 hover:bg-amber-300'}`}
-                            title="In Progress"
-                          >
-                            {row.ragStatus === 'amber' && <span className="text-[10px]">😐</span>}
-                          </button>
-                          <button 
-                            onClick={() => handleCellChange(row.id, 'ragStatus', 'green')}
-                            className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${row.ragStatus === 'green' ? 'bg-emerald-500 border-emerald-700 shadow-inner' : 'bg-emerald-200 border-emerald-300 hover:bg-emerald-300'}`}
-                            title="Complete"
-                          >
-                            {row.ragStatus === 'green' && <span className="text-[10px]">😊</span>}
-                          </button>
+                      <td className="p-2 border-r border-slate-150 text-center bg-slate-50/10">
+                        {(() => {
+                          const details = getRagDetails(row);
+                          return (
+                            <div 
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-semibold shadow-sm select-none ${details.bgClass} ${details.borderClass} ${details.textClass}`}
+                              title={details.tooltip}
+                            >
+                              <span className="text-sm leading-none">{details.face}</span>
+                              <span className="text-[9px] uppercase tracking-wider font-extrabold">{details.label}</span>
+                            </div>
+                          );
+                        })()}
+                      </td>
+
+                      {/* Q1 Expenditure (Moved before POE) */}
+                      <td className="p-2 border-r border-slate-100 bg-teal-50/10">
+                        <input 
+                          type="text"
+                          disabled={!isOpex(row.budgetAllocation)}
+                          value={isOpex(row.budgetAllocation) ? (row.q1Expenditure || '') : (() => {
+                            const total = parseBudgetNum(row.budgetAllocation);
+                            return total > 0 ? `R ${Math.round(total / 4).toLocaleString()}` : 'R 0';
+                          })()}
+                          onChange={(e) => handleCellChange(row.id, 'q1Expenditure', e.target.value)}
+                          className={`w-full bg-white border border-slate-200 p-1 rounded text-[11px] font-bold ${!isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-500 cursor-not-allowed border-slate-200' : 'text-slate-800'}`}
+                          placeholder="Q1 Exp..."
+                        />
+                      </td>
+
+                      {/* Q1 POE Column */}
+                      <td className="p-2 border-r border-slate-100 bg-indigo-50/10">
+                        <div className="space-y-2">
+                          <textarea 
+                            rows={2}
+                            value={row.q1PoeDesc || ''}
+                            onChange={(e) => handleCellChange(row.id, 'q1PoeDesc', e.target.value)}
+                            className="w-full bg-white border border-slate-200 p-1 focus:ring-1 focus:ring-indigo-300 rounded text-[10px]"
+                            placeholder="Q1 POE Description..."
+                          />
+                          {row.q1Poes && row.q1Poes.length > 0 && (
+                            <div className="text-[10px] bg-emerald-50/75 p-1 border border-emerald-100 rounded text-emerald-800 truncate" title={row.q1Poes[row.q1Poes.length - 1]}>
+                              📄 {row.q1Poes[row.q1Poes.length - 1]}
+                            </div>
+                          )}
+                          <div className="flex gap-1">
+                            <button 
+                              onClick={() => triggerUploadModal(row.id, row.refNum, 'q1')}
+                              className="flex-1 py-1 text-[9px] font-bold rounded border bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                              title="Upload/Edit POE"
+                            >
+                              <Upload className="w-2.5 h-2.5" /> Upload/Edit
+                            </button>
+                            {((row.q1Poes && row.q1Poes.length > 0) || row.q1PoeDesc) && (
+                              confirmDelete?.rowId === row.id && confirmDelete?.type === 'q1' ? (
+                                <div className="flex flex-col gap-1 bg-rose-50 border border-rose-200 p-1 rounded min-w-[80px]">
+                                  <span className="text-[8px] text-rose-800 font-bold text-center leading-none">Are you sure?</span>
+                                  <div className="flex gap-1 justify-center">
+                                    <button
+                                      onClick={() => {
+                                        clearQuarterPoe(row.id, 'q1');
+                                        setConfirmDelete(null);
+                                      }}
+                                      className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[8px] font-bold cursor-pointer hover:bg-rose-700"
+                                    >
+                                      Yes
+                                    </button>
+                                    <button
+                                      onClick={() => setConfirmDelete(null)}
+                                      className="px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded text-[8px] font-bold cursor-pointer hover:bg-slate-300"
+                                    >
+                                      No
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <button 
+                                  onClick={() => setConfirmDelete({ rowId: row.id, type: 'q1' })}
+                                  className="p-1 text-[9px] font-bold rounded border bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 transition-colors flex items-center justify-center cursor-pointer"
+                                  title="Delete POE and Description"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              )
+                            )}
+                          </div>
                         </div>
                       </td>
 
-                      {/* Q1 Reporting Inputs */}
-                      <td className="p-2 border-r border-slate-100 bg-indigo-50/20">
-                        <div className="mb-2 font-bold text-indigo-900">{row.q1}</div>
-                        <div className="relative inline-block w-full">
-                          <button className={`w-full py-1 text-[9px] font-bold rounded border ${row.q1Poes && row.q1Poes.length > 0 ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'} transition-colors flex items-center justify-center gap-1`}>
-                            <Upload className="w-2.5 h-2.5" /> {row.q1Poes && row.q1Poes.length > 0 ? `${row.q1Poes.length} POE attached` : 'Upload POE'}
-                          </button>
-                          <input 
-                            type="file" multiple 
-                            className="absolute inset-0 opacity-0 cursor-pointer w-full"
-                            onChange={(e) => {
-                              if (!e.target.files) return;
-                              const names = Array.from(e.target.files).map(f => f.name);
-                              handleCellChange(row.id, 'q1Poes', [...(row.q1Poes || []), ...names] as any);
-                              handleCellChange(row.id, 'poeStatus', 'Attached');
-                            }}
-                          />
-                        </div>
+                      {/* Q1 TARGET Column */}
+                      <td className="p-2 border-r border-slate-100 bg-indigo-50/20 text-center">
+                        <div className="font-bold text-indigo-900 text-xs">{row.q1 || '-'}</div>
                       </td>
+
                       <td className="p-2 border-r border-slate-100 bg-indigo-50/5 relative group">
                         <textarea rows={3} value={row.q1Actual || ''} onChange={(e) => handleCellChange(row.id, 'q1Actual', e.target.value)} className="w-full bg-white border border-slate-200 p-1 focus:ring-1 focus:ring-indigo-300 rounded text-[11px]" placeholder="Q1 Actual..." />
                         {row.q1Actual && row.q1 && row.q1Actual !== row.q1 && (
@@ -1124,28 +1485,95 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                         </div>
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-indigo-50/5">
-                        <textarea rows={3} value={row.q1Corrective || ''} onChange={(e) => handleCellChange(row.id, 'q1Corrective', e.target.value)} className="w-full bg-white border border-slate-200 p-1 focus:ring-1 focus:ring-indigo-300 rounded text-[11px]" placeholder="Q1 Corrective..." />
+                        <textarea 
+                          rows={3} 
+                          value={row.q1Corrective || ''} 
+                          disabled={isFieldDisabled(row.q1Variance)}
+                          onChange={(e) => handleCellChange(row.id, 'q1Corrective', e.target.value)} 
+                          className={`w-full p-1 focus:ring-1 focus:ring-indigo-300 rounded text-[11px] transition-colors ${isFieldDisabled(row.q1Variance) ? 'bg-slate-50 border-slate-200 text-slate-450 cursor-not-allowed italic font-normal' : 'bg-white border-slate-200 text-slate-800'}`} 
+                          placeholder={isFieldDisabled(row.q1Variance) ? "No variance detected." : "Q1 Corrective..."} 
+                        />
                       </td>
 
-                      {/* Q2 Reporting Inputs */}
-                      <td className="p-2 border-r border-slate-100 bg-blue-50/20">
-                        <div className="mb-2 font-bold text-blue-900">{row.q2}</div>
-                        <div className="relative inline-block w-full">
-                          <button className={`w-full py-1 text-[9px] font-bold rounded border ${row.q2Poes && row.q2Poes.length > 0 ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'} transition-colors flex items-center justify-center gap-1`}>
-                            <Upload className="w-2.5 h-2.5" /> {row.q2Poes && row.q2Poes.length > 0 ? `${row.q2Poes.length} POE attached` : 'Upload POE'}
-                          </button>
-                          <input 
-                            type="file" multiple 
-                            className="absolute inset-0 opacity-0 cursor-pointer w-full"
-                            onChange={(e) => {
-                              if (!e.target.files) return;
-                              const names = Array.from(e.target.files).map(f => f.name);
-                              handleCellChange(row.id, 'q2Poes', [...(row.q2Poes || []), ...names] as any);
-                              handleCellChange(row.id, 'poeStatus', 'Attached');
-                            }}
+                      {/* Q2 Expenditure (Moved before POE) */}
+                      <td className="p-2 border-r border-slate-100 bg-teal-50/10">
+                        <input 
+                          type="text"
+                          disabled={!isOpex(row.budgetAllocation)}
+                          value={isOpex(row.budgetAllocation) ? (row.q2Expenditure || '') : (() => {
+                            const total = parseBudgetNum(row.budgetAllocation);
+                            return total > 0 ? `R ${Math.round(total / 4).toLocaleString()}` : 'R 0';
+                          })()}
+                          onChange={(e) => handleCellChange(row.id, 'q2Expenditure', e.target.value)}
+                          className={`w-full bg-white border border-slate-200 p-1 rounded text-[11px] font-bold ${!isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-500 cursor-not-allowed border-slate-200' : 'text-slate-800'}`}
+                          placeholder="Q2 Exp..."
+                        />
+                      </td>
+
+                      {/* Q2 POE Column */}
+                      <td className="p-2 border-r border-slate-100 bg-blue-50/10">
+                        <div className="space-y-2">
+                          <textarea 
+                            rows={2}
+                            value={row.q2PoeDesc || ''}
+                            onChange={(e) => handleCellChange(row.id, 'q2PoeDesc', e.target.value)}
+                            className="w-full bg-white border border-slate-200 p-1 focus:ring-1 focus:ring-blue-300 rounded text-[10px]"
+                            placeholder="Q2 POE Description..."
                           />
+                          {row.q2Poes && row.q2Poes.length > 0 && (
+                            <div className="text-[10px] bg-emerald-50/75 p-1 border border-emerald-100 rounded text-emerald-800 truncate" title={row.q2Poes[row.q2Poes.length - 1]}>
+                              📄 {row.q2Poes[row.q2Poes.length - 1]}
+                            </div>
+                          )}
+                          <div className="flex gap-1">
+                            <button 
+                              onClick={() => triggerUploadModal(row.id, row.refNum, 'q2')}
+                              className="flex-1 py-1 text-[9px] font-bold rounded border bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                              title="Upload/Edit POE"
+                            >
+                              <Upload className="w-2.5 h-2.5" /> Upload/Edit
+                            </button>
+                            {((row.q2Poes && row.q2Poes.length > 0) || row.q2PoeDesc) && (
+                              confirmDelete?.rowId === row.id && confirmDelete?.type === 'q2' ? (
+                                <div className="flex flex-col gap-1 bg-rose-50 border border-rose-200 p-1 rounded min-w-[80px]">
+                                  <span className="text-[8px] text-rose-800 font-bold text-center leading-none">Are you sure?</span>
+                                  <div className="flex gap-1 justify-center">
+                                    <button
+                                      onClick={() => {
+                                        clearQuarterPoe(row.id, 'q2');
+                                        setConfirmDelete(null);
+                                      }}
+                                      className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[8px] font-bold cursor-pointer hover:bg-rose-700"
+                                    >
+                                      Yes
+                                    </button>
+                                    <button
+                                      onClick={() => setConfirmDelete(null)}
+                                      className="px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded text-[8px] font-bold cursor-pointer hover:bg-slate-300"
+                                    >
+                                      No
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <button 
+                                  onClick={() => setConfirmDelete({ rowId: row.id, type: 'q2' })}
+                                  className="p-1 text-[9px] font-bold rounded border bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 transition-colors flex items-center justify-center cursor-pointer"
+                                  title="Delete POE and Description"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              )
+                            )}
+                          </div>
                         </div>
                       </td>
+
+                      {/* Q2 TARGET Column */}
+                      <td className="p-2 border-r border-slate-100 bg-blue-50/20 text-center">
+                        <div className="font-bold text-blue-900 text-xs">{row.q2 || '-'}</div>
+                      </td>
+
                       <td className="p-2 border-r border-slate-100 bg-blue-50/5 relative">
                         <textarea rows={3} value={row.q2Actual || ''} onChange={(e) => handleCellChange(row.id, 'q2Actual', e.target.value)} className="w-full bg-white border border-slate-200 p-1 focus:ring-1 focus:ring-blue-300 rounded text-[11px]" placeholder="Q2 Actual..." />
                         {row.q2Actual && row.q2 && row.q2Actual !== row.q2 && (
@@ -1170,29 +1598,93 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                         </div>
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-blue-50/5">
-                        <textarea rows={3} value={row.q2Corrective || ''} onChange={(e) => handleCellChange(row.id, 'q2Corrective', e.target.value)} className="w-full bg-white border border-slate-200 p-1 focus:ring-1 focus:ring-blue-300 rounded text-[11px]" placeholder="Q2 Corrective..." />
+                        <textarea 
+                          rows={3} 
+                          value={row.q2Corrective || ''} 
+                          disabled={isFieldDisabled(row.q2Variance)}
+                          onChange={(e) => handleCellChange(row.id, 'q2Corrective', e.target.value)} 
+                          className={`w-full p-1 focus:ring-1 focus:ring-blue-300 rounded text-[11px] transition-colors ${isFieldDisabled(row.q2Variance) ? 'bg-slate-50 border-slate-200 text-slate-450 cursor-not-allowed italic font-normal' : 'bg-white border-slate-200 text-slate-800'}`} 
+                          placeholder={isFieldDisabled(row.q2Variance) ? "No variance detected." : "Q2 Corrective..."} 
+                        />
                       </td>
 
-                      {/* Mid Term Reporting Inputs */}
-                      <td className="p-2 border-r border-slate-100 bg-emerald-50/20">
-                        <div className="mb-2 font-bold text-emerald-900 bg-white border border-slate-200 p-1 rounded text-[11px]">
-                          {row.midTermTarget || ''}
-                        </div>
-                        <div className="relative inline-block w-full">
-                          <button className={`w-full py-1 text-[9px] font-bold rounded border ${row.midTermPoes && row.midTermPoes.length > 0 ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'} transition-colors flex items-center justify-center gap-1`}>
-                            <Upload className="w-2.5 h-2.5" /> {row.midTermPoes && row.midTermPoes.length > 0 ? `${row.midTermPoes.length} POE attached` : 'Upload POE'}
-                          </button>
-                          <input 
-                            type="file" multiple 
-                            className="absolute inset-0 opacity-0 cursor-pointer w-full"
-                            onChange={(e) => {
-                              if (!e.target.files) return;
-                              const names = Array.from(e.target.files).map(f => f.name);
-                              handleCellChange(row.id, 'midTermPoes', [...(row.midTermPoes || []), ...names] as any);
-                              handleCellChange(row.id, 'poeStatus', 'Attached');
-                            }}
+                      {/* Mid Term Expenditure */}
+                      <td className="p-2 border-r border-slate-100 bg-teal-50/10">
+                        <input 
+                          type="text"
+                          disabled={!isOpex(row.budgetAllocation)}
+                          value={isOpex(row.budgetAllocation) ? (row.midTermExpenditure || '') : (() => {
+                            const total = parseBudgetNum(row.budgetAllocation);
+                            return total > 0 ? `R ${Math.round(total / 2).toLocaleString()}` : 'R 0';
+                          })()}
+                          onChange={(e) => handleCellChange(row.id, 'midTermExpenditure', e.target.value)}
+                          className={`w-full bg-white border border-slate-200 p-1 rounded text-[11px] font-bold ${!isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-500 cursor-not-allowed border-slate-200' : 'text-slate-800'}`}
+                          placeholder="Mid Term Exp..."
+                        />
+                      </td>
+
+                      {/* Mid Term POE Column */}
+                      <td className="p-2 border-r border-slate-100 bg-emerald-50/10">
+                        <div className="space-y-2">
+                          <textarea 
+                            rows={2}
+                            value={row.midTermPoeDesc || ''}
+                            onChange={(e) => handleCellChange(row.id, 'midTermPoeDesc', e.target.value)}
+                            className="w-full bg-white border border-slate-200 p-1 focus:ring-1 focus:ring-emerald-300 rounded text-[10px]"
+                            placeholder="Mid Term POE Description..."
                           />
+                          {row.midTermPoes && row.midTermPoes.length > 0 && (
+                            <div className="text-[10px] bg-emerald-50/75 p-1 border border-emerald-100 rounded text-emerald-800 truncate" title={row.midTermPoes[row.midTermPoes.length - 1]}>
+                              📄 {row.midTermPoes[row.midTermPoes.length - 1]}
+                            </div>
+                          )}
+                          <div className="flex gap-1">
+                            <button 
+                              onClick={() => triggerUploadModal(row.id, row.refNum, 'midTerm')}
+                              className="flex-1 py-1 text-[9px] font-bold rounded border bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100 transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                              title="Upload/Edit POE"
+                            >
+                              <Upload className="w-2.5 h-2.5" /> Upload/Edit
+                            </button>
+                            {((row.midTermPoes && row.midTermPoes.length > 0) || row.midTermPoeDesc) && (
+                              confirmDelete?.rowId === row.id && confirmDelete?.type === 'midTerm' ? (
+                                <div className="flex flex-col gap-1 bg-rose-50 border border-rose-200 p-1 rounded min-w-[80px]">
+                                  <span className="text-[8px] text-rose-800 font-bold text-center leading-none">Are you sure?</span>
+                                  <div className="flex gap-1 justify-center">
+                                    <button
+                                      onClick={() => {
+                                        clearQuarterPoe(row.id, 'midTerm');
+                                        setConfirmDelete(null);
+                                      }}
+                                      className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[8px] font-bold cursor-pointer hover:bg-rose-700"
+                                    >
+                                      Yes
+                                    </button>
+                                    <button
+                                      onClick={() => setConfirmDelete(null)}
+                                      className="px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded text-[8px] font-bold cursor-pointer hover:bg-slate-300"
+                                    >
+                                      No
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <button 
+                                  onClick={() => setConfirmDelete({ rowId: row.id, type: 'midTerm' })}
+                                  className="p-1 text-[9px] font-bold rounded border bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 transition-colors flex items-center justify-center cursor-pointer"
+                                  title="Delete POE and Description"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              )
+                            )}
+                          </div>
                         </div>
+                      </td>
+
+                      {/* Mid Term Target */}
+                      <td className="p-2 border-r border-slate-100 bg-emerald-50/20 text-center">
+                        <div className="font-bold text-emerald-900 text-xs">{row.midTermTarget || ''}</div>
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-emerald-50/5 relative">
                         <div className="w-full bg-white border border-emerald-100 p-1 rounded text-[11px] min-h-[40px] font-bold text-emerald-700 mb-1">
@@ -1215,34 +1707,101 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                         )}
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-emerald-50/5">
-                        <div className="w-full bg-white border border-emerald-100 p-1 rounded text-[11px] font-bold text-emerald-800 min-h-[40px]">
+                        <div className="w-full bg-white border border-emerald-100 p-1 rounded text-[11px] font-bold text-slate-800 min-h-[40px]">
                           {row.midTermVariance || ''}
                         </div>
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-emerald-50/5">
-                        <textarea rows={3} value={row.midTermCorrective || ''} onChange={(e) => handleCellChange(row.id, 'midTermCorrective', e.target.value)} className="w-full bg-white border border-emerald-100 p-1 focus:ring-1 focus:ring-emerald-300 rounded text-[11px]" placeholder="Mid-Term Corrective..." />
+                        <textarea 
+                          rows={3} 
+                          value={row.midTermCorrective || ''} 
+                          disabled={isFieldDisabled(row.midTermVariance)}
+                          onChange={(e) => handleCellChange(row.id, 'midTermCorrective', e.target.value)} 
+                          className={`w-full p-1 focus:ring-1 focus:ring-emerald-300 rounded text-[11px] transition-colors ${isFieldDisabled(row.midTermVariance) ? 'bg-slate-55 border-slate-200 text-slate-450 cursor-not-allowed italic font-normal' : 'bg-white border-emerald-100 p-1 text-slate-800'}`} 
+                          placeholder={isFieldDisabled(row.midTermVariance) ? "No variance detected." : "Mid-Term Corrective..."} 
+                        />
                       </td>
 
-                      {/* Q3 Reporting Inputs */}
-                      <td className="p-2 border-r border-slate-100 bg-amber-50/20">
-                        <div className="mb-2 font-bold text-amber-900">{row.q3}</div>
-                        <div className="relative inline-block w-full">
-                          <button className={`w-full py-1 text-[9px] font-bold rounded border ${row.q3Poes && row.q3Poes.length > 0 ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'} transition-colors flex items-center justify-center gap-1`}>
-                            <Upload className="w-2.5 h-2.5" /> {row.q3Poes && row.q3Poes.length > 0 ? `${row.q3Poes.length} POE attached` : 'Upload POE'}
-                          </button>
-                          <input 
-                            type="file" multiple 
-                            className="absolute inset-0 opacity-0 cursor-pointer w-full"
-                            onChange={(e) => {
-                              if (!e.target.files) return;
-                              const names = Array.from(e.target.files).map(f => f.name);
-                              handleCellChange(row.id, 'q3Poes', [...(row.q3Poes || []), ...names] as any);
-                              handleCellChange(row.id, 'poeStatus', 'Attached');
-                            }}
+                      {/* Q3 Expenditure (Moved before POE) */}
+                      <td className="p-2 border-r border-slate-100 bg-teal-50/10">
+                        <input 
+                          type="text"
+                          disabled={!isOpex(row.budgetAllocation)}
+                          value={isOpex(row.budgetAllocation) ? (row.q3Expenditure || '') : (() => {
+                            const total = parseBudgetNum(row.budgetAllocation);
+                            return total > 0 ? `R ${Math.round(total / 4).toLocaleString()}` : 'R 0';
+                          })()}
+                          onChange={(e) => handleCellChange(row.id, 'q3Expenditure', e.target.value)}
+                          className={`w-full bg-white border border-slate-200 p-1 rounded text-[11px] font-bold ${!isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-500 cursor-not-allowed border-slate-200' : 'text-slate-800'}`}
+                          placeholder="Q3 Exp..."
+                        />
+                      </td>
+
+                      {/* Q3 POE Column */}
+                      <td className="p-2 border-r border-slate-100 bg-amber-50/10">
+                        <div className="space-y-2">
+                          <textarea 
+                            rows={2}
+                            value={row.q3PoeDesc || ''}
+                            onChange={(e) => handleCellChange(row.id, 'q3PoeDesc', e.target.value)}
+                            className="w-full bg-white border border-slate-200 p-1 focus:ring-1 focus:ring-amber-300 rounded text-[10px]"
+                            placeholder="Q3 POE Description..."
                           />
+                          {row.q3Poes && row.q3Poes.length > 0 && (
+                            <div className="text-[10px] bg-emerald-50/75 p-1 border border-emerald-100 rounded text-emerald-800 truncate" title={row.q3Poes[row.q3Poes.length - 1]}>
+                              📄 {row.q3Poes[row.q3Poes.length - 1]}
+                            </div>
+                          )}
+                          <div className="flex gap-1">
+                            <button 
+                              onClick={() => triggerUploadModal(row.id, row.refNum, 'q3')}
+                              className="flex-1 py-1 text-[9px] font-bold rounded border bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100 transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                              title="Upload/Edit POE"
+                            >
+                              <Upload className="w-2.5 h-2.5" /> Upload/Edit
+                            </button>
+                            {((row.q3Poes && row.q3Poes.length > 0) || row.q3PoeDesc) && (
+                              confirmDelete?.rowId === row.id && confirmDelete?.type === 'q3' ? (
+                                <div className="flex flex-col gap-1 bg-rose-50 border border-rose-200 p-1 rounded min-w-[80px]">
+                                  <span className="text-[8px] text-rose-800 font-bold text-center leading-none">Are you sure?</span>
+                                  <div className="flex gap-1 justify-center">
+                                    <button
+                                      onClick={() => {
+                                        clearQuarterPoe(row.id, 'q3');
+                                        setConfirmDelete(null);
+                                      }}
+                                      className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[8px] font-bold cursor-pointer hover:bg-rose-700"
+                                    >
+                                      Yes
+                                    </button>
+                                    <button
+                                      onClick={() => setConfirmDelete(null)}
+                                      className="px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded text-[8px] font-bold cursor-pointer hover:bg-slate-300"
+                                    >
+                                      No
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <button 
+                                  onClick={() => setConfirmDelete({ rowId: row.id, type: 'q3' })}
+                                  className="p-1 text-[9px] font-bold rounded border bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 transition-colors flex items-center justify-center cursor-pointer"
+                                  title="Delete POE and Description"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              )
+                            )}
+                          </div>
                         </div>
                       </td>
-                      <td className="p-2 border-r border-slate-100 bg-amber-50/5 relative">
+
+                      {/* Q3 TARGET Column */}
+                      <td className="p-2 border-r border-slate-100 bg-amber-50/20 text-center">
+                        <div className="font-bold text-amber-900 text-xs">{row.q3 || '-'}</div>
+                      </td>
+
+                      <td className="p-2 border-r border-slate-100 bg-amber-50/5 relative text-slate-800">
                         <textarea rows={3} value={row.q3Actual || ''} onChange={(e) => handleCellChange(row.id, 'q3Actual', e.target.value)} className="w-full bg-white border border-slate-200 p-1 focus:ring-1 focus:ring-amber-300 rounded text-[11px]" placeholder="Q3 Actual..." />
                         {row.q3Actual && row.q3 && row.q3Actual !== row.q3 && (
                           <div className="absolute top-1 right-1">
@@ -1266,28 +1825,95 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                         </div>
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-amber-50/5">
-                        <textarea rows={3} value={row.q3Corrective || ''} onChange={(e) => handleCellChange(row.id, 'q3Corrective', e.target.value)} className="w-full bg-white border border-slate-200 p-1 focus:ring-1 focus:ring-amber-300 rounded text-[11px]" placeholder="Q3 Corrective..." />
+                        <textarea 
+                          rows={3} 
+                          value={row.q3Corrective || ''} 
+                          disabled={isFieldDisabled(row.q3Variance)}
+                          onChange={(e) => handleCellChange(row.id, 'q3Corrective', e.target.value)} 
+                          className={`w-full p-1 focus:ring-1 focus:ring-amber-300 rounded text-[11px] transition-colors ${isFieldDisabled(row.q3Variance) ? 'bg-slate-50 border-slate-200 text-slate-455 cursor-not-allowed italic font-normal' : 'bg-white border-slate-200 text-slate-800'}`} 
+                          placeholder={isFieldDisabled(row.q3Variance) ? "No variance detected." : "Q3 Corrective..."} 
+                        />
                       </td>
 
-                      {/* Q4 Reporting Inputs */}
-                      <td className="p-2 border-r border-slate-100 bg-rose-50/20">
-                        <div className="mb-2 font-bold text-rose-900">{row.q4}</div>
-                        <div className="relative inline-block w-full">
-                          <button className={`w-full py-1 text-[9px] font-bold rounded border ${row.q4Poes && row.q4Poes.length > 0 ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'} transition-colors flex items-center justify-center gap-1`}>
-                            <Upload className="w-2.5 h-2.5" /> {row.q4Poes && row.q4Poes.length > 0 ? `${row.q4Poes.length} POE attached` : 'Upload POE'}
-                          </button>
-                          <input 
-                            type="file" multiple 
-                            className="absolute inset-0 opacity-0 cursor-pointer w-full"
-                            onChange={(e) => {
-                              if (!e.target.files) return;
-                              const names = Array.from(e.target.files).map(f => f.name);
-                              handleCellChange(row.id, 'q4Poes', [...(row.q4Poes || []), ...names] as any);
-                              handleCellChange(row.id, 'poeStatus', 'Attached');
-                            }}
+                      {/* Q4 Expenditure (Moved before POE) */}
+                      <td className="p-2 border-r border-slate-100 bg-teal-50/10">
+                        <input 
+                          type="text"
+                          disabled={!isOpex(row.budgetAllocation)}
+                          value={isOpex(row.budgetAllocation) ? (row.q4Expenditure || '') : (() => {
+                            const total = parseBudgetNum(row.budgetAllocation);
+                            return total > 0 ? `R ${Math.round(total / 4).toLocaleString()}` : 'R 0';
+                          })()}
+                          onChange={(e) => handleCellChange(row.id, 'q4Expenditure', e.target.value)}
+                          className={`w-full bg-white border border-slate-200 p-1 rounded text-[11px] font-bold ${!isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-500 cursor-not-allowed border-slate-200' : 'text-slate-800'}`}
+                          placeholder="Q4 Exp..."
+                        />
+                      </td>
+
+                      {/* Q4 POE Column */}
+                      <td className="p-2 border-r border-slate-100 bg-rose-50/10">
+                        <div className="space-y-2">
+                          <textarea 
+                            rows={2}
+                            value={row.q4PoeDesc || ''}
+                            onChange={(e) => handleCellChange(row.id, 'q4PoeDesc', e.target.value)}
+                            className="w-full bg-white border border-slate-200 p-1 focus:ring-1 focus:ring-rose-300 rounded text-[10px]"
+                            placeholder="Q4 POE Description..."
                           />
+                          {row.q4Poes && row.q4Poes.length > 0 && (
+                            <div className="text-[10px] bg-emerald-50/75 p-1 border border-emerald-100 rounded text-emerald-800 truncate" title={row.q4Poes[row.q4Poes.length - 1]}>
+                              📄 {row.q4Poes[row.q4Poes.length - 1]}
+                            </div>
+                          )}
+                          <div className="flex gap-1">
+                            <button 
+                              onClick={() => triggerUploadModal(row.id, row.refNum, 'q4')}
+                              className="flex-1 py-1 text-[9px] font-bold rounded border bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                              title="Upload/Edit POE"
+                            >
+                              <Upload className="w-2.5 h-2.5" /> Upload/Edit
+                            </button>
+                            {((row.q4Poes && row.q4Poes.length > 0) || row.q4PoeDesc) && (
+                              confirmDelete?.rowId === row.id && confirmDelete?.type === 'q4' ? (
+                                <div className="flex flex-col gap-1 bg-rose-50 border border-rose-200 p-1 rounded min-w-[80px]">
+                                  <span className="text-[8px] text-rose-800 font-bold text-center leading-none">Are you sure?</span>
+                                  <div className="flex gap-1 justify-center">
+                                    <button
+                                      onClick={() => {
+                                        clearQuarterPoe(row.id, 'q4');
+                                        setConfirmDelete(null);
+                                      }}
+                                      className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[8px] font-bold cursor-pointer hover:bg-rose-700"
+                                    >
+                                      Yes
+                                    </button>
+                                    <button
+                                      onClick={() => setConfirmDelete(null)}
+                                      className="px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded text-[8px] font-bold cursor-pointer hover:bg-slate-300"
+                                    >
+                                      No
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <button 
+                                  onClick={() => setConfirmDelete({ rowId: row.id, type: 'q4' })}
+                                  className="p-1 text-[9px] font-bold rounded border bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 transition-colors flex items-center justify-center cursor-pointer"
+                                  title="Delete POE and Description"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              )
+                            )}
+                          </div>
                         </div>
                       </td>
+
+                      {/* Q4 TARGET Column */}
+                      <td className="p-2 border-r border-slate-100 bg-rose-50/20 text-center">
+                        <div className="font-bold text-rose-900 text-xs">{row.q4 || '-'}</div>
+                      </td>
+
                       <td className="p-2 border-r border-slate-100 bg-rose-50/5 relative">
                         <textarea rows={3} value={row.q4Actual || ''} onChange={(e) => handleCellChange(row.id, 'q4Actual', e.target.value)} className="w-full bg-white border border-slate-200 p-1 focus:ring-1 focus:ring-rose-300 rounded text-[11px]" placeholder="Q4 Actual..." />
                         {row.q4Actual && row.q4 && row.q4Actual !== row.q4 && (
@@ -1312,7 +1938,24 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                         </div>
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-rose-50/5">
-                        <textarea rows={3} value={row.q4Corrective || ''} onChange={(e) => handleCellChange(row.id, 'q4Corrective', e.target.value)} className="w-full bg-white border border-slate-200 p-1 focus:ring-1 focus:ring-rose-300 rounded text-[11px]" placeholder="Q4 Corrective..." />
+                        <textarea 
+                          rows={3} 
+                          value={row.q4Corrective || ''} 
+                          disabled={isFieldDisabled(row.q4Variance)}
+                          onChange={(e) => handleCellChange(row.id, 'q4Corrective', e.target.value)} 
+                          className={`w-full p-1 focus:ring-1 focus:ring-rose-300 rounded text-[11px] transition-colors ${isFieldDisabled(row.q4Variance) ? 'bg-slate-50 border-slate-200 text-slate-450 cursor-not-allowed italic font-normal' : 'bg-white border-slate-200 text-slate-800'}`} 
+                          placeholder={isFieldDisabled(row.q4Variance) ? "No variance detected." : "Q4 Corrective..."} 
+                        />
+                      </td>
+
+                      <td className="p-2 border-r border-slate-100 bg-slate-50/5">
+                        <input 
+                          type="text" 
+                          value={row.responsibleUnit || ''}
+                          onChange={(e) => handleCellChange(row.id, 'responsibleUnit', e.target.value)}
+                          className="w-full bg-white border border-slate-200 p-1 focus:ring-1 focus:ring-indigo-300 rounded text-[11px]"
+                          placeholder="Responsible Unit..."
+                        />
                       </td>
 
                       <td className="p-2 text-center text-[10px] text-slate-500">
@@ -1354,12 +1997,41 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                 <Upload className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-black uppercase text-slate-900">Upload Portfolio of Evidence (POE)</h3>
-                <p className="text-[10px] text-slate-500">Ref: {poeModal.refNum} (Stored per municipality under /sdbip/ unique folder)</p>
+                <h3 className="text-sm font-black uppercase text-slate-900">
+                  Upload Portfolio of Evidence (POE)
+                  {poeModal.quarter && poeModal.quarter !== 'general' ? ` - ${poeModal.quarter.toUpperCase()}` : ''}
+                </h3>
+                <p className="text-[10px] text-slate-500 font-mono">Ref: {poeModal.refNum} (Stored securely on Supabase cloud database)</p>
               </div>
             </div>
 
             <form onSubmit={handlePoeSubmit} className="space-y-4">
+              
+              {/* Actual File Selector Component */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-400 uppercase font-mono tracking-wider block">Select File (Actual Upload)</label>
+                <div className="border-2 border-dashed border-slate-200 hover:border-indigo-400 rounded-xl p-4 text-center cursor-pointer transition-colors relative bg-slate-50 hover:bg-indigo-50/20 group">
+                  <Upload className="w-6 h-6 text-indigo-500 mx-auto mb-1 animate-pulse" />
+                  <span className="text-[11px] font-bold text-slate-700 group-hover:text-indigo-600 block">
+                    Click to select file or drag & drop here
+                  </span>
+                  <span className="text-[9px] text-slate-400 block mt-0.5">
+                    Supports PDF, DOCX, XLSX, images (Max 15MB)
+                  </span>
+                  <input 
+                    type="file" 
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                    onChange={(e) => {
+                      if (!e.target.files || e.target.files.length === 0) return;
+                      const file = e.target.files[0];
+                      setPoeFileName(file.name);
+                      const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+                      setPoeFileSize(`${sizeMB} MB`);
+                    }}
+                  />
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <label className="text-[10px] font-bold text-slate-400 uppercase font-mono tracking-wider block">Document File Name</label>
                 <input 
@@ -1375,29 +2047,37 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-slate-400 uppercase font-mono tracking-wider block">File size</label>
-                  <select 
+                  <input
+                    type="text"
                     value={poeFileSize}
                     onChange={(e) => setPoeFileSize(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 text-xs rounded-xl cursor-not-allowed bg-slate-50"
-                    disabled
-                  >
-                    <option value="1.5 MB">1.5 MB</option>
-                    <option value="2.8 MB">2.8 MB</option>
-                    <option value="4.2 MB">4.2 MB</option>
-                    <option value="5.6 MB">5.6 MB</option>
-                  </select>
+                    className="w-full px-3 py-2 border border-slate-200 text-xs rounded-xl bg-slate-50 text-slate-600 font-semibold"
+                    placeholder="e.g. 1.5 MB"
+                  />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-slate-400 uppercase font-mono tracking-wider block">Format</label>
-                  <span className="w-full block px-3 py-2 bg-slate-50 border border-slate-200 text-xs text-slate-500 font-bold rounded-xl font-mono">
-                    PDF / COMPLIANT DOCUMENT
+                  <span className="w-full block px-3 py-2 bg-slate-50 border border-slate-200 text-xs text-slate-500 font-bold rounded-xl font-mono text-center">
+                    COMPLIANT DOCUMENT
                   </span>
                 </div>
               </div>
 
-              <div className="p-3 bg-indigo-50 text-[11px] text-indigo-950 font-medium rounded-xl flex items-start gap-2 border border-indigo-100/50">
+              {/* POE DESCRIPTION FIELD - MANDATORY FOR USER REQUIREMENT */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-400 uppercase font-mono tracking-wider block">POE Document Description</label>
+                <textarea 
+                  value={poeDescription}
+                  onChange={(e) => setPoeDescription(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 text-xs rounded-xl outline-none focus:border-indigo-500 text-slate-800 font-medium min-h-[70px]"
+                  placeholder="Provide a precise, detailed description of this Portfolio of Evidence (e.g., 'CFO Signed June Water Distribution Receipts and General Ledger Extract for Q1')."
+                  required
+                />
+              </div>
+
+              <div className="p-3 bg-indigo-50 text-[10px] text-indigo-950 font-medium rounded-xl flex items-start gap-2 border border-indigo-100/50">
                 <Shield className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
-                <p className="leading-snug">Uploading this file automatically archives it inside the active municipality's Backup Archive. The table cell will update in real-time accordingly.</p>
+                <p className="leading-snug">Uploading this file stores it securely on Supabase cloud database inside the active municipality's Backup Archive. The table cell and description will update instantly.</p>
               </div>
 
               <div className="flex justify-end gap-3 pt-2">
@@ -1410,9 +2090,9 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                 </button>
                 <button 
                   type="submit"
-                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-lg"
+                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-lg transition-transform hover:scale-[1.02]"
                 >
-                  Simulate Upload & Save
+                  Confirm & Save POE
                 </button>
               </div>
             </form>

@@ -1,8 +1,10 @@
 import React, { useState, useMemo } from 'react';
+import * as XLSX from 'xlsx';
 import { 
   FileText, Search, Settings, Download, Upload, Cpu, LayoutTemplate, 
   Plus, Trash2, Check, ArrowRight, Info, AlertTriangle, User,
-  BarChart as BarChartIcon, TrendingUp, PieChart, FileCheck, Printer, ChevronRight, Download as DownloadIcon
+  BarChart as BarChartIcon, TrendingUp, PieChart, FileCheck, Printer, ChevronRight, Download as DownloadIcon,
+  FileSpreadsheet
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell
@@ -18,9 +20,9 @@ interface SDBIPDraftingSuiteProps {
 
 export function SDBIPDraftingSuite({ currentUser, activeTenantId, rows }: SDBIPDraftingSuiteProps) {
   const [activeTab, setActiveTab] = useState<'brief' | 'research' | 'template' | 'drafting' | 'reports'>('brief');
-  const [selectedQuarter, setSelectedQuarter] = useState<'q1' | 'q2' | 'midTerm' | 'q3' | 'q4'>('q1');
+  const [selectedQuarter, setSelectedQuarter] = useState<'q1' | 'q2' | 'midTerm' | 'q3' | 'q4' | 'annual'>('q1');
   const [draftingContent, setDraftingContent] = useState<string | undefined>(undefined);
-  const [reportPeriod, setReportPeriod] = useState<'q1' | 'q2' | 'midTerm' | 'q3' | 'q4'>('q1');
+  const [reportPeriod, setReportPeriod] = useState<'q1' | 'q2' | 'midTerm' | 'q3' | 'q4' | 'annual'>('q1');
 
   const handleAdoptTemplate = (html: string) => {
     setDraftingContent(html);
@@ -159,13 +161,187 @@ function PageFooter({ pageNumber, title }: { pageNumber: number, title: string }
   );
 }
 
-function ReportDocument({ rows, selectedQuarter, currentUser, id = "template-content" }: { rows: SdbipRow[], selectedQuarter: 'q1' | 'q2' | 'midTerm' | 'q3' | 'q4', currentUser: any, id?: string }) {
+function getRagDetails(row: SdbipRow) {
+  const quarters = [
+    { target: row.q1, actual: row.q1Actual },
+    { target: row.q2, actual: row.q2Actual },
+    { target: row.q3, actual: row.q3Actual },
+    { target: row.q4, actual: row.q4Actual },
+  ];
+
+  const parseNum = (s: string | undefined | null) => {
+    if (s === undefined || s === null) return NaN;
+    const cleaned = s.toString().replace(/[^0-9.-]/g, '');
+    if (!cleaned) return NaN;
+    return parseFloat(cleaned);
+  };
+
+  let totalTarget = 0;
+  let totalActual = 0;
+  let hasReportingData = false;
+
+  quarters.forEach(q => {
+    const tNum = parseNum(q.target);
+    const aNum = parseNum(q.actual);
+    if (!isNaN(tNum)) {
+      totalTarget += tNum;
+      hasReportingData = true;
+    }
+    if (!isNaN(aNum)) {
+      totalActual += aNum;
+      hasReportingData = true;
+    }
+  });
+
+  if (!hasReportingData) {
+    return {
+      status: 'none' as const,
+      face: '😐',
+      label: 'No Data',
+      bgClass: 'bg-slate-50',
+      borderClass: 'border-slate-200',
+      textClass: 'text-slate-500',
+      tooltip: 'No target/actual data entered.'
+    };
+  }
+
+  if (totalTarget === 0) {
+    if (totalActual >= 0) {
+      return {
+        status: 'green' as const,
+        face: '😊',
+        label: 'Happy',
+        bgClass: 'bg-emerald-50',
+        borderClass: 'border-emerald-200',
+        textClass: 'text-emerald-700',
+        tooltip: 'No target set, performance is positive.'
+      };
+    } else {
+      return {
+        status: 'red' as const,
+        face: '😡',
+        label: 'Angry',
+        bgClass: 'bg-rose-50',
+        borderClass: 'border-rose-200',
+        textClass: 'text-rose-700',
+        tooltip: 'No target set, performance is negative.'
+      };
+    }
+  }
+
+  const achievementRate = totalActual / totalTarget;
+  const ratePercent = Math.round(achievementRate * 100);
+
+  if (achievementRate >= 1.0) {
+    return {
+      status: 'green' as const,
+      face: '😊',
+      label: 'Happy',
+      bgClass: 'bg-emerald-50',
+      borderClass: 'border-emerald-200',
+      textClass: 'text-emerald-700',
+      tooltip: `Exceeds or meets target! Achievement Rate: ${ratePercent}% (${totalActual} actual vs ${totalTarget} target)`
+    };
+  } else if (achievementRate >= 0.70) {
+    return {
+      status: 'amber' as const,
+      face: '☹️',
+      label: 'Sad',
+      bgClass: 'bg-amber-50',
+      borderClass: 'border-amber-200',
+      textClass: 'text-amber-700',
+      tooltip: `Under target with minor variance. Achievement Rate: ${ratePercent}% (${totalActual} actual vs ${totalTarget} target)`
+    };
+  } else {
+    return {
+      status: 'red' as const,
+      face: '😡',
+      label: 'Angry',
+      bgClass: 'bg-rose-50',
+      borderClass: 'border-rose-200',
+      textClass: 'text-rose-700',
+      tooltip: `Significant underperformance. Achievement Rate: ${ratePercent}% (${totalActual} actual vs ${totalTarget} target)`
+    };
+  }
+}
+
+function getRowKpa(row: SdbipRow): string {
+  if (row.bsd === 'Y' || row.bsd === 'X') return 'BSD';
+  if (row.led === 'Y' || row.led === 'X') return 'LED';
+  if (row.mfvm === 'Y' || row.mfvm === 'X') return 'MFVM';
+  if (row.ggpp === 'Y' || row.ggpp === 'X') return 'GGPP';
+  if (row.midt === 'Y' || row.midt === 'X') return 'MIDT';
+  if (row.sr === 'Y' || row.sr === 'X') return 'SR';
+  return 'SDBIP';
+}
+
+function sumStringValues(values: (string | undefined)[]): string {
+  const activeValues = values.map(v => (v || '').trim()).filter(v => v !== '' && v !== '-');
+  if (activeValues.length === 0) return '-';
+
+  const hasNumbers = activeValues.some(v => /\d/.test(v));
+  if (!hasNumbers) {
+    return Array.from(new Set(activeValues)).join(' + ');
+  }
+
+  let total = 0;
+  let isCurrency = false;
+  let isPercent = false;
+
+  activeValues.forEach(val => {
+    if (val.toLowerCase().includes('r')) {
+      isCurrency = true;
+    }
+    if (val.includes('%')) {
+      isPercent = true;
+    }
+    const cleanVal = val.replace(/[R$\s%,]/gi, '');
+    const num = parseFloat(cleanVal);
+    if (!isNaN(num)) {
+      total += num;
+    }
+  });
+
+  let formattedTotal = '';
+  if (Number.isInteger(total)) {
+    formattedTotal = total.toLocaleString('en-ZA');
+  } else {
+    // If float has fractional part, display up to 2 decimals, otherwise strip trailing zeros
+    const fixed = total.toFixed(2);
+    if (fixed.endsWith('.00')) {
+      formattedTotal = Math.round(total).toLocaleString('en-ZA');
+    } else {
+      formattedTotal = parseFloat(fixed).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+  }
+
+  if (isCurrency) {
+    return `R ${formattedTotal}`;
+  }
+  if (isPercent) {
+    return `${formattedTotal}%`;
+  }
+  return formattedTotal;
+}
+
+function getCombinedPoesText(row: SdbipRow, quarters: number[]): string {
+  return quarters.map(q => {
+    const poeDesc = (row as any)[`q${q}PoeDesc`] || '';
+    const poes = (row as any)[`q${q}Poes`] || [];
+    if (!poeDesc && poes.length === 0) return '';
+    const fileStr = poes.length > 0 ? ` (Files: ${poes.join(', ')})` : '';
+    return `Q${q}: ${poeDesc || 'Submitted'}${fileStr}`;
+  }).filter(Boolean).join('; ');
+}
+
+function ReportDocument({ rows, selectedQuarter, currentUser, id = "template-content" }: { rows: SdbipRow[], selectedQuarter: 'q1' | 'q2' | 'midTerm' | 'q3' | 'q4' | 'annual', currentUser: any, id?: string }) {
   const quarterDates: Record<string, string> = {
     q1: 'September 30, 2025',
     q2: 'December 31, 2025',
     midTerm: 'December 31, 2025',
     q3: 'March 31, 2026',
-    q4: 'June 30, 2026'
+    q4: 'June 30, 2026',
+    annual: 'June 30, 2026'
   };
 
   const currentEndDate = quarterDates[selectedQuarter];
@@ -185,6 +361,9 @@ function ReportDocument({ rows, selectedQuarter, currentUser, id = "template-con
       const kpaRows = rows.filter(r => (r as any)[kpa] === 'Y' || (r as any)[kpa] === 'X');
       const total = kpaRows.length;
       const achieved = kpaRows.filter(r => {
+        if (selectedQuarter === 'annual') {
+          return getRagDetails(r).status === 'green';
+        }
         const target = (r as any)[selectedQuarter];
         const actual = (r as any)[`${selectedQuarter}Actual`];
         return target && actual && target === actual;
@@ -200,6 +379,17 @@ function ReportDocument({ rows, selectedQuarter, currentUser, id = "template-con
   }, [rows, selectedQuarter]);
 
   const summaryData = useMemo(() => {
+    if (selectedQuarter === 'annual') {
+      const total = rows.length;
+      const achieved = rows.filter(r => {
+        const d = getRagDetails(r);
+        return d.status === 'green';
+      }).length;
+      return [
+        { name: 'Total SDBIP KPIs Assessed', value: total },
+        { name: 'KPIs Achieved (Green RAG)', value: achieved }
+      ];
+    }
     const total = rows.filter(r => r[selectedQuarter]).length;
     const achieved = rows.filter(r => {
       const target = r[selectedQuarter];
@@ -216,12 +406,35 @@ function ReportDocument({ rows, selectedQuarter, currentUser, id = "template-con
   const quarterLabels: Record<string, string> = {
     q1: '1st Quarter',
     q2: '2nd Quarter',
-    midTerm: 'Mid-Term',
+    midTerm: 'Mid-Term Review',
     q3: '3rd Quarter',
-    q4: '4th Quarter'
+    q4: '4th Quarter',
+    annual: 'Annual Consolidated'
   };
 
   const reportTitle = `SDBIP ${quarterLabels[selectedQuarter]} REPORT 2025/2026`;
+
+  const renderQuarterMiniCell = (row: any, qKey: 'q1' | 'q2' | 'q3' | 'q4') => {
+    const target = row[qKey] || '-';
+    const actual = row[`${qKey}Actual`] || '-';
+    const exp = row[`${qKey}Expenditure`] || '-';
+    const poes = row[`${qKey}Poes`] || [];
+    const poeDesc = row[`${qKey}PoeDesc`] || '';
+    
+    return (
+      <div className="flex flex-col gap-0.5 text-[7px] bg-slate-50 p-1 rounded border border-slate-100 min-w-[100px] leading-tight">
+        <div><span className="font-extrabold text-indigo-700">T:</span> {target}</div>
+        <div><span className="font-extrabold text-emerald-700">A:</span> {actual}</div>
+        <div><span className="font-extrabold text-amber-700">E:</span> {exp}</div>
+        {poeDesc && <div className="text-slate-500 italic truncate" title={poeDesc}><span className="font-semibold text-slate-700">P:</span> {poeDesc}</div>}
+        {poes && poes.length > 0 && (
+          <div className="text-[6px] text-emerald-800 bg-emerald-50 px-1 py-0.5 rounded truncate" title={poes.join(', ')}>
+            📄 {poes[poes.length - 1]}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div id={id} className="bg-white w-full max-w-[297mm] justify-center mx-auto shadow-[0_0_50px_rgba(0,0,0,0.1)] text-slate-800">
@@ -456,44 +669,188 @@ function ReportDocument({ rows, selectedQuarter, currentUser, id = "template-con
               </div>
               
               <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-[9px] border border-slate-300 shadow-sm text-black">
+                <table className="w-full border-collapse text-[8px] border border-slate-300 shadow-sm text-black">
                   <thead className="bg-[#cbd5e1] text-black uppercase text-left break-inside-avoid">
-                    <tr>
-                      <th className="border border-slate-400 p-2 font-black w-20">Ref</th>
-                      <th className="border border-slate-400 p-2 font-black w-48">Indicator (KPI)</th>
-                      <th className="border border-slate-400 p-2 font-black">Baseline</th>
-                      <th className="border border-slate-400 p-2 font-black">Annual Target</th>
-                      <th className="border border-slate-400 p-2 font-black bg-indigo-200">Target</th>
-                      <th className="border border-slate-400 p-2 font-black bg-emerald-200">Actual</th>
-                      <th className="border border-slate-400 p-2 font-black">Variance / Issue</th>
-                      <th className="border border-slate-400 p-2 font-black">Corrective Action</th>
-                    </tr>
+                    {selectedQuarter === 'annual' ? (
+                      <tr>
+                        <th className="border border-slate-400 p-2 font-black w-10">KPA</th>
+                        <th className="border border-slate-400 p-2 font-black w-10">Ref</th>
+                        <th className="border border-slate-400 p-2 font-black w-32">Indicators (KPI)</th>
+                        <th className="border border-slate-400 p-2 font-black w-12">Total Budget</th>
+                        <th className="border border-slate-400 p-2 font-black text-center w-8">RAG</th>
+                        <th className="border border-slate-400 p-2 font-black bg-indigo-50 w-24">Q1,q2,q3,q4 Targets</th>
+                        <th className="border border-slate-400 p-2 font-black bg-emerald-50 w-24">q1,q2,q3,q4 Actuals</th>
+                        <th className="border border-slate-400 p-2 font-black bg-teal-50 w-24">q1, q2, q3, q4 expenditures</th>
+                        <th className="border border-slate-400 p-2 font-black bg-amber-50 w-28">q1, q2, q3, q4 poes</th>
+                        <th className="border border-slate-400 p-2 font-black w-16">variance/issue</th>
+                        <th className="border border-slate-400 p-2 font-black w-16">corrective action</th>
+                      </tr>
+                    ) : selectedQuarter === 'midTerm' ? (
+                      <tr>
+                        <th className="border border-slate-400 p-2 font-black w-10">KPA</th>
+                        <th className="border border-slate-400 p-2 font-black w-10">Ref</th>
+                        <th className="border border-slate-400 p-2 font-black w-32">Indicator (KPI)</th>
+                        <th className="border border-slate-400 p-2 font-black w-12">Total Budget</th>
+                        <th className="border border-slate-400 p-2 font-black text-center w-8">RAG</th>
+                        <th className="border border-slate-400 p-2 font-black bg-indigo-50 w-20">Q1 + Q2 Targets</th>
+                        <th className="border border-slate-400 p-2 font-black bg-emerald-50 w-20">Q1 + Q2 Actuals</th>
+                        <th className="border border-slate-400 p-2 font-black bg-teal-50 w-20">Q1 + Q2 expenditures</th>
+                        <th className="border border-slate-400 p-2 font-black bg-amber-50 w-24">q1 + q2 poes</th>
+                        <th className="border border-slate-400 p-2 font-black w-16">variance/issue</th>
+                        <th className="border border-slate-400 p-2 font-black w-16">corrective action</th>
+                      </tr>
+                    ) : (
+                      <tr>
+                        <th className="border border-slate-400 p-2 font-black w-10">KPA</th>
+                        <th className="border border-slate-400 p-2 font-black w-10">Ref</th>
+                        <th className="border border-slate-400 p-2 font-black w-36">Indicator (KPI)</th>
+                        <th className="border border-slate-400 p-2 font-black w-14">total budget</th>
+                        <th className="border border-slate-400 p-2 font-black text-center w-8">RAG</th>
+                        <th className="border border-slate-400 p-2 font-black bg-indigo-200 w-24">{selectedQuarter.toUpperCase()} Target</th>
+                        <th className="border border-slate-400 p-2 font-black bg-emerald-200 w-24">{selectedQuarter.toUpperCase()} Actual</th>
+                        <th className="border border-slate-400 p-2 font-black bg-teal-100 w-24">{selectedQuarter.toLowerCase()} expenditure</th>
+                        <th className="border border-slate-400 p-2 font-black bg-amber-100 w-28">{selectedQuarter.toLowerCase()} poe</th>
+                        <th className="border border-slate-400 p-2 font-black w-20">variance/issue</th>
+                        <th className="border border-slate-400 p-2 font-black w-20">corrective action</th>
+                      </tr>
+                    )}
                   </thead>
                   <tbody>
                     {rows.filter(r => (r as any)[['bsd', 'led', 'mfvm', 'ggpp', 'midt', 'sr'][idx]] === 'Y' || (r as any)[['bsd', 'led', 'mfvm', 'ggpp', 'midt', 'sr'][idx]] === 'X').map((row, rIdx) => {
-                      const target = (row as any)[selectedQuarter];
-                      const actual = (row as any)[`${selectedQuarter}Actual`];
-                      const variance = (row as any)[`${selectedQuarter}Variance`] || '-';
-                      const corrective = (row as any)[`${selectedQuarter}Corrective`] || '-';
-                      const isAchieved = target && actual && target === actual;
-                      const bgColor = isAchieved ? 'bg-emerald-100' : (actual && !isAchieved ? 'bg-rose-100' : '');
+                      const rag = getRagDetails(row);
+                      const kpaLabel = getRowKpa(row);
                       
-                      return (
-                        <tr key={rIdx} className={`border-b break-inside-avoid text-black font-medium ${bgColor}`}>
-                          <td className="border border-slate-300 p-2 font-bold font-mono">{row.refNum}</td>
-                          <td className="border border-slate-300 p-2 font-bold leading-tight">{row.kpi}</td>
-                          <td className="border border-slate-300 p-2 font-medium">{row.baseline || '-'}</td>
-                          <td className="border border-slate-300 p-2 font-medium">{row.annualTarget || '-'}</td>
-                          <td className="border border-slate-300 p-2 font-bold border-indigo-300">
-                            {selectedQuarter === 'midTerm' ? (row.midTermTarget || `${row.q1 || '-'}/${row.q2 || '-'}`) : target || '-'}
-                          </td>
-                          <td className="border border-slate-300 p-2 font-bold border-emerald-300">
-                            {selectedQuarter === 'midTerm' ? (row.midTermActual || `${row.q1Actual || '-'}/${row.q2Actual || '-'}`) : actual || '-'}
-                          </td>
-                          <td className="border border-slate-300 p-2 italic text-rose-900 font-bold">{variance}</td>
-                          <td className="border border-slate-300 p-2 font-medium">{corrective}</td>
-                        </tr>
-                      );
+                      if (selectedQuarter === 'annual') {
+                        const variance = row.q4Variance || row.q3Variance || row.q2Variance || row.q1Variance || '-';
+                        const corrective = row.q4Corrective || row.q3Corrective || row.q2Corrective || row.q1Corrective || '-';
+                        const isAchieved = rag.status === 'green';
+                        const bgColor = isAchieved ? 'bg-emerald-50/70' : (rag.status === 'red' ? 'bg-rose-50/50' : 'bg-amber-50/50');
+                        
+                        return (
+                          <tr key={rIdx} className={`border-b break-inside-avoid text-black font-medium ${bgColor}`}>
+                            <td className="border border-slate-300 p-1.5 font-black text-center text-[7px] text-slate-600 bg-slate-100/50">{kpaLabel}</td>
+                            <td className="border border-slate-300 p-1.5 font-bold font-mono text-center">{row.refNum}</td>
+                            <td className="border border-slate-300 p-1.5 font-bold leading-tight">{row.kpi}</td>
+                            <td className="border border-slate-300 p-1.5 font-bold text-slate-700">{row.budgetAllocation || 'Opex'}</td>
+                            <td className="border border-slate-300 p-1.5 text-center">
+                              <span className="text-xs" title={rag.tooltip}>{rag.face}</span>
+                            </td>
+                            <td className="border border-slate-300 p-1.5 font-bold text-indigo-800 text-xs text-center">
+                              {sumStringValues([row.q1, row.q2, row.q3, row.q4])}
+                            </td>
+                            <td className="border border-slate-300 p-1.5 font-bold text-emerald-800 text-xs text-center">
+                              {sumStringValues([row.q1Actual, row.q2Actual, row.q3Actual, row.q4Actual])}
+                            </td>
+                            <td className="border border-slate-300 p-1.5 font-medium text-slate-700 text-xs text-center">
+                              {sumStringValues([row.q1Expenditure, row.q2Expenditure, row.q3Expenditure, row.q4Expenditure])}
+                            </td>
+                            <td className="border border-slate-300 p-1">
+                              <div className="flex flex-col gap-0.5 text-[6px] leading-tight text-slate-600">
+                                {[1, 2, 3, 4].map(q => {
+                                  const poeDesc = (row as any)[`q${q}PoeDesc`] || '';
+                                  const poes = (row as any)[`q${q}Poes`] || [];
+                                  if (!poeDesc && poes.length === 0) return null;
+                                  return (
+                                    <div key={q} className="border-b border-slate-100 last:border-0 pb-0.5 mb-0.5 last:pb-0 last:mb-0">
+                                      <span className="font-bold text-slate-500 mr-0.5">Q{q}:</span>
+                                      <span className="truncate" title={poeDesc}>{poeDesc || 'Submitted'}</span>
+                                      {poes.length > 0 && <span className="text-emerald-800 ml-1">📄</span>}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </td>
+                            <td className="border border-slate-300 p-1.5 italic text-rose-900 font-bold leading-tight">{variance}</td>
+                            <td className="border border-slate-300 p-1.5 font-medium leading-tight">{corrective}</td>
+                          </tr>
+                        );
+                      } else if (selectedQuarter === 'midTerm') {
+                        const target1 = row.q1 || '-';
+                        const actual1 = row.q1Actual || '-';
+                        const target2 = row.q2 || '-';
+                        const actual2 = row.q2Actual || '-';
+                        const variance = row.midTermVariance || row.q2Variance || row.q1Variance || '-';
+                        const corrective = row.midTermCorrective || row.q2Corrective || row.q1Corrective || '-';
+                        
+                        const isAchieved = (target1 === actual1) && (target2 === actual2);
+                        const bgColor = isAchieved ? 'bg-emerald-50/50' : 'bg-amber-50/30';
+                        
+                        return (
+                          <tr key={rIdx} className={`border-b break-inside-avoid text-black font-medium ${bgColor}`}>
+                            <td className="border border-slate-300 p-1.5 font-black text-center text-[7px] text-slate-600 bg-slate-100/50">{kpaLabel}</td>
+                            <td className="border border-slate-300 p-1.5 font-bold font-mono text-center">{row.refNum}</td>
+                            <td className="border border-slate-300 p-1.5 font-bold leading-tight">{row.kpi}</td>
+                            <td className="border border-slate-300 p-1.5 font-bold text-slate-700">{row.budgetAllocation || 'Opex'}</td>
+                            <td className="border border-slate-300 p-1.5 text-center">
+                              <span className="text-xs" title={rag.tooltip}>{rag.face}</span>
+                            </td>
+                            <td className="border border-slate-300 p-1.5 font-bold text-indigo-800 text-xs text-center">
+                              {sumStringValues([row.q1, row.q2])}
+                            </td>
+                            <td className="border border-slate-300 p-1.5 font-bold text-emerald-800 text-xs text-center">
+                              {sumStringValues([row.q1Actual, row.q2Actual])}
+                            </td>
+                            <td className="border border-slate-300 p-1.5 font-medium text-slate-700 text-xs text-center">
+                              {sumStringValues([row.q1Expenditure, row.q2Expenditure])}
+                            </td>
+                            <td className="border border-slate-300 p-1.5 text-left">
+                              <div className="flex flex-col gap-0.5 text-[6px] leading-tight text-slate-600">
+                                {[1, 2].map(q => {
+                                  const poeDesc = (row as any)[`q${q}PoeDesc`] || '';
+                                  const poes = (row as any)[`q${q}Poes`] || [];
+                                  if (!poeDesc && poes.length === 0) return null;
+                                  return (
+                                    <div key={q} className="border-b border-slate-100 last:border-0 pb-0.5 mb-0.5 last:pb-0 last:mb-0">
+                                      <span className="font-bold text-slate-500 mr-0.5">Q{q}:</span>
+                                      <span className="truncate" title={poeDesc}>{poeDesc || 'Submitted'}</span>
+                                      {poes.length > 0 && <span className="text-emerald-800 ml-1">📄</span>}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </td>
+                            <td className="border border-slate-300 p-1.5 italic text-rose-900 font-bold leading-tight">{variance}</td>
+                            <td className="border border-slate-300 p-1.5 font-medium leading-tight">{corrective}</td>
+                          </tr>
+                        );
+                      } else {
+                        // specific quarter
+                        const target = (row as any)[selectedQuarter] || '-';
+                        const actual = (row as any)[`${selectedQuarter}Actual`] || '-';
+                        const exp = (row as any)[`${selectedQuarter}Expenditure`] || '-';
+                        const variance = (row as any)[`${selectedQuarter}Variance`] || '-';
+                        const corrective = (row as any)[`${selectedQuarter}Corrective`] || '-';
+                        const poes = (row as any)[`${selectedQuarter}Poes`] || [];
+                        const poeDesc = (row as any)[`${selectedQuarter}PoeDesc`] || '';
+                        
+                        const isAchieved = target && actual && target === actual;
+                        const bgColor = isAchieved ? 'bg-emerald-50/70' : (actual && !isAchieved ? 'bg-rose-50/50' : '');
+                        
+                        return (
+                          <tr key={rIdx} className={`border-b break-inside-avoid text-black font-medium ${bgColor}`}>
+                            <td className="border border-slate-300 p-1.5 font-black text-center text-[7px] text-slate-600 bg-slate-100/50">{kpaLabel}</td>
+                            <td className="border border-slate-300 p-1.5 font-bold font-mono text-center">{row.refNum}</td>
+                            <td className="border border-slate-300 p-1.5 font-bold leading-tight">{row.kpi}</td>
+                            <td className="border border-slate-300 p-1.5 font-bold text-slate-700">{row.budgetAllocation || 'Opex'}</td>
+                            <td className="border border-slate-300 p-1.5 text-center">
+                              <span className="text-xs" title={rag.tooltip}>{rag.face}</span>
+                            </td>
+                            <td className="border border-slate-300 p-1.5 font-bold text-indigo-700">{target}</td>
+                            <td className="border border-slate-300 p-1.5 font-bold text-emerald-700">{actual}</td>
+                            <td className="border border-slate-300 p-1.5 font-medium">{exp}</td>
+                            <td className="border border-slate-300 p-1.5">
+                              {poeDesc && <div className="text-[8px] text-slate-600 leading-tight mb-1">{poeDesc}</div>}
+                              {poes && poes.length > 0 && (
+                                <div className="text-[7px] text-emerald-850 bg-emerald-50 px-1 py-0.5 rounded truncate" title={poes.join(', ')}>
+                                  📄 {poes[poes.length - 1]}
+                                </div>
+                              )}
+                            </td>
+                            <td className="border border-slate-300 p-1.5 italic text-rose-900 font-bold leading-tight">{variance}</td>
+                            <td className="border border-slate-300 p-1.5 font-medium leading-tight">{corrective}</td>
+                          </tr>
+                        );
+                      }
                     })}
                   </tbody>
                 </table>
@@ -556,7 +913,7 @@ function ReportDocument({ rows, selectedQuarter, currentUser, id = "template-con
   );
 }
 
-function SDBIPTemplateTab({ rows, selectedQuarter, setSelectedQuarter, currentUser, onAdopt }: { rows: SdbipRow[], selectedQuarter: 'q1' | 'q2' | 'midTerm' | 'q3' | 'q4', setSelectedQuarter: (q: any) => void, currentUser: any, onAdopt: (html: string) => void }) {
+function SDBIPTemplateTab({ rows, selectedQuarter, setSelectedQuarter, currentUser, onAdopt }: { rows: SdbipRow[], selectedQuarter: 'q1' | 'q2' | 'midTerm' | 'q3' | 'q4' | 'annual', setSelectedQuarter: (q: any) => void, currentUser: any, onAdopt: (html: string) => void }) {
   return (
     <div className="h-full flex overflow-hidden bg-gray-50 animate-fade-in">
       <div className="w-80 border-r border-gray-200 bg-white p-6 overflow-y-auto">
@@ -574,6 +931,7 @@ function SDBIPTemplateTab({ rows, selectedQuarter, setSelectedQuarter, currentUs
               <option value="midTerm">Mid-Term Review (July - Dec)</option>
               <option value="q3">3rd Quarter (Jan - Mar)</option>
               <option value="q4">4th Quarter (Apr - June)</option>
+              <option value="annual">Annual Consolidated Report (Full Year)</option>
             </select>
           </div>
           
@@ -710,13 +1068,126 @@ function SDBIPReportsTab({ rows, currentUser, activeTenantId, period, setPeriod 
     setIsExportingWord(false);
   };
 
+  const exportToExcel = () => {
+    let headers: string[] = [];
+    let excelRows: any[][] = [];
+
+    const quarterLabels: Record<string, string> = {
+      q1: '1st Quarter',
+      q2: '2nd Quarter',
+      midTerm: 'Mid-Term Review',
+      q3: '3rd Quarter',
+      q4: '4th Quarter',
+      annual: 'Annual Consolidated'
+    };
+
+    if (period === 'annual') {
+      headers = [
+        'KPA', 'Ref Num', 'Indicator (KPI)', 'Total Budget', 'RAG Status',
+        'Q1,q2,q3,q4 Targets', 'q1,q2,q3,q4 Actuals', 'q1, q2, q3, q4 expenditures', 'q1, q2, q3, q4 poes',
+        'Variance / Issue', 'Corrective Action'
+      ];
+    } else if (period === 'midTerm') {
+      headers = [
+        'KPA', 'Ref Num', 'Indicator (KPI)', 'Total Budget', 'RAG Status',
+        'Q1 + Q2 Targets', 'Q1 + Q2 Actuals', 'Q1 + Q2 expenditures', 'q1 + q2 poes',
+        'Variance / Issue', 'Corrective Action'
+      ];
+    } else {
+      const qUpper = period.toUpperCase();
+      headers = [
+        'KPA', 'Ref Num', 'Indicator (KPI)', 'Total Budget', 'RAG Status',
+        `${qUpper} Target`, `${qUpper} Actual`, `${qUpper} Expenditure`, `${qUpper} POE Desc`, `${qUpper} POE Files`,
+        'Variance / Issue', 'Corrective Action'
+      ];
+    }
+
+    const kpas = ['bsd', 'led', 'mfvm', 'ggpp', 'midt', 'sr'];
+    const kpaNames: Record<string, string> = {
+      bsd: 'Basic Service Delivery',
+      led: 'Local Economic Development',
+      mfvm: 'Financial Viability',
+      ggpp: 'Good Governance',
+      midt: 'Institutional Dev',
+      sr: 'Spatial Transformation'
+    };
+
+    excelRows.push([`NKANGALA DISTRICT MUNICIPALITY - SDBIP ${quarterLabels[period].toUpperCase()} REPORT 2025/2026`]);
+    excelRows.push([]); 
+
+    kpas.forEach((kpa) => {
+      const kpaRows = rows.filter(r => (r as any)[kpa] === 'Y' || (r as any)[kpa] === 'X');
+      if (kpaRows.length === 0) return;
+
+      excelRows.push([kpaNames[kpa].toUpperCase()]);
+      excelRows.push(headers);
+
+      kpaRows.forEach(row => {
+        const rag = getRagDetails(row);
+        const ragLabel = rag.label + ' ' + rag.face;
+        
+        if (period === 'annual') {
+          excelRows.push([
+            getRowKpa(row),
+            row.refNum || '',
+            row.kpi || '',
+            row.budgetAllocation || 'Opex',
+            ragLabel,
+            sumStringValues([row.q1, row.q2, row.q3, row.q4]),
+            sumStringValues([row.q1Actual, row.q2Actual, row.q3Actual, row.q4Actual]),
+            sumStringValues([row.q1Expenditure, row.q2Expenditure, row.q3Expenditure, row.q4Expenditure]),
+            getCombinedPoesText(row, [1, 2, 3, 4]),
+            row.q4Variance || row.q3Variance || row.q2Variance || row.q1Variance || '',
+            row.q4Corrective || row.q3Corrective || row.q2Corrective || row.q1Corrective || ''
+          ]);
+        } else if (period === 'midTerm') {
+          excelRows.push([
+            getRowKpa(row),
+            row.refNum || '',
+            row.kpi || '',
+            row.budgetAllocation || 'Opex',
+            ragLabel,
+            sumStringValues([row.q1, row.q2]),
+            sumStringValues([row.q1Actual, row.q2Actual]),
+            sumStringValues([row.q1Expenditure, row.q2Expenditure]),
+            getCombinedPoesText(row, [1, 2]),
+            row.midTermVariance || row.q2Variance || row.q1Variance || '',
+            row.midTermCorrective || row.q2Corrective || row.q1Corrective || ''
+          ]);
+        } else {
+          excelRows.push([
+            getRowKpa(row),
+            row.refNum || '',
+            row.kpi || '',
+            row.budgetAllocation || 'Opex',
+            ragLabel,
+            (row as any)[period] || '',
+            (row as any)[`${period}Actual`] || '',
+            (row as any)[`${period}Expenditure`] || '',
+            (row as any)[`${period}PoeDesc`] || '',
+            ((row as any)[`${period}Poes`] || []).join(', '),
+            (row as any)[`${period}Variance`] || '',
+            (row as any)[`${period}Corrective`] || ''
+          ]);
+        }
+      });
+      excelRows.push([]); 
+    });
+
+    const worksheet = XLSX.utils.aoa_to_sheet(excelRows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'SDBIP Performance');
+    XLSX.writeFile(workbook, `SDBIP_Report_${period.toUpperCase()}_2025_2026.xlsx`);
+  };
+
   const exportToMarkdown = () => {
     const quarterLabels: Record<string, string> = {
       q1: '1st Quarter',
       q2: '2nd Quarter',
       midTerm: 'Mid-Term',
       q3: '3rd Quarter',
-      q4: '4th Quarter'
+      q4: '4th Quarter',
+      annual: 'Annual Consolidated'
     };
     const reportTitle = `SDBIP ${quarterLabels[period]} REPORT 2025/2026`;
 
@@ -771,7 +1242,7 @@ function SDBIPReportsTab({ rows, currentUser, activeTenantId, period, setPeriod 
     <div className="flex flex-col h-full bg-gray-50 animate-fade-in overflow-hidden">
       <div className="bg-white border-b border-gray-200 px-6 py-2 flex items-center justify-between shrink-0">
         <div className="flex gap-1">
-          {['q1', 'q2', 'midTerm', 'q3', 'q4'].map((p) => (
+          {['q1', 'q2', 'midTerm', 'q3', 'q4', 'annual'].map((p) => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
@@ -781,7 +1252,7 @@ function SDBIPReportsTab({ rows, currentUser, activeTenantId, period, setPeriod 
                   : "bg-gray-100 text-gray-500 hover:bg-gray-200"
               }`}
             >
-              {p === 'midTerm' ? 'Mid-Term Review' : p.toUpperCase()}
+              {p === 'midTerm' ? 'Mid-Term Review' : p === 'annual' ? 'Annual Consolidated' : p.toUpperCase()}
             </button>
           ))}
         </div>
@@ -791,6 +1262,9 @@ function SDBIPReportsTab({ rows, currentUser, activeTenantId, period, setPeriod 
           </button>
           <button onClick={exportToPDF} disabled={isExportingWord || isExportingPDF} className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 text-slate-700 text-[10px] font-bold rounded-lg hover:bg-slate-200 transition border border-slate-200 shadow-sm disabled:opacity-50">
             {isExportingPDF ? <span className="animate-pulse">Exporting...</span> : <><DownloadIcon className="w-3.5 h-3.5" /> PDF</>}
+          </button>
+          <button onClick={exportToExcel} className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600 text-white text-[10px] font-bold rounded-lg hover:bg-emerald-700 transition shadow-sm">
+            <FileSpreadsheet className="w-3.5 h-3.5" /> Excel
           </button>
           <button onClick={exportToMarkdown} className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 text-white text-[10px] font-bold rounded-lg hover:bg-slate-800 transition shadow-sm">
             <LayoutTemplate className="w-3.5 h-3.5" /> Markdown

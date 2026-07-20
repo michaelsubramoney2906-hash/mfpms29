@@ -24,7 +24,7 @@ interface FredExtractionAgentProps {
   activeTenantId: string;
 }
 
-type EngineType = 'sdbip_engine' | 'core_competencies_engine' | 'agreement_to_plan_engine' | 'jsc_pdp_engine';
+type EngineType = 'sdbip_engine' | 'core_competencies_engine' | 'agreement_to_plan_engine' | 'jsc_pdp_engine' | 'cfo_competencies_engine' | 'ped_competencies_engine' | 'corporate_services_competencies_engine';
 
 export function FredExtractionAgent({ currentUser, activeTenantId }: FredExtractionAgentProps) {
   const [selectedEngine, setSelectedEngine] = useState<EngineType>('sdbip_engine');
@@ -48,7 +48,7 @@ export function FredExtractionAgent({ currentUser, activeTenantId }: FredExtract
         setExtractionResult(null);
         setSuccessMsg(null);
         
-        const response = await fetch(`/api/tenant/${activeTenantId}/fred-extraction/${selectedEngine}`);
+        const response = await fetch(`/api/tenant/${activeTenantId}/fred-extraction/${selectedEngine}?userId=${currentUser?.email || 'default'}`);
         if (response.ok) {
           const json = await response.json();
           if (json.success && json.data) {
@@ -63,7 +63,7 @@ export function FredExtractionAgent({ currentUser, activeTenantId }: FredExtract
       }
     };
     fetchSavedRecord();
-  }, [activeTenantId, selectedEngine]);
+  }, [activeTenantId, selectedEngine, currentUser?.email]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -229,6 +229,42 @@ export function FredExtractionAgent({ currentUser, activeTenantId }: FredExtract
                   <span>JSC & PDP Engine</span>
                 </div>
                 <span className="text-[10px] text-slate-400">Extracts specific competencies, plans, and indicators</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedEngine('cfo_competencies_engine')}
+                className={`w-full text-left p-3.5 rounded-lg border text-xs transition duration-150 flex flex-col gap-1 ${selectedEngine === 'cfo_competencies_engine' ? 'bg-indigo-600/20 text-indigo-300 border-indigo-500 shadow-sm' : 'bg-slate-900 text-slate-400 border-slate-800 hover:bg-slate-800/50'}`}
+              >
+                <div className="flex items-center gap-2 font-bold text-white">
+                  <CheckSquare className="w-4 h-4 text-sky-400" />
+                  <span>CFO Core Competencies Engine</span>
+                </div>
+                <span className="text-[10px] text-slate-400">Extracts CFO competencies and maps to Core Competencies module</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedEngine('ped_competencies_engine')}
+                className={`w-full text-left p-3.5 rounded-lg border text-xs transition duration-150 flex flex-col gap-1 ${selectedEngine === 'ped_competencies_engine' ? 'bg-indigo-600/20 text-indigo-300 border-indigo-500 shadow-sm' : 'bg-slate-900 text-slate-400 border-slate-800 hover:bg-slate-800/50'}`}
+              >
+                <div className="flex items-center gap-2 font-bold text-white">
+                  <CheckSquare className="w-4 h-4 text-amber-400" />
+                  <span>PED Core Competencies Engine</span>
+                </div>
+                <span className="text-[10px] text-slate-400">Extracts PED core competencies and maps to Core Competencies module</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedEngine('corporate_services_competencies_engine')}
+                className={`w-full text-left p-3.5 rounded-lg border text-xs transition duration-150 flex flex-col gap-1 ${selectedEngine === 'corporate_services_competencies_engine' ? 'bg-indigo-600/20 text-indigo-300 border-indigo-500 shadow-sm' : 'bg-slate-900 text-slate-400 border-slate-800 hover:bg-slate-800/50'}`}
+              >
+                <div className="flex items-center gap-2 font-bold text-white">
+                  <CheckSquare className="w-4 h-4 text-pink-400" />
+                  <span>Corporate Services Core Competencies Engine</span>
+                </div>
+                <span className="text-[10px] text-slate-400">Extracts Corporate Services core competencies and maps to Core Competencies module</span>
               </button>
             </div>
 
@@ -497,6 +533,169 @@ export function FredExtractionAgent({ currentUser, activeTenantId }: FredExtract
                           </div>
                         </div>
                       ))}
+                    </div>
+                  </div>
+                )}
+
+                {selectedEngine === 'cfo_competencies_engine' && (
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center bg-slate-900/40 p-3 rounded-lg border border-slate-800/80">
+                      <div>
+                        <p className="text-[9px] uppercase font-black text-slate-500">Employee Name (CFO)</p>
+                        <h4 className="text-sm font-black text-white mt-0.5 flex items-center gap-1.5">
+                          <UserIcon className="w-4 h-4 text-sky-400" />
+                          {extractionResult.Employee_Name || "N/A"}
+                        </h4>
+                      </div>
+                      <span className="text-[10px] font-mono bg-sky-950/40 border border-sky-900/40 text-sky-400 px-2.5 py-0.5 rounded-full font-bold">
+                        {extractionResult.CFO_Core_Competencies?.length || 0} CFO Competencies Extracted
+                      </span>
+                    </div>
+
+                    <div className="overflow-x-auto border border-slate-800/80 rounded-lg">
+                      <table className="w-full text-left border-collapse text-[11px] font-sans">
+                        <thead>
+                          <tr className="bg-slate-900 border-b border-slate-800 text-slate-400 uppercase tracking-wider text-[9px] font-black">
+                            <th className="p-3">Competencies</th>
+                            <th className="p-3">Components</th>
+                            <th className="p-3">Competency Definition</th>
+                            <th className="p-3 text-center">Weighting %</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-850">
+                          {extractionResult.CFO_Core_Competencies?.map((comp: any, cIdx: number) => (
+                            <tr key={cIdx} className="hover:bg-slate-900/40 text-slate-300 transition-colors">
+                              <td className="p-3 font-bold text-white max-w-[150px] whitespace-normal">
+                                {comp.Competency || "N/A"}
+                              </td>
+                              <td className="p-3 max-w-[200px] whitespace-normal text-slate-400">
+                                {comp.Components || "N/A"}
+                              </td>
+                              <td className="p-3 max-w-[250px] whitespace-normal text-slate-300">
+                                {comp.Competency_Definition || "N/A"}
+                              </td>
+                              <td className="p-3 text-center font-mono text-sky-400 font-bold">
+                                {comp.Weighting_Percent || "0"}%
+                              </td>
+                            </tr>
+                          ))}
+                          {(!extractionResult.CFO_Core_Competencies || extractionResult.CFO_Core_Competencies.length === 0) && (
+                            <tr>
+                              <td colSpan={4} className="p-8 text-center text-slate-500 text-xs italic">
+                                No CFO competencies extracted. Please ensure the uploaded document contains CFO specific matrices.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {selectedEngine === 'ped_competencies_engine' && (
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center bg-slate-900/40 p-3 rounded-lg border border-slate-800/80">
+                      <div>
+                        <p className="text-[9px] uppercase font-black text-slate-500">Employee Name (PED)</p>
+                        <h4 className="text-sm font-black text-white mt-0.5 flex items-center gap-1.5">
+                          <UserIcon className="w-4 h-4 text-amber-400" />
+                          {extractionResult.Employee_Name || "N/A"}
+                        </h4>
+                      </div>
+                      <span className="text-[10px] font-mono bg-amber-950/40 border border-amber-900/40 text-amber-400 px-2.5 py-0.5 rounded-full font-bold">
+                        {extractionResult.PED_Core_Competencies?.length || 0} PED Competencies Extracted
+                      </span>
+                    </div>
+                    <div className="overflow-x-auto border border-slate-800/80 rounded-lg">
+                      <table className="w-full text-left border-collapse text-[11px] font-sans">
+                        <thead>
+                          <tr className="bg-slate-900 border-b border-slate-800 text-slate-400 uppercase tracking-wider text-[9px] font-black">
+                            <th className="p-3">Competencies</th>
+                            <th className="p-3">Components</th>
+                            <th className="p-3">Competency Definition</th>
+                            <th className="p-3 text-center">Weighting %</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-850">
+                          {extractionResult.PED_Core_Competencies?.map((comp: any, cIdx: number) => (
+                            <tr key={cIdx} className="hover:bg-slate-900/40 text-slate-300 transition-colors">
+                              <td className="p-3 font-bold text-white max-w-[150px] whitespace-normal">
+                                {comp.Competency || "N/A"}
+                              </td>
+                              <td className="p-3 max-w-[200px] whitespace-normal text-slate-400">
+                                {comp.Components || "N/A"}
+                              </td>
+                              <td className="p-3 max-w-[250px] whitespace-normal text-slate-300">
+                                {comp.Competency_Definition || "N/A"}
+                              </td>
+                              <td className="p-3 text-center font-mono text-amber-400 font-bold">
+                                {comp.Weighting_Percent || "0"}%
+                              </td>
+                            </tr>
+                          ))}
+                          {(!extractionResult.PED_Core_Competencies || extractionResult.PED_Core_Competencies.length === 0) && (
+                            <tr>
+                              <td colSpan={4} className="p-8 text-center text-slate-500 text-xs italic">
+                                No PED competencies extracted. Please ensure the uploaded document contains PED specific matrices.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {selectedEngine === 'corporate_services_competencies_engine' && (
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center bg-slate-900/40 p-3 rounded-lg border border-slate-800/80">
+                      <div>
+                        <p className="text-[9px] uppercase font-black text-slate-500">Employee Name (Corporate Services)</p>
+                        <h4 className="text-sm font-black text-white mt-0.5 flex items-center gap-1.5">
+                          <UserIcon className="w-4 h-4 text-pink-400" />
+                          {extractionResult.Employee_Name || "N/A"}
+                        </h4>
+                      </div>
+                      <span className="text-[10px] font-mono bg-pink-950/40 border border-pink-900/40 text-pink-400 px-2.5 py-0.5 rounded-full font-bold">
+                        {extractionResult.Corporate_Services_Core_Competencies?.length || 0} Corporate Services Competencies Extracted
+                      </span>
+                    </div>
+                    <div className="overflow-x-auto border border-slate-800/80 rounded-lg">
+                      <table className="w-full text-left border-collapse text-[11px] font-sans">
+                        <thead>
+                          <tr className="bg-slate-900 border-b border-slate-800 text-slate-400 uppercase tracking-wider text-[9px] font-black">
+                            <th className="p-3">Competencies</th>
+                            <th className="p-3">Components</th>
+                            <th className="p-3">Competency Definition</th>
+                            <th className="p-3 text-center">Weighting %</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-850">
+                          {extractionResult.Corporate_Services_Core_Competencies?.map((comp: any, cIdx: number) => (
+                            <tr key={cIdx} className="hover:bg-slate-900/40 text-slate-300 transition-colors">
+                              <td className="p-3 font-bold text-white max-w-[150px] whitespace-normal">
+                                {comp.Competency || "N/A"}
+                              </td>
+                              <td className="p-3 max-w-[200px] whitespace-normal text-slate-400">
+                                {comp.Components || "N/A"}
+                              </td>
+                              <td className="p-3 max-w-[250px] whitespace-normal text-slate-300">
+                                {comp.Competency_Definition || "N/A"}
+                              </td>
+                              <td className="p-3 text-center font-mono text-pink-400 font-bold">
+                                {comp.Weighting_Percent || "0"}%
+                              </td>
+                            </tr>
+                          ))}
+                          {(!extractionResult.Corporate_Services_Core_Competencies || extractionResult.Corporate_Services_Core_Competencies.length === 0) && (
+                            <tr>
+                              <td colSpan={4} className="p-8 text-center text-slate-500 text-xs italic">
+                                No Corporate Services competencies extracted. Please ensure the uploaded document contains Corporate Services specific matrices.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
                 )}

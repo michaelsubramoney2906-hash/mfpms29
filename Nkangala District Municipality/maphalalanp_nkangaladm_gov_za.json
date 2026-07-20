@@ -5,12 +5,10 @@
   "jobFunction": "Senior Accountant:Compliance & System Administrator",
   "department": "Finance Services",
   "source": "azure_ad",
-  "role": "tenant_user",
+  "role": "Standard User",
   "tenantId": "nkangala_auto",
   "manager": "AS Msiza",
   "directorate": "Finance",
   "reportTo": "",
-  "level": "1",
-  "signatureType": "draw",
-  "signatureData": ""
+  "level": "1"
 }

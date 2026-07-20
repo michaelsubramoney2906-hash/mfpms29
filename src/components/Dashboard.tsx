@@ -129,15 +129,6 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
 
   const handleSubModuleSelect = (sub: any) => {
     if (activeModule.id === 'ipms') {
-      if (sub.id === 'sdbip-23') {
-        setLockedStepAlert({
-          isOpen: true,
-          currentClickedName: "2nd & 3rd Layer SDBIP",
-          requiredPrevName: "This module has been excluded from the Individual Performance Management (IPMS) guided wizard per municipal frameworks guidance."
-        });
-        return;
-      }
-
       const guideIndex = GUIDE_STEPS.findIndex(s => s.id === sub.id);
       if (guideIndex > 0) {
         const prevStep = GUIDE_STEPS[guideIndex - 1];

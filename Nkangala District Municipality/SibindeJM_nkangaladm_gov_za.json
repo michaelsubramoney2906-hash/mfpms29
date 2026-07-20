@@ -2,7 +2,7 @@
   "id": "3bcbeffe-fa86-4090-9293-5cc87bb081b1",
   "fullName": "Jeaneth M. Sibinde",
   "email": "SibindeJM@nkangaladm.gov.za",
-  "jobFunction": "Fire Fighter",
+  "jobFunction": "Fire Firghter",
   "department": "Community Development Services",
   "source": "azure_ad",
   "role": "Standard User",
@@ -10,7 +10,5 @@
   "manager": "Walter B. Jiyane",
   "directorate": "Community Services",
   "reportTo": "Walter B. Jiyane",
-  "level": "11",
-  "signatureType": "draw",
-  "signatureData": ""
+  "level": "11"
 }

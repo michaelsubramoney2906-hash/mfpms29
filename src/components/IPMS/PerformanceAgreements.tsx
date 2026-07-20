@@ -820,7 +820,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
   const handlePullFredExtraction = async () => {
     setIsPullingFred(true);
     try {
-      const url = `/api/tenant/${activeTenantId}/fred-extraction/agreement_to_plan_engine?t=${Date.now()}`;
+      const url = `/api/tenant/${activeTenantId}/fred-extraction/agreement_to_plan_engine?userId=${currentUser?.email || 'default'}&t=${Date.now()}`;
       const res = await fetch(url);
       
       let extKpis: any[] = [];
@@ -868,72 +868,69 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
 
       let finalKpiItems: PlanKPIItem[] = [];
       if (foundExtraction && extKpis.length > 0) {
-        finalKpiItems = baseCatalog.map(catItem => {
-          const matched = extKpis.find(e => e.code.toLowerCase().replace(/[^a-z0-9]/g, '') === catItem.kpiNo.toLowerCase().replace(/[^a-z0-9]/g, ''));
-          if (matched) {
-            return {
-              ...catItem,
-              kpi: matched.description || catItem.kpi,
-              budget: matched.budget || catItem.budget
-            };
-          }
-          return catItem;
-        });
-        
-        extKpis.forEach(e => {
+        finalKpiItems = extKpis.map(e => {
           const codeUpper = e.code.toUpperCase();
-          const alreadyExists = finalKpiItems.some(x => x.kpiNo === codeUpper);
-          if (!alreadyExists && e.description) {
-            let kpaIdx = 1;
-            if (e.kpaNum.includes('2')) kpaIdx = 2;
-            else if (e.kpaNum.includes('3')) kpaIdx = 3;
-            else if (e.kpaNum.includes('4')) kpaIdx = 4;
-            else if (e.kpaNum.includes('5')) kpaIdx = 5;
-            else if (e.kpaNum.includes('6')) kpaIdx = 6;
-            else if (e.kpaNum.includes('7')) kpaIdx = 7;
+          const stdCatalogItem = baseCatalog.find(catItem => catItem.kpiNo.toLowerCase().replace(/[^a-z0-9]/g, '') === codeUpper.toLowerCase().replace(/[^a-z0-9]/g, ''));
+          
+          let kpaIdx = 1;
+          if (e.kpaNum.includes('2')) kpaIdx = 2;
+          else if (e.kpaNum.includes('3')) kpaIdx = 3;
+          else if (e.kpaNum.includes('4')) kpaIdx = 4;
+          else if (e.kpaNum.includes('5')) kpaIdx = 5;
+          else if (e.kpaNum.includes('6')) kpaIdx = 6;
+          else if (e.kpaNum.includes('7')) kpaIdx = 7;
 
-            const isSkills = kpaIdx === 7 || e.kpaNum.toLowerCase().includes('skills') || e.kpaDesc.toLowerCase().includes('skills');
-            const kpaName = isSkills 
-              ? "KPA 7: Skills Development & Capacity Training" 
-              : `KPA ${kpaIdx}: ${e.kpaDesc || 'Other Category'}`;
-            
-            finalKpiItems.push({
-              id: `pplan-fred-extra-${e.code}-${Math.random()}`,
-              strategicGoal: "General Departmental Objective Alignment",
-              kpiNo: e.code,
-              kpi: e.description,
-              bsd: kpaIdx === 1,
-              midt: kpaIdx === 2 || kpaIdx === 7,
-              led: kpaIdx === 3,
-              mfvm: kpaIdx === 4,
-              ggpp: kpaIdx === 5,
-              sr: kpaIdx === 6,
-              kpa: kpaName,
-              mscoaCode: "Functions",
-              baseline: "Standard operational compliance",
-              baselineYear: "2025/2026",
-              budget: e.budget || "",
-              annualTarget: "100% compliance/execution of objectives",
-              q1Target: "25% progress",
-              q2Target: "50% progress",
-              q3Target: "75% progress",
-              q4Target: "100% progress",
-              q1Poe: '', q2Poe: '', q3Poe: '', q4Poe: '',
-              poe: "Standard verification files",
-              weighting: "10",
-              myScore: "3.0"
-            });
-          }
+          const isSkills = kpaIdx === 7 || e.kpaNum.toLowerCase().includes('skills') || e.kpaDesc.toLowerCase().includes('skills');
+          const kpaName = isSkills 
+            ? "KPA 7: Skills Development & Capacity Training" 
+            : `KPA ${kpaIdx}: ${e.kpaDesc || 'Other Category'}`;
+
+          return {
+            id: stdCatalogItem ? stdCatalogItem.id : `pplan-fred-extra-${e.code}-${Math.random()}`,
+            strategicGoal: stdCatalogItem?.strategicGoal || "General Departmental Objective Alignment",
+            kpiNo: e.code,
+            kpi: e.description || stdCatalogItem?.kpi || 'Untitled KPI',
+            bsd: kpaIdx === 1,
+            midt: kpaIdx === 2 || kpaIdx === 7,
+            led: kpaIdx === 3,
+            mfvm: kpaIdx === 4,
+            ggpp: kpaIdx === 5,
+            sr: kpaIdx === 6,
+            kpa: kpaName,
+            mscoaCode: stdCatalogItem?.mscoaCode || "Functions",
+            baseline: stdCatalogItem?.baseline || "Standard operational compliance",
+            baselineYear: stdCatalogItem?.baselineYear || "2025/2026",
+            budget: e.budget || stdCatalogItem?.budget || "",
+            annualTarget: stdCatalogItem?.annualTarget || "100% compliance/execution of objectives",
+            q1Target: stdCatalogItem?.q1Target || "25% progress",
+            q2Target: stdCatalogItem?.q2Target || "50% progress",
+            q3Target: stdCatalogItem?.q3Target || "75% progress",
+            q4Target: stdCatalogItem?.q4Target || "100% progress",
+            q1Poe: stdCatalogItem?.q1Poe || '',
+            q2Poe: stdCatalogItem?.q2Poe || '',
+            q3Poe: stdCatalogItem?.q3Poe || '',
+            q4Poe: stdCatalogItem?.q4Poe || '',
+            poe: stdCatalogItem?.poe || "Standard verification files",
+            weighting: stdCatalogItem?.weighting || "10",
+            myScore: stdCatalogItem?.myScore || "3.0"
+          };
         });
       } else {
         finalKpiItems = baseCatalog;
       }
 
       finalKpiItems.sort((a, b) => {
-        const aCode = a.kpiNo;
-        const bCode = b.kpiNo;
-        if (aCode.startsWith('M') && bCode.startsWith('U')) return -1;
-        if (aCode.startsWith('U') && bCode.startsWith('M')) return 1;
+        const aCode = a.kpiNo || '';
+        const bCode = b.kpiNo || '';
+        const getWeight = (code: string) => {
+          if (code.startsWith('M')) return 1;
+          if (code.startsWith('P')) return 2;
+          if (code.startsWith('U')) return 3;
+          return 4;
+        };
+        const wA = getWeight(aCode);
+        const wB = getWeight(bCode);
+        if (wA !== wB) return wA - wB;
         return aCode.localeCompare(bCode, undefined, { numeric: true });
       });
 

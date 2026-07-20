@@ -2,7 +2,7 @@
   "id": "96cd8344-64af-4a3b-ab03-2398291aff0f",
   "fullName": "Koos T. Masilela",
   "email": "MasilelaKT@nkangaladm.gov.za",
-  "jobFunction": "Senior Fire Fighter",
+  "jobFunction": "Councillor",
   "department": "Community Development Services",
   "source": "azure_ad",
   "role": "Standard User",
@@ -10,7 +10,5 @@
   "manager": "Kabedi P. Chepape",
   "directorate": "Community Services",
   "reportTo": "Kabedi P. Chepape",
-  "level": "9",
-  "signatureType": "draw",
-  "signatureData": ""
+  "level": "9"
 }

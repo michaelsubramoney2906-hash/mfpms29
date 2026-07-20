@@ -2,15 +2,13 @@
   "id": "0d24fd8d-73d4-47df-a235-93f40f7446ce",
   "fullName": "Segadimane K. Ntobeng",
   "email": "NtobengSK@nkangaladm.gov.za",
-  "jobFunction": "Leading Fire Fighter",
+  "jobFunction": "",
   "department": "Community Development Services",
   "source": "azure_ad",
-  "role": "tenant_user",
+  "role": "Standard User",
   "tenantId": "nkangala_auto",
   "manager": "Dick Z. Skhosana",
   "directorate": "Community Services",
   "reportTo": "Dick Z. Skhosana",
-  "level": "7",
-  "signatureType": "draw",
-  "signatureData": ""
+  "level": "7"
 }

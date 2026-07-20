@@ -5,12 +5,10 @@
   "jobFunction": "Manager: Technical Services",
   "department": "Technical Services",
   "source": "azure_ad",
-  "role": "tenant_user",
+  "role": "Standard User",
   "tenantId": "nkangala_auto",
   "manager": "Xolisi Bembe",
   "directorate": "Technical",
   "reportTo": "",
-  "level": "2",
-  "signatureType": "draw",
-  "signatureData": ""
+  "level": "2"
 }
