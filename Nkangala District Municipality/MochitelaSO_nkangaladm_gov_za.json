@@ -10,5 +10,7 @@
   "manager": "Yolanda Segami",
   "directorate": "Community Services",
   "reportTo": "Yolanda Segami",
-  "level": "1"
+  "level": "1",
+  "signatureType": "draw",
+  "signatureData": ""
 }

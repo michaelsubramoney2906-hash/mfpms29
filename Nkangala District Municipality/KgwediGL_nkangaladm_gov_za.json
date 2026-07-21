@@ -10,5 +10,7 @@
   "manager": "Beauty N Mtshali",
   "directorate": "Corporate",
   "reportTo": "",
-  "level": "1"
+  "level": "1",
+  "signatureType": "draw",
+  "signatureData": ""
 }

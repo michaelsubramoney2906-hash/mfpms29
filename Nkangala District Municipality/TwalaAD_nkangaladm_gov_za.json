@@ -10,5 +10,7 @@
   "manager": "ML Mahlangu",
   "directorate": "Office of the MM",
   "reportTo": "",
-  "level": "2"
+  "level": "2",
+  "signatureType": "draw",
+  "signatureData": ""
 }

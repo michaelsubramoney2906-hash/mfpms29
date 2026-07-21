@@ -10,5 +10,7 @@
   "manager": "Kwakwa TC",
   "directorate": "Finance",
   "reportTo": "",
-  "level": "1"
+  "level": "1",
+  "signatureType": "draw",
+  "signatureData": ""
 }

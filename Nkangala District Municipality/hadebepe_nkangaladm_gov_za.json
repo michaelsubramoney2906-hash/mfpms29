@@ -10,5 +10,7 @@
   "manager": "Alvin Bvuma",
   "directorate": "PED",
   "reportTo": "",
-  "level": "3"
+  "level": "3",
+  "signatureType": "draw",
+  "signatureData": ""
 }

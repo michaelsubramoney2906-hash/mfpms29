@@ -10,5 +10,7 @@
   "manager": "Mandla L Mahlangu",
   "directorate": "",
   "reportTo": "",
-  "level": "1"
+  "level": "1",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_43b9c87a-b5fb-4a29-9644-1e0b4c6a88a5_1784182389233.png"
 }

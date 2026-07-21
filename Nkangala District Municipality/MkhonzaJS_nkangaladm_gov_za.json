@@ -10,5 +10,7 @@
   "manager": "Phillemon M. Radebe",
   "directorate": "Community Services",
   "reportTo": "Phillemon M. Radebe",
-  "level": "9"
+  "level": "9",
+  "signatureType": "draw",
+  "signatureData": ""
 }

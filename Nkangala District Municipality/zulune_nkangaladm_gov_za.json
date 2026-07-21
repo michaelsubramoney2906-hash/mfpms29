@@ -10,5 +10,7 @@
   "manager": "Yena Khuboni",
   "directorate": "Office of the Municipal Manager",
   "reportTo": "Yena Khuboni",
-  "level": "4"
+  "level": "4",
+  "signatureType": "draw",
+  "signatureData": ""
 }

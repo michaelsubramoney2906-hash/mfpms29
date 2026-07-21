@@ -10,5 +10,7 @@
   "manager": "Mandla L. Mahlangu",
   "directorate": "Corporate Services",
   "reportTo": "Mandla L. Mahlangu",
-  "level": "2"
+  "level": "2",
+  "signatureType": "draw",
+  "signatureData": ""
 }

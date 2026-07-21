@@ -10,5 +10,7 @@
   "manager": "Virginia Mahlangu",
   "directorate": "Corporate Services",
   "reportTo": "Virginia Mahlangu",
-  "level": "1"
+  "level": "1",
+  "signatureType": "draw",
+  "signatureData": ""
 }

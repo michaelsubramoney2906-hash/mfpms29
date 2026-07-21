@@ -10,5 +10,7 @@
   "manager": "SB Nkosi",
   "directorate": "Office of the MM",
   "reportTo": "",
-  "level": "1"
+  "level": "1",
+  "signatureType": "draw",
+  "signatureData": ""
 }

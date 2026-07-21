@@ -1377,7 +1377,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                     Active Phase: {activeWorkflowPhaseLabel}
                   </span>
                 </h3>
-                <p className="text-[10px] text-slate-500 font-medium">Push KPI reports from Submitter to Reviewer, then Approver, with automatic system notifications.</p>
+                <p className="text-[10px] text-slate-500 font-medium">Push KPI reports from Submitter to Approver, then Reviewer, with automatic system notifications.</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -1590,8 +1590,8 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                             <th className="p-3 border-r border-slate-200 w-64 bg-indigo-300 text-indigo-955 border-b-2 border-indigo-400">{activeWorkflowPhaseLabel} CORRECTIVE MEASURE</th>
 
                             <th className="p-3 border-r border-slate-200 w-64 bg-indigo-50 text-indigo-900 font-bold text-center border-b-2 border-indigo-200">SUBMITTER</th>
-                            <th className="p-3 border-r border-slate-200 w-64 bg-violet-50 text-violet-900 font-bold text-center border-b-2 border-violet-200">REVIEWER</th>
                             <th className="p-3 border-r border-slate-200 w-64 bg-emerald-50 text-emerald-900 font-bold text-center border-b-2 border-emerald-200">APPROVER</th>
+                            <th className="p-3 border-r border-slate-200 w-64 bg-violet-50 text-violet-900 font-bold text-center border-b-2 border-violet-200">REVIEWER</th>
                             <th className="p-3 w-28 text-center bg-slate-50 text-slate-900 border-b-2 border-slate-200 font-bold">SCORE</th>
                           </tr>
                         </thead>
@@ -2675,8 +2675,8 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                     <th className="p-3 border-r border-slate-200 w-32 sticky top-0 z-20 bg-slate-100">3RD QUARTER</th>
                     <th className="p-3 border-r border-slate-200 w-32 sticky top-0 z-20 bg-slate-100">4TH QUARTER</th>
                     <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-indigo-50 text-indigo-900">SUBMITTER</th>
-                    <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-violet-50 text-violet-900">REVIEWER</th>
                     <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-emerald-50 text-emerald-900">APPROVER</th>
+                    <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-violet-50 text-violet-900">REVIEWER</th>
                     <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-amber-50 text-amber-900">INTERNAL AUDIT</th>
                     <th className="p-3 border-r border-slate-200 w-48 text-center sticky top-0 z-20 bg-indigo-50 text-indigo-900 border-l border-indigo-200">POE AND DESCRIPTION</th>
                     <th className="p-3 w-16 text-center sticky top-0 z-20 bg-slate-100">ACTIONS</th>
@@ -2895,22 +2895,22 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                         />
                       </td>
 
-                      {/* Reviewer */}
-                      <td className="p-1 border-r border-slate-150">
-                        <AzureADPicker 
-                          value={row.reviewer || ''}
-                          onChange={(val) => handleCellChange(row.id, 'reviewer', val)}
-                          roleType="reviewer"
-                          activeTenantId={activeTenantId}
-                        />
-                      </td>
-
                       {/* Approver */}
                       <td className="p-1 border-r border-slate-150">
                         <AzureADPicker 
                           value={row.approver || ''}
                           onChange={(val) => handleCellChange(row.id, 'approver', val)}
                           roleType="approver"
+                          activeTenantId={activeTenantId}
+                        />
+                      </td>
+
+                      {/* Reviewer */}
+                      <td className="p-1 border-r border-slate-150">
+                        <AzureADPicker 
+                          value={row.reviewer || ''}
+                          onChange={(val) => handleCellChange(row.id, 'reviewer', val)}
+                          roleType="reviewer"
                           activeTenantId={activeTenantId}
                         />
                       </td>
@@ -3198,8 +3198,8 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                     <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-rose-400 text-rose-955 font-bold text-center border-b-2 border-rose-500">Q4/ANNUAL WORKFLOW CONTROL</th>
 
                     <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-indigo-50 text-indigo-900 font-bold text-center border-b-2 border-indigo-200">SUBMITTER</th>
-                    <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-violet-50 text-violet-900 font-bold text-center border-b-2 border-violet-200">REVIEWER</th>
                     <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-emerald-50 text-emerald-900 font-bold text-center border-b-2 border-emerald-200">APPROVER</th>
+                    <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-violet-50 text-violet-900 font-bold text-center border-b-2 border-violet-200">REVIEWER</th>
                     <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-amber-50 text-amber-900 font-bold text-center border-b-2 border-amber-200">INTERNAL AUDIT</th>
 
                     <th className="p-3 w-28 text-center bg-slate-50 text-slate-900 border-b-2 border-slate-200 font-bold sticky top-0 z-20">SCORE</th>
@@ -3964,22 +3964,22 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                         />
                       </td>
 
-                      {/* Reviewer */}
-                      <td className="p-1.5 border-r border-slate-100 bg-slate-50/5">
-                        <AzureADPicker 
-                          value={row.reviewer || ''}
-                          onChange={(val) => handleCellChange(row.id, 'reviewer', val)}
-                          roleType="reviewer"
-                          activeTenantId={activeTenantId}
-                        />
-                      </td>
-
                       {/* Approver */}
                       <td className="p-1.5 border-r border-slate-100 bg-slate-50/5">
                         <AzureADPicker 
                           value={row.approver || ''}
                           onChange={(val) => handleCellChange(row.id, 'approver', val)}
                           roleType="approver"
+                          activeTenantId={activeTenantId}
+                        />
+                      </td>
+
+                      {/* Reviewer */}
+                      <td className="p-1.5 border-r border-slate-100 bg-slate-50/5">
+                        <AzureADPicker 
+                          value={row.reviewer || ''}
+                          onChange={(val) => handleCellChange(row.id, 'reviewer', val)}
+                          roleType="reviewer"
                           activeTenantId={activeTenantId}
                         />
                       </td>

@@ -10,5 +10,7 @@
   "manager": "Nompumelelo Simelane",
   "directorate": "Community Services",
   "reportTo": "Nompumelelo Simelane",
-  "level": "1"
+  "level": "1",
+  "signatureType": "draw",
+  "signatureData": ""
 }

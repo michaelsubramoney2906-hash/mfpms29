@@ -10,5 +10,7 @@
   "manager": "Xolisi Bembe",
   "directorate": "Technical",
   "reportTo": "",
-  "level": "2"
+  "level": "2",
+  "signatureType": "draw",
+  "signatureData": ""
 }

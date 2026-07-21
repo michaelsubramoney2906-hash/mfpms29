@@ -10,5 +10,7 @@
   "manager": "Mayor Ngwenya",
   "directorate": "",
   "reportTo": "",
-  "level": "1"
+  "level": "1",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_222a65cf-53d8-4a6a-87dc-b6ddac6be7fe_1784448228992.png"
 }

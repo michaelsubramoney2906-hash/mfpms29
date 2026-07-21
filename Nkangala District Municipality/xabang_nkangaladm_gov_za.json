@@ -10,5 +10,7 @@
   "manager": "Siphesihle O. Nkosi",
   "directorate": "Corporate Services",
   "reportTo": "Siphesihle O. Nkosi",
-  "level": "1"
+  "level": "1",
+  "signatureType": "draw",
+  "signatureData": ""
 }
