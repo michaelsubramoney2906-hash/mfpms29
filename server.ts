@@ -541,7 +541,8 @@ async function startServer() {
 
       if (engineType === "sdbip_engine") {
         extractionPrompt = `You are a deterministic, hard-coded data parser. Do not summarize, guess, or use AI reasoning. Your only task is to extract exact text blocks and output them in the requested JSON structure.
-Extract all National KPAs, KPIs, and Strategic Objectives.
+IMPORTANT: The document typically contains OVER 90 KPIs. You MUST extract EVERY SINGLE ONE of them without exception.
+Do NOT truncate the list, do NOT use "etc", do NOT stop early. Exhaustively extract all National KPAs, KPIs, and Strategic Objectives.
 Map them strictly to the following JSON structure without deviation inside the "items" array parameter:
 {"National_KPA": "","SDBIP_Strategic_Objective": "","KPI": "","Target": "","Unit_of_Measure": "","Mapping": {"SDBIP_Top_Layer_Table": "","SDBIP_Top_Layer_Reporting_Table": ""}}`;
 
@@ -607,6 +608,7 @@ Map them strictly to the following JSON structure without deviation inside the "
       } else if (engineType === "agreement_to_plan_engine") {
         extractionPrompt = `You are a highly precise document parser and strict data extraction engine.
 You MUST analyze the entire provided document exhaustively and extract ALL Key Performance Areas (KPAs) and Key Performance Indicators (KPIs) exactly as they are written in the document.
+IMPORTANT: The document typically contains OVER 90 KPIs. You MUST extract EVERY SINGLE ONE of them without exception. Do NOT truncate the list, do NOT use "etc", do NOT stop early.
 
 CRITICAL MAPPING & IDENTIFICATION RULES:
 1. Extract ALL Key Performance Areas (KPAs) with their respective numbers and descriptions exactly as written in the document.
@@ -946,7 +948,8 @@ Format your response exactly according to the following JSON schema:
             responseMimeType: "application/json",
             responseSchema,
             temperature: parsedTemperature,
-            systemInstruction: extractionPrompt
+            systemInstruction: extractionPrompt,
+            maxOutputTokens: 65536
           }
         });
         response = result;
@@ -959,7 +962,8 @@ Format your response exactly according to the following JSON schema:
             responseMimeType: "application/json",
             responseSchema,
             temperature: parsedTemperature,
-            systemInstruction: extractionPrompt
+            systemInstruction: extractionPrompt,
+            maxOutputTokens: 65536
           }
         });
         response = fallbackResult;
@@ -4281,7 +4285,7 @@ Format your response exactly according to the following JSON schema:
       let parts: any[] = [];
       let docxHtml = "";
       
-      const extractionPrompt = "You are an AI assistant processing a Performance Agreement document. Extract the following information EXACTLY based on the document: 1. SDBIP 2nd/3rd layer operational indicators and targets (kpi, weights, quarters, poe). 2. Job Specific Competencies (name, description, weight, requiredRating, etc.). 3. Personal Development Plan (PDP) items.";
+      const extractionPrompt = "You are an AI assistant processing a Performance Agreement document. Extract the following information EXACTLY based on the document: 1. SDBIP 2nd/3rd layer operational indicators and targets (kpi, weights, quarters, poe). 2. Job Specific Competencies (name, description, weight, requiredRating, etc.). 3. Personal Development Plan (PDP) items. IMPORTANT: The SDBIP often contains over 90 KPIs. You MUST extract every single one of them exhaustively without truncation. Do not stop early.";
 
       // Override mimeType with magic bytes if mismatch
       let activeMimeType = mimeType;
