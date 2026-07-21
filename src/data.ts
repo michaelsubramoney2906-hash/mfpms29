@@ -302,6 +302,9 @@ export const modules: Module[] = [
       { id: 'rm', name: 'Risk Management', icon: AlertTriangle },
       { id: 'sdbip-tl', name: 'SDBIP Top Layer', icon: Layers },
       { id: 'so', name: 'Strategic Objectives', icon: Target },
+      { id: 'opms-submitter', name: 'Submitter', icon: FileText },
+      { id: 'opms-reviewer', name: 'Reviewer', icon: Search },
+      { id: 'opms-approver', name: 'Approver', icon: UserCheck },
     ]
   },
   {

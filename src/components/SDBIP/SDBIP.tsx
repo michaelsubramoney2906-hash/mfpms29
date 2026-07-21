@@ -1,13 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { Layers, Info, CheckCircle, Upload, Download, ArrowRight, Shield, AlertTriangle, HelpCircle, Check, FileText, Plus, Trash2, Database, FolderArchive, AlertCircle } from 'lucide-react';
+import { Layers, Info, CheckCircle, Upload, Download, ArrowRight, Shield, AlertTriangle, HelpCircle, Check, FileText, Plus, Trash2, Database, FolderArchive, AlertCircle, Sparkles, Send, Inbox, Bell, Eye, Lock, RefreshCw, XCircle, Clock } from 'lucide-react';
 import type { User } from '../../types';
 import { SDBIPDraftingSuite } from './SDBIPDraftingSuite';
 import { WordProcessor } from './WordProcessor';
 import { DraftingSuiteTab } from '../APR/APR';
+import { AzureADPicker } from './AzureADPicker';
 
 interface SDBIPProps {
   currentUser: User;
   activeTenantId: string;
+}
+
+export interface SdbipWorkflow {
+  status: 'draft' | 'pending_review' | 'pending_approval' | 'approved';
+  submittedBy?: string;
+  submittedAt?: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  comments?: string;
 }
 
 export interface SdbipRow {
@@ -35,6 +47,9 @@ export interface SdbipRow {
   q3: string;
   q4: string;
   responsibleUnit: string;
+  submitter?: string;
+  reviewer?: string;
+  approver?: string;
   poeStatus: string;
   weight?: string;
   score?: string;
@@ -72,6 +87,9 @@ export interface SdbipRow {
   midTermExpenditure?: string;
   q3Expenditure?: string;
   q4Expenditure?: string;
+  workflows?: {
+    [key: string]: SdbipWorkflow;
+  };
 }
 
 const isOpex = (budget: string): boolean => {
@@ -119,6 +137,16 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
   const [poeDescription, setPoeDescription] = useState('');
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ rowId: string; type: 'row' | 'q1' | 'q2' | 'midTerm' | 'q3' | 'q4' } | null>(null);
+
+  // SDBIP Workflow states
+  const [workflowPhase, setWorkflowPhase] = useState<'q1' | 'q2' | 'midTerm' | 'q3' | 'q4' | 'annual'>('q1');
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [showNotifications, setShowNotifications] = useState(true);
+  const [isWorkflowDeskOpen, setIsWorkflowDeskOpen] = useState(true);
+  const [selectedWorkflowRow, setSelectedWorkflowRow] = useState<SdbipRow | null>(null);
+  const [workflowComments, setWorkflowComments] = useState('');
+  const [workflowCommentsMap, setWorkflowCommentsMap] = useState<{[key: string]: string}>({});
+  const [activeWorkflowTab, setActiveWorkflowTab] = useState<'submissions' | 'reviews' | 'approvals'>('submissions');
 
   // Smart Filtering states
   const [searchRef, setSearchRef] = useState('');
@@ -310,16 +338,18 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     poeStatus: 'Not Uploaded'
   });
 
-  // Fetch SDBIP rows and POEs from Supabase on load
+  // Fetch SDBIP rows, POEs, and Notifications from Supabase on load
   useEffect(() => {
     setLoading(true);
     Promise.all([
       fetch(`/api/tenant/${activeTenantId}/sdbip`),
-      fetch(`/api/tenant/${activeTenantId}/sdbip-poes`)
+      fetch(`/api/tenant/${activeTenantId}/sdbip-poes`),
+      fetch(`/api/tenant/${activeTenantId}/sdbip-notifications`)
     ])
-      .then(async ([rowsRes, poesRes]) => {
+      .then(async ([rowsRes, poesRes, notifRes]) => {
         const rowsData = await rowsRes.json();
         const poesData = await poesRes.json();
+        const notifData = await notifRes.json();
         
         // If no rows are loaded, generate 25 default blank template rows across
         if (rowsData && Array.isArray(rowsData.items) && rowsData.items.length > 0) {
@@ -371,10 +401,29 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
         } else {
           setPoes([]);
         }
+
+        if (notifData && Array.isArray(notifData.notifications)) {
+          setNotifications(notifData.notifications);
+        } else {
+          setNotifications([]);
+        }
       })
       .catch(err => console.error("Error loading SDBIP data:", err))
       .finally(() => setLoading(false));
   }, [activeTenantId]);
+
+  const saveNotifications = async (updatedNotifs: any[]) => {
+    try {
+      await fetch(`/api/tenant/${activeTenantId}/sdbip-notifications`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notifications: updatedNotifs })
+      });
+      setNotifications(updatedNotifs);
+    } catch (err) {
+      console.error("Error saving SDBIP notifications:", err);
+    }
+  };
 
   const saveRows = async (updatedRows: SdbipRow[]) => {
     try {
@@ -402,6 +451,113 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     } catch (err) {
       console.error("Failed to save SDBIP POEs:", err);
     }
+  };
+
+  const getPhaseData = (row: SdbipRow, phase: string) => {
+    switch (phase) {
+      case 'q1':
+        return {
+          target: row.q1 || '-',
+          actual: row.q1Actual || '',
+          variance: row.q1Variance || '',
+          corrective: row.q1Corrective || '',
+          expenditure: row.q1Expenditure || '',
+          poeDesc: row.q1PoeDesc || '',
+          poes: row.q1Poes || []
+        };
+      case 'q2':
+        return {
+          target: row.q2 || '-',
+          actual: row.q2Actual || '',
+          variance: row.q2Variance || '',
+          corrective: row.q2Corrective || '',
+          expenditure: row.q2Expenditure || '',
+          poeDesc: row.q2PoeDesc || '',
+          poes: row.q2Poes || []
+        };
+      case 'midTerm':
+        return {
+          target: row.midTermTarget || row.midTerm || '-',
+          actual: row.midTermActual || '',
+          variance: row.midTermVariance || '',
+          corrective: row.midTermCorrective || '',
+          expenditure: row.midTermExpenditure || '',
+          poeDesc: row.midTermPoeDesc || '',
+          poes: row.midTermPoes || []
+        };
+      case 'q3':
+        return {
+          target: row.q3 || '-',
+          actual: row.q3Actual || '',
+          variance: row.q3Variance || '',
+          corrective: row.q3Corrective || '',
+          expenditure: row.q3Expenditure || '',
+          poeDesc: row.q3PoeDesc || '',
+          poes: row.q3Poes || []
+        };
+      case 'q4':
+        return {
+          target: row.q4 || '-',
+          actual: row.q4Actual || '',
+          variance: row.q4Variance || '',
+          corrective: row.q4Corrective || '',
+          expenditure: row.q4Expenditure || '',
+          poeDesc: row.q4PoeDesc || '',
+          poes: row.q4Poes || []
+        };
+      case 'annual':
+        return {
+          target: row.annualTarget || '-',
+          actual: row.q4Actual || '', // Uses Q4 or consolidated
+          variance: row.q4Variance || '',
+          corrective: row.q4Corrective || '',
+          expenditure: row.q4Expenditure || '',
+          poeDesc: row.q4PoeDesc || '',
+          poes: row.q4Poes || []
+        };
+      default:
+        return { target: '-', actual: '', variance: '', corrective: '', expenditure: '', poeDesc: '', poes: [] };
+    }
+  };
+
+  const updateWorkflowState = async (rowId: string, phase: string, status: 'draft' | 'pending_review' | 'pending_approval' | 'approved', updates: Partial<SdbipWorkflow>, notifMessage?: string, notifTarget?: string) => {
+    let targetRowRefNum = '';
+    let targetRowKpi = '';
+    const updatedRows = rows.map(r => {
+      if (r.id === rowId) {
+        targetRowRefNum = r.refNum;
+        targetRowKpi = r.kpi || 'Unnamed KPI';
+        const workflows = r.workflows || {};
+        const currentWf = workflows[phase] || { status: 'draft' };
+        workflows[phase] = {
+          ...currentWf,
+          status,
+          ...updates
+        };
+        return { ...r, workflows };
+      }
+      return r;
+    });
+    setRows(updatedRows);
+    await saveRows(updatedRows);
+
+    if (notifMessage && notifTarget) {
+      const newNotif = {
+        id: `notif-${Date.now()}`,
+        targetUser: notifTarget,
+        kpiId: rowId,
+        refNum: targetRowRefNum,
+        kpiName: targetRowKpi,
+        phase,
+        message: notifMessage,
+        createdAt: new Date().toISOString(),
+        read: false
+      };
+      const updatedNotifs = [newNotif, ...notifications];
+      await saveNotifications(updatedNotifs);
+    }
+    setSuccessToast(`KPI status updated to ${status.toUpperCase().replace('_', ' ')}!`);
+    setTimeout(() => setSuccessToast(null), 3500);
   };
 
   const combineInfo = (a: string | undefined, b: string | undefined) => {
@@ -585,6 +741,13 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     const updated = rows.map(r => {
       if (r.id === rowId) {
         let updatedRow = { ...r, [field]: value };
+        
+        // Sync submitter and responsibleUnit fields
+        if (field === 'submitter') {
+          updatedRow.responsibleUnit = value;
+        } else if (field === 'responsibleUnit') {
+          updatedRow.submitter = value;
+        }
         
         // Auto-calculate Annual Target if quarterly targets are modified
         if (field === 'q1' || field === 'q2' || field === 'q3' || field === 'q4') {
@@ -841,6 +1004,548 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     document.body.removeChild(link);
   };
 
+  const renderWorkflowSection = () => {
+    const currentUserDisplayName = currentUser.fullName || currentUser.email.split('@')[0];
+    
+    // Filter notifications for active user
+    const myNotifs = notifications.filter(n => n.targetUser?.toLowerCase() === currentUserDisplayName.toLowerCase() && !n.read);
+
+    // Filter rows for each role
+    const mySubmissions = rows.filter(r => r.submitter?.toLowerCase() === currentUserDisplayName.toLowerCase());
+    
+    const myPendingReviews = rows.filter(r => 
+      r.reviewer?.toLowerCase() === currentUserDisplayName.toLowerCase() && 
+      (r.workflows?.[workflowPhase]?.status === 'pending_review')
+    );
+
+    const myPendingApprovals = rows.filter(r => 
+      r.approver?.toLowerCase() === currentUserDisplayName.toLowerCase() && 
+      (r.workflows?.[workflowPhase]?.status === 'pending_approval')
+    );
+
+    const activeWorkflowPhaseLabel = 
+      workflowPhase === 'midTerm' ? 'Mid-Term' :
+      workflowPhase === 'annual' ? 'Annual' :
+      workflowPhase.toUpperCase();
+
+    return (
+      <div className="space-y-4 select-none mb-6">
+        {/* System notifications center */}
+        {showNotifications && myNotifs.length > 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 shadow-sm">
+            <div className="flex items-center justify-between mb-3 border-b border-amber-200 pb-2">
+              <div className="flex items-center gap-2 text-amber-900 font-bold text-xs uppercase tracking-wider font-mono">
+                <Bell className="w-4 h-4 text-amber-600 animate-bounce" /> 
+                <span>System Notifications ({myNotifs.length})</span>
+              </div>
+              <button 
+                onClick={() => {
+                  const updated = notifications.map(n => n.targetUser?.toLowerCase() === currentUserDisplayName.toLowerCase() ? { ...n, read: true } : n);
+                  saveNotifications(updated);
+                }}
+                className="text-[10px] text-amber-700 font-bold hover:underline cursor-pointer"
+              >
+                Mark all as read
+              </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-48 overflow-y-auto pr-1">
+              {myNotifs.map((notif) => (
+                <div key={notif.id} className="bg-white p-3 rounded-lg border border-amber-100 flex items-start justify-between gap-3 text-xs shadow-sm">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1.5 font-bold text-slate-900">
+                      <span className="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded text-[9px] font-mono">{notif.refNum}</span>
+                      <span className="text-slate-500 font-normal uppercase text-[9px] font-mono">({notif.phase.toUpperCase()})</span>
+                    </div>
+                    <p className="text-slate-700 leading-relaxed font-medium">{notif.message}</p>
+                    <span className="text-[9px] text-slate-400 block font-mono">{new Date(notif.createdAt).toLocaleString()}</span>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      const updated = notifications.map(n => n.id === notif.id ? { ...n, read: true } : n);
+                      saveNotifications(updated);
+                    }}
+                    className="p-1 text-slate-400 hover:text-emerald-600 hover:bg-slate-50 rounded-lg cursor-pointer transition"
+                    title="Dismiss"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Workflow action desk panel */}
+        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+          {/* Desk Header */}
+          <div className="bg-slate-50 border-b border-slate-200 px-5 py-3.5 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="bg-indigo-50 p-2 rounded-lg text-indigo-600">
+                <Layers className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  SDBIP Reporting Workflow & Approval Desk
+                  <span className="bg-indigo-100 text-indigo-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
+                    Active Phase: {activeWorkflowPhaseLabel}
+                  </span>
+                </h3>
+                <p className="text-[10px] text-slate-500 font-medium">Push KPI reports from Submitter to Reviewer, then Approver, with automatic system notifications.</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setShowNotifications(p => !p)}
+                className={`p-1.5 border rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition ${showNotifications ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+              >
+                <Bell className="w-3.5 h-3.5" />
+                {myNotifs.length > 0 && <span className="bg-rose-500 text-white w-2 h-2 rounded-full inline-block"></span>}
+                Notifications
+              </button>
+              <button 
+                onClick={() => setIsWorkflowDeskOpen(p => !p)}
+                className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg text-xs font-bold text-slate-700 cursor-pointer transition"
+              >
+                {isWorkflowDeskOpen ? 'Collapse Desk' : 'Open Desk'}
+              </button>
+            </div>
+          </div>
+
+          {isWorkflowDeskOpen && (
+            <div className="p-5 space-y-5">
+              {/* Active phase selection & role selection */}
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase font-mono tracking-wider block">Reporting Period Target</span>
+                  <div className="inline-flex bg-slate-100 p-0.5 rounded-lg border border-slate-200/50">
+                    {(['q1', 'q2', 'midTerm', 'q3', 'q4', 'annual'] as const).map((p) => {
+                      const isActive = workflowPhase === p;
+                      const label = 
+                        p === 'q1' ? 'Q1' :
+                        p === 'q2' ? 'Q2' :
+                        p === 'midTerm' ? 'Mid-Term' :
+                        p === 'q3' ? 'Q3' :
+                        p === 'q4' ? 'Q4' : 'Annual';
+                      return (
+                        <button
+                          key={p}
+                          onClick={() => setWorkflowPhase(p)}
+                          className={`px-3 py-1 rounded-md text-xs font-bold cursor-pointer transition ${isActive ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase font-mono tracking-wider block">Logged In Profile Workspace</span>
+                  <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200/50">
+                    <button
+                      onClick={() => setActiveWorkflowTab('submissions')}
+                      className={`px-3.5 py-1 rounded-md text-xs font-bold flex items-center gap-1.5 cursor-pointer transition ${activeWorkflowTab === 'submissions' ? 'bg-white text-slate-900 shadow-sm border border-slate-200' : 'text-slate-600 hover:text-slate-900'}`}
+                    >
+                      <Send className="w-3.5 h-3.5 text-slate-400" />
+                      My Submissions
+                      <span className="bg-slate-200 text-slate-700 text-[9px] px-1.5 py-0.2 rounded-full font-bold">{mySubmissions.length}</span>
+                    </button>
+                    <button
+                      onClick={() => setActiveWorkflowTab('reviews')}
+                      className={`px-3.5 py-1 rounded-md text-xs font-bold flex items-center gap-1.5 cursor-pointer transition ${activeWorkflowTab === 'reviews' ? 'bg-white text-slate-900 shadow-sm border border-slate-200' : 'text-slate-600 hover:text-slate-900'}`}
+                    >
+                      <Inbox className="w-3.5 h-3.5 text-violet-500" />
+                      My Pending Reviews
+                      {myPendingReviews.length > 0 && <span className="bg-violet-600 text-white text-[9px] px-1.5 py-0.2 rounded-full font-bold">{myPendingReviews.length}</span>}
+                    </button>
+                    <button
+                      onClick={() => setActiveWorkflowTab('approvals')}
+                      className={`px-3.5 py-1 rounded-md text-xs font-bold flex items-center gap-1.5 cursor-pointer transition ${activeWorkflowTab === 'approvals' ? 'bg-white text-slate-900 shadow-sm border border-slate-200' : 'text-slate-600 hover:text-slate-900'}`}
+                    >
+                      <Shield className="w-3.5 h-3.5 text-amber-500" />
+                      My Pending Approvals
+                      {myPendingApprovals.length > 0 && <span className="bg-amber-600 text-white text-[9px] px-1.5 py-0.2 rounded-full font-bold">{myPendingApprovals.length}</span>}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Dynamic workspace tab output */}
+              <div className="space-y-4">
+                {activeWorkflowTab === 'submissions' && (
+                  <div className="space-y-3">
+                    {mySubmissions.length === 0 ? (
+                      <div className="text-center py-8 bg-slate-50 border border-dashed border-slate-200 rounded-xl">
+                        <Inbox className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                        <h4 className="text-xs font-bold text-slate-700">No KPIs assigned to your Submitter profile</h4>
+                        <p className="text-[10px] text-slate-400 mt-1">To assign a KPI to your profile, please type your name <span className="font-bold">"{currentUserDisplayName}"</span> in the "Submitter" column in the table below.</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {mySubmissions.map((row) => {
+                          const wf = row.workflows?.[workflowPhase] || { status: 'draft' };
+                          const pData = getPhaseData(row, workflowPhase);
+                          const hasFinishedReporting = pData.actual && pData.poeDesc;
+                          
+                          return (
+                            <div key={row.id} className="bg-white p-4 border border-slate-200 rounded-xl flex flex-col justify-between shadow-sm hover:border-slate-300 transition gap-4">
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="bg-slate-100 text-slate-800 text-[10px] font-black px-2.5 py-0.5 rounded font-mono">{row.refNum}</span>
+                                  <div>
+                                    {wf.status === 'approved' && (
+                                      <span className="bg-emerald-50 text-emerald-700 border border-emerald-100 text-[9px] font-black tracking-wider uppercase px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                                        <Check className="w-3 h-3" /> Approved
+                                      </span>
+                                    )}
+                                    {wf.status === 'pending_approval' && (
+                                      <span className="bg-amber-50 text-amber-700 border border-amber-100 text-[9px] font-black tracking-wider uppercase px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                                        <Clock className="w-3 h-3" /> Pending Executive Approval
+                                      </span>
+                                    )}
+                                    {wf.status === 'pending_review' && (
+                                      <span className="bg-violet-50 text-violet-700 border border-violet-100 text-[9px] font-black tracking-wider uppercase px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                                        <Clock className="w-3 h-3" /> Pending Review
+                                      </span>
+                                    )}
+                                    {(wf.status === 'draft' || !wf.status) && (
+                                      <span className="bg-slate-50 text-slate-500 border border-slate-100 text-[9px] font-black tracking-wider uppercase px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                                        <FileText className="w-3 h-3" /> Draft
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <h4 className="text-xs font-black text-slate-950 line-clamp-2">{row.kpi || 'No KPI name defined'}</h4>
+                                
+                                <div className="grid grid-cols-2 gap-2 bg-slate-50/50 p-2 rounded-lg text-[10px] border border-slate-100 font-medium">
+                                  <div>Target: <strong className="text-slate-900 font-bold">{pData.target}</strong></div>
+                                  <div>Reported Actual: <strong className="text-indigo-700 font-black">{pData.actual || 'Not reported yet'}</strong></div>
+                                  <div>Expenditure: <strong className="text-slate-900 font-bold">{pData.expenditure || 'R0'}</strong></div>
+                                  <div>Attached POEs: <strong className="text-slate-900 font-bold">{pData.poes.length} doc(s)</strong></div>
+                                </div>
+
+                                {wf.comments && (
+                                  <div className="bg-amber-50/70 text-amber-900 border border-amber-100 text-[10px] p-2.5 rounded-lg leading-relaxed">
+                                    <strong className="font-bold">Workflow Remarks:</strong> {wf.comments}
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="flex items-center justify-between pt-2 border-t border-slate-50">
+                                <span className="text-[9px] text-slate-400 font-bold">Reviewer: {row.reviewer || 'None assigned'}</span>
+                                {(!wf.status || wf.status === 'draft') && (
+                                  <button
+                                    onClick={() => {
+                                      if (!row.reviewer) {
+                                        setSuccessToast("Please assign a Reviewer to this KPI first.");
+                                        setTimeout(() => setSuccessToast(null), 3000);
+                                        return;
+                                      }
+                                      updateWorkflowState(
+                                        row.id, 
+                                        workflowPhase, 
+                                        'pending_review', 
+                                        { submittedBy: currentUserDisplayName, submittedAt: new Date().toLocaleDateString() },
+                                        `KPI ${row.refNum} (${activeWorkflowPhaseLabel}) submitted for your review.`,
+                                        row.reviewer
+                                      );
+                                    }}
+                                    className="px-3 py-1 bg-indigo-600 text-white hover:bg-indigo-700 text-xs font-bold rounded-lg transition shadow-sm inline-flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <Send className="w-3 h-3" /> Submit to Reviewer
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {activeWorkflowTab === 'reviews' && (
+                  <div className="space-y-3">
+                    {myPendingReviews.length === 0 ? (
+                      <div className="text-center py-8 bg-slate-50 border border-dashed border-slate-200 rounded-xl">
+                        <CheckCircle className="w-8 h-8 text-emerald-300 mx-auto mb-2" />
+                        <h4 className="text-xs font-bold text-slate-700 font-mono">No KPIs pending your review</h4>
+                        <p className="text-[10px] text-slate-400 mt-1">SDBIP items submitted by submitters specifically to your profile will appear here.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {myPendingReviews.map((row) => {
+                          const pData = getPhaseData(row, workflowPhase);
+                          const commentKey = `${row.id}-${workflowPhase}`;
+                          const activeComment = workflowCommentsMap[commentKey] || '';
+
+                          return (
+                            <div key={row.id} className="bg-white border-2 border-indigo-100 rounded-xl p-5 shadow-sm space-y-4">
+                              <div className="flex items-start justify-between gap-4 pb-3 border-b border-slate-100">
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="bg-indigo-100 text-indigo-900 text-xs font-black px-3 py-0.5 rounded font-mono">{row.refNum}</span>
+                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider font-mono">KPI INBOX IN ITS ENTIRETY</span>
+                                  </div>
+                                  <h4 className="text-sm font-black text-slate-900 leading-snug">{row.kpi || 'No KPI Name'}</h4>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <span className="text-[10px] text-slate-400 font-bold block">Submitted By</span>
+                                  <span className="text-xs font-black text-indigo-700 block">{row.submitter}</span>
+                                </div>
+                              </div>
+
+                              {/* KPI context in its entirety */}
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                                <div className="space-y-2 bg-slate-50/50 p-4 rounded-xl border border-slate-200/50">
+                                  <h5 className="font-bold text-slate-900 text-[11px] uppercase tracking-wider font-mono">Strategic Context & Scope</h5>
+                                  <div className="space-y-1.5 leading-relaxed text-slate-700">
+                                    <p><strong className="font-bold">Objective:</strong> {row.strategicObj || '-'}</p>
+                                    <p><strong className="font-bold">Functional Area:</strong> {row.kpas || '-'}</p>
+                                    <p><strong className="font-bold">Baseline:</strong> {row.baseline || '-'}</p>
+                                    <p><strong className="font-bold">Annual Target:</strong> {row.annualTarget || '-'}</p>
+                                  </div>
+                                </div>
+
+                                <div className="space-y-2 bg-indigo-50/20 p-4 rounded-xl border border-indigo-100/50">
+                                  <h5 className="font-bold text-indigo-950 text-[11px] uppercase tracking-wider font-mono">Reported Phase Metrics ({activeWorkflowPhaseLabel})</h5>
+                                  <div className="space-y-1.5 leading-relaxed text-indigo-950">
+                                    <p><strong className="font-bold">Phase Target:</strong> {pData.target}</p>
+                                    <p><strong className="font-bold">Reported Actual:</strong> <span className="bg-indigo-100 px-2 py-0.5 rounded font-black text-indigo-900">{pData.actual || '-'}</span></p>
+                                    <p><strong className="font-bold">Variance:</strong> {pData.variance || '-'}</p>
+                                    <p><strong className="font-bold">Corrective Action:</strong> {pData.corrective || '-'}</p>
+                                    <p><strong className="font-bold">Actual Expenditure:</strong> {pData.expenditure || 'R0'}</p>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* POE Attachments in entirety */}
+                              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/50 text-xs space-y-2">
+                                <h5 className="font-bold text-slate-900 text-[11px] uppercase tracking-wider font-mono flex items-center gap-1.5">
+                                  <FolderArchive className="w-3.5 h-3.5 text-slate-500" />
+                                  Evidence File Verification (POE)
+                                </h5>
+                                <p className="text-slate-600 font-medium"><strong className="font-bold">POE Narrative:</strong> {pData.poeDesc || 'No narrative provided.'}</p>
+                                <div className="pt-1.5">
+                                  {pData.poes.length === 0 ? (
+                                    <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-100 px-2 py-1 rounded font-bold">⚠️ No evidence files uploaded for this phase!</span>
+                                  ) : (
+                                    <div className="flex flex-wrap gap-2">
+                                      {pData.poes.map((fName, idx) => (
+                                        <div key={idx} className="bg-white px-2.5 py-1 rounded border border-slate-200 flex items-center gap-2 text-[11px] font-black text-slate-800 shadow-sm">
+                                          <FileText className="w-3.5 h-3.5 text-indigo-600" />
+                                          <span>{fName}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Approver assignments */}
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50 p-3 rounded-lg border border-slate-200/50">
+                                <span className="text-[10px] text-slate-500 font-bold">Required Executive Approver: <strong className="text-slate-900 font-bold">{row.approver || 'No Approver Assigned'}</strong></span>
+                                <span className="text-[10px] text-slate-400 font-mono">Workflow Status: Pending Review</span>
+                              </div>
+
+                              {/* Review Comment and Actions */}
+                              <div className="space-y-2.5 pt-2">
+                                <label className="text-[10px] font-bold text-slate-400 uppercase font-mono tracking-wider block">Review Comments & Corrections</label>
+                                <textarea
+                                  placeholder="Enter any suggestions, correction instructions, or notes for approval here..."
+                                  value={activeComment}
+                                  onChange={(e) => setWorkflowCommentsMap(p => ({ ...p, [commentKey]: e.target.value }))}
+                                  className="w-full h-20 p-2.5 bg-white border border-slate-200 focus:border-indigo-500 outline-none rounded-xl text-xs font-medium resize-none shadow-inner"
+                                />
+                                <div className="flex items-center justify-end gap-3">
+                                  <button
+                                    onClick={() => {
+                                      updateWorkflowState(
+                                        row.id,
+                                        workflowPhase,
+                                        'draft',
+                                        { reviewedBy: currentUserDisplayName, comments: activeComment || 'Sent back for correction.' },
+                                        `Reviewer ${currentUserDisplayName} returned KPI ${row.refNum} for correction: "${activeComment || 'Sent back'}"`,
+                                        row.submitter
+                                      );
+                                    }}
+                                    className="px-4 py-2 bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 rounded-xl text-xs font-bold transition cursor-pointer inline-flex items-center gap-1"
+                                  >
+                                    <XCircle className="w-3.5 h-3.5" /> Send Back to Submitter
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      if (!row.approver) {
+                                        setSuccessToast("Please assign an Approver to this KPI first.");
+                                        setTimeout(() => setSuccessToast(null), 3000);
+                                        return;
+                                      }
+                                      updateWorkflowState(
+                                        row.id,
+                                        workflowPhase,
+                                        'pending_approval',
+                                        { reviewedBy: currentUserDisplayName, reviewedAt: new Date().toLocaleDateString(), comments: activeComment },
+                                        `KPI ${row.refNum} (${activeWorkflowPhaseLabel}) approved by Reviewer ${currentUserDisplayName} and pushed to you for executive approval.`,
+                                        row.approver
+                                      );
+                                    }}
+                                    className="px-4 py-2 bg-emerald-600 text-white hover:bg-emerald-700 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer inline-flex items-center gap-1"
+                                  >
+                                    <Check className="w-3.5 h-3.5" /> Approve & Push to Approver
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {activeWorkflowTab === 'approvals' && (
+                  <div className="space-y-3">
+                    {myPendingApprovals.length === 0 ? (
+                      <div className="text-center py-8 bg-slate-50 border border-dashed border-slate-200 rounded-xl">
+                        <CheckCircle className="w-8 h-8 text-emerald-300 mx-auto mb-2" />
+                        <h4 className="text-xs font-bold text-slate-700 font-mono">No KPIs pending your executive approval</h4>
+                        <p className="text-[10px] text-slate-400 mt-1">SDBIP items approved by reviewers specifically to your profile will appear here.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {myPendingApprovals.map((row) => {
+                          const pData = getPhaseData(row, workflowPhase);
+                          const commentKey = `${row.id}-${workflowPhase}`;
+                          const activeComment = workflowCommentsMap[commentKey] || '';
+
+                          return (
+                            <div key={row.id} className="bg-white border-2 border-amber-100 rounded-xl p-5 shadow-sm space-y-4">
+                              <div className="flex items-start justify-between gap-4 pb-3 border-b border-slate-100">
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="bg-amber-100 text-amber-900 text-xs font-black px-3 py-0.5 rounded font-mono">{row.refNum}</span>
+                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider font-mono">EXECUTIVE APPROVAL INBOX IN ITS ENTIRETY</span>
+                                  </div>
+                                  <h4 className="text-sm font-black text-slate-900 leading-snug">{row.kpi || 'No KPI Name'}</h4>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <span className="text-[10px] text-slate-400 font-bold block">Approver Assigned</span>
+                                  <span className="text-xs font-black text-amber-700 block">{row.approver}</span>
+                                </div>
+                              </div>
+
+                              {/* Entire context */}
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                                <div className="space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200/50">
+                                  <h5 className="font-bold text-slate-900 text-[11px] uppercase tracking-wider font-mono">Strategic Scope</h5>
+                                  <div className="space-y-1.5 leading-relaxed text-slate-700">
+                                    <p><strong className="font-bold">Objective:</strong> {row.strategicObj || '-'}</p>
+                                    <p><strong className="font-bold">Functional Area:</strong> {row.kpas || '-'}</p>
+                                    <p><strong className="font-bold">Baseline:</strong> {row.baseline || '-'}</p>
+                                    <p><strong className="font-bold">Annual Target:</strong> {row.annualTarget || '-'}</p>
+                                  </div>
+                                </div>
+
+                                <div className="space-y-2 bg-amber-50/10 p-4 rounded-xl border border-amber-100/50">
+                                  <h5 className="font-bold text-amber-955 text-[11px] uppercase tracking-wider font-mono">Performance & Expenditure Metrics</h5>
+                                  <div className="space-y-1.5 leading-relaxed text-slate-800">
+                                    <p><strong className="font-bold">Phase Target:</strong> {pData.target}</p>
+                                    <p><strong className="font-bold">Reported Actual:</strong> <span className="bg-emerald-100 px-2 py-0.5 rounded font-black text-emerald-900">{pData.actual || '-'}</span></p>
+                                    <p><strong className="font-bold">Variance:</strong> {pData.variance || '-'}</p>
+                                    <p><strong className="font-bold">Corrective Action:</strong> {pData.corrective || '-'}</p>
+                                    <p><strong className="font-bold">Expenditure:</strong> {pData.expenditure || 'R0'}</p>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* POE file attachments */}
+                              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/50 text-xs space-y-2">
+                                <h5 className="font-bold text-slate-900 text-[11px] uppercase tracking-wider font-mono flex items-center gap-1.5">
+                                  <FolderArchive className="w-3.5 h-3.5 text-slate-500" />
+                                  Attached Evidence Files (POE)
+                                </h5>
+                                <p className="text-slate-600 font-medium"><strong className="font-bold">POE Description:</strong> {pData.poeDesc || 'No narrative provided.'}</p>
+                                <div className="pt-1.5">
+                                  {pData.poes.length === 0 ? (
+                                    <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-100 px-2 py-1 rounded font-bold font-mono">⚠️ No evidence files uploaded for this phase!</span>
+                                  ) : (
+                                    <div className="flex flex-wrap gap-2">
+                                      {pData.poes.map((fName, idx) => (
+                                        <div key={idx} className="bg-white px-2.5 py-1 rounded border border-slate-200 flex items-center gap-2 text-[11px] font-black text-slate-800 shadow-sm">
+                                          <FileText className="w-3.5 h-3.5 text-indigo-600" />
+                                          <span>{fName}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="bg-violet-50/40 p-3.5 rounded-lg border border-violet-100 flex items-start gap-2.5 text-xs">
+                                <Info className="w-4 h-4 text-violet-600 shrink-0 mt-0.5" />
+                                <div>
+                                  <strong className="font-bold text-violet-950">Reviewer Verification:</strong>
+                                  <p className="text-violet-900 mt-1 italic font-medium">"{row.workflows?.[workflowPhase]?.comments || 'Approved with no specific remarks.'}"</p>
+                                </div>
+                              </div>
+
+                              {/* Approver decision-making inputs */}
+                              <div className="space-y-2.5 pt-2">
+                                <label className="text-[10px] font-bold text-slate-400 uppercase font-mono tracking-wider block font-mono">Executive Sign-Off Comments</label>
+                                <textarea
+                                  placeholder="Enter final executive approval comments, directives, or remarks here..."
+                                  value={activeComment}
+                                  onChange={(e) => setWorkflowCommentsMap(p => ({ ...p, [commentKey]: e.target.value }))}
+                                  className="w-full h-20 p-2.5 bg-white border border-slate-200 focus:border-amber-500 outline-none rounded-xl text-xs font-medium resize-none shadow-inner"
+                                />
+                                <div className="flex items-center justify-end gap-3">
+                                  <button
+                                    onClick={() => {
+                                      updateWorkflowState(
+                                        row.id,
+                                        workflowPhase,
+                                        'pending_review',
+                                        { approvedBy: currentUserDisplayName, comments: activeComment || 'Returned to Reviewer for corrections.' },
+                                        `Executive Approver ${currentUserDisplayName} returned KPI ${row.refNum} to Reviewer: "${activeComment || 'Sent back'}"`,
+                                        row.reviewer
+                                      );
+                                    }}
+                                    className="px-4 py-2 bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 rounded-xl text-xs font-bold transition cursor-pointer inline-flex items-center gap-1"
+                                  >
+                                    <XCircle className="w-3.5 h-3.5" /> Send Back to Reviewer
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      updateWorkflowState(
+                                        row.id,
+                                        workflowPhase,
+                                        'approved',
+                                        { approvedBy: currentUserDisplayName, approvedAt: new Date().toLocaleDateString(), comments: activeComment },
+                                        `Executive Approval SUCCESS! Your reported KPI ${row.refNum} (${activeWorkflowPhaseLabel}) has been approved and finalized by Approver ${currentUserDisplayName}.`,
+                                        row.submitter
+                                      );
+                                    }}
+                                    className="px-4 py-2 bg-emerald-600 text-white hover:bg-emerald-700 rounded-xl text-xs font-black tracking-wider uppercase transition shadow-sm cursor-pointer inline-flex items-center gap-1.5"
+                                  >
+                                    <CheckCircle className="w-4 h-4" /> Finalize & Approve ✅
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="bg-white border border-slate-200 rounded-2xl shadow-xl flex flex-col min-h-[600px] overflow-hidden text-slate-800">
       
@@ -1048,7 +1753,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
             {/* Large Wide Spreadsheet Table Container */}
             <div className="overflow-auto border border-slate-200 rounded-xl relative bg-white h-[580px] max-h-[68vh]">
               
-              <table className="w-full text-left border-collapse select-text table-fixed min-w-[2380px]">
+              <table className="w-full text-left border-collapse select-text table-fixed min-w-[2780px]">
                 
                 {/* Headers */}
                 <thead className="sticky top-0 bg-slate-100 z-20 border-b-2 border-slate-200 text-[10px] font-black tracking-wider uppercase text-slate-700 font-mono">
@@ -1073,7 +1778,9 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                     <th className="p-3 border-r border-slate-200 w-32 text-center sticky top-0 z-20 bg-rose-100 text-rose-900">MID TERM</th>
                     <th className="p-3 border-r border-slate-200 w-32 sticky top-0 z-20 bg-slate-100">3RD QUARTER</th>
                     <th className="p-3 border-r border-slate-200 w-32 sticky top-0 z-20 bg-slate-100">4TH QUARTER</th>
-                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-slate-100">RESPONSIBLE UNIT</th>
+                    <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-indigo-50 text-indigo-900">SUBMITTER</th>
+                    <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-violet-50 text-violet-900">REVIEWER</th>
+                    <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-emerald-50 text-emerald-900">APPROVER</th>
                     <th className="p-3 border-r border-slate-200 w-48 text-center sticky top-0 z-20 bg-indigo-50 text-indigo-900 border-l border-indigo-200">POE AND DESCRIPTION</th>
                     <th className="p-3 w-16 text-center sticky top-0 z-20 bg-slate-100">ACTIONS</th>
                   </tr>
@@ -1281,13 +1988,33 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                         />
                       </td>
 
-                      {/* Responsible Unit */}
-                      <td className="p-2 border-r border-slate-150">
-                        <input 
-                          type="text" 
-                          value={row.responsibleUnit || ''}
-                          onChange={(e) => handleCellChange(row.id, 'responsibleUnit', e.target.value)}
-                          className="w-full bg-transparent border-0 p-1 focus:ring-1 focus:ring-indigo-300 rounded text-[11px]"
+                      {/* Submitter */}
+                      <td className="p-1 border-r border-slate-150">
+                        <AzureADPicker 
+                          value={row.submitter || row.responsibleUnit || ''}
+                          onChange={(val) => handleCellChange(row.id, 'submitter', val)}
+                          roleType="submitter"
+                          activeTenantId={activeTenantId}
+                        />
+                      </td>
+
+                      {/* Reviewer */}
+                      <td className="p-1 border-r border-slate-150">
+                        <AzureADPicker 
+                          value={row.reviewer || ''}
+                          onChange={(val) => handleCellChange(row.id, 'reviewer', val)}
+                          roleType="reviewer"
+                          activeTenantId={activeTenantId}
+                        />
+                      </td>
+
+                      {/* Approver */}
+                      <td className="p-1 border-r border-slate-150">
+                        <AzureADPicker 
+                          value={row.approver || ''}
+                          onChange={(val) => handleCellChange(row.id, 'approver', val)}
+                          roleType="approver"
+                          activeTenantId={activeTenantId}
                         />
                       </td>
 
@@ -1449,11 +2176,14 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
               </div>
             </div>
 
+            {/* Workflow Action Desk & Notifications */}
+            {renderWorkflowSection()}
+
             {/* Smart Filter Panel */}
             {renderSmartFilterPanel()}
 
             <div className="overflow-auto border border-slate-200 rounded-xl relative bg-white h-[580px] max-h-[68vh]">
-              <table className="w-full text-left border-collapse table-fixed min-w-[7072px]">
+              <table className="w-full text-left border-collapse table-fixed min-w-[7372px]">
                 <thead className="sticky top-0 bg-slate-100 z-20 border-b-2 border-slate-200 text-[10px] font-black tracking-wider uppercase text-slate-700 font-mono">
                   <tr>
                     {/* Fixed Info Columns */}
@@ -1471,6 +2201,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                     <th className="p-3 border-r border-slate-200 w-44 sticky top-0 z-20 bg-slate-100">ANNUAL TARGET</th>
                     <th className="p-3 border-r border-slate-200 w-40 sticky top-0 z-20 bg-slate-100">TOTAL BUDGET</th>
                     <th className="p-3 border-r border-slate-200 w-32 text-center sticky top-0 z-20 bg-slate-200 text-slate-900">RAG STATUS</th>
+                    <th className="p-3 border-r border-slate-200 w-44 text-center sticky top-0 z-20 bg-indigo-50 text-indigo-900 border-b-2 border-indigo-200 font-bold">ACTIVE WORKFLOW ({workflowPhase.toUpperCase()})</th>
                     
                     {/* Q1 Reporting */}
                     <th className="p-3 border-r border-slate-200 w-36 sticky top-0 z-20 bg-teal-50 text-teal-955 font-bold text-center border-b-2 border-teal-200">Q1 EXPENDITURE</th>
@@ -1494,7 +2225,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                     <th className="p-3 border-r border-slate-200 w-32 sticky top-0 z-20 bg-emerald-50 text-emerald-900 border-b-2 border-emerald-100">MID TERM TARGET</th>
                     <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-emerald-100 text-emerald-900 border-b-2 border-emerald-200">MID TERM ACTUAL</th>
                     <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-emerald-200 text-emerald-900 border-b-2 border-emerald-300">MID TERM VARIANCE</th>
-                    <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-emerald-300 text-emerald-950 border-b-2 border-emerald-400">MID TERM CORRECTIVE MEASURE</th>
+                    <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-emerald-300 text-emerald-955 border-b-2 border-emerald-400">MID TERM CORRECTIVE MEASURE</th>
 
                     {/* Q3 Reporting */}
                     <th className="p-3 border-r border-slate-200 w-36 sticky top-0 z-20 bg-teal-50 text-teal-955 font-bold text-center border-b-2 border-teal-200">Q3 EXPENDITURE</th>
@@ -1512,7 +2243,9 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                     <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-rose-200 text-rose-955 border-b-2 border-rose-300">Q4 VARIANCE</th>
                     <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-rose-300 text-rose-955 border-b-2 border-rose-400">Q4 CORRECTIVE MEASURE</th>
 
-                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-slate-100">RESPONSIBLE UNIT</th>
+                    <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-indigo-50 text-indigo-900 font-bold text-center border-b-2 border-indigo-200">SUBMITTER</th>
+                    <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-violet-50 text-violet-900 font-bold text-center border-b-2 border-violet-200">REVIEWER</th>
+                    <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-emerald-50 text-emerald-900 font-bold text-center border-b-2 border-emerald-200">APPROVER</th>
 
                     <th className="p-3 w-28 text-center bg-slate-50 text-slate-900 border-b-2 border-slate-200 font-bold sticky top-0 z-20">SCORE</th>
                   </tr>
@@ -1548,6 +2281,40 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                               <span className="text-[9px] uppercase tracking-wider font-extrabold">{details.label}</span>
                             </div>
                           );
+                        })()}
+                      </td>
+
+                      {/* Active Workflow Status */}
+                      <td className="p-2 border-r border-slate-150 text-center bg-indigo-50/10">
+                        {(() => {
+                          const wf = row.workflows?.[workflowPhase] || { status: 'draft' };
+                          const status = wf.status || 'draft';
+                          switch (status) {
+                            case 'approved':
+                              return (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[10px] font-black tracking-wider uppercase bg-emerald-50 text-emerald-700 border-emerald-200">
+                                  <CheckCircle className="w-2.5 h-2.5" /> Approved
+                                </span>
+                              );
+                            case 'pending_approval':
+                              return (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[10px] font-black tracking-wider uppercase bg-amber-50 text-amber-700 border-amber-200">
+                                  <Clock className="w-2.5 h-2.5" /> Pend. Appr.
+                                </span>
+                              );
+                            case 'pending_review':
+                              return (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[10px] font-black tracking-wider uppercase bg-violet-50 text-violet-700 border-violet-200">
+                                  <Clock className="w-2.5 h-2.5" /> Pend. Rev.
+                                </span>
+                              );
+                            default:
+                              return (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[10px] font-black tracking-wider uppercase bg-slate-100 text-slate-600 border-slate-200">
+                                  <FileText className="w-2.5 h-2.5" /> Draft
+                                </span>
+                              );
+                          }
                         })()}
                       </td>
 
@@ -2117,13 +2884,33 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                         />
                       </td>
 
-                      <td className="p-2 border-r border-slate-100 bg-slate-50/5">
-                        <input 
-                          type="text" 
-                          value={row.responsibleUnit || ''}
-                          onChange={(e) => handleCellChange(row.id, 'responsibleUnit', e.target.value)}
-                          className="w-full bg-white border border-slate-200 p-1 focus:ring-1 focus:ring-indigo-300 rounded text-[11px]"
-                          placeholder="Responsible Unit..."
+                      {/* Submitter */}
+                      <td className="p-1.5 border-r border-slate-100 bg-slate-50/5">
+                        <AzureADPicker 
+                          value={row.submitter || row.responsibleUnit || ''}
+                          onChange={(val) => handleCellChange(row.id, 'submitter', val)}
+                          roleType="submitter"
+                          activeTenantId={activeTenantId}
+                        />
+                      </td>
+
+                      {/* Reviewer */}
+                      <td className="p-1.5 border-r border-slate-100 bg-slate-50/5">
+                        <AzureADPicker 
+                          value={row.reviewer || ''}
+                          onChange={(val) => handleCellChange(row.id, 'reviewer', val)}
+                          roleType="reviewer"
+                          activeTenantId={activeTenantId}
+                        />
+                      </td>
+
+                      {/* Approver */}
+                      <td className="p-1.5 border-r border-slate-100 bg-slate-50/5">
+                        <AzureADPicker 
+                          value={row.approver || ''}
+                          onChange={(val) => handleCellChange(row.id, 'approver', val)}
+                          roleType="approver"
+                          activeTenantId={activeTenantId}
                         />
                       </td>
 
@@ -2185,7 +2972,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                     Click to select file or drag & drop here
                   </span>
                   <span className="text-[9px] text-slate-400 block mt-0.5">
-                    Supports PDF, DOCX, XLSX, images (Max 15MB)
+                    Supports PDF, DOCX, XLSX, images (Max 50MB)
                   </span>
                   <input 
                     type="file" 
@@ -2193,9 +2980,13 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                     onChange={(e) => {
                       if (!e.target.files || e.target.files.length === 0) return;
                       const file = e.target.files[0];
+                      const sizeMB = file.size / (1024 * 1024);
+                      if (sizeMB > 50) {
+                        setSuccessToast("File size exceeds 50MB limit.");
+                        return;
+                      }
                       setPoeFileName(file.name);
-                      const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
-                      setPoeFileSize(`${sizeMB} MB`);
+                      setPoeFileSize(`${sizeMB.toFixed(2)} MB`);
                     }}
                   />
                 </div>

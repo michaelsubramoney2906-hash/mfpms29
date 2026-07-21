@@ -3342,6 +3342,66 @@ Format your response exactly according to the following JSON schema:
     }
   });
 
+  // 17.0a Fetch SDBIP Workflow Notifications for a tenant
+  app.get("/api/tenant/:tenantId/sdbip-notifications", async (req, res) => {
+    const { tenantId } = req.params;
+    try {
+      const supabase = getSupabase();
+      const documentId = `sdbip_notifications_${tenantId}`;
+      const { data, error } = await supabase
+        .from('messages')
+        .select('content')
+        .eq('id', documentId)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Supabase load SDBIP notifications error:", error.message);
+        return res.json({ notifications: [] });
+      }
+
+      if (data && data.content) {
+        try {
+          const parsed = JSON.parse(data.content);
+          return res.json({ notifications: parsed });
+        } catch (parseErr) {
+          console.error("Error parsing SDBIP notifications JSON:", parseErr);
+        }
+      }
+      return res.json({ notifications: [] });
+    } catch (err: any) {
+      console.error("SDBIP notifications load exception:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // 17.0b Save SDBIP Workflow Notifications for a tenant
+  app.post("/api/tenant/:tenantId/sdbip-notifications", async (req, res) => {
+    const { tenantId } = req.params;
+    const { notifications } = req.body;
+    try {
+      const supabase = getSupabase();
+      const documentId = `sdbip_notifications_${tenantId}`;
+      const { error } = await supabase
+        .from('messages')
+        .upsert({ 
+          id: documentId,
+          tenant_id: tenantId,
+          sender_id: 'sdbip_notifier_tool',
+          sender_email: 'sdbip_notifications@system.local',
+          sender_name: 'SDBIP Workflow Notifications Manager',
+          content: JSON.stringify(notifications || []),
+          message_type: 'sdbip_notifications_list',
+          created_at: new Date().toISOString()
+        });
+      
+      if (error) throw error;
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error("SDBIP notifications save exception:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // 17.01 Fetch Prior System Archive Documents for a tenant
   app.get("/api/tenant/:tenantId/prior-documents", async (req, res) => {
     const { tenantId } = req.params;

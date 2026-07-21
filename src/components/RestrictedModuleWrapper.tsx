@@ -18,6 +18,7 @@ const SUBMODULE_TO_PARENT_MAP: Record<string, string> = {
   'idp': 'opms-admin', 'kpa': 'opms-admin', 'kpi': 'opms-admin', 'led': 'opms-admin',
   'mtas': 'opms-admin', 'omm': 'opms-admin', 'rep': 'opms-admin', 'rm': 'opms-admin',
   'sdbip-tl': 'opms-admin', 'so': 'opms-admin',
+  'opms-submitter': 'opms-admin', 'opms-reviewer': 'opms-admin', 'opms-approver': 'opms-admin',
 
   // OPMS Political
   'cc': 'opms-political', 'cr': 'opms-political', 'mpac': 'opms-political',

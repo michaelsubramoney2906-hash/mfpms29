@@ -17,6 +17,9 @@ import { GraphLab } from './GraphLab/GraphLab';
 import { IDP } from './IDP/IDP';
 import { KPA } from './KPA/KPA';
 import { SDBIP } from './SDBIP/SDBIP';
+import { OPMSSubmitter } from './SDBIP/OPMSSubmitter';
+import { OPMSReviewer } from './SDBIP/OPMSReviewer';
+import { OPMSApprover } from './SDBIP/OPMSApprover';
 import { KPI } from './KPI/KPI';
 import { StrategicObjectives } from './StrategicObjectives/StrategicObjectives';
 import { JobSpecificCompetencies } from './IPMS/JobSpecificCompetencies';
@@ -458,6 +461,18 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
           ) : activeSubModule.id === 'sdbip-tl' ? (
              <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
                 <SDBIP currentUser={fullUserProfile} activeTenantId={activeTenantId} />
+             </div>
+          ) : activeSubModule.id === 'opms-submitter' ? (
+             <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
+                <OPMSSubmitter currentUser={fullUserProfile} activeTenantId={activeTenantId} />
+             </div>
+          ) : activeSubModule.id === 'opms-reviewer' ? (
+             <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
+                <OPMSReviewer currentUser={fullUserProfile} activeTenantId={activeTenantId} />
+             </div>
+          ) : activeSubModule.id === 'opms-approver' ? (
+             <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
+                <OPMSApprover currentUser={fullUserProfile} activeTenantId={activeTenantId} />
              </div>
           ) : activeSubModule.id === 'ipms-reports' ? (
              <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
