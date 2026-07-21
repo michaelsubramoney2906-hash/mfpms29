@@ -59,6 +59,8 @@ export interface SdbipRow {
     varianceVerified?: boolean;
     targetCalculations?: boolean;
     complianceConfirmed?: boolean;
+    auditSubmitted?: boolean;
+    comments?: string;
   };
   poeStatus: string;
   weight?: string;
