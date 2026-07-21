@@ -12,13 +12,15 @@ interface SDBIPProps {
 }
 
 export interface SdbipWorkflow {
-  status: 'draft' | 'pending_review' | 'pending_approval' | 'approved';
+  status: 'draft' | 'pending_review' | 'pending_approval' | 'approved' | 'completed';
   submittedBy?: string;
   submittedAt?: string;
   reviewedBy?: string;
   reviewedAt?: string;
   approvedBy?: string;
   approvedAt?: string;
+  auditedBy?: string;
+  auditedAt?: string;
   comments?: string;
 }
 
@@ -672,7 +674,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     }
   };
 
-  const updateWorkflowState = async (rowId: string, phase: string, status: 'draft' | 'pending_review' | 'pending_approval' | 'approved', updates: Partial<SdbipWorkflow>, notifMessage?: string, notifTarget?: string | string[]) => {
+  const updateWorkflowState = async (rowId: string, phase: string, status: 'draft' | 'pending_review' | 'pending_approval' | 'approved' | 'completed', updates: Partial<SdbipWorkflow>, notifMessage?: string, notifTarget?: string | string[]) => {
     let targetRowRefNum = '';
     let targetRowKpi = '';
     const updatedRows = rows.map(r => {
@@ -761,6 +763,18 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
   };
 
   const getRagDetails = (row: SdbipRow) => {
+    if (row.auditChecklist?.auditSubmitted) {
+      return {
+        status: 'green' as const,
+        face: '😊',
+        label: 'Happy',
+        bgClass: 'bg-emerald-50',
+        borderClass: 'border-emerald-200',
+        textClass: 'text-emerald-700',
+        tooltip: 'Audit Submitted'
+      };
+    }
+
     const quarters = [
       { target: row.q1, actual: row.q1Actual },
       { target: row.q2, actual: row.q2Actual },
@@ -1632,12 +1646,17 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                                   {(() => {
                                     const details = getRagDetails(row);
                                     return (
-                                      <div 
-                                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-semibold shadow-xs select-none ${details.bgClass} ${details.borderClass} ${details.textClass}`}
-                                        title={details.tooltip}
-                                      >
-                                        <span className="text-xs leading-none">{details.face}</span>
-                                        <span className="text-[8px] uppercase tracking-wider font-black">{details.label}</span>
+                                      <div className="flex flex-col items-center gap-1">
+                                        <div 
+                                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-semibold shadow-xs select-none ${details.bgClass} ${details.borderClass} ${details.textClass}`}
+                                          title={details.tooltip}
+                                        >
+                                          <span className="text-xs leading-none">{details.face}</span>
+                                          <span className="text-[8px] uppercase tracking-wider font-black">{details.label}</span>
+                                        </div>
+                                        {row.auditChecklist?.auditSubmitted && (
+                                          <span className="text-[9px] font-black text-emerald-600 uppercase tracking-wider">Submitted</span>
+                                        )}
                                       </div>
                                     );
                                   })()}
@@ -2220,7 +2239,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                                 const pData = getPhaseData(row, workflowPhase);
                                 const checklist = row.auditChecklist || {};
                                 
-                                const toggleCheck = (key: 'poeVerified' | 'actualsVerified' | 'varianceVerified' | 'targetCalculations' | 'complianceConfirmed') => {
+                                const toggleCheck = (key: 'poeVerified' | 'actualsVerified' | 'varianceVerified' | 'targetCalculations' | 'complianceConfirmed' | 'auditSubmitted') => {
                                   const updatedChecklist = {
                                     ...checklist,
                                     [key]: !checklist[key]
@@ -2228,7 +2247,8 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                                   handleCellChange(row.id, 'auditChecklist', updatedChecklist);
                                 };
 
-                                const checkedCount = Object.values(checklist).filter(Boolean).length;
+                                const baseKeys = ['poeVerified', 'actualsVerified', 'varianceVerified', 'targetCalculations', 'complianceConfirmed'];
+                                const checkedCount = baseKeys.filter(k => checklist[k as keyof typeof checklist]).length;
                                 const isComplete = checkedCount === 5;
 
                                 return (
@@ -2265,14 +2285,20 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                                           { key: 'actualsVerified', label: 'Verify Reported Actuals against POE', desc: 'Confirm reported numerical metrics are accurately substantiated by evidence.' },
                                           { key: 'varianceVerified', label: 'Validate Variance and Corrective Actions', desc: 'Confirm that variance explanations and proposed corrective items are robust.' },
                                           { key: 'targetCalculations', label: 'Verify Target Aggregation & Calculations', desc: 'Confirm annual target sums and progress are mathematically correct.' },
-                                          { key: 'complianceConfirmed', label: 'Confirm Compliance Alignment (MFMA)', desc: 'Ensure that KPI aligns fully with National Treasury MFMA standards.' }
+                                          { key: 'complianceConfirmed', label: 'Confirm Compliance Alignment (MFMA)', desc: 'Ensure that KPI aligns fully with National Treasury MFMA standards.' },
+                                          { key: 'auditSubmitted', label: 'Submitted once audit is done and all 5 boxes have been ticked', desc: 'Finalize and submit the audit outcome.' }
                                         ].map((item) => {
                                           const isChecked = !!checklist[item.key as keyof typeof checklist];
+                                          const isSixthBox = item.key === 'auditSubmitted';
+                                          const disabled = isSixthBox && !isComplete;
                                           return (
                                             <div 
                                               key={item.key}
-                                              onClick={() => toggleCheck(item.key as any)}
-                                              className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer select-none transition-colors ${isChecked ? 'bg-emerald-50/40 border-emerald-200 hover:bg-emerald-50/60' : 'bg-white border-slate-200 hover:bg-slate-50'}`}
+                                              onClick={() => {
+                                                if (disabled) return;
+                                                toggleCheck(item.key as any);
+                                              }}
+                                              className={`flex items-start gap-3 p-3 rounded-lg border select-none transition-colors ${disabled ? 'opacity-50 cursor-not-allowed bg-slate-100 border-slate-200' : 'cursor-pointer ' + (isChecked ? 'bg-emerald-50/40 border-emerald-200 hover:bg-emerald-50/60' : 'bg-white border-slate-200 hover:bg-slate-50')}`}
                                             >
                                               <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 mt-0.5 transition-all ${isChecked ? 'bg-emerald-650 border-emerald-650 text-white' : 'border-slate-300 bg-white'}`}>
                                                 {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
@@ -2288,6 +2314,16 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                                             </div>
                                           );
                                         })}
+                                      </div>
+                                      
+                                      <div className="space-y-2 mt-4 pt-4 border-t border-slate-200">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block font-mono">Internal Audit Comments</label>
+                                        <textarea
+                                          placeholder="Enter internal audit remarks or directives here..."
+                                          value={checklist.comments || ''}
+                                          onChange={(e) => handleCellChange(row.id, 'auditChecklist', { ...checklist, comments: e.target.value })}
+                                          className="w-full bg-white border border-slate-200 rounded-lg p-3 text-xs focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition resize-y min-h-[80px]"
+                                        />
                                       </div>
                                     </div>
 
@@ -2313,6 +2349,31 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                                           <p><strong className="font-bold">Expenditure:</strong> {pData.expenditure || 'R0'}</p>
                                         </div>
                                       </div>
+                                    </div>
+                                    
+                                    <div className="pt-4 border-t border-rose-100 flex justify-end">
+                                      <button
+                                        onClick={() => {
+                                          if (!isComplete || !checklist.auditSubmitted) {
+                                            setSuccessToast("Please complete the Required KPI Audit Steps Checklist and check the submitted box.");
+                                            setTimeout(() => setSuccessToast(null), 3000);
+                                            return;
+                                          }
+                                          updateWorkflowState(
+                                            row.id,
+                                            workflowPhase,
+                                            'completed',
+                                            { auditedBy: currentUserDisplayName, auditedAt: new Date().toLocaleDateString(), comments: checklist.comments || 'Audited successfully.' },
+                                            `Internal Auditor ${currentUserDisplayName} audited and completed KPI ${row.refNum}.`,
+                                            [row.submitter || '', row.reviewer || '', row.approver || '']
+                                          );
+                                        }}
+                                        className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all flex items-center gap-2 cursor-pointer"
+                                        title="Submit and mark this audit as completed"
+                                      >
+                                        <CheckCircle className="w-4 h-4" />
+                                        Submit Once Audit
+                                      </button>
                                     </div>
                                   </div>
                                 );
@@ -3228,12 +3289,17 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                         {(() => {
                           const details = getRagDetails(row);
                           return (
-                            <div 
-                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-semibold shadow-sm select-none ${details.bgClass} ${details.borderClass} ${details.textClass}`}
-                              title={details.tooltip}
-                            >
-                              <span className="text-sm leading-none">{details.face}</span>
-                              <span className="text-[9px] uppercase tracking-wider font-extrabold">{details.label}</span>
+                            <div className="flex flex-col items-center gap-1">
+                              <div 
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-semibold shadow-sm select-none ${details.bgClass} ${details.borderClass} ${details.textClass}`}
+                                title={details.tooltip}
+                              >
+                                <span className="text-sm leading-none">{details.face}</span>
+                                <span className="text-[9px] uppercase tracking-wider font-extrabold">{details.label}</span>
+                              </div>
+                              {row.auditChecklist?.auditSubmitted && (
+                                <span className="text-[9px] font-black text-emerald-600 uppercase tracking-wider">Submitted</span>
+                              )}
                             </div>
                           );
                         })()}
