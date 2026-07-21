@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 import { 
   FileText, Shield, Info, Plus, Trash2, Save, Send, Loader2,
   HelpCircle, ClipboardList, Briefcase, FileDown, CheckCircle,
@@ -129,6 +131,8 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notification, setNotification] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
+  const [isExportingWord, setIsExportingWord] = useState(false);
 
   const isMikeViewer = React.useMemo(() => {
     if (!currentUser) return false;
@@ -472,6 +476,240 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
   const [subHeaderFontSize, setSubHeaderFontSize] = useState('9px');
   const [subHeaderColor, setSubHeaderColor] = useState('#6b7280'); // gray-500
   const [muniLogo, setMuniLogo] = useState<string | null>(null);
+
+  const handleExportPDF = async () => {
+    setIsExportingPDF(true);
+    try {
+      const container = document.getElementById('print-ready-pages-container');
+      const pages = container ? container.querySelectorAll('.a4-print-page') : [];
+      
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+
+      if (container && pages.length > 0) {
+        // High-Quality Page-by-Page Export with Dynamic Canvas Slicing
+        await document.fonts.ready;
+        
+        let pdfPageCount = 0;
+
+        for (let i = 0; i < pages.length; i++) {
+          const pageEl = pages[i] as HTMLElement;
+          
+          // Temporarily hide any inline/hardcoded footer page numbers so we don't double-stamp
+          const hardcodedPageNum = pageEl.querySelector('.text-right.font-black.uppercase');
+          const originalDisplay = hardcodedPageNum ? (hardcodedPageNum as HTMLElement).style.display : '';
+          if (hardcodedPageNum) {
+            (hardcodedPageNum as HTMLElement).style.display = 'none';
+          }
+          
+          const canvas = await html2canvas(pageEl, {
+            scale: 2,
+            useCORS: true,
+            allowTaint: false,
+            backgroundColor: '#ffffff',
+            logging: false,
+          });
+          
+          if (hardcodedPageNum) {
+            (hardcodedPageNum as HTMLElement).style.display = originalDisplay;
+          }
+
+          const imgWidth = canvas.width;
+          const imgHeight = canvas.height;
+          
+          // Compute page height in canvas pixels matching aspect ratio of standard A4 (210x297)
+          const pageHeightPixels = (imgWidth * 297) / 210;
+          
+          let remainingHeight = imgHeight;
+          let position = 0;
+          
+          const pageCanvas = document.createElement('canvas');
+          pageCanvas.width = imgWidth;
+          const ctx = pageCanvas.getContext('2d');
+          
+          while (remainingHeight > 0) {
+            const chunkHeight = Math.min(remainingHeight, pageHeightPixels);
+            pageCanvas.height = chunkHeight;
+            
+            if (ctx) {
+              ctx.fillStyle = '#ffffff';
+              ctx.fillRect(0, 0, imgWidth, chunkHeight);
+              ctx.drawImage(
+                canvas,
+                0, position,
+                imgWidth, chunkHeight,
+                0, 0,
+                imgWidth, chunkHeight
+              );
+            }
+            
+            const chunkImgData = pageCanvas.toDataURL('image/jpeg', 0.95);
+            
+            if (pdfPageCount > 0) {
+              pdf.addPage();
+            }
+            pdfPageCount++;
+            
+            const pageRenderHeight = (chunkHeight * pdfWidth) / imgWidth;
+            pdf.addImage(chunkImgData, 'JPEG', 0, 0, pdfWidth, pageRenderHeight);
+            
+            remainingHeight -= chunkHeight;
+            position += chunkHeight;
+          }
+        }
+
+        // Draw standard page numbers and footer on ALL pages (excluding the cover page which is Page 1)
+        const totalPages = pdf.getNumberOfPages();
+        for (let idx = 2; idx <= totalPages; idx++) {
+          pdf.setPage(idx);
+          
+          pdf.setDrawColor(200, 205, 210);
+          pdf.setLineWidth(0.25);
+          pdf.line(10, pdfHeight - 15, pdfWidth - 10, pdfHeight - 15);
+          
+          pdf.setFont("helvetica", "bold");
+          pdf.setFontSize(8);
+          pdf.setTextColor(80, 90, 100);
+          pdf.text(municipalityName || "NKANGALA DISTRICT MUNICIPALITY", 10, pdfHeight - 10);
+          
+          pdf.setFont("helvetica", "normal");
+          pdf.setFontSize(8);
+          pdf.setTextColor(110, 110, 110);
+          pdf.text(`Page ${idx} of ${totalPages}`, pdfWidth - 35, pdfHeight - 10);
+        }
+
+      } else {
+        throw new Error("No printable pages container found.");
+      }
+      
+      pdf.save(`Performance_Agreement_${(municipalityName || 'NKANGALA').replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
+      triggerNotification('PDF document exported successfully.', 'success');
+    } catch (error: any) {
+      console.error('Failed to export PDF:', error);
+      triggerNotification('Failed to export PDF document: ' + error.message, 'error');
+    } finally {
+      setIsExportingPDF(false);
+    }
+  };
+
+  const handleExportWord = () => {
+    setIsExportingWord(true);
+    try {
+      const element = document.getElementById('pa-template-printable-sheet');
+      if (!element) {
+        alert('Printable content not found.');
+        return;
+      }
+      
+      const contentHtml = element.innerHTML;
+      
+      const html = `
+        <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+        <head>
+          <title>Performance Agreement</title>
+          <!--[if gte mso 9]>
+          <xml>
+          <w:WordDocument>
+          <w:View>Print</w:View>
+          <w:Zoom>100</w:Zoom>
+          <w:DoNotOptimizeForBrowser/>
+          </w:WordDocument>
+          </xml>
+          <![endif]-->
+          <style>
+            @page {
+              size: 210mm 297mm;
+              margin: 20mm;
+            }
+            body {
+              font-family: 'Arial', sans-serif;
+              font-size: 11pt;
+              line-height: 1.5;
+              color: #333333;
+              margin: 0;
+            }
+            table {
+              border-collapse: collapse;
+              width: 100% !important;
+              margin-bottom: 1em;
+              table-layout: fixed;
+            }
+            th, td {
+              border: 1px solid #cccccc !important;
+              padding: 6px !important;
+              text-align: left;
+              vertical-align: top;
+              word-break: break-all;
+              word-wrap: break-word;
+            }
+            th {
+              background-color: #f2f2f2;
+              font-weight: bold;
+            }
+            /* Mapping Tailwind column widths for MS Word */
+            th[class*="w-[35px]"], td[class*="w-[35px]"] { width: 35px !important; }
+            th[class*="w-[170px]"], td[class*="w-[170px]"] { width: 170px !important; }
+            th[class*="w-[45px]"], td[class*="w-[45px]"] { width: 45px !important; }
+            th[class*="w-[50px]"], td[class*="w-[50px]"] { width: 50px !important; }
+            th[class*="w-[55px]"], td[class*="w-[55px]"] { width: 55px !important; }
+            th[class*="w-[30px]"], td[class*="w-[30px]"] { width: 30px !important; }
+            th[class*="w-[110px]"], td[class*="w-[110px]"] { width: 110px !important; }
+            
+            h1, h2, h3, h4 {
+              color: #1e293b;
+              font-family: 'Arial', sans-serif;
+              margin-top: 1.5em;
+              margin-bottom: 0.5em;
+            }
+            .page-break {
+              page-break-before: always;
+            }
+            .text-center {
+              text-align: center;
+            }
+            .font-bold {
+              font-weight: bold;
+            }
+            /* Extra styles for table formatting */
+            .border-r { border-right: 1px solid #cccccc !important; }
+            .border-b { border-bottom: 1px solid #cccccc !important; }
+            .border-t { border-top: 1px solid #cccccc !important; }
+            .border-l { border-left: 1px solid #cccccc !important; }
+            .bg-slate-50 { background-color: #f8fafc !important; }
+            .bg-emerald-50\/10 { background-color: #f0fdf4 !important; }
+          </style>
+        </head>
+        <body>
+          <div class="Section1">
+            ${contentHtml}
+          </div>
+        </body>
+        </html>
+      `;
+      
+      const blob = new Blob([html], { type: 'application/msword;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Performance_Agreement_${(municipalityName || 'NKANGALA').replace(/[^a-zA-Z0-9]/g, '_')}.doc`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      triggerNotification('Word document exported successfully.', 'success');
+    } catch (error) {
+      console.error('Failed to export Word:', error);
+      triggerNotification('Failed to export Word document.', 'error');
+    } finally {
+      setIsExportingWord(false);
+    }
+  };
 
   const triggerNotification = (text: string, type: 'success' | 'error') => {
     setNotification({ text, type });
@@ -2672,7 +2910,7 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
         </div>
 
         {/* Right pane: Standard Previewer (Separate scrolling) */}
-        <div id="templates-right-preview-pane" className="w-1/2 h-full overflow-y-auto bg-slate-200 p-8 flex justify-center relative min-h-0">
+        <div id="templates-right-preview-pane" className="w-1/2 h-full overflow-auto bg-slate-200 p-8 flex justify-center relative min-h-0">
           
           {/* Print & Layout Actions Toolbar */}
           <div className="absolute top-4 right-4 z-45 flex items-center gap-2">
@@ -2692,17 +2930,35 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
               <FileDown className="w-3.5 h-3.5" />
               Direct Print
             </button>
+            <button
+              type="button"
+              onClick={handleExportPDF}
+              disabled={isExportingPDF}
+              className="bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white font-black text-[9px] uppercase tracking-wider px-3.5 py-2 rounded-lg inline-flex items-center gap-1.5 shadow-md hover:scale-102 transition-all cursor-pointer"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              {isExportingPDF ? 'Exporting PDF...' : 'Export to PDF'}
+            </button>
+            <button
+              type="button"
+              onClick={handleExportWord}
+              disabled={isExportingWord}
+              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-black text-[9px] uppercase tracking-wider px-3.5 py-2 rounded-lg inline-flex items-center gap-1.5 shadow-md hover:scale-102 transition-all cursor-pointer"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              {isExportingWord ? 'Exporting Word...' : 'Export to Word'}
+            </button>
           </div>
 
           <div 
             id="pa-template-printable-sheet"
-            className={`w-[620px] bg-white p-12 shadow-2xl rounded-sm ${documentFontFamily} leading-relaxed text-xs relative`}
+            className={`w-[794px] shrink-0 bg-white p-12 shadow-2xl rounded-sm ${documentFontFamily} leading-relaxed text-xs relative`}
             style={{ 
-              color: textColor, 
-              borderColor: borderColor, 
-              borderWidth: borderWidth, 
-              borderStyle: borderStyle as any,
-              textAlign: documentTextAlign
+               color: textColor, 
+               borderColor: borderColor, 
+               borderWidth: borderWidth, 
+               borderStyle: borderStyle as any,
+               textAlign: documentTextAlign
             }}
           >
             
@@ -2710,11 +2966,6 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
             <div className="text-center pb-8 border-b-2 border-slate-950 mb-8 space-y-1" style={{ borderColor: borderColor }}>
               <span className={`${muniFontFamily} uppercase tracking-widest font-black block`} style={{ color: muniColor, fontSize: muniFontSize }}>{municipalityName}</span>
               <span className="font-mono block" style={{ color: subHeaderColor, fontSize: subHeaderFontSize }}>{templateSubHeader}</span>
-            </div>
-
-            {/* Editable Heading: Cover page title header */}
-            <div className="bg-slate-50 border border-dashed border-emerald-350 p-2 text-center text-[10px] text-emerald-800 font-bold font-mono rounded mb-4" style={{ color: headingColor, borderColor: borderColor }}>
-              [Editable Heading]: {headingCover}
             </div>
 
             {/* Cover Page */}
@@ -2785,26 +3036,35 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
 
             {/* Rest of Agreement Chapters */}
             <div className="space-y-8" style={{ breakBefore: 'page' }}>
-              
               {dynamicSections.map((sec, i) => {
                 const isSection6 = sec.heading.trim().startsWith('6') || sec.heading.toLowerCase().includes('6.') || sec.heading.toLowerCase().includes('competenc');
                 return (
-                <div key={sec.id} className="space-y-3">
-                  <h4 className="font-extrabold border-b pb-1 text-xs uppercase tracking-wider" style={{ color: headingColor, borderColor: borderColor }}>
-                    {sec.heading}
-                  </h4>
-                  <div className="leading-normal whitespace-pre-wrap text-[11px] min-h-[1.5em]">
-                    {isMandlaMahlangu && (sec.id === "section-1782677903090" || sec.heading.trim().startsWith("15") || sec.heading.toLowerCase().includes("15."))
-                      ? (sec.content1 || '').replace(/(thus,?\s*done\s*and\s*signed\s*on\s*this[\s\S]*|thus,?\s*co-signed[\s\S]*)$/gi, '').trim()
-                      : sec.content1}
+                  <div key={sec.id} className="space-y-4">
+                    {i > 0 && (
+                      <div className="relative flex py-8 items-center justify-center print:hidden" style={{ breakAfter: 'page' }}>
+                        <div className="flex-grow border-t border-dashed" style={{ borderColor: borderColor }}></div>
+                        <span className="flex-shrink-0 mx-4 text-slate-300 text-[10px] uppercase font-bold tracking-widest">Page Break</span>
+                        <div className="flex-grow border-t border-dashed" style={{ borderColor: borderColor }}></div>
+                      </div>
+                    )}
+                    <div className="space-y-3" style={{ breakBefore: 'page' }}>
+                      <h4 className="font-extrabold border-b pb-1 text-xs uppercase tracking-wider" style={{ color: headingColor, borderColor: borderColor }}>
+                        {sec.heading}
+                      </h4>
+                      <div className="leading-normal whitespace-pre-wrap text-[11px] min-h-[1.5em]">
+                        {isMandlaMahlangu && (sec.id === "section-1782677903090" || sec.heading.trim().startsWith("15") || sec.heading.toLowerCase().includes("15."))
+                          ? (sec.content1 || '').replace(/(thus,?\s*done\s*and\s*signed\s*on\s*this[\s\S]*|thus,?\s*co-signed[\s\S]*)$/gi, '').trim()
+                          : sec.content1}
+                      </div>
+                      <RenderCustomTables sectionId={sec.id} />
+                      {sec.content2 && <div className="leading-normal whitespace-pre-wrap text-[11px] min-h-[1.5em] mt-2">{sec.content2}</div>}
+                      {isSection6 && <RenderCompetenciesTable />}
+                      {isSection6 && <RenderCfoCompetenciesTable />}
+                      {isSection6 && <RenderPedCompetenciesTable />}
+                    </div>
                   </div>
-                  <RenderCustomTables sectionId={sec.id} />
-                  {sec.content2 && <div className="leading-normal whitespace-pre-wrap text-[11px] min-h-[1.5em] mt-2">{sec.content2}</div>}
-                  {isSection6 && <RenderCompetenciesTable />}
-                  {isSection6 && <RenderCfoCompetenciesTable />}
-                  {isSection6 && <RenderPedCompetenciesTable />}
-                </div>
-              )})}
+                );
+              })}
             </div>
 
             {/* Visual Page Break for Web Preview */}
@@ -3001,36 +3261,36 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
                         </div>
 
                         <div className="overflow-x-auto border rounded-xl" style={{ borderColor: borderColor }}>
-                          <table className="w-full text-[9px] border-collapse text-left font-sans">
+                          <table className="w-full text-[8px] border-collapse text-left font-sans table-layout-fixed">
                             <thead>
-                              <tr className="bg-slate-50 uppercase tracking-wider text-[8px] font-black border-b select-none" style={{ borderColor: borderColor, color: headingColor }}>
-                                <th className="p-2 border-r text-center w-14" style={{ borderColor: borderColor }}>KPI IDs</th>
-                                <th className="p-2 border-r min-w-[150px]" style={{ borderColor: borderColor }}>Key Performance Indicator</th>
-                                <th className="p-2 border-r text-center w-16" style={{ borderColor: borderColor }}>Weight</th>
-                                <th className="p-2 border-r text-center w-20" style={{ borderColor: borderColor }}>Baseline</th>
-                                <th className="p-2 border-r text-center w-20" style={{ borderColor: borderColor }}>Annual</th>
-                                <th className="p-2 border-r text-center w-16" style={{ borderColor: borderColor }}>Q1</th>
-                                <th className="p-2 border-r text-center w-16" style={{ borderColor: borderColor }}>Q2</th>
-                                <th className="p-2 border-r text-center w-16" style={{ borderColor: borderColor }}>Q3</th>
-                                <th className="p-2 border-r text-center w-16" style={{ borderColor: borderColor }}>Q4</th>
-                                <th className="p-2 border-r min-w-[120px] max-w-[200px]" style={{ borderColor: borderColor }}>POE</th>
-                                <th className="p-2 text-center bg-emerald-50/10 text-emerald-800 w-24" style={{ borderColor: borderColor }}>Budget</th>
+                              <tr className="bg-slate-50 uppercase tracking-wider text-[7px] font-black border-b select-none" style={{ borderColor: borderColor, color: headingColor }}>
+                                <th className="p-1 border-r text-center w-[35px]" style={{ borderColor: borderColor }}>KPI IDs</th>
+                                <th className="p-1 border-r text-left w-[170px]" style={{ borderColor: borderColor }}>Key Performance Indicator</th>
+                                <th className="p-1 border-r text-center w-[45px]" style={{ borderColor: borderColor }}>Weight</th>
+                                <th className="p-1 border-r text-center w-[50px]" style={{ borderColor: borderColor }}>Baseline</th>
+                                <th className="p-1 border-r text-center w-[55px]" style={{ borderColor: borderColor }}>Annual</th>
+                                <th className="p-1 border-r text-center w-[30px]" style={{ borderColor: borderColor }}>Q1</th>
+                                <th className="p-1 border-r text-center w-[30px]" style={{ borderColor: borderColor }}>Q2</th>
+                                <th className="p-1 border-r text-center w-[30px]" style={{ borderColor: borderColor }}>Q3</th>
+                                <th className="p-1 border-r text-center w-[30px]" style={{ borderColor: borderColor }}>Q4</th>
+                                <th className="p-1 border-r text-left w-[110px]" style={{ borderColor: borderColor }}>POE</th>
+                                <th className="p-1 text-center bg-emerald-50/10 text-emerald-800 w-[55px]" style={{ borderColor: borderColor }}>Budget</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y font-medium text-slate-700" style={{ borderColor: borderColor }}>
                               {kpis.map((item, idx) => (
                                 <tr key={item.id || idx} className="hover:bg-slate-50/85 transition">
-                                  <td className="p-2 border-r font-mono font-bold text-slate-800 text-center" style={{ borderColor: borderColor }}>{item.kpiNo || idx + 1}</td>
-                                  <td className="p-2 border-r leading-tight text-slate-900" style={{ borderColor: borderColor }}>{item.kpi || ''}</td>
-                                  <td className="p-2 border-r text-center font-bold text-slate-800" style={{ borderColor: borderColor }}>{item.weighting || '0'}%</td>
-                                  <td className="p-2 border-r text-center text-slate-600" style={{ borderColor: borderColor }}>{item.baseline || 'N/A'}</td>
-                                  <td className="p-2 border-r text-center font-bold text-slate-900" style={{ borderColor: borderColor }}>{item.annualTarget || 'N/A'}</td>
-                                  <td className="p-2 border-r text-center text-slate-600" style={{ borderColor: borderColor }}>{item.q1Target || 'N/A'}</td>
-                                  <td className="p-2 border-r text-center text-slate-600" style={{ borderColor: borderColor }}>{item.q2Target || 'N/A'}</td>
-                                  <td className="p-2 border-r text-center text-slate-600" style={{ borderColor: borderColor }}>{item.q3Target || 'N/A'}</td>
-                                  <td className="p-2 border-r text-center text-slate-600" style={{ borderColor: borderColor }}>{item.q4Target || 'N/A'}</td>
-                                  <td className="p-2 border-r text-slate-600 leading-normal whitespace-pre-line" style={{ borderColor: borderColor }}>{item.poe || 'N/A'}</td>
-                                  <td className="p-2 text-center bg-emerald-50/10 font-bold text-emerald-800" style={{ borderColor: borderColor }}>{item.budget || 'R0'}</td>
+                                  <td className="p-1 border-r font-mono font-bold text-slate-800 text-center" style={{ borderColor: borderColor }}>{item.kpiNo || idx + 1}</td>
+                                  <td className="p-1 border-r leading-tight text-slate-900 break-words" style={{ borderColor: borderColor }}>{item.kpi || ''}</td>
+                                  <td className="p-1 border-r text-center font-bold text-slate-800" style={{ borderColor: borderColor }}>{item.weighting || '0'}%</td>
+                                  <td className="p-1 border-r text-center text-slate-600 break-all" style={{ borderColor: borderColor }}>{item.baseline || 'N/A'}</td>
+                                  <td className="p-1 border-r text-center font-bold text-slate-900 break-all" style={{ borderColor: borderColor }}>{item.annualTarget || 'N/A'}</td>
+                                  <td className="p-1 border-r text-center text-slate-600 break-all" style={{ borderColor: borderColor }}>{item.q1Target || 'N/A'}</td>
+                                  <td className="p-1 border-r text-center text-slate-600 break-all" style={{ borderColor: borderColor }}>{item.q2Target || 'N/A'}</td>
+                                  <td className="p-1 border-r text-center text-slate-600 break-all" style={{ borderColor: borderColor }}>{item.q3Target || 'N/A'}</td>
+                                  <td className="p-1 border-r text-center text-slate-600 break-all" style={{ borderColor: borderColor }}>{item.q4Target || 'N/A'}</td>
+                                  <td className="p-1 border-r text-slate-600 leading-normal whitespace-pre-line break-words" style={{ borderColor: borderColor }}>{item.poe || 'N/A'}</td>
+                                  <td className="p-1 text-center bg-emerald-50/10 font-bold text-emerald-800 break-all" style={{ borderColor: borderColor }}>{item.budget || 'R0'}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -3060,11 +3320,13 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
 
       </div>
 
-      {/* FULL-SCREEN PRINT PREVIEW MODAL */}
-      {isPrintPreviewOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/95 overflow-y-auto flex flex-col font-sans print:bg-white">
-          
-          {/* Print settings bar - Hidden when actual printing */}
+      {/* FULL-SCREEN PRINT PREVIEW MODAL (Always rendered offscreen when closed for high-fidelity PDF capture) */}
+      <div 
+        className={isPrintPreviewOpen ? "fixed inset-0 z-50 bg-slate-900/95 overflow-y-auto flex flex-col font-sans print:bg-white" : "fixed top-0 left-[-9999px] pointer-events-none opacity-0 h-0 overflow-hidden"}
+        style={{ width: isPrintPreviewOpen ? 'auto' : '210mm' }}
+      >
+        {isPrintPreviewOpen && (
+          /* Print settings bar - Hidden when actual printing */
           <div className="bg-slate-800 border-b border-slate-700 p-4 sticky top-0 z-50 flex flex-col lg:flex-row items-center justify-between gap-4 shadow-xl print:hidden">
             <div className="flex items-center gap-3">
               <div className="bg-emerald-500/10 p-2 rounded-lg border border-emerald-500/20">
@@ -3156,6 +3418,26 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
 
               <button
                 type="button"
+                onClick={handleExportPDF}
+                disabled={isExportingPDF}
+                className="bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-black uppercase tracking-wider px-4 py-2 rounded-lg flex items-center gap-1.5 transition-all shadow-md shadow-rose-900/20 cursor-pointer"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                {isExportingPDF ? 'Exporting PDF...' : 'Export PDF'}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleExportWord}
+                disabled={isExportingWord}
+                className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-black uppercase tracking-wider px-4 py-2 rounded-lg flex items-center gap-1.5 transition-all shadow-md shadow-blue-900/20 cursor-pointer"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                {isExportingWord ? 'Exporting Word...' : 'Export Word'}
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setIsPrintPreviewOpen(false)}
                 className="bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold uppercase tracking-wider px-3.5 py-2 rounded-lg flex items-center gap-1 transition-all cursor-pointer"
               >
@@ -3164,66 +3446,97 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
               </button>
             </div>
           </div>
+        )}
 
-          {/* Printable visual environment backdrop */}
-          <div className="flex-1 overflow-y-auto p-8 flex flex-col items-center gap-8 bg-slate-950/70 select-text print:bg-white print:p-0 print:gap-0">
-            
-            {/* Embedded style element targeting absolute print formats */}
-            <style dangerouslySetInnerHTML={{ __html: `
-              @media print {
-                body {
-                  background: white !important;
-                  color: ${textColor} !important;
-                  margin: 0 !important;
-                  padding: 0 !important;
-                }
-                #pa-templates-workspace,
-                #pa-templates-workspace *,
-                .fixed,
-                .sticky,
-                button,
-                select,
-                header,
-                footer {
-                  display: none !important;
-                }
-                #print-ready-pages-container {
-                  display: block !important;
-                  position: absolute !important;
-                  left: 0 !important;
-                  top: 0 !important;
-                  width: 100% !important;
-                  height: auto !important;
-                  background: white !important;
-                  padding: 0 !important;
-                  margin: 0 !important;
-                  box-shadow: none !important;
-                }
-                .a4-print-page {
-                  display: block !important;
-                  page-break-after: always !important;
-                  break-after: page !important;
-                  width: 100% !important;
-                  min-height: 297mm !important;
-                  height: auto !important;
-                  box-sizing: border-box !important;
-                  margin: 0 !important;
-                  padding: ${printMargin === 'compact' ? '12mm' : printMargin === 'wide' ? '28mm' : '20mm'} !important;
-                  border: none !important;
-                  box-shadow: none !important;
-                  background: white !important;
-                  position: relative !important;
-                }
-                
-                table {
-                  page-break-inside: avoid !important;
-                  break-inside: avoid !important;
-                }
-                .a4-print-page * {
-                  color: inherit !important;
-                }
+        {/* Printable visual environment backdrop */}
+        <div className={isPrintPreviewOpen ? "flex-1 overflow-y-auto p-8 flex flex-col items-center gap-8 bg-slate-950/70 select-text print:bg-white print:p-0 print:gap-0" : "w-[210mm] bg-white"}>
+          
+          {/* Embedded style element targeting absolute print and screen formats */}
+          <style dangerouslySetInnerHTML={{ __html: `
+            @media print {
+              body {
+                background: white !important;
+                color: ${textColor} !important;
+                margin: 0 !important;
+                padding: 0 !important;
               }
-            `}} />
+              #pa-templates-workspace,
+              #pa-templates-workspace *,
+              .fixed,
+              .sticky,
+              button,
+              select,
+              header,
+              footer {
+                display: none !important;
+              }
+              #print-ready-pages-container {
+                display: block !important;
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                height: auto !important;
+                background: white !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                box-shadow: none !important;
+              }
+              .a4-print-page {
+                display: block !important;
+                page-break-after: always !important;
+                break-after: page !important;
+                width: 100% !important;
+                min-height: 297mm !important;
+                height: auto !important;
+                box-sizing: border-box !important;
+                margin: 0 !important;
+                padding: ${printMargin === 'compact' ? '12mm' : printMargin === 'wide' ? '28mm' : '20mm'} !important;
+                padding-bottom: 25mm !important; /* reserve bottom space for vector footer */
+                border: none !important;
+                box-shadow: none !important;
+                background: white !important;
+                position: relative !important;
+              }
+              
+              table {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+              }
+              .a4-print-page * {
+                color: inherit !important;
+              }
+            }
+
+            /* Screen-specific high-contrast styling for the print pages, protecting against leaked global styles */
+            .a4-print-page {
+              padding-bottom: 25mm !important; /* reserve bottom space for vector footer */
+              background: white !important;
+              color: ${textColor} !important;
+            }
+            .a4-print-page table {
+              border-collapse: collapse !important;
+              width: 100% !important;
+              margin-top: 6px !important;
+              margin-bottom: 6px !important;
+            }
+            .a4-print-page th {
+              background-color: #f1f5f9 !important; /* light grey high-contrast bg */
+              color: #0f172a !important; /* dark slate high-contrast text */
+              font-weight: 800 !important;
+              border: 1px solid ${borderColor} !important;
+              padding: 6px !important;
+              font-size: 8px !important;
+              text-transform: uppercase !important;
+              text-align: left !important;
+            }
+            .a4-print-page td {
+              border: 1px solid ${borderColor} !important;
+              padding: 6px !important;
+              font-size: 8.5px !important;
+              color: #334155 !important;
+            }
+          `}} />
 
             <div id="print-ready-pages-container" className={`space-y-8 print:space-y-0 print:w-full ${documentFontFamily}`} style={{ textAlign: documentTextAlign }}>
               
@@ -3345,31 +3658,31 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
                 </div>
               </div>
 
-              {/* PAGE 3: CHAPTERS 1 TO 4 */}
-              <div 
-                className="a4-print-page w-[210mm] h-[297mm] bg-white shadow-2xl rounded p-16 flex flex-col justify-between relative border text-slate-700 print:border-none print:shadow-none print:rounded-none"
-                style={{ 
-                  color: textColor, 
-                  borderColor: borderColor, 
-                  borderWidth: borderWidth, 
-                  borderStyle: borderStyle as any,
-                  padding: printMargin === 'compact' ? '12mm' : printMargin === 'wide' ? '28mm' : '20mm',
-                  fontSize: printFontSize === 'small' ? '9px' : printFontSize === 'large' ? '13px' : '11px'
-                }}
-              >
-                <div className="space-y-6 overflow-hidden">
-                  {/* Header */}
-                  <div className="text-center pb-4 border-b border-slate-100 flex justify-between items-center text-[8px] text-slate-400 font-mono" style={{ borderColor: borderColor }}>
-                    <span>{municipalityName} - Performance Agreement Template</span>
-                    <span className="font-bold">SECTION A: GENERAL CHAPTERS</span>
-                  </div>
+              {/* DYNAMIC PAGES FOR EACH CHAPTER */}
+              {dynamicSections.map((sec, secIdx) => {
+                const isSection6 = sec.heading.trim().startsWith('6') || sec.heading.toLowerCase().includes('6.') || sec.heading.toLowerCase().includes('competenc');
+                return (
+                  <div 
+                    key={sec.id}
+                    className="a4-print-page w-[210mm] min-h-[297mm] h-auto bg-white shadow-2xl rounded p-16 flex flex-col justify-between relative border text-slate-700 print:border-none print:shadow-none print:rounded-none"
+                    style={{ 
+                      color: textColor, 
+                      borderColor: borderColor, 
+                      borderWidth: borderWidth, 
+                      borderStyle: borderStyle as any,
+                      padding: printMargin === 'compact' ? '12mm' : printMargin === 'wide' ? '28mm' : '20mm',
+                      fontSize: printFontSize === 'small' ? '9px' : printFontSize === 'large' ? '13px' : '11px'
+                    }}
+                  >
+                    <div className="space-y-6 overflow-hidden">
+                      {/* Header */}
+                      <div className="text-center pb-4 border-b border-slate-100 flex justify-between items-center text-[8px] text-slate-400 font-mono" style={{ borderColor: borderColor }}>
+                        <span>{municipalityName} - Performance Agreement Template</span>
+                        <span className="font-bold">SECTION A: CHAPTER {secIdx + 1}</span>
+                      </div>
 
-                  {/* Chapters Content */}
-                  <div className="space-y-8">
-                    {dynamicSections.map(sec => {
-                      const isSection6 = sec.heading.trim().startsWith('6') || sec.heading.toLowerCase().includes('6.') || sec.heading.toLowerCase().includes('competenc');
-                      return (
-                      <div key={sec.id} className="space-y-3">
+                      {/* Chapters Content */}
+                      <div className="space-y-3">
                         <h4 className="font-extrabold border-b pb-1 text-xs uppercase tracking-wider" style={{ color: headingColor, borderColor: borderColor }}>
                           {sec.heading}
                         </h4>
@@ -3384,20 +3697,20 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
                         {isSection6 && <RenderCfoCompetenciesTable />}
                         {isSection6 && <RenderPedCompetenciesTable />}
                       </div>
-                    )})}
-                  </div>
-                </div>
+                    </div>
 
-                {/* Footer */}
-                <div className="border-t pt-4 flex justify-between items-center text-[9px] text-slate-400 font-mono" style={{ borderColor: borderColor }}>
-                  <span className="text-left font-bold">{footerText}</span>
-                  {showPageNumbers && (
-                    <span className="text-right font-black uppercase tracking-wider">
-                      Page 3 of 4
-                    </span>
-                  )}
-                </div>
-              </div>
+                    {/* Footer */}
+                    <div className="border-t pt-4 flex justify-between items-center text-[9px] text-slate-400 font-mono" style={{ borderColor: borderColor }}>
+                      <span className="text-left font-bold">{footerText}</span>
+                      {showPageNumbers && (
+                        <span className="text-right font-black uppercase tracking-wider">
+                          Page {secIdx + 4}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
 
               {/* PAGE 4: SIGNATURES & ADOPTED PLAN */}
               <div 
@@ -3603,36 +3916,36 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
                               </div>
 
                               <div className="overflow-x-auto border rounded-xl" style={{ borderColor: borderColor }}>
-                                <table className="w-full text-[9px] border-collapse text-left font-sans">
+                                <table className="w-full text-[8px] border-collapse text-left font-sans table-layout-fixed">
                                   <thead>
-                                    <tr className="bg-slate-50 uppercase tracking-wider text-[8px] font-black border-b" style={{ borderColor: borderColor, color: headingColor }}>
-                                      <th className="p-2 border-r text-center w-14" style={{ borderColor: borderColor }}>KPI IDs</th>
-                                      <th className="p-2 border-r min-w-[150px]" style={{ borderColor: borderColor }}>Key Performance Indicator</th>
-                                      <th className="p-2 border-r text-center w-16" style={{ borderColor: borderColor }}>Weight</th>
-                                      <th className="p-2 border-r text-center w-20" style={{ borderColor: borderColor }}>Baseline</th>
-                                      <th className="p-2 border-r text-center w-20" style={{ borderColor: borderColor }}>Annual</th>
-                                      <th className="p-2 border-r text-center w-16" style={{ borderColor: borderColor }}>Q1</th>
-                                      <th className="p-2 border-r text-center w-16" style={{ borderColor: borderColor }}>Q2</th>
-                                      <th className="p-2 border-r text-center w-16" style={{ borderColor: borderColor }}>Q3</th>
-                                      <th className="p-2 border-r text-center w-16" style={{ borderColor: borderColor }}>Q4</th>
-                                      <th className="p-2 border-r min-w-[120px] max-w-[200px]" style={{ borderColor: borderColor }}>POE</th>
-                                      <th className="p-2 text-center bg-emerald-50/10 text-emerald-800 w-24" style={{ borderColor: borderColor }}>Budget</th>
+                                    <tr className="bg-slate-50 uppercase tracking-wider text-[7px] font-black border-b" style={{ borderColor: borderColor, color: headingColor }}>
+                                      <th className="p-1 border-r text-center w-[35px]" style={{ borderColor: borderColor }}>KPI IDs</th>
+                                      <th className="p-1 border-r text-left w-[170px]" style={{ borderColor: borderColor }}>Key Performance Indicator</th>
+                                      <th className="p-1 border-r text-center w-[45px]" style={{ borderColor: borderColor }}>Weight</th>
+                                      <th className="p-1 border-r text-center w-[50px]" style={{ borderColor: borderColor }}>Baseline</th>
+                                      <th className="p-1 border-r text-center w-[55px]" style={{ borderColor: borderColor }}>Annual</th>
+                                      <th className="p-1 border-r text-center w-[30px]" style={{ borderColor: borderColor }}>Q1</th>
+                                      <th className="p-1 border-r text-center w-[30px]" style={{ borderColor: borderColor }}>Q2</th>
+                                      <th className="p-1 border-r text-center w-[30px]" style={{ borderColor: borderColor }}>Q3</th>
+                                      <th className="p-1 border-r text-center w-[30px]" style={{ borderColor: borderColor }}>Q4</th>
+                                      <th className="p-1 border-r text-left w-[110px]" style={{ borderColor: borderColor }}>POE</th>
+                                      <th className="p-1 text-center bg-emerald-50/10 text-emerald-800 w-[55px]" style={{ borderColor: borderColor }}>Budget</th>
                                     </tr>
                                   </thead>
                                   <tbody className="divide-y font-medium text-slate-700" style={{ borderColor: borderColor }}>
                                     {kpis.map((item, idx) => (
                                       <tr key={item.id || idx}>
-                                        <td className="p-2 border-r font-mono font-bold text-slate-800 text-center" style={{ borderColor: borderColor }}>{item.kpiNo || idx + 1}</td>
-                                        <td className="p-2 border-r leading-tight text-slate-900" style={{ borderColor: borderColor }}>{item.kpi || ''}</td>
-                                        <td className="p-2 border-r text-center font-bold text-slate-800" style={{ borderColor: borderColor }}>{item.weighting || '0'}%</td>
-                                        <td className="p-2 border-r text-center text-slate-600" style={{ borderColor: borderColor }}>{item.baseline || 'N/A'}</td>
-                                        <td className="p-2 border-r text-center font-bold text-slate-900" style={{ borderColor: borderColor }}>{item.annualTarget || 'N/A'}</td>
-                                        <td className="p-2 border-r text-center text-slate-600" style={{ borderColor: borderColor }}>{item.q1Target || 'N/A'}</td>
-                                        <td className="p-2 border-r text-center text-slate-600" style={{ borderColor: borderColor }}>{item.q2Target || 'N/A'}</td>
-                                        <td className="p-2 border-r text-center text-slate-600" style={{ borderColor: borderColor }}>{item.q3Target || 'N/A'}</td>
-                                        <td className="p-2 border-r text-center text-slate-600" style={{ borderColor: borderColor }}>{item.q4Target || 'N/A'}</td>
-                                        <td className="p-2 border-r text-slate-600 leading-normal whitespace-pre-line" style={{ borderColor: borderColor }}>{item.poe || 'N/A'}</td>
-                                        <td className="p-2 text-center bg-emerald-50/10 font-bold text-emerald-800" style={{ borderColor: borderColor }}>{item.budget || 'R0'}</td>
+                                        <td className="p-1 border-r font-mono font-bold text-slate-800 text-center" style={{ borderColor: borderColor }}>{item.kpiNo || idx + 1}</td>
+                                        <td className="p-1 border-r leading-tight text-slate-900 break-words" style={{ borderColor: borderColor }}>{item.kpi || ''}</td>
+                                        <td className="p-1 border-r text-center font-bold text-slate-800" style={{ borderColor: borderColor }}>{item.weighting || '0'}%</td>
+                                        <td className="p-1 border-r text-center text-slate-600 break-all" style={{ borderColor: borderColor }}>{item.baseline || 'N/A'}</td>
+                                        <td className="p-1 border-r text-center font-bold text-slate-900" style={{ borderColor: borderColor }}>{item.annualTarget || 'N/A'}</td>
+                                        <td className="p-1 border-r text-center text-slate-600 break-all" style={{ borderColor: borderColor }}>{item.q1Target || 'N/A'}</td>
+                                        <td className="p-1 border-r text-center text-slate-600 break-all" style={{ borderColor: borderColor }}>{item.q2Target || 'N/A'}</td>
+                                        <td className="p-1 border-r text-center text-slate-600 break-all" style={{ borderColor: borderColor }}>{item.q3Target || 'N/A'}</td>
+                                        <td className="p-1 border-r text-center text-slate-600 break-all" style={{ borderColor: borderColor }}>{item.q4Target || 'N/A'}</td>
+                                        <td className="p-1 border-r text-slate-600 leading-normal whitespace-pre-line break-words" style={{ borderColor: borderColor }}>{item.poe || 'N/A'}</td>
+                                        <td className="p-1 text-center bg-emerald-50/10 font-bold text-emerald-800 break-all" style={{ borderColor: borderColor }}>{item.budget || 'R0'}</td>
                                       </tr>
                                     ))}
                                   </tbody>
@@ -3662,7 +3975,6 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
             </div>
           </div>
         </div>
-      )}
 
       {/* AZURE AD SIGNATURE SELECTION MODAL */}
       {isSignatureModalOpen && (

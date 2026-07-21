@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Layers, Info, CheckCircle, Upload, Download, ArrowRight, Shield, AlertTriangle, HelpCircle, Check, FileText, Plus, Trash2, Database, FolderArchive, AlertCircle, Sparkles, Send, Inbox, Bell, Eye, Lock, RefreshCw, XCircle, Clock, Maximize2, Minimize2 } from 'lucide-react';
+import { Layers, Info, CheckCircle, Upload, Download, ArrowRight, Shield, AlertTriangle, HelpCircle, Check, CheckSquare, FileText, Plus, Trash2, Database, FolderArchive, AlertCircle, Sparkles, Send, Inbox, Bell, Eye, Lock, RefreshCw, XCircle, Clock, Maximize2, Minimize2 } from 'lucide-react';
 import type { User } from '../../types';
 import { SDBIPDraftingSuite } from './SDBIPDraftingSuite';
 import { WordProcessor } from './WordProcessor';
@@ -50,6 +50,14 @@ export interface SdbipRow {
   submitter?: string;
   reviewer?: string;
   approver?: string;
+  internalAudit?: string;
+  auditChecklist?: {
+    poeVerified?: boolean;
+    actualsVerified?: boolean;
+    varianceVerified?: boolean;
+    targetCalculations?: boolean;
+    complianceConfirmed?: boolean;
+  };
   poeStatus: string;
   weight?: string;
   score?: string;
@@ -138,6 +146,22 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ rowId: string; type: 'row' | 'q1' | 'q2' | 'midTerm' | 'q3' | 'q4' } | null>(null);
 
+  // Custom SDBIP officials states (exactly 4 reviewers and 5 auditors)
+  const [reviewers, setReviewers] = useState<string[]>([
+    'Sipho Dlamini',
+    'Zama Khumalo',
+    'Mike Thompson',
+    'Lerato Mokwena'
+  ]);
+  const [internalAuditors, setInternalAuditors] = useState<string[]>([
+    'Fatima Patel',
+    'Brandon Naidoo',
+    'Thabo Mokoena',
+    'Nomvula Sithole',
+    'Audrey Mpanza'
+  ]);
+  const [savingOfficials, setSavingOfficials] = useState(false);
+
   // SDBIP Workflow states
   const [workflowPhase, setWorkflowPhase] = useState<'q1' | 'q2' | 'midTerm' | 'q3' | 'q4' | 'annual'>('q1');
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -146,7 +170,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
   const [selectedWorkflowRow, setSelectedWorkflowRow] = useState<SdbipRow | null>(null);
   const [workflowComments, setWorkflowComments] = useState('');
   const [workflowCommentsMap, setWorkflowCommentsMap] = useState<{[key: string]: string}>({});
-  const [activeWorkflowTab, setActiveWorkflowTab] = useState<'submissions' | 'reviews' | 'approvals'>('submissions');
+  const [activeWorkflowTab, setActiveWorkflowTab] = useState<'submissions' | 'approvals' | 'reviews' | 'audits'>('submissions');
   const [submissionFilter, setSubmissionFilter] = useState<'submitted' | 'all'>('submitted');
   const [showAllKpisInDesk, setShowAllKpisInDesk] = useState(true);
   const [isTableExpanded, setIsTableExpanded] = useState(false);
@@ -154,23 +178,13 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
   const currentUserDisplayName = currentUser.fullName || currentUser.email.split('@')[0];
 
   React.useEffect(() => {
-    const mySubmissions = showAllKpisInDesk
-      ? rows
-      : rows.filter(r => r.submitter?.toLowerCase() === currentUserDisplayName.toLowerCase());
+    const mySubmissions = rows;
 
-    const myPendingReviews = showAllKpisInDesk
-      ? rows.filter(r => r.workflows?.[workflowPhase]?.status === 'pending_review')
-      : rows.filter(r => 
-          r.reviewer?.toLowerCase() === currentUserDisplayName.toLowerCase() && 
-          r.workflows?.[workflowPhase]?.status === 'pending_review'
-        );
+    const myPendingReviews = rows.filter(r => r.workflows?.[workflowPhase]?.status === 'pending_review');
 
-    const myPendingApprovals = showAllKpisInDesk
-      ? rows.filter(r => r.workflows?.[workflowPhase]?.status === 'pending_approval')
-      : rows.filter(r => 
-          r.approver?.toLowerCase() === currentUserDisplayName.toLowerCase() && 
-          r.workflows?.[workflowPhase]?.status === 'pending_approval'
-        );
+    const myPendingApprovals = rows.filter(r => r.workflows?.[workflowPhase]?.status === 'pending_approval');
+
+    const myPendingAudits = rows;
 
     if (activeWorkflowTab === 'submissions') {
       const submissionsToRender = submissionFilter === 'submitted'
@@ -196,6 +210,14 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
       if (myPendingApprovals.length > 0) {
         if (!selectedWorkflowRow || !myPendingApprovals.some(r => r.id === selectedWorkflowRow.id)) {
           setSelectedWorkflowRow(myPendingApprovals[0]);
+        }
+      } else {
+        setSelectedWorkflowRow(null);
+      }
+    } else if (activeWorkflowTab === 'audits') {
+      if (myPendingAudits.length > 0) {
+        if (!selectedWorkflowRow || !myPendingAudits.some(r => r.id === selectedWorkflowRow.id)) {
+          setSelectedWorkflowRow(myPendingAudits[0]);
         }
       } else {
         setSelectedWorkflowRow(null);
@@ -437,18 +459,20 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     poeStatus: 'Not Uploaded'
   });
 
-  // Fetch SDBIP rows, POEs, and Notifications from Supabase on load
+  // Fetch SDBIP rows, POEs, Notifications, and Appointed Officials from Supabase on load
   useEffect(() => {
     setLoading(true);
     Promise.all([
       fetch(`/api/tenant/${activeTenantId}/sdbip`),
       fetch(`/api/tenant/${activeTenantId}/sdbip-poes`),
-      fetch(`/api/tenant/${activeTenantId}/sdbip-notifications`)
+      fetch(`/api/tenant/${activeTenantId}/sdbip-notifications`),
+      fetch(`/api/tenant/${activeTenantId}/sdbip-officials`)
     ])
-      .then(async ([rowsRes, poesRes, notifRes]) => {
+      .then(async ([rowsRes, poesRes, notifRes, officialsRes]) => {
         const rowsData = await rowsRes.json();
         const poesData = await poesRes.json();
         const notifData = await notifRes.json();
+        const officialsData = await officialsRes.json();
         
         // If no rows are loaded, generate 25 default blank template rows across
         if (rowsData && Array.isArray(rowsData.items) && rowsData.items.length > 0) {
@@ -506,6 +530,15 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
         } else {
           setNotifications([]);
         }
+
+        if (officialsData) {
+          if (Array.isArray(officialsData.reviewers)) {
+            setReviewers(officialsData.reviewers);
+          }
+          if (Array.isArray(officialsData.internalAuditors)) {
+            setInternalAuditors(officialsData.internalAuditors);
+          }
+        }
       })
       .catch(err => console.error("Error loading SDBIP data:", err))
       .finally(() => setLoading(false));
@@ -521,6 +554,26 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
       setNotifications(updatedNotifs);
     } catch (err) {
       console.error("Error saving SDBIP notifications:", err);
+    }
+  };
+
+  const saveOfficials = async (updatedReviewers: string[], updatedAuditors: string[]) => {
+    setSavingOfficials(true);
+    try {
+      const res = await fetch(`/api/tenant/${activeTenantId}/sdbip-officials`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reviewers: updatedReviewers, internalAuditors: updatedAuditors })
+      });
+      if (!res.ok) throw new Error("Failed to save officials");
+      setReviewers(updatedReviewers);
+      setInternalAuditors(updatedAuditors);
+      setSuccessToast("Appointed SDBIP Officials and Auditors saved successfully!");
+      setTimeout(() => setSuccessToast(null), 3500);
+    } catch (err) {
+      console.error("Error saving SDBIP officials:", err);
+    } finally {
+      setSavingOfficials(false);
     }
   };
 
@@ -1249,23 +1302,13 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
       : notifications.filter(n => n.targetUser?.toLowerCase() === currentUserDisplayName.toLowerCase() && !n.read);
 
     // Filter rows for each role based on simulation mode or logged-in user
-    const mySubmissions = showAllKpisInDesk
-      ? rows
-      : rows.filter(r => r.submitter?.toLowerCase() === currentUserDisplayName.toLowerCase());
+    const mySubmissions = rows;
     
-    const myPendingReviews = showAllKpisInDesk
-      ? rows.filter(r => (r.workflows?.[workflowPhase]?.status === 'pending_review'))
-      : rows.filter(r => 
-          r.reviewer?.toLowerCase() === currentUserDisplayName.toLowerCase() && 
-          (r.workflows?.[workflowPhase]?.status === 'pending_review')
-        );
+    const myPendingReviews = rows.filter(r => (r.workflows?.[workflowPhase]?.status === 'pending_review'));
 
-    const myPendingApprovals = showAllKpisInDesk
-      ? rows.filter(r => (r.workflows?.[workflowPhase]?.status === 'pending_approval'))
-      : rows.filter(r => 
-          r.approver?.toLowerCase() === currentUserDisplayName.toLowerCase() && 
-          (r.workflows?.[workflowPhase]?.status === 'pending_approval')
-        );
+    const myPendingApprovals = rows.filter(r => (r.workflows?.[workflowPhase]?.status === 'pending_approval'));
+
+    const myPendingAudits = rows;
 
     const activeWorkflowPhaseLabel = 
       workflowPhase === 'midTerm' ? 'Mid-Term' :
@@ -1347,7 +1390,24 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                 {showAllKpisInDesk ? 'Oversight (Show All)' : 'My KPIs Only'}
               </button>
               <button 
-                onClick={() => setShowNotifications(p => !p)}
+                onClick={() => {
+                  if (myNotifs.length > 0) {
+                    const messages = myNotifs.map(n => `• [${n.refNum}] ${n.message}`).join("\n");
+                    setSuccessToast(`🔔 Active Notifications:\n${messages}`);
+                    setTimeout(() => setSuccessToast(null), 8000);
+                    
+                    const updated = notifications.map(n => 
+                      n.targetUser?.toLowerCase() === currentUserDisplayName.toLowerCase() 
+                        ? { ...n, read: true } 
+                        : n
+                    );
+                    saveNotifications(updated);
+                  } else {
+                    setSuccessToast("🔔 No new notifications.");
+                    setTimeout(() => setSuccessToast(null), 3000);
+                  }
+                  setShowNotifications(true);
+                }}
                 className={`p-1.5 border rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition ${showNotifications ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
               >
                 <Bell className="w-3.5 h-3.5" />
@@ -1402,6 +1462,14 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                       <span className="bg-slate-200 text-slate-700 text-[9px] px-1.5 py-0.2 rounded-full font-bold">{mySubmissions.length}</span>
                     </button>
                     <button
+                      onClick={() => setActiveWorkflowTab('approvals')}
+                      className={`px-3.5 py-1 rounded-md text-xs font-bold flex items-center gap-1.5 cursor-pointer transition ${activeWorkflowTab === 'approvals' ? 'bg-white text-slate-900 shadow-sm border border-slate-200' : 'text-slate-600 hover:text-slate-900'}`}
+                    >
+                      <Shield className="w-3.5 h-3.5 text-amber-500" />
+                      My Pending Approvals
+                      {myPendingApprovals.length > 0 && <span className="bg-amber-600 text-white text-[9px] px-1.5 py-0.2 rounded-full font-bold">{myPendingApprovals.length}</span>}
+                    </button>
+                    <button
                       onClick={() => setActiveWorkflowTab('reviews')}
                       className={`px-3.5 py-1 rounded-md text-xs font-bold flex items-center gap-1.5 cursor-pointer transition ${activeWorkflowTab === 'reviews' ? 'bg-white text-slate-900 shadow-sm border border-slate-200' : 'text-slate-600 hover:text-slate-900'}`}
                     >
@@ -1410,12 +1478,12 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                       {myPendingReviews.length > 0 && <span className="bg-violet-600 text-white text-[9px] px-1.5 py-0.2 rounded-full font-bold">{myPendingReviews.length}</span>}
                     </button>
                     <button
-                      onClick={() => setActiveWorkflowTab('approvals')}
-                      className={`px-3.5 py-1 rounded-md text-xs font-bold flex items-center gap-1.5 cursor-pointer transition ${activeWorkflowTab === 'approvals' ? 'bg-white text-slate-900 shadow-sm border border-slate-200' : 'text-slate-600 hover:text-slate-900'}`}
+                      onClick={() => setActiveWorkflowTab('audits')}
+                      className={`px-3.5 py-1 rounded-md text-xs font-bold flex items-center gap-1.5 cursor-pointer transition ${activeWorkflowTab === 'audits' ? 'bg-white text-slate-900 shadow-sm border border-slate-200' : 'text-slate-600 hover:text-slate-900'}`}
                     >
-                      <Shield className="w-3.5 h-3.5 text-amber-500" />
-                      My Pending Approvals
-                      {myPendingApprovals.length > 0 && <span className="bg-amber-600 text-white text-[9px] px-1.5 py-0.2 rounded-full font-bold">{myPendingApprovals.length}</span>}
+                      <CheckSquare className="w-3.5 h-3.5 text-rose-500" />
+                      My Pending Audits
+                      {myPendingAudits.length > 0 && <span className="bg-rose-600 text-white text-[9px] px-1.5 py-0.2 rounded-full font-bold">{myPendingAudits.length}</span>}
                     </button>
                   </div>
                 </div>
@@ -2129,6 +2197,131 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                         </div>
                       );
                     })()}
+
+                    {activeWorkflowTab === 'audits' && (() => {
+                      return (
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-2 bg-white p-3 rounded-xl border border-slate-200">
+                            <CheckSquare className="w-4 h-4 text-rose-600" />
+                            <h4 className="text-xs font-black text-slate-950 font-mono uppercase">Internal Audit Verification Desk</h4>
+                          </div>
+
+                          {myPendingAudits.length === 0 ? (
+                            <div className="text-center py-12 bg-white border border-dashed border-slate-200 rounded-xl">
+                              <CheckCircle className="w-10 h-10 text-rose-300 mx-auto mb-2 animate-pulse" />
+                              <h4 className="text-xs font-bold text-slate-700 font-mono">No KPIs assigned for internal audit</h4>
+                            </div>
+                          ) : (
+                            <>
+                              {renderSdbipTableReplica(myPendingAudits)}
+                              
+                              {selectedWorkflowRow && myPendingAudits.some(r => r.id === selectedWorkflowRow.id) && (() => {
+                                const row = selectedWorkflowRow;
+                                const pData = getPhaseData(row, workflowPhase);
+                                const checklist = row.auditChecklist || {};
+                                
+                                const toggleCheck = (key: 'poeVerified' | 'actualsVerified' | 'varianceVerified' | 'targetCalculations' | 'complianceConfirmed') => {
+                                  const updatedChecklist = {
+                                    ...checklist,
+                                    [key]: !checklist[key]
+                                  };
+                                  handleCellChange(row.id, 'auditChecklist', updatedChecklist);
+                                };
+
+                                const checkedCount = Object.values(checklist).filter(Boolean).length;
+                                const isComplete = checkedCount === 5;
+
+                                return (
+                                  <div className="bg-white border-2 border-rose-100 rounded-xl p-5 shadow-xs space-y-4 mt-2">
+                                    <div className="flex items-start justify-between gap-4 pb-3 border-b border-slate-100">
+                                      <div className="space-y-1">
+                                        <div className="flex items-center gap-2">
+                                          <span className="bg-rose-100 text-rose-900 text-xs font-black px-3 py-0.5 rounded font-mono">{row.refNum}</span>
+                                          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider font-mono">KPI PENDING INTERNAL AUDIT</span>
+                                        </div>
+                                        <h4 className="text-sm font-black text-slate-900 leading-snug">{row.kpi || 'No KPI Name'}</h4>
+                                      </div>
+                                      <div className="text-right shrink-0">
+                                        <span className="text-[10px] text-slate-400 font-bold block font-mono font-bold">Assigned Auditor</span>
+                                        <span className="text-xs font-black text-rose-700 block">{row.internalAudit || 'Unassigned'}</span>
+                                      </div>
+                                    </div>
+
+                                    {/* Audit Checklist Section */}
+                                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-4">
+                                      <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                                        <h5 className="font-black text-slate-900 text-xs uppercase tracking-wider font-mono flex items-center gap-1.5">
+                                          <CheckSquare className="w-4 h-4 text-rose-500" />
+                                          Required KPI Audit Steps Checklist
+                                        </h5>
+                                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${isComplete ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                                          {checkedCount} / 5 Checked {isComplete && '✓ Complete'}
+                                        </span>
+                                      </div>
+
+                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        {[
+                                          { key: 'poeVerified', label: 'Verify Evidence Files (POE)', desc: 'Ensure uploaded documents match report descriptions and are legally sufficient.' },
+                                          { key: 'actualsVerified', label: 'Verify Reported Actuals against POE', desc: 'Confirm reported numerical metrics are accurately substantiated by evidence.' },
+                                          { key: 'varianceVerified', label: 'Validate Variance and Corrective Actions', desc: 'Confirm that variance explanations and proposed corrective items are robust.' },
+                                          { key: 'targetCalculations', label: 'Verify Target Aggregation & Calculations', desc: 'Confirm annual target sums and progress are mathematically correct.' },
+                                          { key: 'complianceConfirmed', label: 'Confirm Compliance Alignment (MFMA)', desc: 'Ensure that KPI aligns fully with National Treasury MFMA standards.' }
+                                        ].map((item) => {
+                                          const isChecked = !!checklist[item.key as keyof typeof checklist];
+                                          return (
+                                            <div 
+                                              key={item.key}
+                                              onClick={() => toggleCheck(item.key as any)}
+                                              className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer select-none transition-colors ${isChecked ? 'bg-emerald-50/40 border-emerald-200 hover:bg-emerald-50/60' : 'bg-white border-slate-200 hover:bg-slate-50'}`}
+                                            >
+                                              <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 mt-0.5 transition-all ${isChecked ? 'bg-emerald-650 border-emerald-650 text-white' : 'border-slate-300 bg-white'}`}>
+                                                {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
+                                              </div>
+                                              <div>
+                                                <p className={`text-xs font-bold leading-none ${isChecked ? 'text-slate-900 line-through decoration-slate-400' : 'text-slate-800'}`}>
+                                                  {item.label}
+                                                </p>
+                                                <p className="text-[10px] text-slate-500 mt-1">
+                                                  {item.desc}
+                                                </p>
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+
+                                    {/* Entire Context */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                                      <div className="space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200/50">
+                                        <h5 className="font-bold text-slate-900 text-[11px] uppercase tracking-wider font-mono">Strategic Scope</h5>
+                                        <div className="space-y-1.5 leading-relaxed text-slate-700">
+                                          <p><strong className="font-bold">Objective:</strong> {row.strategicObj || '-'}</p>
+                                          <p><strong className="font-bold">Functional Area:</strong> {row.kpas || '-'}</p>
+                                          <p><strong className="font-bold">Baseline:</strong> {row.baseline || '-'}</p>
+                                          <p><strong className="font-bold">Annual Target:</strong> {row.annualTarget || '-'}</p>
+                                        </div>
+                                      </div>
+
+                                      <div className="space-y-2 bg-rose-50/10 p-4 rounded-xl border border-rose-100/50">
+                                        <h5 className="font-bold text-rose-955 text-[11px] uppercase tracking-wider font-mono">Performance & Expenditure Metrics</h5>
+                                        <div className="space-y-1.5 leading-relaxed text-slate-800">
+                                          <p><strong className="font-bold">Phase Target:</strong> {pData.target}</p>
+                                          <p><strong className="font-bold">Reported Actual:</strong> <span className="bg-emerald-100 px-2 py-0.5 rounded font-black text-emerald-900">{pData.actual || '-'}</span></p>
+                                          <p><strong className="font-bold">Variance:</strong> {pData.variance || '-'}</p>
+                                          <p><strong className="font-bold">Corrective Action:</strong> {pData.corrective || '-'}</p>
+                                          <p><strong className="font-bold">Expenditure:</strong> {pData.expenditure || 'R0'}</p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                            </>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 );
               })()}
@@ -2200,9 +2393,17 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
       </div>
 
       {successToast && (
-        <div className="bg-emerald-50 border-y border-emerald-100 px-6 py-3 text-emerald-800 text-xs font-semibold flex items-center gap-2">
-          <CheckCircle className="w-4 h-4 text-emerald-600" />
-          {successToast}
+        <div className={`border-y px-6 py-3 text-xs font-semibold flex items-start gap-2.5 whitespace-pre-line shadow-sm transition-all ${
+          successToast.includes('🔔') 
+            ? 'bg-amber-50 border-amber-200 text-amber-900' 
+            : 'bg-emerald-50 border-emerald-100 px-6 py-3 text-emerald-800'
+        }`}>
+          {successToast.includes('🔔') ? (
+            <Bell className="w-4 h-4 text-amber-600 shrink-0 mt-0.5 animate-bounce" />
+          ) : (
+            <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+          )}
+          <div className="flex-1 leading-relaxed">{successToast}</div>
         </div>
       )}
 
@@ -2308,6 +2509,108 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
               </ul>
             </div>
 
+            {/* Appointed Officials Configuration Form */}
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 md:p-6 space-y-4">
+              <div className="flex items-start gap-3 border-b border-slate-200 pb-3">
+                <div className="p-2 bg-indigo-100 text-indigo-700 rounded-lg">
+                  <Shield className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 uppercase">Appointed SDBIP Officials Setup</h3>
+                  <p className="text-[11px] text-slate-500 leading-relaxed">
+                    Set up the exactly 4 reviewers and 5 internal auditors who are authorized to verify and audit the SDBIP logs. 
+                    Only these specified personnel can be selected per KPI target.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Column 1: Reviewers */}
+                <div className="space-y-3.5">
+                  <div className="flex items-center gap-2 pb-1.5 border-b border-slate-200/60">
+                    <span className="text-xs font-black text-slate-800 uppercase tracking-wide">PMU Reviewers (Exactly 4)</span>
+                    <span className="bg-violet-100 text-violet-800 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase">Review Panel</span>
+                  </div>
+                  <div className="space-y-2.5">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <div key={`reviewer-${i}`} className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold text-slate-400 font-mono w-5">#0{i+1}</span>
+                        <input
+                          type="text"
+                          value={reviewers[i] || ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setReviewers(prev => {
+                              const copy = [...prev];
+                              copy[i] = val;
+                              return copy;
+                            });
+                          }}
+                          placeholder={`Reviewer Name ${i+1}`}
+                          className="flex-1 bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Column 2: Internal Auditors */}
+                <div className="space-y-3.5">
+                  <div className="flex items-center gap-2 pb-1.5 border-b border-slate-200/60">
+                    <span className="text-xs font-black text-slate-800 uppercase tracking-wide">Internal Auditors (Exactly 5)</span>
+                    <span className="bg-amber-100 text-amber-800 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase">Audit Panel</span>
+                  </div>
+                  <div className="space-y-2.5">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <div key={`auditor-${i}`} className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold text-slate-400 font-mono w-5">#0{i+1}</span>
+                        <input
+                          type="text"
+                          value={internalAuditors[i] || ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setInternalAuditors(prev => {
+                              const copy = [...prev];
+                              copy[i] = val;
+                              return copy;
+                            });
+                          }}
+                          placeholder={`Auditor Name ${i+1}`}
+                          className="flex-1 bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-200 flex justify-between items-center">
+                <span className="text-[10px] text-slate-500 italic">
+                  Changes persist automatically to Supabase Cloud Database.
+                </span>
+                <button
+                  type="button"
+                  disabled={savingOfficials}
+                  onClick={() => saveOfficials(reviewers, internalAuditors)}
+                  className={`px-4 py-2 text-xs font-bold uppercase rounded-lg shadow-sm transition-all text-white flex items-center gap-1.5 ${
+                    savingOfficials 
+                      ? 'bg-slate-400 cursor-not-allowed' 
+                      : 'bg-indigo-600 hover:bg-indigo-700 cursor-pointer'
+                  }`}
+                >
+                  {savingOfficials ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5" /> Save Official Directory
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
             <div className="pt-4 flex justify-end">
               <button 
                 onClick={() => setActiveTab('table')}
@@ -2346,7 +2649,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
             {/* Large Wide Spreadsheet Table Container */}
             <div className="overflow-auto border border-slate-200 rounded-xl relative bg-white h-[580px] max-h-[68vh]">
               
-              <table className="w-full text-left border-collapse select-text table-fixed min-w-[2780px]">
+              <table className="w-full text-left border-collapse select-text table-fixed min-w-[3036px]">
                 
                 {/* Headers */}
                 <thead className="sticky top-0 bg-slate-100 z-20 border-b-2 border-slate-200 text-[10px] font-black tracking-wider uppercase text-slate-700 font-mono">
@@ -2374,6 +2677,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                     <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-indigo-50 text-indigo-900">SUBMITTER</th>
                     <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-violet-50 text-violet-900">REVIEWER</th>
                     <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-emerald-50 text-emerald-900">APPROVER</th>
+                    <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-amber-50 text-amber-900">INTERNAL AUDIT</th>
                     <th className="p-3 border-r border-slate-200 w-48 text-center sticky top-0 z-20 bg-indigo-50 text-indigo-900 border-l border-indigo-200">POE AND DESCRIPTION</th>
                     <th className="p-3 w-16 text-center sticky top-0 z-20 bg-slate-100">ACTIONS</th>
                   </tr>
@@ -2611,6 +2915,16 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                         />
                       </td>
 
+                      {/* Internal Audit */}
+                      <td className="p-1 border-r border-slate-150">
+                        <AzureADPicker 
+                          value={row.internalAudit || ''}
+                          onChange={(val) => handleCellChange(row.id, 'internalAudit', val)}
+                          roleType="internal_audit"
+                          activeTenantId={activeTenantId}
+                        />
+                      </td>
+
                       {/* POE Upload with redirect indicators as instructed */}
                       <td className="p-2 border-r border-indigo-200 text-center bg-indigo-50/40">
                         {row.poeStatus.includes('Uploaded') ? (
@@ -2818,7 +3132,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
               )}
 
               <div className={`overflow-auto border border-slate-200 rounded-xl relative bg-white transition-all duration-300 ${isTableExpanded ? 'flex-1 shadow-2xl border-indigo-100 min-h-0' : 'h-[580px] max-h-[68vh]'}`}>
-              <table className="w-full text-left border-collapse table-fixed min-w-[8572px]">
+              <table className="w-full text-left border-collapse table-fixed min-w-[8828px]">
                 <thead className="sticky top-0 bg-slate-100 z-20 border-b-2 border-slate-200 text-[10px] font-black tracking-wider uppercase text-slate-700 font-mono">
                   <tr>
                     {/* Fixed Info Columns */}
@@ -2886,6 +3200,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                     <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-indigo-50 text-indigo-900 font-bold text-center border-b-2 border-indigo-200">SUBMITTER</th>
                     <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-violet-50 text-violet-900 font-bold text-center border-b-2 border-violet-200">REVIEWER</th>
                     <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-emerald-50 text-emerald-900 font-bold text-center border-b-2 border-emerald-200">APPROVER</th>
+                    <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-amber-50 text-amber-900 font-bold text-center border-b-2 border-amber-200">INTERNAL AUDIT</th>
 
                     <th className="p-3 w-28 text-center bg-slate-50 text-slate-900 border-b-2 border-slate-200 font-bold sticky top-0 z-20">SCORE</th>
                   </tr>
@@ -3665,6 +3980,16 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                           value={row.approver || ''}
                           onChange={(val) => handleCellChange(row.id, 'approver', val)}
                           roleType="approver"
+                          activeTenantId={activeTenantId}
+                        />
+                      </td>
+
+                      {/* Internal Audit */}
+                      <td className="p-1.5 border-r border-slate-100 bg-slate-50/5">
+                        <AzureADPicker 
+                          value={row.internalAudit || ''}
+                          onChange={(val) => handleCellChange(row.id, 'internalAudit', val)}
+                          roleType="internal_audit"
                           activeTenantId={activeTenantId}
                         />
                       </td>

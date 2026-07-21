@@ -3523,6 +3523,85 @@ Format your response exactly according to the following JSON schema:
     }
   });
 
+  // 17.3 Fetch SDBIP Officials Directory (Reviewers & Auditors)
+  app.get("/api/tenant/:tenantId/sdbip-officials", async (req, res) => {
+    const { tenantId } = req.params;
+    try {
+      const supabase = getSupabase();
+      const documentId = `sdbip_officials_${tenantId}`;
+      const { data, error } = await supabase
+        .from('messages')
+        .select('content')
+        .eq('id', documentId)
+        .maybeSingle();
+
+      const defaultOfficials = {
+        reviewers: [
+          'Sipho Dlamini',
+          'Zama Khumalo',
+          'Mike Thompson',
+          'Lerato Mokwena'
+        ],
+        internalAuditors: [
+          'Fatima Patel',
+          'Brandon Naidoo',
+          'Thabo Mokoena',
+          'Nomvula Sithole',
+          'Audrey Mpanza'
+        ]
+      };
+
+      if (error) {
+        console.error("Supabase load sdbip officials error:", error.message);
+        return res.json(defaultOfficials);
+      }
+
+      if (data && data.content) {
+        try {
+          const parsed = JSON.parse(data.content);
+          return res.json({
+            reviewers: parsed.reviewers || defaultOfficials.reviewers,
+            internalAuditors: parsed.internalAuditors || defaultOfficials.internalAuditors
+          });
+        } catch (parseErr) {
+          console.error("Error parsing sdbip officials JSON:", parseErr);
+        }
+      }
+      return res.json(defaultOfficials);
+    } catch (err: any) {
+      console.error("SDBIP officials load exception:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // 17.4 Save SDBIP Officials Directory
+  app.post("/api/tenant/:tenantId/sdbip-officials", async (req, res) => {
+    const { tenantId } = req.params;
+    const { reviewers, internalAuditors } = req.body;
+    try {
+      const supabase = getSupabase();
+      const documentId = `sdbip_officials_${tenantId}`;
+      const { error } = await supabase
+        .from('messages')
+        .upsert({ 
+          id: documentId,
+          tenant_id: tenantId,
+          sender_id: 'sdbip_officials_editor',
+          sender_email: 'sdbip_officials@system.local',
+          sender_name: 'SDBIP Officials Configurator',
+          content: JSON.stringify({ reviewers, internalAuditors }),
+          message_type: 'sdbip_officials_list',
+          created_at: new Date().toISOString()
+        });
+      
+      if (error) throw error;
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error("SDBIP officials save exception:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Helper to resolve the correct tenant ID for user-centric resources
   async function resolveTenantId(routeTenantId: string, userId: string): Promise<string> {
     if (!userId || userId === 'default') {

@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { Upload, Download, FileText, CheckCircle2, ChevronRight, Check, Save, Plus, Trash2, X, Printer } from 'lucide-react';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
+import { Upload, Download, FileText, CheckCircle2, ChevronRight, Check, Save, Plus, Trash2, X, Printer, FileDown, FileSpreadsheet, Loader2 } from 'lucide-react';
 import type { User } from '../../types';
 import { NKANGALA_LOGO_BASE64 } from './nkangala_logo_base64';
 
@@ -116,6 +118,8 @@ export function LeadFireFighterPADraftingSuite({ currentUser, activeTenantId }: 
   const [amendment, setAmendment] = useState('Amendment of agreement...');
   const [evaluation, setEvaluation] = useState('Evaluation criteria...');
   const [signatures, setSignatures] = useState('');
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
+  const [isExportingWord, setIsExportingWord] = useState(false);
   
   const [userSignatures, setUserSignatures] = useState({
     employee: '',
@@ -534,79 +538,196 @@ export function LeadFireFighterPADraftingSuite({ currentUser, activeTenantId }: 
     }
   };
 
-  const downloadAsWord = () => {
-    const documentBodyObj = document.getElementById("pa-printable-area");
-    if (!documentBodyObj) {
-      alert("Error: Preview container not found. Please wait until the page has loaded completely.");
-      return;
+  const handleExportPDF = async () => {
+    setIsExportingPDF(true);
+    try {
+      const element = document.getElementById('pa-printable-area');
+      if (!element) {
+        alert('Printable content not found.');
+        return;
+      }
+      
+      const originalTransition = element.style.transition;
+      element.style.transition = 'none';
+      
+      await document.fonts.ready;
+      
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: '#ffffff',
+        logging: false,
+      });
+      
+      element.style.transition = originalTransition;
+      
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      
+      const pageHeightPixels = (imgWidth * pdfHeight) / pdfWidth;
+      let remainingHeight = imgHeight;
+      let position = 0;
+      
+      const pageCanvas = document.createElement('canvas');
+      pageCanvas.width = imgWidth;
+      pageCanvas.height = Math.min(imgHeight, pageHeightPixels);
+      const ctx = pageCanvas.getContext('2d');
+      
+      let isFirstPage = true;
+      while (remainingHeight > 0) {
+        const chunkHeight = Math.min(remainingHeight, pageHeightPixels);
+        pageCanvas.height = chunkHeight;
+        
+        if (ctx) {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, imgWidth, chunkHeight);
+          ctx.drawImage(
+            canvas,
+            0, position,
+            imgWidth, chunkHeight,
+            0, 0,
+            imgWidth, chunkHeight
+          );
+        }
+        
+        const chunkImgData = pageCanvas.toDataURL('image/jpeg', 0.95);
+        
+        if (!isFirstPage) {
+          pdf.addPage();
+        }
+        
+        const pageRenderHeight = (chunkHeight * pdfWidth) / imgWidth;
+        pdf.addImage(chunkImgData, 'JPEG', 0, 0, pdfWidth, pageRenderHeight);
+        
+        remainingHeight -= chunkHeight;
+        position += chunkHeight;
+        isFirstPage = false;
+      }
+      
+      // Stamp clean, dynamic, professional page numbers and footer on each page of firefighter PDF
+      const pageCount = pdf.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        if (i === 1) continue; // Skip Cover page for clean styling
+        pdf.setPage(i);
+        
+        // Horizontal divider line
+        pdf.setDrawColor(200, 205, 210);
+        pdf.setLineWidth(0.2);
+        pdf.line(10, pdfHeight - 15, pdfWidth - 10, pdfHeight - 15);
+        
+        // Left footer label
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(8);
+        pdf.setTextColor(80, 90, 100);
+        pdf.text("NKANGALA DISTRICT MUNICIPALITY - LEAD FIREFIGHTER PA", 10, pdfHeight - 10);
+        
+        // Right page number
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(8);
+        pdf.setTextColor(110, 110, 110);
+        pdf.text(`Page ${i} of ${pageCount}`, pdfWidth - 35, pdfHeight - 10);
+      }
+      
+      pdf.save(`Performance_Agreement_Lead_FF_${(currentUser?.fullName || 'Draft').replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
+    } catch (error) {
+      console.error('Failed to export PDF:', error);
+      alert('Failed to export PDF document.');
+    } finally {
+      setIsExportingPDF(false);
     }
+  };
 
-    const documentHtml = documentBodyObj.innerHTML;
-    const fullHtml = `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<style>
-  @page Section1 {
-    size: 297mm 210mm; /* A4 Landscape */
-    margin: 1cm;
-  }
-  div.Section1 {
-    page: Section1;
-  }
-  body {
-    font-family: 'Arial', sans-serif;
-    color: #111827;
-    margin: 0;
-    padding: 20px;
-  }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 10px;
-    margin-bottom: 20px;
-  }
-  th {
-    border: 1px solid #111827 !important;
-    background-color: #f3f4f6 !important;
-    font-weight: bold;
-    padding: 6px;
-    text-align: left;
-    font-size: 11px;
-    color: #000;
-  }
-  td {
-    border: 1px solid #111827 !important;
-    padding: 6px;
-    font-size: 11px;
-    vertical-align: top;
-    color: #000;
-  }
-  .text-justify {
-    text-align: justify;
-  }
-  .portrait-section, .landscape-section {
-    page-break-after: always;
-  }
-  .font-bold {
-    font-weight: bold;
-  }
-</style>
-</head>
-<body>
-  <div class="Section1">
-    ${documentHtml}
-  </div>
-</body>
-</html>`;
+  const handleExportWord = () => {
+    setIsExportingWord(true);
+    try {
+      const documentBodyObj = document.getElementById("pa-printable-area");
+      if (!documentBodyObj) {
+        alert("Error: Preview container not found. Please wait until the page has loaded completely.");
+        return;
+      }
 
-    const blob = new Blob(['\ufeff' + fullHtml], { type: 'application/msword;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Performance_Agreement_${currentUser?.fullName?.replace(/\s+/g, '_') || 'Draft'}.doc`;
-    a.click();
-    URL.revokeObjectURL(url);
+      const documentHtml = documentBodyObj.innerHTML;
+      const fullHtml = `<!DOCTYPE html>
+  <html>
+  <head>
+  <meta charset="utf-8">
+  <style>
+    @page Section1 {
+      size: 297mm 210mm; /* A4 Landscape */
+      margin: 1cm;
+    }
+    div.Section1 {
+      page: Section1;
+    }
+    body {
+      font-family: 'Arial', sans-serif;
+      color: #111827;
+      margin: 0;
+      padding: 20px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      margin-bottom: 20px;
+    }
+    th {
+      border: 1px solid #111827 !important;
+      background-color: #f3f4f6 !important;
+      font-weight: bold;
+      padding: 6px;
+      text-align: left;
+      font-size: 11px;
+      color: #000;
+    }
+    td {
+      border: 1px solid #111827 !important;
+      padding: 6px;
+      font-size: 11px;
+      vertical-align: top;
+      color: #000;
+    }
+    .text-justify {
+      text-align: justify;
+    }
+    .portrait-section, .landscape-section {
+      page-break-after: always;
+    }
+    .font-bold {
+      font-weight: bold;
+    }
+  </style>
+  </head>
+  <body>
+    <div class="Section1">
+      ${documentHtml}
+    </div>
+  </body>
+  </html>`;
+
+      const blob = new Blob(['\ufeff' + fullHtml], { type: 'application/msword;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Performance_Agreement_Lead_FF_${currentUser?.fullName?.replace(/\s+/g, '_') || 'Draft'}.doc`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to export Word:', error);
+      alert('Failed to export Word document.');
+    } finally {
+      setIsExportingWord(false);
+    }
   };
 
   React.useEffect(() => {
@@ -1296,28 +1417,28 @@ export function LeadFireFighterPADraftingSuite({ currentUser, activeTenantId }: 
                   const ratingSystemTable = (
                     <div className="my-6">
                       <h4 className="font-bold text-xs uppercase mb-3 tracking-wide text-emerald-800">Performance Assessment Rating System & Bonus Criteria</h4>
-                      <table className="w-full border-collapse border border-black text-xs font-sans">
+                      <table className="w-full border-collapse border border-black text-xs font-sans" style={{ tableLayout: 'fixed', width: '100%' }}>
                         <thead>
                           <tr className="text-white font-bold" style={{ backgroundColor: '#22c55e' }}>
-                            <th className="border border-black p-2 text-center w-12" style={{ backgroundColor: '#22c55e', color: '#ffffff' }}>Level</th>
-                            <th className="border border-black p-2 text-left w-36" style={{ backgroundColor: '#22c55e', color: '#ffffff' }}>Terminology</th>
-                            <th className="border border-black p-2 text-left" style={{ backgroundColor: '#22c55e', color: '#ffffff' }}>Description</th>
-                            <th className="border border-black p-2 text-center w-24" style={{ backgroundColor: '#22c55e', color: '#ffffff' }}>Assessment Score</th>
-                            <th className="border border-black p-2 text-left w-56" style={{ backgroundColor: '#22c55e', color: '#ffffff' }}>Performance Bonus Ratios</th>
+                            <th className="border border-black p-2 text-center" style={{ backgroundColor: '#22c55e', color: '#ffffff', width: '50px', minWidth: '50px' }}>Level</th>
+                            <th className="border border-black p-2 text-left" style={{ backgroundColor: '#22c55e', color: '#ffffff', width: '130px', minWidth: '130px' }}>Terminology</th>
+                            <th className="border border-black p-2 text-left" style={{ backgroundColor: '#22c55e', color: '#ffffff', width: 'auto' }}>Description</th>
+                            <th className="border border-black p-2 text-center" style={{ backgroundColor: '#22c55e', color: '#ffffff', width: '80px', minWidth: '80px' }}>Assessment Score</th>
+                            <th className="border border-black p-2 text-left" style={{ backgroundColor: '#22c55e', color: '#ffffff', width: '180px', minWidth: '180px' }}>Performance Bonus Ratios</th>
                           </tr>
                         </thead>
                         <tbody>
                           {/* Level 5 */}
                           <tr>
-                            <td className="border border-black p-2 text-center font-bold bg-emerald-50/20">5</td>
-                            <td className="border border-black p-2 font-bold text-emerald-800">Outstanding performance</td>
-                            <td className="border border-black p-2 text-justify text-[11px] leading-relaxed">
+                            <td className="border border-black p-2 text-center font-bold bg-emerald-50/20" style={{ color: '#0f172a' }}>5</td>
+                            <td className="border border-black p-2 font-bold text-emerald-800" style={{ color: '#065f46' }}>Outstanding performance</td>
+                            <td className="border border-black p-2 text-justify text-[11px] leading-relaxed" style={{ color: '#0f172a', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                               Performance far exceeds the standard expected of a staff member at this level. The appraisal indicates that the staff member has achieved above fully effective results against all performance criteria and indicators as specified in the Performance Agreement and Performance Plan and maintained this in all areas of responsibility throughout the year. The appraisal indicates that the staff member has achieved above fully effective results against more than 100% of the performance criteria and indicators and fully achieved all others throughout the year. <strong>(Should the municipality obtain clean audit, all employees who have the KPI and report on it shall be awarded a rating of 5).</strong>
                             </td>
-                            <td className="border border-black p-2 text-center font-semibold bg-emerald-50/10">75-100</td>
-                            <td className="border border-black p-2 text-[11px] leading-relaxed">
+                            <td className="border border-black p-2 text-center font-semibold bg-emerald-50/10" style={{ color: '#0f172a' }}>75-100</td>
+                            <td className="border border-black p-2 text-[11px] leading-relaxed" style={{ color: '#0f172a', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                               Maximum bonus allowed into. Regulations is between 10% and 14% of person's inclusive annual remuneration package. The % are as follows:
-                              <div className="mt-1 font-mono text-[9px] bg-emerald-50/50 p-1.5 border border-emerald-100 rounded leading-tight">
+                              <div className="mt-1 font-mono text-[9px] p-1.5 border border-emerald-300 rounded leading-tight font-bold" style={{ backgroundColor: '#f0fdf4', color: '#0f172a', wordBreak: 'break-word', whiteSpace: 'normal' }}>
                                 75-76% = 10%<br />
                                 77-78% = 11%<br />
                                 79-80% = 12%<br />
@@ -1328,15 +1449,15 @@ export function LeadFireFighterPADraftingSuite({ currentUser, activeTenantId }: 
                           </tr>
                           {/* Level 4 */}
                           <tr>
-                            <td className="border border-black p-2 text-center font-bold bg-emerald-50/10">4</td>
-                            <td className="border border-black p-2 font-bold text-emerald-700">Performance significantly above expectations</td>
-                            <td className="border border-black p-2 text-justify text-[11px] leading-relaxed">
+                            <td className="border border-black p-2 text-center font-bold bg-emerald-50/10" style={{ color: '#0f172a' }}>4</td>
+                            <td className="border border-black p-2 font-bold text-emerald-700" style={{ color: '#047857' }}>Performance significantly above expectations</td>
+                            <td className="border border-black p-2 text-justify text-[11px] leading-relaxed" style={{ color: '#0f172a', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                               Performance is significantly higher than the standard expected in the job. The appraisal indicates that the staff member has achieved above fully effective results against more than half of the performance criteria and indicators and fully achieved all others throughout the year.
                             </td>
-                            <td className="border border-black p-2 text-center font-semibold bg-emerald-50/10">65-74</td>
-                            <td className="border border-black p-2 text-[11px] leading-relaxed">
+                            <td className="border border-black p-2 text-center font-semibold bg-emerald-50/10" style={{ color: '#0f172a' }}>65-74</td>
+                            <td className="border border-black p-2 text-[11px] leading-relaxed" style={{ color: '#0f172a', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                               Maximum bonus allowed into. Regulations is between 5% and 9% of person's inclusive annual remuneration package. The % are as follows:
-                              <div className="mt-1 font-mono text-[9px] bg-slate-50 p-1.5 border border-slate-200 rounded leading-tight">
+                              <div className="mt-1 font-mono text-[9px] p-1.5 border border-slate-300 rounded leading-tight font-bold" style={{ backgroundColor: '#f8fafc', color: '#0f172a', wordBreak: 'break-word', whiteSpace: 'normal' }}>
                                 65-66% = 5%<br />
                                 67-68% = 6%<br />
                                 69-70% = 7%<br />
@@ -1347,33 +1468,33 @@ export function LeadFireFighterPADraftingSuite({ currentUser, activeTenantId }: 
                           </tr>
                           {/* Level 3 */}
                           <tr>
-                            <td className="border border-black p-2 text-center font-bold">3</td>
-                            <td className="border border-black p-2 font-bold text-slate-800">Fully effective</td>
-                            <td className="border border-black p-2 text-justify text-[11px] leading-relaxed">
+                            <td className="border border-black p-2 text-center font-bold" style={{ color: '#0f172a' }}>3</td>
+                            <td className="border border-black p-2 font-bold text-slate-800" style={{ color: '#1e293b' }}>Fully effective</td>
+                            <td className="border border-black p-2 text-justify text-[11px] leading-relaxed" style={{ color: '#0f172a', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                               Performance fully meets the standards expected in all areas of the job. The appraisal indicates that the staff member has fully achieved effective results against all significant performance criteria and indicators as specified in the Performance Agreement and Performance Plan. <strong>(All rollover projects, the policies KPIs, compliance KPIs, awareness campaigns/ workshop/ training must be scored 3. The official attendance registers must have the Municipal logo.)</strong>
                             </td>
-                            <td className="border border-black p-2 text-center font-semibold">51-64</td>
-                            <td className="border border-black p-2 font-medium text-slate-600">No bonus</td>
+                            <td className="border border-black p-2 text-center font-semibold" style={{ color: '#0f172a' }}>51-64</td>
+                            <td className="border border-black p-2 font-medium text-slate-600" style={{ color: '#475569' }}>No bonus</td>
                           </tr>
                           {/* Level 2 */}
                           <tr>
-                            <td className="border border-black p-2 text-center font-bold">2</td>
-                            <td className="border border-black p-2 font-bold text-slate-700">Not fully effective</td>
-                            <td className="border border-black p-2 text-justify text-[11px] leading-relaxed">
+                            <td className="border border-black p-2 text-center font-bold" style={{ color: '#0f172a' }}>2</td>
+                            <td className="border border-black p-2 font-bold text-slate-700" style={{ color: '#334155' }}>Not fully effective</td>
+                            <td className="border border-black p-2 text-justify text-[11px] leading-relaxed" style={{ color: '#0f172a', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                               Performance is below the standard required for the job in key areas. Performance meets some of the standards expected for the job. The review/assessment indicates that the staff member has achieved below fully effective results against <strong>more than half the key performance criteria</strong> and indicators as specified in the Performance Agreement and Performance Plan. <strong>(Performance must at least be 51% and above)</strong>
                             </td>
-                            <td className="border border-black p-2 text-center font-semibold">31-50</td>
-                            <td className="border border-black p-2 font-medium text-slate-600">No bonus</td>
+                            <td className="border border-black p-2 text-center font-semibold" style={{ color: '#0f172a' }}>31-50</td>
+                            <td className="border border-black p-2 font-medium text-slate-600" style={{ color: '#475569' }}>No bonus</td>
                           </tr>
                           {/* Level 1 */}
                           <tr>
-                            <td className="border border-black p-2 text-center font-bold">1</td>
-                            <td className="border border-black p-2 font-bold text-rose-800 bg-rose-50/10">Unacceptable performance</td>
-                            <td className="border border-black p-2 text-justify text-[11px] leading-relaxed bg-rose-50/5">
+                            <td className="border border-black p-2 text-center font-bold" style={{ color: '#0f172a' }}>1</td>
+                            <td className="border border-black p-2 font-bold text-rose-800 bg-rose-50/10" style={{ color: '#9f1239' }}>Unacceptable performance</td>
+                            <td className="border border-black p-2 text-justify text-[11px] leading-relaxed bg-rose-50/5" style={{ color: '#0f172a', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                               Performance does not meet the standard expected for the job. The review/ assessment indicates that the staff member has achieved below fully effective results against almost all of the performance criteria and indicators as specified in the Performance Agreement and Performance Plan. The staff member has failed to demonstrate the commitment or ability to bring performance up to the level expected in the job despite management efforts to encourage improvement. <strong>(All the KPIs or JSCs which are not reported must be rated 1. KPIs with no means of verification (POE), including POEs that are not opening, and repeated JSCs motivations from the previous financial year will be rated a 1.)</strong>
                             </td>
-                            <td className="border border-black p-2 text-center font-semibold bg-rose-50/10">Less than 30</td>
-                            <td className="border border-black p-2 font-medium text-slate-600">No bonus</td>
+                            <td className="border border-black p-2 text-center font-semibold bg-rose-50/10" style={{ color: '#0f172a' }}>Less than 30</td>
+                            <td className="border border-black p-2 font-medium text-slate-600" style={{ color: '#475569' }}>No bonus</td>
                           </tr>
                         </tbody>
                       </table>
@@ -1834,16 +1955,29 @@ export function LeadFireFighterPADraftingSuite({ currentUser, activeTenantId }: 
               {saving ? 'Saving...' : templateSaveStatus === 'success' ? 'Template 1 Saved!' : 'Save as Template 1'}
             </button>
             <button
-              onClick={downloadAsWord}
-              className="bg-sky-700 text-white px-3 py-2 text-xs font-bold rounded-lg shadow-lg hover:bg-sky-800 hover:scale-[1.02] active:scale-[0.98] transition flex items-center gap-1.5"
+              type="button"
+              onClick={handleExportPDF}
+              disabled={isExportingPDF}
+              className="bg-rose-600 text-white px-3 py-2 text-xs font-bold rounded-lg shadow-lg hover:bg-rose-700 hover:scale-[1.02] active:scale-[0.98] transition flex items-center gap-1.5 disabled:opacity-50"
             >
-              <Download className="w-4 h-4" /> Export to Word
+              <FileText className="w-4 h-4" />
+              {isExportingPDF ? 'Exporting PDF...' : 'Export to PDF'}
             </button>
             <button
+              type="button"
+              onClick={handleExportWord}
+              disabled={isExportingWord}
+              className="bg-blue-600 text-white px-3 py-2 text-xs font-bold rounded-lg shadow-lg hover:bg-blue-700 hover:scale-[1.02] active:scale-[0.98] transition flex items-center gap-1.5 disabled:opacity-50"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              {isExportingWord ? 'Exporting Word...' : 'Export to Word'}
+            </button>
+            <button
+              type="button"
               onClick={() => window.print()}
               className="bg-slate-800 text-white px-3 py-2 text-xs font-bold rounded-lg shadow-lg hover:bg-slate-700 hover:scale-[1.02] active:scale-[0.98] transition flex items-center gap-1.5"
             >
-              <FileText className="w-4 h-4" /> Print / PDF
+              <Printer className="w-4 h-4" /> Direct Print
             </button>
           </div>
 

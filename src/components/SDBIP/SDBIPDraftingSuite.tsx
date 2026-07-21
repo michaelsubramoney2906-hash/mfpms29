@@ -403,6 +403,38 @@ function ReportDocument({ rows, selectedQuarter, currentUser, id = "template-con
     ];
   }, [rows, selectedQuarter]);
 
+  const kpaPages = useMemo(() => {
+    const pagesList: { kpaName: string; kpaIdx: number; kpaKey: string; chunk: SdbipRow[]; chunkIdx: number; totalChunks: number }[] = [];
+    const kpas = ['bsd', 'led', 'mfvm', 'ggpp', 'midt', 'sr'];
+    const kpaNames: Record<string, string> = {
+      bsd: 'Basic Service Delivery',
+      led: 'Local Economic Development',
+      mfvm: 'Financial Viability',
+      ggpp: 'Good Governance',
+      midt: 'Institutional Dev',
+      sr: 'Spatial Transformation'
+    };
+    
+    kpas.forEach((kpaKey, kpaIdx) => {
+      const kpaRows = rows.filter(r => (r as any)[kpaKey] === 'Y' || (r as any)[kpaKey] === 'X');
+      if (kpaRows.length > 0) {
+        const chunkSize = 3;
+        const chunksCount = Math.ceil(kpaRows.length / chunkSize);
+        for (let c = 0; c < chunksCount; c++) {
+          pagesList.push({
+            kpaName: kpaNames[kpaKey],
+            kpaIdx,
+            kpaKey,
+            chunk: kpaRows.slice(c * chunkSize, (c + 1) * chunkSize),
+            chunkIdx: c,
+            totalChunks: chunksCount
+          });
+        }
+      }
+    });
+    return pagesList;
+  }, [rows]);
+
   const quarterLabels: Record<string, string> = {
     q1: '1st Quarter',
     q2: '2nd Quarter',
@@ -653,70 +685,76 @@ function ReportDocument({ rows, selectedQuarter, currentUser, id = "template-con
         <PageFooter pageNumber={7} title={reportTitle} />
       </section>
 
-      {/* Pages 8+: Individual KPA Data Tables */}
-      {kpaData.map((kpa, idx) => {
-         const hasData = rows.some(r => (r as any)[['bsd', 'led', 'mfvm', 'ggpp', 'midt', 'sr'][idx]] === 'Y' || (r as any)[['bsd', 'led', 'mfvm', 'ggpp', 'midt', 'sr'][idx]] === 'X');
-         if (!hasData) return null;
+      {/* Pages 8+: Paginated Individual KPA Data Tables */}
+      {kpaPages.map((page, pageIndex) => {
+         const { kpaName, kpaIdx, chunk, chunkIdx, totalChunks } = page;
+         const kpa = kpaData[kpaIdx];
+         const pageNum = 14 + pageIndex;
          
          return (
-          <section key={`kpa-page-${idx}`} className="relative w-[297mm] min-h-[210mm] p-12 flex flex-col page-break-after border-b border-gray-100 bg-white">
-            <div className="flex-1 space-y-4">
+          <section key={`kpa-page-chunk-${pageIndex}`} className="relative w-[297mm] h-[210mm] p-12 flex flex-col page-break-after border-b border-gray-100 bg-white">
+            <div className="flex-1 space-y-4 overflow-hidden">
               <div className="flex items-center justify-between border-b-2 border-slate-900 pb-2">
-                <h3 className="text-base font-black text-slate-900 uppercase tracking-tight">{kpa.name}</h3>
-                <div className="px-3 py-1 bg-slate-900 text-white text-[9px] font-bold rounded-full">
-                  {kpa.achieved}/{kpa.total} ACHIEVED ({kpa.percentage}%)
+                <div className="flex items-baseline gap-2">
+                  <h3 className="text-base font-black text-slate-900 uppercase tracking-tight">{kpaName}</h3>
+                  <span className="text-xs text-slate-500 font-bold">
+                    (Page {chunkIdx + 1} of {totalChunks})
+                  </span>
+                </div>
+                <div className="px-3 py-1 bg-slate-900 text-white text-[9px] font-bold rounded-full uppercase tracking-wider">
+                  {kpa.achieved}/{kpa.total} Achieved ({kpa.percentage}%)
                 </div>
               </div>
               
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto w-full">
                 <table className="w-full border-collapse text-[8px] border border-slate-300 shadow-sm text-black">
-                  <thead className="bg-[#cbd5e1] text-black uppercase text-left break-inside-avoid">
+                  <thead className="bg-slate-900 text-white uppercase text-left break-inside-avoid">
                     {selectedQuarter === 'annual' ? (
                       <tr>
-                        <th className="border border-slate-400 p-2 font-black w-10">KPA</th>
-                        <th className="border border-slate-400 p-2 font-black w-10">Ref</th>
-                        <th className="border border-slate-400 p-2 font-black w-32">Indicators (KPI)</th>
-                        <th className="border border-slate-400 p-2 font-black w-12">Total Budget</th>
-                        <th className="border border-slate-400 p-2 font-black text-center w-8">RAG</th>
-                        <th className="border border-slate-400 p-2 font-black bg-indigo-50 w-24">Q1,q2,q3,q4 Targets</th>
-                        <th className="border border-slate-400 p-2 font-black bg-emerald-50 w-24">q1,q2,q3,q4 Actuals</th>
-                        <th className="border border-slate-400 p-2 font-black bg-teal-50 w-24">q1, q2, q3, q4 expenditures</th>
-                        <th className="border border-slate-400 p-2 font-black bg-amber-50 w-28">q1, q2, q3, q4 poes</th>
-                        <th className="border border-slate-400 p-2 font-black w-16">variance/issue</th>
-                        <th className="border border-slate-400 p-2 font-black w-16">corrective action</th>
+                        <th className="border border-slate-700 p-2 font-black w-10 text-white bg-slate-900">KPA</th>
+                        <th className="border border-slate-700 p-2 font-black w-10 text-white bg-slate-900">Ref</th>
+                        <th className="border border-slate-700 p-2 font-black w-32 text-white bg-slate-900">Indicators (KPI)</th>
+                        <th className="border border-slate-700 p-2 font-black w-12 text-white bg-slate-900">Total Budget</th>
+                        <th className="border border-slate-700 p-2 font-black text-center w-8 text-white bg-slate-900">RAG</th>
+                        <th className="border border-slate-700 p-2 font-black bg-indigo-950 text-indigo-100 w-24">Q1,q2,q3,q4 Targets</th>
+                        <th className="border border-slate-700 p-2 font-black bg-emerald-950 text-emerald-100 w-24">q1,q2,q3,q4 Actuals</th>
+                        <th className="border border-slate-700 p-2 font-black bg-teal-950 text-teal-100 w-24">q1, q2, q3, q4 expenditures</th>
+                        <th className="border border-slate-700 p-2 font-black bg-amber-950 text-amber-100 w-28">q1, q2, q3, q4 poes</th>
+                        <th className="border border-slate-700 p-2 font-black w-16 text-white bg-slate-900">variance/issue</th>
+                        <th className="border border-slate-700 p-2 font-black w-16 text-white bg-slate-900">corrective action</th>
                       </tr>
                     ) : selectedQuarter === 'midTerm' ? (
                       <tr>
-                        <th className="border border-slate-400 p-2 font-black w-10">KPA</th>
-                        <th className="border border-slate-400 p-2 font-black w-10">Ref</th>
-                        <th className="border border-slate-400 p-2 font-black w-32">Indicator (KPI)</th>
-                        <th className="border border-slate-400 p-2 font-black w-12">Total Budget</th>
-                        <th className="border border-slate-400 p-2 font-black text-center w-8">RAG</th>
-                        <th className="border border-slate-400 p-2 font-black bg-indigo-50 w-20">Q1 + Q2 Targets</th>
-                        <th className="border border-slate-400 p-2 font-black bg-emerald-50 w-20">Q1 + Q2 Actuals</th>
-                        <th className="border border-slate-400 p-2 font-black bg-teal-50 w-20">Q1 + Q2 expenditures</th>
-                        <th className="border border-slate-400 p-2 font-black bg-amber-50 w-24">q1 + q2 poes</th>
-                        <th className="border border-slate-400 p-2 font-black w-16">variance/issue</th>
-                        <th className="border border-slate-400 p-2 font-black w-16">corrective action</th>
+                        <th className="border border-slate-700 p-2 font-black w-10 text-white bg-slate-900">KPA</th>
+                        <th className="border border-slate-700 p-2 font-black w-10 text-white bg-slate-900">Ref</th>
+                        <th className="border border-slate-700 p-2 font-black w-32 text-white bg-slate-900">Indicator (KPI)</th>
+                        <th className="border border-slate-700 p-2 font-black w-12 text-white bg-slate-900">Total Budget</th>
+                        <th className="border border-slate-700 p-2 font-black text-center w-8 text-white bg-slate-900">RAG</th>
+                        <th className="border border-slate-700 p-2 font-black bg-indigo-950 text-indigo-100 w-20">Q1 + Q2 Targets</th>
+                        <th className="border border-slate-700 p-2 font-black bg-emerald-950 text-emerald-100 w-20">Q1 + Q2 Actuals</th>
+                        <th className="border border-slate-700 p-2 font-black bg-teal-950 text-teal-100 w-20">Q1 + Q2 expenditures</th>
+                        <th className="border border-slate-700 p-2 font-black bg-amber-950 text-amber-100 w-24">q1 + q2 poes</th>
+                        <th className="border border-slate-700 p-2 font-black w-16 text-white bg-slate-900">variance/issue</th>
+                        <th className="border border-slate-700 p-2 font-black w-16 text-white bg-slate-900">corrective action</th>
                       </tr>
                     ) : (
                       <tr>
-                        <th className="border border-slate-400 p-2 font-black w-10">KPA</th>
-                        <th className="border border-slate-400 p-2 font-black w-10">Ref</th>
-                        <th className="border border-slate-400 p-2 font-black w-36">Indicator (KPI)</th>
-                        <th className="border border-slate-400 p-2 font-black w-14">total budget</th>
-                        <th className="border border-slate-400 p-2 font-black text-center w-8">RAG</th>
-                        <th className="border border-slate-400 p-2 font-black bg-indigo-200 w-24">{selectedQuarter.toUpperCase()} Target</th>
-                        <th className="border border-slate-400 p-2 font-black bg-emerald-200 w-24">{selectedQuarter.toUpperCase()} Actual</th>
-                        <th className="border border-slate-400 p-2 font-black bg-teal-100 w-24">{selectedQuarter.toLowerCase()} expenditure</th>
-                        <th className="border border-slate-400 p-2 font-black bg-amber-100 w-28">{selectedQuarter.toLowerCase()} poe</th>
-                        <th className="border border-slate-400 p-2 font-black w-20">variance/issue</th>
-                        <th className="border border-slate-400 p-2 font-black w-20">corrective action</th>
+                        <th className="border border-slate-700 p-2 font-black w-10 text-white bg-slate-900">KPA</th>
+                        <th className="border border-slate-700 p-2 font-black w-10 text-white bg-slate-900">Ref</th>
+                        <th className="border border-slate-700 p-2 font-black w-36 text-white bg-slate-900">Indicator (KPI)</th>
+                        <th className="border border-slate-700 p-2 font-black w-14 text-white bg-slate-900">total budget</th>
+                        <th className="border border-slate-700 p-2 font-black text-center w-8 text-white bg-slate-900">RAG</th>
+                        <th className="border border-slate-700 p-2 font-black bg-indigo-900 text-white w-24">{selectedQuarter.toUpperCase()} Target</th>
+                        <th className="border border-slate-700 p-2 font-black bg-emerald-900 text-white w-24">{selectedQuarter.toUpperCase()} Actual</th>
+                        <th className="border border-slate-700 p-2 font-black bg-teal-800 text-white w-24">{selectedQuarter.toLowerCase()} expenditure</th>
+                        <th className="border border-slate-700 p-2 font-black bg-amber-800 text-white w-28">{selectedQuarter.toLowerCase()} poe</th>
+                        <th className="border border-slate-700 p-2 font-black w-20 text-white bg-slate-900">variance/issue</th>
+                        <th className="border border-slate-700 p-2 font-black w-20 text-white bg-slate-900">corrective action</th>
                       </tr>
                     )}
                   </thead>
                   <tbody>
-                    {rows.filter(r => (r as any)[['bsd', 'led', 'mfvm', 'ggpp', 'midt', 'sr'][idx]] === 'Y' || (r as any)[['bsd', 'led', 'mfvm', 'ggpp', 'midt', 'sr'][idx]] === 'X').map((row, rIdx) => {
+                    {chunk.map((row, rIdx) => {
                       const rag = getRagDetails(row);
                       const kpaLabel = getRowKpa(row);
                       
@@ -856,13 +894,13 @@ function ReportDocument({ rows, selectedQuarter, currentUser, id = "template-con
                 </table>
               </div>
             </div>
-            <PageFooter pageNumber={8 + idx} title={reportTitle} />
+            <PageFooter pageNumber={pageNum} title={reportTitle} />
           </section>
          );
       })}
 
       {/* Ratings Scale Page */}
-      <section className="relative w-[297mm] min-h-[210mm] p-12 flex flex-col page-break-after border-b border-gray-100 bg-white">
+      <section className="relative w-[297mm] h-[210mm] p-12 flex flex-col page-break-after border-b border-gray-100 bg-white">
         <div className="flex-1 space-y-6">
           <h3 className="text-base font-black text-black uppercase">Performance Rating Scale</h3>
           <table className="w-full border-collapse border border-slate-400 text-[11px] leading-snug">
@@ -888,7 +926,7 @@ function ReportDocument({ rows, selectedQuarter, currentUser, id = "template-con
             </tbody>
           </table>
         </div>
-        <PageFooter pageNumber={8 + kpaData.filter((kpa, idx) => rows.some(r => (r as any)[['bsd', 'led', 'mfvm', 'ggpp', 'midt', 'sr'][idx]] === 'Y' || (r as any)[['bsd', 'led', 'mfvm', 'ggpp', 'midt', 'sr'][idx]] === 'X')).length} title={reportTitle} />
+        <PageFooter pageNumber={14 + kpaPages.length} title={reportTitle} />
       </section>
 
       {/* Back Cover */}

@@ -24,7 +24,7 @@ export const AZURE_AD_CONTACTS: AzureContact[] = [
 interface AzureADPickerProps {
   value: string;
   onChange: (newValue: string) => void;
-  roleType: 'submitter' | 'reviewer' | 'approver';
+  roleType: 'submitter' | 'reviewer' | 'approver' | 'internal_audit';
   placeholder?: string;
   size?: 'sm' | 'md';
   activeTenantId: string;
@@ -51,42 +51,82 @@ export function AzureADPicker({ value, onChange, roleType, placeholder, size = '
     if (!activeTenantId) return;
 
     setLoading(true);
-    fetch(`/api/tenant/${activeTenantId}/users`)
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to fetch users');
-        return res.json();
-      })
-      .then((usersList: any[]) => {
-        const colors = [
-          'bg-emerald-600', 'bg-blue-600', 'bg-indigo-600', 'bg-violet-600', 
-          'bg-amber-600', 'bg-rose-600', 'bg-teal-600', 'bg-sky-600'
-        ];
-        
-        const mapped: AzureContact[] = (usersList || []).map((u, idx) => {
-          const name = u.fullName || u.email.split('@')[0];
-          let sum = 0;
-          for (let i = 0; i < name.length; i++) sum += name.charCodeAt(i);
-          const color = colors[sum % colors.length];
 
-          return {
-            id: u.id || `user-${idx}`,
-            name: name,
-            email: u.email,
-            title: u.jobFunction || u.role || 'Municipal Official',
-            department: u.department || 'Administration',
-            avatarColor: color
-          };
+    if (roleType === 'reviewer' || roleType === 'internal_audit') {
+      fetch(`/api/tenant/${activeTenantId}/sdbip-officials`)
+        .then(res => {
+          if (!res.ok) throw new Error('Failed to fetch officials');
+          return res.json();
+        })
+        .then(data => {
+          const colors = [
+            'bg-emerald-600', 'bg-blue-600', 'bg-indigo-600', 'bg-violet-600', 
+            'bg-amber-600', 'bg-rose-600', 'bg-teal-600', 'bg-sky-600'
+          ];
+          const rawList = roleType === 'reviewer' ? (data.reviewers || []) : (data.internalAuditors || []);
+          
+          const mapped: AzureContact[] = rawList.map((name: string, idx: number) => {
+            let sum = 0;
+            for (let i = 0; i < name.length; i++) sum += name.charCodeAt(i);
+            const color = colors[sum % colors.length];
+            const safeEmail = `${name.toLowerCase().replace(/[^a-z0-9]/g, '.')}@nkangaladm.gov.za`;
+            
+            return {
+              id: `${roleType}-${idx}-${name}`,
+              name: name,
+              email: safeEmail,
+              title: roleType === 'reviewer' ? 'Appointed PMU Reviewer' : 'Appointed Internal Auditor',
+              department: roleType === 'reviewer' ? 'Performance Management Unit' : 'Internal Audit Directorate',
+              avatarColor: color
+            };
+          });
+          setContacts(mapped);
+        })
+        .catch(err => {
+          console.error('Error loading custom officials:', err);
+          setContacts([]);
+        })
+        .finally(() => {
+          setLoading(false);
         });
-        setContacts(mapped);
-      })
-      .catch(err => {
-        console.error('Error loading real user directory:', err);
-        setContacts([]);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  }, [activeTenantId]);
+    } else {
+      fetch(`/api/tenant/${activeTenantId}/users`)
+        .then(res => {
+          if (!res.ok) throw new Error('Failed to fetch users');
+          return res.json();
+        })
+        .then((usersList: any[]) => {
+          const colors = [
+            'bg-emerald-600', 'bg-blue-600', 'bg-indigo-600', 'bg-violet-600', 
+            'bg-amber-600', 'bg-rose-600', 'bg-teal-600', 'bg-sky-600'
+          ];
+          
+          const mapped: AzureContact[] = (usersList || []).map((u, idx) => {
+            const name = u.fullName || u.email.split('@')[0];
+            let sum = 0;
+            for (let i = 0; i < name.length; i++) sum += name.charCodeAt(i);
+            const color = colors[sum % colors.length];
+
+            return {
+              id: u.id || `user-${idx}`,
+              name: name,
+              email: u.email,
+              title: u.jobFunction || u.role || 'Municipal Official',
+              department: u.department || 'Administration',
+              avatarColor: color
+            };
+          });
+          setContacts(mapped);
+        })
+        .catch(err => {
+          console.error('Error loading real user directory:', err);
+          setContacts([]);
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    }
+  }, [activeTenantId, roleType]);
 
   const filteredContacts = contacts.filter(contact => 
     contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -118,6 +158,13 @@ export function AzureADPicker({ value, onChange, roleType, placeholder, size = '
           accentBg: 'bg-emerald-600',
           label: 'Executive Approver'
         };
+      case 'internal_audit':
+        return {
+          bg: 'bg-amber-50 border-amber-200 text-amber-700',
+          accent: 'amber',
+          accentBg: 'bg-amber-600',
+          label: 'Internal Audit'
+        };
     }
   };
 
@@ -148,7 +195,7 @@ export function AzureADPicker({ value, onChange, roleType, placeholder, size = '
         {/* Mini Role Indicator Badge */}
         {value && (
           <span className={`text-[8.5px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ml-2 shrink-0 ${theme.bg}`}>
-            {roleType.substring(0, 4)}
+            {roleType === 'internal_audit' ? 'AUDIT' : roleType.substring(0, 4)}
           </span>
         )}
       </div>
