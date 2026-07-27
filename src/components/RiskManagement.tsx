@@ -3,12 +3,16 @@ import {
   AlertTriangle, Briefcase, Shield, FileText, CheckCircle2, 
   Activity, Flame, Plus, Trash2, Edit, Save, BookOpen, 
   Sparkles, TrendingDown, Layers, Send, RefreshCw, ChevronRight, 
-  Check, Archive, ShieldAlert, Award, FileSpreadsheet, Eye, Lock, BarChart3
+  Check, Archive, ShieldAlert, Award, FileSpreadsheet, Eye, Lock, BarChart3, FileCode, Database
 } from 'lucide-react';
 import type { User } from '../types';
 import { RiskRegisterTab, RiskRegisterItem, PoeFile } from './RiskRegisterTab';
 import { ElectronicReportingTab } from './ElectronicReportingTab';
 import { PopiaComplianceTab, PopiaCondition, PopiaIncident, PopiaSystemAssessment } from './PopiaComplianceTab';
+import { CRSAEngineTab } from './CRSAEngineTab';
+import { LegalRegisterTab } from './LegalRegisterTab';
+import { UIFWTrackerTab } from './UIFWTrackerTab';
+import { DatabaseSchemaTab } from './DatabaseSchemaTab';
 
 interface RiskManagementProps {
   currentUser: User;
@@ -50,7 +54,7 @@ interface ActiveRiskDraft {
 }
 
 export function RiskManagement({ currentUser, activeTenantId }: RiskManagementProps) {
-  const [activeTab, setActiveTab ] = useState<'brief' | 'register' | 'types' | 'templates' | 'suite' | 'electronic_reporting' | 'popia_compliance'>('brief');
+  const [activeTab, setActiveTab ] = useState<'brief' | 'register' | 'types' | 'templates' | 'suite' | 'electronic_reporting' | 'popia_compliance' | 'crsa_engine' | 'compliance_tracker' | 'uifw_module' | 'db_schema'>('brief');
   const [isLoading, setIsLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error', msg: string } | null>(null);
 
@@ -739,6 +743,34 @@ export function RiskManagement({ currentUser, activeTenantId }: RiskManagementPr
         >
           <Lock className="w-4 h-4 text-indigo-500" /> 5. POPIA Compliance
         </button>
+
+        <button 
+          onClick={() => { setActiveTab('crsa_engine'); setIsEditingDraft(null); }}
+          className={`px-4 py-3.5 font-extrabold text-xs uppercase tracking-widest flex items-center gap-2 border-b-2 transition-all whitespace-nowrap ${activeTab === 'crsa_engine' ? 'border-red-650 text-slate-900 font-black bg-white rounded-t-xl mt-1.5' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+        >
+          <FileCode className="w-4 h-4 text-cyan-500" /> 6. CRSA Engine
+        </button>
+
+        <button 
+          onClick={() => { setActiveTab('compliance_tracker'); setIsEditingDraft(null); }}
+          className={`px-4 py-3.5 font-extrabold text-xs uppercase tracking-widest flex items-center gap-2 border-b-2 transition-all whitespace-nowrap ${activeTab === 'compliance_tracker' ? 'border-red-650 text-slate-900 font-black bg-white rounded-t-xl mt-1.5' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+        >
+          <Archive className="w-4 h-4 text-rose-500" /> 7. Legal Register
+        </button>
+
+        <button 
+          onClick={() => { setActiveTab('uifw_module'); setIsEditingDraft(null); }}
+          className={`px-4 py-3.5 font-extrabold text-xs uppercase tracking-widest flex items-center gap-2 border-b-2 transition-all whitespace-nowrap ${activeTab === 'uifw_module' ? 'border-red-650 text-slate-900 font-black bg-white rounded-t-xl mt-1.5' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+        >
+          <BarChart3 className="w-4 h-4 text-teal-500" /> 8. UIF&W Tracker
+        </button>
+
+        <button 
+          onClick={() => { setActiveTab('db_schema'); setIsEditingDraft(null); }}
+          className={`px-4 py-3.5 font-extrabold text-xs uppercase tracking-widest flex items-center gap-2 border-b-2 transition-all whitespace-nowrap ${activeTab === 'db_schema' ? 'border-red-650 text-slate-900 font-black bg-white rounded-t-xl mt-1.5' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+        >
+          <Database className="w-4 h-4 text-indigo-500" /> 9. DB Schema
+        </button>
       </div>
 
       {/* Main Content Area */}
@@ -769,58 +801,84 @@ export function RiskManagement({ currentUser, activeTenantId }: RiskManagementPr
                   {/* Left Column: Aligned to */}
                   <div className="space-y-4">
                     <h3 className="text-xs font-extrabold uppercase tracking-widest text-red-600 flex items-center gap-2">
-                      <Award className="w-5 h-5" /> 1. Operational Alignment Parameters
+                      <Award className="w-5 h-5" /> 1. Legislative & Statutory Framework Alignment
                     </h3>
                     <p className="text-xs text-slate-500">
-                      Our municipal frameworks are deeply aligned to constitutional imperatives and governance benchmarks:
+                      Our municipal Enterprise Risk Management (ERM) architecture strictly complies with South African statutory mandates and governance principles:
                     </p>
 
                     <div className="space-y-3">
-                      <div className="bg-slate-55 border border-slate-150 p-4 rounded-2xl flex gap-3.5">
-                        <div className="text-xs font-black bg-red-100 text-red-800 h-7 w-7 rounded-lg flex items-center justify-center shrink-0">
+                      <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl flex gap-3.5">
+                        <div className="text-xs font-black bg-red-100 text-red-800 h-8 w-8 rounded-lg flex items-center justify-center shrink-0">
                           MFMA
                         </div>
                         <div>
-                          <h4 className="font-bold text-slate-850 text-xs uppercase tracking-wider">MFMA Act No. 56 of 2003</h4>
-                          <p className="text-[11px] text-slate-605 mt-1 leading-relaxed">
-                            Specifically <strong>Section 62(1)(c)</strong>, which mandates municipalities to maintain effective, efficient, and transparent systems of risk management.
+                          <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider">MFMA (Act 56 of 2003)</h4>
+                          <p className="text-[11px] text-slate-600 mt-1 leading-relaxed">
+                            <strong>Section 62(1)(c)</strong> mandates the Accounting Officer (Municipal Manager) to maintain an effective, efficient, and transparent system of financial, operational, and risk management. <strong>Section 165 & 166</strong> mandate Internal Audit and the Audit Committee (FARMCO) to evaluate risk registers quarterly.
                           </p>
                         </div>
                       </div>
 
-                      <div className="bg-slate-55 border border-slate-150 p-4 rounded-2xl flex gap-3.5">
-                        <div className="text-xs font-black bg-orange-100 text-orange-850 h-7 w-7 rounded-lg flex items-center justify-center shrink-0">
-                          PSRMF
+                      <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl flex gap-3.5">
+                        <div className="text-xs font-black bg-blue-100 text-blue-800 h-8 w-8 rounded-lg flex items-center justify-center shrink-0">
+                          MSA
                         </div>
                         <div>
-                          <h4 className="font-bold text-slate-850 text-xs uppercase tracking-wider">Public Sector Risk Framework</h4>
-                          <p className="text-[11px] text-slate-605 mt-1 leading-relaxed">
-                            Issued by the National Treasury, outlining the standard public-sector approach to managing operational exposure risk arrays and preventing fraud.
+                          <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider">Municipal Systems Act (Act 32 of 2000)</h4>
+                          <p className="text-[11px] text-slate-600 mt-1 leading-relaxed">
+                            <strong>Chapter 6 (Section 38-41)</strong> links strategic risk management directly to the Integrated Development Plan (IDP) and the Service Delivery and Budget Implementation Plan (SDBIP) performance indicators.
                           </p>
                         </div>
                       </div>
 
-                      <div className="bg-slate-55 border border-slate-150 p-4 rounded-2xl flex gap-3.5">
-                        <div className="text-xs font-black bg-amber-100 text-amber-850 h-7 w-7 rounded-lg flex items-center justify-center shrink-0">
+                      <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl flex gap-3.5">
+                        <div className="text-xs font-black bg-emerald-100 text-emerald-800 h-8 w-8 rounded-lg flex items-center justify-center shrink-0">
+                          NT
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider">National Treasury Circulars 68 & 111</h4>
+                          <p className="text-[11px] text-slate-600 mt-1 leading-relaxed">
+                            <strong>Circular 68:</strong> Public Sector Risk Management Framework (PSRMF) establishing standardized Key Risk Indicators (KRIs), Risk Tolerance Levels, and Fraud Prevention Plans.<br />
+                            <strong>Circular 111:</strong> Governance assessments, internal control maturity indexing, and IT/Cybersecurity risk tracking.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl flex gap-3.5">
+                        <div className="text-xs font-black bg-purple-100 text-purple-800 h-8 w-8 rounded-lg flex items-center justify-center shrink-0">
+                          KING
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider">King IV Report Sector Supplement</h4>
+                          <p className="text-[11px] text-slate-600 mt-1 leading-relaxed">
+                            <strong>Principle 11:</strong> Governance of risk, risk appetite boundaries, and Council oversight.<br />
+                            <strong>Principle 12 & 13:</strong> IT/Information governance and combined assurance compliance models.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl flex gap-3.5">
+                        <div className="text-xs font-black bg-amber-100 text-amber-800 h-8 w-8 rounded-lg flex items-center justify-center shrink-0">
                           ISO
                         </div>
                         <div>
-                          <h4 className="font-bold text-slate-850 text-xs uppercase tracking-wider">International ISO 31000</h4>
-                          <p className="text-[11px] text-slate-605 mt-1 leading-relaxed">
-                            Municipal frameworks leverage industry best-practice standards globally for Enterprise Risk Management (ERM) strategies.
+                          <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider">ISO 31000:2018 Risk Principles</h4>
+                          <p className="text-[11px] text-slate-600 mt-1 leading-relaxed">
+                            8 Principles: Integrated, Structured, Customized, Inclusive, Dynamic, Best Available Information, Human/Cultural Factors, and Continual Improvement across the 6-step Risk Assessment lifecycle.
                           </p>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Right Column: Information Sources */}
+                  {/* Right Column: Information Sources & Architecture Schemas */}
                   <div className="space-y-4">
                     <h3 className="text-xs font-extrabold uppercase tracking-widest text-red-600 flex items-center gap-2">
-                      <Send className="w-5 h-5" /> 2. Sources of Risk Information & Telemetry
+                      <Send className="w-5 h-5" /> 2. Sources of Risk Telemetry & Governance Inputs
                     </h3>
                     <p className="text-xs text-slate-500 text-justify">
-                      To build an accurate enterprise view, intelligence is piped into our risk registers from both internal operational matrices and external oversight agencies:
+                      To build an accurate enterprise view, risk intelligence is aggregated from internal performance matrices, external auditing bodies, and legislative compliance monitors:
                     </p>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -829,10 +887,10 @@ export function RiskManagement({ currentUser, activeTenantId }: RiskManagementPr
                           <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span> Internal Channels
                         </h4>
                         <ul className="space-y-1 list-disc list-inside text-[11px] text-slate-550 leading-relaxed pl-1">
-                          <li><strong>Line Managers & Directors:</strong> Identify departmental, project list or infrastructural block risks.</li>
-                          <li><strong>Internal Audit Reports:</strong> Disclose key control failures or compliance loops.</li>
-                          <li><strong>Financial Matrices:</strong> Integrated SDBIPs, IDP milestones, and Audit correction registers.</li>
-                          <li><strong>FARMCOs:</strong> Dedicated committees reviewing register items periodically.</li>
+                          <li><strong>Municipal Manager & HODs:</strong> Departmental, project, and infrastructure delivery risks.</li>
+                          <li><strong>Internal Audit Unit:</strong> Section 165 quarterly reports and control effectiveness reviews.</li>
+                          <li><strong>Performance Matrices:</strong> SDBIP quarterly KPI targets, IDP milestones, and Audit Action Plans.</li>
+                          <li><strong>FARMCO & MPAC:</strong> Oversight committee reviews and forensic investigation registers.</li>
                         </ul>
                       </div>
 
@@ -841,11 +899,45 @@ export function RiskManagement({ currentUser, activeTenantId }: RiskManagementPr
                           <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span> External Pipelines
                         </h4>
                         <ul className="space-y-1 list-disc list-inside text-[11px] text-slate-550 leading-relaxed pl-1">
-                          <li><strong>National & Provincial Treasury:</strong> Guidelines, baseline indices, economic projections.</li>
-                          <li><strong>Auditor-General SA:</strong> Core audit findings and material irregularity alerts.</li>
-                          <li><strong>Community Feedback:</strong> Public participation petitions regarding service deliveries.</li>
-                          <li><strong>Professional Bodies:</strong> Global risk criteria from IRMSA.</li>
+                          <li><strong>National & Provincial Treasury:</strong> Circular 68/111 directives, MFMA compliance indices.</li>
+                          <li><strong>Auditor-General SA (AGSA):</strong> Audit outcomes, Material Irregularity (MI) alerts.</li>
+                          <li><strong>POPIA Information Regulator:</strong> Chapter 3 conditions & incident reports.</li>
+                          <li><strong>IRMSA & SALGA:</strong> Municipal risk benchmarking and sector guidelines.</li>
                         </ul>
+                      </div>
+                    </div>
+
+                    {/* Architecture Specs & Schema Panel */}
+                    <div className="border border-slate-200 rounded-2xl p-5 bg-slate-900 text-slate-100 shadow-md space-y-3 mt-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-2">
+                          <FileCode className="w-4 h-4" /> Production-Ready Data Schemas & Calculation Logic
+                        </h4>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-800 text-slate-300 border border-slate-700">
+                          MFMA + ISO 31000 Compliant
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-300 leading-relaxed">
+                        The underlying enterprise data model enforces mathematical scoring for Inherent Risk (Impact × Likelihood = 1 to 25), Control Effectiveness (10% to 90% reduction factor), and Residual Exposure Rating.
+                      </p>
+                      
+                      <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 font-mono text-[10px] text-slate-300 space-y-1.5 max-h-48 overflow-y-auto">
+                        <div className="text-slate-400 font-bold">// Production TypeScript Calculation Engine Formula:</div>
+                        <div className="text-emerald-400 font-semibold">
+                          InherentRiskScore = InherentImpact (1-5) * InherentLikelihood (1-5)
+                        </div>
+                        <div className="text-emerald-400 font-semibold">
+                          ControlFactor = PreventativeControlRating (0.1-0.5) + CorrectiveControlRating (0.1-0.4)
+                        </div>
+                        <div className="text-emerald-400 font-semibold">
+                          ResidualRiskScore = Math.max(1, Math.round(InherentRiskScore * (1 - ControlFactor)))
+                        </div>
+                        <div className="text-amber-400 mt-2 font-bold">// Heatmap Categorization (ISO 31000):</div>
+                        <div className="text-slate-300">
+                          Score 15-25: High/Critical (Red - Escalated to Accounting Officer & Council)<br />
+                          Score 8-14: Medium/Significant (Yellow - Quarterly FARMCO Review)<br />
+                          Score 1-7: Low/Acceptable (Green - Departmental Monitoring)
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -854,7 +946,7 @@ export function RiskManagement({ currentUser, activeTenantId }: RiskManagementPr
                 <div className="mt-8 pt-6 border-t border-slate-200 flex justify-between items-center text-xs">
                   <div className="flex items-center gap-2 text-slate-500">
                     <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                    <span>South Africa Municipal Risk Alignment Active (MFMA Section 62 Compliant)</span>
+                    <span>South Africa Municipal Risk Alignment Active (MFMA Sec 62, MSA Sec 38, NT Circular 68/111, King IV, ISO 31000)</span>
                   </div>
                   <button 
                     onClick={() => setActiveTab('types')} 
@@ -1622,6 +1714,25 @@ export function RiskManagement({ currentUser, activeTenantId }: RiskManagementPr
                 );
               }}
             />
+          )}
+          {/* TAB: CRSA ENGINE */}
+          {activeTab === 'crsa_engine' && (
+            <CRSAEngineTab />
+          )}
+
+          {/* TAB: COMPLIANCE TRACKER */}
+          {activeTab === 'compliance_tracker' && (
+            <LegalRegisterTab />
+          )}
+
+          {/* TAB: UIFW MODULE */}
+          {activeTab === 'uifw_module' && (
+            <UIFWTrackerTab />
+          )}
+
+          {/* TAB: DB SCHEMA */}
+          {activeTab === 'db_schema' && (
+            <DatabaseSchemaTab />
           )}
         </div>
       </div>

@@ -10,7 +10,5 @@
   "manager": "JP Mangani",
   "directorate": "PED",
   "reportTo": "",
-  "level": "2",
-  "signatureType": "upload",
-  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_8f7629e7-aeb1-406c-b2f8-47cd229a8c51_1784448205194.png"
+  "level": "2"
 }

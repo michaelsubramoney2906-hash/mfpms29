@@ -995,15 +995,31 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate }: U
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-bold text-gray-900">Current Directory</h2>
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input 
-                  type="text" 
-                  placeholder="Search..." 
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-green-600 outline-none w-64 transition-all" 
-                />
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setIsLoading(true);
+                    await fetchUsers();
+                    setIsLoading(false);
+                  }}
+                  disabled={isLoading}
+                  className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-all cursor-pointer shadow-sm disabled:opacity-50"
+                  title="Refresh User Directory"
+                >
+                  <RefreshCw className={`w-4 h-4 text-gray-500 ${isLoading ? 'animate-spin' : ''}`} />
+                  <span>Refresh</span>
+                </button>
+                <div className="relative">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input 
+                    type="text" 
+                    placeholder="Search..." 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-green-600 outline-none w-64 transition-all" 
+                  />
+                </div>
               </div>
             </div>
             {filteredUsers.length === 0 ? (

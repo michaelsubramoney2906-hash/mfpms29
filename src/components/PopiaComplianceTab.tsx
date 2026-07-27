@@ -60,7 +60,7 @@ export function PopiaComplianceTab({
   const handleToggleConditionStatus = (id: number) => {
     const updated = conditions.map(c => {
       if (c.id === id) {
-        const nextStatus = c.status === 'Compliant' ? 'In Progress' : c.status === 'In Progress' ? 'Non-Compliant' : 'Compliant';
+        const nextStatus: 'Compliant' | 'In Progress' | 'Non-Compliant' = c.status === 'Compliant' ? 'In Progress' : c.status === 'In Progress' ? 'Non-Compliant' : 'Compliant';
         return { ...c, status: nextStatus };
       }
       return c;

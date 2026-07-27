@@ -66,24 +66,26 @@ export function AzureADPicker({ value, onChange, roleType, placeholder, activeTe
         };
       });
 
-      const allUsersMap = new Map(mapped.map((u: AzureContact) => [u.name, u]));
+      const allUsersMapByName = new Map(mapped.map((u: AzureContact) => [u.name, u]));
+      const allUsersMapById = new Map(mapped.map((u: AzureContact) => [u.id, u]));
 
       if (roleType === 'reviewer' || roleType === 'internal_audit') {
         const pNames = roleType === 'reviewer' ? (poolData.reviewers || []) : (poolData.internalAuditors || []);
-        pNames.forEach((name: string, idx: number) => {
-          if (!allUsersMap.has(name)) {
+        pNames.forEach((item: string, idx: number) => {
+          if (!allUsersMapById.has(item) && !allUsersMapByName.has(item)) {
             let sum = 0;
-            for (let i = 0; i < name.length; i++) sum += name.charCodeAt(i);
+            for (let i = 0; i < item.length; i++) sum += item.charCodeAt(i);
             const dummy = {
-              id: `dummy-${idx}-${name}`,
-              name: name,
-              email: `${name.toLowerCase().replace(/[^a-z0-9]/g, '.')}@nkangaladm.gov.za`,
+              id: item,
+              name: item,
+              email: `${item.toLowerCase().replace(/[^a-z0-9]/g, '.')}@nkangaladm.gov.za`,
               title: roleType === 'reviewer' ? 'Appointed PMU Reviewer' : 'Appointed Internal Auditor',
               department: roleType === 'reviewer' ? 'PMU' : 'Internal Audit',
               avatarColor: colors[sum % colors.length]
             };
             mapped.push(dummy);
-            allUsersMap.set(name, dummy);
+            allUsersMapById.set(item, dummy);
+            allUsersMapByName.set(item, dummy);
           }
         });
         setPoolNames(pNames);
@@ -102,7 +104,6 @@ export function AzureADPicker({ value, onChange, roleType, placeholder, activeTe
   }, [activeTenantId, roleType]);
 
   const updatePool = async (newPoolNames: string[]) => {
-    // Optimistic update for instant UI feedback
     setPoolNames(newPoolNames);
 
     try {
@@ -132,25 +133,26 @@ export function AzureADPicker({ value, onChange, roleType, placeholder, activeTe
   const isPoolManaged = roleType === 'reviewer' || roleType === 'internal_audit';
   const poolMax = roleType === 'reviewer' ? 20 : 20;
 
-  const handleAddToPool = (e: React.MouseEvent | { stopPropagation: () => void }, name: string) => {
+  const handleAddToPool = (e: React.MouseEvent | { stopPropagation: () => void }, idOrName: string) => {
     if (e && typeof e.stopPropagation === 'function') {
       e.stopPropagation();
     }
     if (poolNames.length >= poolMax) {
-      // Maximum reached, silently ignore
       return;
     }
-    if (!poolNames.includes(name)) {
-      updatePool([...poolNames, name]);
+    if (!poolNames.includes(idOrName)) {
+      updatePool([...poolNames, idOrName]);
     }
   };
 
-  const handleRemoveFromPool = (e: React.MouseEvent | { stopPropagation: () => void }, name: string) => {
+  const handleRemoveFromPool = (e: React.MouseEvent | { stopPropagation: () => void }, idOrName: string) => {
     if (e && typeof e.stopPropagation === 'function') {
       e.stopPropagation();
     }
-    updatePool(poolNames.filter(n => n !== name));
-    if (value === name) {
+    updatePool(poolNames.filter(n => n !== idOrName));
+    
+    const contact = allUsers.find(u => u.id === idOrName || u.name === idOrName);
+    if (contact && (value === contact.id || value === contact.name)) {
       onChange('');
     }
   };
@@ -162,8 +164,8 @@ export function AzureADPicker({ value, onChange, roleType, placeholder, activeTe
     contact.department.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const poolContacts = isPoolManaged ? filteredUsers.filter(u => poolNames.includes(u.name)) : [];
-  const otherContacts = isPoolManaged ? filteredUsers.filter(u => !poolNames.includes(u.name)) : filteredUsers;
+  const poolContacts = isPoolManaged ? filteredUsers.filter(u => poolNames.includes(u.id) || poolNames.includes(u.name)) : [];
+  const otherContacts = filteredUsers; // The user object should remain visible in the original source pool after selection
 
   const getRoleTheme = () => {
     switch (roleType) {
@@ -174,6 +176,9 @@ export function AzureADPicker({ value, onChange, roleType, placeholder, activeTe
     }
   };
   const theme = getRoleTheme();
+  
+  // Resolve ID, Name or Email to display name from the allUsers directory
+  const resolvedDisplayName = allUsers.find(u => u.id === value || u.name === value || u.email === value)?.name || value;
 
   return (
     <div className="relative inline-block w-full" ref={popoverRef}>
@@ -190,8 +195,8 @@ export function AzureADPicker({ value, onChange, roleType, placeholder, activeTe
               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
             </svg>
           </div>
-          <span className="truncate font-medium">
-            {value || placeholder || `Select ${roleType}...`}
+          <span className="truncate font-medium font-sans">
+            {resolvedDisplayName || placeholder || `Select ${roleType}...`}
           </span>
         </div>
 
@@ -272,7 +277,7 @@ export function AzureADPicker({ value, onChange, roleType, placeholder, activeTe
                       </div>
                     ) : (
                       poolContacts.map(contact => {
-                        const isSelected = value === contact.name;
+                        const isSelected = value === contact.name || value === contact.id;
                         return (
                           <div
                             key={contact.id}
@@ -299,7 +304,7 @@ export function AzureADPicker({ value, onChange, roleType, placeholder, activeTe
                             <div className="flex items-center gap-2 shrink-0">
                               <button
                                 type="button"
-                                onClick={(e) => handleRemoveFromPool(e, contact.name)}
+                                onClick={(e) => handleRemoveFromPool(e, contact.id)}
                                 className="opacity-0 group-hover:opacity-100 p-1.5 text-rose-400 hover:bg-rose-500/20 rounded transition-all cursor-pointer"
                                 title="Remove from pool"
                               >
@@ -321,7 +326,7 @@ export function AzureADPicker({ value, onChange, roleType, placeholder, activeTe
                     </div>
                   )}
                   {otherContacts.slice(0, searchQuery ? 200 : 80).map(contact => {
-                    const isSelected = !isPoolManaged && (value === contact.name);
+                    const isSelected = !isPoolManaged && (value === contact.name || value === contact.id);
                     return (
                       <div
                         key={contact.id}
@@ -330,7 +335,7 @@ export function AzureADPicker({ value, onChange, roleType, placeholder, activeTe
                             onChange(contact.name);
                             setIsOpen(false);
                           } else if (poolNames.length < poolMax) {
-                            handleAddToPool({ stopPropagation: () => {} } as any, contact.name);
+                            handleAddToPool({ stopPropagation: () => {} } as any, contact.id);
                           }
                         }}
                         className={`p-2.5 flex items-center justify-between cursor-pointer transition-all hover:bg-slate-800/80 group ${
@@ -351,14 +356,20 @@ export function AzureADPicker({ value, onChange, roleType, placeholder, activeTe
                         </div>
                         
                         {isPoolManaged ? (
-                          <button
-                            type="button"
-                            onClick={(e) => handleAddToPool(e, contact.name)}
-                            disabled={poolNames.length >= poolMax}
-                            className="opacity-0 group-hover:opacity-100 p-1 bg-sky-500/20 text-sky-400 hover:bg-sky-500/40 rounded transition-all disabled:opacity-50 cursor-pointer shrink-0 text-[9px] font-bold px-2 uppercase"
-                          >
-                            Add to Pool
-                          </button>
+                          poolNames.includes(contact.id) || poolNames.includes(contact.name) ? (
+                            <span className="text-[9px] font-bold text-sky-400 bg-sky-500/10 border border-sky-500/20 px-2 py-0.5 rounded shrink-0 uppercase">
+                              In Pool
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => handleAddToPool(e, contact.id)}
+                              disabled={poolNames.length >= poolMax}
+                              className="opacity-0 group-hover:opacity-100 p-1 bg-sky-500/20 text-sky-400 hover:bg-sky-500/40 rounded transition-all disabled:opacity-50 cursor-pointer shrink-0 text-[9px] font-bold px-2 uppercase"
+                            >
+                              Add to Pool
+                            </button>
+                          )
                         ) : (
                           <span className="text-[8.5px] font-semibold text-slate-500 bg-slate-900 border border-slate-850 px-1.5 py-0.5 rounded shrink-0">
                             {contact.department.split(' ')[0]}

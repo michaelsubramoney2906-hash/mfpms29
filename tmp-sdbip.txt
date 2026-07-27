@@ -1,0 +1,3 @@
+3685:   app.get("/api/tenant/:tenantId/sdbip-officials", async (req, res) => {
+3736:   app.post("/api/tenant/:tenantId/sdbip-officials", async (req, res) => {
+3800:         console.error("Error auto-seeding users from sdbip-officials post:", uErr);

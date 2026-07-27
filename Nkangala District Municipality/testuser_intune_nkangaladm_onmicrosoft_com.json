@@ -1,0 +1,14 @@
+{
+  "id": "3f924b6d-b430-4d0c-88b7-4c50c8b97f11",
+  "fullName": "Test IT User (MDM",
+  "email": "testuser_intune@nkangaladm.onmicrosoft.com",
+  "jobFunction": "Mapendane",
+  "department": "",
+  "source": "azure_ad",
+  "role": "Standard User",
+  "tenantId": "tenant-229",
+  "manager": "",
+  "directorate": "",
+  "reportTo": "",
+  "level": "1"
+}
