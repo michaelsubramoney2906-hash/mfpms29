@@ -12,6 +12,7 @@ export default defineConfig(() => {
       },
     },
     build: {
+      reportCompressedSize: false,
       chunkSizeWarningLimit: 3000,
       target: 'es2022',
       sourcemap: false,
