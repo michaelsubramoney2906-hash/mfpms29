@@ -3122,7 +3122,7 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
                     <div className="h-14 border border-dashed rounded flex flex-col items-center justify-center bg-white p-1 relative group overflow-hidden">
                       {employeeSignature ? (
                         <div className="flex flex-col items-center">
-                          {employeeSignature.startsWith('http') ? (
+                          {(employeeSignature.startsWith('http') || employeeSignature.startsWith('data:image')) ? (
                             <img src={employeeSignature} className="max-h-10 max-w-full object-contain" referrerPolicy="no-referrer" alt="Employee Signature" />
                           ) : (
                             <span className="font-serif italic text-sm tracking-wide text-indigo-700">{employeeSignature}</span>
@@ -3179,7 +3179,7 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
                     <div className="h-14 border border-dashed rounded flex flex-col items-center justify-center bg-white p-1 relative group overflow-hidden">
                       {supervisorSignature ? (
                         <div className="flex flex-col items-center">
-                          {supervisorSignature.startsWith('http') ? (
+                          {(supervisorSignature.startsWith('http') || supervisorSignature.startsWith('data:image')) ? (
                             <img src={supervisorSignature} className="max-h-10 max-w-full object-contain" referrerPolicy="no-referrer" alt="Supervisor Signature" />
                           ) : (
                             <span className="font-serif italic text-sm tracking-wide text-indigo-700">{supervisorSignature}</span>
@@ -3779,7 +3779,7 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
                           <div className="h-14 border border-dashed rounded flex flex-col items-center justify-center bg-white p-1 relative group overflow-hidden">
                             {employeeSignature ? (
                               <div className="flex flex-col items-center">
-                                {employeeSignature.startsWith('http') ? (
+                                {(employeeSignature.startsWith('http') || employeeSignature.startsWith('data:image')) ? (
                                   <img src={employeeSignature} className="max-h-10 max-w-full object-contain" referrerPolicy="no-referrer" alt="Employee Signature" />
                                 ) : (
                                   <span className="font-serif italic text-sm tracking-wide text-indigo-700">{employeeSignature}</span>
@@ -3836,7 +3836,7 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
                           <div className="h-14 border border-dashed rounded flex flex-col items-center justify-center bg-white p-1 relative group overflow-hidden">
                             {supervisorSignature ? (
                               <div className="flex flex-col items-center">
-                                {supervisorSignature.startsWith('http') ? (
+                                {(supervisorSignature.startsWith('http') || supervisorSignature.startsWith('data:image')) ? (
                                   <img src={supervisorSignature} className="max-h-10 max-w-full object-contain" referrerPolicy="no-referrer" alt="Supervisor Signature" />
                                 ) : (
                                   <span className="font-serif italic text-sm tracking-wide text-indigo-700">{supervisorSignature}</span>

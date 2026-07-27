@@ -2823,7 +2823,9 @@ Format your response exactly according to the following JSON schema:
         department: u.department,
         source: u.source,
         role: u.role,
-        tenantId: u.tenantId
+        tenantId: u.tenantId,
+        signatureType: u.signatureType,
+        signatureData: u.signatureData
       }));
 
       res.json(filtered.slice(0, 100)); // Return top 100 matches for performance and thoroughness
