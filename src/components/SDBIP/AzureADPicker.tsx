@@ -45,7 +45,7 @@ export function AzureADPicker({ value, onChange, roleType, placeholder, activeTe
         ? fetch(`/api/tenant/${activeTenantId}/sdbip-officials`).then(res => res.ok ? res.json() : {})
         : Promise.resolve({});
 
-      const [usersList, poolData] = await Promise.all([usersPromise, poolPromise]);
+      const [usersList, poolData]: [any[], any] = await Promise.all([usersPromise, poolPromise]);
 
       const colors = [
         'bg-emerald-600', 'bg-blue-600', 'bg-indigo-600', 'bg-violet-600', 
