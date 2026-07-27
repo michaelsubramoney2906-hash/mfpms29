@@ -59,7 +59,7 @@ export function KPA({ currentUser, activeTenantId }: KPAProps) {
     // Load KPAs for this tenant on mount or activeTenantId change
     setLoading(true);
     fetch(`/api/tenant/${activeTenantId}/kpas`)
-      .then(res => res.json())
+      .then(res => res.ok ? res.json() : { kpas: [] })
       .then(data => {
         if (data && Array.isArray(data.kpas)) {
           setKpas(data.kpas);

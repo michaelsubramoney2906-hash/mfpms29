@@ -19,8 +19,8 @@ export function SecurityShield({ user, children }: SecurityShieldProps) {
   useEffect(() => {
     // 1. Fetch visitor IP to populate watermark
     fetch('/api/auth/client-ip')
-      .then(res => res.json())
-      .then(data => {
+      .then(res => res.ok ? res.json() : ({} as any))
+      .then((data: any) => {
         if (data && data.ip) {
           setClientIp(data.ip);
         }

@@ -72,18 +72,44 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
 
         const myBranchEmails = getFullBranch(managerName, allUsers).map(u => u.email.toLowerCase());
 
+        const isGlobalAdmin = currentUser.role === 'admin' || 
+                              ['mike@mzansiflow.co.za', 'audrey@mzansiflow.co.za', 'mike@massivedynamixdistributors.com'].includes((currentUser.email || '').toLowerCase().trim()) ||
+                              (currentUser.systemRole || '').toLowerCase().includes('admin') ||
+                              (currentUser.systemRole || '').toLowerCase().includes('pms') ||
+                              (currentUser.jobFunction || '').toLowerCase().includes('municipal manager') ||
+                              (currentUser.jobFunction || '').toLowerCase().includes('hod') ||
+                              (currentUser.jobFunction || '').toLowerCase().includes('director');
+
         // 3. Filter plans in this manager's branch
         const myTeamPlans = plans.filter((p: any) => {
-          const isSubordinate = myBranchEmails.includes(p.userId.toLowerCase());
-          if (!isSubordinate) return false;
+          if (p.userId.toLowerCase() === (currentUser.email || '').toLowerCase()) return false;
 
-          // Filter by status for manager review workflow
-          return (
-            p.plan.metadata?.reviewStatus === 'Submitted for Review' || 
-            p.plan.metadata?.reviewStatus === 'Submitted for Approval' || 
-            p.plan.metadata?.reviewStatus === 'Reviewed' ||
-            p.plan.metadata?.reviewStatus === 'Approved'
+          const isSubordinate = myBranchEmails.includes(p.userId.toLowerCase());
+          
+          const isAllowed = isGlobalAdmin || isSubordinate || myBranchEmails.length === 0;
+          if (!isAllowed) return false;
+
+          const hasSubmittedKpi = Array.isArray(p.plan?.items) && p.plan.items.some((item: any) => 
+            item.reviewStatus === 'Submitted for Approval' || 
+            item.reviewStatus === 'Submitted for Review' ||
+            item.reviewStatus === 'Reviewed' ||
+            item.reviewStatus === 'Approved' ||
+            Boolean(item.evaluation) ||
+            Boolean(item.evaluationComment) ||
+            Boolean(item.q1Poe || item.q2Poe || item.q3Poe || item.q4Poe)
           );
+
+          const status = p.plan?.metadata?.reviewStatus;
+          const isStatusMatching = (
+            status === 'Submitted for Review' || 
+            status === 'Submitted for Approval' || 
+            status === 'Reviewed' ||
+            status === 'Approved' ||
+            hasSubmittedKpi ||
+            (!status && Array.isArray(p.plan?.items) && p.plan.items.length > 0)
+          );
+
+          return isStatusMatching;
         });
         
         setTeamPlans(myTeamPlans);

@@ -105,9 +105,9 @@ export default function App() {
             },
             body: JSON.stringify({ tenantId: state })
           })
-          .then(res => res.json())
-          .then(data => {
-            if (data.user) {
+          .then(res => res.ok ? res.json() : ({} as any))
+          .then((data: any) => {
+            if (data && data.user) {
               let roleToUse: 'admin' | 'tenant_user' = 'tenant_user';
               let tenantToUse = 'nkangala_auto';
               
@@ -151,9 +151,9 @@ export default function App() {
             },
             body: JSON.stringify({ tenantId: event.data.state })
           })
-          .then(res => res.json())
-          .then(data => {
-            if (data.user) {
+          .then(res => res.ok ? res.json() : ({} as any))
+          .then((data: any) => {
+            if (data && data.user) {
               let roleToUse: 'admin' | 'tenant_user' = 'tenant_user';
               let tenantToUse = 'nkangala_auto';
               

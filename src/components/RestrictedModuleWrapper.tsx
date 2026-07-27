@@ -46,9 +46,9 @@ export function RestrictedModuleWrapper({ currentUser, item, unlockedModules, on
 
   React.useEffect(() => {
     fetch('/api/config/manager-password')
-      .then(res => res.json())
-      .then(data => {
-        if (data.managerOverridePassword) {
+      .then(res => res.ok ? res.json() : ({} as any))
+      .then((data: any) => {
+        if (data && data.managerOverridePassword) {
           setOverridePassword(data.managerOverridePassword);
         }
       })
@@ -62,14 +62,51 @@ export function RestrictedModuleWrapper({ currentUser, item, unlockedModules, on
 
   const targetId = item.id === 'pa-templates' ? 'pa-templates' : parentId;
 
-  const isMikeOnlyModule = ['ipms-manager-review', 'ipms-internal-audit', 'ipms-dpmc'].includes(item.id);
+  const isMikeOnlyModule = ['ipms-manager-review', 'ipms-internal-audit', 'ipms-dpmc', 'ipms-reports'].includes(item.id);
+  const userEmail = (currentUser.email || '').trim().toLowerCase();
   const isAuthorizedAdmin = [
     'mike@mzansiflow.co.za',
     'audrey@mzansiflow.co.za',
     'mike@massivedynamixdistributors.com'
-  ].includes(currentUser.email.trim().toLowerCase());
+  ].includes(userEmail);
 
-  if (isMikeOnlyModule && !isAuthorizedAdmin) {
+  const isGlobalAdmin = currentUser.role === 'admin' || currentUser.systemRole === 'Global Administrator';
+
+  const userRoleLower = (currentUser.role || '').toLowerCase();
+  const systemRoleLower = (currentUser.systemRole || '').toLowerCase();
+  const jobFunctionLower = (currentUser.jobFunction || '').toLowerCase();
+
+  const isManagerOrAuditorOrOfficial = 
+    isAuthorizedAdmin ||
+    isGlobalAdmin ||
+    userRoleLower.includes('admin') ||
+    userRoleLower.includes('manager') ||
+    userRoleLower.includes('tenant') ||
+    systemRoleLower.includes('admin') ||
+    systemRoleLower.includes('manager') ||
+    systemRoleLower.includes('supervisor') ||
+    systemRoleLower.includes('hod') ||
+    systemRoleLower.includes('director') ||
+    systemRoleLower.includes('auditor') ||
+    systemRoleLower.includes('audit') ||
+    systemRoleLower.includes('pms') ||
+    systemRoleLower.includes('lead') ||
+    systemRoleLower.includes('officer') ||
+    systemRoleLower.includes('standard') ||
+    jobFunctionLower.includes('manager') ||
+    jobFunctionLower.includes('supervisor') ||
+    jobFunctionLower.includes('hod') ||
+    jobFunctionLower.includes('director') ||
+    jobFunctionLower.includes('auditor') ||
+    jobFunctionLower.includes('audit') ||
+    jobFunctionLower.includes('pms') ||
+    jobFunctionLower.includes('head') ||
+    jobFunctionLower.includes('lead') ||
+    jobFunctionLower.includes('officer') ||
+    Boolean(currentUser.manager) ||
+    Boolean(currentUser.reportTo);
+
+  if (isMikeOnlyModule && !isManagerOrAuditorOrOfficial) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 m-6 min-h-[500px] bg-red-950/20 backdrop-blur-md border-2 border-red-500/30 rounded-3xl relative z-10 shadow-[0_20px_50px_rgba(239,68,68,0.15)] ring-1 ring-red-500/10">
         <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-red-500 to-transparent opacity-80" />
@@ -93,7 +130,7 @@ export function RestrictedModuleWrapper({ currentUser, item, unlockedModules, on
         <div className="w-16 h-[2px] bg-red-500/30 mb-4" />
 
         <p className="text-red-300 text-xs text-center max-w-sm font-sans mb-8 leading-relaxed">
-          The module <span className="font-extrabold text-white underline decoration-red-500 underline-offset-4">{`"${item.name}"`}</span> is strictly restricted. Only the global administrators <span className="font-extrabold text-white font-mono">mike@mzansiflow.co.za</span> and <span className="font-extrabold text-white font-mono font-bold text-emerald-400">audrey@mzansiflow.co.za</span> are authorized to access and view this module.
+          The module <span className="font-extrabold text-white underline decoration-red-500 underline-offset-4">{`"${item.name}"`}</span> requires Line Manager, HOD, PMS Official, Auditor, or Administrator privileges.
         </p>
       </div>
     );

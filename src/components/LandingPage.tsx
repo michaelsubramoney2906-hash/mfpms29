@@ -50,9 +50,9 @@ export function LandingPage({ onLogin }: LandingPageProps) {
 
   useEffect(() => {
     fetch('/api/config/manager-password')
-      .then(res => res.json())
-      .then(data => {
-        if (data.managerOverridePassword) {
+      .then(res => res.ok ? res.json() : ({} as any))
+      .then((data: any) => {
+        if (data && data.managerOverridePassword) {
           setOverridePassword(data.managerOverridePassword);
         }
       })
@@ -61,7 +61,7 @@ export function LandingPage({ onLogin }: LandingPageProps) {
 
   useEffect(() => {
     fetch('/api/tenant/nkangala_auto/users')
-      .then(res => res.json())
+      .then(res => res.ok ? res.json() : [])
       .then(data => {
         if (Array.isArray(data)) {
           // Sort alphabetically

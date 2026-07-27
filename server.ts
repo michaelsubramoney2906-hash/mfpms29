@@ -1815,8 +1815,12 @@ Format your response exactly according to the following JSON schema:
             .maybeSingle();
 
           if (fallbackData?.content) {
-            const parsed = JSON.parse(fallbackData.content);
-            return res.json({ elements: parsed.elements });
+            try {
+              const parsed = JSON.parse(fallbackData.content);
+              return res.json({ elements: parsed.elements });
+            } catch (e) {
+              return res.json({ elements: null });
+            }
           }
           return res.json({ elements: null });
         }
@@ -2097,7 +2101,11 @@ Format your response exactly according to the following JSON schema:
       }
 
       if (data && data.content) {
-        return res.json(JSON.parse(data.content));
+        try {
+          return res.json(JSON.parse(data.content));
+        } catch (e) {
+          return res.json({ isEnabled: false, allowedIps: "" });
+        }
       }
       return res.json({ isEnabled: false, allowedIps: "" });
     } catch (err: any) {

@@ -23,10 +23,10 @@ export function DashboardOverview({ currentUser, activeTenantId }: DashboardOver
       setIsLoading(true);
       try {
         const [usersRes, pplanRes, kpasRes, sdbipRes] = await Promise.all([
-          fetch(`/api/tenant/${activeTenantId}/users`).then(res => res.json()).catch(() => []),
-          fetch(`/api/tenant/${activeTenantId}/pplan`).then(res => res.json()).catch(() => ({ items: [] })),
-          fetch(`/api/tenant/${activeTenantId}/kpas`).then(res => res.json()).catch(() => ({ kpas: [] })),
-          fetch(`/api/tenant/${activeTenantId}/sdbip23`).then(res => res.json()).catch(() => ({ items: [] }))
+          fetch(`/api/tenant/${activeTenantId}/users`).then(res => res.ok ? res.json() : []).catch(() => []),
+          fetch(`/api/tenant/${activeTenantId}/pplan`).then(res => res.ok ? res.json() : { items: [] }).catch(() => ({ items: [] })),
+          fetch(`/api/tenant/${activeTenantId}/kpas`).then(res => res.ok ? res.json() : { kpas: [] }).catch(() => ({ kpas: [] })),
+          fetch(`/api/tenant/${activeTenantId}/sdbip23`).then(res => res.ok ? res.json() : { items: [] }).catch(() => ({ items: [] }))
         ]);
 
         if (isMounted) {

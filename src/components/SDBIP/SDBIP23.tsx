@@ -80,9 +80,9 @@ export function SDBIP23({ currentUser, activeTenantId, onClose }: SDBIP23Props) 
 
   useEffect(() => {
     fetch('/api/config/manager-password')
-      .then(res => res.json())
-      .then(data => {
-        if (data.managerOverridePassword) {
+      .then(res => res.ok ? res.json() : ({} as any))
+      .then((data: any) => {
+        if (data && data.managerOverridePassword) {
           setOverridePassword(data.managerOverridePassword);
         }
       })
