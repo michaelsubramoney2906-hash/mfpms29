@@ -1535,7 +1535,7 @@ Format your response exactly according to the following JSON schema:
         }
 
         // Determine correct role - Nkangala users are restricted sandbox, never global systems admins
-        const defaultRole = (normalizedEmail === 'audrey@mzansiflow.co.za' || normalizedEmail === 'mike@mzansiflow.co.za' || normalizedEmail.includes('massivedynamixdistributors.com'))
+        const defaultRole = (normalizedEmail === 'audrey@mzansiflow.co.za' || normalizedEmail === 'mike@mzansiflow.co.za' || normalizedEmail === 'delphine@mzansiflow.co.za' || normalizedEmail.includes('massivedynamixdistributors.com'))
           ? 'Global Administrator'
           : (isSystemAdmin && !isNkangalaUser)
             ? 'Systems Administrator'
@@ -5629,7 +5629,7 @@ Format your response exactly according to the following JSON schema:
           { email: 'bonagni@mzansiflow.co.za', fullName: 'Bonagni', role: 'Systems Administrator' },
           { email: 'qiniso@mzansiflow.co.za', fullName: 'Qiniso', role: 'Systems Administrator' },
           { email: 'marlan@mzansiflow.co.za', fullName: 'Marlan', role: 'Systems Administrator' },
-          { email: 'delphine@mzansiflow.co.za', fullName: 'Delphine', role: 'Systems Administrator' }
+          { email: 'delphine@mzansiflow.co.za', fullName: 'Delphine', role: 'Global Administrator' }
         ];
 
         let seededAny = false;
