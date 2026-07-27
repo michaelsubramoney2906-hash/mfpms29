@@ -3808,7 +3808,7 @@ Format your response exactly according to the following JSON schema:
   app.post("/api/tenant/:tenantId/job-competencies", async (req, res) => {
     const { tenantId: routeTenantId } = req.params;
     const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
-    const { competencies } = req.body;
+    const { competencies, jscMasters, competencyMasters, definitionMasters, levelMasters, weightMasters } = req.body;
     try {
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
@@ -3821,7 +3821,14 @@ Format your response exactly according to the following JSON schema:
           sender_id: 'job_competencies_editor',
           sender_email: 'job_competencies@system.local',
           sender_name: 'Job Competencies Editor',
-          content: JSON.stringify({ competencies }),
+          content: JSON.stringify({
+            competencies,
+            jscMasters,
+            competencyMasters,
+            definitionMasters,
+            levelMasters,
+            weightMasters
+          }),
           message_type: 'job_specific_competencies',
           created_at: new Date().toISOString()
         });
@@ -4725,8 +4732,13 @@ Format your response exactly according to the following JSON schema:
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
       let documentId = reqDocumentId || `draft_doc_${tenantId}`;
-      if (!reqDocumentId && userId && userId !== 'default') {
-        documentId = `draft_doc_${tenantId}_${userId}`;
+      if (userId && userId !== 'default') {
+        if (reqDocumentId) {
+          const resolvedDocumentId = reqDocumentId.replace(`_${routeTenantId}`, `_${tenantId}`).replace(routeTenantId, tenantId);
+          documentId = resolvedDocumentId.toLowerCase().includes(userId.toLowerCase()) ? resolvedDocumentId : `${resolvedDocumentId}_${userId}`;
+        } else {
+          documentId = `draft_doc_${tenantId}_${userId}`;
+        }
       }
       documentId = documentId.toLowerCase();
       
@@ -4737,8 +4749,10 @@ Format your response exactly according to the following JSON schema:
         .maybeSingle();
 
       // Fallback to global draft if user-specific draft doesn't exist
-      if ((!data || !data.content) && userId && userId !== 'default' && !reqDocumentId) {
-        const globalId = `draft_doc_${tenantId}`;
+      if ((!data || !data.content) && userId && userId !== 'default') {
+        const globalId = reqDocumentId 
+          ? reqDocumentId.replace(`_${routeTenantId}`, `_${tenantId}`).replace(routeTenantId, tenantId).toLowerCase() 
+          : `draft_doc_${tenantId}`;
         const globalRes = await supabase
           .from('messages')
           .select('content')
@@ -4816,8 +4830,8 @@ Format your response exactly according to the following JSON schema:
         }
 
         // 1) Overwrite Performance Plan (PPLAN) Module
-        const planItems = stateObj.pulledPplanItems || stateObj.pulledFilteredPplanItems || [];
-        if (Array.isArray(planItems)) {
+        const planItems = stateObj.pulledPplanItems || stateObj.pulledFilteredPplanItems;
+        if (planItems && Array.isArray(planItems) && planItems.length > 0) {
           const pplanDocId = `pplan_${tenantId}_${userId}`;
           
           const { data: existingPplan } = await supabase
@@ -4911,8 +4925,8 @@ Format your response exactly according to the following JSON schema:
         }
 
         // 2) Overwrite Core Competencies (job-competencies) Module
-        const competencyRows = stateObj.pulledCompetencyRows || [];
-        if (Array.isArray(competencyRows)) {
+        const competencyRows = stateObj.pulledCompetencyRows;
+        if (competencyRows && Array.isArray(competencyRows) && competencyRows.length > 0) {
           const compDocId = `job_competencies_${tenantId}_${userId}`;
           
           const { data: existingComp } = await supabase
@@ -4975,8 +4989,8 @@ Format your response exactly according to the following JSON schema:
         }
 
         // 3) Overwrite PDP (pdp) Module
-        const pdpRows = stateObj.pulledPdpItems || [];
-        if (Array.isArray(pdpRows)) {
+        const pdpRows = stateObj.pulledPdpItems;
+        if (pdpRows && Array.isArray(pdpRows) && pdpRows.length > 0) {
           const pdpDocId = `pdp_${tenantId}_${userId}`;
           
           const { data: existingPdp } = await supabase

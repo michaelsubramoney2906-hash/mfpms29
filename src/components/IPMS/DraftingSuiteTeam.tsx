@@ -49,6 +49,7 @@ export function DraftingSuiteTeam({
   defaultRows, 
   defaultHeaders = ['No.', 'Full Name (Team Members)', 'Employee Number / Designation'] 
 }: PADraftingSuiteTeamProps) {
+  const isZulunePMS = (currentUser?.email?.toLowerCase() === 'zulune@nkangaladm.gov.za' || currentUser?.email?.toLowerCase() === 'nsibandenp@nkangaladm.gov.za') && documentIdSuffix === 'pms_team';
   const [logoUrl, setLogoUrl] = useState<string>(NKANGALA_LOGO_BASE64);
 
   // Fetch system customized logo and ensure it is shared across all user accounts
@@ -130,7 +131,8 @@ export function DraftingSuiteTeam({
     employee: '',
     manager: '',
     hod: '',
-    pmu: ''
+    pmu: '',
+    witness: 'Yena Khuboni'
   });
 
   const [annexureA, setAnnexureA] = useState(true);
@@ -143,6 +145,11 @@ export function DraftingSuiteTeam({
   const [isJscAdopted, setIsJscAdopted] = useState<boolean>(false);
   const [isPPlanAdopted, setIsPPlanAdopted] = useState<boolean>(false);
   const [teamRosterNotes, setTeamRosterNotes] = useState<string>('Operational notes and descriptions regarding the roster assignments above.');
+  const [zuluneKpaText, setZuluneKpaText] = useState<string>('Additional performance observations and strategic alignment details below the KPA Matrix.');
+  const [zulunePPlanAboveText, setZulunePPlanAboveText] = useState<string>('Performance objectives and key targets to be achieved during the cycle.');
+  const [zulunePPlanBelowText, setZulunePPlanBelowText] = useState<string>('Performance notes and operational remarks for the core plan.');
+  const [zulunePdpAboveText, setZulunePdpAboveText] = useState<string>('Development plan and identified skill enhancement needs.');
+  const [zulunePdpBelowText, setZulunePdpBelowText] = useState<string>('Personal development feedback and mentor guidelines.');
 
   // Custom additional section text boxes and optional tables state
   const [sectionExtras, setSectionExtras] = useState<Record<string, { text: string; table: { enabled: boolean; headers: string[]; rows: string[][] } }>>({
@@ -159,6 +166,7 @@ export function DraftingSuiteTeam({
     poorPerformance: { text: '', table: { enabled: false, headers: ['Action Item', 'Target Date', 'Status'], rows: [['', '', '']] } },
     dispute: { text: '', table: { enabled: false, headers: ['Action Item', 'Target Date', 'Status'], rows: [['', '', '']] } },
     amendment: { text: '', table: { enabled: false, headers: ['Action Item', 'Target Date', 'Status'], rows: [['', '', '']] } },
+    evaluation: { text: '', table: { enabled: false, headers: ['Action Item', 'Target Date', 'Status'], rows: [['', '', '']] } },
     signatures: { text: '', table: { enabled: false, headers: ['Action Item', 'Target Date', 'Status'], rows: [['', '', '']] } },
   });
 
@@ -210,7 +218,8 @@ export function DraftingSuiteTeam({
         employee: currentUser.fullName || '',
         manager: currentUser.manager || '',
         hod: 'Mr. Jacob Chief Financial Officer',
-        pmu: 'Corporate Performance Unit'
+        pmu: 'Corporate Performance Unit',
+        witness: 'Yena Khuboni'
       });
     }
   }, [currentUser, teamTitle]);
@@ -282,16 +291,17 @@ export function DraftingSuiteTeam({
 
   const getSafeUserSignatures = (val: any) => {
     if (!val) {
-      return { employee: '', manager: '', hod: '', pmu: '' };
+      return { employee: '', manager: '', hod: '', pmu: '', witness: 'Yena Khuboni' };
     }
     if (typeof val === 'string') {
-      return { employee: val, manager: '', hod: '', pmu: '' };
+      return { employee: val, manager: '', hod: '', pmu: '', witness: 'Yena Khuboni' };
     }
     return {
       employee: val.employee || '',
       manager: val.manager || '',
       hod: val.hod || '',
-      pmu: val.pmu || ''
+      pmu: val.pmu || '',
+      witness: val.witness || 'Yena Khuboni'
     };
   };
 
@@ -331,7 +341,14 @@ export function DraftingSuiteTeam({
         isPdpAdopted,
         isJscAdopted,
         isPPlanAdopted,
-        teamRosterNotes
+        teamRosterNotes,
+        dynTableHeaders,
+        dynTableRows,
+        zuluneKpaText,
+        zulunePPlanAboveText,
+        zulunePPlanBelowText,
+        zulunePdpAboveText,
+        zulunePdpBelowText
       };
 
       const docId = `draft_doc_${documentIdSuffix}_${activeTenantId}`;
@@ -355,6 +372,88 @@ export function DraftingSuiteTeam({
       setSaveStatus('error');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const [pushing, setPushing] = useState(false);
+  const [pushStatus, setPushStatus] = useState<'idle' | 'success' | 'error'>('idle');
+
+  const pushDraftToCounterpart = async () => {
+    if (!activeTenantId || !currentUser?.email) return;
+    setPushing(true);
+    setPushStatus('idle');
+    try {
+      const isZulune = currentUser.email.toLowerCase() === 'zulune@nkangaladm.gov.za';
+      const targetUser = isZulune ? 'nsibandenp@nkangaladm.gov.za' : 'zulune@nkangaladm.gov.za';
+
+      const stateObj = {
+        logoUrl,
+        coverPage,
+        headers,
+        tableRows,
+        purpose,
+        validity,
+        reporting,
+        framework,
+        frameworkBelowKpa,
+        frameworkBelowJsc,
+        conditions,
+        kpaText,
+        assessmentText,
+        feedback,
+        timetable,
+        poorPerformance,
+        dispute,
+        amendment,
+        evaluation,
+        signatures,
+        userSignatures: {
+          employee: 'Noluthando Zulu',
+          manager: 'Nsibande NP',
+          hod: 'Mr. Jacob Chief Financial Officer',
+          pmu: 'Corporate Performance Unit',
+          witness: 'Yena Khuboni'
+        },
+        annexureA,
+        annexureB,
+        annexureC,
+        includeJSC,
+        reviewRows,
+        sectionExtras,
+        isPdpAdopted,
+        isJscAdopted,
+        isPPlanAdopted,
+        teamRosterNotes,
+        dynTableHeaders,
+        dynTableRows,
+        zuluneKpaText,
+        zulunePPlanAboveText,
+        zulunePPlanBelowText,
+        zulunePdpAboveText,
+        zulunePdpBelowText
+      };
+
+      const docId = `draft_doc_${documentIdSuffix}_${activeTenantId}`;
+      const res = await fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=${targetUser}&documentId=${docId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          html: stateObj,
+          htmlDocumentId: docId
+        })
+      });
+
+      if (res.ok) {
+        setPushStatus('success');
+        setTimeout(() => setPushStatus('idle'), 4000);
+      } else {
+        throw new Error("Failed to push draft document");
+      }
+    } catch (err) {
+      console.error("Push draft error:", err);
+      setPushStatus('error');
+    } finally {
+      setPushing(false);
     }
   };
 
@@ -411,6 +510,13 @@ export function DraftingSuiteTeam({
             if (state.isJscAdopted !== undefined) setIsJscAdopted(state.isJscAdopted);
             if (state.isPPlanAdopted !== undefined) setIsPPlanAdopted(state.isPPlanAdopted);
             if (state.teamRosterNotes !== undefined) setTeamRosterNotes(state.teamRosterNotes);
+            if (state.zuluneKpaText !== undefined) setZuluneKpaText(state.zuluneKpaText);
+            if (state.zulunePPlanAboveText !== undefined) setZulunePPlanAboveText(state.zulunePPlanAboveText);
+            if (state.zulunePPlanBelowText !== undefined) setZulunePPlanBelowText(state.zulunePPlanBelowText);
+            if (state.zulunePdpAboveText !== undefined) setZulunePdpAboveText(state.zulunePdpAboveText);
+            if (state.zulunePdpBelowText !== undefined) setZulunePdpBelowText(state.zulunePdpBelowText);
+            if (Array.isArray(state.dynTableHeaders) && state.dynTableHeaders.length > 0) setDynTableHeaders(state.dynTableHeaders);
+            if (Array.isArray(state.dynTableRows) && state.dynTableRows.length > 0) setDynTableRows(state.dynTableRows);
             if (state.sectionExtras !== undefined) {
               setSectionExtras(prev => ({
                 ...prev,
@@ -674,6 +780,56 @@ export function DraftingSuiteTeam({
 
   const handleAutoNumber = () => {
     setTableRows(tableRows.map((row, idx) => {
+      const updated = [...row];
+      updated[0] = (idx + 1).toString();
+      return updated;
+    }));
+  };
+
+  // Helper functions to manage dynamic columns & rows for KPAs Matrix (dynTable)
+  const handleDynAddColumn = () => {
+    const newColName = prompt("Enter new KPA Matrix column name:", `Column ${dynTableHeaders.length + 1}`);
+    if (!newColName) return;
+    setDynTableHeaders([...dynTableHeaders, newColName]);
+    setDynTableRows(dynTableRows.map(row => [...row, '']));
+  };
+
+  const handleDynDeleteColumn = (colIdx: number) => {
+    if (dynTableHeaders.length <= 1) {
+      alert("At least one column must remain in the KPAs Matrix table.");
+      return;
+    }
+    if (!confirm(`Are you sure you want to delete column "${dynTableHeaders[colIdx]}"?`)) return;
+    setDynTableHeaders(dynTableHeaders.filter((_, idx) => idx !== colIdx));
+    setDynTableRows(dynTableRows.map(row => row.filter((_, idx) => idx !== colIdx)));
+  };
+
+  const handleDynHeaderChange = (colIdx: number, val: string) => {
+    const newHeaders = [...dynTableHeaders];
+    newHeaders[colIdx] = val;
+    setDynTableHeaders(newHeaders);
+  };
+
+  const handleDynCellChange = (rowIdx: number, colIdx: number, val: string) => {
+    const newRows = [...dynTableRows];
+    const row = [...(newRows[rowIdx] || [])];
+    row[colIdx] = val;
+    newRows[rowIdx] = row;
+    setDynTableRows(newRows);
+  };
+
+  const handleDynAddRow = () => {
+    const nextNo = (dynTableRows.length + 1).toString();
+    const newRow = dynTableHeaders.map((_, idx) => idx === 0 ? nextNo : '');
+    setDynTableRows([...dynTableRows, newRow]);
+  };
+
+  const handleDynDeleteRow = (rowIdx: number) => {
+    setDynTableRows(dynTableRows.filter((_, idx) => idx !== rowIdx));
+  };
+
+  const handleDynAutoNumber = () => {
+    setDynTableRows(dynTableRows.map((row, idx) => {
       const updated = [...row];
       updated[0] = (idx + 1).toString();
       return updated;
@@ -1005,6 +1161,17 @@ export function DraftingSuiteTeam({
           </div>
           
           <div className="flex items-center gap-2">
+            {isZulunePMS && (
+              <button
+                onClick={pushDraftToCounterpart}
+                disabled={pushing}
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-md text-xs font-bold transition flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                title={currentUser?.email?.toLowerCase() === 'zulune@nkangaladm.gov.za' ? "Push agreement to Nsibande NP" : "Push agreement to Noluthando Zulu"}
+              >
+                {pushing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                {currentUser?.email?.toLowerCase() === 'zulune@nkangaladm.gov.za' ? "Push to Nsibande NP" : "Push to Noluthando Zulu"}
+              </button>
+            )}
             <button
               onClick={saveToProfile}
               disabled={saving}
@@ -1021,6 +1188,20 @@ export function DraftingSuiteTeam({
           <div className="p-2 bg-emerald-50 border-b border-emerald-200 text-emerald-800 text-[11px] font-medium flex items-center gap-2 px-4 animate-in fade-in">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             {teamTitle} draft document saved securely to database!
+          </div>
+        )}
+
+        {pushStatus === 'success' && (
+          <div className="p-2 bg-blue-50 border-b border-blue-200 text-blue-800 text-[11px] font-medium flex items-center gap-2 px-4 animate-in fade-in">
+            <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0" />
+            Performance agreement successfully shared & synchronized with {currentUser?.email?.toLowerCase() === 'zulune@nkangaladm.gov.za' ? 'Nsibande NP' : 'Noluthando Zulu'}!
+          </div>
+        )}
+
+        {pushStatus === 'error' && (
+          <div className="p-2 bg-rose-50 border-b border-rose-200 text-rose-800 text-[11px] font-medium flex items-center gap-2 px-4 animate-in fade-in">
+            <X className="w-4 h-4 text-rose-600 shrink-0" />
+            Failed to push document. Please try again.
           </div>
         )}
 
@@ -1309,6 +1490,129 @@ export function DraftingSuiteTeam({
             </div>
           </div>
 
+          {/* KPAs MATRIX TABLE EDITOR */}
+          {(documentIdSuffix !== 'pms_team' || isZulunePMS) && (
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-4">
+              <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                <label className="text-xs font-bold text-slate-800 uppercase flex items-center gap-1.5">
+                  <TrendingUp className="w-4 h-4 text-emerald-600" />
+                  {isZulunePMS ? 'KPA Section Editor' : 'KPAs Matrix Table Editor'}
+                </label>
+                {!isZulunePMS && (
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={handleDynAutoNumber}
+                      className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] font-semibold transition"
+                      title="Auto-sequence numbers in column 1"
+                    >
+                      Auto #
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDynAddColumn}
+                      className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded text-[10px] font-semibold transition flex items-center gap-1"
+                    >
+                      <Plus className="w-3 h-3" />
+                      Add Col
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {!isZulunePMS ? (
+                <>
+                  {/* Column Headers Config */}
+                  <div className="space-y-2 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                      Matrix Column Headers
+                    </label>
+                    <div className="space-y-1.5">
+                      {dynTableHeaders.map((h, colIdx) => (
+                        <div key={colIdx} className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-bold text-slate-400 w-5">C{colIdx + 1}</span>
+                          <input
+                            type="text"
+                            value={h}
+                            onChange={e => handleDynHeaderChange(colIdx, e.target.value)}
+                            className="flex-1 text-[11px] p-1.5 border border-slate-300 rounded bg-white font-semibold text-slate-800 outline-none focus:border-emerald-500"
+                          />
+                          {dynTableHeaders.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => handleDynDeleteColumn(colIdx)}
+                              className="p-1 text-slate-400 hover:text-red-600 rounded transition"
+                              title="Delete column"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Table Rows Config */}
+                  <div className="space-y-3 max-h-96 overflow-y-auto pr-1 border border-slate-100 rounded p-2 bg-slate-50">
+                    {dynTableRows.map((row, rIdx) => (
+                      <div key={rIdx} className="border border-slate-200 p-2.5 rounded bg-white space-y-2 relative group hover:border-slate-300 transition">
+                        <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 border-b border-slate-100 pb-1">
+                          <span>Row {rIdx + 1}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleDynDeleteRow(rIdx)}
+                            className="text-slate-400 hover:text-red-600 p-0.5 rounded transition flex items-center gap-1 text-[10px]"
+                            title="Delete this KPA row"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                            Remove
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-2">
+                          {dynTableHeaders.map((h, colIdx) => (
+                            <div key={colIdx}>
+                              <label className="text-[9px] text-slate-400 block font-semibold truncate">{h}</label>
+                              <input
+                                type="text"
+                                value={row[colIdx] || ''}
+                                onChange={e => handleDynCellChange(rIdx, colIdx, e.target.value)}
+                                className="w-full text-[11px] p-1.5 border border-slate-300 rounded outline-none focus:border-emerald-500"
+                                placeholder={`Enter ${h}`}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleDynAddRow}
+                    className="w-full py-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 rounded-lg font-bold text-[11px] transition flex items-center justify-center gap-1.5"
+                  >
+                    <Plus className="w-4 h-4 text-emerald-600" />
+                    Add KPA Row
+                  </button>
+                </>
+              ) : (
+                <div className="space-y-2">
+                  <label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider block">
+                    KPA Section Custom Remarks / Notes (Zulune)
+                  </label>
+                  <textarea
+                    value={zuluneKpaText}
+                    onChange={e => setZuluneKpaText(e.target.value)}
+                    placeholder="Enter additional remarks or notes to display directly under section 4.1..."
+                    rows={8}
+                    className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none font-sans"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Section Editors */}
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
             <label className="text-xs font-bold text-slate-700 uppercase">1. Purpose</label>
@@ -1332,11 +1636,13 @@ export function DraftingSuiteTeam({
             <label className="text-xs font-bold text-slate-700 uppercase">4. Performance Assessment Framework</label>
             <textarea value={framework} onChange={e => setFramework(e.target.value)} rows={4} className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
             {renderSectionExtraEditor('framework', '4. Performance Assessment Framework')}
-            <div className="mt-4 pt-4 border-t border-slate-200">
-              <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider block mb-2">Sub-Headings:</span>
-              {renderSectionExtraEditor('kpaMatrix', '4.1 Key Performance Areas (KPAs) Matrix')}
-              {renderSectionExtraEditor('jscMatrix', '4.2 Job Specific Competencies Matrix')}
-            </div>
+            {(documentIdSuffix !== 'pms_team' || isZulunePMS) && (
+              <div className="mt-4 pt-4 border-t border-slate-200">
+                <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider block mb-2">Sub-Headings:</span>
+                {!isZulunePMS && renderSectionExtraEditor('kpaMatrix', '4.1 Key Performance Areas (KPAs) Matrix')}
+                {(documentIdSuffix !== 'pms_team' || isZulunePMS) && renderSectionExtraEditor('jscMatrix', '4.2 Job Specific Competencies Matrix')}
+              </div>
+            )}
           </div>
 
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
@@ -1381,7 +1687,70 @@ export function DraftingSuiteTeam({
             {renderSectionExtraEditor('amendment', '11. General / Amendments')}
             <div className="mt-4 pt-4 border-t border-slate-200">
               <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider block mb-2">Sub-Headings:</span>
-              {renderSectionExtraEditor('signatures', '12. Signatures & Affirmation')}
+              {isZulunePMS ? (
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 uppercase block mb-1">12. Evaluation</label>
+                    <textarea
+                      value={evaluation}
+                      onChange={e => setEvaluation(e.target.value)}
+                      rows={3}
+                      className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none"
+                    />
+                    {renderSectionExtraEditor('evaluation', '12. Evaluation')}
+                  </div>
+                  <div className="border-t border-slate-200 pt-3">
+                    <label className="text-xs font-bold text-slate-700 uppercase block mb-1">13. Signatures of Parties to the Agreement</label>
+                    {renderSectionExtraEditor('signatures', '13. Signatures of Parties to the Agreement')}
+                  </div>
+                  <div className="border-t border-slate-200 pt-3 space-y-4">
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 uppercase block mb-1">14. Appended Core Performance Plan (Text Above)</label>
+                      <textarea
+                        value={zulunePPlanAboveText}
+                        onChange={e => setZulunePPlanAboveText(e.target.value)}
+                        rows={3}
+                        className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none font-sans"
+                        placeholder="Optional text to display above the performance plan table..."
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 uppercase block mb-1">14. Appended Core Performance Plan (Text Below)</label>
+                      <textarea
+                        value={zulunePPlanBelowText}
+                        onChange={e => setZulunePPlanBelowText(e.target.value)}
+                        rows={3}
+                        className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none font-sans"
+                        placeholder="Optional text to display below the performance plan table..."
+                      />
+                    </div>
+                  </div>
+                  <div className="border-t border-slate-200 pt-3 space-y-4">
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 uppercase block mb-1">15. Appended Personal Development Plan (Text Above)</label>
+                      <textarea
+                        value={zulunePdpAboveText}
+                        onChange={e => setZulunePdpAboveText(e.target.value)}
+                        rows={3}
+                        className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none font-sans"
+                        placeholder="Optional text to display above the PDP table..."
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 uppercase block mb-1">15. Appended Personal Development Plan (Text Below)</label>
+                      <textarea
+                        value={zulunePdpBelowText}
+                        onChange={e => setZulunePdpBelowText(e.target.value)}
+                        rows={3}
+                        className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none font-sans"
+                        placeholder="Optional text to display below the PDP table..."
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                renderSectionExtraEditor('signatures', '12. Signatures & Affirmation')
+              )}
             </div>
           </div>
         </div>
@@ -1517,33 +1886,59 @@ export function DraftingSuiteTeam({
                 {renderSectionExtraPreview('framework')}
 
                 {/* KPA Dynamic Summary Table */}
-                <div className="my-4">
-                  <h4 className="font-bold text-xs text-slate-800 mb-2 font-sans">4.1 Key Performance Areas (KPAs) Matrix</h4>
-                  <table className="w-full border-collapse border border-black text-[11px] font-sans">
-                    <thead>
-                      <tr className="bg-slate-100 border border-black">
-                        {dynTableHeaders.map((h, i) => (
-                          <th key={i} className="border border-black p-2 font-bold text-left">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {dynTableRows.map((r, i) => (
-                        <tr key={i} className="border border-black">
-                          {r.map((c, j) => (
-                            <td key={j} className="border border-black p-2">{c}</td>
+                {(documentIdSuffix !== 'pms_team' || isZulunePMS) && (
+                  <div className="my-4">
+                    {!isZulunePMS && (
+                      <h4 className="font-bold text-xs text-slate-800 mb-2 font-sans">4.1 Key Performance Areas (KPAs) Matrix</h4>
+                    )}
+                    {!isZulunePMS && (
+                      <table className="w-full border-collapse border border-black text-[11px] font-sans">
+                        <thead>
+                          <tr className="bg-slate-100 border border-black">
+                            {dynTableHeaders.map((h, i) => (
+                              <th key={i} className="border border-black p-2 font-bold text-left">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {dynTableRows.map((r, i) => (
+                            <tr key={i} className="border border-black">
+                              {r.map((c, j) => (
+                                <td key={j} className="border border-black p-2">{c}</td>
+                              ))}
+                            </tr>
                           ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {renderSectionExtraPreview('kpaMatrix')}
-                </div>
+                        </tbody>
+                      </table>
+                    )}
+                    {renderSectionExtraPreview('kpaMatrix')}
+                    
+                    {isZulunePMS && (
+                      <>
+                        <div className="my-4 font-sans print:hidden">
+                          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Additional KPA Notes (Editable directly):</p>
+                          <textarea
+                            value={zuluneKpaText}
+                            onChange={e => setZuluneKpaText(e.target.value)}
+                            rows={4}
+                            className="w-full text-xs p-2.5 border border-emerald-300 rounded-lg focus:border-emerald-500 outline-none font-sans bg-emerald-50/30"
+                            placeholder="Type custom notes under section 4.1..."
+                          />
+                        </div>
+                        <div className="my-4 hidden print:block font-sans text-[11px] print:text-[10px] text-justify text-slate-800">
+                          {renderFormattedContent(zuluneKpaText)}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
 
-                <div className="text-justify my-4">{renderFormattedContent(frameworkBelowKpa)}</div>
+                {!isZulunePMS && (
+                  <div className="text-justify my-4">{renderFormattedContent(frameworkBelowKpa)}</div>
+                )}
 
                 {/* Job Specific Competencies Matrix */}
-                {includeJSC && (
+                {(includeJSC && (documentIdSuffix !== 'pms_team' || isZulunePMS)) && (
                   <div className="my-4 font-sans">
                      <h4 className="font-bold text-xs text-slate-800 mb-2 font-sans flex items-center justify-between">
                        <span>4.2 Job Specific Competencies Matrix</span>
@@ -1593,7 +1988,7 @@ export function DraftingSuiteTeam({
                                <td colSpan={5} className="border border-black p-4 text-center text-slate-500 italic">
                                  No active Job Specific Competencies found in database.
                                </td>
-                             </tr>
+                               </tr>
                            )}
                          </tbody>
                        </table>
@@ -1646,7 +2041,9 @@ export function DraftingSuiteTeam({
                    </div>
                  )}
 
-                <div className="text-justify">{renderFormattedContent(frameworkBelowJsc)}</div>
+                {documentIdSuffix !== 'pms_team' && (
+                  <div className="text-justify">{renderFormattedContent(frameworkBelowJsc)}</div>
+                )}
               </div>
 
               <div className="portrait-section page-break-before pt-6">
@@ -1735,28 +2132,30 @@ export function DraftingSuiteTeam({
                 </h3>
                 <div className="text-justify mb-4">{renderFormattedContent(timetable)}</div>
 
-                <table className="w-full border-collapse border border-black my-4 text-[11px] font-sans">
-                  <thead>
-                    <tr className="bg-slate-100 border border-black">
-                      <th className="border border-black p-2 font-bold text-left">Term</th>
-                      <th className="border border-black p-2 font-bold text-left">Period</th>
-                      <th className="border border-black p-2 font-bold text-left">Type</th>
-                      <th className="border border-black p-2 font-bold text-left">Date</th>
-                      <th className="border border-black p-2 font-bold text-left">Responsible</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {reviewRows.map((r, i) => (
-                      <tr key={i} className="border border-black">
-                        <td className="border border-black p-2 font-bold">{r.term}</td>
-                        <td className="border border-black p-2">{r.desc}</td>
-                        <td className="border border-black p-2 font-medium">{r.type}</td>
-                        <td className="border border-black p-2">{r.date}</td>
-                        <td className="border border-black p-2">{r.responsible}</td>
+                {!isZulunePMS && (
+                  <table className="w-full border-collapse border border-black my-4 text-[11px] font-sans">
+                    <thead>
+                      <tr className="bg-slate-100 border border-black">
+                        <th className="border border-black p-2 font-bold text-left">Term</th>
+                        <th className="border border-black p-2 font-bold text-left">Period</th>
+                        <th className="border border-black p-2 font-bold text-left">Type</th>
+                        <th className="border border-black p-2 font-bold text-left">Date</th>
+                        <th className="border border-black p-2 font-bold text-left">Responsible</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {reviewRows.map((r, i) => (
+                        <tr key={i} className="border border-black">
+                          <td className="border border-black p-2 font-bold">{r.term}</td>
+                          <td className="border border-black p-2">{r.desc}</td>
+                          <td className="border border-black p-2 font-medium">{r.type}</td>
+                          <td className="border border-black p-2">{r.date}</td>
+                          <td className="border border-black p-2">{r.responsible}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
                 {renderSectionExtraPreview('timetable')}
               </div>
 
@@ -1829,36 +2228,253 @@ export function DraftingSuiteTeam({
                 </div>
               )}
 
-              <div className="portrait-section page-break-before pt-6">
-                <h3 className="font-extrabold text-emerald-800 text-center block mb-4 text-sm uppercase tracking-wide font-sans">
-                  <span className="border-b-2 border-emerald-800 pb-0.5 px-4 font-black">12. Signatures & Affirmation</span>
-                </h3>
-                {renderSectionExtraPreview('signatures')}
-                
-                <div className="grid grid-cols-2 gap-8 my-8 font-sans">
-                  <div className="border border-slate-300 p-4 rounded bg-slate-50 space-y-4">
-                    <p className="font-bold text-xs uppercase text-slate-700">Signed by Employee:</p>
-                    <div className="h-12 border-b border-black flex items-end font-serif italic text-sm text-slate-800">
-                      {userSignatures.employee}
+              {isZulunePMS ? (
+                <>
+                  <div className="portrait-section page-break-before pt-6">
+                    <h3 className="font-extrabold text-emerald-800 text-center block mb-4 text-sm uppercase tracking-wide font-sans">
+                      <span className="border-b-2 border-emerald-800 pb-0.5 px-4 font-black">12. Evaluation</span>
+                    </h3>
+                    <div className="text-justify font-sans text-[13px] leading-relaxed text-slate-800">
+                      {renderFormattedContent(evaluation)}
                     </div>
-                    <div className="flex justify-between text-[10px] text-slate-500">
-                      <span>Date: ________________</span>
-                      <span>Place: Nkangala</span>
+                    {renderSectionExtraPreview('evaluation')}
+                  </div>
+
+                  <div className="portrait-section page-break-before pt-6">
+                    <h3 className="font-extrabold text-emerald-800 text-center block mb-4 text-sm uppercase tracking-wide font-sans">
+                      <span className="border-b-2 border-emerald-800 pb-0.5 px-4 font-black">13. Signatures of Parties to the Agreement</span>
+                    </h3>
+                    {renderSectionExtraPreview('signatures')}
+                    
+                    <div className="flex flex-col gap-6 my-8 font-sans max-w-lg mx-auto">
+                      {currentUser?.email?.toLowerCase() === 'nsibandenp@nkangaladm.gov.za' ? (
+                        <>
+                          {/* Nsibande NP Signature first */}
+                          <div className="border border-emerald-300 p-4 rounded-lg bg-emerald-50/20 space-y-4 shadow-sm">
+                            <p className="font-extrabold text-xs uppercase text-emerald-800 tracking-wider">Signed on behalf of Municipality (Manager):</p>
+                            <div className="h-12 border-b border-black flex items-end font-serif italic text-sm text-emerald-950 font-bold">
+                              {userSignatures.manager || 'Nsibande NP'}
+                            </div>
+                            <div className="flex justify-between text-[10px] text-slate-500">
+                              <span>Date: ________________</span>
+                              <span>Place: Nkangala</span>
+                            </div>
+                          </div>
+
+                          {/* Noluthando Zulu Signature second */}
+                          <div className="border border-slate-300 p-4 rounded-lg bg-slate-50 space-y-4 shadow-sm">
+                            <p className="font-bold text-xs uppercase text-slate-700 tracking-wide">Signed by Employee:</p>
+                            <div className="h-12 border-b border-black flex items-end font-serif italic text-sm text-slate-800 font-medium">
+                              {userSignatures.employee || 'Noluthando Zulu'}
+                            </div>
+                            <div className="flex justify-between text-[10px] text-slate-500">
+                              <span>Date: ________________</span>
+                              <span>Place: Nkangala</span>
+                            </div>
+                          </div>
+
+                          {/* Yena Khuboni Witness Signature */}
+                          <div className="border border-slate-300 p-4 rounded-lg bg-slate-50 space-y-4 shadow-sm">
+                            <p className="font-bold text-xs uppercase text-slate-700 tracking-wide">Witnessed by (PMS Coordinator):</p>
+                            <div className="h-12 border-b border-black flex items-end font-serif italic text-sm text-indigo-950 font-semibold">
+                              {userSignatures.witness || 'Yena Khuboni'}
+                            </div>
+                            <div className="flex justify-between text-[10px] text-slate-500">
+                              <span>Date: ________________</span>
+                              <span>Place: Nkangala</span>
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          {/* Noluthando Zulu Signature first */}
+                          <div className="border border-emerald-300 p-4 rounded-lg bg-emerald-50/20 space-y-4 shadow-sm">
+                            <p className="font-extrabold text-xs uppercase text-emerald-800 tracking-wider">Signed by Employee:</p>
+                            <div className="h-12 border-b border-black flex items-end font-serif italic text-sm text-emerald-950 font-bold">
+                              {userSignatures.employee || 'Noluthando Zulu'}
+                            </div>
+                            <div className="flex justify-between text-[10px] text-slate-500">
+                              <span>Date: ________________</span>
+                              <span>Place: Nkangala</span>
+                            </div>
+                          </div>
+
+                          {/* Nsibande NP Signature second */}
+                          <div className="border border-slate-300 p-4 rounded-lg bg-slate-50 space-y-4 shadow-sm">
+                            <p className="font-bold text-xs uppercase text-slate-700 tracking-wide">Signed on behalf of Municipality (Manager):</p>
+                            <div className="h-12 border-b border-black flex items-end font-serif italic text-sm text-slate-800 font-medium">
+                              {userSignatures.manager || 'Nsibande NP'}
+                            </div>
+                            <div className="flex justify-between text-[10px] text-slate-500">
+                              <span>Date: ________________</span>
+                              <span>Place: Nkangala</span>
+                            </div>
+                          </div>
+
+                          {/* Yena Khuboni Witness Signature */}
+                          <div className="border border-slate-300 p-4 rounded-lg bg-slate-50 space-y-4 shadow-sm">
+                            <p className="font-bold text-xs uppercase text-slate-700 tracking-wide">Witnessed by (PMS Coordinator):</p>
+                            <div className="h-12 border-b border-black flex items-end font-serif italic text-sm text-indigo-950 font-semibold">
+                              {userSignatures.witness || 'Yena Khuboni'}
+                            </div>
+                            <div className="flex justify-between text-[10px] text-slate-500">
+                              <span>Date: ________________</span>
+                              <span>Place: Nkangala</span>
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
 
-                  <div className="border border-slate-300 p-4 rounded bg-slate-50 space-y-4">
-                    <p className="font-bold text-xs uppercase text-slate-700">Signed on behalf of Municipality:</p>
-                    <div className="h-12 border-b border-black flex items-end font-serif italic text-sm text-slate-800">
-                      {userSignatures.manager}
+                  {/* 14. Appended Core Performance Plan */}
+                  <div className="portrait-section page-break-before pt-6">
+                    <h3 className="font-extrabold text-emerald-800 text-center block mb-4 text-sm uppercase tracking-wide font-sans">
+                      <span className="border-b-2 border-emerald-800 pb-0.5 px-4 font-black">14. Appended Core Performance Plan (KPIs)</span>
+                    </h3>
+                    {zulunePPlanAboveText && (
+                      <div className="text-justify font-sans text-[12px] leading-relaxed text-slate-800 mb-4 whitespace-pre-wrap">
+                        {renderFormattedContent(zulunePPlanAboveText)}
+                      </div>
+                    )}
+
+                    <div className="overflow-x-auto w-full border border-black my-4">
+                      <table className="w-full border-collapse text-[9px] font-sans min-w-[1000px]">
+                        <thead>
+                          <tr className="bg-slate-100 border-b border-black text-slate-800">
+                            <th className="border-r border-black p-2 font-bold text-center w-[6%]">KPI No.</th>
+                            <th className="border-r border-black p-2 font-bold text-left w-[20%]">Key Performance Indicators</th>
+                            <th className="border-r border-black p-2 font-bold text-center w-[6%]">Weight</th>
+                            <th className="border-r border-black p-2 font-bold text-left w-[8%]">Baseline</th>
+                            <th className="border-r border-black p-2 font-bold text-left w-[10%]">Annual Target</th>
+                            <th className="border-r border-black p-2 font-bold text-left w-[8%]">1st Quarter</th>
+                            <th className="border-r border-black p-2 font-bold text-left w-[8%]">2nd Quarter</th>
+                            <th className="border-r border-black p-2 font-bold text-left w-[8%]">3rd Quarter</th>
+                            <th className="border-r border-black p-2 font-bold text-left w-[8%]">4th Quarter</th>
+                            <th className="border-r border-black p-2 font-bold text-left w-[10%]">POE</th>
+                            <th className="p-2 font-bold text-left w-[8%]">Total Budget</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {realPlanItems.length > 0 ? (
+                            realPlanItems.map((item, idx) => (
+                              <tr key={idx} className="border-b border-black last:border-b-0">
+                                <td className="border-r border-black p-2 font-bold text-center bg-slate-50">{item.kpiNo || (idx + 1)}</td>
+                                <td className="border-r border-black p-2 font-medium text-slate-900">{item.kpi || 'N/A'}</td>
+                                <td className="border-r border-black p-2 font-bold text-center text-emerald-800">{item.weighting || 'N/A'}</td>
+                                <td className="border-r border-black p-2">{item.baseline || 'N/A'}</td>
+                                <td className="border-r border-black p-2 font-semibold text-indigo-950">{item.annualTarget || 'N/A'}</td>
+                                <td className="border-r border-black p-2">{item.q1Target || 'N/A'}</td>
+                                <td className="border-r border-black p-2">{item.q2Target || 'N/A'}</td>
+                                <td className="border-r border-black p-2">{item.q3Target || 'N/A'}</td>
+                                <td className="border-r border-black p-2">{item.q4Target || 'N/A'}</td>
+                                <td className="border-r border-black p-2 font-medium text-slate-600">{item.annualRequiredPoe || item.q1RequiredPoe || 'N/A'}</td>
+                                <td className="p-2 font-bold text-emerald-950">{item.budget || 'N/A'}</td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={11} className="p-4 text-center text-slate-500 italic">
+                                No performance plan records found for this user.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
                     </div>
-                    <div className="flex justify-between text-[10px] text-slate-500">
-                      <span>Date: ________________</span>
-                      <span>Place: Nkangala</span>
+
+                    {zulunePPlanBelowText && (
+                      <div className="text-justify font-sans text-[12px] leading-relaxed text-slate-800 mt-4 whitespace-pre-wrap">
+                        {renderFormattedContent(zulunePPlanBelowText)}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 15. Appended Personal Development Plan (PDP) */}
+                  <div className="portrait-section page-break-before pt-6">
+                    <h3 className="font-extrabold text-emerald-800 text-center block mb-4 text-sm uppercase tracking-wide font-sans">
+                      <span className="border-b-2 border-emerald-800 pb-0.5 px-4 font-black">15. Appended Personal Development Plan (PDP)</span>
+                    </h3>
+                    {zulunePdpAboveText && (
+                      <div className="text-justify font-sans text-[12px] leading-relaxed text-slate-800 mb-4 whitespace-pre-wrap">
+                        {renderFormattedContent(zulunePdpAboveText)}
+                      </div>
+                    )}
+
+                    <table className="w-full border-collapse border border-black my-4 text-[10px] font-sans">
+                      <thead>
+                        <tr className="bg-slate-100 border border-black text-slate-800 font-bold">
+                          <th className="border border-black p-2 font-bold text-center w-[5%]">No.</th>
+                          <th className="border border-black p-2 font-bold text-left w-[20%]">Skills Gap</th>
+                          <th className="border border-black p-2 font-bold text-left w-[20%]">Expected Outcomes</th>
+                          <th className="border border-black p-2 font-bold text-left w-[20%]">Suggested Training Interventions</th>
+                          <th className="border border-black p-2 font-bold text-left w-[15%]">Mode of Delivery</th>
+                          <th className="border border-black p-2 font-bold text-left w-[10%]">Timeframe</th>
+                          <th className="border border-black p-2 font-bold text-left w-[10%]">Support Person</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {realPdpItems.length > 0 ? (
+                          realPdpItems.map((item, idx) => (
+                            <tr key={idx} className="border border-black">
+                              <td className="border border-black p-2 font-bold text-center bg-slate-50">{idx + 1}</td>
+                              <td className="border border-black p-2 font-semibold text-slate-900">{item.skillsGap || 'N/A'}</td>
+                              <td className="border border-black p-2 text-slate-700">{item.outcomes || 'N/A'}</td>
+                              <td className="border border-black p-2 font-medium text-emerald-900">{item.suggestedTraining || 'N/A'}</td>
+                              <td className="border border-black p-2 text-slate-700">{item.modeOfDelivery || 'N/A'}</td>
+                              <td className="border border-black p-2 text-slate-700">{item.timeFrame || 'N/A'}</td>
+                              <td className="border border-black p-2 font-semibold text-slate-800">{item.supportPerson || 'N/A'}</td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr className="border border-black">
+                            <td colSpan={7} className="border border-black p-4 text-center text-slate-500 italic">
+                              No active items found in the Personal Development Plan module.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+
+                    {zulunePdpBelowText && (
+                      <div className="text-justify font-sans text-[12px] leading-relaxed text-slate-800 mt-4 whitespace-pre-wrap">
+                        {renderFormattedContent(zulunePdpBelowText)}
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="portrait-section page-break-before pt-6">
+                  <h3 className="font-extrabold text-emerald-800 text-center block mb-4 text-sm uppercase tracking-wide font-sans">
+                    <span className="border-b-2 border-emerald-800 pb-0.5 px-4 font-black">12. Signatures & Affirmation</span>
+                  </h3>
+                  {renderSectionExtraPreview('signatures')}
+                  
+                  <div className="grid grid-cols-2 gap-8 my-8 font-sans">
+                    <div className="border border-slate-300 p-4 rounded bg-slate-50 space-y-4">
+                      <p className="font-bold text-xs uppercase text-slate-700">Signed by Employee:</p>
+                      <div className="h-12 border-b border-black flex items-end font-serif italic text-sm text-slate-800">
+                        {userSignatures.employee}
+                      </div>
+                      <div className="flex justify-between text-[10px] text-slate-500">
+                        <span>Date: ________________</span>
+                        <span>Place: Nkangala</span>
+                      </div>
+                    </div>
+
+                    <div className="border border-slate-300 p-4 rounded bg-slate-50 space-y-4">
+                      <p className="font-bold text-xs uppercase text-slate-700">Signed on behalf of Municipality:</p>
+                      <div className="h-12 border-b border-black flex items-end font-serif italic text-sm text-slate-800">
+                        {userSignatures.manager}
+                      </div>
+                      <div className="flex justify-between text-[10px] text-slate-500">
+                        <span>Date: ________________</span>
+                        <span>Place: Nkangala</span>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Miniature Footer Table for Print/PDF */}
