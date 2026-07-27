@@ -6,3 +6,9 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Prevent secondary package manager lockfile conflicts
+bun.lock
+bun.lockb
+yarn.lock
+pnpm-lock.yaml
