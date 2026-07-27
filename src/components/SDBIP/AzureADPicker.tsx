@@ -320,7 +320,7 @@ export function AzureADPicker({ value, onChange, roleType, placeholder, activeTe
                       <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Full Directory</span>
                     </div>
                   )}
-                  {otherContacts.slice(0, 30).map(contact => {
+                  {otherContacts.slice(0, searchQuery ? 200 : 80).map(contact => {
                     const isSelected = !isPoolManaged && (value === contact.name);
                     return (
                       <div

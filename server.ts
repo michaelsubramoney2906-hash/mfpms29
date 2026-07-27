@@ -2481,20 +2481,11 @@ Format your response exactly according to the following JSON schema:
     const { tenantId } = req.params;
     try {
       const supabase = getSupabase();
-      let query = supabase.from('users').select('*');
-      
-      if (tenantId !== 'global') {
-        const tenantList = [tenantId, 'global'];
-        // If it's a known Nkangala variant, include the others
-        if (tenantId === 'nkangala_auto' || tenantId === 'tenant-240' || tenantId === 'tenant-229') {
-          tenantList.push('nkangala_auto');
-          tenantList.push('tenant-240');
-          tenantList.push('tenant-229');
-        }
-        query = query.in('tenant_id', tenantList);
-      }
-      
-      const { data, error } = await query;
+      // Query all users across the organization so Azure AD users are fully available to all tenants and pickers
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .range(0, 5000);
         
       if (error && error.code === '42P01') {
         // Table doesn't exist, mock fallback
@@ -2516,7 +2507,6 @@ Format your response exactly according to the following JSON schema:
           .select('content')
           .eq('id', 'users_extra_metadata')
           .maybeSingle();
-
         if (currentMsg && currentMsg.content) {
           extraMap = JSON.parse(currentMsg.content);
         }
@@ -2538,6 +2528,40 @@ Format your response exactly according to the following JSON schema:
         signatureType: extraMap[u.id]?.signatureType || 'draw',
         signatureData: extraMap[u.id]?.signatureData || ''
       }));
+
+      // Merge disk backup users from Nkangala District Municipality directory if any are missing
+      try {
+        const folderPath = path.join(process.cwd(), "Nkangala District Municipality");
+        const usersJsonPath = path.join(folderPath, "users.json");
+        if (fs.existsSync(usersJsonPath)) {
+          const diskUsers = JSON.parse(fs.readFileSync(usersJsonPath, 'utf8'));
+          const existingEmails = new Set(formatted.map(u => (u.email || '').toLowerCase().trim()));
+          for (const du of diskUsers) {
+            const emailKey = (du.email || '').toLowerCase().trim();
+            if (emailKey && !existingEmails.has(emailKey)) {
+              formatted.push({
+                id: du.id || `disk-${Math.random().toString(36).substring(2)}`,
+                fullName: du.fullName || du.email.split('@')[0],
+                email: du.email,
+                jobFunction: du.jobFunction || '',
+                department: du.department || '',
+                source: 'azure_ad',
+                role: du.role || 'tenant_user',
+                tenantId: du.tenantId || tenantId,
+                manager: du.manager || extraMap[du.id]?.manager || '',
+                directorate: du.directorate || extraMap[du.id]?.directorate || '',
+                reportTo: du.reportTo || extraMap[du.id]?.reportTo || '',
+                level: du.level || extraMap[du.id]?.level || '1',
+                signatureType: du.signatureType || 'draw',
+                signatureData: du.signatureData || ''
+              });
+              existingEmails.add(emailKey);
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Error merging disk backup users:", e);
+      }
 
       // In case we don't have the global admins seeded in Supabase yet, let's inject them for now
       const adminEmails = ['mike@mzansiflow.co.za', 'audrey@mzansiflow.co.za', 'delphine@mzansiflow.co.za', 'qiniso@mzansiflow.co.za', 'marlan@mzansiflow.co.za'];
@@ -2641,6 +2665,137 @@ Format your response exactly according to the following JSON schema:
           formatted.push(localUser);
         }
       });
+
+      // Inject SDBIP officials (internal auditors & reviewers) so they appear in User Management
+      try {
+        let officialsAuditors = [
+          'Fatima Patel',
+          'Brandon Naidoo',
+          'Thabo Mokoena',
+          'Nomvula Sithole',
+          'Audrey Mpanza'
+        ];
+        let officialsReviewers = [
+          'Sipho Dlamini',
+          'Zama Khumalo',
+          'Mike Thompson',
+          'Lerato Mokwena'
+        ];
+
+        const { data: officialsMsgs } = await supabase
+          .from('messages')
+          .select('content')
+          .like('id', 'sdbip_officials_%');
+
+        if (officialsMsgs && officialsMsgs.length > 0) {
+          officialsMsgs.forEach(msg => {
+            if (msg.content) {
+              try {
+                const p = JSON.parse(msg.content);
+                if (Array.isArray(p.internalAuditors)) {
+                  p.internalAuditors.forEach((a: string) => {
+                    if (a && !officialsAuditors.includes(a)) officialsAuditors.push(a);
+                  });
+                }
+                if (Array.isArray(p.reviewers)) {
+                  p.reviewers.forEach((r: string) => {
+                    if (r && !officialsReviewers.includes(r)) officialsReviewers.push(r);
+                  });
+                }
+              } catch (e) {}
+            }
+          });
+        }
+
+        const newUsersToUpsert: any[] = [];
+        const existingNames = new Set(formatted.map(u => (u.fullName || '').toLowerCase().trim()));
+
+        officialsAuditors.forEach((name) => {
+          const cleanName = (name || '').trim();
+          if (!cleanName) return;
+          const key = cleanName.toLowerCase();
+          if (!existingNames.has(key)) {
+            const email = `${cleanName.toLowerCase().replace(/[^a-z0-9]/g, '.')}@nkangaladm.gov.za`;
+            const id = `sdbip-auditor-${cleanName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+            const auditorObj = {
+              id,
+              fullName: cleanName,
+              email,
+              jobFunction: 'Value-add Internal Auditor',
+              department: 'Internal Audit Services',
+              source: 'azure_ad',
+              role: 'Internal Auditor',
+              systemRole: 'Internal Auditor',
+              tenantId: tenantId === 'global' ? 'nkangala_auto' : tenantId,
+              manager: '',
+              directorate: 'Internal Audit Services',
+              reportTo: '',
+              level: '1',
+              signatureType: 'draw',
+              signatureData: ''
+            };
+            formatted.push(auditorObj);
+            existingNames.add(key);
+            newUsersToUpsert.push({
+              id,
+              full_name: cleanName,
+              email,
+              job_function: 'Value-add Internal Auditor',
+              department: 'Internal Audit Services',
+              source: 'azure_ad',
+              role: 'Internal Auditor',
+              tenant_id: tenantId === 'global' ? 'nkangala_auto' : tenantId
+            });
+          }
+        });
+
+        officialsReviewers.forEach((name) => {
+          const cleanName = (name || '').trim();
+          if (!cleanName) return;
+          const key = cleanName.toLowerCase();
+          if (!existingNames.has(key)) {
+            const email = `${cleanName.toLowerCase().replace(/[^a-z0-9]/g, '.')}@nkangaladm.gov.za`;
+            const id = `sdbip-reviewer-${cleanName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+            const reviewerObj = {
+              id,
+              fullName: cleanName,
+              email,
+              jobFunction: 'Appointed PMU Reviewer',
+              department: 'PMU',
+              source: 'azure_ad',
+              role: 'Reviewer',
+              systemRole: 'Reviewer',
+              tenantId: tenantId === 'global' ? 'nkangala_auto' : tenantId,
+              manager: '',
+              directorate: 'PMU',
+              reportTo: '',
+              level: '1',
+              signatureType: 'draw',
+              signatureData: ''
+            };
+            formatted.push(reviewerObj);
+            existingNames.add(key);
+            newUsersToUpsert.push({
+              id,
+              full_name: cleanName,
+              email,
+              job_function: 'Appointed PMU Reviewer',
+              department: 'PMU',
+              source: 'azure_ad',
+              role: 'Reviewer',
+              tenant_id: tenantId === 'global' ? 'nkangala_auto' : tenantId
+            });
+          }
+        });
+
+        if (newUsersToUpsert.length > 0) {
+          supabase.from('users').upsert(newUsersToUpsert, { onConflict: 'id' }).then(({ error: uErr }) => {
+            if (uErr) console.error("Error auto-seeding sdbip officials into users:", uErr.message);
+          });
+        }
+      } catch (offErr) {
+        console.error("Error merging SDBIP officials into users:", offErr);
+      }
 
       // Sync Nkangala District Municipality folder on disk
       saveNkangalaToDisk(formatted);
@@ -3599,6 +3754,53 @@ Format your response exactly according to the following JSON schema:
         });
       
       if (error) throw error;
+
+      // Also upsert reviewers & internalAuditors into the Supabase users table
+      try {
+        const usersToUpsert: any[] = [];
+        if (Array.isArray(internalAuditors)) {
+          internalAuditors.forEach((name: string) => {
+            const cleanName = (name || '').trim();
+            if (!cleanName) return;
+            const email = `${cleanName.toLowerCase().replace(/[^a-z0-9]/g, '.')}@nkangaladm.gov.za`;
+            const id = `sdbip-auditor-${cleanName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+            usersToUpsert.push({
+              id,
+              full_name: cleanName,
+              email,
+              job_function: 'Value-add Internal Auditor',
+              department: 'Internal Audit Services',
+              source: 'azure_ad',
+              role: 'Internal Auditor',
+              tenant_id: tenantId === 'global' ? 'nkangala_auto' : tenantId
+            });
+          });
+        }
+        if (Array.isArray(reviewers)) {
+          reviewers.forEach((name: string) => {
+            const cleanName = (name || '').trim();
+            if (!cleanName) return;
+            const email = `${cleanName.toLowerCase().replace(/[^a-z0-9]/g, '.')}@nkangaladm.gov.za`;
+            const id = `sdbip-reviewer-${cleanName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+            usersToUpsert.push({
+              id,
+              full_name: cleanName,
+              email,
+              job_function: 'Appointed PMU Reviewer',
+              department: 'PMU',
+              source: 'azure_ad',
+              role: 'Reviewer',
+              tenant_id: tenantId === 'global' ? 'nkangala_auto' : tenantId
+            });
+          });
+        }
+        if (usersToUpsert.length > 0) {
+          await supabase.from('users').upsert(usersToUpsert, { onConflict: 'id' });
+        }
+      } catch (uErr) {
+        console.error("Error auto-seeding users from sdbip-officials post:", uErr);
+      }
+
       res.json({ success: true });
     } catch (err: any) {
       console.error("SDBIP officials save exception:", err);

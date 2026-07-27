@@ -1,0 +1,16 @@
+{
+  "id": "sdbip-auditor-fatima-patel",
+  "fullName": "Fatima Patel",
+  "email": "fatima.patel@nkangaladm.gov.za",
+  "jobFunction": "Value-add Internal Auditor",
+  "department": "Internal Audit Services",
+  "source": "azure_ad",
+  "role": "Internal Auditor",
+  "tenantId": "nkangala_auto",
+  "manager": "",
+  "directorate": "",
+  "reportTo": "",
+  "level": "1",
+  "signatureType": "draw",
+  "signatureData": ""
+}
