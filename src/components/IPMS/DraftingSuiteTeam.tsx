@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
-import { Upload, Download, FileText, CheckCircle2, ChevronRight, Check, Save, Plus, Trash2, X, Printer, FileDown, FileSpreadsheet, Loader2 } from 'lucide-react';
+import { Upload, Download, FileText, CheckCircle2, ChevronRight, Check, Save, Plus, Trash2, X, Printer, FileDown, FileSpreadsheet, Loader2, Briefcase, GraduationCap, Award, TrendingUp, Sparkles } from 'lucide-react';
 import type { User } from '../../types';
 import { NKANGALA_LOGO_BASE64 } from './nkangala_logo_base64';
 
@@ -138,6 +138,29 @@ export function DraftingSuiteTeam({
   const [annexureC, setAnnexureC] = useState('Disclosure of interest form...\n\nOther Interests:\nI hereby certify that the above information is complete and correct to the best of my knowledge.');
 
   const [includeJSC, setIncludeJSC] = useState(true);
+
+  const [isPdpAdopted, setIsPdpAdopted] = useState<boolean>(false);
+  const [isJscAdopted, setIsJscAdopted] = useState<boolean>(false);
+  const [isPPlanAdopted, setIsPPlanAdopted] = useState<boolean>(false);
+  const [teamRosterNotes, setTeamRosterNotes] = useState<string>('Operational notes and descriptions regarding the roster assignments above.');
+
+  // Custom additional section text boxes and optional tables state
+  const [sectionExtras, setSectionExtras] = useState<Record<string, { text: string; table: { enabled: boolean; headers: string[]; rows: string[][] } }>>({
+    purpose: { text: '', table: { enabled: false, headers: ['Action Item', 'Target Date', 'Status'], rows: [['', '', '']] } },
+    validity: { text: '', table: { enabled: false, headers: ['Action Item', 'Target Date', 'Status'], rows: [['', '', '']] } },
+    reporting: { text: '', table: { enabled: false, headers: ['Action Item', 'Target Date', 'Status'], rows: [['', '', '']] } },
+    framework: { text: '', table: { enabled: false, headers: ['Action Item', 'Target Date', 'Status'], rows: [['', '', '']] } },
+    kpaMatrix: { text: '', table: { enabled: false, headers: ['Action Item', 'Target Date', 'Status'], rows: [['', '', '']] } },
+    jscMatrix: { text: '', table: { enabled: false, headers: ['Action Item', 'Target Date', 'Status'], rows: [['', '', '']] } },
+    kpaText: { text: '', table: { enabled: false, headers: ['Action Item', 'Target Date', 'Status'], rows: [['', '', '']] } },
+    evaluating: { text: '', table: { enabled: false, headers: ['Action Item', 'Target Date', 'Status'], rows: [['', '', '']] } },
+    feedback: { text: '', table: { enabled: false, headers: ['Action Item', 'Target Date', 'Status'], rows: [['', '', '']] } },
+    timetable: { text: '', table: { enabled: false, headers: ['Action Item', 'Target Date', 'Status'], rows: [['', '', '']] } },
+    poorPerformance: { text: '', table: { enabled: false, headers: ['Action Item', 'Target Date', 'Status'], rows: [['', '', '']] } },
+    dispute: { text: '', table: { enabled: false, headers: ['Action Item', 'Target Date', 'Status'], rows: [['', '', '']] } },
+    amendment: { text: '', table: { enabled: false, headers: ['Action Item', 'Target Date', 'Status'], rows: [['', '', '']] } },
+    signatures: { text: '', table: { enabled: false, headers: ['Action Item', 'Target Date', 'Status'], rows: [['', '', '']] } },
+  });
 
   // Dynamic Table Headers & Rows state
   const [headers, setHeaders] = useState<string[]>(defaultHeaders);
@@ -303,7 +326,12 @@ export function DraftingSuiteTeam({
         annexureB,
         annexureC,
         includeJSC,
-        reviewRows
+        reviewRows,
+        sectionExtras,
+        isPdpAdopted,
+        isJscAdopted,
+        isPPlanAdopted,
+        teamRosterNotes
       };
 
       const docId = `draft_doc_${documentIdSuffix}_${activeTenantId}`;
@@ -379,6 +407,16 @@ export function DraftingSuiteTeam({
             if (state.annexureC !== undefined) setAnnexureC(state.annexureC);
             if (state.includeJSC !== undefined) setIncludeJSC(state.includeJSC);
             if (Array.isArray(state.reviewRows)) setReviewRows(state.reviewRows);
+            if (state.isPdpAdopted !== undefined) setIsPdpAdopted(state.isPdpAdopted);
+            if (state.isJscAdopted !== undefined) setIsJscAdopted(state.isJscAdopted);
+            if (state.isPPlanAdopted !== undefined) setIsPPlanAdopted(state.isPPlanAdopted);
+            if (state.teamRosterNotes !== undefined) setTeamRosterNotes(state.teamRosterNotes);
+            if (state.sectionExtras !== undefined) {
+              setSectionExtras(prev => ({
+                ...prev,
+                ...state.sectionExtras
+              }));
+            }
           }
         }
       }
@@ -658,6 +696,301 @@ export function DraftingSuiteTeam({
     { level: 1, description: 'Unacceptable performance', score: '0 - 49', ratios: '0%' }
   ];
 
+  const renderSectionExtraEditor = (sectionKey: string, title: string) => {
+    const extra = sectionExtras[sectionKey] || { text: '', table: { enabled: false, headers: ['Action Item', 'Target Date', 'Status'], rows: [['', '', '']] } };
+    
+    const updateText = (val: string) => {
+      setSectionExtras(prev => ({
+        ...prev,
+        [sectionKey]: {
+          ...prev[sectionKey],
+          text: val
+        }
+      }));
+    };
+
+    const toggleTable = (enabled: boolean) => {
+      setSectionExtras(prev => ({
+        ...prev,
+        [sectionKey]: {
+          ...prev[sectionKey],
+          table: {
+            ...prev[sectionKey].table,
+            enabled
+          }
+        }
+      }));
+    };
+
+    const addRow = () => {
+      setSectionExtras(prev => {
+        const table = prev[sectionKey].table;
+        const newRows = [...table.rows, new Array(table.headers.length).fill('')];
+        return {
+          ...prev,
+          [sectionKey]: {
+            ...prev[sectionKey],
+            table: {
+              ...table,
+              rows: newRows
+            }
+          }
+        };
+      });
+    };
+
+    const removeRow = (rIdx: number) => {
+      setSectionExtras(prev => {
+        const table = prev[sectionKey].table;
+        if (table.rows.length <= 1) return prev; // Keep at least 1 row
+        const newRows = table.rows.filter((_, idx) => idx !== rIdx);
+        return {
+          ...prev,
+          [sectionKey]: {
+            ...prev[sectionKey],
+            table: {
+              ...table,
+              rows: newRows
+            }
+          }
+        };
+      });
+    };
+
+    const addCol = () => {
+      setSectionExtras(prev => {
+        const table = prev[sectionKey].table;
+        const newHeaders = [...table.headers, `Heading ${table.headers.length + 1}`];
+        const newRows = table.rows.map(row => [...row, '']);
+        return {
+          ...prev,
+          [sectionKey]: {
+            ...prev[sectionKey],
+            table: {
+              ...table,
+              headers: newHeaders,
+              rows: newRows
+            }
+          }
+        };
+      });
+    };
+
+    const removeCol = (cIdx: number) => {
+      setSectionExtras(prev => {
+        const table = prev[sectionKey].table;
+        if (table.headers.length <= 1) return prev; // Keep at least 1 column
+        const newHeaders = table.headers.filter((_, idx) => idx !== cIdx);
+        const newRows = table.rows.map(row => row.filter((_, idx) => idx !== cIdx));
+        return {
+          ...prev,
+          [sectionKey]: {
+            ...prev[sectionKey],
+            table: {
+              ...table,
+              headers: newHeaders,
+              rows: newRows
+            }
+          }
+        };
+      });
+    };
+
+    const updateHeader = (cIdx: number, val: string) => {
+      setSectionExtras(prev => {
+        const table = prev[sectionKey].table;
+        const newHeaders = [...table.headers];
+        newHeaders[cIdx] = val;
+        return {
+          ...prev,
+          [sectionKey]: {
+            ...prev[sectionKey],
+            table: {
+              ...table,
+              headers: newHeaders
+            }
+          }
+        };
+      });
+    };
+
+    const updateCell = (rIdx: number, cIdx: number, val: string) => {
+      setSectionExtras(prev => {
+        const table = prev[sectionKey].table;
+        const newRows = table.rows.map((row, idx) => {
+          if (idx !== rIdx) return row;
+          const newRow = [...row];
+          newRow[cIdx] = val;
+          return newRow;
+        });
+        return {
+          ...prev,
+          [sectionKey]: {
+            ...prev[sectionKey],
+            table: {
+              ...table,
+              rows: newRows
+            }
+          }
+        };
+      });
+    };
+
+    return (
+      <div className="mt-3 pt-3 border-t border-slate-100 space-y-3">
+        <div className="bg-emerald-50/50 p-3 rounded-lg border border-emerald-100/80 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-emerald-800 uppercase">Additional {title} Content</span>
+            <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 cursor-pointer select-none">
+              <input 
+                type="checkbox" 
+                checked={extra.table.enabled} 
+                onChange={(e) => toggleTable(e.target.checked)}
+                className="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5 cursor-pointer"
+              />
+              Add Custom Table
+            </label>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] text-slate-500 block font-bold">Custom Text Box below heading/sub-heading</label>
+            <textarea 
+              value={extra.text} 
+              onChange={e => updateText(e.target.value)} 
+              rows={2} 
+              placeholder={`Enter optional custom text block for ${title}...`}
+              className="w-full text-xs p-2.5 bg-white border border-slate-300 rounded-lg focus:border-emerald-500 outline-none shadow-sm transition" 
+            />
+          </div>
+
+          {extra.table.enabled && (
+            <div className="space-y-2 pt-2.5 border-t border-slate-200/60">
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] text-slate-600 font-extrabold uppercase">Custom Table Editor</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={addCol}
+                    className="px-2 py-0.5 bg-white border border-slate-200 hover:bg-slate-50 text-[10px] text-slate-700 rounded font-semibold transition flex items-center gap-1"
+                  >
+                    <Plus className="w-2.5 h-2.5 text-slate-500" /> +Col
+                  </button>
+                  <button
+                    type="button"
+                    onClick={addRow}
+                    className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] rounded font-semibold transition flex items-center gap-1"
+                  >
+                    <Plus className="w-2.5 h-2.5" /> +Row
+                  </button>
+                </div>
+              </div>
+
+              {/* Table Column Header Editors */}
+              <div className="space-y-1 bg-white p-2 rounded border border-slate-200 shadow-inner">
+                <span className="text-[9px] text-slate-400 font-extrabold uppercase block">Column Headings</span>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                  {extra.table.headers.map((h, cIdx) => (
+                    <div key={cIdx} className="flex items-center gap-1 border border-slate-200 rounded bg-slate-50 p-1">
+                      <input
+                        type="text"
+                        value={h}
+                        onChange={e => updateHeader(cIdx, e.target.value)}
+                        className="w-full text-[10px] bg-transparent outline-none font-bold text-slate-700"
+                        placeholder={`Col ${cIdx + 1}`}
+                      />
+                      {extra.table.headers.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeCol(cIdx)}
+                          className="text-slate-400 hover:text-red-500 p-0.5"
+                          title="Delete Column"
+                        >
+                          <X className="w-2.5 h-2.5" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Table Row Cell Editors */}
+              <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                {extra.table.rows.map((row, rIdx) => (
+                  <div key={rIdx} className="p-2 bg-slate-50 border border-slate-200 rounded space-y-1.5 relative group/row">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[9px] text-slate-400 font-bold">Row {rIdx + 1}</span>
+                      {extra.table.rows.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeRow(rIdx)}
+                          className="text-red-500 hover:bg-red-50 p-1 rounded transition"
+                          title="Delete Row"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                    <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${Math.min(extra.table.headers.length, 3)}, minmax(0, 1fr))` }}>
+                      {extra.table.headers.map((h, cIdx) => (
+                        <div key={cIdx} className="space-y-0.5">
+                          <label className="text-[8px] text-slate-500 font-semibold block truncate">{h}</label>
+                          <input
+                            type="text"
+                            value={row[cIdx] || ''}
+                            onChange={e => updateCell(rIdx, cIdx, e.target.value)}
+                            className="w-full text-[10px] p-1 bg-white border border-slate-200 rounded outline-none focus:border-emerald-500"
+                            placeholder={`Enter ${h}`}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderSectionExtraPreview = (sectionKey: string) => {
+    const extra = sectionExtras[sectionKey];
+    if (!extra) return null;
+
+    return (
+      <div className="mt-4 space-y-4 font-sans print:space-y-3">
+        {extra.text && (
+          <div className="text-justify font-serif text-[11px] print:text-[10px] leading-relaxed text-slate-800">
+            {renderFormattedContent(extra.text)}
+          </div>
+        )}
+        {extra.table && extra.table.enabled && extra.table.headers.length > 0 && (
+          <div className="my-3 overflow-x-auto">
+            <table className="w-full border-collapse border border-black text-[11px] print:text-[10px] font-sans">
+              <thead>
+                <tr className="bg-slate-100 border border-black">
+                  {extra.table.headers.map((h, i) => (
+                    <th key={i} className="border border-black p-2 font-bold text-left bg-slate-100/90">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {extra.table.rows.map((r, i) => (
+                  <tr key={i} className="border border-black">
+                    {extra.table.headers.map((_, j) => (
+                      <td key={j} className="border border-black p-2 font-medium">{r[j] || ''}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="flex h-full bg-slate-100 overflow-hidden text-xs">
       {/* Sidebar Editor */}
@@ -713,6 +1046,139 @@ export function DraftingSuiteTeam({
                   <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
                 </label>
                 <p className="text-[10px] text-slate-400">Upload high-res PNG or JPG logo</p>
+              </div>
+            </div>
+          </div>
+
+          {/* PMS Core Module Adoption Card */}
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-4">
+            <div>
+              <label className="text-xs font-bold text-slate-800 uppercase flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-emerald-600 animate-pulse" />
+                PMS Core Module Adoption
+              </label>
+              <p className="text-[10px] text-slate-400 mt-0.5">Adopt entire modules' tables and contents directly into this agreement</p>
+            </div>
+
+            <div className="space-y-3 pt-2">
+              {/* Adopt PDP Button */}
+              <div className="flex flex-col gap-1.5 p-3 rounded-lg border border-slate-100 bg-slate-50/50">
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-slate-700 text-xs flex items-center gap-1.5">
+                    <GraduationCap className="w-4 h-4 text-purple-600" />
+                    Personal Development Plan (PDP)
+                  </span>
+                  {isPdpAdopted ? (
+                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[9px] font-bold rounded-full flex items-center gap-0.5">
+                      <Check className="w-3 h-3" /> Adopted
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 bg-slate-200 text-slate-600 text-[9px] font-bold rounded-full">
+                      Not Adopted
+                    </span>
+                  )}
+                </div>
+                <p className="text-[10px] text-slate-400">
+                  {realPdpItems.length > 0 
+                    ? `Found ${realPdpItems.length} active PDP training items for this user.` 
+                    : 'No items found in PDP module.'}
+                </p>
+                <div className="flex gap-2 mt-1">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setIsPdpAdopted(!isPdpAdopted);
+                      await fetchAllAgreementSources();
+                    }}
+                    className={`flex-1 py-1.5 px-3 rounded text-[11px] font-bold transition flex items-center justify-center gap-1 ${
+                      isPdpAdopted 
+                        ? 'bg-red-50 hover:bg-red-100 text-red-700 border border-red-200' 
+                        : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm'
+                    }`}
+                  >
+                    {isPdpAdopted ? 'Remove Adopted PDP' : 'Adopt Entire PDP Table'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Adopt JSC Button */}
+              <div className="flex flex-col gap-1.5 p-3 rounded-lg border border-slate-100 bg-slate-50/50">
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-slate-700 text-xs flex items-center gap-1.5">
+                    <Award className="w-4 h-4 text-blue-600" />
+                    Job Specific Competencies (JSC)
+                  </span>
+                  {isJscAdopted ? (
+                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[9px] font-bold rounded-full flex items-center gap-0.5">
+                      <Check className="w-3 h-3" /> Adopted
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 bg-slate-200 text-slate-600 text-[9px] font-bold rounded-full">
+                      Not Adopted
+                    </span>
+                  )}
+                </div>
+                <p className="text-[10px] text-slate-400">
+                  {realJobCompetencies.length > 0 
+                    ? `Found ${realJobCompetencies.length} job-specific competencies.` 
+                    : 'No competencies found in JSC module.'}
+                </p>
+                <div className="flex gap-2 mt-1">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setIsJscAdopted(!isJscAdopted);
+                      await fetchAllAgreementSources();
+                    }}
+                    className={`flex-1 py-1.5 px-3 rounded text-[11px] font-bold transition flex items-center justify-center gap-1 ${
+                      isJscAdopted 
+                        ? 'bg-red-50 hover:bg-red-100 text-red-700 border border-red-200' 
+                        : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm'
+                    }`}
+                  >
+                    {isJscAdopted ? 'Remove Adopted JSC' : 'Adopt Entire JSC Table'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Adopt Performance Plan Button */}
+              <div className="flex flex-col gap-1.5 p-3 rounded-lg border border-slate-100 bg-slate-50/50">
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-slate-700 text-xs flex items-center gap-1.5">
+                    <TrendingUp className="w-4 h-4 text-emerald-600" />
+                    Core Performance Plan (KPIs)
+                  </span>
+                  {isPPlanAdopted ? (
+                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[9px] font-bold rounded-full flex items-center gap-0.5">
+                      <Check className="w-3 h-3" /> Adopted
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 bg-slate-200 text-slate-600 text-[9px] font-bold rounded-full">
+                      Not Adopted
+                    </span>
+                  )}
+                </div>
+                <p className="text-[10px] text-slate-400">
+                  {realPlanItems.length > 0 
+                    ? `Found ${realPlanItems.length} Key Performance Indicators (KPIs).` 
+                    : 'No items found in Performance Plan module.'}
+                </p>
+                <div className="flex gap-2 mt-1">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setIsPPlanAdopted(!isPPlanAdopted);
+                      await fetchAllAgreementSources();
+                    }}
+                    className={`flex-1 py-1.5 px-3 rounded text-[11px] font-bold transition flex items-center justify-center gap-1 ${
+                      isPPlanAdopted 
+                        ? 'bg-red-50 hover:bg-red-100 text-red-700 border border-red-200' 
+                        : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm'
+                    }`}
+                  >
+                    {isPPlanAdopted ? 'Remove Adopted Plan' : 'Adopt Performance Plan'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -828,62 +1294,95 @@ export function DraftingSuiteTeam({
               <Plus className="w-4 h-4 text-emerald-600" />
               Add {teamTitle} Member / Row
             </button>
+
+            <div className="border-t border-slate-100 pt-3 mt-1.5 space-y-2">
+              <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block">
+                Roster Description & Notes
+              </label>
+              <textarea
+                value={teamRosterNotes}
+                onChange={e => setTeamRosterNotes(e.target.value)}
+                placeholder="Enter custom roster descriptions or notes to display directly under the table..."
+                rows={3}
+                className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none font-sans"
+              />
+            </div>
           </div>
 
           {/* Section Editors */}
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
             <label className="text-xs font-bold text-slate-700 uppercase">1. Purpose</label>
             <textarea value={purpose} onChange={e => setPurpose(e.target.value)} rows={3} className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+            {renderSectionExtraEditor('purpose', '1. Purpose')}
           </div>
 
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
             <label className="text-xs font-bold text-slate-700 uppercase">2. Validity of Agreement</label>
             <textarea value={validity} onChange={e => setValidity(e.target.value)} rows={3} className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+            {renderSectionExtraEditor('validity', '2. Validity of Agreement')}
           </div>
 
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
             <label className="text-xs font-bold text-slate-700 uppercase">3. Reporting Requirements</label>
             <textarea value={reporting} onChange={e => setReporting(e.target.value)} rows={3} className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+            {renderSectionExtraEditor('reporting', '3. Reporting Requirements')}
           </div>
 
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
             <label className="text-xs font-bold text-slate-700 uppercase">4. Performance Assessment Framework</label>
             <textarea value={framework} onChange={e => setFramework(e.target.value)} rows={4} className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+            {renderSectionExtraEditor('framework', '4. Performance Assessment Framework')}
+            <div className="mt-4 pt-4 border-t border-slate-200">
+              <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider block mb-2">Sub-Headings:</span>
+              {renderSectionExtraEditor('kpaMatrix', '4.1 Key Performance Areas (KPAs) Matrix')}
+              {renderSectionExtraEditor('jscMatrix', '4.2 Job Specific Competencies Matrix')}
+            </div>
           </div>
 
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
             <label className="text-xs font-bold text-slate-700 uppercase">5. Key Performance Areas (KPAs)</label>
             <textarea value={kpaText} onChange={e => setKpaText(e.target.value)} rows={3} className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+            {renderSectionExtraEditor('kpaText', '5. Key Performance Areas (KPAs)')}
           </div>
 
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
             <label className="text-xs font-bold text-slate-700 uppercase">6. Evaluating Performance</label>
             <textarea value={assessmentText} onChange={e => setAssessmentText(e.target.value)} rows={3} className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+            {renderSectionExtraEditor('evaluating', '6. Evaluating Performance')}
           </div>
 
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
             <label className="text-xs font-bold text-slate-700 uppercase">7. Feedback</label>
             <textarea value={feedback} onChange={e => setFeedback(e.target.value)} rows={3} className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+            {renderSectionExtraEditor('feedback', '7. Feedback')}
           </div>
 
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
             <label className="text-xs font-bold text-slate-700 uppercase">8. Timetable for Review</label>
             <textarea value={timetable} onChange={e => setTimetable(e.target.value)} rows={3} className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+            {renderSectionExtraEditor('timetable', '8. Timetable for Review')}
           </div>
 
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
             <label className="text-xs font-bold text-slate-700 uppercase">9. Management of Poor Performance</label>
             <textarea value={poorPerformance} onChange={e => setPoorPerformance(e.target.value)} rows={3} className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+            {renderSectionExtraEditor('poorPerformance', '9. Management of Poor Performance')}
           </div>
 
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
             <label className="text-xs font-bold text-slate-700 uppercase">10. Dispute Resolution</label>
             <textarea value={dispute} onChange={e => setDispute(e.target.value)} rows={3} className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+            {renderSectionExtraEditor('dispute', '10. Dispute Resolution')}
           </div>
 
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
             <label className="text-xs font-bold text-slate-700 uppercase">11. General / Amendments</label>
             <textarea value={amendment} onChange={e => setAmendment(e.target.value)} rows={3} className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+            {renderSectionExtraEditor('amendment', '11. General / Amendments')}
+            <div className="mt-4 pt-4 border-t border-slate-200">
+              <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider block mb-2">Sub-Headings:</span>
+              {renderSectionExtraEditor('signatures', '12. Signatures & Affirmation')}
+            </div>
           </div>
         </div>
       </div>
@@ -977,9 +1476,11 @@ export function DraftingSuiteTeam({
                   ))}
                 </tbody>
               </table>
-              <div className="text-[10px] text-slate-500 italic mt-2 font-serif text-center">
-                * Operational roster and assignments for {teamTitle}. Certified performance goals are legally binding.
-              </div>
+              {teamRosterNotes && (
+                <div className="text-[11px] text-slate-700 font-sans mt-2.5 text-justify bg-slate-50/50 p-3 rounded-lg border border-slate-200/80 leading-relaxed">
+                  {renderFormattedContent(teamRosterNotes)}
+                </div>
+              )}
             </div>
 
             {/* Document Sections */}
@@ -989,6 +1490,7 @@ export function DraftingSuiteTeam({
                   <span className="border-b-2 border-emerald-800 pb-0.5 px-4 font-black">1. Purpose</span>
                 </h3>
                 <div className="text-justify">{renderFormattedContent(purpose)}</div>
+                {renderSectionExtraPreview('purpose')}
               </div>
 
               <div className="portrait-section page-break-before pt-6">
@@ -996,6 +1498,7 @@ export function DraftingSuiteTeam({
                   <span className="border-b-2 border-emerald-800 pb-0.5 px-4 font-black">2. Validity of Agreement</span>
                 </h3>
                 <div className="text-justify">{renderFormattedContent(validity)}</div>
+                {renderSectionExtraPreview('validity')}
               </div>
 
               <div className="portrait-section page-break-before pt-6">
@@ -1003,6 +1506,7 @@ export function DraftingSuiteTeam({
                   <span className="border-b-2 border-emerald-800 pb-0.5 px-4 font-black">3. Reporting Requirements</span>
                 </h3>
                 <div className="text-justify">{renderFormattedContent(reporting)}</div>
+                {renderSectionExtraPreview('reporting')}
               </div>
 
               <div className="portrait-section page-break-before pt-6">
@@ -1010,6 +1514,7 @@ export function DraftingSuiteTeam({
                   <span className="border-b-2 border-emerald-800 pb-0.5 px-4 font-black">4. Performance Assessment Framework</span>
                 </h3>
                 <div className="text-justify mb-4">{renderFormattedContent(framework)}</div>
+                {renderSectionExtraPreview('framework')}
 
                 {/* KPA Dynamic Summary Table */}
                 <div className="my-4">
@@ -1032,73 +1537,201 @@ export function DraftingSuiteTeam({
                       ))}
                     </tbody>
                   </table>
+                  {renderSectionExtraPreview('kpaMatrix')}
                 </div>
 
                 <div className="text-justify my-4">{renderFormattedContent(frameworkBelowKpa)}</div>
 
                 {/* Job Specific Competencies Matrix */}
                 {includeJSC && (
-                  <div className="my-4">
-                    <h4 className="font-bold text-xs text-slate-800 mb-2 font-sans">4.2 Job Specific Competencies Matrix</h4>
-                    <table className="w-full border-collapse border border-black text-[11px] font-sans">
-                      <thead>
-                        <tr className="bg-slate-100 border border-black">
-                          <th className="border border-black p-2 font-bold text-left w-[10%]">No.</th>
-                          <th className="border border-black p-2 font-bold text-left w-[60%]">Competency Name</th>
-                          <th className="border border-black p-2 font-bold text-left w-[30%]">Weighting</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {realJobCompetencies.length > 0 ? (
-                          realJobCompetencies.map((comp, idx) => (
-                            <tr key={idx} className="border border-black">
-                              <td className="border border-black p-2 font-bold">{idx + 1}</td>
-                              <td className="border border-black p-2 font-medium">{comp.name || comp.competency || 'Competency Item'}</td>
-                              <td className="border border-black p-2 font-semibold text-emerald-800">{comp.weight || comp.weighting || '10'}%</td>
-                            </tr>
-                          ))
-                        ) : (
-                          <>
-                            <tr className="border border-black">
-                              <td className="border border-black p-2 font-bold">1</td>
-                              <td className="border border-black p-2">Core Leadership & Governance Excellence</td>
-                              <td className="border border-black p-2 font-semibold text-emerald-800">20%</td>
-                            </tr>
-                            <tr className="border border-black">
-                              <td className="border border-black p-2 font-bold">2</td>
-                              <td className="border border-black p-2">Financial & Risk Management Compliance</td>
-                              <td className="border border-black p-2 font-semibold text-emerald-800">20%</td>
-                            </tr>
-                            <tr className="border border-black">
-                              <td className="border border-black p-2 font-bold">3</td>
-                              <td className="border border-black p-2">Service Delivery & Project Execution</td>
-                              <td className="border border-black p-2 font-semibold text-emerald-800">30%</td>
-                            </tr>
-                            <tr className="border border-black">
-                              <td className="border border-black p-2 font-bold">4</td>
-                              <td className="border border-black p-2">People & Team Management</td>
-                              <td className="border border-black p-2 font-semibold text-emerald-800">30%</td>
-                            </tr>
-                          </>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                  <div className="my-4 font-sans">
+                     <h4 className="font-bold text-xs text-slate-800 mb-2 font-sans flex items-center justify-between">
+                       <span>4.2 Job Specific Competencies Matrix</span>
+                       {isJscAdopted && <span className="text-[9px] text-emerald-800 bg-emerald-50 border border-emerald-300 px-1.5 py-0.5 rounded font-black uppercase tracking-wider">Adopted From Module</span>}
+                     </h4>
+                     {isJscAdopted ? (
+                       <table className="w-full border-collapse border border-black text-[10px] font-sans">
+                         <thead>
+                           <tr className="bg-slate-100 border border-black">
+                             <th className="border border-black p-2 font-bold text-left w-[5%]">No.</th>
+                             <th className="border border-black p-2 font-bold text-left w-[25%]">Competency Code & Name</th>
+                             <th className="border border-black p-2 font-bold text-left w-[45%]">Core Definition & Actionable Scope</th>
+                             <th className="border border-black p-2 font-bold text-left w-[15%]">Required Level</th>
+                             <th className="border border-black p-2 font-bold text-center w-[10%]">Weighting</th>
+                           </tr>
+                         </thead>
+                         <tbody>
+                           {realJobCompetencies.length > 0 ? (
+                             realJobCompetencies.map((comp, idx) => (
+                               <tr key={idx} className="border border-black">
+                                 <td className="border border-black p-2 font-bold text-center">{idx + 1}</td>
+                                 <td className="border border-black p-2 font-semibold text-slate-900">
+                                   {comp.jscNo ? `[${comp.jscNo}] ` : ''}{comp.competency || comp.name || 'Competency Item'}
+                                 </td>
+                                 <td className="border border-black p-2 text-justify">
+                                   <div className="font-medium text-slate-800">{comp.definition?.mainText || comp.description || 'Core service competency'}</div>
+                                   {comp.definition?.subsections && comp.definition.subsections.length > 0 && (
+                                     <div className="mt-1.5 space-y-1 text-[9px] text-slate-600 border-l-2 border-slate-200 pl-1.5">
+                                       {comp.definition.subsections.map((sub: any, subIdx: number) => (
+                                         <div key={subIdx}>
+                                           <span className="font-bold">{sub.heading}:</span> {sub.paragraphs?.join('; ')}
+                                         </div>
+                                       ))}
+                                     </div>
+                                   )}
+                                 </td>
+                                 <td className="border border-black p-2 font-medium text-slate-700">
+                                   {comp.level || 'Level 3'}
+                                 </td>
+                                 <td className="border border-black p-2 font-bold text-emerald-800 text-center">
+                                   {comp.weight || comp.weighting || '25'}%
+                                 </td>
+                               </tr>
+                             ))
+                           ) : (
+                             <tr className="border border-black">
+                               <td colSpan={5} className="border border-black p-4 text-center text-slate-500 italic">
+                                 No active Job Specific Competencies found in database.
+                               </td>
+                             </tr>
+                           )}
+                         </tbody>
+                       </table>
+                     ) : (
+                       <table className="w-full border-collapse border border-black text-[11px] font-sans">
+                         <thead>
+                           <tr className="bg-slate-100 border border-black">
+                             <th className="border border-black p-2 font-bold text-left w-[10%]">No.</th>
+                             <th className="border border-black p-2 font-bold text-left w-[60%]">Competency Name</th>
+                             <th className="border border-black p-2 font-bold text-left w-[30%]">Weighting</th>
+                           </tr>
+                         </thead>
+                         <tbody>
+                           {realJobCompetencies.length > 0 ? (
+                             realJobCompetencies.map((comp, idx) => (
+                               <tr key={idx} className="border border-black">
+                                 <td className="border border-black p-2 font-bold">{idx + 1}</td>
+                                 <td className="border border-black p-2 font-medium">{comp.name || comp.competency || 'Competency Item'}</td>
+                                 <td className="border border-black p-2 font-semibold text-emerald-800">{comp.weight || comp.weighting || '10'}%</td>
+                               </tr>
+                             ))
+                           ) : (
+                             <>
+                               <tr className="border border-black">
+                                 <td className="border border-black p-2 font-bold">1</td>
+                                 <td className="border border-black p-2">Core Leadership & Governance Excellence</td>
+                                 <td className="border border-black p-2 font-semibold text-emerald-800">20%</td>
+                               </tr>
+                               <tr className="border border-black">
+                                 <td className="border border-black p-2 font-bold">2</td>
+                                 <td className="border border-black p-2">Financial & Risk Management Compliance</td>
+                                 <td className="border border-black p-2 font-semibold text-emerald-800">20%</td>
+                               </tr>
+                               <tr className="border border-black">
+                                 <td className="border border-black p-2 font-bold">3</td>
+                                 <td className="border border-black p-2">Service Delivery & Project Execution</td>
+                                 <td className="border border-black p-2 font-semibold text-emerald-800">30%</td>
+                               </tr>
+                               <tr className="border border-black">
+                                 <td className="border border-black p-2 font-bold">4</td>
+                                 <td className="border border-black p-2">People & Team Management</td>
+                                 <td className="border border-black p-2 font-semibold text-emerald-800">30%</td>
+                               </tr>
+                             </>
+                           )}
+                         </tbody>
+                       </table>
+                     )}
+                     {renderSectionExtraPreview('jscMatrix')}
+                   </div>
+                 )}
 
                 <div className="text-justify">{renderFormattedContent(frameworkBelowJsc)}</div>
               </div>
 
               <div className="portrait-section page-break-before pt-6">
                 <h3 className="font-extrabold text-emerald-800 text-center block mb-4 text-sm uppercase tracking-wide font-sans">
-                  <span className="border-b-2 border-emerald-800 pb-0.5 px-4 font-black">5. Evaluating Performance</span>
+                  <span className="border-b-2 border-emerald-800 pb-0.5 px-4 font-black">5. Key Performance Areas (KPAs)</span>
                 </h3>
-                <div className="text-justify">{renderFormattedContent(assessmentText)}</div>
+                <div className="text-justify">{renderFormattedContent(kpaText)}</div>
+                {renderSectionExtraPreview('kpaText')}
+
+                {isPPlanAdopted && (
+                  <div className="mt-6 border-t border-slate-300 pt-6">
+                    <h4 className="font-bold text-xs text-slate-800 mb-2 font-sans flex items-center justify-between">
+                      <span>Adopted Core Performance Plan (KPIs)</span>
+                      <span className="text-[9px] text-emerald-800 bg-emerald-50 border border-emerald-300 px-1.5 py-0.5 rounded font-black uppercase tracking-wider">Synchronized</span>
+                    </h4>
+                    <p className="text-[11px] text-slate-600 mb-4 font-sans text-justify leading-relaxed">
+                      The detailed Key Performance Indicators (KPIs), baseline values, weights, annual targets, and quarterly breakdowns for the employee are adopted below from the Performance Plan Module:
+                    </p>
+                    <div className="overflow-x-auto w-full border border-black">
+                      <table className="w-full border-collapse text-[9px] font-sans min-w-[1000px]">
+                        <thead>
+                          <tr className="bg-slate-100 border-b border-black text-slate-800">
+                            <th className="border-r border-black p-2 font-bold text-center w-[6%]">KPI No.</th>
+                            <th className="border-r border-black p-2 font-bold text-left w-[20%]">Key Performance Indicators</th>
+                            <th className="border-r border-black p-2 font-bold text-center w-[6%]">Weight</th>
+                            <th className="border-r border-black p-2 font-bold text-left w-[8%]">Baseline</th>
+                            <th className="border-r border-black p-2 font-bold text-left w-[10%]">Annual Target</th>
+                            <th className="border-r border-black p-2 font-bold text-left w-[8%]">1st Quarter</th>
+                            <th className="border-r border-black p-2 font-bold text-left w-[8%]">2nd Quarter</th>
+                            <th className="border-r border-black p-2 font-bold text-left w-[8%]">3rd Quarter</th>
+                            <th className="border-r border-black p-2 font-bold text-left w-[8%]">4th Quarter</th>
+                            <th className="border-r border-black p-2 font-bold text-left w-[10%]">POE</th>
+                            <th className="p-2 font-bold text-left w-[8%]">Total Budget</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {realPlanItems.length > 0 ? (
+                            realPlanItems.map((item, idx) => (
+                              <tr key={idx} className="border-b border-black last:border-b-0">
+                                <td className="border-r border-black p-2 font-bold text-center bg-slate-50">{item.kpiNo || (idx + 1)}</td>
+                                <td className="border-r border-black p-2 font-medium text-slate-900">{item.kpi || 'N/A'}</td>
+                                <td className="border-r border-black p-2 font-bold text-center text-emerald-800">{item.weighting || 'N/A'}</td>
+                                <td className="border-r border-black p-2">{item.baseline || 'N/A'}</td>
+                                <td className="border-r border-black p-2 font-semibold text-indigo-950">{item.annualTarget || 'N/A'}</td>
+                                <td className="border-r border-black p-2">{item.q1Target || 'N/A'}</td>
+                                <td className="border-r border-black p-2">{item.q2Target || 'N/A'}</td>
+                                <td className="border-r border-black p-2">{item.q3Target || 'N/A'}</td>
+                                <td className="border-r border-black p-2">{item.q4Target || 'N/A'}</td>
+                                <td className="border-r border-black p-2 font-medium text-slate-600">{item.annualRequiredPoe || item.q1RequiredPoe || 'N/A'}</td>
+                                <td className="p-2 font-bold text-emerald-950">{item.budget || 'N/A'}</td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={11} className="p-4 text-center text-slate-500 italic">
+                                No performance plan records found for this user.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="portrait-section page-break-before pt-6">
                 <h3 className="font-extrabold text-emerald-800 text-center block mb-4 text-sm uppercase tracking-wide font-sans">
-                  <span className="border-b-2 border-emerald-800 pb-0.5 px-4 font-black">6. Timetable for Review</span>
+                  <span className="border-b-2 border-emerald-800 pb-0.5 px-4 font-black">6. Evaluating Performance</span>
+                </h3>
+                <div className="text-justify">{renderFormattedContent(assessmentText)}</div>
+                {renderSectionExtraPreview('evaluating')}
+              </div>
+
+              <div className="portrait-section page-break-before pt-6">
+                <h3 className="font-extrabold text-emerald-800 text-center block mb-4 text-sm uppercase tracking-wide font-sans">
+                  <span className="border-b-2 border-emerald-800 pb-0.5 px-4 font-black">7. Feedback</span>
+                </h3>
+                <div className="text-justify">{renderFormattedContent(feedback)}</div>
+                {renderSectionExtraPreview('feedback')}
+              </div>
+
+              <div className="portrait-section page-break-before pt-6">
+                <h3 className="font-extrabold text-emerald-800 text-center block mb-4 text-sm uppercase tracking-wide font-sans">
+                  <span className="border-b-2 border-emerald-800 pb-0.5 px-4 font-black">8. Timetable for Review</span>
                 </h3>
                 <div className="text-justify mb-4">{renderFormattedContent(timetable)}</div>
 
@@ -1124,12 +1757,83 @@ export function DraftingSuiteTeam({
                     ))}
                   </tbody>
                 </table>
+                {renderSectionExtraPreview('timetable')}
               </div>
 
               <div className="portrait-section page-break-before pt-6">
                 <h3 className="font-extrabold text-emerald-800 text-center block mb-4 text-sm uppercase tracking-wide font-sans">
-                  <span className="border-b-2 border-emerald-800 pb-0.5 px-4 font-black">7. Signatures & Affirmation</span>
+                  <span className="border-b-2 border-emerald-800 pb-0.5 px-4 font-black">9. Management of Poor Performance</span>
                 </h3>
+                <div className="text-justify">{renderFormattedContent(poorPerformance)}</div>
+                {renderSectionExtraPreview('poorPerformance')}
+              </div>
+
+              <div className="portrait-section page-break-before pt-6">
+                <h3 className="font-extrabold text-emerald-800 text-center block mb-4 text-sm uppercase tracking-wide font-sans">
+                  <span className="border-b-2 border-emerald-800 pb-0.5 px-4 font-black">10. Dispute Resolution</span>
+                </h3>
+                <div className="text-justify">{renderFormattedContent(dispute)}</div>
+                {renderSectionExtraPreview('dispute')}
+              </div>
+
+              <div className="portrait-section page-break-before pt-6">
+                <h3 className="font-extrabold text-emerald-800 text-center block mb-4 text-sm uppercase tracking-wide font-sans">
+                  <span className="border-b-2 border-emerald-800 pb-0.5 px-4 font-black">11. General / Amendments</span>
+                </h3>
+                <div className="text-justify">{renderFormattedContent(amendment)}</div>
+                {renderSectionExtraPreview('amendment')}
+              </div>
+
+              {isPdpAdopted && (
+                <div className="portrait-section page-break-before pt-6 font-sans">
+                  <h3 className="font-extrabold text-emerald-800 text-center block mb-4 text-sm uppercase tracking-wide font-sans">
+                    <span className="border-b-2 border-emerald-800 pb-0.5 px-4 font-black">Annexure B: Personal Development Plan (PDP)</span>
+                  </h3>
+                  <p className="text-[11px] text-slate-700 mb-4 font-sans text-justify leading-relaxed">
+                    The following Personal Development Plan (PDP) has been adopted directly from the employee's active development profile. It constitutes an integral part of this agreement for identifying and addressing targeted developmental actions and competence enhancements:
+                  </p>
+                  <table className="w-full border-collapse border border-black my-4 text-[10px] font-sans">
+                    <thead>
+                      <tr className="bg-slate-100 border border-black text-slate-800">
+                        <th className="border border-black p-2 font-bold text-center w-[5%]">No.</th>
+                        <th className="border border-black p-2 font-bold text-left w-[20%]">Skills Gap</th>
+                        <th className="border border-black p-2 font-bold text-left w-[20%]">Expected Outcomes</th>
+                        <th className="border border-black p-2 font-bold text-left w-[20%]">Suggested Training Interventions</th>
+                        <th className="border border-black p-2 font-bold text-left w-[15%]">Mode of Delivery</th>
+                        <th className="border border-black p-2 font-bold text-left w-[10%]">Timeframe</th>
+                        <th className="border border-black p-2 font-bold text-left w-[10%]">Support Person</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {realPdpItems.length > 0 ? (
+                        realPdpItems.map((item, idx) => (
+                          <tr key={idx} className="border border-black">
+                            <td className="border border-black p-2 font-bold text-center bg-slate-50">{idx + 1}</td>
+                            <td className="border border-black p-2 font-semibold text-slate-900">{item.skillsGap || 'N/A'}</td>
+                            <td className="border border-black p-2 text-slate-700">{item.outcomes || 'N/A'}</td>
+                            <td className="border border-black p-2 font-medium text-emerald-900">{item.suggestedTraining || 'N/A'}</td>
+                            <td className="border border-black p-2 text-slate-700">{item.modeOfDelivery || 'N/A'}</td>
+                            <td className="border border-black p-2 text-slate-700">{item.timeFrame || 'N/A'}</td>
+                            <td className="border border-black p-2 font-semibold text-slate-800">{item.supportPerson || 'N/A'}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr className="border border-black">
+                          <td colSpan={7} className="border border-black p-4 text-center text-slate-500 italic">
+                            No active items found in the Personal Development Plan module.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              <div className="portrait-section page-break-before pt-6">
+                <h3 className="font-extrabold text-emerald-800 text-center block mb-4 text-sm uppercase tracking-wide font-sans">
+                  <span className="border-b-2 border-emerald-800 pb-0.5 px-4 font-black">12. Signatures & Affirmation</span>
+                </h3>
+                {renderSectionExtraPreview('signatures')}
                 
                 <div className="grid grid-cols-2 gap-8 my-8 font-sans">
                   <div className="border border-slate-300 p-4 rounded bg-slate-50 space-y-4">
