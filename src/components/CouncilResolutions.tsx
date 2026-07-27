@@ -257,7 +257,7 @@ export function CouncilResolutions({ currentUser, activeTenantId }: CouncilResol
                   <div className="bg-white border border-slate-100 divide-y divide-slate-100 rounded-xl shadow-lg max-h-40 overflow-y-auto">
                     {adResults.map((u, index) => (
                       <div 
-                        key={u.email || index}
+                        key={u.id || `${u.email}-${index}`}
                         onClick={() => handleAddMember(u.fullName || u.email)}
                         className="p-2.5 hover:bg-indigo-50/50 cursor-pointer flex justify-between items-center transition"
                       >

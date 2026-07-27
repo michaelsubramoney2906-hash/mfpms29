@@ -300,8 +300,8 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-4">
-                {teamPlans.map(tp => (
-                  <div key={tp.userId} className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm flex items-center justify-between hover:shadow-md transition group cursor-pointer" onClick={() => setSelectedPlan(tp)}>
+                {teamPlans.map((tp, idx) => (
+                  <div key={tp.id || `${tp.userId}-${idx}`} className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm flex items-center justify-between hover:shadow-md transition group cursor-pointer" onClick={() => setSelectedPlan(tp)}>
                     <div className="flex items-center gap-4">
                       <div className={`p-3 rounded-xl border ${tp.plan.metadata?.reviewStatus === 'Reviewed' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-amber-50 border-amber-100 text-amber-600'}`}>
                         {tp.plan.metadata?.reviewStatus === 'Reviewed' ? <CheckCircle className="w-6 h-6" /> : <Clock className="w-6 h-6" />}

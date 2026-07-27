@@ -333,8 +333,8 @@ export function LandingPage({ onLogin }: LandingPageProps) {
                   className="w-full px-4 py-3 bg-transparent border-b-2 border-gray-200 focus:border-green-600 transition-colors outline-none font-medium text-gray-900 rounded-none"
                 />
                 <datalist id="user-list">
-                  {users.map((u) => (
-                    <option key={u.id} value={u.email}>{u.fullName}</option>
+                  {users.map((u, idx) => (
+                    <option key={u.id || `${u.email}-${idx}`} value={u.email}>{u.fullName}</option>
                   ))}
                 </datalist>
               </div>

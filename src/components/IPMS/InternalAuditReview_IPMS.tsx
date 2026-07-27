@@ -297,8 +297,8 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-4">
-                {teamPlans.map(tp => (
-                  <div key={tp.userId} className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm flex items-center justify-between hover:shadow-md transition group cursor-pointer" onClick={() => setSelectedPlan(tp)}>
+                {teamPlans.map((tp, idx) => (
+                  <div key={tp.id || `${tp.userId}-${idx}`} className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm flex items-center justify-between hover:shadow-md transition group cursor-pointer" onClick={() => setSelectedPlan(tp)}>
                     <div className="flex items-center gap-4">
                       <div className={`p-3 rounded-xl border ${tp.plan.metadata?.internalAuditStatus === 'Audited' || tp.plan.metadata?.internalAuditStatus === 'Pushed to DPMC' ? 'bg-indigo-50 border-indigo-100 text-indigo-600' : 'bg-slate-50 border-slate-200 text-slate-400'}`}>
                         {tp.plan.metadata?.internalAuditStatus === 'Audited' || tp.plan.metadata?.internalAuditStatus === 'Pushed to DPMC' ? <CheckCircle className="w-6 h-6" /> : <FileSearch className="w-6 h-6" />}

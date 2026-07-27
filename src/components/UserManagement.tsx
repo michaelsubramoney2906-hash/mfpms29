@@ -1591,12 +1591,12 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate }: U
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 text-xs">
-                  {activeSessions.map((session: any) => {
+                  {activeSessions.map((session: any, idx: number) => {
                     const mappedTenant = municipalities.find(t => t.id === session.tenantId);
                     const tenantName = mappedTenant ? mappedTenant.name : 'Unknown Agency';
                     
                     return (
-                      <tr key={session.email} className="hover:bg-gray-50/50 transition-colors">
+                      <tr key={session.id || `${session.email}-${idx}`} className="hover:bg-gray-50/50 transition-colors">
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-full bg-green-600/10 text-green-700 flex items-center justify-center font-bold text-xs shadow-xs">

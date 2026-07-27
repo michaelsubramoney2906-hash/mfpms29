@@ -490,7 +490,7 @@ export function Chat({ currentUser, activeTenantId }: ChatProps) {
               No matching employees found.
             </div>
           ) : (
-            paginatedNkangala.map(u => {
+            paginatedNkangala.map((u, i) => {
               const uKey = (u.email || '').toLowerCase();
               const uProf = userProfiles[uKey] || {};
               const uAvatar = uProf.avatarUrl;
@@ -503,7 +503,7 @@ export function Chat({ currentUser, activeTenantId }: ChatProps) {
 
               return (
                 <div 
-                  key={u.id || u.email} 
+                  key={u.id ? `${u.id}-${i}` : u.email ? `${u.email}-${i}` : i} 
                   onClick={() => initiateDM(u)}
                   className={cn(
                     "flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-all duration-200 border text-left scale-100 active:scale-98",
@@ -817,7 +817,7 @@ export function Chat({ currentUser, activeTenantId }: ChatProps) {
               No matching partners found.
             </div>
           ) : (
-            filteredMf.map(u => {
+            filteredMf.map((u, i) => {
               const uKey = (u.email || '').toLowerCase();
               const uProf = userProfiles[uKey] || {};
               const uAvatar = uProf.avatarUrl;
@@ -830,7 +830,7 @@ export function Chat({ currentUser, activeTenantId }: ChatProps) {
 
               return (
                 <div 
-                  key={u.id || u.email} 
+                  key={u.id ? `${u.id}-${i}` : u.email ? `${u.email}-${i}` : i} 
                   onClick={() => initiateDM(u)}
                   className={cn(
                     "flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-all border text-left scale-100 active:scale-98 duration-200",

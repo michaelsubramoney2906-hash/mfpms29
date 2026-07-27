@@ -4030,9 +4030,9 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
                 </div>
               ) : (
                 <div className="grid gap-2">
-                  {adSearchResults.map((user) => (
+                  {adSearchResults.map((user, idx) => (
                     <div
-                      key={user.id || user.email}
+                      key={user.id ? `${user.id}-${idx}` : user.email ? `${user.email}-${idx}` : idx}
                       className="p-3 bg-white hover:bg-indigo-50/30 border border-slate-100 hover:border-indigo-100 rounded-xl transition flex items-center justify-between gap-4 shadow-sm"
                     >
                       <div className="min-w-0 flex-1 flex gap-2.5 items-start">

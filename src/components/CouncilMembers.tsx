@@ -321,7 +321,7 @@ export function CouncilMembers({ currentUser, activeTenantId }: CouncilMembersPr
                       <div className="divide-y divide-slate-100 border border-slate-100 rounded-xl overflow-hidden max-h-56 overflow-y-auto">
                         {userbaseResults.map((u, index) => (
                           <div 
-                            key={u.email || index}
+                            key={u.id || `${u.email}-${index}`}
                             onClick={() => setSelectedProfile(u)}
                             className="p-3 bg-white hover:bg-indigo-50/50 flex justify-between items-center transition cursor-pointer"
                           >

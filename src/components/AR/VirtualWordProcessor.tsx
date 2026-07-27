@@ -1027,12 +1027,12 @@ export function VirtualWordProcessor({ currentUser, activeTenantId }: { currentU
                                         {draftUsers.length === 0 ? (
                                             <span className="text-[9px] text-gray-600 italic">No editors now</span>
                                         ) : (
-                                            draftUsers.map(collab => {
+                                            draftUsers.map((collab, idx) => {
                                                 const slot = getSessionColor(collab.email);
                                                 const initials = collab.fullName ? collab.fullName.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() : collab.email.substring(0, 2).toUpperCase();
                                                 return (
                                                     <div 
-                                                        key={collab.email}
+                                                        key={`${collab.email}-${idx}`}
                                                         title={`${collab.fullName || collab.email} (Page ${collab.activePage})`}
                                                         className={`h-5 px-1.5 py-0.5 rounded border flex items-center gap-1 text-[8.5px] shadow-sm tracking-tight ${slot.bg} ${slot.border}`}
                                                     >
@@ -1438,12 +1438,12 @@ export function VirtualWordProcessor({ currentUser, activeTenantId }: { currentU
                   </button>
                   
                   <div className="flex flex-col items-center gap-2 flex-1 w-full overflow-y-auto no-scrollbar">
-                      {sessionsList.map(collab => {
+                      {sessionsList.map((collab, idx) => {
                           const slot = getSessionColor(collab.email);
                           const initials = collab.fullName ? collab.fullName.split(' ').map((n: string) => n[0]).join('').substring(0,2).toUpperCase() : collab.email.substring(0,2).toUpperCase();
                           return (
                               <div 
-                                  key={collab.email}
+                                  key={`${collab.email}-${idx}`}
                                   onClick={() => jumpToCollaborator(collab)}
                                   title={`${collab.fullName || collab.email} (Page ${collab.activePage} on ${collab.documentId})`}
                                   className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-[9px] uppercase font-bold shrink-0 cursor-pointer hover:scale-105 transition-transform ${slot.bg} ${slot.border}`}
@@ -1487,14 +1487,14 @@ export function VirtualWordProcessor({ currentUser, activeTenantId }: { currentU
 
                   {/* List area */}
                   <div className="flex-1 overflow-y-auto space-y-2 no-scrollbar pr-0.5">
-                      {sessionsList.map(collab => {
+                      {sessionsList.map((collab, idx) => {
                           const slot = getSessionColor(collab.email);
                           const isSelf = collab.email === localEmail;
                           const initials = collab.fullName ? collab.fullName.split(' ').map((n: string) => n[0]).join('').substring(0,2).toUpperCase() : collab.email.substring(0,2).toUpperCase();
 
                           return (
                               <div 
-                                  key={collab.email}
+                                  key={`${collab.email}-${idx}`}
                                   onClick={() => jumpToCollaborator(collab)}
                                   className="bg-[#111111] hover:bg-[#151515] border border-[#222] hover:border-emerald-500/40 p-2 rounded text-[10px] cursor-pointer transition-all flex flex-col gap-1.5 relative group"
                               >
