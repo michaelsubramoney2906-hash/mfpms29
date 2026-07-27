@@ -3,9 +3,12 @@ import {
   AlertTriangle, Briefcase, Shield, FileText, CheckCircle2, 
   Activity, Flame, Plus, Trash2, Edit, Save, BookOpen, 
   Sparkles, TrendingDown, Layers, Send, RefreshCw, ChevronRight, 
-  Check, Archive, ShieldAlert, Award, FileSpreadsheet, Eye
+  Check, Archive, ShieldAlert, Award, FileSpreadsheet, Eye, Lock, BarChart3
 } from 'lucide-react';
 import type { User } from '../types';
+import { RiskRegisterTab, RiskRegisterItem, PoeFile } from './RiskRegisterTab';
+import { ElectronicReportingTab } from './ElectronicReportingTab';
+import { PopiaComplianceTab, PopiaCondition, PopiaIncident, PopiaSystemAssessment } from './PopiaComplianceTab';
 
 interface RiskManagementProps {
   currentUser: User;
@@ -47,7 +50,7 @@ interface ActiveRiskDraft {
 }
 
 export function RiskManagement({ currentUser, activeTenantId }: RiskManagementProps) {
-  const [activeTab, setActiveTab ] = useState<'brief' | 'types' | 'templates' | 'suite'>('brief');
+  const [activeTab, setActiveTab ] = useState<'brief' | 'register' | 'types' | 'templates' | 'suite' | 'electronic_reporting' | 'popia_compliance'>('brief');
   const [isLoading, setIsLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error', msg: string } | null>(null);
 
@@ -55,6 +58,12 @@ export function RiskManagement({ currentUser, activeTenantId }: RiskManagementPr
   const [riskTypes, setRiskTypes] = useState<RiskType[]>([]);
   const [templates, setTemplates] = useState<RiskTemplate[]>([]);
   const [drafts, setDrafts] = useState<ActiveRiskDraft[]>([]);
+  const [riskRegister, setRiskRegister] = useState<RiskRegisterItem[]>([]);
+  const [poeFiles, setPoeFiles] = useState<Record<string, PoeFile[]>>({});
+  const [electronicCommentary, setElectronicCommentary] = useState<Record<string, string>>({});
+  const [popiaConditions, setPopiaConditions] = useState<PopiaCondition[]>([]);
+  const [popiaIncidents, setPopiaIncidents] = useState<PopiaIncident[]>([]);
+  const [popiaSystems, setPopiaSystems] = useState<PopiaSystemAssessment[]>([]);
 
   // Form State for creating custom risk types
   const [newType, setNewType] = useState({
@@ -202,6 +211,190 @@ export function RiskManagement({ currentUser, activeTenantId }: RiskManagementPr
     }
   ];
 
+  const defaultRiskRegister: RiskRegisterItem[] = [
+    {
+      id: 'RR-101',
+      title: 'Uncollected Municipal Utility Rates & Commercial Bad Debt Accumulation',
+      category: 'Financial Risks',
+      owner: 'Chief Financial Officer (CFO)',
+      inherentImpact: 5,
+      inherentLikelihood: 4,
+      keyControls: 'Automated smart prepaid water & electricity meter rollout; Weekly credit control disconnection execution; Indigent register validation.',
+      residualImpact: 3,
+      residualLikelihood: 2,
+      status: 'Medium',
+      sourceDocument: 'Municipal_Revenue_Collection_Strategy_2026.pdf',
+      dateUploaded: '2026-07-20'
+    },
+    {
+      id: 'RR-102',
+      title: 'Bulk Water Treatment Disruption & Chemical Supply Chain Contamination',
+      category: 'Operational Risks',
+      owner: 'Director: Technical Services',
+      inherentImpact: 5,
+      inherentLikelihood: 4,
+      keyControls: 'Continuous microbiological water purity monitoring; Generator backup at main pump stations; SLA emergency chemical supply buffer.',
+      residualImpact: 3,
+      residualLikelihood: 2,
+      status: 'Medium',
+      sourceDocument: 'Water_Infrastructure_Audit_2026.docx',
+      dateUploaded: '2026-07-22'
+    },
+    {
+      id: 'RR-103',
+      title: 'Non-Compliance with MFMA Section 62 Procurement Regulations on Bids > R200k',
+      category: 'Compliance & Legal Risks',
+      owner: 'Head of Supply Chain Management',
+      inherentImpact: 4,
+      inherentLikelihood: 4,
+      keyControls: 'Digital Bid Evaluation Committee peer-review; Automated conflict-of-interest checks on SARS CSD database; Internal Audit pre-audit signoff.',
+      residualImpact: 2,
+      residualLikelihood: 2,
+      status: 'Low',
+      sourceDocument: 'SCM_Compliance_Quarterly_Audit.pdf',
+      dateUploaded: '2026-07-25'
+    },
+    {
+      id: 'RR-104',
+      title: 'Unauthorized Ratepayer Personal Data Access & Cyber Security Infrastructure Breach',
+      category: 'POPIA & Cyber Risks',
+      owner: 'Chief Information Officer (CIO)',
+      inherentImpact: 5,
+      inherentLikelihood: 3,
+      keyControls: 'Role-based access controls on Mzansi Flow; Mandatory 2FA for municipal employees; Database field-level encryption; Bi-annual penetration testing.',
+      residualImpact: 2,
+      residualLikelihood: 2,
+      status: 'Low',
+      sourceDocument: 'POPIA_IT_Security_Framework_2026.xlsx',
+      dateUploaded: '2026-07-26'
+    }
+  ];
+
+  const defaultPoeFiles: Record<string, PoeFile[]> = {
+    'RR-101': [
+      {
+        id: 'poe-101-1',
+        fileName: 'Credit_Control_Policy_Council_Resolution_2026.pdf',
+        fileType: 'pdf',
+        fileSize: '2.4 MB',
+        uploadDate: '2026-07-21',
+        uploadedBy: 'Audrey Mpanza (CS Director)',
+        status: 'Verified',
+        notes: 'Approved by Council in Q1 Ordinary Meeting.'
+      }
+    ],
+    'RR-102': [
+      {
+        id: 'poe-102-1',
+        fileName: 'Water_Purity_Lab_Test_Results_SANS241.pdf',
+        fileType: 'pdf',
+        fileSize: '3.1 MB',
+        uploadDate: '2026-07-24',
+        uploadedBy: 'M&E Officer',
+        status: 'Verified',
+        notes: 'SANS 241 compliance verified by accredited lab.'
+      }
+    ]
+  };
+
+  const defaultPopiaConditions: PopiaCondition[] = [
+    {
+      id: 1,
+      name: 'Condition 1: Accountability',
+      description: 'Designating Municipal Manager as Information Officer and ensuring compliance with POPIA & MFMA Section 62.',
+      mfmaSection: 'MFMA Sec 62(1)(c)',
+      status: 'Compliant',
+      notes: 'Information Officer registered with South African Information Regulator. Deputy IOs appointed.'
+    },
+    {
+      id: 2,
+      name: 'Condition 2: Processing Limitation',
+      description: 'Processing personal ratepayer and employee data lawfully, minimally, and with statutory justification.',
+      mfmaSection: 'MFMA Sec 64 & POPIA Sec 9',
+      status: 'Compliant',
+      notes: 'Municipal utility collection & HR payroll data processed under statutory mandate.'
+    },
+    {
+      id: 3,
+      name: 'Condition 3: Purpose Specification',
+      description: 'Collecting ratepayer data for explicit municipal service delivery, rates billing, and governance purposes.',
+      mfmaSection: 'MFMA Sec 75 & POPIA Sec 13',
+      status: 'Compliant',
+      notes: 'Data collection notices clearly state utility billing, IDP public notice, and indigent support purposes.'
+    },
+    {
+      id: 4,
+      name: 'Condition 4: Further Processing Limitation',
+      description: 'Ensuring personal data is not processed further in a way incompatible with municipal purpose.',
+      mfmaSection: 'POPIA Sec 15',
+      status: 'Compliant',
+      notes: 'Strict ban on exporting or selling ratepayer or vendor database records to third parties.'
+    },
+    {
+      id: 5,
+      name: 'Condition 5: Information Quality',
+      description: 'Maintaining complete, accurate, updated ratepayer, property valuation, and staff registers.',
+      mfmaSection: 'MFMA Sec 64(2)(f)',
+      status: 'In Progress',
+      notes: 'Quarterly valuation roll & indigent register cleansing in progress with Deeds Office data.'
+    },
+    {
+      id: 6,
+      name: 'Condition 6: Openness',
+      description: 'Publishing POPIA PAIA Manual and privacy notifications across all municipal public portals.',
+      mfmaSection: 'PAIA Sec 14 & POPIA Sec 18',
+      status: 'Compliant',
+      notes: 'PAIA manual & ratepayer privacy terms updated on municipal web portal and Mzansi Flow app.'
+    },
+    {
+      id: 7,
+      name: 'Condition 7: Security Safeguards',
+      description: 'Implementing technical and organizational measures to prevent unauthorized data access or loss.',
+      mfmaSection: 'MFMA Sec 116(2) & POPIA Sec 19',
+      status: 'In Progress',
+      notes: 'Database encryption active. Employee security awareness training scheduled for Q2.'
+    },
+    {
+      id: 8,
+      name: 'Condition 8: Data Subject Participation',
+      description: 'Providing mechanisms for ratepayers and staff to view, update, or request deletion of personal records.',
+      mfmaSection: 'POPIA Sec 23 - 25',
+      status: 'Compliant',
+      notes: 'Electronic Data Subject Request (DSR) form implemented on Mzansi Flow Citizen Portal.'
+    }
+  ];
+
+  const defaultPopiaIncidents: PopiaIncident[] = [
+    {
+      id: 'INC-2026-01',
+      title: 'Spear Phishing Email Attempt on SCM Finance Portal Admin Account',
+      severity: 'Medium',
+      dateReported: '2026-07-14',
+      dataSubjectsAffected: '0 Records (Blocked by Mail Gateway)',
+      status: 'Resolved',
+      remedialAction: 'Enforced Hardware 2FA token requirement for all SCM Finance administrators.'
+    }
+  ];
+
+  const defaultPopiaSystems: PopiaSystemAssessment[] = [
+    {
+      id: 'SYS-1',
+      systemName: 'Mzansi Flow Ratepayer Utility & Billing Platform',
+      dataType: 'Ratepayer Names, ID Numbers, Property Valuations, Utility Accounts, Bank Details',
+      riskLevel: 'High',
+      safeguards: 'TLS 1.3 Encryption in Transit, AES-256 Storage, OAuth 2.0 Auth, Role-Based Access Control',
+      signoffStatus: 'Approved'
+    },
+    {
+      id: 'SYS-2',
+      systemName: 'VIP Municipal HR & Payroll System',
+      dataType: 'Employee ID Numbers, Bank Accounts, Salaries, Tax Records, Pension Data',
+      riskLevel: 'High',
+      safeguards: 'Air-gapped Network Segment, Encrypted Database Backups, Dual-Authorization for Payouts',
+      signoffStatus: 'Approved'
+    }
+  ];
+
   // Fetch Risk Management Context from Supabase
   const loadRiskManagement = async () => {
     setIsLoading(true);
@@ -212,16 +405,32 @@ export function RiskManagement({ currentUser, activeTenantId }: RiskManagementPr
         setRiskTypes(data.typesOfRisks && data.typesOfRisks.length > 0 ? data.typesOfRisks : defaultRiskTypes);
         setTemplates(data.templates && data.templates.length > 0 ? data.templates : defaultTemplates);
         setDrafts(data.drafts && data.drafts.length > 0 ? data.drafts : defaultDrafts);
+        setRiskRegister(data.riskRegister && data.riskRegister.length > 0 ? data.riskRegister : defaultRiskRegister);
+        setPoeFiles(data.poeFiles && Object.keys(data.poeFiles).length > 0 ? data.poeFiles : defaultPoeFiles);
+        setElectronicCommentary(data.electronicReports || { Q1: 'Quarter 1 Risk Review: SCM & Revenue controls operating effectively under MFMA directive.' });
+        setPopiaConditions(data.popiaData?.conditions && data.popiaData.conditions.length > 0 ? data.popiaData.conditions : defaultPopiaConditions);
+        setPopiaIncidents(data.popiaData?.incidents && data.popiaData.incidents.length > 0 ? data.popiaData.incidents : defaultPopiaIncidents);
+        setPopiaSystems(data.popiaData?.systems && data.popiaData.systems.length > 0 ? data.popiaData.systems : defaultPopiaSystems);
       } else {
         setRiskTypes(defaultRiskTypes);
         setTemplates(defaultTemplates);
         setDrafts(defaultDrafts);
+        setRiskRegister(defaultRiskRegister);
+        setPoeFiles(defaultPoeFiles);
+        setPopiaConditions(defaultPopiaConditions);
+        setPopiaIncidents(defaultPopiaIncidents);
+        setPopiaSystems(defaultPopiaSystems);
       }
     } catch (e) {
       console.error("Cold start loading error:", e);
       setRiskTypes(defaultRiskTypes);
       setTemplates(defaultTemplates);
       setDrafts(defaultDrafts);
+      setRiskRegister(defaultRiskRegister);
+      setPoeFiles(defaultPoeFiles);
+      setPopiaConditions(defaultPopiaConditions);
+      setPopiaIncidents(defaultPopiaIncidents);
+      setPopiaSystems(defaultPopiaSystems);
     } finally {
       setIsLoading(false);
     }
@@ -232,7 +441,15 @@ export function RiskManagement({ currentUser, activeTenantId }: RiskManagementPr
   }, [activeTenantId]);
 
   // Persist State directly back to Supabase
-  const persistContext = async (updatedTypes: RiskType[], updatedTemplates: RiskTemplate[], updatedDrafts: ActiveRiskDraft[]) => {
+  const persistContext = async (
+    updatedTypes = riskTypes,
+    updatedTemplates = templates,
+    updatedDrafts = drafts,
+    updatedRegister = riskRegister,
+    updatedPoe = poeFiles,
+    updatedCommentary = electronicCommentary,
+    updatedPopia = { conditions: popiaConditions, incidents: popiaIncidents, systems: popiaSystems }
+  ) => {
     setIsLoading(true);
     setSaveStatus(null);
     try {
@@ -242,7 +459,11 @@ export function RiskManagement({ currentUser, activeTenantId }: RiskManagementPr
         body: JSON.stringify({
           typesOfRisks: updatedTypes,
           templates: updatedTemplates,
-          drafts: updatedDrafts
+          drafts: updatedDrafts,
+          riskRegister: updatedRegister,
+          poeFiles: updatedPoe,
+          electronicReports: updatedCommentary,
+          popiaData: updatedPopia
         })
       });
 
@@ -251,6 +472,14 @@ export function RiskManagement({ currentUser, activeTenantId }: RiskManagementPr
         setRiskTypes(updatedTypes);
         setTemplates(updatedTemplates);
         setDrafts(updatedDrafts);
+        setRiskRegister(updatedRegister);
+        setPoeFiles(updatedPoe);
+        setElectronicCommentary(updatedCommentary);
+        if (updatedPopia) {
+          setPopiaConditions(updatedPopia.conditions);
+          setPopiaIncidents(updatedPopia.incidents);
+          setPopiaSystems(updatedPopia.systems);
+        }
       } else {
         const err = await res.json();
         setSaveStatus({ type: 'error', msg: err.error || 'Server rejected synchronization.' });
@@ -451,28 +680,43 @@ export function RiskManagement({ currentUser, activeTenantId }: RiskManagementPr
       )}
 
       {/* Tabs list bar */}
-      <div className="flex bg-slate-200/60 border-b border-slate-200 shrink-0 px-6 gap-2">
+      <div className="flex bg-slate-200/60 border-b border-slate-200 shrink-0 px-6 gap-2 overflow-x-auto">
         <button 
           onClick={() => { setActiveTab('brief'); setIsEditingDraft(null); }}
-          className={`px-4 py-3.5 font-extrabold text-xs uppercase tracking-widest flex items-center gap-2 border-b-2 transition-all ${activeTab === 'brief' ? 'border-red-650 text-slate-900 font-black bg-white rounded-t-xl mt-1.5' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+          className={`px-4 py-3.5 font-extrabold text-xs uppercase tracking-widest flex items-center gap-2 border-b-2 transition-all whitespace-nowrap ${activeTab === 'brief' ? 'border-red-650 text-slate-900 font-black bg-white rounded-t-xl mt-1.5' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
         >
           <BookOpen className="w-4 h-4 text-red-500" /> Administrative Brief
         </button>
+
+        <button 
+          onClick={() => { setActiveTab('register'); setIsEditingDraft(null); }}
+          className={`px-4 py-3.5 font-extrabold text-xs uppercase tracking-widest flex items-center gap-2 border-b-2 transition-all whitespace-nowrap ${activeTab === 'register' ? 'border-red-650 text-slate-900 font-black bg-white rounded-t-xl mt-1.5' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+        >
+          <Shield className="w-4 h-4 text-red-600" /> Risk Register
+          {riskRegister.length > 0 && (
+            <span className="px-1.5 py-0.5 bg-red-600 text-white font-mono rounded-full text-[9px] font-bold">
+              {riskRegister.length}
+            </span>
+          )}
+        </button>
+
         <button 
           onClick={() => { setActiveTab('types'); setIsEditingDraft(null); }}
-          className={`px-4 py-3.5 font-extrabold text-xs uppercase tracking-widest flex items-center gap-2 border-b-2 transition-all ${activeTab === 'types' ? 'border-red-650 text-slate-900 font-black bg-white rounded-t-xl mt-1.5' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+          className={`px-4 py-3.5 font-extrabold text-xs uppercase tracking-widest flex items-center gap-2 border-b-2 transition-all whitespace-nowrap ${activeTab === 'types' ? 'border-red-650 text-slate-900 font-black bg-white rounded-t-xl mt-1.5' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
         >
           <Layers className="w-4 h-4 text-orange-500" /> 1. Types of Risks
         </button>
+
         <button 
           onClick={() => { setActiveTab('templates'); setIsEditingDraft(null); }}
-          className={`px-4 py-3.5 font-extrabold text-xs uppercase tracking-widest flex items-center gap-2 border-b-2 transition-all ${activeTab === 'templates' ? 'border-red-650 text-slate-900 font-black bg-white rounded-t-xl mt-1.5' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+          className={`px-4 py-3.5 font-extrabold text-xs uppercase tracking-widest flex items-center gap-2 border-b-2 transition-all whitespace-nowrap ${activeTab === 'templates' ? 'border-red-650 text-slate-900 font-black bg-white rounded-t-xl mt-1.5' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
         >
           <FileSpreadsheet className="w-4 h-4 text-amber-500" /> 2. Risk Templates
         </button>
+
         <button 
           onClick={() => { setActiveTab('suite'); }}
-          className={`px-4 py-3.5 font-extrabold text-xs uppercase tracking-widest flex items-center gap-2 border-b-2 transition-all ${activeTab === 'suite' ? 'border-red-650 text-slate-900 font-black bg-white rounded-t-xl mt-1.5' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+          className={`px-4 py-3.5 font-extrabold text-xs uppercase tracking-widest flex items-center gap-2 border-b-2 transition-all whitespace-nowrap ${activeTab === 'suite' ? 'border-red-650 text-slate-900 font-black bg-white rounded-t-xl mt-1.5' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
         >
           <Activity className="w-4 h-4 text-emerald-500" /> 3. Risk Drafting Suite
           {drafts.length > 0 && (
@@ -480,6 +724,20 @@ export function RiskManagement({ currentUser, activeTenantId }: RiskManagementPr
               {drafts.length}
             </span>
           )}
+        </button>
+
+        <button 
+          onClick={() => { setActiveTab('electronic_reporting'); setIsEditingDraft(null); }}
+          className={`px-4 py-3.5 font-extrabold text-xs uppercase tracking-widest flex items-center gap-2 border-b-2 transition-all whitespace-nowrap ${activeTab === 'electronic_reporting' ? 'border-red-650 text-slate-900 font-black bg-white rounded-t-xl mt-1.5' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+        >
+          <BarChart3 className="w-4 h-4 text-blue-500" /> 4. Electronic Reporting
+        </button>
+
+        <button 
+          onClick={() => { setActiveTab('popia_compliance'); setIsEditingDraft(null); }}
+          className={`px-4 py-3.5 font-extrabold text-xs uppercase tracking-widest flex items-center gap-2 border-b-2 transition-all whitespace-nowrap ${activeTab === 'popia_compliance' ? 'border-red-650 text-slate-900 font-black bg-white rounded-t-xl mt-1.5' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+        >
+          <Lock className="w-4 h-4 text-indigo-500" /> 5. POPIA Compliance
         </button>
       </div>
 
@@ -1304,6 +1562,66 @@ export function RiskManagement({ currentUser, activeTenantId }: RiskManagementPr
                 </div>
               )}
             </div>
+          )}
+
+          {/* TAB: RISK REGISTER (Between Brief and Types of Risks) */}
+          {activeTab === 'register' && (
+            <RiskRegisterTab 
+              riskRegister={riskRegister}
+              poeFiles={poeFiles}
+              onUpdateRegister={(newRegister) => {
+                setRiskRegister(newRegister);
+                persistContext(riskTypes, templates, drafts, newRegister, poeFiles, electronicCommentary);
+              }}
+              onUpdatePoe={(newPoe) => {
+                setPoeFiles(newPoe);
+                persistContext(riskTypes, templates, drafts, riskRegister, newPoe, electronicCommentary);
+              }}
+              onPersist={() => persistContext(riskTypes, templates, drafts, riskRegister, poeFiles, electronicCommentary)}
+            />
+          )}
+
+          {/* TAB: ELECTRONIC REPORTING */}
+          {activeTab === 'electronic_reporting' && (
+            <ElectronicReportingTab 
+              riskRegister={riskRegister}
+              poeFiles={poeFiles}
+              commentary={electronicCommentary}
+              onSaveCommentary={(updated) => {
+                setElectronicCommentary(updated);
+                persistContext(riskTypes, templates, drafts, riskRegister, poeFiles, updated);
+              }}
+            />
+          )}
+
+          {/* TAB: POPIA COMPLIANCE */}
+          {activeTab === 'popia_compliance' && (
+            <PopiaComplianceTab 
+              conditions={popiaConditions}
+              incidents={popiaIncidents}
+              systems={popiaSystems}
+              onUpdateConditions={(updated) => {
+                setPopiaConditions(updated);
+                persistContext(
+                  riskTypes, templates, drafts, riskRegister, poeFiles, electronicCommentary,
+                  { conditions: updated, incidents: popiaIncidents, systems: popiaSystems }
+                );
+              }}
+              onUpdateIncidents={(updated) => {
+                setPopiaIncidents(updated);
+                persistContext(
+                  riskTypes, templates, drafts, riskRegister, poeFiles, electronicCommentary,
+                  { conditions: popiaConditions, incidents: updated, systems: popiaSystems }
+                );
+              }}
+              onUpdateSystems={(updated) => {
+                setPopiaSystems(updated);
+                persistContext(
+                  riskTypes, templates, drafts, riskRegister, poeFiles, electronicCommentary,
+                  { conditions: popiaConditions, incidents: popiaIncidents, systems: updated }
+                );
+              }}
+            />
           )}
         </div>
       </div>

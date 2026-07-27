@@ -5370,13 +5370,17 @@ Format your response exactly according to the following JSON schema:
           return res.json({
             typesOfRisks: parsed.typesOfRisks || [],
             templates: parsed.templates || [],
-            drafts: parsed.drafts || []
+            drafts: parsed.drafts || [],
+            riskRegister: parsed.riskRegister || [],
+            electronicReports: parsed.electronicReports || [],
+            popiaData: parsed.popiaData || null,
+            poeFiles: parsed.poeFiles || {}
           });
         } catch (parseErr) {
           console.error("Error parsing risk-management JSON:", parseErr);
         }
       }
-      return res.json({ typesOfRisks: [], templates: [], drafts: [] });
+      return res.json({ typesOfRisks: [], templates: [], drafts: [], riskRegister: [], electronicReports: [], popiaData: null, poeFiles: {} });
     } catch (err: any) {
       console.error("Risk Management load exception:", err);
       res.status(500).json({ error: err.message });
@@ -5386,7 +5390,7 @@ Format your response exactly according to the following JSON schema:
   // 21.c. Save Risk Management for a tenant
   app.post("/api/tenant/:tenantId/risk-management", async (req, res) => {
     const { tenantId } = req.params;
-    const { typesOfRisks, templates, drafts } = req.body;
+    const { typesOfRisks, templates, drafts, riskRegister, electronicReports, popiaData, poeFiles } = req.body;
     try {
       const supabase = getSupabase();
       const documentId = `risk_management_${tenantId}`;
@@ -5398,7 +5402,7 @@ Format your response exactly according to the following JSON schema:
           sender_id: 'risk_management_manager_tool',
           sender_email: 'risk_management@system.local',
           sender_name: 'Risk Management Manager',
-          content: JSON.stringify({ typesOfRisks, templates, drafts }),
+          content: JSON.stringify({ typesOfRisks, templates, drafts, riskRegister, electronicReports, popiaData, poeFiles }),
           message_type: 'risk_management_store',
           created_at: new Date().toISOString()
         });
