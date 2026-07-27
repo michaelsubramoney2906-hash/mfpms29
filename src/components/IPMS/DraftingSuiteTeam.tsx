@@ -1,0 +1,1195 @@
+import React, { useState, useEffect } from 'react';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
+import { Upload, Download, FileText, CheckCircle2, ChevronRight, Check, Save, Plus, Trash2, X, Printer, FileDown, FileSpreadsheet, Loader2 } from 'lucide-react';
+import type { User } from '../../types';
+import { NKANGALA_LOGO_BASE64 } from './nkangala_logo_base64';
+
+interface PADraftingSuiteTeamProps {
+  currentUser: User;
+  activeTenantId: string;
+  teamTitle: string; // e.g. "Corporate Services Team" or "PMS Team"
+  documentIdSuffix: string; // e.g. "corporate_services" or "pms_team"
+  defaultRows: string[][];
+  defaultHeaders?: string[];
+}
+
+const renderFormattedContent = (text: string) => {
+  if (!text) return null;
+  const lines = text.split('\n');
+  return (
+    <div className="space-y-1.5 print:space-y-1">
+      {lines.map((line, idx) => {
+        const trimmed = line.trim();
+        if (!trimmed) return <div key={idx} className="h-2 print:h-1" />;
+        
+        // Match numbers, subpoint lists (e.g. 1.1, a), •, -, etc.)
+        const isSubpoint = /^(?:\d+\.\d+|\d+\)|[a-zA-Z]\)|•|-|\*)/.test(trimmed);
+        
+        return (
+          <p 
+            key={idx} 
+            className={`text-justify tracking-normal leading-relaxed text-slate-800 text-[11px] print:text-[10px] ${
+              isSubpoint ? 'pl-4 font-medium text-slate-900 border-l border-emerald-500/20' : ''
+            }`}
+          >
+            {trimmed}
+          </p>
+        );
+      })}
+    </div>
+  );
+};
+
+export function DraftingSuiteTeam({ 
+  currentUser, 
+  activeTenantId, 
+  teamTitle, 
+  documentIdSuffix, 
+  defaultRows, 
+  defaultHeaders = ['No.', 'Full Name (Team Members)', 'Employee Number / Designation'] 
+}: PADraftingSuiteTeamProps) {
+  const [logoUrl, setLogoUrl] = useState<string>(NKANGALA_LOGO_BASE64);
+
+  // Fetch system customized logo and ensure it is shared across all user accounts
+  useEffect(() => {
+    const fetchSystemLogo = async () => {
+      if (!activeTenantId) return;
+      try {
+        let foundLogo = '';
+
+        const sharedLogoRes = await fetch(`/api/tenant/${activeTenantId}/logo?t=${Date.now()}`);
+        if (sharedLogoRes.ok) {
+          const sLogo = await sharedLogoRes.json();
+          if (sLogo && sLogo.logoUrl) {
+            foundLogo = sLogo.logoUrl;
+          }
+        }
+
+        if (!foundLogo) {
+          const coverRes = await fetch(`/api/tenant/${activeTenantId}/coverpages`);
+          if (coverRes.ok) {
+            const coverList = await coverRes.json();
+            for (const item of coverList) {
+              if (item.config && item.config.selectedLogo) {
+                const logo = item.config.selectedLogo;
+                if (typeof logo === 'string' && logo.length > 50 && (logo.startsWith('data:image') || logo.startsWith('http') || logo.startsWith('/api/'))) {
+                  foundLogo = logo;
+                  break;
+                }
+              }
+            }
+          }
+        }
+
+        if (!foundLogo) {
+          const imgRes = await fetch(`/api/tenant/${activeTenantId}/coverpages/images`);
+          if (imgRes.ok) {
+            const imgList = await imgRes.json();
+            if (Array.isArray(imgList) && imgList.length > 0) {
+              const logoImg = imgList.find((img: any) => img.name && img.name.toLowerCase().includes('logo')) || imgList[0];
+              if (logoImg && logoImg.url) {
+                foundLogo = logoImg.url;
+              }
+            }
+          }
+        }
+
+        if (foundLogo) {
+          setLogoUrl(foundLogo);
+          (window as any).__systemCustomLogo = foundLogo;
+        }
+      } catch (e) {
+        console.error("Failed to fetch system logo automatically:", e);
+      }
+    };
+    fetchSystemLogo();
+  }, [activeTenantId]);
+
+  const [coverPage, setCoverPage] = useState(`PERFORMANCE AGREEMENT\n\nENTERED INTO BY AND BETWEEN:\nThe Municipality herein represented by the Municipal Manager\n\n&\n\n${currentUser?.fullName || '[Employee Name]'}\n\n${teamTitle.toUpperCase()} TEAM\n\nFOR THE FINANCIAL YEAR: 2025/2026`);
+  const [purpose, setPurpose] = useState(`The purpose of this agreement is to specify performance expectations and standards for members of the ${teamTitle}, aligning operational deliverables with municipal strategic goals.`);
+  const [validity, setValidity] = useState('This agreement will be valid for the 2025/2026 financial year or until superseded by a revised team agreement.');
+  const [reporting, setReporting] = useState(`Members of the ${teamTitle} will report directly through their respective line managers to the Municipal Manager and Executive Leadership.`);
+  const [framework, setFramework] = useState('4.1 The Employee agrees to participate in the performance assessment and development system of the Municipality.\n\n4.2 The Employee participates in the performance assessment framework as follows:');
+  const [frameworkBelowKpa, setFrameworkBelowKpa] = useState('4.3 The Employee\'s assessment will further be based on the following Job Specific Competencies Matrix. Each competency has been weighted as indicated below:');
+  const [frameworkBelowJsc, setFrameworkBelowJsc] = useState('4.4 The personal development plan (PDP) will address any developmental needs identified during the competency assessment process.');
+  const [conditions, setConditions] = useState('Conditions of performance...');
+  const [kpaText, setKpaText] = useState('The list of tasks/ duties and responsibilities contained in this document is not necessarily exhaustive...');
+  const [assessmentText, setAssessmentText] = useState('The performance assessment of the Employee will be based on the following rating scale:\n\nrating scale tabled as follows:');
+  const [feedback, setFeedback] = useState('Feedback will be provided...');
+  const [timetable, setTimetable] = useState('Timetable for review...');
+  const [poorPerformance, setPoorPerformance] = useState('Management of poor performance outcomes...');
+  const [dispute, setDispute] = useState('Dispute resolution mechanism...');
+  const [amendment, setAmendment] = useState('Amendment of agreement...');
+  const [evaluation, setEvaluation] = useState('Evaluation criteria...');
+  const [signatures, setSignatures] = useState('');
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
+  const [isExportingWord, setIsExportingWord] = useState(false);
+  
+  const [userSignatures, setUserSignatures] = useState({
+    employee: '',
+    manager: '',
+    hod: '',
+    pmu: ''
+  });
+
+  const [annexureA, setAnnexureA] = useState(true);
+  const [annexureB, setAnnexureB] = useState(true);
+  const [annexureC, setAnnexureC] = useState('Disclosure of interest form...\n\nOther Interests:\nI hereby certify that the above information is complete and correct to the best of my knowledge.');
+
+  const [includeJSC, setIncludeJSC] = useState(true);
+
+  // Dynamic Table Headers & Rows state
+  const [headers, setHeaders] = useState<string[]>(defaultHeaders);
+  const [tableRows, setTableRows] = useState<string[][]>(defaultRows);
+
+  // Editable review term rows for Section 8 Timetable
+  const [reviewRows, setReviewRows] = useState<any[]>([
+    { term: '1st Quarter', desc: 'July - September', type: 'Informal', activities: 'Review', date: 'October', responsible: 'Manager' },
+    { term: '2nd Quarter', desc: 'October - December', type: 'Formal', activities: 'Review', date: 'January', responsible: 'Manager' },
+    { term: '3rd Quarter', desc: 'January - March', type: 'Informal', activities: 'Review', date: 'April', responsible: 'Manager' },
+    { term: '4th Quarter', desc: 'April - June', type: 'Formal', activities: 'Annual Assessment', date: 'August', responsible: 'Manager' }
+  ]);
+
+  // States for dynamic custom KPA table synced from KPA module
+  const [dynTableHeaders, setDynTableHeaders] = useState<string[]>(['KPA No', 'National KPA', 'Functional Area KPA', 'Weighting']);
+  const [dynTableRows, setDynTableRows] = useState<string[][]>([
+    ['1', 'Good Governance & Institutional Transformation', 'Clean Ward Committees & Public Participation', '25%'],
+    ['2', 'Municipal Financial viability and management', 'AG Unqualified Audit & mSCOA Integration', '35%'],
+    ['3', 'Basic Service Delivery', 'Infrastructure Operations & Core Grid Stability', '40%']
+  ]);
+
+  const [realPlanItems, setRealPlanItems] = useState<any[]>([]);
+  const [realPdpItems, setRealPdpItems] = useState<any[]>([]);
+  const [realJobCompetencies, setRealJobCompetencies] = useState<any[]>([]);
+  const [loadingRealData, setLoadingRealData] = useState(false);
+  const [tenantUsers, setTenantUsers] = useState<User[]>([]);
+
+  const fetchTenantUsers = async () => {
+    if (!activeTenantId) return;
+    try {
+      const res = await fetch(`/api/tenant/${activeTenantId}/users`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setTenantUsers(data);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch tenant users for signatures:", e);
+    }
+  };
+
+  useEffect(() => {
+    if (currentUser) {
+      setCoverPage(`PERFORMANCE AGREEMENT\n\nENTERED INTO BY AND BETWEEN:\nThe Municipality herein represented by the Municipal Manager\n\n&\n\n${currentUser.fullName || '[Employee Name]'}\n\n${teamTitle.toUpperCase()} TEAM\n\nFOR THE FINANCIAL YEAR: 2025/2026`);
+      setUserSignatures({
+        employee: currentUser.fullName || '',
+        manager: currentUser.manager || '',
+        hod: 'Mr. Jacob Chief Financial Officer',
+        pmu: 'Corporate Performance Unit'
+      });
+    }
+  }, [currentUser, teamTitle]);
+
+  const fetchAllAgreementSources = async () => {
+    if (!activeTenantId || !currentUser?.email) return;
+    setLoadingRealData(true);
+    try {
+      const planRes = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${currentUser.email}&t=${Date.now()}`);
+      if (planRes.ok) {
+        const planJson = await planRes.json();
+        if (planJson && Array.isArray(planJson.items)) {
+          setRealPlanItems(planJson.items);
+        }
+      }
+
+      const pdpRes = await fetch(`/api/tenant/${activeTenantId}/pdp?userId=${currentUser.email}&t=${Date.now()}`);
+      if (pdpRes.ok) {
+        const pdpJson = await pdpRes.json();
+        if (pdpJson && Array.isArray(pdpJson.items)) {
+          setRealPdpItems(pdpJson.items);
+        }
+      }
+
+      const jscRes = await fetch(`/api/tenant/${activeTenantId}/job-competencies?userId=${currentUser.email}&t=${Date.now()}`);
+      if (jscRes.ok) {
+        const jscJson = await jscRes.json();
+        if (jscJson && Array.isArray(jscJson.competencies)) {
+          setRealJobCompetencies(jscJson.competencies);
+        }
+      }
+
+      const kpaRes = await fetch(`/api/tenant/${activeTenantId}/kpas?userId=${currentUser?.email || 'default'}&t=${Date.now()}`);
+      if (kpaRes.ok) {
+        const kpaJson = await kpaRes.json();
+        if (kpaJson && kpaJson.customKpaTable) {
+          if (kpaJson.customKpaTable.headers) {
+            setDynTableHeaders(kpaJson.customKpaTable.headers);
+          }
+          if (kpaJson.customKpaTable.rows) {
+            setDynTableRows(kpaJson.customKpaTable.rows);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Failed to automatically retrieve agreement details:", err);
+    } finally {
+      setLoadingRealData(false);
+    }
+  };
+
+  const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [templateSaveStatus, setTemplateSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [availableTemplates, setAvailableTemplates] = useState<any[]>([]);
+
+  const fetchTemplatesList = async () => {
+    if (!activeTenantId) return;
+    try {
+      const res = await fetch(`/api/tenant/${activeTenantId}/pa-templates`);
+      if (res.ok) {
+        const data = await res.json();
+        setAvailableTemplates(data.templates || []);
+      }
+    } catch (e) {
+      console.error("Error fetching templates config:", e);
+    }
+  };
+
+  const getSafeUserSignatures = (val: any) => {
+    if (!val) {
+      return { employee: '', manager: '', hod: '', pmu: '' };
+    }
+    if (typeof val === 'string') {
+      return { employee: val, manager: '', hod: '', pmu: '' };
+    }
+    return {
+      employee: val.employee || '',
+      manager: val.manager || '',
+      hod: val.hod || '',
+      pmu: val.pmu || ''
+    };
+  };
+
+  const saveToProfile = async () => {
+    if (!activeTenantId) return;
+    setSaving(true);
+    setSaveStatus('idle');
+    try {
+      const stateObj = {
+        logoUrl,
+        coverPage,
+        headers,
+        tableRows,
+        purpose,
+        validity,
+        reporting,
+        framework,
+        frameworkBelowKpa,
+        frameworkBelowJsc,
+        conditions,
+        kpaText,
+        assessmentText,
+        feedback,
+        timetable,
+        poorPerformance,
+        dispute,
+        amendment,
+        evaluation,
+        signatures,
+        userSignatures,
+        annexureA,
+        annexureB,
+        annexureC,
+        includeJSC,
+        reviewRows
+      };
+
+      const docId = `draft_doc_${documentIdSuffix}_${activeTenantId}`;
+      const res = await fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=${currentUser?.email || 'default'}&documentId=${docId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          html: stateObj,
+          htmlDocumentId: docId
+        })
+      });
+
+      if (res.ok) {
+        setSaveStatus('success');
+        setTimeout(() => setSaveStatus('idle'), 3000);
+      } else {
+        throw new Error("Failed to save draft document");
+      }
+    } catch (err) {
+      console.error("Save Draft Error:", err);
+      setSaveStatus('error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const fetchSavedDraft = async () => {
+    if (!activeTenantId || !currentUser?.email) return;
+    try {
+      const docId = `draft_doc_${documentIdSuffix}_${activeTenantId}`;
+      const res = await fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=${currentUser.email}&documentId=${docId}&t=${Date.now()}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.html) {
+          let state: any = null;
+          if (typeof data.html === 'string') {
+            try {
+              state = JSON.parse(data.html);
+            } catch (e) {}
+          } else if (typeof data.html === 'object') {
+            state = data.html;
+          }
+          
+          if (state && typeof state === 'object') {
+            const systemLogo = (window as any).__systemCustomLogo;
+            if (systemLogo) {
+              setLogoUrl(systemLogo);
+            } else {
+              setLogoUrl(state.logoUrl || NKANGALA_LOGO_BASE64);
+            }
+            if (state.coverPage !== undefined) setCoverPage(state.coverPage);
+            if (Array.isArray(state.headers) && state.headers.length > 0) setHeaders(state.headers);
+            if (Array.isArray(state.tableRows) && state.tableRows.length > 0) setTableRows(state.tableRows);
+            if (state.purpose !== undefined) setPurpose(state.purpose);
+            if (state.validity !== undefined) setValidity(state.validity);
+            if (state.reporting !== undefined) setReporting(state.reporting);
+            if (state.framework !== undefined) setFramework(state.framework);
+            if (state.frameworkBelowKpa !== undefined) setFrameworkBelowKpa(state.frameworkBelowKpa);
+            if (state.frameworkBelowJsc !== undefined) setFrameworkBelowJsc(state.frameworkBelowJsc);
+            if (state.conditions !== undefined) setConditions(state.conditions);
+            if (state.kpaText !== undefined) setKpaText(state.kpaText);
+            if (state.assessmentText !== undefined) setAssessmentText(state.assessmentText);
+            if (state.feedback !== undefined) setFeedback(state.feedback);
+            if (state.timetable !== undefined) setTimetable(state.timetable);
+            if (state.poorPerformance !== undefined) setPoorPerformance(state.poorPerformance);
+            if (state.dispute !== undefined) setDispute(state.dispute);
+            if (state.amendment !== undefined) setAmendment(state.amendment);
+            if (state.evaluation !== undefined) setEvaluation(state.evaluation);
+            if (state.signatures !== undefined) setSignatures(state.signatures);
+            if (state.userSignatures !== undefined) setUserSignatures(getSafeUserSignatures(state.userSignatures));
+            if (state.annexureA !== undefined) setAnnexureA(state.annexureA);
+            if (state.annexureB !== undefined) setAnnexureB(state.annexureB);
+            if (state.annexureC !== undefined) setAnnexureC(state.annexureC);
+            if (state.includeJSC !== undefined) setIncludeJSC(state.includeJSC);
+            if (Array.isArray(state.reviewRows)) setReviewRows(state.reviewRows);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load saved draft document:", e);
+    }
+  };
+
+  const handleExportPDF = async () => {
+    setIsExportingPDF(true);
+    try {
+      const element = document.getElementById('pa-printable-area');
+      if (!element) {
+        alert('Error: Printable content container not found.');
+        return;
+      }
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff'
+      });
+
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      
+      const pageHeightPixels = (imgWidth * pdfHeight) / pdfWidth;
+      let remainingHeight = imgHeight;
+      let position = 0;
+      
+      const pageCanvas = document.createElement('canvas');
+      pageCanvas.width = imgWidth;
+      pageCanvas.height = Math.min(imgHeight, pageHeightPixels);
+      const ctx = pageCanvas.getContext('2d');
+      
+      let isFirstPage = true;
+      while (remainingHeight > 0) {
+        const chunkHeight = Math.min(remainingHeight, pageHeightPixels);
+        pageCanvas.height = chunkHeight;
+        
+        if (ctx) {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, imgWidth, chunkHeight);
+          ctx.drawImage(
+            canvas,
+            0, position,
+            imgWidth, chunkHeight,
+            0, 0,
+            imgWidth, chunkHeight
+          );
+        }
+        
+        const chunkImgData = pageCanvas.toDataURL('image/jpeg', 0.95);
+        
+        if (!isFirstPage) {
+          pdf.addPage();
+        }
+        
+        const pageRenderHeight = (chunkHeight * pdfWidth) / imgWidth;
+        pdf.addImage(chunkImgData, 'JPEG', 0, 0, pdfWidth, pageRenderHeight);
+        
+        remainingHeight -= chunkHeight;
+        position += chunkHeight;
+        isFirstPage = false;
+      }
+      
+      const pageCount = pdf.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        if (i === 1) continue;
+        pdf.setPage(i);
+        
+        pdf.setDrawColor(200, 205, 210);
+        pdf.setLineWidth(0.2);
+        pdf.line(10, pdfHeight - 15, pdfWidth - 10, pdfHeight - 15);
+        
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(8);
+        pdf.setTextColor(80, 90, 100);
+        pdf.text(`NKANGALA DISTRICT MUNICIPALITY - ${teamTitle.toUpperCase()} PA`, 10, pdfHeight - 10);
+        
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(8);
+        pdf.setTextColor(110, 110, 110);
+        pdf.text(`Page ${i} of ${pageCount}`, pdfWidth - 35, pdfHeight - 10);
+      }
+      
+      const cleanName = (currentUser?.fullName || 'Draft').replace(/[^a-zA-Z0-9]/g, '_');
+      pdf.save(`Performance_Agreement_${teamTitle.replace(/\s+/g, '_')}_${cleanName}.pdf`);
+    } catch (error) {
+      console.error('Failed to export PDF:', error);
+      alert('Failed to export PDF document.');
+    } finally {
+      setIsExportingPDF(false);
+    }
+  };
+
+  const handleExportWord = () => {
+    setIsExportingWord(true);
+    try {
+      const documentBodyObj = document.getElementById("pa-printable-area");
+      if (!documentBodyObj) {
+        alert("Error: Preview container not found. Please wait until the page has loaded completely.");
+        return;
+      }
+
+      const documentHtml = documentBodyObj.innerHTML;
+      const fullHtml = `<!DOCTYPE html>
+  <html>
+  <head>
+  <meta charset="utf-8">
+  <style>
+    @page Section1 {
+      size: 210mm 297mm; /* A4 Portrait */
+      margin: 1cm;
+    }
+    div.Section1 {
+      page: Section1;
+    }
+    body {
+      font-family: 'Arial', sans-serif;
+      color: #111827;
+      margin: 0;
+      padding: 20px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      margin-bottom: 20px;
+    }
+    th {
+      border: 1px solid #111827 !important;
+      background-color: #f3f4f6 !important;
+      font-weight: bold;
+      padding: 6px;
+      text-align: left;
+      font-size: 11px;
+      color: #000;
+    }
+    td {
+      border: 1px solid #111827 !important;
+      padding: 6px;
+      font-size: 11px;
+      vertical-align: top;
+      color: #000;
+    }
+    .text-justify {
+      text-align: justify;
+    }
+    .portrait-section {
+      page-break-after: always;
+    }
+    .font-bold {
+      font-weight: bold;
+    }
+  </style>
+  </head>
+  <body>
+    <div class="Section1">
+      ${documentHtml}
+    </div>
+  </body>
+  </html>`;
+
+      const blob = new Blob(['\ufeff' + fullHtml], { type: 'application/msword;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Performance_Agreement_${teamTitle.replace(/\s+/g, '_')}_${currentUser?.fullName?.replace(/\s+/g, '_') || 'Draft'}.doc`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to export Word:', error);
+      alert('Failed to export Word document.');
+    } finally {
+      setIsExportingWord(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAllAgreementSources();
+    fetchSavedDraft();
+    fetchTenantUsers();
+    fetchTemplatesList();
+  }, [activeTenantId, currentUser, documentIdSuffix]);
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const base64 = event.target?.result as string;
+        setLogoUrl(base64);
+        (window as any).__systemCustomLogo = base64;
+
+        try {
+          await fetch(`/api/tenant/${activeTenantId}/logo`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ logoUrl: base64 })
+          });
+        } catch (uploadErr) {
+          console.error("Instant shared tenant logo upload failed:", uploadErr);
+        }
+      };
+      reader.readAsDataURL(e.target.files[0]);
+    }
+  };
+
+  // Helper functions to manage dynamic columns & rows
+  const handleAddColumn = () => {
+    const newColName = prompt("Enter new column name:", `Column ${headers.length + 1}`);
+    if (!newColName) return;
+    setHeaders([...headers, newColName]);
+    setTableRows(tableRows.map(row => [...row, '']));
+  };
+
+  const handleDeleteColumn = (colIdx: number) => {
+    if (headers.length <= 1) {
+      alert("At least one column must remain in the team table.");
+      return;
+    }
+    if (!confirm(`Are you sure you want to delete column "${headers[colIdx]}"?`)) return;
+    setHeaders(headers.filter((_, idx) => idx !== colIdx));
+    setTableRows(tableRows.map(row => row.filter((_, idx) => idx !== colIdx)));
+  };
+
+  const handleHeaderChange = (colIdx: number, val: string) => {
+    const newHeaders = [...headers];
+    newHeaders[colIdx] = val;
+    setHeaders(newHeaders);
+  };
+
+  const handleCellChange = (rowIdx: number, colIdx: number, val: string) => {
+    const newRows = [...tableRows];
+    const row = [...(newRows[rowIdx] || [])];
+    row[colIdx] = val;
+    newRows[rowIdx] = row;
+    setTableRows(newRows);
+  };
+
+  const handleAddRow = () => {
+    const nextNo = (tableRows.length + 1).toString();
+    const newRow = headers.map((_, idx) => idx === 0 ? nextNo : '');
+    setTableRows([...tableRows, newRow]);
+  };
+
+  const handleDeleteRow = (rowIdx: number) => {
+    setTableRows(tableRows.filter((_, idx) => idx !== rowIdx));
+  };
+
+  const handleAutoNumber = () => {
+    setTableRows(tableRows.map((row, idx) => {
+      const updated = [...row];
+      updated[0] = (idx + 1).toString();
+      return updated;
+    }));
+  };
+
+  const kpaRows = [
+    { no: '1', kpa: 'Good Governance & Institutional Transformation', weight: '25' },
+    { no: '2', kpa: 'Financial Viability', weight: '10' },
+    { no: '3', kpa: 'Organisational Performance Management', weight: '30' },
+    { no: '4', kpa: 'Individual Performance Management', weight: '10' },
+    { no: '5', kpa: 'Performance Monitoring and Evaluation', weight: '25' }
+  ];
+
+  const bonusRows = [
+    { level: 5, description: 'Outstanding performance', score: '130 - 167', ratios: '10% - 14%' },
+    { level: 4, description: 'Performance significantly above expectations', score: '115 - 129', ratios: '5% - 9%' },
+    { level: 3, description: 'Fully effective', score: '100 - 114', ratios: '0%' },
+    { level: 2, description: 'Not fully effective', score: '50 - 99', ratios: '0%' },
+    { level: 1, description: 'Unacceptable performance', score: '0 - 49', ratios: '0%' }
+  ];
+
+  return (
+    <div className="flex h-full bg-slate-100 overflow-hidden text-xs">
+      {/* Sidebar Editor */}
+      <div className="w-1/3 min-w-[380px] max-w-[480px] bg-white border-r border-slate-200 flex flex-col h-full shadow-lg z-10">
+        <div className="p-4 border-b border-slate-200 bg-slate-900 text-white flex justify-between items-center shrink-0">
+          <div>
+            <h2 className="font-bold text-slate-100 flex items-center gap-2 text-sm">
+              <FileText className="w-4 h-4 text-emerald-400" />
+              {teamTitle} Drafting Suite
+            </h2>
+            <p className="text-[10px] text-slate-400 mt-0.5">Customize cover page, team roster, sections & signatures</p>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <button
+              onClick={saveToProfile}
+              disabled={saving}
+              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-md text-xs font-bold transition flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+              title="Save changes to database draft profile"
+            >
+              {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+              Save Draft
+            </button>
+          </div>
+        </div>
+
+        {saveStatus === 'success' && (
+          <div className="p-2 bg-emerald-50 border-b border-emerald-200 text-emerald-800 text-[11px] font-medium flex items-center gap-2 px-4 animate-in fade-in">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            {teamTitle} draft document saved securely to database!
+          </div>
+        )}
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-6">
+          {/* Logo Upload Section */}
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+            <label className="text-xs font-bold text-slate-700 uppercase flex items-center justify-between">
+              <span>Official Municipal Logo</span>
+              <span className="text-[10px] text-slate-400 font-normal">Shared Across App</span>
+            </label>
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 border border-slate-200 rounded-lg flex items-center justify-center p-1 bg-slate-50 shrink-0">
+                {logoUrl ? (
+                  <img src={logoUrl} alt="Municipality Logo" className="max-h-full max-w-full object-contain" />
+                ) : (
+                  <span className="text-[10px] text-slate-400">No logo</span>
+                )}
+              </div>
+              <div className="space-y-1.5 flex-1">
+                <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[11px] font-bold transition">
+                  <Upload className="w-3.5 h-3.5" />
+                  Change Logo
+                  <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                </label>
+                <p className="text-[10px] text-slate-400">Upload high-res PNG or JPG logo</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Cover Page Editor */}
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+            <label className="text-xs font-bold text-slate-700 uppercase">Cover Page Text</label>
+            <textarea
+              value={coverPage}
+              onChange={e => setCoverPage(e.target.value)}
+              rows={5}
+              className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none font-mono"
+            />
+          </div>
+
+          {/* TEAM MEMBERS TABLE EDITOR */}
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+              <label className="text-xs font-bold text-slate-800 uppercase flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                {teamTitle} Roster
+              </label>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleAutoNumber}
+                  className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] font-semibold transition"
+                  title="Auto-sequence numbers in column 1"
+                >
+                  Auto #
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAddColumn}
+                  className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded text-[10px] font-semibold transition flex items-center gap-1"
+                >
+                  <Plus className="w-3 h-3" />
+                  Add Col
+                </button>
+              </div>
+            </div>
+
+            {/* Column Headers Config */}
+            <div className="space-y-2 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                Table Column Headers
+              </label>
+              <div className="space-y-1.5">
+                {headers.map((h, colIdx) => (
+                  <div key={colIdx} className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-bold text-slate-400 w-5">C{colIdx + 1}</span>
+                    <input
+                      type="text"
+                      value={h}
+                      onChange={e => handleHeaderChange(colIdx, e.target.value)}
+                      className="flex-1 text-[11px] p-1.5 border border-slate-300 rounded bg-white font-semibold text-slate-800 outline-none focus:border-emerald-500"
+                    />
+                    {headers.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteColumn(colIdx)}
+                        className="p-1 text-slate-400 hover:text-red-600 rounded transition"
+                        title="Delete column"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Table Rows Config */}
+            <div className="space-y-3 max-h-96 overflow-y-auto pr-1 border border-slate-100 rounded p-2 bg-slate-50">
+              {tableRows.map((row, rIdx) => (
+                <div key={rIdx} className="border border-slate-200 p-2.5 rounded bg-white space-y-2 relative group hover:border-slate-300 transition">
+                  <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 border-b border-slate-100 pb-1">
+                    <span>Row {rIdx + 1}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteRow(rIdx)}
+                      className="text-slate-400 hover:text-red-600 p-0.5 rounded transition flex items-center gap-1 text-[10px]"
+                      title="Delete this team member row"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                      Remove
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2">
+                    {headers.map((h, colIdx) => (
+                      <div key={colIdx}>
+                        <label className="text-[9px] text-slate-400 block font-semibold truncate">{h}</label>
+                        <input
+                          type="text"
+                          value={row[colIdx] || ''}
+                          onChange={e => handleCellChange(rIdx, colIdx, e.target.value)}
+                          className="w-full text-[11px] p-1.5 border border-slate-300 rounded outline-none focus:border-emerald-500"
+                          placeholder={`Enter ${h}`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={handleAddRow}
+              className="w-full py-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 rounded-lg font-bold text-[11px] transition flex items-center justify-center gap-1.5"
+            >
+              <Plus className="w-4 h-4 text-emerald-600" />
+              Add {teamTitle} Member / Row
+            </button>
+          </div>
+
+          {/* Section Editors */}
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+            <label className="text-xs font-bold text-slate-700 uppercase">1. Purpose</label>
+            <textarea value={purpose} onChange={e => setPurpose(e.target.value)} rows={3} className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+          </div>
+
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+            <label className="text-xs font-bold text-slate-700 uppercase">2. Validity of Agreement</label>
+            <textarea value={validity} onChange={e => setValidity(e.target.value)} rows={3} className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+          </div>
+
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+            <label className="text-xs font-bold text-slate-700 uppercase">3. Reporting Requirements</label>
+            <textarea value={reporting} onChange={e => setReporting(e.target.value)} rows={3} className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+          </div>
+
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+            <label className="text-xs font-bold text-slate-700 uppercase">4. Performance Assessment Framework</label>
+            <textarea value={framework} onChange={e => setFramework(e.target.value)} rows={4} className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+          </div>
+
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+            <label className="text-xs font-bold text-slate-700 uppercase">5. Key Performance Areas (KPAs)</label>
+            <textarea value={kpaText} onChange={e => setKpaText(e.target.value)} rows={3} className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+          </div>
+
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+            <label className="text-xs font-bold text-slate-700 uppercase">6. Evaluating Performance</label>
+            <textarea value={assessmentText} onChange={e => setAssessmentText(e.target.value)} rows={3} className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+          </div>
+
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+            <label className="text-xs font-bold text-slate-700 uppercase">7. Feedback</label>
+            <textarea value={feedback} onChange={e => setFeedback(e.target.value)} rows={3} className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+          </div>
+
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+            <label className="text-xs font-bold text-slate-700 uppercase">8. Timetable for Review</label>
+            <textarea value={timetable} onChange={e => setTimetable(e.target.value)} rows={3} className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+          </div>
+
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+            <label className="text-xs font-bold text-slate-700 uppercase">9. Management of Poor Performance</label>
+            <textarea value={poorPerformance} onChange={e => setPoorPerformance(e.target.value)} rows={3} className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+          </div>
+
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+            <label className="text-xs font-bold text-slate-700 uppercase">10. Dispute Resolution</label>
+            <textarea value={dispute} onChange={e => setDispute(e.target.value)} rows={3} className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+          </div>
+
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+            <label className="text-xs font-bold text-slate-700 uppercase">11. General / Amendments</label>
+            <textarea value={amendment} onChange={e => setAmendment(e.target.value)} rows={3} className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+          </div>
+        </div>
+      </div>
+
+      {/* Main Printable Document Preview Panel */}
+      <div className="flex-1 flex flex-col h-full bg-slate-200 overflow-hidden">
+        {/* Document Action Toolbar */}
+        <div className="p-3 bg-white border-b border-slate-300 flex justify-between items-center shadow-sm shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-slate-800 text-xs px-2.5 py-1 bg-slate-100 rounded border border-slate-200">
+              {teamTitle} Performance Agreement Document
+            </span>
+            {loadingRealData && (
+              <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Syncing items...
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => window.print()}
+              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              Print
+            </button>
+            <button
+              onClick={handleExportWord}
+              disabled={isExportingWord}
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-bold transition flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+            >
+              {isExportingWord ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />}
+              Word (.doc)
+            </button>
+            <button
+              onClick={handleExportPDF}
+              disabled={isExportingPDF}
+              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-bold transition flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+            >
+              {isExportingPDF ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+              Export PDF
+            </button>
+          </div>
+        </div>
+
+        {/* Scrollable Document Body */}
+        <div className="flex-1 overflow-y-auto p-8 flex justify-center">
+          <div
+            id="pa-printable-area"
+            className="w-[210mm] min-h-[297mm] bg-white text-slate-900 p-12 shadow-2xl rounded-sm font-serif relative"
+            style={{ boxSizing: 'border-box' }}
+          >
+            {/* Logo Header */}
+            {logoUrl && (
+              <div className="flex justify-center mb-8">
+                <img src={logoUrl} alt="Logo" className="max-h-24 object-contain" />
+              </div>
+            )}
+
+            {/* Cover Page */}
+            <div className="portrait-section text-center font-bold whitespace-pre-wrap leading-relaxed border-b-2 border-black pb-12 mb-12">
+              {coverPage}
+            </div>
+
+            {/* Team Roster Table */}
+            <div className="portrait-section page-break-before pt-6 pb-6">
+              <h3 className="font-extrabold text-emerald-800 text-center block mb-4 text-sm uppercase tracking-wide font-sans">
+                <span className="border-b-2 border-emerald-800 pb-0.5 px-4 font-black">{teamTitle.toUpperCase()} MEMBERS</span>
+              </h3>
+              <table className="w-full border-collapse border border-black my-4 text-[11px] font-sans">
+                <thead>
+                  <tr className="bg-slate-100 border border-black">
+                    {headers.map((h, idx) => (
+                      <th key={idx} className="border border-black p-2 font-bold text-left">
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {tableRows.map((row, idx) => (
+                    <tr key={idx} className="border border-black">
+                      {headers.map((_, colIdx) => (
+                        <td key={colIdx} className={`border border-black p-2 ${colIdx === 0 ? 'font-bold bg-slate-50/80 w-[10%]' : 'font-medium'}`}>
+                          {row[colIdx] || ''}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="text-[10px] text-slate-500 italic mt-2 font-serif text-center">
+                * Operational roster and assignments for {teamTitle}. Certified performance goals are legally binding.
+              </div>
+            </div>
+
+            {/* Document Sections */}
+            <div className="space-y-8 text-[13px] leading-relaxed">
+              <div className="portrait-section page-break-before pt-6">
+                <h3 className="font-extrabold text-emerald-800 text-center block mb-4 text-sm uppercase tracking-wide font-sans">
+                  <span className="border-b-2 border-emerald-800 pb-0.5 px-4 font-black">1. Purpose</span>
+                </h3>
+                <div className="text-justify">{renderFormattedContent(purpose)}</div>
+              </div>
+
+              <div className="portrait-section page-break-before pt-6">
+                <h3 className="font-extrabold text-emerald-800 text-center block mb-4 text-sm uppercase tracking-wide font-sans">
+                  <span className="border-b-2 border-emerald-800 pb-0.5 px-4 font-black">2. Validity of Agreement</span>
+                </h3>
+                <div className="text-justify">{renderFormattedContent(validity)}</div>
+              </div>
+
+              <div className="portrait-section page-break-before pt-6">
+                <h3 className="font-extrabold text-emerald-800 text-center block mb-4 text-sm uppercase tracking-wide font-sans">
+                  <span className="border-b-2 border-emerald-800 pb-0.5 px-4 font-black">3. Reporting Requirements</span>
+                </h3>
+                <div className="text-justify">{renderFormattedContent(reporting)}</div>
+              </div>
+
+              <div className="portrait-section page-break-before pt-6">
+                <h3 className="font-extrabold text-emerald-800 text-center block mb-4 text-sm uppercase tracking-wide font-sans">
+                  <span className="border-b-2 border-emerald-800 pb-0.5 px-4 font-black">4. Performance Assessment Framework</span>
+                </h3>
+                <div className="text-justify mb-4">{renderFormattedContent(framework)}</div>
+
+                {/* KPA Dynamic Summary Table */}
+                <div className="my-4">
+                  <h4 className="font-bold text-xs text-slate-800 mb-2 font-sans">4.1 Key Performance Areas (KPAs) Matrix</h4>
+                  <table className="w-full border-collapse border border-black text-[11px] font-sans">
+                    <thead>
+                      <tr className="bg-slate-100 border border-black">
+                        {dynTableHeaders.map((h, i) => (
+                          <th key={i} className="border border-black p-2 font-bold text-left">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {dynTableRows.map((r, i) => (
+                        <tr key={i} className="border border-black">
+                          {r.map((c, j) => (
+                            <td key={j} className="border border-black p-2">{c}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="text-justify my-4">{renderFormattedContent(frameworkBelowKpa)}</div>
+
+                {/* Job Specific Competencies Matrix */}
+                {includeJSC && (
+                  <div className="my-4">
+                    <h4 className="font-bold text-xs text-slate-800 mb-2 font-sans">4.2 Job Specific Competencies Matrix</h4>
+                    <table className="w-full border-collapse border border-black text-[11px] font-sans">
+                      <thead>
+                        <tr className="bg-slate-100 border border-black">
+                          <th className="border border-black p-2 font-bold text-left w-[10%]">No.</th>
+                          <th className="border border-black p-2 font-bold text-left w-[60%]">Competency Name</th>
+                          <th className="border border-black p-2 font-bold text-left w-[30%]">Weighting</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {realJobCompetencies.length > 0 ? (
+                          realJobCompetencies.map((comp, idx) => (
+                            <tr key={idx} className="border border-black">
+                              <td className="border border-black p-2 font-bold">{idx + 1}</td>
+                              <td className="border border-black p-2 font-medium">{comp.name || comp.competency || 'Competency Item'}</td>
+                              <td className="border border-black p-2 font-semibold text-emerald-800">{comp.weight || comp.weighting || '10'}%</td>
+                            </tr>
+                          ))
+                        ) : (
+                          <>
+                            <tr className="border border-black">
+                              <td className="border border-black p-2 font-bold">1</td>
+                              <td className="border border-black p-2">Core Leadership & Governance Excellence</td>
+                              <td className="border border-black p-2 font-semibold text-emerald-800">20%</td>
+                            </tr>
+                            <tr className="border border-black">
+                              <td className="border border-black p-2 font-bold">2</td>
+                              <td className="border border-black p-2">Financial & Risk Management Compliance</td>
+                              <td className="border border-black p-2 font-semibold text-emerald-800">20%</td>
+                            </tr>
+                            <tr className="border border-black">
+                              <td className="border border-black p-2 font-bold">3</td>
+                              <td className="border border-black p-2">Service Delivery & Project Execution</td>
+                              <td className="border border-black p-2 font-semibold text-emerald-800">30%</td>
+                            </tr>
+                            <tr className="border border-black">
+                              <td className="border border-black p-2 font-bold">4</td>
+                              <td className="border border-black p-2">People & Team Management</td>
+                              <td className="border border-black p-2 font-semibold text-emerald-800">30%</td>
+                            </tr>
+                          </>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                <div className="text-justify">{renderFormattedContent(frameworkBelowJsc)}</div>
+              </div>
+
+              <div className="portrait-section page-break-before pt-6">
+                <h3 className="font-extrabold text-emerald-800 text-center block mb-4 text-sm uppercase tracking-wide font-sans">
+                  <span className="border-b-2 border-emerald-800 pb-0.5 px-4 font-black">5. Evaluating Performance</span>
+                </h3>
+                <div className="text-justify">{renderFormattedContent(assessmentText)}</div>
+              </div>
+
+              <div className="portrait-section page-break-before pt-6">
+                <h3 className="font-extrabold text-emerald-800 text-center block mb-4 text-sm uppercase tracking-wide font-sans">
+                  <span className="border-b-2 border-emerald-800 pb-0.5 px-4 font-black">6. Timetable for Review</span>
+                </h3>
+                <div className="text-justify mb-4">{renderFormattedContent(timetable)}</div>
+
+                <table className="w-full border-collapse border border-black my-4 text-[11px] font-sans">
+                  <thead>
+                    <tr className="bg-slate-100 border border-black">
+                      <th className="border border-black p-2 font-bold text-left">Term</th>
+                      <th className="border border-black p-2 font-bold text-left">Period</th>
+                      <th className="border border-black p-2 font-bold text-left">Type</th>
+                      <th className="border border-black p-2 font-bold text-left">Date</th>
+                      <th className="border border-black p-2 font-bold text-left">Responsible</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reviewRows.map((r, i) => (
+                      <tr key={i} className="border border-black">
+                        <td className="border border-black p-2 font-bold">{r.term}</td>
+                        <td className="border border-black p-2">{r.desc}</td>
+                        <td className="border border-black p-2 font-medium">{r.type}</td>
+                        <td className="border border-black p-2">{r.date}</td>
+                        <td className="border border-black p-2">{r.responsible}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="portrait-section page-break-before pt-6">
+                <h3 className="font-extrabold text-emerald-800 text-center block mb-4 text-sm uppercase tracking-wide font-sans">
+                  <span className="border-b-2 border-emerald-800 pb-0.5 px-4 font-black">7. Signatures & Affirmation</span>
+                </h3>
+                
+                <div className="grid grid-cols-2 gap-8 my-8 font-sans">
+                  <div className="border border-slate-300 p-4 rounded bg-slate-50 space-y-4">
+                    <p className="font-bold text-xs uppercase text-slate-700">Signed by Employee:</p>
+                    <div className="h-12 border-b border-black flex items-end font-serif italic text-sm text-slate-800">
+                      {userSignatures.employee}
+                    </div>
+                    <div className="flex justify-between text-[10px] text-slate-500">
+                      <span>Date: ________________</span>
+                      <span>Place: Nkangala</span>
+                    </div>
+                  </div>
+
+                  <div className="border border-slate-300 p-4 rounded bg-slate-50 space-y-4">
+                    <p className="font-bold text-xs uppercase text-slate-700">Signed on behalf of Municipality:</p>
+                    <div className="h-12 border-b border-black flex items-end font-serif italic text-sm text-slate-800">
+                      {userSignatures.manager}
+                    </div>
+                    <div className="flex justify-between text-[10px] text-slate-500">
+                      <span>Date: ________________</span>
+                      <span>Place: Nkangala</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Miniature Footer Table for Print/PDF */}
+            <div id="fixed-footer" className="hidden text-gray-500 w-full px-8">
+              <div className="flex justify-between w-full font-sans text-[8px] pb-1 border-b border-slate-200">
+                <div>Employee Initial: ________</div>
+                <div>Manager Initial: ________</div>
+                <div>MM Initial: ________</div>
+                <div>Page <span className="counter"></span></div>
+              </div>
+              
+              <div className="flex justify-between items-end w-full mt-1 font-sans">
+                <span className="text-[6.5px] italic font-semibold text-slate-500 uppercase tracking-wider">
+                  {teamTitle} Deployments
+                </span>
+                <div style={{ maxWidth: '420px', width: '100%' }}>
+                  <table className="mini-foot-table" style={{ tableLayout: 'fixed', width: '100%' }}>
+                    <tbody>
+                      {tableRows.map((row, idx) => (
+                        <tr key={idx} style={{ height: '7px' }}>
+                          {headers.map((_, colIdx) => (
+                            <td key={colIdx} style={{ border: '0.5px solid #94a3b8', padding: '0px 2px', fontSize: '5px', fontWeight: colIdx === 0 ? 'bold' : 'normal' }}>
+                              {row[colIdx]}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

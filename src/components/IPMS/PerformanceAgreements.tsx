@@ -11,8 +11,26 @@ import * as XLSX from 'xlsx';
 import { PADraftingSuite } from './PADraftingSuite';
 import { LeadFireFighterPADraftingSuite } from './LeadFireFighterPADraftingSuite';
 import { DraftingSuiteFirefighters } from './DraftingSuiteFirefighters';
+import { DraftingSuiteTeam } from './DraftingSuiteTeam';
 import { PATemplates } from './PATemplates';
 import { NKANGALA_LOGO_BASE64 } from './nkangala_logo_base64';
+
+const DEFAULT_CORPORATE_SERVICES_ROWS = [
+  ['1', 'Audrey Mpanza (Director: Corporate Services)', 'CS-0101'],
+  ['2', 'Mike Thompson (Senior HR & Governance Lead)', 'CS-0205'],
+  ['3', 'Fatima Patel (Legal & Administration Officer)', 'CS-0312'],
+  ['4', 'Sipho Dlamini (IT & Records Systems Administrator)', 'CS-0418'],
+  ['5', 'Zama Khumalo (Committee & Secretariat Specialist)', 'CS-0522'],
+  ['6', 'Thabo Mokoena (Auxiliary Services & Logistics Coordinator)', 'CS-0630']
+];
+
+const DEFAULT_PMS_TEAM_ROWS = [
+  ['1', 'Delphine Naidoo (PMS Manager / Performance Lead)', 'PM-0100'],
+  ['2', 'Qiniso Sithole (SDBIP & Reporting Specialist)', 'PM-0210'],
+  ['3', 'Marlan Botha (M&E Data Analyst)', 'PM-0320'],
+  ['4', 'Nomvula Khumalo (Institutional Performance Officer)', 'PM-0415'],
+  ['5', 'Brandon Pillay (Quality Assurance & Audit Liaison)', 'PM-0530']
+];
 
 const STRATEGIC_OBJECTIVES = [
   "To ensure reliable bulk water and electricity infrastructure",
@@ -132,7 +150,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [hasSavedOnce, setHasSavedOnce] = useState(false);
   const [showRestrictedFieldsOverride, setShowRestrictedFieldsOverride] = useState(true);
-  const [activeTab, setActiveTab] = useState<'brief' | 'templates' | 'drafting_suite' | 'lead_fire_fighter' | 'drafting_suite_firefighters'>('brief');
+  const [activeTab, setActiveTab] = useState<'brief' | 'templates' | 'drafting_suite' | 'lead_fire_fighter' | 'drafting_suite_firefighters' | 'drafting_suite_corporate_services' | 'drafting_suite_pms_team'>('brief');
   const [users, setUsers] = useState<any[]>([]);
 
   // Check if current user is a lead fire fighter
@@ -1668,6 +1686,18 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
           >
             Drafting Suite
           </button>
+          <button 
+            onClick={() => setActiveTab('drafting_suite_corporate_services')}
+            className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors ${activeTab === 'drafting_suite_corporate_services' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+          >
+            Corporate Services Team Drafting Suite
+          </button>
+          <button 
+            onClick={() => setActiveTab('drafting_suite_pms_team')}
+            className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors ${activeTab === 'drafting_suite_pms_team' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+          >
+            PMS Team Drafting Suite
+          </button>
           {isFirefighterTabVisible && (
             <button 
               onClick={() => setActiveTab('drafting_suite_firefighters')}
@@ -1688,6 +1718,22 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
 
         {activeTab === 'drafting_suite' ? (
           <PADraftingSuite currentUser={currentUser as any} activeTenantId={activeTenantId} />
+        ) : activeTab === 'drafting_suite_corporate_services' ? (
+          <DraftingSuiteTeam 
+            currentUser={currentUser as any} 
+            activeTenantId={activeTenantId} 
+            teamTitle="Corporate Services Team"
+            documentIdSuffix="corporate_services"
+            defaultRows={DEFAULT_CORPORATE_SERVICES_ROWS}
+          />
+        ) : activeTab === 'drafting_suite_pms_team' ? (
+          <DraftingSuiteTeam 
+            currentUser={currentUser as any} 
+            activeTenantId={activeTenantId} 
+            teamTitle="PMS Team"
+            documentIdSuffix="pms_team"
+            defaultRows={DEFAULT_PMS_TEAM_ROWS}
+          />
         ) : activeTab === 'drafting_suite_firefighters' && isFirefighterTabVisible ? (
           <DraftingSuiteFirefighters currentUser={currentUser as any} activeTenantId={activeTenantId} />
         ) : activeTab === 'lead_fire_fighter' ? (
