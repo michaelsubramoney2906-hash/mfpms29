@@ -18,13 +18,26 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [selectedKpi, setSelectedKpi] = useState<SdbipRow | null>(null);
-  const [statusFilter, setStatusFilter] = useState('Reviewed'); // default to Reviewed first!
+  const [statusFilter, setStatusFilter] = useState('ALL'); // default to ALL to show all pending items immediately!
   const [searchQuery, setSearchQuery] = useState('');
   const [approverNotes, setApproverNotes] = useState('');
   const [showCertificate, setShowCertificate] = useState(false);
 
   useEffect(() => {
-    fetchSDBIPData();
+    fetchSDBIPData(false);
+    const interval = setInterval(() => {
+      fetchSDBIPData(true);
+    }, 4000);
+
+    const handleFocus = () => {
+      fetchSDBIPData(true);
+    };
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [activeTenantId]);
 
   useEffect(() => {
@@ -35,19 +48,24 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
     }
   }, [selectedKpi]);
 
-  const fetchSDBIPData = async () => {
-    setLoading(true);
-    setError(null);
+  const fetchSDBIPData = async (isBackground = false) => {
+    if (!isBackground) setLoading(true);
+    if (!isBackground) setError(null);
     try {
       const response = await fetch(`/api/tenant/${activeTenantId}/sdbip`);
       if (!response.ok) throw new Error('Failed to retrieve SDBIP scorecard data');
       const data = await response.json();
-      setRows(data.items || []);
+      const freshItems = data.items || [];
+      setRows(freshItems);
+      setSelectedKpi(prev => {
+        if (!prev) return null;
+        return freshItems.find((x: SdbipRow) => x.id === prev.id) || prev;
+      });
     } catch (err: any) {
       console.error(err);
-      setError(err.message || 'An error occurred while communicating with Supabase.');
+      if (!isBackground) setError(err.message || 'An error occurred while communicating with Supabase.');
     } finally {
-      setLoading(false);
+      if (!isBackground) setLoading(false);
     }
   };
 
@@ -65,11 +83,19 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
             notes: approverNotes || 'Officially signed off & sealed by executive leadership.'
           };
 
+          const workflows = r.workflows || {};
+          ['q1', 'q2', 'midTerm', 'q3', 'q4', 'annual'].forEach(ph => {
+            if (workflows[ph]) {
+              workflows[ph] = { ...workflows[ph], status: 'approved', approvedBy: currentUser.email };
+            }
+          });
+
           return {
             ...r,
             workflowStatus: 'Approved',
             approvedBy: currentUser.email,
             approverNotes: approverNotes,
+            workflows,
             workflowHistory: [...currentHistory, newHistoryItem]
           } as SdbipRow;
         }
@@ -86,6 +112,58 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
       
       setRows(updatedRows);
       setSuccess('SDBIP Item officially APPROVED and LOCKED in compliance archives!');
+      setTimeout(() => setSuccess(null), 4000);
+      setSelectedKpi(null);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePushToAudit = async () => {
+    if (!selectedKpi) return;
+    setLoading(true);
+    try {
+      const updatedRows = rows.map(r => {
+        if (r.id === selectedKpi.id) {
+          const currentHistory = (r as any).workflowHistory || [];
+          const newHistoryItem = {
+            date: new Date().toISOString(),
+            action: 'Pushed to Internal Audit',
+            user: currentUser.email,
+            notes: approverNotes || 'Pushed to Internal Audit desk by Executive Approver.'
+          };
+
+          const workflows = r.workflows || {};
+          ['q1', 'q2', 'midTerm', 'q3', 'q4', 'annual'].forEach(ph => {
+            if (workflows[ph]) {
+              workflows[ph] = { ...workflows[ph], status: 'pending_audit', approvedBy: currentUser.email };
+            }
+          });
+
+          return {
+            ...r,
+            workflowStatus: 'Pending Audit',
+            approvedBy: currentUser.email,
+            approverNotes: approverNotes,
+            workflows,
+            workflowHistory: [...currentHistory, newHistoryItem]
+          } as SdbipRow;
+        }
+        return r;
+      });
+
+      const response = await fetch(`/api/tenant/${activeTenantId}/sdbip`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: updatedRows })
+      });
+
+      if (!response.ok) throw new Error('Failed to push item to Internal Audit');
+      
+      setRows(updatedRows);
+      setSuccess('SDBIP Item pushed to Internal Audit desk successfully!');
       setTimeout(() => setSuccess(null), 4000);
       setSelectedKpi(null);
     } catch (err: any) {
@@ -114,11 +192,19 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
             notes: approverNotes
           };
 
+          const workflows = r.workflows || {};
+          ['q1', 'q2', 'midTerm', 'q3', 'q4', 'annual'].forEach(ph => {
+            if (workflows[ph]) {
+              workflows[ph] = { ...workflows[ph], status: 'draft' };
+            }
+          });
+
           return {
             ...r,
             workflowStatus: 'Returned', // return back to submitter with feedback
             reviewerNotes: `Executive Rejection Directive: ${approverNotes}`,
             approverNotes: approverNotes,
+            workflows,
             workflowHistory: [...currentHistory, newHistoryItem]
           } as SdbipRow;
         }
@@ -148,12 +234,19 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
     const rowStatus = (r as any).workflowStatus || 'Draft';
     let matchesStatus = true;
     if (statusFilter !== 'ALL') {
-      matchesStatus = rowStatus === statusFilter;
+      if (statusFilter === 'Reviewed' || statusFilter === 'Submitted') {
+        matchesStatus = rowStatus === 'Reviewed' || rowStatus === 'Submitted' || rowStatus === 'Pending Approval' ||
+          r.workflows?.q1?.status === 'pending_approval' || r.workflows?.q2?.status === 'pending_approval' ||
+          r.workflows?.q3?.status === 'pending_approval' || r.workflows?.q4?.status === 'pending_approval' ||
+          r.workflows?.q1?.status === 'pending_review' || r.workflows?.q2?.status === 'pending_review';
+      } else {
+        matchesStatus = rowStatus === statusFilter;
+      }
     }
 
     const matchesSearch = searchQuery === '' || 
-      r.refNum.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      r.kpi.toLowerCase().includes(searchQuery.toLowerCase());
+      (r.refNum && r.refNum.toLowerCase().includes(searchQuery.toLowerCase())) || 
+      (r.kpi && r.kpi.toLowerCase().includes(searchQuery.toLowerCase()));
     
     return matchesStatus && matchesSearch;
   });
@@ -214,7 +307,7 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
               Compliance Certificate
             </button>
             <button 
-              onClick={fetchSDBIPData}
+              onClick={() => fetchSDBIPData(false)}
               disabled={loading}
               className="bg-slate-850 hover:bg-slate-850 text-slate-200 border border-slate-800 rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
             >
@@ -406,21 +499,29 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
 
             {/* Action buttons */}
             {((selectedKpi as any).workflowStatus !== 'Approved') ? (
-              <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-850">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 pt-3 border-t border-slate-850">
                 <button
                   onClick={handleRejectToReviewer}
                   disabled={loading}
-                  className="w-full bg-rose-950/40 hover:bg-rose-900/30 text-rose-300 border border-rose-800/30 rounded-xl py-3.5 font-bold text-xs uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1"
+                  className="w-full bg-rose-950/40 hover:bg-rose-900/30 text-rose-300 border border-rose-800/30 rounded-xl py-3 font-bold text-[11px] uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-3.5 h-3.5" />
                   Decline & Return
+                </button>
+                <button
+                  onClick={handlePushToAudit}
+                  disabled={loading}
+                  className="w-full bg-amber-950/40 hover:bg-amber-900/30 text-amber-300 border border-amber-800/30 rounded-xl py-3 font-bold text-[11px] uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1"
+                >
+                  <ShieldAlert className="w-3.5 h-3.5" />
+                  Push to Audit
                 </button>
                 <button
                   onClick={handleGrantApproval}
                   disabled={loading}
-                  className="w-full bg-gradient-to-r from-emerald-600 to-teal-650 hover:from-emerald-500 hover:to-teal-600 text-white rounded-xl py-3.5 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-lg disabled:opacity-50"
+                  className="w-full bg-gradient-to-r from-emerald-600 to-teal-650 hover:from-emerald-500 hover:to-teal-600 text-white rounded-xl py-3 font-bold text-[11px] uppercase tracking-wider transition-all flex items-center justify-center gap-1 cursor-pointer shadow-lg disabled:opacity-50"
                 >
-                  <CheckCircle className="w-4 h-4" />
+                  <CheckCircle className="w-3.5 h-3.5" />
                   Grant Sign-off
                 </button>
               </div>

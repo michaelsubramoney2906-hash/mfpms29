@@ -78,11 +78,29 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
     ? [{ id: 'global', name: 'Global Administrator Space' }, ...tenants]
     : tenants;
 
+  const resolvedUserTenant = (user.tenantId === 'nkangala_auto' || (!user.tenantId && user.email?.toLowerCase().includes('nkangala')) || user.email?.toLowerCase().includes('shabangu'))
+    ? 'tenant-229'
+    : (user.tenantId || tenants[0].id);
+
   const [activeTenantId, setActiveTenantId] = useState<string>(
-    user.role === 'admin' ? 'global' : (user.tenantId || tenants[0].id)
+    user.role === 'admin' ? 'global' : resolvedUserTenant
   );
 
-  const currentTenant = availableTenants.find(t => t.id === activeTenantId) || availableTenants[0];
+  const currentTenant = availableTenants.find(t => 
+    t.id === activeTenantId || 
+    (activeTenantId === 'nkangala_auto' && t.id === 'tenant-229') ||
+    (t.id === 'tenant-229' && (activeTenantId === 'tenant-229' || activeTenantId === 'nkangala_auto')) ||
+    (t.name.toLowerCase().includes('nkangala') && (user.email?.toLowerCase().includes('nkangala') || activeTenantId === 'tenant-229' || activeTenantId === 'nkangala_auto'))
+  ) || availableTenants[0];
+
+  useEffect(() => {
+    if (user && user.role !== 'admin') {
+      const targetTenant = (user.tenantId === 'nkangala_auto' || user.email?.toLowerCase().includes('nkangala') || user.email?.toLowerCase().includes('shabangu'))
+        ? 'tenant-229'
+        : (user.tenantId || tenants[0].id);
+      setActiveTenantId(targetTenant);
+    }
+  }, [user]);
 
   useEffect(() => {
     const fetchProgress = async () => {

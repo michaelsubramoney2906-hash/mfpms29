@@ -19,12 +19,25 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
   const [success, setSuccess] = useState<string | null>(null);
   const [selectedKpi, setSelectedKpi] = useState<SdbipRow | null>(null);
   const [kpaFilter, setKpaFilter] = useState('ALL');
-  const [statusFilter, setStatusFilter] = useState('Submitted'); // default to show submitted first!
+  const [statusFilter, setStatusFilter] = useState('ALL'); // default to ALL to show all pending items immediately!
   const [searchQuery, setSearchQuery] = useState('');
   const [reviewerNotes, setReviewerNotes] = useState('');
 
   useEffect(() => {
-    fetchSDBIPData();
+    fetchSDBIPData(false);
+    const interval = setInterval(() => {
+      fetchSDBIPData(true);
+    }, 4000);
+
+    const handleFocus = () => {
+      fetchSDBIPData(true);
+    };
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [activeTenantId]);
 
   useEffect(() => {
@@ -35,19 +48,24 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
     }
   }, [selectedKpi]);
 
-  const fetchSDBIPData = async () => {
-    setLoading(true);
-    setError(null);
+  const fetchSDBIPData = async (isBackground = false) => {
+    if (!isBackground) setLoading(true);
+    if (!isBackground) setError(null);
     try {
       const response = await fetch(`/api/tenant/${activeTenantId}/sdbip`);
       if (!response.ok) throw new Error('Failed to retrieve SDBIP scorecard data');
       const data = await response.json();
-      setRows(data.items || []);
+      const freshItems = data.items || [];
+      setRows(freshItems);
+      setSelectedKpi(prev => {
+        if (!prev) return null;
+        return freshItems.find((x: SdbipRow) => x.id === prev.id) || prev;
+      });
     } catch (err: any) {
       console.error(err);
-      setError(err.message || 'An error occurred while communicating with Supabase.');
+      if (!isBackground) setError(err.message || 'An error occurred while communicating with Supabase.');
     } finally {
-      setLoading(false);
+      if (!isBackground) setLoading(false);
     }
   };
 
@@ -65,11 +83,20 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
             notes: reviewerNotes || 'Recommended by Performance Review unit.'
           };
 
+          const workflows = r.workflows || {};
+          // Update all active phases or q1
+          ['q1', 'q2', 'midTerm', 'q3', 'q4', 'annual'].forEach(ph => {
+            if (workflows[ph]) {
+              workflows[ph] = { ...workflows[ph], status: 'pending_approval', reviewedBy: currentUser.email };
+            }
+          });
+
           return {
             ...r,
             workflowStatus: 'Reviewed',
             reviewedBy: currentUser.email,
             reviewerNotes: reviewerNotes,
+            workflows,
             workflowHistory: [...currentHistory, newHistoryItem]
           } as SdbipRow;
         }
@@ -86,6 +113,58 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
       
       setRows(updatedRows);
       setSuccess('SDBIP Item recommended for Executive Sign-off successfully!');
+      setTimeout(() => setSuccess(null), 4000);
+      setSelectedKpi(null);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePushToAudit = async () => {
+    if (!selectedKpi) return;
+    setLoading(true);
+    try {
+      const updatedRows = rows.map(r => {
+        if (r.id === selectedKpi.id) {
+          const currentHistory = (r as any).workflowHistory || [];
+          const newHistoryItem = {
+            date: new Date().toISOString(),
+            action: 'Pushed to Internal Audit',
+            user: currentUser.email,
+            notes: reviewerNotes || 'Pushed to Internal Audit desk for compliance verification.'
+          };
+
+          const workflows = r.workflows || {};
+          ['q1', 'q2', 'midTerm', 'q3', 'q4', 'annual'].forEach(ph => {
+            if (workflows[ph]) {
+              workflows[ph] = { ...workflows[ph], status: 'pending_audit', reviewedBy: currentUser.email };
+            }
+          });
+
+          return {
+            ...r,
+            workflowStatus: 'Pending Audit',
+            reviewedBy: currentUser.email,
+            reviewerNotes: reviewerNotes,
+            workflows,
+            workflowHistory: [...currentHistory, newHistoryItem]
+          } as SdbipRow;
+        }
+        return r;
+      });
+
+      const response = await fetch(`/api/tenant/${activeTenantId}/sdbip`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: updatedRows })
+      });
+
+      if (!response.ok) throw new Error('Failed to push item to Internal Audit');
+      
+      setRows(updatedRows);
+      setSuccess('SDBIP Item successfully pushed to Internal Audit desk!');
       setTimeout(() => setSuccess(null), 4000);
       setSelectedKpi(null);
     } catch (err: any) {
@@ -114,10 +193,18 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
             notes: reviewerNotes
           };
 
+          const workflows = r.workflows || {};
+          ['q1', 'q2', 'midTerm', 'q3', 'q4', 'annual'].forEach(ph => {
+            if (workflows[ph]) {
+              workflows[ph] = { ...workflows[ph], status: 'draft' };
+            }
+          });
+
           return {
             ...r,
             workflowStatus: 'Returned',
             reviewerNotes: reviewerNotes,
+            workflows,
             workflowHistory: [...currentHistory, newHistoryItem]
           } as SdbipRow;
         }
@@ -152,12 +239,19 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
     const rowStatus = (r as any).workflowStatus || 'Draft';
     let matchesStatus = true;
     if (statusFilter !== 'ALL') {
-      matchesStatus = rowStatus === statusFilter;
+      if (statusFilter === 'Submitted') {
+        matchesStatus = rowStatus === 'Submitted' || rowStatus === 'Reviewed' || rowStatus === 'Pending Review' ||
+          r.workflows?.q1?.status === 'pending_review' || r.workflows?.q2?.status === 'pending_review' ||
+          r.workflows?.q3?.status === 'pending_review' || r.workflows?.q4?.status === 'pending_review' ||
+          r.workflows?.q1?.status === 'pending_approval' || r.workflows?.q2?.status === 'pending_approval';
+      } else {
+        matchesStatus = rowStatus === statusFilter;
+      }
     }
 
     const matchesSearch = searchQuery === '' || 
-      r.refNum.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      r.kpi.toLowerCase().includes(searchQuery.toLowerCase());
+      (r.refNum && r.refNum.toLowerCase().includes(searchQuery.toLowerCase())) || 
+      (r.kpi && r.kpi.toLowerCase().includes(searchQuery.toLowerCase()));
     
     return matchesKpa && matchesStatus && matchesSearch;
   });
@@ -210,7 +304,7 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
             </p>
           </div>
           <button 
-            onClick={fetchSDBIPData}
+            onClick={() => fetchSDBIPData(false)}
             disabled={loading}
             className="bg-violet-600/30 hover:bg-violet-600/50 text-violet-200 border border-violet-500/30 rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
           >
@@ -458,22 +552,30 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
 
             {/* Reviewer Action Buttons */}
             {((selectedKpi as any).workflowStatus !== 'Approved') ? (
-              <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-850">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 pt-3 border-t border-slate-850">
                 <button
                   onClick={handleReturnToSubmitter}
                   disabled={loading}
-                  className="w-full bg-rose-950/40 hover:bg-rose-900/30 text-rose-300 border border-rose-800/30 rounded-xl py-3.5 font-bold text-xs uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1"
+                  className="w-full bg-rose-950/40 hover:bg-rose-900/30 text-rose-300 border border-rose-800/30 rounded-xl py-3 font-bold text-[11px] uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1"
                 >
-                  <X className="w-4 h-4" />
-                  Return for Correction
+                  <X className="w-3.5 h-3.5" />
+                  Return
+                </button>
+                <button
+                  onClick={handlePushToAudit}
+                  disabled={loading}
+                  className="w-full bg-amber-950/40 hover:bg-amber-900/30 text-amber-300 border border-amber-800/30 rounded-xl py-3 font-bold text-[11px] uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1"
+                >
+                  <ShieldAlert className="w-3.5 h-3.5" />
+                  Push to Audit
                 </button>
                 <button
                   onClick={handleRecommendApproval}
                   disabled={loading}
-                  className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-xl py-3.5 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-lg disabled:opacity-50"
+                  className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-xl py-3 font-bold text-[11px] uppercase tracking-wider transition-all flex items-center justify-center gap-1 cursor-pointer shadow-lg disabled:opacity-50"
                 >
-                  <Check className="w-4 h-4" />
-                  Recommend Approval
+                  <Check className="w-3.5 h-3.5" />
+                  Recommend
                 </button>
               </div>
             ) : (

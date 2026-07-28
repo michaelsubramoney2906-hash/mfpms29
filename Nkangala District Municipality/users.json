@@ -504,6 +504,20 @@
     "level": "1"
   },
   {
+    "id": "user-delphine-mzansiflow-auto",
+    "fullName": "Delphine",
+    "email": "delphine@mzansiflow.co.za",
+    "jobFunction": "Department Manager",
+    "department": "Strategic Planning",
+    "source": "manual",
+    "role": "Global Administrator",
+    "tenantId": "nkangala_auto",
+    "manager": "",
+    "directorate": "",
+    "reportTo": "",
+    "level": "1"
+  },
+  {
     "id": "user-marlan-mzansiflow-auto",
     "fullName": "Marlan",
     "email": "marlan@mzansiflow.co.za",
@@ -526,20 +540,6 @@
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "tenant-229",
-    "manager": "",
-    "directorate": "",
-    "reportTo": "",
-    "level": "1"
-  },
-  {
-    "id": "user-delphine-mzansiflow-auto",
-    "fullName": "Delphine",
-    "email": "delphine@mzansiflow.co.za",
-    "jobFunction": "Department Manager",
-    "department": "Strategic Planning",
-    "source": "manual",
-    "role": "Systems Administrator",
-    "tenantId": "nkangala_auto",
     "manager": "",
     "directorate": "",
     "reportTo": "",
@@ -2330,7 +2330,7 @@
     "jobFunction": "PMS Officer",
     "department": "Performance Management Unit",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
     "manager": "Yena Khuboni",
     "directorate": "Office of the Municipal Manager",
@@ -4396,6 +4396,20 @@
     "level": "1"
   },
   {
+    "id": "f60af742-7b20-4eae-93ff-6ae7877fce6a",
+    "fullName": "Noluthando Zulu",
+    "email": "zulune@nkangaladm.gov.za",
+    "jobFunction": "PMS Officer",
+    "department": "Performance Management Unit",
+    "source": "azure_ad",
+    "role": "tenant_user",
+    "tenantId": "nkangala_auto",
+    "manager": "Yena Khuboni",
+    "directorate": "Office of the Municipal Manager",
+    "reportTo": "Yena Khuboni",
+    "level": "4"
+  },
+  {
     "id": "aa73f82c-92ae-4402-9764-29c1f5650062",
     "fullName": "vcenter",
     "email": "",
@@ -4758,20 +4772,6 @@
     "directorate": "",
     "reportTo": "",
     "level": "1"
-  },
-  {
-    "id": "f60af742-7b20-4eae-93ff-6ae7877fce6a",
-    "fullName": "Noluthando Zulu",
-    "email": "zulune@nkangaladm.gov.za",
-    "jobFunction": "PMS Officer",
-    "department": "Performance Management Unit",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "Yena Khuboni",
-    "directorate": "Office of the Municipal Manager",
-    "reportTo": "Yena Khuboni",
-    "level": "4"
   },
   {
     "id": "1f083a2f-bb50-4ad1-a2f1-17086b5195b7",

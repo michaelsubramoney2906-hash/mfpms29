@@ -192,7 +192,14 @@ export default function App() {
       if (!originalAdminStr && user) {
         sessionStorage.setItem('originalAdminUser', JSON.stringify(user));
       }
-      handleSetUser(targetUser);
+      let resolvedTenantId = targetUser.tenantId;
+      if (resolvedTenantId === 'nkangala_auto' || targetUser.email?.toLowerCase().includes('nkangala')) {
+        resolvedTenantId = 'tenant-229';
+      }
+      handleSetUser({
+        ...targetUser,
+        tenantId: resolvedTenantId
+      });
     } else {
       // Restore original admin
       const originalAdminStr = sessionStorage.getItem('originalAdminUser');

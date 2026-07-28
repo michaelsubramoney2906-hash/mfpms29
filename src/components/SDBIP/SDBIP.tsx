@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Layers, Info, CheckCircle, Upload, Download, ArrowRight, Shield, AlertTriangle, HelpCircle, Check, CheckSquare, FileText, Plus, Trash2, Database, FolderArchive, AlertCircle, Sparkles, Send, Inbox, Bell, Eye, Lock, RefreshCw, XCircle, Clock, Maximize2, Minimize2 } from 'lucide-react';
+import { Layers, Info, CheckCircle, Upload, Download, ArrowRight, Shield, ShieldCheck, AlertTriangle, HelpCircle, Check, CheckSquare, FileText, Plus, Trash2, Database, FolderArchive, AlertCircle, Sparkles, Send, Inbox, Bell, Eye, Lock, RefreshCw, XCircle, Clock, Maximize2, Minimize2 } from 'lucide-react';
 import type { User } from '../../types';
 import { SDBIPDraftingSuite } from './SDBIPDraftingSuite';
 import { WordProcessor } from './WordProcessor';
@@ -12,7 +12,7 @@ interface SDBIPProps {
 }
 
 export interface SdbipWorkflow {
-  status: 'draft' | 'pending_review' | 'pending_approval' | 'approved' | 'completed';
+  status: 'draft' | 'pending_review' | 'pending_approval' | 'approved' | 'completed' | 'pending_audit';
   submittedBy?: string;
   submittedAt?: string;
   reviewedBy?: string;
@@ -463,9 +463,9 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     poeStatus: 'Not Uploaded'
   });
 
-  // Fetch SDBIP rows, POEs, Notifications, and Appointed Officials from Supabase on load
-  useEffect(() => {
-    setLoading(true);
+  // Fetch SDBIP rows, POEs, Notifications, and Appointed Officials from Supabase on load & periodically
+  const fetchSDBIPAll = (isBackground = false) => {
+    if (!isBackground) setLoading(true);
     Promise.all([
       fetch(`/api/tenant/${activeTenantId}/sdbip`),
       fetch(`/api/tenant/${activeTenantId}/sdbip-poes`),
@@ -478,10 +478,10 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
         const notifData = await notifRes.json();
         const officialsData = await officialsRes.json();
         
-        // If no rows are loaded, generate 25 default blank template rows across
+        // If no rows are loaded, generate 25 default blank template rows
         if (rowsData && Array.isArray(rowsData.items) && rowsData.items.length > 0) {
           setRows(rowsData.items);
-        } else {
+        } else if (!isBackground) {
           const templates: SdbipRow[] = Array.from({ length: 25 }, (_, idx) => ({
             id: `row-template-${idx + 1}`,
             refNum: `REF-0${idx + 1}`,
@@ -525,14 +525,10 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
 
         if (poesData && Array.isArray(poesData.poes)) {
           setPoes(poesData.poes);
-        } else {
-          setPoes([]);
         }
 
         if (notifData && Array.isArray(notifData.notifications)) {
           setNotifications(notifData.notifications);
-        } else {
-          setNotifications([]);
         }
 
         if (officialsData) {
@@ -545,7 +541,26 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
         }
       })
       .catch(err => console.error("Error loading SDBIP data:", err))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!isBackground) setLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    fetchSDBIPAll(false);
+    const interval = setInterval(() => {
+      fetchSDBIPAll(true);
+    }, 4000);
+
+    const handleFocus = () => {
+      fetchSDBIPAll(true);
+    };
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [activeTenantId]);
 
   const saveNotifications = async (updatedNotifs: any[]) => {
@@ -676,9 +691,11 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     }
   };
 
-  const updateWorkflowState = async (rowId: string, phase: string, status: 'draft' | 'pending_review' | 'pending_approval' | 'approved' | 'completed', updates: Partial<SdbipWorkflow>, notifMessage?: string, notifTarget?: string | string[]) => {
+  const updateWorkflowState = async (rowId: string, phase: string, status: 'draft' | 'pending_review' | 'pending_approval' | 'approved' | 'completed' | 'pending_audit', updates: Partial<SdbipWorkflow>, notifMessage?: string, notifTarget?: string | string[]) => {
     let targetRowRefNum = '';
     let targetRowKpi = '';
+    const currentUserDisplayName = currentUser.fullName || currentUser.email;
+
     const updatedRows = rows.map(r => {
       if (r.id === rowId) {
         targetRowRefNum = r.refNum;
@@ -690,7 +707,39 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
           status,
           ...updates
         };
-        return { ...r, workflows };
+
+        // Determine top-level workflowStatus
+        let workflowStatus = (r as any).workflowStatus || 'Draft';
+        if (status === 'pending_approval') {
+          workflowStatus = 'Submitted';
+        } else if (status === 'pending_review') {
+          workflowStatus = 'Reviewed';
+        } else if (status === 'pending_audit') {
+          workflowStatus = 'Pending Audit';
+        } else if (status === 'approved' || status === 'completed') {
+          workflowStatus = 'Approved';
+        } else if (status === 'draft') {
+          workflowStatus = 'Returned';
+        }
+
+        const currentHistory = (r as any).workflowHistory || [];
+        const newHistoryItem = {
+          date: new Date().toISOString(),
+          action: `Pushed (${phase.toUpperCase()}): ${status.replace('_', ' ').toUpperCase()}`,
+          user: currentUserDisplayName,
+          notes: notifMessage || `Workflow updated for phase ${phase}.`
+        };
+
+        return { 
+          ...r, 
+          workflows,
+          workflowStatus,
+          submittedBy: status === 'pending_approval' ? currentUserDisplayName : ((r as any).submittedBy || currentUserDisplayName),
+          reviewedBy: status === 'pending_review' ? currentUserDisplayName : (r as any).reviewedBy,
+          approvedBy: status === 'approved' ? currentUserDisplayName : (r as any).approvedBy,
+          auditedBy: (status === 'completed' || status === 'pending_audit') ? currentUserDisplayName : (r as any).auditedBy,
+          workflowHistory: [...currentHistory, newHistoryItem]
+        };
       }
       return r;
     });
@@ -1197,6 +1246,11 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
             <Clock className="w-2.5 h-2.5" /> Pend. Rev.
           </span>
         )}
+        {status === 'pending_audit' && (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-rose-50 text-rose-700 border-rose-200 shadow-xs">
+            <ShieldCheck className="w-2.5 h-2.5" /> Pend. Audit
+          </span>
+        )}
         {status === 'draft' && (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-slate-100 text-slate-600 border-slate-200 shadow-xs">
             <FileText className="w-2.5 h-2.5" /> Draft
@@ -1206,23 +1260,42 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
         {/* Interactive Transition Buttons */}
         <div className="flex flex-col gap-1 w-full max-w-[130px] mt-1">
           {status === 'draft' && (
-            <button
-              onClick={() => {
-                const approverName = row.approver || 'Approver';
-                updateWorkflowState(
-                  row.id, 
-                  phase, 
-                  'pending_approval', 
-                  { submittedBy: submitterName, submittedAt: new Date().toLocaleDateString() },
-                  `KPI ${row.refNum} (${phaseLabel}) submitted to you for executive approval.`,
-                  approverName
-                );
-              }}
-              className="px-2 py-1 bg-amber-600 hover:bg-amber-700 text-[10px] text-white font-bold rounded flex items-center justify-center gap-1 transition shadow-sm cursor-pointer"
-              title="Submit this KPI to the Executive Approver"
-            >
-              <Send className="w-2.5 h-2.5" /> Push to Approver
-            </button>
+            <div className="flex flex-col gap-1 w-full">
+              <button
+                onClick={() => {
+                  const approverName = row.approver || 'Approver';
+                  updateWorkflowState(
+                    row.id, 
+                    phase, 
+                    'pending_approval', 
+                    { submittedBy: submitterName, submittedAt: new Date().toLocaleDateString() },
+                    `KPI ${row.refNum} (${phaseLabel}) submitted to you for executive approval.`,
+                    approverName
+                  );
+                }}
+                className="px-2 py-1 bg-amber-600 hover:bg-amber-700 text-[10px] text-white font-bold rounded flex items-center justify-center gap-1 transition shadow-sm cursor-pointer"
+                title="Submit this KPI to the Executive Approver"
+              >
+                <Send className="w-2.5 h-2.5" /> Push to Approver
+              </button>
+              <button
+                onClick={() => {
+                  const auditorName = row.internalAudit || 'Internal Auditor';
+                  updateWorkflowState(
+                    row.id, 
+                    phase, 
+                    'pending_audit', 
+                    { submittedBy: submitterName, submittedAt: new Date().toLocaleDateString() },
+                    `KPI ${row.refNum} (${phaseLabel}) submitted to Internal Audit verification.`,
+                    auditorName
+                  );
+                }}
+                className="px-2 py-0.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[9px] font-medium rounded flex items-center justify-center gap-1 transition cursor-pointer"
+                title="Push directly to Internal Audit Desk"
+              >
+                <ShieldCheck className="w-2.5 h-2.5" /> Push to Audit
+              </button>
+            </div>
           )}
 
           {status === 'pending_approval' && (
@@ -1247,6 +1320,23 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
               </button>
               <button
                 onClick={() => {
+                  const auditorName = row.internalAudit || 'Internal Auditor';
+                  updateWorkflowState(
+                    row.id,
+                    phase,
+                    'pending_audit',
+                    { approvedBy: submitterName, comments: 'Pushed to Internal Audit.' },
+                    `KPI ${row.refNum} (${phaseLabel}) pushed to Internal Audit desk.`,
+                    auditorName
+                  );
+                }}
+                className="px-2 py-0.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[9px] font-medium rounded flex items-center justify-center gap-1 transition cursor-pointer"
+                title="Push to Internal Audit"
+              >
+                <ShieldCheck className="w-2.5 h-2.5" /> Push to Audit
+              </button>
+              <button
+                onClick={() => {
                   updateWorkflowState(
                     row.id,
                     phase,
@@ -1256,7 +1346,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                     row.submitter || 'Submitter'
                   );
                 }}
-                className="px-2 py-0.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[9px] font-medium rounded flex items-center justify-center gap-1 transition cursor-pointer"
+                className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-[9px] font-medium rounded flex items-center justify-center gap-1 transition cursor-pointer"
                 title="Send back to Submitter"
               >
                 <XCircle className="w-2.5 h-2.5" /> Send Back
@@ -1320,11 +1410,11 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     // Filter rows for each role based on simulation mode or logged-in user
     const mySubmissions = rows;
     
-    const myPendingReviews = rows.filter(r => (r.workflows?.[workflowPhase]?.status === 'pending_review'));
+    const myPendingReviews = rows.filter(r => (r.workflows?.[workflowPhase]?.status === 'pending_review' || (r as any).workflowStatus === 'Reviewed'));
 
-    const myPendingApprovals = rows.filter(r => (r.workflows?.[workflowPhase]?.status === 'pending_approval'));
+    const myPendingApprovals = rows.filter(r => (r.workflows?.[workflowPhase]?.status === 'pending_approval' || (r as any).workflowStatus === 'Submitted'));
 
-    const myPendingAudits = rows;
+    const myPendingAudits = rows.filter(r => (r.workflows?.[workflowPhase]?.status === 'pending_audit' || (r as any).workflowStatus === 'Pending Audit'));
 
     const activeWorkflowPhaseLabel = 
       workflowPhase === 'midTerm' ? 'Mid-Term' :

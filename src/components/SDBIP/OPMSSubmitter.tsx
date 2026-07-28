@@ -42,7 +42,20 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
   const [submitterNotes, setSubmitterNotes] = useState('');
 
   useEffect(() => {
-    fetchSDBIPData();
+    fetchSDBIPData(false);
+    const interval = setInterval(() => {
+      fetchSDBIPData(true);
+    }, 4000);
+
+    const handleFocus = () => {
+      fetchSDBIPData(true);
+    };
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [activeTenantId]);
 
   useEffect(() => {
@@ -87,19 +100,24 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
     setSubmitterNotes('');
   };
 
-  const fetchSDBIPData = async () => {
-    setLoading(true);
-    setError(null);
+  const fetchSDBIPData = async (isBackground = false) => {
+    if (!isBackground) setLoading(true);
+    if (!isBackground) setError(null);
     try {
       const response = await fetch(`/api/tenant/${activeTenantId}/sdbip`);
       if (!response.ok) throw new Error('Failed to retrieve SDBIP scorecard data');
       const data = await response.json();
-      setRows(data.items || []);
+      const freshItems = data.items || [];
+      setRows(freshItems);
+      setSelectedKpi(prev => {
+        if (!prev) return null;
+        return freshItems.find((x: SdbipRow) => x.id === prev.id) || prev;
+      });
     } catch (err: any) {
       console.error(err);
-      setError(err.message || 'An error occurred while communicating with Supabase.');
+      if (!isBackground) setError(err.message || 'An error occurred while communicating with Supabase.');
     } finally {
-      setLoading(false);
+      if (!isBackground) setLoading(false);
     }
   };
 
@@ -109,6 +127,15 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
     try {
       const updatedRows = rows.map(r => {
         if (r.id === selectedKpi.id) {
+          const workflows = r.workflows || {};
+          ['q1', 'q2', 'q3', 'q4'].forEach(q => {
+            workflows[q] = {
+              ...(workflows[q]),
+              status: 'draft',
+              submittedBy: currentUser.email,
+              submittedAt: new Date().toLocaleDateString()
+            };
+          });
           return {
             ...r,
             q1Actual, q1Variance, q1Corrective,
@@ -117,7 +144,8 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
             q4Actual, q4Variance, q4Corrective,
             poeDesc,
             workflowStatus: (r as any).workflowStatus || 'Draft',
-            submitterNotes: submitterNotes
+            submitterNotes: submitterNotes,
+            workflows
           } as SdbipRow;
         }
         return r;
@@ -156,6 +184,16 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
             notes: submitterNotes || 'Submitted through OPMS Submitter dashboard.'
           };
 
+          const workflows = r.workflows || {};
+          ['q1', 'q2', 'q3', 'q4'].forEach(q => {
+            workflows[q] = {
+              ...(workflows[q]),
+              status: 'pending_approval',
+              submittedBy: currentUser.email,
+              submittedAt: new Date().toLocaleDateString()
+            };
+          });
+
           return {
             ...r,
             q1Actual, q1Variance, q1Corrective,
@@ -166,6 +204,7 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
             workflowStatus: 'Submitted',
             submittedBy: currentUser.email,
             submitterNotes: submitterNotes,
+            workflows,
             workflowHistory: [...currentHistory, newHistoryItem]
           } as SdbipRow;
         }
@@ -252,7 +291,7 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
             </p>
           </div>
           <button 
-            onClick={fetchSDBIPData}
+            onClick={() => fetchSDBIPData(false)}
             disabled={loading}
             className="bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/30 rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
           >

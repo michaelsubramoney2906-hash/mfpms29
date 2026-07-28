@@ -326,17 +326,16 @@ export function AzureADPicker({ value, onChange, roleType, placeholder, activeTe
                     </div>
                   )}
                   {otherContacts.slice(0, searchQuery ? 200 : 80).map(contact => {
-                    const isSelected = !isPoolManaged && (value === contact.name || value === contact.id);
+                    const isSelected = value === contact.name || value === contact.id;
                     return (
                       <div
                         key={contact.id}
                         onClick={() => {
-                          if (!isPoolManaged) {
-                            onChange(contact.name);
-                            setIsOpen(false);
-                          } else if (poolNames.length < poolMax) {
-                            handleAddToPool({ stopPropagation: () => {} } as any, contact.id);
+                          if (isPoolManaged && !poolNames.includes(contact.id) && !poolNames.includes(contact.name) && poolNames.length < poolMax) {
+                            updatePool([...poolNames, contact.name]);
                           }
+                          onChange(contact.name);
+                          setIsOpen(false);
                         }}
                         className={`p-2.5 flex items-center justify-between cursor-pointer transition-all hover:bg-slate-800/80 group ${
                           isSelected ? 'bg-slate-850' : ''

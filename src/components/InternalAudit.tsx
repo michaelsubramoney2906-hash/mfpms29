@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ShieldAlert, BookOpen, Search, FileText, CheckSquare, Activity, 
-  Users, Lock, Database, CheckCircle, AlertTriangle, XCircle, ChevronRight, Download
+  Users, Lock, Database, CheckCircle, AlertTriangle, XCircle, ChevronRight, Download, Send, RefreshCw
 } from 'lucide-react';
 import type { User } from '../types';
 
@@ -12,6 +12,94 @@ interface InternalAuditProps {
 
 export function InternalAudit({ currentUser, activeTenantId }: InternalAuditProps) {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'rcm' | 'compliance' | 'iam' | 'modules' | 'workflows' | 'integration' | 'inbox' | 'templates'>('dashboard');
+  const [sdbipRows, setSdbipRows] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedAuditKpi, setSelectedAuditKpi] = useState<any | null>(null);
+  const [auditNotes, setAuditNotes] = useState('');
+  const [success, setSuccess] = useState<string | null>(null);
+  const [auditFilter, setAuditFilter] = useState<'ALL' | 'Pending Audit' | 'Submitted' | 'Reviewed' | 'Approved'>('ALL');
+  const [auditSearchQuery, setAuditSearchQuery] = useState('');
+
+  const fetchSdbip = (isBackground = false) => {
+    if (!isBackground) setLoading(true);
+    fetch(`/api/tenant/${activeTenantId}/sdbip`)
+      .then(res => res.json())
+      .then(data => {
+        const items = data.items || [];
+        setSdbipRows(items);
+        setSelectedAuditKpi(prev => {
+          if (!prev) return null;
+          return items.find((x: any) => x.id === prev.id) || prev;
+        });
+      })
+      .catch(err => console.error("Error fetching SDBIP in InternalAudit:", err))
+      .finally(() => {
+        if (!isBackground) setLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    fetchSdbip(false);
+    const interval = setInterval(() => {
+      fetchSdbip(true);
+    }, 4000);
+
+    const handleFocus = () => {
+      fetchSdbip(true);
+    };
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [activeTenantId]);
+
+  const handleVerifyAudit = async (rowId: string, isCleared: boolean) => {
+    const updatedRows = sdbipRows.map(r => {
+      if (r.id === rowId) {
+        const workflows = r.workflows || {};
+        ['q1', 'q2', 'midTerm', 'q3', 'q4', 'annual'].forEach(ph => {
+          if (workflows[ph]) {
+            workflows[ph] = { ...workflows[ph], status: isCleared ? 'approved' : 'draft', auditedBy: currentUser.email };
+          }
+        });
+        const currentHistory = r.workflowHistory || [];
+        const newHistoryItem = {
+          date: new Date().toISOString(),
+          action: isCleared ? 'Internal Audit Cleared' : 'Internal Audit Returned',
+          user: currentUser.email,
+          notes: auditNotes || (isCleared ? 'Cleared by Internal Audit Desk' : 'Returned with audit queries')
+        };
+        return {
+          ...r,
+          workflowStatus: isCleared ? 'Approved' : 'Returned',
+          auditedBy: currentUser.email,
+          auditNotes: auditNotes,
+          workflows,
+          workflowHistory: [...currentHistory, newHistoryItem]
+        };
+      }
+      return r;
+    });
+
+    try {
+      const res = await fetch(`/api/tenant/${activeTenantId}/sdbip`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: updatedRows })
+      });
+      if (res.ok) {
+        setSdbipRows(updatedRows);
+        setSuccess(isCleared ? 'KPI Verified and Cleared by Internal Audit!' : 'KPI Returned with Audit Queries.');
+        setTimeout(() => setSuccess(null), 4000);
+        setSelectedAuditKpi(null);
+        setAuditNotes('');
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   return (
     <div className="flex flex-col h-full bg-slate-50 border border-gray-200 rounded-3xl overflow-hidden shadow-2xl text-gray-900 select-none">
@@ -212,46 +300,221 @@ export function InternalAudit({ currentUser, activeTenantId }: InternalAuditProp
         {/* 2. INBOX & REVIEW REQUESTS */}
         {activeTab === 'inbox' && (
           <div className="max-w-7xl mx-auto space-y-6 animate-fade-in">
-            <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-2 mb-4">
-              <CheckSquare className="w-6 h-6 text-indigo-600" /> Incoming Review Requests (Inbox)
-            </h2>
-            <div className="bg-white p-6 border border-slate-200 rounded-2xl shadow-sm text-sm text-slate-600 mb-6">
-              <p>This space is where Review Users receive automated exception findings from the Internal Audit team via Azure AD integration. Upon action, the system automatically routes the workflow back to the relevant Audit Supervisor.</p>
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-2">
+                <CheckSquare className="w-6 h-6 text-indigo-600" /> Incoming SDBIP KPI Audit Review Desk
+              </h2>
+              <button 
+                onClick={() => fetchSdbip(false)}
+                className="px-3 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 hover:bg-slate-800 transition cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Refresh SDBIP
+              </button>
             </div>
 
-            <div className="bg-white border text-xs border-slate-200 shadow-sm rounded-2xl overflow-hidden overflow-x-auto">
-               <table className="w-full text-left">
-                 <thead className="bg-slate-900 text-white font-bold uppercase text-[10px] tracking-wider">
-                   <tr>
-                     <th className="p-4">Reference</th>
-                     <th className="p-4">Audit Objective</th>
-                     <th className="p-4">Assigned To</th>
-                     <th className="p-4">Status</th>
-                     <th className="p-4">Incoming Date</th>
-                     <th className="p-4">Action</th>
-                   </tr>
-                 </thead>
-                 <tbody className="divide-y divide-slate-200 text-slate-700">
-                   <tr className="hover:bg-slate-50">
-                     <td className="p-4 font-mono font-bold text-indigo-600">AUD-2026-081</td>
-                     <td className="p-4 font-semibold">SCM 30-Day Payment Verification</td>
-                     <td className="p-4">{currentUser.fullName || currentUser.email || 'You'}</td>
-                     <td className="p-4"><span className="px-2 py-1 bg-amber-100 text-amber-700 rounded font-bold">Pending Your Reply</span></td>
-                     <td className="p-4">2026-06-05</td>
-                     <td className="p-4">
-                       <button onClick={() => alert('Routing back to Audit Supervisor...')} className="bg-indigo-600 text-white px-3 py-1.5 rounded font-bold hover:bg-indigo-700 transition-colors">Respond & Route</button>
-                     </td>
-                   </tr>
-                   <tr className="hover:bg-slate-50">
-                     <td className="p-4 font-mono font-bold text-indigo-600">AUD-2026-042</td>
-                     <td className="p-4 font-semibold">Asset Register Spot Check</td>
-                     <td className="p-4">{currentUser.fullName || currentUser.email || 'You'}</td>
-                     <td className="p-4"><span className="px-2 py-1 bg-emerald-100 text-emerald-700 rounded font-bold">Cleared</span></td>
-                     <td className="p-4">2026-05-20</td>
-                     <td className="p-4 text-slate-400 font-bold">Completed</td>
-                   </tr>
-                 </tbody>
-               </table>
+            {success && (
+              <div className="p-4 bg-emerald-100 border-l-4 border-emerald-500 text-emerald-800 rounded-xl font-bold text-xs flex items-center gap-2">
+                <CheckCircle className="w-5 h-5" />
+                {success}
+              </div>
+            )}
+
+            <div className="bg-white p-4 border border-slate-200 rounded-2xl shadow-xs text-sm text-slate-600 flex flex-col md:flex-row items-center justify-between gap-3">
+              <div>
+                <p className="font-semibold text-slate-800">Live OPMS SDBIP Top-Layer Reporting Integration</p>
+                <p className="text-xs text-slate-500">All KPIs submitted, pushed for review, approved, or directed to Internal Audit appear here in real time.</p>
+              </div>
+
+              {/* Filter Controls */}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg text-xs font-bold">
+                  {(['ALL', 'Pending Audit', 'Submitted', 'Reviewed', 'Approved'] as const).map((filterOpt) => (
+                    <button
+                      key={filterOpt}
+                      onClick={() => setAuditFilter(filterOpt)}
+                      className={`px-2.5 py-1 rounded-md transition cursor-pointer ${
+                        auditFilter === filterOpt 
+                          ? 'bg-slate-900 text-white shadow-xs' 
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      {filterOpt}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2 w-3.5 h-3.5 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search KPI or auditor..."
+                    value={auditSearchQuery}
+                    onChange={(e) => setAuditSearchQuery(e.target.value)}
+                    className="pl-8 pr-3 py-1 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* SDBIP Table */}
+              <div className={selectedAuditKpi ? "lg:col-span-7" : "lg:col-span-12"}>
+                <div className="bg-white border text-xs border-slate-200 shadow-sm rounded-2xl overflow-hidden overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead className="bg-slate-900 text-white font-bold uppercase text-[10px] tracking-wider">
+                      <tr>
+                        <th className="p-3">Ref Num</th>
+                        <th className="p-3">KPA & Strategic Objective</th>
+                        <th className="p-3">KPI Description</th>
+                        <th className="p-3">Workflow Status</th>
+                        <th className="p-3">Submitted / Reviewer</th>
+                        <th className="p-3 text-center">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 text-slate-700">
+                      {(() => {
+                        const filteredAuditRows = sdbipRows.filter(row => {
+                          const wfStatus = row.workflowStatus || 'Draft';
+                          let matchesStatus = true;
+                          if (auditFilter === 'Pending Audit') {
+                            matchesStatus = wfStatus === 'Pending Audit' || 
+                              row.workflows?.q1?.status === 'pending_audit' || 
+                              row.workflows?.q2?.status === 'pending_audit' || 
+                              row.workflows?.q3?.status === 'pending_audit' || 
+                              row.workflows?.q4?.status === 'pending_audit';
+                          } else if (auditFilter !== 'ALL') {
+                            matchesStatus = wfStatus === auditFilter;
+                          }
+                          const matchesSearch = !auditSearchQuery ||
+                            (row.refNum && row.refNum.toLowerCase().includes(auditSearchQuery.toLowerCase())) ||
+                            (row.kpi && row.kpi.toLowerCase().includes(auditSearchQuery.toLowerCase())) ||
+                            (row.internalAudit && row.internalAudit.toLowerCase().includes(auditSearchQuery.toLowerCase()));
+                          return matchesStatus && matchesSearch;
+                        });
+
+                        if (filteredAuditRows.length === 0) {
+                          return (
+                            <tr>
+                              <td colSpan={6} className="p-8 text-center text-slate-400 font-medium">
+                                No SDBIP KPI items match filter "{auditFilter}".
+                              </td>
+                            </tr>
+                          );
+                        }
+
+                        return filteredAuditRows.map((row) => {
+                          const wfStatus = row.workflowStatus || 'Draft';
+                          const isAuditTarget = wfStatus === 'Pending Audit' || row.workflows?.q1?.status === 'pending_audit' || row.workflows?.q2?.status === 'pending_audit' || row.workflows?.q3?.status === 'pending_audit' || row.workflows?.q4?.status === 'pending_audit';
+
+                          return (
+                            <tr 
+                              key={row.id} 
+                              className={`hover:bg-slate-50 transition ${selectedAuditKpi?.id === row.id ? 'bg-indigo-50/60 font-semibold' : ''}`}
+                            >
+                              <td className="p-3 font-mono font-black text-indigo-600">{row.refNum}</td>
+                              <td className="p-3">
+                                <div className="font-bold text-slate-800">{row.kpas || 'General'}</div>
+                                <div className="text-[10px] text-slate-500 truncate max-w-[180px]">{row.strategicObj}</div>
+                              </td>
+                              <td className="p-3">
+                                <div className="font-semibold text-slate-800 truncate max-w-[220px]">{row.kpi || 'Unnamed KPI'}</div>
+                                <div className="text-[10px] text-slate-400">Target: {row.annualTarget || row.q1 || '-'}</div>
+                              </td>
+                              <td className="p-3">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                  wfStatus === 'Approved' ? 'bg-emerald-100 text-emerald-800' :
+                                  wfStatus === 'Submitted' ? 'bg-amber-100 text-amber-800' :
+                                  wfStatus === 'Reviewed' ? 'bg-violet-100 text-violet-800' :
+                                  wfStatus === 'Pending Audit' ? 'bg-rose-100 text-rose-800 animate-pulse' :
+                                  'bg-slate-100 text-slate-700'
+                                }`}>
+                                  {wfStatus}
+                                </span>
+                              </td>
+                              <td className="p-3 text-[11px] text-slate-500">
+                                <div>Sub: {row.submitter || row.submittedBy || 'Submitter'}</div>
+                                {row.reviewer && <div className="text-[10px] text-slate-400">Rev: {row.reviewer}</div>}
+                                {row.internalAudit && <div className="text-[10px] text-rose-600 font-bold">Auditor: {row.internalAudit}</div>}
+                              </td>
+                              <td className="p-3 text-center">
+                                <button
+                                  onClick={() => {
+                                    setSelectedAuditKpi(row);
+                                    setAuditNotes(row.auditNotes || '');
+                                  }}
+                                  className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[11px] font-bold shadow-xs cursor-pointer"
+                                >
+                                  Inspect
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        });
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Audit Detail Panel */}
+              {selectedAuditKpi && (
+                <div className="lg:col-span-5 bg-white border border-slate-200 rounded-2xl p-5 shadow-lg space-y-4 flex flex-col">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+                    <div>
+                      <span className="text-[10px] font-black text-indigo-600 uppercase tracking-wider">Internal Audit Inspection</span>
+                      <h3 className="text-sm font-black text-slate-900 font-mono">
+                        REF: {selectedAuditKpi.refNum}
+                      </h3>
+                    </div>
+                    <button 
+                      onClick={() => setSelectedAuditKpi(null)}
+                      className="text-slate-400 hover:text-slate-700 text-xs font-mono px-2 py-1 rounded hover:bg-slate-100 cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div className="space-y-2 text-xs text-slate-700 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <p><strong>KPI:</strong> {selectedAuditKpi.kpi}</p>
+                    <p><strong>KPA:</strong> {selectedAuditKpi.kpas}</p>
+                    <p><strong>Strategic Objective:</strong> {selectedAuditKpi.strategicObj}</p>
+                    <p><strong>Annual Target:</strong> {selectedAuditKpi.annualTarget}</p>
+                    <div className="pt-2 border-t border-slate-200 grid grid-cols-2 gap-2 text-[11px]">
+                      <div>Q1 Actual: <strong className="text-emerald-600">{selectedAuditKpi.q1Actual || '-'}</strong></div>
+                      <div>Q2 Actual: <strong className="text-emerald-600">{selectedAuditKpi.q2Actual || '-'}</strong></div>
+                      <div>Q3 Actual: <strong className="text-emerald-600">{selectedAuditKpi.q3Actual || '-'}</strong></div>
+                      <div>Q4 Actual: <strong className="text-emerald-600">{selectedAuditKpi.q4Actual || '-'}</strong></div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-slate-500">Internal Audit Remarks / Queries</label>
+                    <textarea
+                      value={auditNotes}
+                      onChange={(e) => setAuditNotes(e.target.value)}
+                      placeholder="Type audit findings, verification notes, or return queries..."
+                      className="w-full bg-slate-50 border border-slate-300 rounded p-2.5 text-xs text-slate-900 h-24 focus:outline-none focus:border-indigo-600 resize-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-2">
+                    <button
+                      onClick={() => handleVerifyAudit(selectedAuditKpi.id, false)}
+                      className="w-full bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl py-2.5 font-bold text-xs uppercase tracking-wider transition cursor-pointer flex items-center justify-center gap-1"
+                    >
+                      <XCircle className="w-4 h-4" />
+                      Return / Audit Query
+                    </button>
+                    <button
+                      onClick={() => handleVerifyAudit(selectedAuditKpi.id, true)}
+                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl py-2.5 font-bold text-xs uppercase tracking-wider transition cursor-pointer flex items-center justify-center gap-1 shadow"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      Clear Audit Sign-off
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

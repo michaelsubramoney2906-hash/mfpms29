@@ -1079,11 +1079,12 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate }: U
                             {(currentUser.role === 'admin' || currentUser.systemRole === 'Global Administrator') && onImpersonate && (
                               <button 
                                 onClick={() => {
+                                  const resolvedTenant = (u.tenantId === 'nkangala_auto' || u.email?.toLowerCase().includes('nkangala')) ? 'tenant-229' : (u.tenantId || municipalities[0]?.id || '');
                                   onImpersonate({
                                     email: u.email,
                                     fullName: u.fullName || '',
                                     role: u.role === 'Global Administrator' || u.role === 'admin' || u.role === 'Systems Administrator' ? 'admin' : 'tenant_user',
-                                    tenantId: u.tenantId || municipalities[0]?.id || '',
+                                    tenantId: resolvedTenant,
                                     id: u.id,
                                     jobFunction: u.jobFunction || '',
                                     department: u.department || '',
@@ -1631,11 +1632,12 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate }: U
                           {(currentUser.role === 'admin' || currentUser.systemRole === 'Global Administrator') && onImpersonate && (
                             <button 
                               onClick={() => {
+                                const resolvedTenant = (session.tenantId === 'nkangala_auto' || session.email?.toLowerCase().includes('nkangala')) ? 'tenant-229' : (session.tenantId || municipalities[0]?.id || '');
                                 onImpersonate({
                                   email: session.email,
                                   fullName: session.fullName || '',
                                   role: session.role === 'Global Administrator' || session.role === 'admin' || session.role === 'Systems Administrator' ? 'admin' : 'tenant_user',
-                                  tenantId: session.tenantId || municipalities[0]?.id || '',
+                                  tenantId: resolvedTenant,
                                   id: session.userId || session.email,
                                   systemRole: session.systemRole || session.role || 'Standard User'
                                 });
