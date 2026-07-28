@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { 
   FileSignature, Send, User, Target, ClipboardList,
-  Upload, X, File, FileSpreadsheet, Image, FileText, Check, AlertCircle, Info, CalendarCheck, HelpCircle
+  Upload, X, File, FileSpreadsheet, Image, FileText, Check, AlertCircle, Info, CalendarCheck, HelpCircle, Presentation,
+  Bell, AlertTriangle, CheckCircle
 } from 'lucide-react';
+import { IPMSWorkflowInbox } from './IPMSWorkflowInbox';
 
 export interface PoeDocument {
   id: string;
   name: string;
   mimeType: string;
+  size?: number;
   dataUrl?: string;
   uploadedAt: string;
   uploadedBy: string;
@@ -24,6 +27,8 @@ interface QuarterPoeSelectorProps {
   setFiles: (files: PoeDocument[]) => void;
   currentUser: any;
   disabled?: boolean;
+  poeStatus?: string;
+  poeFeedback?: string;
 }
 
 export function QuarterPoeSelector({
@@ -36,33 +41,74 @@ export function QuarterPoeSelector({
   files,
   setFiles,
   currentUser,
-  disabled
+  disabled,
+  poeStatus,
+  poeFeedback
 }: QuarterPoeSelectorProps) {
   const [dragActive, setDragActive] = useState(false);
 
+  const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB limit per file / per upload
+
+  const formatFileSize = (bytes?: number) => {
+    if (!bytes) return '';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
   const handleFilesSelected = async (fileList: FileList | null) => {
     if (!fileList || disabled) return;
+
+    const currentTotalSize = files.reduce((sum, f) => sum + (f.size || 0), 0);
+    let runningTotalSize = currentTotalSize;
+
     const newDocs: PoeDocument[] = [];
+    const errors: string[] = [];
+
     for (let i = 0; i < fileList.length; i++) {
       const file = fileList[i];
-      const doc = await new Promise<PoeDocument>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          resolve({
-            id: `poe_doc_${quarterName}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            name: file.name,
-            mimeType: file.type || 'application/octet-stream',
-            dataUrl: reader.result as string,
-            uploadedAt: new Date().toISOString(),
-            uploadedBy: currentUser?.email || 'System'
-          });
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-      newDocs.push(doc);
+
+      if (file.size > MAX_FILE_SIZE) {
+        errors.push(`"${file.name}" (${(file.size / (1024 * 1024)).toFixed(1)} MB) exceeds the 100MB maximum file size limit.`);
+        continue;
+      }
+
+      if (runningTotalSize + file.size > MAX_FILE_SIZE) {
+        errors.push(`Adding "${file.name}" would cause total PoE files for this KPI section to exceed 100MB.`);
+        continue;
+      }
+
+      try {
+        const doc = await new Promise<PoeDocument>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            resolve({
+              id: `poe_doc_${quarterName}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              name: file.name,
+              mimeType: file.type || 'application/octet-stream',
+              size: file.size,
+              dataUrl: reader.result as string,
+              uploadedAt: new Date().toISOString(),
+              uploadedBy: currentUser?.email || 'System'
+            });
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        runningTotalSize += file.size;
+        newDocs.push(doc);
+      } catch (err) {
+        errors.push(`Failed to read "${file.name}".`);
+      }
     }
-    setFiles([...files, ...newDocs]);
+
+    if (errors.length > 0) {
+      alert(`File Upload Limits Notice:\n\n` + errors.map(e => `• ${e}`).join('\n'));
+    }
+
+    if (newDocs.length > 0) {
+      setFiles([...files, ...newDocs]);
+    }
   };
 
   const handleDrag = (e: React.DragEvent) => {
@@ -92,21 +138,26 @@ export function QuarterPoeSelector({
   };
 
   const getFileIcon = (mimeType: string, name: string) => {
-    const ext = name.split('.').pop()?.toLowerCase();
-    if (mimeType.startsWith('image/') || ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'].includes(ext || '')) {
-      return <Image className="w-4 h-4 text-blue-500 shrink-0" />;
+    const ext = name.split('.').pop()?.toLowerCase() || '';
+    if (['ppt', 'pptx', 'pps', 'key', 'odp'].includes(ext) || mimeType.includes('presentation') || mimeType.includes('powerpoint')) {
+      return <Presentation className="w-4 h-4 text-orange-500 shrink-0" />;
     }
-    if (['xls', 'xlsx', 'csv', 'ods'].includes(ext || '')) {
+    if (mimeType.startsWith('image/') || ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'].includes(ext)) {
+      return <Image className="w-4 h-4 text-sky-500 shrink-0" />;
+    }
+    if (['xls', 'xlsx', 'csv', 'ods'].includes(ext) || mimeType.includes('spreadsheet') || mimeType.includes('excel')) {
       return <FileSpreadsheet className="w-4 h-4 text-emerald-500 shrink-0" />;
     }
-    if (['doc', 'docx', 'odt'].includes(ext || '')) {
+    if (['doc', 'docx', 'odt', 'rtf'].includes(ext) || mimeType.includes('word') || mimeType.includes('wordprocessingml')) {
       return <FileText className="w-4 h-4 text-indigo-500 shrink-0" />;
     }
-    if (['pdf'].includes(ext || '')) {
+    if (['pdf'].includes(ext) || mimeType.includes('pdf')) {
       return <FileText className="w-4 h-4 text-rose-500 shrink-0" />;
     }
     return <File className="w-4 h-4 text-slate-500 shrink-0" />;
   };
+
+  const totalBytes = files.reduce((sum, f) => sum + (f.size || 0), 0);
 
   return (
     <div className="flex flex-col gap-2 p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900">
@@ -118,7 +169,7 @@ export function QuarterPoeSelector({
           <span className="truncate">{label}</span>
         </label>
         <span className="text-[9px] font-mono font-bold text-slate-400 bg-slate-200/60 px-1.5 py-0.5 rounded shrink-0">
-          {files.length} attached
+          {files.length} attached {totalBytes > 0 ? `(${formatFileSize(totalBytes)})` : ''}
         </span>
       </div>
 
@@ -126,6 +177,34 @@ export function QuarterPoeSelector({
         <div className="px-2 py-1.5 bg-yellow-50 border border-yellow-200 rounded text-[10px] font-semibold text-yellow-800 flex items-start gap-1">
           <span className="font-extrabold shrink-0 mt-0.5">Required PoE:</span> 
           <span>{requiredPoeDescription}</span>
+        </div>
+      )}
+
+      {((poeStatus && poeStatus !== 'Pending Verification') || poeFeedback) && (
+        <div className={`p-2.5 rounded-xl border text-xs flex flex-col gap-1 shadow-sm ${
+          poeStatus === 'Approved' ? 'bg-emerald-50 border-emerald-200 text-emerald-900' :
+          poeStatus === 'Revision Required' ? 'bg-amber-50 border-amber-300 text-amber-900' :
+          poeStatus === 'Rejected' ? 'bg-rose-50 border-rose-200 text-rose-900' :
+          'bg-indigo-50 border-indigo-200 text-indigo-900'
+        }`}>
+          <div className="flex justify-between items-center font-bold">
+            <span className="text-[10px] uppercase font-black tracking-wider flex items-center gap-1">
+              <span>Manager PoE Audit Status:</span>
+            </span>
+            <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
+              poeStatus === 'Approved' ? 'bg-emerald-600 text-white' :
+              poeStatus === 'Revision Required' ? 'bg-amber-600 text-white' :
+              poeStatus === 'Rejected' ? 'bg-rose-600 text-white' :
+              'bg-indigo-600 text-white'
+            }`}>
+              {poeStatus || 'Reviewed'}
+            </span>
+          </div>
+          {poeFeedback && (
+            <p className="text-[11px] font-semibold m-0 leading-snug select-text">
+              <span className="font-black text-slate-800">Manager Note:</span> "{poeFeedback}"
+            </p>
+          )}
         </div>
       )}
 
@@ -154,17 +233,21 @@ export function QuarterPoeSelector({
         <label className={`block m-0 ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
           <Upload className="w-5 h-5 mx-auto text-slate-450 mb-1" />
           <p className="text-[10px] font-bold text-slate-700 mb-0">
-            Drag &amp; drop files or <span className="text-emerald-700 underline">browse</span>
+            Drag &amp; drop multiple files or <span className="text-emerald-700 underline">browse</span>
           </p>
-          <p className="text-[8px] text-slate-400 mt-0.5 mb-0 leading-tight">
-            PDFs, Excel, images, etc.
+          <p className="text-[8px] text-slate-500 mt-0.5 mb-0 leading-tight">
+            PowerPoint (.pptx), Word (.docx), PDF, Excel (.xlsx), Images (PNG/JPG) • 100MB limit per KPI
           </p>
           {!disabled && (
             <input
               type="file"
               multiple
+              accept=".pdf,.doc,.docx,.ppt,.pptx,.pps,.xls,.xlsx,.csv,image/*,.png,.jpg,.jpeg,.gif,.webp,.svg,.txt,.zip"
               className="hidden"
-              onChange={(e) => handleFilesSelected(e.target.files)}
+              onChange={(e) => {
+                handleFilesSelected(e.target.files);
+                e.target.value = '';
+              }}
             />
           )}
         </label>
@@ -185,7 +268,9 @@ export function QuarterPoeSelector({
                   <span className="font-semibold text-slate-700 truncate block max-w-[170px]" title={file.name}>
                     {file.name}
                   </span>
-                  <span className="font-mono text-[9px] font-bold text-slate-400">({ext})</span>
+                  <span className="font-mono text-[9px] font-bold text-slate-400">
+                    ({ext}{file.size ? ` • ${formatFileSize(file.size)}` : ''})
+                  </span>
                 </div>
                 {!disabled && (
                   <button
@@ -215,10 +300,26 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
   const [pplanData, setPplanData] = useState<{ metadata: any, items: any[] }>({ metadata: {}, items: [] });
   const [saving, setSaving] = useState(false);
   const [activeTabs, setActiveTabs] = useState<Record<string, string>>({});
+  const [toastMessage, setToastMessage] = useState<{ text: string, type: 'success' | 'info' | 'warning' } | null>(null);
+
+  const [notifications, setNotifications] = useState<any[]>([]);
 
   useEffect(() => {
     fetchMyPlan();
+    fetchNotifications();
   }, [activeTenantId, currentUser]);
+
+  const fetchNotifications = async () => {
+    try {
+      const res = await fetch(`/api/tenant/${activeTenantId}/ipms-notifications?userEmail=${currentUser.email}&t=${Date.now()}`);
+      if (res.ok) {
+        const data = await res.json();
+        setNotifications(data.notifications || []);
+      }
+    } catch (e) {
+      console.error("Error fetching notifications:", e);
+    }
+  };
 
   const fetchMyPlan = async () => {
     setLoading(true);
@@ -245,8 +346,16 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
   const handleSaveKpi = async (kpiId: string, submitForReview = false) => {
     setSaving(true);
     try {
-      const metadata = { ...pplanData.metadata };
-      if (!metadata.reviewStatus) {
+      const metadata = { 
+        ...pplanData.metadata,
+        email: pplanData.metadata?.email || currentUser.email,
+        manager: pplanData.metadata?.manager || currentUser.manager || currentUser.reportTo || 'Yena Khuboni',
+        managerEmail: pplanData.metadata?.managerEmail || 'KhuboniY@nkangaladm.gov.za',
+        reportTo: pplanData.metadata?.reportTo || currentUser.reportTo || currentUser.manager || ''
+      };
+      if (submitForReview) {
+        metadata.reviewStatus = 'Submitted for Approval';
+      } else if (!metadata.reviewStatus) {
         metadata.reviewStatus = 'Draft';
       }
 
@@ -283,12 +392,72 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      
+
+      if (submitForReview) {
+        const managerEmail = metadata.managerEmail || 'KhuboniY@nkangaladm.gov.za';
+        const managerName = metadata.manager || 'Yena Khuboni';
+        const submitterEmail = currentUser.email;
+        const submitterName = currentUser.fullName || currentUser.full_name || 'Noluthando Zulu';
+
+        let poeCount = 0;
+        const targetItem = updatedItems.find(i => i.id === kpiId);
+        if (targetItem) {
+          poeCount = (targetItem.q1PoeDocs?.length || 0) + (targetItem.q2PoeDocs?.length || 0) + (targetItem.q3PoeDocs?.length || 0) + (targetItem.q4PoeDocs?.length || 0) + (targetItem.annualPoeDocs?.length || 0) + (targetItem.midtermPoeDocs?.length || 0);
+        }
+
+        await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            notification: {
+              senderEmail: submitterEmail,
+              senderName: submitterName,
+              recipientEmail: managerEmail,
+              recipientName: managerName,
+              title: `⚡ PoE Submitted for KPI #${targetItem?.kpiNo || kpiId} by ${submitterName}`,
+              message: `${submitterName} (${submitterEmail}) submitted KPI #${targetItem?.kpiNo || ''}: "${targetItem?.kpi || ''}" with ${poeCount} attached PoE document(s) for manager review (${managerName}).`,
+              actionType: 'submission',
+              kpiId,
+              poeDocsCount: poeCount
+            }
+          })
+        });
+      } else {
+        const managerEmail = metadata.managerEmail || 'KhuboniY@nkangaladm.gov.za';
+        const managerName = metadata.manager || 'Yena Khuboni';
+        const submitterEmail = currentUser.email;
+        const submitterName = currentUser.fullName || currentUser.full_name || 'Noluthando Zulu';
+
+        let poeCount = 0;
+        const targetItem = updatedItems.find(i => i.id === kpiId);
+        if (targetItem) {
+          poeCount = (targetItem.q1PoeDocs?.length || 0) + (targetItem.q2PoeDocs?.length || 0) + (targetItem.q3PoeDocs?.length || 0) + (targetItem.q4PoeDocs?.length || 0) + (targetItem.annualPoeDocs?.length || 0) + (targetItem.midtermPoeDocs?.length || 0);
+        }
+
+        await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            notification: {
+              senderEmail: submitterEmail,
+              senderName: submitterName,
+              recipientEmail: managerEmail,
+              recipientName: managerName,
+              title: `📋 KPI #${targetItem?.kpiNo || kpiId} Pushed to Annual Performance Planner Grid`,
+              message: `${submitterName} (${submitterEmail}) pushed KPI #${targetItem?.kpiNo || ''}: "${targetItem?.kpi || ''}" with ${poeCount} attached PoE document(s) to the Annual Performance Planner Grid.`,
+              actionType: 'planner_grid_sync',
+              kpiId,
+              poeDocsCount: poeCount
+            }
+          })
+        });
+      }
+
       setPplanData(payload);
       if (submitForReview) {
-        alert("KPI successfully submitted for approval!");
+        alert(`KPI evaluation and uploaded PoE documents successfully submitted to manager (${metadata.manager || 'Yena Khuboni'})! Notification sent.`);
       } else {
-        alert("Fields pushed to Annual Performance Planner Grid successfully!");
+        alert("Fields pushed to Annual Performance Planner Grid successfully! Notification sent.");
       }
     } catch (e) {
       console.error(e);
@@ -298,10 +467,154 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
     }
   };
 
+  const handleRedoSelfEvaluation = async () => {
+    setSaving(true);
+    try {
+      const metadata = { 
+        ...pplanData.metadata,
+        reviewStatus: 'Draft / Resubmitting'
+      };
+
+      const updatedItems = pplanData.items.map(item => ({
+        ...item,
+        reviewStatus: 'Draft / Resubmitting',
+        q1PoeStatus: 'Draft / Resubmitting',
+        q2PoeStatus: 'Draft / Resubmitting',
+        q3PoeStatus: 'Draft / Resubmitting',
+        q4PoeStatus: 'Draft / Resubmitting',
+        annualPoeStatus: 'Draft / Resubmitting',
+        midtermPoeStatus: 'Draft / Resubmitting'
+      }));
+
+      const payload = {
+        metadata,
+        items: updatedItems
+      };
+
+      await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${currentUser.email}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const managerEmail = metadata.managerEmail || 'KhuboniY@nkangaladm.gov.za';
+      const managerName = metadata.manager || 'Yena Khuboni';
+      const submitterEmail = currentUser.email;
+      const submitterName = currentUser.fullName || currentUser.full_name || 'Noluthando Zulu';
+
+      await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          notification: {
+            senderEmail: submitterEmail,
+            senderName: submitterName,
+            recipientEmail: managerEmail,
+            recipientName: managerName,
+            title: `🔄 Self-Evaluation Unlocked for Redo by ${submitterName}`,
+            message: `${submitterName} (${submitterEmail}) re-opened their performance plan self-evaluation to update quarterly metrics, upload/replace PoE files, and resubmit to manager (${managerName}).`,
+            actionType: 'redo_unlocked'
+          }
+        })
+      });
+
+      setPplanData(payload);
+      setToastMessage({
+        text: "Self-evaluation unlocked! You can now edit quarterly actuals, upload or replace Portfolios of Evidence (PoE), and click 'Push to Manager for Approval' when ready.",
+        type: "success"
+      });
+      fetchNotifications();
+    } catch (e) {
+      console.error(e);
+      setToastMessage({ text: "Error unlocking evaluation: " + String(e), type: "warning" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRedoKpi = async (kpiId: string) => {
+    setSaving(true);
+    try {
+      const metadata = { 
+        ...pplanData.metadata,
+        reviewStatus: 'Draft / Resubmitting'
+      };
+
+      const targetItem = pplanData.items.find(i => i.id === kpiId);
+
+      const updatedItems = pplanData.items.map(item => {
+        if (item.id === kpiId) {
+          return {
+            ...item,
+            reviewStatus: 'Draft / Resubmitting',
+            q1PoeStatus: 'Draft / Resubmitting',
+            q2PoeStatus: 'Draft / Resubmitting',
+            q3PoeStatus: 'Draft / Resubmitting',
+            q4PoeStatus: 'Draft / Resubmitting',
+            annualPoeStatus: 'Draft / Resubmitting',
+            midtermPoeStatus: 'Draft / Resubmitting'
+          };
+        }
+        return item;
+      });
+
+      const payload = {
+        metadata,
+        items: updatedItems
+      };
+
+      await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${currentUser.email}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const managerEmail = metadata.managerEmail || 'KhuboniY@nkangaladm.gov.za';
+      const managerName = metadata.manager || 'Yena Khuboni';
+      const submitterEmail = currentUser.email;
+      const submitterName = currentUser.fullName || currentUser.full_name || 'Noluthando Zulu';
+
+      await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          notification: {
+            senderEmail: submitterEmail,
+            senderName: submitterName,
+            recipientEmail: managerEmail,
+            recipientName: managerName,
+            title: `🔄 KPI #${targetItem?.kpiNo || kpiId} Unlocked for Redo by ${submitterName}`,
+            message: `${submitterName} (${submitterEmail}) unlocked KPI #${targetItem?.kpiNo || ''}: "${targetItem?.kpi || ''}" to update metrics and attach new PoE documents before resubmission.`,
+            actionType: 'redo_unlocked',
+            kpiId
+          }
+        })
+      });
+
+      setPplanData(payload);
+      setToastMessage({
+        text: `KPI #${targetItem?.kpiNo || kpiId} unlocked for resubmission! You can now update actuals, upload/replace PoE files, and click 'Push to Manager for Approval'.`,
+        type: "success"
+      });
+      fetchNotifications();
+    } catch (e) {
+      console.error(e);
+      setToastMessage({ text: "Error unlocking KPI: " + String(e), type: "warning" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleSave = async (submitForReview = false) => {
     setSaving(true);
     try {
-      const metadata = { ...pplanData.metadata };
+      const metadata = { 
+        ...pplanData.metadata,
+        email: pplanData.metadata?.email || currentUser.email,
+        manager: pplanData.metadata?.manager || currentUser.manager || currentUser.reportTo || 'Yena Khuboni',
+        managerEmail: pplanData.metadata?.managerEmail || 'KhuboniY@nkangaladm.gov.za',
+        reportTo: pplanData.metadata?.reportTo || currentUser.reportTo || currentUser.manager || ''
+      };
       if (submitForReview) {
         metadata.reviewStatus = 'Submitted for Approval';
       } else if (!metadata.reviewStatus) {
@@ -323,6 +636,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
 
         return {
           ...item,
+          reviewStatus: submitForReview ? 'Submitted for Approval' : (item.reviewStatus || 'Draft'),
           poe: aggregatePoe || item.poe
         };
       });
@@ -337,12 +651,58 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      
+
+      const managerEmail = metadata.managerEmail || 'KhuboniY@nkangaladm.gov.za';
+      const managerName = metadata.manager || 'Yena Khuboni';
+      const submitterEmail = currentUser.email;
+      const submitterName = currentUser.fullName || currentUser.full_name || 'Noluthando Zulu';
+
+      let totalPoeCount = 0;
+      updatedItems.forEach(it => {
+        totalPoeCount += (it.q1PoeDocs?.length || 0) + (it.q2PoeDocs?.length || 0) + (it.q3PoeDocs?.length || 0) + (it.q4PoeDocs?.length || 0) + (it.annualPoeDocs?.length || 0) + (it.midtermPoeDocs?.length || 0);
+      });
+
+      if (submitForReview) {
+        await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            notification: {
+              senderEmail: submitterEmail,
+              senderName: submitterName,
+              recipientEmail: managerEmail,
+              recipientName: managerName,
+              title: `⚡ Performance Plan & PoE Submitted for Manager Approval by ${submitterName}`,
+              message: `${submitterName} (${submitterEmail}) attached ${totalPoeCount} total PoE files across all KPIs and submitted the performance plan for manager review (${managerName}).`,
+              actionType: 'submission',
+              poeDocsCount: totalPoeCount
+            }
+          })
+        });
+      } else {
+        await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            notification: {
+              senderEmail: submitterEmail,
+              senderName: submitterName,
+              recipientEmail: managerEmail,
+              recipientName: managerName,
+              title: `📋 Self-Evaluation Pushed to Annual Performance Planner Grid`,
+              message: `${submitterName} (${submitterEmail}) updated self-evaluation metrics, quarterly deliverables, and attached ${totalPoeCount} PoE document(s) in the Annual Performance Planner Grid.`,
+              actionType: 'planner_grid_sync',
+              poeDocsCount: totalPoeCount
+            }
+          })
+        });
+      }
+
       setPplanData(payload);
       if (submitForReview) {
-        alert("Evaluation successfully committed and submitted to your manager! The Annual Performance Planner Grid table has been automatically synchronized.");
+        alert(`Evaluation successfully committed and submitted to your manager (${metadata.manager || 'Yena Khuboni'})! High-priority review notification sent.`);
       } else {
-        alert("Evaluation draft saved successfully! All quarterly metrics, actuals, comments, and portfolios of evidence are updated in the Annual Performance Planner Grid.");
+        alert("Evaluation draft saved successfully! All quarterly metrics, actuals, comments, and portfolios of evidence are updated in the Annual Performance Planner Grid. Notification sent.");
       }
     } catch (e) {
       console.error(e);
@@ -385,17 +745,30 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
           </div>
 
           <button 
+            type="button"
+            onClick={handleRedoSelfEvaluation}
+            disabled={saving}
+            className="bg-amber-600 text-white hover:bg-amber-500 font-bold px-4 py-2 rounded-xl text-[10px] uppercase tracking-wide flex items-center gap-2 transition disabled:opacity-50 shadow-sm cursor-pointer"
+            title="Re-open evaluation to update quarterly actuals, upload new/additional Portfolios of Evidence (PoE), and resubmit to manager"
+          >
+            <AlertCircle className="w-4 h-4" />
+            <span>Redo & Resubmit Self-Evaluation</span>
+          </button>
+
+          <button 
+            type="button"
             onClick={() => handleSave(false)}
             disabled={saving}
-            className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 font-bold px-4 py-2 rounded-xl text-[10px] uppercase tracking-wide flex items-center gap-2 transition disabled:opacity-50 shadow-sm"
+            className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 font-bold px-4 py-2 rounded-xl text-[10px] uppercase tracking-wide flex items-center gap-2 transition disabled:opacity-50 shadow-sm cursor-pointer"
           >
             <ClipboardList className="w-4 h-4" />
             <span>Push to Annual Performance Planner Grid</span>
           </button>
           <button 
+            type="button"
             onClick={() => handleSave(true)}
             disabled={saving}
-            className="bg-emerald-600 text-white hover:bg-emerald-500 font-bold px-4 py-2 rounded-xl text-[10px] uppercase tracking-wide flex items-center gap-2 transition disabled:opacity-50 shadow-sm"
+            className="bg-emerald-600 text-white hover:bg-emerald-500 font-bold px-4 py-2 rounded-xl text-[10px] uppercase tracking-wide flex items-center gap-2 transition disabled:opacity-50 shadow-sm cursor-pointer"
           >
             <Send className="w-4 h-4" />
             <span>Push to Manager for Approval</span>
@@ -404,6 +777,49 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
       </div>
 
       <div className="flex-1 overflow-y-auto p-6 bg-slate-100 space-y-6">
+        {/* Toast confirmation banner */}
+        {toastMessage && (
+          <div className={`p-4 rounded-2xl shadow-lg border flex items-start justify-between gap-3 transition ${
+            toastMessage.type === 'success' ? 'bg-emerald-900 text-white border-emerald-700' : 'bg-amber-900 text-white border-amber-700'
+          }`}>
+            <div className="flex items-center gap-3">
+              {toastMessage.type === 'success' ? <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0" /> : <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />}
+              <p className="text-xs font-bold leading-relaxed">{toastMessage.text}</p>
+            </div>
+            <button 
+              type="button"
+              onClick={() => setToastMessage(null)}
+              className="text-white/70 hover:text-white font-bold text-xs shrink-0 cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        {/* Employee Performance & Review Inbox */}
+        <div className="max-w-5xl mx-auto">
+          <IPMSWorkflowInbox
+            role="employee"
+            currentUser={currentUser}
+            activeTenantId={activeTenantId}
+            onSelectUserPlan={(targetUserEmail, kpiId, quarter) => {
+              if (kpiId) {
+                if (quarter) {
+                  setActiveTabs(prev => ({ ...prev, [kpiId]: quarter.toLowerCase() }));
+                }
+                setTimeout(() => {
+                  const el = document.getElementById(`kpi-card-${kpiId}`);
+                  if (el) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    el.classList.add('ring-4', 'ring-indigo-500', 'transition-all');
+                    setTimeout(() => el.classList.remove('ring-4', 'ring-indigo-500'), 3000);
+                  }
+                }, 150);
+              }
+            }}
+          />
+        </div>
+
         {(!items || items.length === 0) ? (
           <div className="bg-white p-8 rounded-2xl border border-gray-200 text-center">
             <Target className="w-12 h-12 text-slate-300 mx-auto mb-3" />
@@ -417,10 +833,10 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
               const setTab = (tab: string) => {
                 setActiveTabs(prev => ({ ...prev, [kpi.id]: tab }));
               };
-              const kpiIsReadOnly = isReadOnly || kpi.reviewStatus === 'Submitted for Approval' || kpi.reviewStatus === 'Reviewed';
+              const kpiIsReadOnly = false;
 
               return (
-                <div key={kpi.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-5">
+                <div key={kpi.id} id={`kpi-card-${kpi.id}`} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-5 transition-all duration-300">
                   {/* Header metadata layout */}
                   <div className="flex flex-wrap justify-between items-start gap-3 pb-3 border-b border-slate-100">
                     <div className="flex flex-wrap items-center gap-2">
@@ -433,6 +849,23 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                       {kpi.mscoaCode && (
                         <span className="bg-indigo-50 text-indigo-700 font-mono text-[9px] font-bold px-2.5 py-0.5 rounded-full border border-indigo-100">
                           mSCOA: {kpi.mscoaCode}
+                        </span>
+                      )}
+                      
+                      {/* Review Status Badging */}
+                      {kpi.reviewStatus === 'Submitted for Approval' && (
+                        <span className="bg-amber-500 text-white font-black text-[9.5px] px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs">
+                          ⚡ Submitted to Manager
+                        </span>
+                      )}
+                      {(kpi.reviewStatus === 'Revision Required' || kpi.q1PoeStatus === 'Revision Required' || kpi.q2PoeStatus === 'Revision Required' || kpi.q3PoeStatus === 'Revision Required' || kpi.q4PoeStatus === 'Revision Required') && (
+                        <span className="bg-rose-600 text-white font-black text-[9.5px] px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs animate-pulse">
+                          ⚠️ Revision Requested
+                        </span>
+                      )}
+                      {(kpi.reviewStatus === 'Reviewed' || kpi.reviewStatus === 'Approved') && (
+                        <span className="bg-emerald-600 text-white font-black text-[9.5px] px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs">
+                          ✅ Verified & Approved
                         </span>
                       )}
                     </div>
@@ -474,6 +907,81 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                       </span>
                     </div>
                   </div>
+
+                  {/* LINE MANAGER REVIEW & PERFORMANCE FEEDBACK CARD FOR THIS KPI */}
+                  {(kpi.review || kpi.managerScore || kpi.q1PoeFeedback || kpi.q2PoeFeedback || kpi.q3PoeFeedback || kpi.q4PoeFeedback || kpi.annualPoeFeedback || kpi.midtermPoeFeedback || (kpi.q1PoeStatus && kpi.q1PoeStatus !== 'Pending Verification')) && (
+                    <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-4 rounded-2xl shadow-md border border-indigo-700/80 space-y-3">
+                      <div className="flex flex-wrap items-center justify-between border-b border-indigo-700/60 pb-2 gap-2">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="w-4 h-4 text-emerald-400" />
+                          <h4 className="font-black text-xs uppercase tracking-wider text-indigo-100 m-0">
+                            Line Manager Review & Assessment Feedback
+                          </h4>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {pplanData.metadata?.manager && (
+                            <span className="text-[10px] font-semibold bg-indigo-900 text-indigo-200 px-2.5 py-0.5 rounded-full border border-indigo-700">
+                              Manager: {pplanData.metadata.manager}
+                            </span>
+                          )}
+                          {kpi.managerScore && (
+                            <span className="text-[10px] font-black bg-emerald-500 text-slate-950 px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs">
+                              Manager Score: {kpi.managerScore} / 5.0
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {kpi.review && (
+                        <div className="bg-indigo-950/90 border border-indigo-800 p-3 rounded-xl space-y-1">
+                          <span className="text-[9px] font-extrabold uppercase tracking-wider text-indigo-300 block">
+                            Manager Review Remarks & Guidance
+                          </span>
+                          <p className="text-xs text-indigo-50 font-medium leading-relaxed m-0 whitespace-pre-wrap select-text">
+                            {kpi.review}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Quarterly Audit Status & Feedback Pills */}
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 pt-1">
+                        {[
+                          { label: 'Q1', status: kpi.q1PoeStatus, feedback: kpi.q1PoeFeedback },
+                          { label: 'Q2', status: kpi.q2PoeStatus, feedback: kpi.q2PoeFeedback },
+                          { label: 'Midterm', status: kpi.midtermPoeStatus, feedback: kpi.midtermPoeFeedback },
+                          { label: 'Q3', status: kpi.q3PoeStatus, feedback: kpi.q3PoeFeedback },
+                          { label: 'Q4', status: kpi.q4PoeStatus, feedback: kpi.q4PoeFeedback },
+                          { label: 'Annual', status: kpi.annualPoeStatus, feedback: kpi.annualPoeFeedback },
+                        ].map((qItem, qIdx) => {
+                          if (!qItem.status && !qItem.feedback) return null;
+                          const isApproved = qItem.status === 'Approved';
+                          const isRevision = qItem.status === 'Revision Required';
+                          const isRejected = qItem.status === 'Rejected';
+
+                          return (
+                            <div key={qIdx} className="bg-indigo-950/70 border border-indigo-800/80 p-2 rounded-xl text-[9.5px] space-y-1">
+                              <div className="flex justify-between items-center font-bold">
+                                <span className="text-indigo-200">{qItem.label}:</span>
+                                <span className={`px-1 rounded text-[8px] font-black uppercase ${
+                                  isApproved ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+                                  isRevision ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                                  isRejected ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' :
+                                  'bg-indigo-800 text-indigo-200'
+                                }`}>
+                                  {qItem.status || 'Pending'}
+                                </span>
+                              </div>
+                              {qItem.feedback && (
+                                <p className="text-[9px] text-indigo-100 font-sans line-clamp-2 m-0 select-text" title={qItem.feedback}>
+                                  "{qItem.feedback}"
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
                   {/* TAB CONTROLLERS */}
                   <div className="flex border-b border-slate-200 overflow-x-auto gap-0.5 scrollbar-thin">
@@ -563,6 +1071,8 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                             setFiles={(filesVal) => updateItem(kpi.id, 'q1PoeDocs', filesVal)}
                             currentUser={currentUser}
                             disabled={kpiIsReadOnly}
+                            poeStatus={kpi.q1PoeStatus}
+                            poeFeedback={kpi.q1PoeFeedback}
                           />
                         </div>
                       </div>
@@ -628,6 +1138,8 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                             setFiles={(filesVal) => updateItem(kpi.id, 'q2PoeDocs', filesVal)}
                             currentUser={currentUser}
                             disabled={kpiIsReadOnly}
+                            poeStatus={kpi.q2PoeStatus}
+                            poeFeedback={kpi.q2PoeFeedback}
                           />
                         </div>
                       </div>
@@ -693,6 +1205,8 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                             setFiles={(filesVal) => updateItem(kpi.id, 'midtermPoeDocs', filesVal)}
                             currentUser={currentUser}
                             disabled={kpiIsReadOnly}
+                            poeStatus={kpi.midtermPoeStatus}
+                            poeFeedback={kpi.midtermPoeFeedback}
                           />
                         </div>
                       </div>
@@ -758,6 +1272,8 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                             setFiles={(filesVal) => updateItem(kpi.id, 'q3PoeDocs', filesVal)}
                             currentUser={currentUser}
                             disabled={kpiIsReadOnly}
+                            poeStatus={kpi.q3PoeStatus}
+                            poeFeedback={kpi.q3PoeFeedback}
                           />
                         </div>
                       </div>
@@ -823,6 +1339,8 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                             setFiles={(filesVal) => updateItem(kpi.id, 'q4PoeDocs', filesVal)}
                             currentUser={currentUser}
                             disabled={kpiIsReadOnly}
+                            poeStatus={kpi.q4PoeStatus}
+                            poeFeedback={kpi.q4PoeFeedback}
                           />
                         </div>
                       </div>
@@ -865,11 +1383,18 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                           </div>
 
                           {/* Manager Feedback */}
-                          <div className="space-y-2 bg-slate-100/70 p-4 rounded-xl border border-slate-150">
-                            <label className="text-[10px] uppercase font-bold text-slate-600 block border-b border-slate-200 pb-1">
-                              Manager Approval Comments
-                            </label>
-                            <div className="text-xs text-slate-700 whitespace-pre-wrap select-text leading-relaxed font-semibold">
+                          <div className="space-y-2 bg-indigo-50/60 p-4 rounded-xl border border-indigo-200/70">
+                            <div className="flex justify-between items-center border-b border-indigo-200 pb-1">
+                              <label className="text-[10px] uppercase font-black text-indigo-900 block">
+                                Manager Review & Score
+                              </label>
+                              {kpi.managerScore && (
+                                <span className="text-[10px] font-black bg-indigo-600 text-white px-2 py-0.5 rounded">
+                                  Score: {kpi.managerScore} / 5
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-xs text-slate-800 whitespace-pre-wrap select-text leading-relaxed font-semibold">
                               {kpi.review ? kpi.review : <span className="text-slate-400 italic font-normal">No manager approval notes committed yet.</span>}
                             </div>
                           </div>
@@ -887,6 +1412,8 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                             setFiles={(filesVal) => updateItem(kpi.id, 'annualPoeDocs', filesVal)}
                             currentUser={currentUser}
                             disabled={kpiIsReadOnly}
+                            poeStatus={kpi.annualPoeStatus}
+                            poeFeedback={kpi.annualPoeFeedback}
                           />
                         </div>
                       </div>
@@ -894,33 +1421,36 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                   </div>
 
                   {/* Actions per KPI */}
-                  {!isReadOnly && kpi.reviewStatus !== 'Submitted for Approval' && kpi.reviewStatus !== 'Reviewed' && (
-                    <div className="flex flex-wrap items-center justify-end gap-3 pt-3 mt-2 border-t border-slate-100">
-                      <button 
-                        onClick={() => handleSaveKpi(kpi.id, false)}
-                        disabled={saving}
-                        className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 font-bold px-3 py-1.5 rounded-lg text-[9px] uppercase tracking-wide flex items-center gap-1.5 transition disabled:opacity-50 shadow-sm"
-                      >
-                        <ClipboardList className="w-3.5 h-3.5" />
-                        <span>Push to Annual Performance Planner Grid</span>
-                      </button>
-                      <button 
-                        onClick={() => handleSaveKpi(kpi.id, true)}
-                        disabled={saving}
-                        className="bg-emerald-600 text-white hover:bg-emerald-500 font-bold px-3 py-1.5 rounded-lg text-[9px] uppercase tracking-wide flex items-center gap-1.5 transition disabled:opacity-50 shadow-sm"
-                      >
-                        <Send className="w-3.5 h-3.5" />
-                        <span>Push to Manager for Approval</span>
-                      </button>
-                    </div>
-                  )}
-                  {kpi.reviewStatus && (kpi.reviewStatus === 'Submitted for Approval' || kpi.reviewStatus === 'Reviewed') && (
-                    <div className="flex flex-wrap items-center justify-end gap-3 pt-3 mt-2 border-t border-slate-100">
-                      <span className="bg-amber-100 text-amber-700 border border-amber-200 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider">
-                        KPI Status: {kpi.reviewStatus}
-                      </span>
-                    </div>
-                  )}
+                  <div className="flex flex-wrap items-center justify-end gap-3 pt-3 mt-2 border-t border-slate-100">
+                    <button 
+                      type="button"
+                      onClick={() => handleSaveKpi(kpi.id, false)}
+                      disabled={saving}
+                      className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 font-bold px-3 py-1.5 rounded-lg text-[9px] uppercase tracking-wide flex items-center gap-1.5 transition disabled:opacity-50 shadow-sm cursor-pointer"
+                    >
+                      <ClipboardList className="w-3.5 h-3.5" />
+                      <span>Push to Annual Performance Planner Grid</span>
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => handleSaveKpi(kpi.id, true)}
+                      disabled={saving}
+                      className="bg-emerald-600 text-white hover:bg-emerald-500 font-bold px-3 py-1.5 rounded-lg text-[9px] uppercase tracking-wide flex items-center gap-1.5 transition disabled:opacity-50 shadow-sm cursor-pointer"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      <span>Push to Manager for Approval</span>
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => handleRedoKpi(kpi.id)}
+                      disabled={saving}
+                      className="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 font-bold px-3 py-1.5 rounded-lg text-[9px] uppercase tracking-wide flex items-center gap-1.5 transition shadow-xs cursor-pointer"
+                      title="Unlock this KPI to edit actuals, upload/replace Portfolios of Evidence (PoE), and resubmit to manager"
+                    >
+                      <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Redo & Resubmit KPI</span>
+                    </button>
+                  </div>
                 </div>
               );
             })}

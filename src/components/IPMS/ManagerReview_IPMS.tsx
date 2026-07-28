@@ -5,6 +5,7 @@ import {
   Award, ShieldCheck, AlertTriangle, ExternalLink, Lock, Check,
   Eye, Sparkles, FolderIcon, HardDrive, ThumbsUp, ThumbsDown, X, Info, AlertCircle
 } from 'lucide-react';
+import { IPMSWorkflowInbox } from './IPMSWorkflowInbox';
 
 interface Props {
   currentUser: any;
@@ -16,14 +17,39 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
   const [teamPlans, setTeamPlans] = useState<any[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
   const [saving, setSaving] = useState(false);
+  const [kpiFilter, setKpiFilter] = useState<'all' | 'submitted' | 'poe_attached' | 'approved' | 'revision'>('all');
 
   // Advanced PoE state variables
   const [previewDoc, setPreviewDoc] = useState<any | null>(null);
   const [activeKpiQuarter, setActiveKpiQuarter] = useState<{ [kpiId: string]: string }>({});
+  const [incomingNotifications, setIncomingNotifications] = useState<any[]>([]);
 
   useEffect(() => {
     fetchTeamPlans();
+    fetchNotifications();
   }, [activeTenantId, currentUser]);
+
+  const fetchNotifications = async () => {
+    try {
+      const res = await fetch(`/api/tenant/${activeTenantId}/ipms-notifications?userEmail=${currentUser.email}&t=${Date.now()}`);
+      if (res.ok) {
+        const data = await res.json();
+        setIncomingNotifications(data.notifications || []);
+      }
+    } catch(e) {
+      console.error("Error fetching notifications:", e);
+    }
+  };
+
+  const handleClearNotifications = async () => {
+    if (!window.confirm("Are you sure you want to clear all notification requests and start fresh?")) return;
+    try {
+      await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, { method: 'DELETE' });
+      setIncomingNotifications([]);
+    } catch(e) {
+      console.error("Error clearing notifications:", e);
+    }
+  };
 
   const fetchTeamPlans = async () => {
     setLoading(true);
@@ -42,74 +68,66 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
         const plans = data.teamPlans || [];
         
         let managerName = currentUser.fullName || currentUser.full_name || '';
+        let managerEmail = (currentUser.email || '').toLowerCase().trim();
         const normalize = (s: string) => s.toLowerCase().trim().replace(/['"\.,]/g, '').replace(/\s+/g, ' ');
         const normCurrent = normalize(managerName);
 
-        // Recursive hierarchy helper
-        const getFullBranch = (mName: string, users: any[], seen = new Set<string>()) => {
-          const normM = normalize(mName);
-          if (seen.has(normM)) return [];
-          seen.add(normM);
+        // Subordinate detection logic based on User Directory
+        const mySubordinateEmails = new Set<string>();
 
-          const directs = users.filter(u => {
-            const checkFields = [u.manager || '', u.reportTo || ''];
-            return checkFields.some(f => {
-              if (!f) return false;
-              const normF = normalize(f);
-              if (normF === normM) return true;
-              const fParts = normF.split(' ');
-              const mParts = normM.split(' ');
-              return fParts.length >= 2 && mParts.length >= 2 && fParts[0] === mParts[0] && fParts[fParts.length-1] === mParts[mParts.length-1];
-            });
-          });
+        // Explicit list for KhuboniY@nkangaladm.gov.za
+        const khuboniSubordinates = [
+          'zulune@nkangaladm.gov.za',
+          'nsibandenp@nkangaladm.gov.za',
+          'lukhelema@nkangaladm.gov.za',
+          'sakisd@nkangaladm.gov.za'
+        ];
 
-          let branch = [...directs];
-          directs.forEach(d => {
-            branch = [...branch, ...getFullBranch(d.fullName || d.full_name || '', users, seen)];
-          });
-          return branch;
-        };
+        if (managerEmail.includes('khuboni')) {
+          khuboniSubordinates.forEach(email => mySubordinateEmails.add(email));
+        }
 
-        const myBranchEmails = getFullBranch(managerName, allUsers).map(u => u.email.toLowerCase());
+        // Build list of subordinate emails from User Directory
+        allUsers.forEach(u => {
+          const uEmail = (u.email || '').toLowerCase().trim();
+          if (!uEmail || uEmail === managerEmail) return;
 
-        const isGlobalAdmin = currentUser.role === 'admin' || 
-                              ['mike@mzansiflow.co.za', 'audrey@mzansiflow.co.za', 'mike@massivedynamixdistributors.com'].includes((currentUser.email || '').toLowerCase().trim()) ||
-                              (currentUser.systemRole || '').toLowerCase().includes('admin') ||
-                              (currentUser.systemRole || '').toLowerCase().includes('pms') ||
-                              (currentUser.jobFunction || '').toLowerCase().includes('municipal manager') ||
-                              (currentUser.jobFunction || '').toLowerCase().includes('hod') ||
-                              (currentUser.jobFunction || '').toLowerCase().includes('director');
+          const uManager = normalize(u.manager || u.reportTo || '');
+          const isSub = Boolean(
+            (uManager && normCurrent && (uManager === normCurrent || uManager.includes(normCurrent))) ||
+            (uManager && managerEmail && uManager.includes(managerEmail)) ||
+            (managerEmail.includes('khuboni') && (uManager.includes('khuboni') || khuboniSubordinates.includes(uEmail)))
+          );
 
-        // 3. Filter plans in this manager's branch
+          if (isSub) {
+            mySubordinateEmails.add(uEmail);
+          }
+        });
+
+        // Developer override only for test system developer accounts (mike@mzansiflow.co.za / mike@massivedynamixdistributors.com)
+        const isSystemDeveloper = ['mike@mzansiflow.co.za', 'mike@massivedynamixdistributors.com', 'audrey@mzansiflow.co.za'].includes(managerEmail);
+
+        // Filter team plans strictly to this manager's subordinates
         const myTeamPlans = plans.filter((p: any) => {
-          if (p.userId.toLowerCase() === (currentUser.email || '').toLowerCase()) return false;
+          const targetEmail = (p.userId || '').toLowerCase().trim();
+          if (targetEmail === managerEmail) return false; // Never review oneself
 
-          const isSubordinate = myBranchEmails.includes(p.userId.toLowerCase());
+          const pManager = normalize(p.plan?.metadata?.manager || p.plan?.metadata?.reportTo || '');
           
-          const isAllowed = isGlobalAdmin || isSubordinate || myBranchEmails.length === 0;
-          if (!isAllowed) return false;
-
-          const hasSubmittedKpi = Array.isArray(p.plan?.items) && p.plan.items.some((item: any) => 
-            item.reviewStatus === 'Submitted for Approval' || 
-            item.reviewStatus === 'Submitted for Review' ||
-            item.reviewStatus === 'Reviewed' ||
-            item.reviewStatus === 'Approved' ||
-            Boolean(item.evaluation) ||
-            Boolean(item.evaluationComment) ||
-            Boolean(item.q1Poe || item.q2Poe || item.q3Poe || item.q4Poe)
+          const isDirectSubordinate = mySubordinateEmails.has(targetEmail) || Boolean(
+            pManager && (
+              (normCurrent && pManager.includes(normCurrent)) ||
+              (managerEmail && pManager.includes(managerEmail)) ||
+              (managerEmail.includes('khuboni') && khuboniSubordinates.includes(targetEmail))
+            )
           );
 
-          const status = p.plan?.metadata?.reviewStatus;
-          const isStatusMatching = (
-            status === 'Submitted for Review' || 
-            status === 'Submitted for Approval' || 
-            status === 'Reviewed' ||
-            status === 'Approved' ||
-            hasSubmittedKpi ||
-            (!status && Array.isArray(p.plan?.items) && p.plan.items.length > 0)
-          );
+          // Rule: Managers must ONLY see their subordinates. Clear all other users.
+          if (!isDirectSubordinate && !isSystemDeveloper) {
+            return false;
+          }
 
-          return isStatusMatching;
+          return true;
         });
         
         setTeamPlans(myTeamPlans);
@@ -217,8 +235,67 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
+
+      // Check if any items have revision required or rejected
+      const hasRevisions = Array.isArray(payload.items) && payload.items.some((it: any) => 
+        it.q1PoeStatus === 'Revision Required' || it.q2PoeStatus === 'Revision Required' ||
+        it.q3PoeStatus === 'Revision Required' || it.q4PoeStatus === 'Revision Required' ||
+        it.q1PoeStatus === 'Rejected' || it.q2PoeStatus === 'Rejected'
+      );
+
+      const managerEmail = currentUser.email || '';
+      const managerName = currentUser.fullName || currentUser.full_name || 'Manager Yena Khuboni';
+      const submitterEmail = selectedPlan.userId;
+      const submitterName = selectedPlan.plan?.metadata?.name || submitterEmail;
+
+      const title = hasRevisions 
+        ? `⚠️ PoE Revision Requested by ${managerName}` 
+        : `✅ Performance Evaluation & PoE Approved by ${managerName}`;
+
+      const message = hasRevisions
+        ? `Manager ${managerName} (${managerEmail}) reviewed your performance evaluations and requested revisions on one or more KPIs/PoE documents. Please check your self-evaluation dashboard to review feedback and submit missing PoE documents.`
+        : `Manager ${managerName} (${managerEmail}) has verified and approved your performance evaluation and portfolios of evidence. All KPI records are updated.`;
+
+      await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          notification: {
+            senderEmail: managerEmail,
+            senderName: managerName,
+            recipientEmail: submitterEmail,
+            recipientName: submitterName,
+            title,
+            message,
+            actionType: hasRevisions ? 'revision_requested' : 'approval'
+          }
+        })
+      });
+
+      // Automatically push Audit Dispatch notification to Internal Auditors
+      if (!hasRevisions) {
+        const poeCount = payload.items?.reduce((acc: number, item: any) => 
+          acc + (item.q1PoeDocs?.length || 0) + (item.q2PoeDocs?.length || 0) + (item.q3PoeDocs?.length || 0) + (item.q4PoeDocs?.length || 0), 0) || 0;
+
+        await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            notification: {
+              senderEmail: managerEmail,
+              senderName: managerName,
+              recipientEmail: 'internal_audit',
+              recipientName: 'Internal Audit Committee',
+              title: `🛡️ New Audit Dispatch: ${submitterName}'s KPIs Approved by ${managerName}`,
+              message: `Line Manager ${managerName} (${managerEmail}) has reviewed and approved ${submitterName}'s (${submitterEmail}) performance plan with ${poeCount} attached PoE document(s). The plan is now available in your Internal Audit Oversight module for verification and rating.`,
+              actionType: 'audit_request',
+              poeDocsCount: poeCount
+            }
+          })
+        });
+      }
       
-      alert("Employee performance agreement review and portfolio verification successfully saved.");
+      alert(`Employee performance review saved successfully! Notification dispatched to submitter (${submitterEmail}) and pushed to Internal Audit.`);
       
       // Update local state list
       const updatedPlans = teamPlans.map(tp => 
@@ -287,6 +364,40 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 bg-slate-100 space-y-8">
+          {/* IPMS Manager Workflow Inbox */}
+          <div className="max-w-5xl mx-auto">
+            <IPMSWorkflowInbox
+              role="manager"
+              currentUser={currentUser}
+              activeTenantId={activeTenantId}
+              onSelectUserPlan={(targetUserEmail, kpiId, quarter) => {
+                const normTarget = (targetUserEmail || '').toLowerCase().trim();
+                const matchingPlan = teamPlans.find(p => 
+                  (p.userId || '').toLowerCase().trim() === normTarget ||
+                  (p.plan?.metadata?.email || '').toLowerCase().trim() === normTarget ||
+                  (normTarget.includes('zulune') && (p.userId || '').includes('zulune'))
+                );
+                if (matchingPlan) {
+                  setSelectedPlan(matchingPlan);
+                  if (kpiId && quarter) {
+                    setActiveKpiQuarter(prev => ({ ...prev, [kpiId]: quarter.toUpperCase() }));
+                  }
+                  setTimeout(() => {
+                    const targetId = kpiId ? `kpi-card-${kpiId}` : 'manager-review-detail';
+                    const el = document.getElementById(targetId) || document.getElementById('manager-review-detail');
+                    if (el) {
+                      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      el.classList.add('ring-4', 'ring-indigo-500', 'transition-all');
+                      setTimeout(() => el.classList.remove('ring-4', 'ring-indigo-500'), 3000);
+                    }
+                  }, 250);
+                } else {
+                  alert(`Plan for ${targetUserEmail} is loaded in your team queue below.`);
+                }
+              }}
+            />
+          </div>
+
           <div className="max-w-4xl mx-auto space-y-4">
             <h2 className="text-xs font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
               <span className="inline-block w-2.5 h-2.5 bg-indigo-600 rounded-full animate-pulse"></span>
@@ -300,27 +411,55 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-4">
-                {teamPlans.map((tp, idx) => (
-                  <div key={tp.id || `${tp.userId}-${idx}`} className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm flex items-center justify-between hover:shadow-md transition group cursor-pointer" onClick={() => setSelectedPlan(tp)}>
-                    <div className="flex items-center gap-4">
-                      <div className={`p-3 rounded-xl border ${tp.plan.metadata?.reviewStatus === 'Reviewed' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-amber-50 border-amber-100 text-amber-600'}`}>
-                        {tp.plan.metadata?.reviewStatus === 'Reviewed' ? <CheckCircle className="w-6 h-6" /> : <Clock className="w-6 h-6" />}
+                {teamPlans.map((tp, idx) => {
+                  let submittedCount = 0;
+                  let totalPoeDocs = 0;
+                  if (Array.isArray(tp.plan?.items)) {
+                    tp.plan.items.forEach((it: any) => {
+                      if (it.reviewStatus === 'Submitted for Approval' || it.reviewStatus === 'Submitted for Review') {
+                        submittedCount++;
+                      }
+                      totalPoeDocs += (it.q1PoeDocs?.length || 0) + (it.q2PoeDocs?.length || 0) + (it.q3PoeDocs?.length || 0) + (it.q4PoeDocs?.length || 0) + (it.annualPoeDocs?.length || 0) + (it.midtermPoeDocs?.length || 0);
+                    });
+                  }
+
+                  return (
+                    <div key={tp.id || `${tp.userId}-${idx}`} className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:border-indigo-400 hover:shadow-md transition group cursor-pointer" onClick={() => setSelectedPlan(tp)}>
+                      <div className="flex items-center gap-4">
+                        <div className={`p-3.5 rounded-2xl border ${tp.plan.metadata?.reviewStatus === 'Reviewed' ? 'bg-emerald-50 border-emerald-200 text-emerald-600' : submittedCount > 0 ? 'bg-amber-50 border-amber-200 text-amber-600' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
+                          {tp.plan.metadata?.reviewStatus === 'Reviewed' ? <CheckCircle className="w-7 h-7" /> : <Clock className="w-7 h-7" />}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-extrabold text-slate-900 text-base">{tp.plan.metadata?.name || tp.userId}</h3>
+                            <span className="text-[10px] font-mono font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">{tp.userId}</span>
+                          </div>
+                          <p className="text-xs text-slate-500 font-bold uppercase mt-0.5">
+                            {tp.plan.metadata?.position || 'Employee'} • {tp.plan.metadata?.department || 'Department'}
+                          </p>
+                          <div className="flex flex-wrap items-center gap-2 mt-2">
+                            {submittedCount > 0 && (
+                              <span className="text-[10px] font-black text-amber-800 bg-amber-100 border border-amber-200 px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-xs">
+                                ⚡ {submittedCount} KPI(s) Submitted for Review
+                              </span>
+                            )}
+                            <span className="text-[10px] font-black text-indigo-800 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-xs">
+                              📎 {totalPoeDocs} PoE File(s) Attached
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="font-bold text-slate-800 text-sm">{tp.plan.metadata?.name || tp.userId}</h3>
-                        <p className="text-[10px] text-slate-500 font-medium uppercase">
-                          {tp.plan.metadata?.position || 'Employee'} • {tp.plan.metadata?.department || 'Department'}
-                        </p>
+                      <div className="flex items-center gap-3 self-end sm:self-center">
+                        <span className={`text-[10.5px] font-black px-3.5 py-1.5 rounded-xl uppercase tracking-wider ${tp.plan.metadata?.reviewStatus === 'Reviewed' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-amber-100 text-amber-800 border border-amber-200'}`}>
+                          {tp.plan.metadata?.reviewStatus || 'Submitted for Approval'}
+                        </span>
+                        <div className="bg-indigo-600 text-white p-2 rounded-xl group-hover:bg-indigo-500 transition shadow-sm">
+                          <ChevronRight className="w-5 h-5" />
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <span className={`text-[10px] font-bold px-3 py-1 rounded-full ${tp.plan.metadata?.reviewStatus === 'Reviewed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                        {tp.plan.metadata?.reviewStatus || 'Unknown status'}
-                      </span>
-                      <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-indigo-500 transition" />
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -479,12 +618,14 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
                 { id: 'Q2', label: 'Quarter 2', target: kpi.q2Target, actual: kpi.q2Actual, comment: kpi.q2Comment, textValue: kpi.q2Poe, docs: kpi.q2PoeDocs || [], status: kpi.q2PoeStatus || 'Pending Verification', feedback: kpi.q2PoeFeedback || '' },
                 { id: 'Q3', label: 'Quarter 3', target: kpi.q3Target, actual: kpi.q3Actual, comment: kpi.q3Comment, textValue: kpi.q3Poe, docs: kpi.q3PoeDocs || [], status: kpi.q3PoeStatus || 'Pending Verification', feedback: kpi.q3PoeFeedback || '' },
                 { id: 'Q4', label: 'Quarter 4', target: kpi.q4Target, actual: kpi.q4Actual, comment: kpi.q4Comment, textValue: kpi.q4Poe, docs: kpi.q4PoeDocs || [], status: kpi.q4PoeStatus || 'Pending Verification', feedback: kpi.q4PoeFeedback || '' },
+                { id: 'ANNUAL', label: 'Annual Overview', target: kpi.annualTarget, actual: kpi.evaluation, comment: kpi.evaluationComment, textValue: kpi.annualPoe, docs: kpi.annualPoeDocs || [], status: kpi.annualPoeStatus || 'Pending Verification', feedback: kpi.annualPoeFeedback || '' },
+                { id: 'MIDTERM', label: 'Mid-Year Review', target: kpi.midtermTarget, actual: kpi.midtermActual, comment: kpi.midtermComment, textValue: kpi.midtermPoe, docs: kpi.midtermPoeDocs || [], status: kpi.midtermPoeStatus || 'Pending Verification', feedback: kpi.midtermPoeFeedback || '' }
               ];
 
               const currentQuarterData = activeQuartersList.find(q => q.id === currentQuarterTab) || activeQuartersList[0];
 
               return (
-                <div key={kpi.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-4">
+                <div key={kpi.id} id={`kpi-card-${kpi.id}`} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-4 transition-all duration-300">
                   {/* Header with metadata badging */}
                   <div className="flex flex-wrap justify-between items-start gap-3 pb-3 border-b border-rose-100/50">
                     <div className="flex flex-wrap items-center gap-2">
@@ -892,6 +1033,24 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
                           <p className="m-0 font-bold text-slate-800">{new Date(previewDoc.uploadedAt).toLocaleDateString()}</p>
                         </div>
                       </div>
+
+                      {/* Live Document Preview Box if dataUrl exists */}
+                      {previewDoc.dataUrl && (
+                        <div className="my-3 border border-slate-200 rounded-xl overflow-hidden bg-slate-900 p-2 flex flex-col items-center justify-center">
+                          {previewDoc.mimeType?.startsWith('image/') || previewDoc.dataUrl.startsWith('data:image/') ? (
+                            <img src={previewDoc.dataUrl} alt={previewDoc.name} className="max-h-80 object-contain rounded-lg shadow-md" />
+                          ) : previewDoc.mimeType?.includes('pdf') || previewDoc.dataUrl.startsWith('data:application/pdf') ? (
+                            <iframe src={previewDoc.dataUrl} title={previewDoc.name} className="w-full h-80 rounded-lg bg-white" />
+                          ) : (
+                            <div className="p-4 text-center text-white text-xs">
+                              <p className="font-bold text-amber-400 mb-1">Attached Document File ({previewDoc.name})</p>
+                              <a href={previewDoc.dataUrl} download={previewDoc.name} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-lg font-bold text-[10px] uppercase hover:bg-emerald-500 mt-2">
+                                Download File to View ({((previewDoc.size || 0) / (1024 * 1024)).toFixed(2)} MB)
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       {/* Narrative simulation message */}
                       <div className="pt-4 space-y-2">

@@ -148,11 +148,217 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
     fetchProfile();
   }, [activeTenantId, user.email]);
 
+  const [reportsUnlocked, setReportsUnlocked] = useState(false);
+
+  // Fetch whether reports are unlocked for standard users or managers
+  useEffect(() => {
+    const checkReportsUnlock = async () => {
+      const profileToUse = fullUserProfile || user;
+      if (activeModule.id !== 'ipms' || !profileToUse || !profileToUse.email || !activeTenantId) return;
+
+      const email = (profileToUse.email || '').toLowerCase().trim();
+      const role = (profileToUse.role || '').toLowerCase().trim();
+      const systemRole = (profileToUse.systemRole || '').toLowerCase().trim();
+      const jobFunction = (profileToUse.jobFunction || '').toLowerCase().trim();
+      const department = (profileToUse.department || '').toLowerCase().trim();
+
+      const isAuditorUser = role.includes('auditor') || 
+                            systemRole.includes('auditor') || 
+                            jobFunction.includes('auditor') || 
+                            role.includes('audit') || 
+                            systemRole.includes('audit') || 
+                            jobFunction.includes('audit') ||
+                            department.includes('audit') ||
+                            email === 'mike@mzansiflow.co.za' ||
+                            email.endsWith('@mzansiflow.co.za');
+
+      const isManagerUser = role === 'manager' || 
+                            role === 'approver' || 
+                            role === 'admin' || 
+                            systemRole.includes('manager') || 
+                            systemRole.includes('admin') || 
+                            jobFunction.includes('manager') ||
+                            jobFunction.includes('director') ||
+                            jobFunction.includes('head of') ||
+                            jobFunction.includes('divisional manager');
+
+      const isStdUser = !isAuditorUser && !isManagerUser && profileToUse.role !== 'admin';
+
+      if (isAuditorUser || profileToUse.role === 'admin') {
+        setReportsUnlocked(true);
+        return;
+      }
+
+      if (isStdUser) {
+        try {
+          const res = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${email}&t=${Date.now()}`);
+          if (res.ok) {
+            const data = await res.json();
+            const revStatus = data?.metadata?.reviewStatus;
+            const auditStatus = data?.metadata?.internalAuditStatus;
+            
+            // Managers review sets reviewStatus to 'Reviewed' or 'Approved'
+            const managerDone = revStatus === 'Reviewed' || revStatus === 'Approved';
+            // Internal audit sets internalAuditStatus to 'Audited' or 'Pushed to DPMC' or 'Pushed to Moderation'
+            const auditDone = auditStatus === 'Audited' || auditStatus === 'Pushed to DPMC' || auditStatus === 'Pushed to Moderation';
+
+            setReportsUnlocked(!!(managerDone && auditDone));
+          } else {
+            setReportsUnlocked(false);
+          }
+        } catch (e) {
+          console.error("Error in checkReportsUnlock standard user:", e);
+          setReportsUnlocked(false);
+        }
+      } else if (isManagerUser) {
+        try {
+          const res = await fetch(`/api/tenant/${activeTenantId}/team-pplans?t=${Date.now()}`);
+          if (res.ok) {
+            const data = await res.json();
+            const arr = Array.isArray(data) ? data : (data?.teamPlans || []);
+            const anyAudited = arr.some((tp: any) => {
+              const auditStatus = tp?.plan?.metadata?.internalAuditStatus;
+              return auditStatus === 'Audited' || auditStatus === 'Pushed to DPMC' || auditStatus === 'Pushed to Moderation';
+            });
+            setReportsUnlocked(anyAudited);
+          } else {
+            setReportsUnlocked(false);
+          }
+        } catch (e) {
+          console.error("Error in checkReportsUnlock manager user:", e);
+          setReportsUnlocked(false);
+        }
+      }
+    };
+
+    checkReportsUnlock();
+    // Re-check periodically or when activeTenantId/activeModule/user changes
+    const interval = setInterval(checkReportsUnlock, 10000);
+    return () => clearInterval(interval);
+  }, [activeTenantId, activeModule.id, fullUserProfile, user, completedIPMSSteps]);
+
+  const getFilteredSteps = () => {
+    const profileToUse = fullUserProfile || user;
+    if (!profileToUse) return GUIDE_STEPS;
+
+    const email = (profileToUse.email || '').toLowerCase().trim();
+    const role = (profileToUse.role || '').toLowerCase().trim();
+    const systemRole = (profileToUse.systemRole || '').toLowerCase().trim();
+    const jobFunction = (profileToUse.jobFunction || '').toLowerCase().trim();
+    const department = (profileToUse.department || '').toLowerCase().trim();
+
+    const isAuditorUser = role.includes('auditor') || 
+                          systemRole.includes('auditor') || 
+                          jobFunction.includes('auditor') || 
+                          role.includes('audit') || 
+                          systemRole.includes('audit') || 
+                          jobFunction.includes('audit') ||
+                          department.includes('audit') ||
+                          email === 'mike@mzansiflow.co.za' ||
+                          email.endsWith('@mzansiflow.co.za');
+
+    const isManagerUser = role === 'manager' || 
+                          role === 'approver' || 
+                          role === 'admin' || 
+                          systemRole.includes('manager') || 
+                          systemRole.includes('admin') || 
+                          jobFunction.includes('manager') ||
+                          jobFunction.includes('director') ||
+                          jobFunction.includes('head of') ||
+                          jobFunction.includes('divisional manager');
+
+    const isStdUser = !isAuditorUser && !isManagerUser && profileToUse.role !== 'admin';
+
+    return GUIDE_STEPS.filter(step => {
+      // 1. Standard users cannot go past self evaluation (no manager approval, no internal audit)
+      if (isStdUser) {
+        if (step.id === 'ipms-manager-review' || step.id === 'ipms-internal-audit') {
+          return false;
+        }
+        if (step.id === 'ipms-reports' && !reportsUnlocked) {
+          return false;
+        }
+      }
+
+      // 2. Managers will see up to managers approval module and not see internal audit module
+      if (isManagerUser && !isAuditorUser && profileToUse.role !== 'admin') {
+        if (step.id === 'ipms-internal-audit') {
+          return false;
+        }
+        if (step.id === 'ipms-reports' && !reportsUnlocked) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  };
+
+  const getFilteredSubModules = (mod: Module) => {
+    if (!mod) return [];
+    if (mod.id !== 'ipms') return mod.subModules;
+
+    const profileToUse = fullUserProfile || user;
+    const email = (profileToUse?.email || '').toLowerCase().trim();
+    const role = (profileToUse?.role || '').toLowerCase().trim();
+    const systemRole = (profileToUse?.systemRole || '').toLowerCase().trim();
+    const jobFunction = (profileToUse?.jobFunction || '').toLowerCase().trim();
+    const department = (profileToUse?.department || '').toLowerCase().trim();
+
+    const isAuditorUser = role.includes('auditor') || 
+                          systemRole.includes('auditor') || 
+                          jobFunction.includes('auditor') || 
+                          role.includes('audit') || 
+                          systemRole.includes('audit') || 
+                          jobFunction.includes('audit') ||
+                          department.includes('audit') ||
+                          email === 'mike@mzansiflow.co.za' ||
+                          email.endsWith('@mzansiflow.co.za');
+
+    const isManagerUser = role === 'manager' || 
+                          role === 'approver' || 
+                          role === 'admin' || 
+                          systemRole.includes('manager') || 
+                          systemRole.includes('admin') || 
+                          jobFunction.includes('manager') ||
+                          jobFunction.includes('director') ||
+                          jobFunction.includes('head of') ||
+                          jobFunction.includes('divisional manager');
+
+    const isStdUser = !isAuditorUser && !isManagerUser && profileToUse?.role !== 'admin';
+
+    return mod.subModules.filter(sub => {
+      // 1. Standard users cannot go past self evaluation
+      if (isStdUser) {
+        if (sub.id === 'ipms-manager-review' || sub.id === 'ipms-internal-audit' || sub.id === 'ipms-dpmc') {
+          return false;
+        }
+      }
+
+      // 2. Managers will see up to managers approval module and not see internal audit module
+      if (isManagerUser && !isAuditorUser && profileToUse?.role !== 'admin') {
+        if (sub.id === 'ipms-internal-audit' || sub.id === 'ipms-dpmc') {
+          return false;
+        }
+      }
+
+      // Reports visibility filter:
+      if (sub.id === 'ipms-reports') {
+        if (isStdUser || (isManagerUser && !isAuditorUser && profileToUse?.role !== 'admin')) {
+          return reportsUnlocked;
+        }
+      }
+
+      return true;
+    });
+  };
+
   const handleSubModuleSelect = (sub: any) => {
     if (activeModule.id === 'ipms') {
-      const guideIndex = GUIDE_STEPS.findIndex(s => s.id === sub.id);
+      const filteredSteps = getFilteredSteps();
+      const guideIndex = filteredSteps.findIndex(s => s.id === sub.id);
       if (guideIndex > 0) {
-        const prevStep = GUIDE_STEPS[guideIndex - 1];
+        const prevStep = filteredSteps[guideIndex - 1];
         const isDPMCBypass = sub.id === 'ipms-dpmc' && user.email.toLowerCase() === 'test.dpmc@local';
         
         if (!completedIPMSSteps.includes(prevStep.id) && !isDPMCBypass) {
@@ -193,14 +399,14 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                 )}
               >
                 {mod.name}
-                {mod.subModules && mod.subModules.length > 0 && <ChevronDown className={cn("w-4 h-4 ml-1 opacity-50", activeModule.id === mod.id && "rotate-180 opacity-100")} />}
+                {getFilteredSubModules(mod).length > 0 && <ChevronDown className={cn("w-4 h-4 ml-1 opacity-50", activeModule.id === mod.id && "rotate-180 opacity-100")} />}
               </button>
 
               {/* Dropdown Menu */}
-              {mod.subModules && mod.subModules.length > 0 && (
+              {getFilteredSubModules(mod).length > 0 && (
               <div className="absolute top-[100%] left-0 mt-1 w-72 bg-white border border-gray-100 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 transform origin-top max-h-[60vh] overflow-y-auto hide-scrollbar p-1 pointer-events-none group-hover:pointer-events-auto group-hover:-translate-y-0.5">
                 <div className="space-y-0.5">
-                  {mod.subModules.map(sub => (
+                  {getFilteredSubModules(mod).map(sub => (
                     <button 
                       key={sub.id}
                       onClick={() => { setActiveModule(mod); handleSubModuleSelect(sub); }}
@@ -299,7 +505,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
               setActiveSubModule={handleSubModuleSelect}
               completedIPMSSteps={completedIPMSSteps}
               setCompletedIPMSSteps={setCompletedIPMSSteps}
-              availableSubModules={activeModule.subModules}
+              availableSubModules={getFilteredSubModules(activeModule)}
             />
           )}
 
@@ -536,7 +742,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
           <>
             {/* Sub-modules Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 relative z-10">
-              {activeModule.subModules.map(sub => (
+              {getFilteredSubModules(activeModule).map(sub => (
                 <button 
                   key={sub.id}
                   onClick={() => handleSubModuleSelect(sub)}
@@ -552,7 +758,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
             
             {/* Pagination/Footer inside grid area */}
             <div className="mt-8 pt-6 border-t border-white/10 flex justify-between items-center text-gray-500 text-[10px] font-bold tracking-widest uppercase relative z-10">
-              <span>Showing {activeModule.subModules.length} of {activeModule.subModules.length} Sub-Modules</span>
+              <span>Showing {getFilteredSubModules(activeModule).length} of {getFilteredSubModules(activeModule).length} Sub-Modules</span>
               <div className="flex space-x-2">
                 <button className="px-3 py-1 bg-white/5 text-white hover:bg-white/10 transition-colors">Prev</button>
                 <button className="px-3 py-1 bg-green-600 text-white hover:bg-green-500 transition-colors">Next</button>

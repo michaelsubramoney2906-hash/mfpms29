@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Activity, Trash2, Plus, Info, CheckCircle2, Database, HelpCircle, Save, Sparkles, 
-  FileText, ClipboardList, TrendingUp, Upload, X, File, FileSpreadsheet, Image, Paperclip, Search 
+  FileText, ClipboardList, TrendingUp, Upload, X, File, FileSpreadsheet, Image, Paperclip, Search, Presentation 
 } from 'lucide-react';
 import type { User } from '../../types';
 
@@ -9,6 +9,7 @@ export interface PoeDocument {
   id: string;
   name: string;
   mimeType: string;
+  size?: number;
   dataUrl?: string;
   uploadedAt: string;
   uploadedBy: string;
@@ -96,29 +97,68 @@ export function QuarterPoeSelector({
 }: QuarterPoeSelectorProps) {
   const [dragActive, setDragActive] = useState(false);
 
+  const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB limit per file / per upload
+
+  const formatFileSize = (bytes?: number) => {
+    if (!bytes) return '';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
   const handleFilesSelected = async (fileList: FileList | null) => {
     if (!fileList) return;
+
+    const currentTotalSize = files.reduce((sum, f) => sum + (f.size || 0), 0);
+    let runningTotalSize = currentTotalSize;
+
     const newDocs: PoeDocument[] = [];
+    const errors: string[] = [];
+
     for (let i = 0; i < fileList.length; i++) {
       const file = fileList[i];
-      const doc = await new Promise<PoeDocument>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          resolve({
-            id: `poe_doc_${quarterName}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            name: file.name,
-            mimeType: file.type || 'application/octet-stream',
-            dataUrl: reader.result as string,
-            uploadedAt: new Date().toISOString(),
-            uploadedBy: currentUser?.email || 'System'
-          });
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-      newDocs.push(doc);
+
+      if (file.size > MAX_FILE_SIZE) {
+        errors.push(`"${file.name}" (${(file.size / (1024 * 1024)).toFixed(1)} MB) exceeds the 100MB maximum file size limit.`);
+        continue;
+      }
+
+      if (runningTotalSize + file.size > MAX_FILE_SIZE) {
+        errors.push(`Adding "${file.name}" would cause total PoE files for this KPI section to exceed 100MB.`);
+        continue;
+      }
+
+      try {
+        const doc = await new Promise<PoeDocument>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            resolve({
+              id: `poe_doc_${quarterName}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              name: file.name,
+              mimeType: file.type || 'application/octet-stream',
+              size: file.size,
+              dataUrl: reader.result as string,
+              uploadedAt: new Date().toISOString(),
+              uploadedBy: currentUser?.email || 'System'
+            });
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        runningTotalSize += file.size;
+        newDocs.push(doc);
+      } catch (err) {
+        errors.push(`Failed to read "${file.name}".`);
+      }
     }
-    setFiles([...files, ...newDocs]);
+
+    if (errors.length > 0) {
+      alert(`File Upload Limits Notice:\n\n` + errors.map(e => `• ${e}`).join('\n'));
+    }
+
+    if (newDocs.length > 0) {
+      setFiles([...files, ...newDocs]);
+    }
   };
 
   const handleDrag = (e: React.DragEvent) => {
@@ -145,21 +185,26 @@ export function QuarterPoeSelector({
   };
 
   const getFileIcon = (mimeType: string, name: string) => {
-    const ext = name.split('.').pop()?.toLowerCase();
-    if (mimeType.startsWith('image/') || ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'].includes(ext || '')) {
-      return <Image className="w-3.5 h-3.5 text-blue-500 shrink-0" />;
+    const ext = name.split('.').pop()?.toLowerCase() || '';
+    if (['ppt', 'pptx', 'pps', 'key', 'odp'].includes(ext) || mimeType.includes('presentation') || mimeType.includes('powerpoint')) {
+      return <Presentation className="w-3.5 h-3.5 text-orange-500 shrink-0" />;
     }
-    if (['xls', 'xlsx', 'csv', 'ods'].includes(ext || '')) {
+    if (mimeType.startsWith('image/') || ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'].includes(ext)) {
+      return <Image className="w-3.5 h-3.5 text-sky-500 shrink-0" />;
+    }
+    if (['xls', 'xlsx', 'csv', 'ods'].includes(ext) || mimeType.includes('spreadsheet') || mimeType.includes('excel')) {
       return <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-500 shrink-0" />;
     }
-    if (['doc', 'docx', 'odt'].includes(ext || '')) {
+    if (['doc', 'docx', 'odt', 'rtf'].includes(ext) || mimeType.includes('word') || mimeType.includes('wordprocessingml')) {
       return <FileText className="w-3.5 h-3.5 text-indigo-500 shrink-0" />;
     }
-    if (['pdf'].includes(ext || '')) {
+    if (['pdf'].includes(ext) || mimeType.includes('pdf')) {
       return <FileText className="w-3.5 h-3.5 text-rose-500 shrink-0" />;
     }
     return <File className="w-3.5 h-3.5 text-slate-500 shrink-0" />;
   };
+
+  const totalBytes = files.reduce((sum, f) => sum + (f.size || 0), 0);
 
   return (
     <div className="flex flex-col gap-2 p-3 bg-white border border-slate-200 rounded-xl shadow-xs text-slate-900">
@@ -171,7 +216,7 @@ export function QuarterPoeSelector({
           <span className="truncate">{label}</span>
         </label>
         <span className="text-[9px] font-mono font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded shrink-0">
-          {files.length} attached
+          {files.length} attached {totalBytes > 0 ? `(${formatFileSize(totalBytes)})` : ''}
         </span>
       </div>
 
@@ -200,16 +245,20 @@ export function QuarterPoeSelector({
         <label className="cursor-pointer block m-0">
           <Upload className="w-4 h-4 mx-auto text-slate-400 mb-0.5" />
           <p className="text-[9px] font-bold text-slate-650 mb-0">
-            Drag &amp; drop files or <span className="text-emerald-700 underline">browse</span>
+            Drag &amp; drop multiple files or <span className="text-emerald-700 underline">browse</span>
           </p>
-          <p className="text-[7.5px] text-slate-400 mt-0.5 mb-0 leading-tight">
-            PDFs, Excel, images, etc.
+          <p className="text-[7.5px] text-slate-500 mt-0.5 mb-0 leading-tight">
+            PowerPoint (.pptx), Word (.docx), PDF, Excel (.xlsx), Images (PNG/JPG) • 100MB limit per KPI
           </p>
           <input
             type="file"
             multiple
+            accept=".pdf,.doc,.docx,.ppt,.pptx,.pps,.xls,.xlsx,.csv,image/*,.png,.jpg,.jpeg,.gif,.webp,.svg,.txt,.zip"
             className="hidden"
-            onChange={(e) => handleFilesSelected(e.target.files)}
+            onChange={(e) => {
+              handleFilesSelected(e.target.files);
+              e.target.value = '';
+            }}
           />
         </label>
       </div>
@@ -229,7 +278,9 @@ export function QuarterPoeSelector({
                   <span className="font-semibold text-slate-700 truncate block max-w-[150px]" title={file.name}>
                     {file.name}
                   </span>
-                  <span className="font-mono text-[8px] font-bold text-slate-400">({ext})</span>
+                  <span className="font-mono text-[8px] font-bold text-slate-400">
+                    ({ext}{file.size ? ` • ${formatFileSize(file.size)}` : ''})
+                  </span>
                 </div>
                 <button
                   type="button"

@@ -114,27 +114,88 @@ export const GuidedIPMSWorkflow: React.FC<GuidedIPMSWorkflowProps> = ({
   const [loading, setLoading] = useState(false);
   const [activeStepIdx, setActiveStepIdx] = useState<number>(-1);
 
-  // Synchronize current active index based on activeSubModule id
+  // Dynamically filter guided steps based on user role and whether reports are unlocked
+  const getFilteredSteps = () => {
+    if (!currentUser) return GUIDE_STEPS;
+
+    const email = (currentUser.email || '').toLowerCase().trim();
+    const role = (currentUser.role || '').toLowerCase().trim();
+    const systemRole = (currentUser.systemRole || '').toLowerCase().trim();
+    const jobFunction = (currentUser.jobFunction || '').toLowerCase().trim();
+    const department = (currentUser.department || '').toLowerCase().trim();
+
+    const isAuditorUser = role.includes('auditor') || 
+                          systemRole.includes('auditor') || 
+                          jobFunction.includes('auditor') || 
+                          role.includes('audit') || 
+                          systemRole.includes('audit') || 
+                          jobFunction.includes('audit') ||
+                          department.includes('audit') ||
+                          email === 'mike@mzansiflow.co.za' ||
+                          email.endsWith('@mzansiflow.co.za');
+
+    const isManagerUser = role === 'manager' || 
+                          role === 'approver' || 
+                          role === 'admin' || 
+                          systemRole.includes('manager') || 
+                          systemRole.includes('admin') || 
+                          jobFunction.includes('manager') ||
+                          jobFunction.includes('director') ||
+                          jobFunction.includes('head of') ||
+                          jobFunction.includes('divisional manager');
+
+    const isStdUser = !isAuditorUser && !isManagerUser && currentUser.role !== 'admin';
+
+    const reportsUnlocked = availableSubModules.some(m => m.id === 'ipms-reports');
+
+    return GUIDE_STEPS.filter(step => {
+      // 1. Standard users cannot go past self evaluation (no manager review or audit)
+      if (isStdUser) {
+        if (step.id === 'ipms-manager-review' || step.id === 'ipms-internal-audit') {
+          return false;
+        }
+        if (step.id === 'ipms-reports' && !reportsUnlocked) {
+          return false;
+        }
+      }
+
+      // 2. Managers will see up to manager review (no internal audit)
+      if (isManagerUser && !isAuditorUser && currentUser.role !== 'admin') {
+        if (step.id === 'ipms-internal-audit') {
+          return false;
+        }
+        if (step.id === 'ipms-reports' && !reportsUnlocked) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  };
+
+  const stepsToShow = getFilteredSteps();
+
+  // Synchronize current active index based on activeSubModule id and dynamic stepsToShow list
   useEffect(() => {
     if (activeSubModule) {
-      const idx = GUIDE_STEPS.findIndex(s => s.id === activeSubModule.id);
+      const idx = stepsToShow.findIndex(s => s.id === activeSubModule.id);
       setActiveStepIdx(idx);
     } else {
       setActiveStepIdx(-1);
     }
-  }, [activeSubModule]);
+  }, [activeSubModule, availableSubModules]);
 
   // Determine if a given index is unlocked
   const isStepUnlockedInput = (index: number): boolean => {
     if (index === 0) return true;
-    const prevStep = GUIDE_STEPS[index - 1];
+    const prevStep = stepsToShow[index - 1];
     return completedIPMSSteps.includes(prevStep.id);
   };
 
   // Safe navigation handler
   const handleNavigateToStepIdx = (index: number) => {
     if (!isStepUnlockedInput(index)) return;
-    const stepDef = GUIDE_STEPS[index];
+    const stepDef = stepsToShow[index];
     const matchingSub = availableSubModules.find(m => m.id === stepDef.id);
     if (matchingSub) {
       setActiveSubModule(matchingSub);
@@ -336,7 +397,7 @@ export const GuidedIPMSWorkflow: React.FC<GuidedIPMSWorkflowProps> = ({
     if (loading) return;
     setLoading(true);
 
-    const stepDef = GUIDE_STEPS.find(s => s.id === stepId);
+    const stepDef = stepsToShow.find(s => s.id === stepId);
     const stepName = stepDef ? stepDef.name : stepId;
     setLastCompletedStepName(stepName);
 
@@ -372,7 +433,7 @@ export const GuidedIPMSWorkflow: React.FC<GuidedIPMSWorkflowProps> = ({
   const handleNextUnlockedStep = () => {
     setShowCelebrationModal(false);
     // Find next step relative to the active step
-    if (activeStepIdx !== -1 && activeStepIdx < GUIDE_STEPS.length - 1) {
+    if (activeStepIdx !== -1 && activeStepIdx < stepsToShow.length - 1) {
       const nextIdx = activeStepIdx + 1;
       if (isStepUnlockedInput(nextIdx)) {
         handleNavigateToStepIdx(nextIdx);
@@ -381,9 +442,9 @@ export const GuidedIPMSWorkflow: React.FC<GuidedIPMSWorkflowProps> = ({
   };
 
   // Compute stats
-  const totalSteps = GUIDE_STEPS.length;
-  const completedCount = completedIPMSSteps.length;
-  const progressPercent = Math.round((completedCount / totalSteps) * 100);
+  const totalSteps = stepsToShow.length;
+  const completedCount = stepsToShow.filter(s => completedIPMSSteps.includes(s.id)).length;
+  const progressPercent = totalSteps > 0 ? Math.round((completedCount / totalSteps) * 100) : 0;
 
   return (
     <>
@@ -409,7 +470,7 @@ export const GuidedIPMSWorkflow: React.FC<GuidedIPMSWorkflowProps> = ({
                 console.error("Failed to reset:", e);
               } finally {
                 setCompletedIPMSSteps([]);
-                const firstSub = availableSubModules.find(m => m.id === GUIDE_STEPS[0].id);
+                const firstSub = availableSubModules.find(m => m.id === stepsToShow[0]?.id);
                 if (firstSub) setActiveSubModule(firstSub);
                 setLoading(false);
               }
@@ -466,7 +527,7 @@ export const GuidedIPMSWorkflow: React.FC<GuidedIPMSWorkflowProps> = ({
 
         {/* Guided Wizard visual track bar */}
         <div className="mt-5 border-t border-slate-800/80 pt-4 overflow-x-auto hide-scrollbar flex items-center justify-between gap-1.5 pb-1 max-w-full">
-          {GUIDE_STEPS.map((step, idx) => {
+          {stepsToShow.map((step, idx) => {
             const isCompleted = completedIPMSSteps.includes(step.id);
             const isCurrent = activeSubModule && activeSubModule.id === step.id;
             const isUnlocked = isStepUnlockedInput(idx);
@@ -505,7 +566,7 @@ export const GuidedIPMSWorkflow: React.FC<GuidedIPMSWorkflowProps> = ({
                 </button>
 
                 {/* Arrow connector */}
-                {idx < GUIDE_STEPS.length - 1 && (
+                {idx < stepsToShow.length - 1 && (
                   <ChevronRight className={`w-3.5 h-3.5 flex-shrink-0 ${
                     isCompleted ? 'text-emerald-500/50' : 'text-slate-800'
                   }`} />
@@ -522,15 +583,15 @@ export const GuidedIPMSWorkflow: React.FC<GuidedIPMSWorkflowProps> = ({
               <span className="text-emerald-400 font-extrabold text-base leading-none">✦</span>
               <div>
                 <span className="font-extrabold text-slate-250">Active Stage 0{activeStepIdx + 1} Instructions:</span>{' '}
-                <span className="text-slate-300 font-medium">{GUIDE_STEPS[activeStepIdx].desc}</span>
+                <span className="text-slate-300 font-medium">{stepsToShow[activeStepIdx]?.desc}</span>
               </div>
             </div>
 
             <div className="flex items-center gap-3 self-end md:self-auto flex-shrink-0">
-              {!completedIPMSSteps.includes(GUIDE_STEPS[activeStepIdx].id) ? (
+              {!completedIPMSSteps.includes(stepsToShow[activeStepIdx]?.id) ? (
                 <button
                   type="button"
-                  onClick={() => completeStep(GUIDE_STEPS[activeStepIdx].id)}
+                  onClick={() => completeStep(stepsToShow[activeStepIdx]?.id)}
                   disabled={loading}
                   className="px-4 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white text-xs font-black rounded-lg shadow-lg hover:scale-[1.03] active:scale-[0.98] transition-all flex items-center gap-1.5 cursor-pointer border-0"
                 >
@@ -542,7 +603,7 @@ export const GuidedIPMSWorkflow: React.FC<GuidedIPMSWorkflowProps> = ({
                   <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-500/20 px-2 py-1 rounded inline-flex items-center gap-1">
                     <CheckCircle2 className="w-3 h-3" /> Step Verified
                   </span>
-                  {activeStepIdx < GUIDE_STEPS.length - 1 && isStepUnlockedInput(activeStepIdx + 1) && (
+                  {activeStepIdx < stepsToShow.length - 1 && isStepUnlockedInput(activeStepIdx + 1) && (
                     <button
                       type="button"
                       onClick={() => handleNavigateToStepIdx(activeStepIdx + 1)}
@@ -587,7 +648,7 @@ export const GuidedIPMSWorkflow: React.FC<GuidedIPMSWorkflowProps> = ({
 
             <p className="text-gray-300 text-xs text-justify leading-relaxed mb-6 font-medium">
               You have successfully completed and finalized the <strong className="text-emerald-400">"{lastCompletedStepName}"</strong>. Your outputs have been committed securely to the persistent Supabase records database. 
-              {activeStepIdx < GUIDE_STEPS.length - 1 ? (
+              {activeStepIdx < stepsToShow.length - 1 ? (
                 <span> You have unlocked the next stage of your Individual Performance Management (IPMS) journey!</span>
               ) : (
                 <span> Amazing work! You have reached the final analytics and reporting package of your Individual Performance Management (IPMS).</span>
@@ -602,7 +663,7 @@ export const GuidedIPMSWorkflow: React.FC<GuidedIPMSWorkflowProps> = ({
               >
                 Stay Here
               </button>
-              {activeStepIdx < GUIDE_STEPS.length - 1 && (
+              {activeStepIdx < stepsToShow.length - 1 && (
                 <button
                   type="button"
                   onClick={handleNextUnlockedStep}

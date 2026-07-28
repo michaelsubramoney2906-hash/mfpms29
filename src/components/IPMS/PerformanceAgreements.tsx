@@ -152,6 +152,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
   const [showRestrictedFieldsOverride, setShowRestrictedFieldsOverride] = useState(true);
   const [activeTab, setActiveTab] = useState<'brief' | 'templates' | 'drafting_suite' | 'lead_fire_fighter' | 'drafting_suite_firefighters' | 'drafting_suite_corporate_services' | 'drafting_suite_pms_team'>('brief');
   const [users, setUsers] = useState<any[]>([]);
+  const [selectedUserEmail, setSelectedUserEmail] = useState<string>('');
 
   // Check if current user is a lead fire fighter
   const isLeadFireFighter = React.useMemo(() => {
@@ -367,7 +368,8 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
         }
 
         // Load Performance Plan
-        const res = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${currentUser.email}&t=${Date.now()}`);
+        const targetEmail = selectedUserEmail || currentUser.email;
+        const res = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(targetEmail)}&t=${Date.now()}`);
         if (res.ok) {
           const data = await res.json();
           if (data.metadata && Object.keys(data.metadata).length > 0) {
@@ -409,11 +411,11 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
                   q2Target: matchedKpi.q2Target || item.q2Target,
                   q3Target: matchedKpi.q3Target || item.q3Target,
                   q4Target: matchedKpi.q4Target || item.q4Target,
-                  q1Poe: matchedKpi.q1Poe || item.q1Poe,
-                  q2Poe: matchedKpi.q2Poe || item.q2Poe,
-                  q3Poe: matchedKpi.q3Poe || item.q3Poe,
-                  q4Poe: matchedKpi.q4Poe || item.q4Poe,
-                  poe: [matchedKpi.q1Poe, matchedKpi.q2Poe, matchedKpi.q3Poe, matchedKpi.q4Poe].filter(Boolean).join('\n') || item.poe,
+                  q1Poe: item.q1Poe || matchedKpi.q1Poe || '',
+                  q2Poe: item.q2Poe || matchedKpi.q2Poe || '',
+                  q3Poe: item.q3Poe || matchedKpi.q3Poe || '',
+                  q4Poe: item.q4Poe || matchedKpi.q4Poe || '',
+                  poe: item.poe || [item.q1Poe, item.q2Poe, item.q3Poe, item.q4Poe].filter(Boolean).join('\n') || [matchedKpi.q1Poe, matchedKpi.q2Poe, matchedKpi.q3Poe, matchedKpi.q4Poe].filter(Boolean).join('\n') || '',
                 };
               }
               return item;
@@ -558,7 +560,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
             const originalDataStr = JSON.stringify(data.items || []);
             const syncedDataStr = JSON.stringify(currentItems);
             if (originalDataStr !== syncedDataStr) {
-               fetch(`/api/tenant/${activeTenantId}/pplan?userId=${currentUser.email}`, {
+               fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(targetEmail)}`, {
                  method: "POST",
                  headers: { "Content-Type": "application/json" },
                  body: JSON.stringify({ metadata: data.metadata || metadata, items: currentItems })
@@ -577,13 +579,14 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
     };
 
     fetchPlanAndKpaData();
-  }, [activeTenantId, currentUser]);
+  }, [activeTenantId, currentUser, selectedUserEmail]);
 
   // Save to database
   const handleSaveToDatabase = async (customMetadata = metadata, customItems = items, showFeedback = false) => {
     setIsSaving(true);
     try {
-      const res = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${currentUser.email}`, {
+      const targetEmail = selectedUserEmail || currentUser.email;
+      const res = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(targetEmail)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ metadata: customMetadata, items: customItems })
@@ -852,26 +855,24 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
             foundExtraction = true;
             let uCount = 1;
             perfPlan.KPAs.forEach((kpaObj: any) => {
-              const kpaNumStr = kpaObj.KPA_Number || '';
-              const kpaDesc = kpaObj.KPA_Description || '';
+              const kpaNumStr = (kpaObj.KPA_Number || kpaObj.kpaNumber || '').toString().trim();
+              const kpaDesc = (kpaObj.KPA_Description || kpaObj.kpaDescription || kpaObj.name || '').toString().trim();
               
-              if (kpaObj.Associated_KPIs && Array.isArray(kpaObj.Associated_KPIs)) {
-                kpaObj.Associated_KPIs.forEach((kpiObj: any) => {
-                  let rawCode = (kpiObj.KPI_Code || '').trim();
-                  let upperCode = rawCode.toUpperCase();
+              const kpiList = kpaObj.Associated_KPIs || kpaObj.associatedKPIs || kpaObj.kpis || [];
+              if (Array.isArray(kpiList)) {
+                kpiList.forEach((kpiObj: any) => {
+                  let rawCode = (kpiObj.KPI_Code || kpiObj.kpiCode || kpiObj.kpiNo || kpiObj.code || kpiObj.refNum || '').toString().trim();
                   let code = rawCode;
                   
-                  if (!upperCode || upperCode.startsWith('U_') || upperCode.startsWith('U-') || upperCode === 'U') {
+                  if (!code) {
                     code = `U_${uCount < 10 ? '0'+uCount : uCount}`;
                     uCount++;
-                  } else {
-                    code = rawCode;
                   }
                   
                   extKpis.push({
                     code: code,
-                    description: kpiObj.KPI_Description || 'Untitled KPI',
-                    budget: kpiObj.Total_Budget_Allocated_R000 || kpiObj.budget || kpiObj.Budget || '',
+                    description: kpiObj.KPI_Description || kpiObj.kpiDescription || kpiObj.description || kpiObj.kpi || 'Untitled KPI',
+                    budget: kpiObj.Total_Budget_Allocated_R000 || kpiObj.totalBudgetAllocatedR000 || kpiObj.budget || kpiObj.Budget || '',
                     kpaNum: kpaNumStr,
                     kpaDesc: kpaDesc
                   });
@@ -886,25 +887,52 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
 
       let finalKpiItems: PlanKPIItem[] = [];
       if (foundExtraction && extKpis.length > 0) {
-        finalKpiItems = extKpis.map(e => {
+        finalKpiItems = extKpis.map((e, idx) => {
           const codeUpper = e.code.toUpperCase();
           const stdCatalogItem = baseCatalog.find(catItem => catItem.kpiNo.toLowerCase().replace(/[^a-z0-9]/g, '') === codeUpper.toLowerCase().replace(/[^a-z0-9]/g, ''));
           
+          const combinedKpaText = `${e.kpaNum} ${e.kpaDesc}`.toLowerCase();
           let kpaIdx = 1;
-          if (e.kpaNum.includes('2')) kpaIdx = 2;
-          else if (e.kpaNum.includes('3')) kpaIdx = 3;
-          else if (e.kpaNum.includes('4')) kpaIdx = 4;
-          else if (e.kpaNum.includes('5')) kpaIdx = 5;
-          else if (e.kpaNum.includes('6')) kpaIdx = 6;
-          else if (e.kpaNum.includes('7')) kpaIdx = 7;
+          if (combinedKpaText.includes('7') || combinedKpaText.includes('skills') || combinedKpaText.includes('capacity') || combinedKpaText.includes('training')) {
+            kpaIdx = 7;
+          } else if (combinedKpaText.includes('6') || combinedKpaText.includes('spatial') || combinedKpaText.includes('rationale') || combinedKpaText.includes('sr') || combinedKpaText.includes('town planning')) {
+            kpaIdx = 6;
+          } else if (combinedKpaText.includes('5') || combinedKpaText.includes('governance') || combinedKpaText.includes('public participation') || combinedKpaText.includes('ggpp') || combinedKpaText.includes('risk')) {
+            kpaIdx = 5;
+          } else if (combinedKpaText.includes('4') || combinedKpaText.includes('financial') || combinedKpaText.includes('viability') || combinedKpaText.includes('mfvm') || combinedKpaText.includes('budget') || combinedKpaText.includes('revenue')) {
+            kpaIdx = 4;
+          } else if (combinedKpaText.includes('3') || combinedKpaText.includes('economic') || combinedKpaText.includes('led') || combinedKpaText.includes('business')) {
+            kpaIdx = 3;
+          } else if (combinedKpaText.includes('2') || combinedKpaText.includes('institutional') || combinedKpaText.includes('transformation') || combinedKpaText.includes('midt') || combinedKpaText.includes('human resource')) {
+            kpaIdx = 2;
+          } else if (combinedKpaText.includes('1') || combinedKpaText.includes('service delivery') || combinedKpaText.includes('infrastructure') || combinedKpaText.includes('bsd') || combinedKpaText.includes('water') || combinedKpaText.includes('sanitation')) {
+            kpaIdx = 1;
+          }
 
-          const isSkills = kpaIdx === 7 || e.kpaNum.toLowerCase().includes('skills') || e.kpaDesc.toLowerCase().includes('skills');
-          const kpaName = isSkills 
-            ? "KPA 7: Skills Development & Capacity Training" 
-            : `KPA ${kpaIdx}: ${e.kpaDesc || 'Other Category'}`;
+          let kpaName = "";
+          if (kpaIdx === 7 || combinedKpaText.includes('skills')) {
+            kpaName = "KPA 7: Skills Development & Capacity Training";
+          } else {
+            const rawKpaTitle = (e.kpaDesc || e.kpaNum || 'Other Category').trim();
+            if (rawKpaTitle.toLowerCase().startsWith('kpa')) {
+              kpaName = rawKpaTitle;
+            } else {
+              const kpaDefaultTitles: Record<number, string> = {
+                1: "Basic Service Delivery and Infrastructure Provision",
+                2: "Municipal Institutional Development and Transformation",
+                3: "Local Economic Development (LED)",
+                4: "Municipal Financial Viability and Management",
+                5: "Good Governance and Public Participation",
+                6: "Spatial Rationale",
+                7: "Skills Development & Capacity Training"
+              };
+              const titleText = rawKpaTitle || kpaDefaultTitles[kpaIdx] || "Other Category";
+              kpaName = `KPA ${kpaIdx}: ${titleText}`;
+            }
+          }
 
           return {
-            id: stdCatalogItem ? stdCatalogItem.id : `pplan-fred-extra-${e.code}-${Math.random()}`,
+            id: stdCatalogItem ? stdCatalogItem.id : `pplan-fred-extra-${e.code}-${idx}-${Math.random()}`,
             strategicGoal: stdCatalogItem?.strategicGoal || "General Departmental Objective Alignment",
             kpiNo: e.code,
             kpi: e.description || stdCatalogItem?.kpi || 'Untitled KPI',
@@ -1630,7 +1658,27 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
         </div>
       </div>
 
-      <div className="flex items-center gap-2 select-none">
+      <div className="flex flex-wrap items-center gap-2 select-none">
+        {users.length > 0 && (
+          <div className="flex items-center gap-2 bg-slate-800 border border-slate-700 px-3 py-1 rounded-xl text-xs">
+            <span className="text-[10px] font-bold text-slate-300 uppercase shrink-0">View Plan:</span>
+            <select
+              value={selectedUserEmail}
+              onChange={(e) => setSelectedUserEmail(e.target.value)}
+              className="bg-slate-900 text-white text-[11px] font-bold px-2 py-0.5 rounded-lg border border-slate-700 outline-none max-w-[260px] truncate"
+            >
+              <option value="">My Plan ({currentUser.fullName || currentUser.email})</option>
+              {users
+                .filter(u => u.email && u.email.toLowerCase() !== (currentUser.email || '').toLowerCase())
+                .map(u => (
+                  <option key={u.id || u.email} value={u.email}>
+                    {u.fullName || u.full_name || u.email} ({u.email})
+                  </option>
+                ))}
+            </select>
+          </div>
+        )}
+
         <span className="text-xs bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-xl text-slate-350 flex items-center gap-1.5 font-mono">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
           Municipality Code: <b className="font-mono text-white uppercase">{activeTenantId}</b>

@@ -292,10 +292,10 @@ export function FredExtractionAgent({ currentUser, activeTenantId }: FredExtract
               <div className="mt-2.5 p-3 bg-indigo-950/20 border border-indigo-900/50 rounded-lg text-[9.5px] leading-relaxed text-slate-400 space-y-1 select-text">
                 <div className="font-bold text-slate-300 uppercase tracking-wider text-[8.5px] flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                  Active Mapping Protocol
+                  Exhaustive Extraction Protocol
                 </div>
                 <p>
-                  All extracted <strong className="text-slate-200">M_</strong> and <strong className="text-slate-200">P_</strong> series KPIs are mapped exactly as extracted according to the document's information without sequential re-mapping. Only unassigned or empty KPIs are prefixed with <strong className="text-slate-200">U_</strong> and sequentially re-mapped starting from <strong className="text-slate-200">U_01</strong>.
+                  All KPAs and KPIs are exhaustively extracted regardless of reference number format (<strong className="text-slate-200">M_</strong>, <strong className="text-slate-200">P_</strong>, <strong className="text-slate-200">U_</strong>, numeric, custom codes, or unassigned) and mapped directly to their respective Key Performance Area categories.
                 </p>
               </div>
             )}

@@ -21,6 +21,7 @@ import {
   FileImage, 
   FileCode 
 } from 'lucide-react';
+import { IPMSWorkflowInbox } from './IPMSWorkflowInbox';
 
 interface Props {
   currentUser: any;
@@ -152,7 +153,49 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
       });
 
       setAuditLedger(updatedLedger);
-      alert(`Internal Audit successfully saved & status marked as "${status}". Logged inside the audit review ledger!`);
+
+      // Dispatch audit notification to employee
+      const auditorName = currentUser.fullName || currentUser.full_name || 'Internal Audit Oversight';
+      const employeeEmail = selectedPlan.userId;
+      const employeeName = payload.metadata?.name || employeeEmail;
+      const managerEmail = payload.metadata?.manager || 'managers';
+
+      await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          notification: {
+            senderEmail: currentUser.email || 'audit@system.local',
+            senderName: auditorName,
+            recipientEmail: employeeEmail,
+            recipientName: employeeName,
+            title: `🛡️ Internal Audit Verification Completed: Status "${status}"`,
+            message: `Internal Audit (${auditorName}) has completed quality assurance audit on your performance plan. Quality Rating: ${avgRating}/5.0. Audit status marked as "${status}".`,
+            actionType: 'audit_completed'
+          }
+        })
+      });
+
+      // Dispatch audit notification to manager
+      if (managerEmail) {
+        await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            notification: {
+              senderEmail: currentUser.email || 'audit@system.local',
+              senderName: auditorName,
+              recipientEmail: managerEmail,
+              recipientName: 'Line Manager',
+              title: `🛡️ Internal Audit Compliance Completed for Subordinate ${employeeName}`,
+              message: `Internal Audit has finalized QA review for ${employeeName} (${employeeEmail}). Quality Rating: ${avgRating}/5.0. Status marked as "${status}".`,
+              actionType: 'audit_completed'
+            }
+          })
+        });
+      }
+
+      alert(`Internal Audit successfully saved & status marked as "${status}". Logged inside the audit review ledger and notifications dispatched!`);
       
       const updatedPlans = teamPlans.map(tp => 
         tp.userId === selectedPlan.userId ? { ...tp, plan: payload } : tp
@@ -291,6 +334,49 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 bg-slate-100 space-y-8">
+          {/* IPMS Internal Auditor Dispatch Inbox */}
+          <div className="max-w-5xl mx-auto">
+            <IPMSWorkflowInbox
+              role="auditor"
+              currentUser={currentUser}
+              activeTenantId={activeTenantId}
+              onSelectUserPlan={(targetUserEmail, kpiId, quarter) => {
+                const normTarget = (targetUserEmail || '').toLowerCase().trim();
+                const matchingPlan = teamPlans.find(p => 
+                  (p.userId || '').toLowerCase().trim() === normTarget ||
+                  (p.plan?.metadata?.email || '').toLowerCase().trim() === normTarget ||
+                  (normTarget.includes('zulune') && (p.userId || '').includes('zulune'))
+                );
+                if (matchingPlan) {
+                  setSelectedPlan(matchingPlan);
+                  if (kpiId) {
+                    setActiveKPIId(kpiId);
+                  }
+                  if (quarter && (quarter === 'Q1' || quarter === 'Q2' || quarter === 'Q3' || quarter === 'Q4')) {
+                    setActiveQuarterTab(quarter as any);
+                  }
+                  setTimeout(() => {
+                    const targetRow = kpiId ? document.getElementById(`kpi-row-${kpiId}`) : null;
+                    if (targetRow) {
+                      targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      targetRow.classList.add('bg-amber-100', 'ring-4', 'ring-indigo-500');
+                      setTimeout(() => targetRow.classList.remove('bg-amber-100', 'ring-4', 'ring-indigo-500'), 3000);
+                    } else {
+                      const el = document.getElementById('internal-audit-detail');
+                      if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        el.classList.add('ring-4', 'ring-indigo-500', 'transition-all');
+                        setTimeout(() => el.classList.remove('ring-4', 'ring-indigo-500'), 3000);
+                      }
+                    }
+                  }, 250);
+                } else {
+                  alert(`Plan for ${targetUserEmail} is loaded in your audit queue below.`);
+                }
+              }}
+            />
+          </div>
+
           <div className="max-w-4xl mx-auto space-y-4">
             <h2 className="text-xs font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
               <span className="inline-block w-2.5 h-2.5 bg-indigo-600 rounded-full animate-pulse"></span>
@@ -802,7 +888,7 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
                     </thead>
                     <tbody>
                       {plan.items.map((kpi: any) => (
-                        <tr key={kpi.id} className="bg-white">
+                        <tr key={kpi.id} id={`kpi-row-${kpi.id}`} className="bg-white transition-all duration-300">
                           <td className="p-2 border border-black whitespace-normal align-top">{kpi.kpi}</td>
                           <td className="p-2 border border-black align-top text-center">{kpi.baseline || '-'}</td>
                           <td className="p-2 border border-black align-top text-center">{kpi.annualTarget || '-'}</td>
