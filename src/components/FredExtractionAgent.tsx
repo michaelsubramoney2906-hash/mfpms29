@@ -36,8 +36,81 @@ export function FredExtractionAgent({ currentUser, activeTenantId }: FredExtract
   const [temperature, setTemperature] = useState<number>(0.0);
   const [dbStatus, setDbStatus] = useState<'connected' | 'checking'>('checking');
   const [progress, setProgress] = useState<number>(0);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleSyncToSdbipTable = async () => {
+    const rawItems = extractionResult?.items || extractionResult?.sdbip || [];
+    if (!rawItems || rawItems.length === 0) return;
+    setIsSyncing(true);
+    setError(null);
+    setSuccessMsg(null);
+    try {
+      const mappedItems = rawItems.map((item: any, idx: number) => {
+        const natKpa = item.National_KPA || item.KPA || item.kpas || '';
+        const respOwner = item.Responsible_Owner || item.responsibleUnit || item.Responsible_Person || item.Responsible_Official || item.Responsible_Manager || item.Executive_Manager || '';
+        const kpiVal = item.KPI || item.kpi || item.Operational_Activity || item.Description || '';
+        
+        const rawRef = item.Ref_Number || item.Ref_No || item.Ref || item.refNum || '';
+        let refNumVal = String(rawRef).trim();
+        if (!refNumVal || refNumVal.toUpperCase().startsWith('KPI-')) {
+          if (idx < 92) {
+            refNumVal = `M_${String(idx + 1).padStart(2, '0')}`;
+          } else {
+            refNumVal = `P_${String(idx - 91).padStart(2, '0')}`;
+          }
+        }
+
+        return {
+          id: item.id || `sdbip-ext-${idx + 1}-${Date.now()}`,
+          refNum: refNumVal,
+          strategicObj: item.SDBIP_Strategic_Objective || item.strategicObj || '',
+          bsd: item.BSD === 'X' || item.BSD === true || natKpa.includes('BSD') ? 'X' : '',
+          led: item.LED === 'X' || item.LED === true || natKpa.includes('LED') ? 'X' : '',
+          mfvm: item.MFVM === 'X' || item.MFVM === true || natKpa.includes('MFVM') ? 'X' : '',
+          ggpp: item.GGPP === 'X' || item.GGPP === true || natKpa.includes('GGPP') ? 'X' : '',
+          midt: item.MIDT === 'X' || item.MIDT === true || natKpa.includes('MIDT') ? 'X' : '',
+          sr: item.SR === 'X' || item.SR === true || natKpa.includes('SR') ? 'X' : '',
+          kpas: natKpa,
+          operationalActivity: item.Description || kpiVal,
+          kpi: kpiVal,
+          compliance: item.compliance || 'compliant',
+          uom: item.Unit_of_Measure || item.uom || 'Number',
+          mscoaTracking: item.mSCOA_Tracking || item.mscoaTracking || 'mSCOA Item Code',
+          baseline: item.Baseline || item.baseline || '0',
+          annualTarget: item.Annual_Target || item.Target || item.annualTarget || '',
+          budgetAllocation: item.Budget_Allocation || item.budgetAllocation || 'R 0',
+          q1: item.Q1_Target || item.q1 || '',
+          q2: item.Q2_Target || item.q2 || '',
+          midTerm: item.Mid_Term_Target || item.midTerm || '',
+          q3: item.Q3_Target || item.q3 || '',
+          q4: item.Q4_Target || item.q4 || '',
+          responsibleUnit: respOwner,
+          submitter: item.Submitter || item.submitter || '',
+          approver: item.Approver || item.approver || '',
+          poeStatus: item.POE_Description || item.poeStatus || 'Pending Upload',
+          description: item.Description || kpiVal || ''
+        };
+      });
+
+      const res = await fetch(`/api/tenant/${activeTenantId}/sdbip`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: mappedItems })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSuccessMsg(`Successfully synchronized ${mappedItems.length} extracted SDBIP items to the SDBIP Top Layer & Reporting tables in Supabase!`);
+      } else {
+        setError(`Failed to sync to SDBIP table: ${data.error || 'Unknown error'}`);
+      }
+    } catch (err: any) {
+      setError(`Error syncing to SDBIP table: ${err.message}`);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   // Auto-load previously saved extractions from Supabase on mount or engine change
   useEffect(() => {
@@ -49,11 +122,16 @@ export function FredExtractionAgent({ currentUser, activeTenantId }: FredExtract
         setSuccessMsg(null);
         
         const response = await fetch(`/api/tenant/${activeTenantId}/fred-extraction/${selectedEngine}?userId=${currentUser?.email || 'default'}`);
-        if (response.ok) {
-          const json = await response.json();
-          if (json.success && json.data) {
-            setExtractionResult(json.data);
-            setSuccessMsg(`Loaded previously analyzed record from Supabase database. parsed: ${json.extractedAt ? new Date(json.extractedAt).toLocaleString() : 'N/A'} for file "${json.fileName || 'unknown_file'}"`);
+        const rawText = await response.text();
+        if (response.ok && rawText.trim()) {
+          try {
+            const json = JSON.parse(rawText);
+            if (json.success && json.data) {
+              setExtractionResult(json.data);
+              setSuccessMsg(`Loaded previously analyzed record from Supabase database. parsed: ${json.extractedAt ? new Date(json.extractedAt).toLocaleString() : 'N/A'} for file "${json.fileName || 'unknown_file'}"`);
+            }
+          } catch (pErr) {
+            console.warn("Could not parse saved extraction response as JSON:", pErr);
           }
         }
         setDbStatus('connected');
@@ -122,13 +200,21 @@ export function FredExtractionAgent({ currentUser, activeTenantId }: FredExtract
           fileData: base64Data,
           engineType: selectedEngine,
           temperature: temperature,
-          userEmail: currentUser.email
+          userEmail: currentUser?.email
         })
       });
 
-      const resJson = await response.json();
-      if (!response.ok || !resJson.success) {
-        throw new Error(resJson.error || "Failed raw cognitive parsing of this document structure.");
+      const rawText = await response.text();
+      let resJson: any = null;
+      try {
+        resJson = JSON.parse(rawText);
+      } catch (pErr) {
+        console.error("Extraction endpoint returned non-JSON:", rawText);
+        throw new Error(`Server endpoint returned non-JSON response (${response.status} ${response.statusText}). Server response snippet: "${rawText.slice(0, 150)}..."`);
+      }
+
+      if (!response.ok || !resJson || !resJson.success) {
+        throw new Error(resJson?.error || resJson?.message || `Extraction failed with server status ${response.status}`);
       }
 
       // Complete progress smoothly
@@ -440,51 +526,125 @@ export function FredExtractionAgent({ currentUser, activeTenantId }: FredExtract
                   <div className="space-y-4">
                     <div className="flex justify-between items-center pb-2 border-b border-slate-800/50">
                       <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Mapped SDBIP Items Table</h4>
-                      <span className="text-[10px] font-mono text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-850">
-                        {extractionResult.items?.length || 0} entries found
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-mono text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-850">
+                          {extractionResult.items?.length || 0} entries found
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleSyncToSdbipTable}
+                          disabled={isSyncing}
+                          className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold text-[11px] px-3 py-1.5 rounded-lg border border-indigo-400/30 flex items-center gap-1.5 transition shadow-sm"
+                        >
+                          <Database className="w-3.5 h-3.5" />
+                          <span>{isSyncing ? 'Syncing...' : 'Push & Sync to SDBIP Table'}</span>
+                        </button>
+                      </div>
                     </div>
 
                     <div className="overflow-x-auto border border-slate-800/80 rounded-lg">
-                      <table className="w-full text-left border-collapse text-[11px] font-sans">
+                      <table className="w-full text-left border-collapse text-[11px] font-sans min-w-[1200px]">
                         <thead>
                           <tr className="bg-slate-900 border-b border-slate-800 text-slate-400 uppercase tracking-wider text-[9px] font-black">
-                            <th className="p-3">National KPA</th>
-                            <th className="p-3">SDBIP Strategic Objective</th>
-                            <th className="p-3">KPI Area / Target</th>
-                            <th className="p-3">Unit of Measure</th>
-                            <th className="p-3">System Mapping Reference</th>
+                            <th className="p-3">Ref No</th>
+                            <th className="p-3">National KPA & Flags</th>
+                            <th className="p-3">Strategic Objective</th>
+                            <th className="p-3">KPI & Description</th>
+                            <th className="p-3 text-emerald-400">Responsible Owner</th>
+                            <th className="p-3">UOM & mSCOA</th>
+                            <th className="p-3">Baseline & Targets</th>
+                            <th className="p-3">Quarters (Q1 - Q4)</th>
+                            <th className="p-3 text-indigo-300">Submitter</th>
+                            <th className="p-3 text-amber-300">Approver</th>
+                            <th className="p-3">POE Requirement</th>
+                            <th className="p-3">System Mapping</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-850">
-                          {extractionResult.items?.map((item: any, rIdx: number) => (
-                            <tr key={rIdx} className="hover:bg-slate-900/40 text-slate-300 transition-colors">
-                              <td className="p-3 font-medium text-white max-w-[180px] truncate" title={item.National_KPA}>
-                                {item.National_KPA || "N/A"}
-                              </td>
-                              <td className="p-3 max-w-[200px] truncate" title={item.SDBIP_Strategic_Objective}>
-                                {item.SDBIP_Strategic_Objective || "N/A"}
-                              </td>
-                              <td className="p-3">
-                                <p className="font-bold text-indigo-300 text-[11px]">{item.KPI || "N/A"}</p>
-                                <p className="text-slate-400 text-[10px] mt-0.5">Target: {item.Target || "N/A"}</p>
-                              </td>
-                              <td className="p-3 text-slate-400">{item.Unit_of_Measure || "N/A"}</td>
-                              <td className="p-3">
-                                <div className="space-y-1">
-                                  <div className="text-[9px] text-slate-400 font-mono bg-slate-900 px-2 py-0.5 rounded inline-block border border-slate-800">
-                                    Top Layer: {item.Mapping?.SDBIP_Top_Layer_Table || "Yes"}
+                          {extractionResult.items?.map((item: any, rIdx: number) => {
+                            const kpaFlags = [
+                              item.BSD === 'X' || item.BSD === true ? 'BSD' : '',
+                              item.LED === 'X' || item.LED === true ? 'LED' : '',
+                              item.MFVM === 'X' || item.MFVM === true ? 'MFVM' : '',
+                              item.GGPP === 'X' || item.GGPP === true ? 'GGPP' : '',
+                              item.MIDT === 'X' || item.MIDT === true ? 'MIDT' : '',
+                              item.SR === 'X' || item.SR === true ? 'SR' : ''
+                            ].filter(Boolean).join(', ');
+
+                            const displayRef = (item.Ref_Number && !item.Ref_Number.startsWith('KPI-'))
+                              ? item.Ref_Number 
+                              : (item.refNum && !item.refNum.startsWith('KPI-'))
+                                ? item.refNum
+                                : (rIdx < 92 ? `M_${String(rIdx + 1).padStart(2, '0')}` : `P_${String(rIdx - 91).padStart(2, '0')}`);
+
+                            const displayOwner = item.Responsible_Owner || item.responsibleUnit || item.Responsible_Person || item.Responsible_Official || item.Responsible_Manager || "N/A";
+
+                            return (
+                              <tr key={rIdx} className="hover:bg-slate-900/40 text-slate-300 transition-colors">
+                                <td className="p-3 font-mono font-bold text-indigo-400 whitespace-nowrap">
+                                  {displayRef}
+                                </td>
+                                <td className="p-3 max-w-[160px]">
+                                  <p className="font-medium text-white truncate" title={item.National_KPA}>{item.National_KPA || "N/A"}</p>
+                                  {kpaFlags && (
+                                    <span className="text-[9px] font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-800/50 px-1.5 py-0.5 rounded mt-0.5 inline-block">
+                                      {kpaFlags}
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="p-3 max-w-[180px] truncate" title={item.SDBIP_Strategic_Objective}>
+                                  {item.SDBIP_Strategic_Objective || "N/A"}
+                                </td>
+                                <td className="p-3 max-w-[220px]">
+                                  <p className="font-bold text-indigo-300 text-[11px]">{item.KPI || "N/A"}</p>
+                                  {item.Description && item.Description !== item.KPI && (
+                                    <p className="text-slate-400 text-[10px] mt-0.5 line-clamp-2" title={item.Description}>{item.Description}</p>
+                                  )}
+                                </td>
+                                <td className="p-3 font-bold text-emerald-300 max-w-[150px] truncate" title={displayOwner}>
+                                  {displayOwner}
+                                </td>
+                                <td className="p-3 text-slate-400 whitespace-nowrap">
+                                  <p className="font-semibold text-slate-300">{item.Unit_of_Measure || "Number"}</p>
+                                  <p className="text-[10px] text-slate-500 font-mono mt-0.5">{item.mSCOA_Tracking || "mSCOA Item"}</p>
+                                </td>
+                                <td className="p-3 whitespace-nowrap">
+                                  <p className="text-slate-300"><span className="text-slate-500 text-[10px]">Base:</span> {item.Baseline || "0"}</p>
+                                  <p className="font-bold text-amber-300"><span className="text-slate-500 text-[10px]">Target:</span> {item.Annual_Target || item.Target || "N/A"}</p>
+                                  <p className="text-emerald-400 text-[10px]"><span className="text-slate-500">Budget:</span> {item.Budget_Allocation || "R 0"}</p>
+                                </td>
+                                <td className="p-3 text-[10px] whitespace-nowrap space-y-0.5">
+                                  <p><span className="text-slate-500">Q1:</span> {item.Q1_Target || '-'}</p>
+                                  <p><span className="text-slate-500">Q2:</span> {item.Q2_Target || '-'}</p>
+                                  {item.Mid_Term_Target && <p><span className="text-slate-500">Mid:</span> {item.Mid_Term_Target}</p>}
+                                  <p><span className="text-slate-500">Q3:</span> {item.Q3_Target || '-'}</p>
+                                  <p><span className="text-slate-500">Q4:</span> {item.Q4_Target || '-'}</p>
+                                </td>
+                                <td className="p-3 text-indigo-300 font-semibold max-w-[130px] truncate" title={item.Submitter}>
+                                  {item.Submitter || "N/A"}
+                                </td>
+                                <td className="p-3 text-amber-300 font-semibold max-w-[130px] truncate" title={item.Approver}>
+                                  {item.Approver || "N/A"}
+                                </td>
+                                <td className="p-3 max-w-[150px] truncate text-slate-400 text-[10px]" title={item.POE_Description}>
+                                  {item.POE_Description || "Standard Verification Files"}
+                                </td>
+                                <td className="p-3 whitespace-nowrap">
+                                  <div className="space-y-1">
+                                    <div className="text-[9px] text-slate-400 font-mono bg-slate-900 px-2 py-0.5 rounded inline-block border border-slate-800">
+                                      Top Layer: {item.Mapping?.SDBIP_Top_Layer_Table || "Yes"}
+                                    </div>
+                                    <div className="text-[9px] text-indigo-300 font-mono bg-indigo-950/30 px-2 py-0.5 rounded block border border-indigo-900/30">
+                                      Reporting: {item.Mapping?.SDBIP_Top_Layer_Reporting_Table || "Yes"}
+                                    </div>
                                   </div>
-                                  <div className="text-[9px] text-indigo-300 font-mono bg-indigo-950/30 px-2 py-0.5 rounded block border border-indigo-900/30">
-                                    Reporting: {item.Mapping?.SDBIP_Top_Layer_Reporting_Table || "Yes"}
-                                  </div>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
+                                </td>
+                              </tr>
+                            );
+                          })}
                           {(!extractionResult.items || extractionResult.items.length === 0) && (
                             <tr>
-                              <td colSpan={5} className="p-8 text-center text-slate-500 text-xs italic">
+                              <td colSpan={12} className="p-8 text-center text-slate-500 text-xs italic">
                                 No SDBIP indicators extracted. Please ensure the uploaded file contains SDBIP table matrices.
                               </td>
                             </tr>

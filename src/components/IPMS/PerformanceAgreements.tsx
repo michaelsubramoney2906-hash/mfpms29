@@ -2853,9 +2853,9 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
                             </div>
                           ) : (
                             <div className="relative flex items-center justify-center w-full">
-                              <label className="flex items-center gap-1 justify-center cursor-pointer w-full text-center bg-white hover:bg-slate-50 text-[9px] font-bold text-slate-600 hover:text-slate-800 border border-slate-200 hover:border-slate-300 rounded px-1.5 py-1 transition">
+                              <label title="Upload POE evidence file (Max 200MB per KPI)" className="flex items-center gap-1 justify-center cursor-pointer w-full text-center bg-white hover:bg-slate-50 text-[9px] font-bold text-slate-600 hover:text-slate-800 border border-slate-200 hover:border-slate-300 rounded px-1.5 py-1 transition">
                                 <Upload className="w-2.5 h-2.5" />
-                                <span>Upload POE</span>
+                                <span>Upload POE (Max 200MB)</span>
                                 <input
                                   type="file"
                                   className="hidden"
@@ -2863,6 +2863,10 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
                                   onChange={(e) => {
                                     const file = e.target.files?.[0];
                                     if (file) {
+                                      if (file.size > 200 * 1024 * 1024) {
+                                        alert(`Selected file "${file.name}" (${(file.size / (1024 * 1024)).toFixed(1)}MB) exceeds the 200MB limit per KPI.`);
+                                        return;
+                                      }
                                       const reader = new FileReader();
                                       reader.onload = () => {
                                         const base64 = reader.result as string;

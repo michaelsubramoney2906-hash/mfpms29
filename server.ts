@@ -77,6 +77,153 @@ function checkIpMatch(clientIp: string, allowedSpecs: string[]): boolean {
   return false;
 }
 
+function robustParseJson(rawText: string): any {
+  if (!rawText || !rawText.trim()) throw new Error("Empty response string from AI engine");
+
+  let str = rawText.trim();
+
+  // Strip markdown backticks if present
+  if (str.includes("```")) {
+    const matches = str.match(/```(?:json)?([\s\S]*?)```/);
+    if (matches && matches[1]) {
+      str = matches[1].trim();
+    } else {
+      str = str.replace(/```(?:json)?/g, "").replace(/```/g, "").trim();
+    }
+  }
+
+  // Strip non-JSON preamble before first { or [
+  const firstBrace = str.indexOf('{');
+  const firstBracket = str.indexOf('[');
+  let startIdx = -1;
+  if (firstBrace !== -1 && firstBracket !== -1) {
+    startIdx = Math.min(firstBrace, firstBracket);
+  } else if (firstBrace !== -1) {
+    startIdx = firstBrace;
+  } else if (firstBracket !== -1) {
+    startIdx = firstBracket;
+  }
+
+  if (startIdx > 0) {
+    str = str.substring(startIdx).trim();
+  }
+
+  // Strip non-JSON postamble after last } or ]
+  const lastBrace = str.lastIndexOf('}');
+  const lastBracket = str.lastIndexOf(']');
+  let endIdx = Math.max(lastBrace, lastBracket);
+  if (endIdx !== -1 && endIdx < str.length - 1) {
+    str = str.substring(0, endIdx + 1).trim();
+  }
+
+  // 1. Direct JSON.parse
+  try {
+    return JSON.parse(str);
+  } catch (initialErr: any) {
+    console.warn("[robustParseJson] Initial parse failed (" + initialErr.message + "). Attempting JSON repair...");
+  }
+
+  // 1b. Try after sanitizing non-printable control chars
+  try {
+    const sanitized = str.replace(/[\u0000-\u001F\u007F-\u009F]/g, (c) => {
+      if (c === '\n' || c === '\r' || c === '\t') return c;
+      return '';
+    });
+    return JSON.parse(sanitized);
+  } catch (_) {}
+
+  // 2. Iterative truncation repair
+  let repaired = str;
+  for (let attempt = 0; attempt < 80; attempt++) {
+    let candidate = repaired;
+
+    // Remove any trailing backslashes or incomplete key-value tokens at tail
+    candidate = candidate.replace(/\\$/g, '');
+
+    // Check quote balance
+    let openQuotes = 0;
+    let inEscape = false;
+    for (let i = 0; i < candidate.length; i++) {
+      if (candidate[i] === '\\' && !inEscape) {
+        inEscape = true;
+      } else {
+        if (candidate[i] === '"' && !inEscape) {
+          openQuotes++;
+        }
+        inEscape = false;
+      }
+    }
+    if (openQuotes % 2 !== 0) {
+      candidate += '"';
+    }
+
+    // Clean trailing comma or unclosed keys
+    candidate = candidate.replace(/,\s*$/g, '');
+    candidate = candidate.replace(/:\s*"?$/g, ': ""');
+    candidate = candidate.replace(/,\s*"[^"]*"?\s*$/g, '');
+
+    // Count brackets
+    let openBraces = 0;
+    let openSquare = 0;
+    let inString = false;
+    let esc = false;
+    for (let i = 0; i < candidate.length; i++) {
+      const c = candidate[i];
+      if (c === '\\' && !esc) {
+        esc = true;
+        continue;
+      }
+      if (c === '"' && !esc) {
+        inString = !inString;
+      } else if (!inString) {
+        if (c === '{') openBraces++;
+        if (c === '}') openBraces--;
+        if (c === '[') openSquare++;
+        if (c === ']') openSquare--;
+      }
+      esc = false;
+    }
+
+    let closing = "";
+    for (let i = 0; i < Math.max(0, openSquare); i++) closing += "]";
+    for (let i = 0; i < Math.max(0, openBraces); i++) closing += "}";
+
+    try {
+      const parsed = JSON.parse(candidate + closing);
+      console.log(`[robustParseJson] Successfully repaired truncated JSON at attempt ${attempt}!`);
+      return parsed;
+    } catch (_) {
+      // Step backwards to previous object boundary
+      const lastComma = repaired.lastIndexOf(",");
+      const lBrace = repaired.lastIndexOf("}");
+      const lBracket = repaired.lastIndexOf("]");
+      const cutIndex = Math.max(lastComma, lBrace, lBracket);
+      if (cutIndex > 0) {
+        repaired = repaired.substring(0, cutIndex);
+      } else {
+        break;
+      }
+    }
+  }
+
+  // 3. Fallback regex salvage for array items
+  const objectMatches = str.match(/\{[^{}]*(?:"Ref_Number"|"KPI"|"SDBIP"|"Responsible_Owner")[^{}]*\}/g) || str.match(/\{[^{}]*:[^{}]*\}/g);
+  if (objectMatches && objectMatches.length > 0) {
+    const items: any[] = [];
+    for (const itemStr of objectMatches) {
+      try {
+        items.push(JSON.parse(itemStr));
+      } catch (_) {}
+    }
+    if (items.length > 0) {
+      console.log(`[robustParseJson] Salvaged ${items.length} items using regex object extraction.`);
+      return { items };
+    }
+  }
+
+  throw new Error("AI returned invalid JSON or response was truncated.");
+}
+
 function getTenantsList(): any[] {
   try {
     const dataPath = path.join(process.cwd(), "src", "data.ts");
@@ -431,14 +578,12 @@ async function startServer() {
   // Robust Helper for Gemini API with double backoff retry on transient errors and model-rotation fallback
   async function generateContentWithRetry(ai: GoogleGenAI, params: any, maxRetries = 5, delayMs = 2000) {
     let attempt = 0;
-    const initialModel = params.model;
     
-    // Fallback list of models in case of high demand (503/429)
+    // Fallback list of models in case of high demand (503/429) or endpoint availability
     const fallbackModels = [
-      "gemini-3.5-flash",
       "gemini-2.5-flash",
-      "gemini-1.5-flash",
       "gemini-2.5-pro",
+      "gemini-1.5-flash",
       "gemini-1.5-pro"
     ];
     
@@ -454,18 +599,25 @@ async function startServer() {
           errStr.includes("UNAVAILABLE") || 
           errStr.includes("Resource has been exhausted") ||
           errStr.includes("overloaded") ||
+          errStr.includes("fetch failed") ||
+          errStr.includes("socket") ||
+          errStr.includes("ECONNRESET") ||
+          errStr.includes("ETIMEDOUT") ||
+          errStr.includes("network") ||
+          errStr.includes("quota") ||
+          errStr.includes("Internal error") ||
           err.status === 503 || 
           err.status === 429;
         
         if (isTransient && attempt < maxRetries) {
           // Rotate model to a fallback to bypass model-specific capacity constraints
-          let nextModel = "gemini-3.5-flash";
+          let nextModel = "gemini-2.5-flash";
           if (fallbackModels.includes(params.model)) {
             const currentIdx = fallbackModels.indexOf(params.model);
             const nextIdx = (currentIdx + 1) % fallbackModels.length;
             nextModel = fallbackModels[nextIdx];
           }
-          console.log(`[Gemini API Info] Transient status with ${params.model} (attempt ${attempt}/${maxRetries}). Rotating model to: ${nextModel}`);
+          console.log(`[Gemini API Info] Transient status with ${params.model} (attempt ${attempt}/${maxRetries}): ${errStr}. Rotating model to: ${nextModel}`);
           params.model = nextModel;
           
           const waitTime = delayMs * Math.pow(2, (attempt - 1));
@@ -495,7 +647,7 @@ async function startServer() {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       
       const response = await generateContentWithRetry(ai, {
-        model: "gemini-3.5-flash",
+        model: "gemini-2.5-flash",
         contents: messages,
         config: {
           maxOutputTokens: 8192,
@@ -531,11 +683,40 @@ async function startServer() {
       let responseSchema: any = {};
 
       if (engineType === "sdbip_engine") {
-        extractionPrompt = `You are a deterministic, hard-coded data parser. Do not summarize, guess, or use AI reasoning. Your only task is to extract exact text blocks and output them in the requested JSON structure.
-IMPORTANT: The document contains over 110 KPIs. Specifically, you MUST find and extract EVERY KPI from M_01 all the way through to M_92, and from P_01 all the way through to P_18, as well as ALL KPAs. You MUST extract EVERY SINGLE ONE of them without exception.
-Do NOT truncate the list, do NOT use "etc", do NOT stop early. Exhaustively extract all National KPAs, KPIs, and Strategic Objectives.
-Map them strictly to the following JSON structure without deviation inside the "items" array parameter:
-{"National_KPA": "","SDBIP_Strategic_Objective": "","KPI": "","Target": "","Unit_of_Measure": "","Mapping": {"SDBIP_Top_Layer_Table": "","SDBIP_Top_Layer_Reporting_Table": ""}}`;
+        extractionPrompt = `You are a deterministic, hard-coded data parser and SDBIP document extraction engine. Do not summarize, guess, or use AI reasoning. Your only task is to extract exact text blocks and output them in the requested JSON structure.
+IMPORTANT: You MUST find and extract EVERY SINGLE KPI from the document without exception (including reference codes M_01 to M_92 for Municipal Top-Layer KPIs, and P_01 to P_18 for Departmental Performance KPIs). Do NOT truncate the list, do NOT use "etc", do NOT stop early.
+
+CRITICAL MAPPING RULES:
+1. REF_NUMBER: NEVER rename, reformat, or replace reference numbers with generic prefixes like KPI-001. You MUST extract the exact reference code from the SDBIP document table. The reference numbers MUST start with M_01 to M_92 for Municipal Top-Layer KPIs, and P_01 to P_18 for Departmental Performance KPIs (e.g., M_01, M_02, ... M_92, P_01, P_02, ... P_18). Keep the exact 'M_XX' or 'P_XX' prefix verbatim.
+2. RESPONSIBLE_OWNER: You MUST extract the exact Responsible Person / Owner / Responsible Manager / Executive Manager / Official / Departmental Lead directly listed in the SDBIP table for each KPI row (e.g., 'Municipal Manager', 'Chief Financial Officer', 'Executive Manager: Technical Services', 'General Manager: Corporate Services', 'Manager: Financial Services', 'Head of Department: Community Safety'). DO NOT place National KPA names, Strategic Objectives, or random text into Responsible_Owner. Extract the complete role title / official title as written in the SDBIP document.
+
+For EVERY SDBIP item, exhaustively extract and map the following exact properties:
+- Ref_Number: Exact reference code/number starting with M_01 to M_92 or P_01 to P_18 (e.g., M_01, M_02... M_92, P_01... P_18)
+- SDBIP_Strategic_Objective: Strategic Objective text
+- KPI: Key Performance Indicator title / operational activity
+- National_KPA: National Key Performance Area name or codes (BSD, LED, MFVM, GGPP, MIDT, SR)
+- BSD: "X" or true if BSD (Basic Service Delivery) is marked, else ""
+- LED: "X" or true if LED (Local Economic Development) is marked, else ""
+- MFVM: "X" or true if MFVM (Municipal Financial Viability & Management) is marked, else ""
+- GGPP: "X" or true if GGPP (Good Governance & Public Participation) is marked, else ""
+- MIDT: "X" or true if MIDT (Municipal Transformation & Org Development) is marked, else ""
+- SR: "X" or true if SR (Spatial Rationale) is marked, else ""
+- Responsible_Owner: Full Responsible Person / Owner / Manager / Official / Departmental Head title
+- Unit_of_Measure: Unit of Measure (e.g. Number, %, R'000)
+- mSCOA_Tracking: mSCOA tracking code or item
+- Baseline: Baseline value/text
+- Annual_Target: Annual Target value/text
+- Budget_Allocation: Total Budget allocated / budget amount
+- Q1_Target: 1st Quarter Target value/details
+- Q2_Target: 2nd Quarter Target value/details
+- Mid_Term_Target: Mid Term Target value/details
+- Q3_Target: 3rd Quarter Target value/details
+- Q4_Target: 4th Quarter Target value/details
+- Submitter: Submitter name / role
+- Approver: Approver name / role
+- POE_Description: Portfolio of Evidence description / requirement
+- Description: Operational Activity / KPI full description or details
+- Mapping: Object with "SDBIP_Top_Layer_Table": "Yes", "SDBIP_Top_Layer_Reporting_Table": "Yes"`;
 
         responseSchema = {
           type: Type.OBJECT,
@@ -546,11 +727,31 @@ Map them strictly to the following JSON structure without deviation inside the "
               items: {
                 type: Type.OBJECT,
                 properties: {
-                  National_KPA: { type: Type.STRING },
+                  Ref_Number: { type: Type.STRING, description: "Exact reference number starting with M_01 to M_92 or P_01 to P_18" },
                   SDBIP_Strategic_Objective: { type: Type.STRING },
                   KPI: { type: Type.STRING },
-                  Target: { type: Type.STRING },
+                  National_KPA: { type: Type.STRING },
+                  BSD: { type: Type.STRING },
+                  LED: { type: Type.STRING },
+                  MFVM: { type: Type.STRING },
+                  GGPP: { type: Type.STRING },
+                  MIDT: { type: Type.STRING },
+                  SR: { type: Type.STRING },
+                  Responsible_Owner: { type: Type.STRING, description: "Extract full Responsible Person / Owner / Executive Manager / Department Lead title" },
                   Unit_of_Measure: { type: Type.STRING },
+                  mSCOA_Tracking: { type: Type.STRING },
+                  Baseline: { type: Type.STRING },
+                  Annual_Target: { type: Type.STRING },
+                  Budget_Allocation: { type: Type.STRING },
+                  Q1_Target: { type: Type.STRING },
+                  Q2_Target: { type: Type.STRING },
+                  Mid_Term_Target: { type: Type.STRING },
+                  Q3_Target: { type: Type.STRING },
+                  Q4_Target: { type: Type.STRING },
+                  Submitter: { type: Type.STRING, description: "Extract Submitter" },
+                  Approver: { type: Type.STRING, description: "Extract Approver" },
+                  POE_Description: { type: Type.STRING },
+                  Description: { type: Type.STRING },
                   Mapping: {
                     type: Type.OBJECT,
                     properties: {
@@ -560,7 +761,11 @@ Map them strictly to the following JSON structure without deviation inside the "
                     required: ["SDBIP_Top_Layer_Table", "SDBIP_Top_Layer_Reporting_Table"]
                   }
                 },
-                required: ["National_KPA", "SDBIP_Strategic_Objective", "KPI", "Target", "Unit_of_Measure", "Mapping"]
+                required: [
+                  "Ref_Number", "SDBIP_Strategic_Objective", "KPI", "National_KPA",
+                  "Responsible_Owner", "Unit_of_Measure", "Baseline", "Annual_Target",
+                  "Budget_Allocation", "Submitter", "Approver", "Mapping"
+                ]
               }
             }
           },
@@ -934,7 +1139,7 @@ Format your response exactly according to the following JSON schema:
 
       try {
         const result = await generateContentWithRetry(ai, {
-          model: "gemini-3.5-flash",
+          model: "gemini-2.5-flash",
           contents: [{ role: "user", parts }],
           config: {
             responseMimeType: "application/json",
@@ -948,7 +1153,7 @@ Format your response exactly according to the following JSON schema:
       } catch (gemErr) {
         console.log("[Fred Extraction] Initial generateContent failed, retrying...");
         const fallbackResult = await generateContentWithRetry(ai, {
-          model: "gemini-3.5-flash",
+          model: "gemini-2.5-flash",
           contents: [{ role: "user", parts }],
           config: {
             responseMimeType: "application/json",
@@ -962,16 +1167,7 @@ Format your response exactly according to the following JSON schema:
       }
 
       try {
-        let rawText = response.text || "";
-        if (!rawText) throw new Error("Empty response from AI engine");
-
-        if (rawText.includes("```")) {
-          const matches = rawText.match(/```(?:json)?([\s\S]*?)```/);
-          if (matches && matches[1]) {
-            rawText = matches[1].trim();
-          }
-        }
-        extractedData = JSON.parse(rawText.trim());
+        extractedData = robustParseJson(response.text || "");
       } catch (parseErr: any) {
         console.error("Failed to parse Gemini response as JSON.");
         console.error("Response excerpt:", (response.text || "").substring(0, 500));
@@ -997,7 +1193,120 @@ Format your response exactly according to the following JSON schema:
 
       console.log(`Successfully stored ${engineType} extracted data in Supabase with id: ${storageId}`);
 
-      if (engineType === "cfo_competencies_engine") {
+      if (engineType === "sdbip_engine") {
+        try {
+          const items = extractedData.items || [];
+          if (items.length > 0) {
+            let docIds = [`sdbip_${resolvedTenantId}`];
+            if (resolvedTenantId === 'tenant-229' || resolvedTenantId === 'nkangala' || resolvedTenantId === 'default') {
+              docIds = ['sdbip_tenant-229', 'sdbip_nkangala_auto', 'sdbip_global'];
+            }
+
+            for (const docId of docIds) {
+              const { data: existingDoc } = await supabase
+                .from('messages')
+                .select('content')
+                .eq('id', docId)
+                .maybeSingle();
+
+              let existingItems: any[] = [];
+              if (existingDoc && existingDoc.content) {
+                try {
+                  const parsed = JSON.parse(existingDoc.content);
+                  existingItems = parsed.items || [];
+                } catch (pErr) {
+                  console.error("Error parsing existing SDBIP items:", pErr);
+                }
+              }
+
+              const mappedSdbipRows = items.map((item: any, idx: number) => {
+                const natKpa = item.National_KPA || item.KPA || '';
+                const respOwner = item.Responsible_Owner || item.Responsible_Person || item.Responsible_Official || item.Responsible_Manager || item.Executive_Manager || item.responsibleUnit || '';
+                const submitterVal = item.Submitter || item.Submitting_Official || '';
+                const approverVal = item.Approver || item.Approving_Official || '';
+                const kpiVal = item.KPI || item.Operational_Activity || item.Description || '';
+                
+                const existing = existingItems[idx] || {};
+
+                // Extract or infer Ref Number starting with M_01..M_92 or P_01..P_18
+                const rawRef = item.Ref_Number || item.Ref_No || item.Ref || item.KPI_Ref || item.refNum || '';
+                let refNumVal = String(rawRef).trim();
+
+                if (!refNumVal || refNumVal.toUpperCase().startsWith('KPI-')) {
+                  if (existing.refNum && (existing.refNum.startsWith('M_') || existing.refNum.startsWith('P_'))) {
+                    refNumVal = existing.refNum;
+                  } else if (idx < 92) {
+                    refNumVal = `M_${String(idx + 1).padStart(2, '0')}`;
+                  } else {
+                    refNumVal = `P_${String(idx - 91).padStart(2, '0')}`;
+                  }
+                } else {
+                  // Normalize format variations like M1, M 01, M-01 -> M_01 and P1, P 01, P-01 -> P_01
+                  const mMatch = refNumVal.match(/^[Mm][_\-\s]*(\d+)$/);
+                  const pMatch = refNumVal.match(/^[Pp][_\-\s]*(\d+)$/);
+                  if (mMatch) {
+                    refNumVal = `M_${mMatch[1].padStart(2, '0')}`;
+                  } else if (pMatch) {
+                    refNumVal = `P_${pMatch[1].padStart(2, '0')}`;
+                  }
+                }
+
+                return {
+                  id: existing.id || `sdbip-ext-${idx + 1}-${Date.now()}`,
+                  refNum: refNumVal,
+                  strategicObj: item.SDBIP_Strategic_Objective || existing.strategicObj || '',
+                  bsd: item.BSD || (natKpa.includes('BSD') ? 'X' : (existing.bsd || '')),
+                  led: item.LED || (natKpa.includes('LED') ? 'X' : (existing.led || '')),
+                  mfvm: item.MFVM || (natKpa.includes('MFVM') ? 'X' : (existing.mfvm || '')),
+                  ggpp: item.GGPP || (natKpa.includes('GGPP') ? 'X' : (existing.ggpp || '')),
+                  midt: item.MIDT || (natKpa.includes('MIDT') ? 'X' : (existing.midt || '')),
+                  sr: item.SR || (natKpa.includes('SR') ? 'X' : (existing.sr || '')),
+                  kpas: natKpa || existing.kpas || '',
+                  operationalActivity: item.Description || kpiVal || existing.operationalActivity || '',
+                  kpi: kpiVal || existing.kpi || '',
+                  compliance: existing.compliance || 'compliant',
+                  uom: item.Unit_of_Measure || existing.uom || 'Number',
+                  mscoaTracking: item.mSCOA_Tracking || existing.mscoaTracking || 'mSCOA Item Code',
+                  baseline: item.Baseline || existing.baseline || '0',
+                  annualTarget: item.Annual_Target || item.Target || existing.annualTarget || '',
+                  budgetAllocation: item.Budget_Allocation || existing.budgetAllocation || 'R 0',
+                  q1: item.Q1_Target || existing.q1 || '',
+                  q2: item.Q2_Target || existing.q2 || '',
+                  midTerm: item.Mid_Term_Target || existing.midTerm || '',
+                  q3: item.Q3_Target || existing.q3 || '',
+                  q4: item.Q4_Target || existing.q4 || '',
+                  responsibleUnit: respOwner || existing.responsibleUnit || '',
+                  submitter: submitterVal || existing.submitter || '',
+                  approver: approverVal || existing.approver || '',
+                  reviewer: existing.reviewer || '',
+                  internalAudit: existing.internalAudit || '',
+                  poeStatus: item.POE_Description || existing.poeStatus || 'Pending Upload',
+                  description: item.Description || kpiVal || existing.description || ''
+                };
+              });
+
+              const mergedItems = mappedSdbipRows.length >= existingItems.length
+                ? mappedSdbipRows
+                : mappedSdbipRows.concat(existingItems.slice(mappedSdbipRows.length));
+
+              const tId = docId.replace('sdbip_', '');
+              await supabase.from('messages').upsert({
+                id: docId,
+                tenant_id: tId,
+                sender_id: 'sdbip_fred_extraction',
+                sender_email: 'fred_sdbip@system.local',
+                sender_name: 'Fred SDBIP Auto Sync',
+                content: JSON.stringify({ items: mergedItems }),
+                message_type: 'sdbip_list',
+                created_at: new Date().toISOString()
+              });
+              console.log(`Successfully auto-mapped Fred SDBIP extraction items to ${docId} in Supabase`);
+            }
+          }
+        } catch (syncErr) {
+          console.error("Failed to auto-sync SDBIP extraction items to SDBIP table:", syncErr);
+        }
+      } else if (engineType === "cfo_competencies_engine") {
         try {
           const cfoCompetencies = extractedData.CFO_Core_Competencies || [];
           const mappedCfoRows = cfoCompetencies.map((comp: any, idx: number) => ({
@@ -3646,9 +3955,10 @@ Format your response exactly according to the following JSON schema:
     try {
       const supabase = getSupabase();
       let documentIds = [`sdbip_${tenantId}`];
-      if (tenantId === 'tenant-229' || tenantId === 'nkangala_auto') {
+      if (tenantId === 'tenant-229' || tenantId === 'nkangala_auto' || tenantId === 'nkangala' || tenantId === 'default') {
         documentIds = ['sdbip_tenant-229', 'sdbip_nkangala_auto', 'sdbip_global'];
       } else if (tenantId !== 'global') {
+        documentIds.push(`sdbip_${tenantId}`);
         documentIds.push('sdbip_global');
       }
 
@@ -3662,8 +3972,9 @@ Format your response exactly according to the following JSON schema:
         if (data && data.content) {
           try {
             const parsed = JSON.parse(data.content);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              return res.json({ items: parsed });
+            const itemsArray = Array.isArray(parsed) ? parsed : (parsed?.items || []);
+            if (Array.isArray(itemsArray) && itemsArray.length > 0) {
+              return res.json({ items: itemsArray });
             }
           } catch (parseErr) {
             console.error("Error parsing sdbip JSON:", parseErr);
@@ -4833,7 +5144,7 @@ Format your response exactly according to the following JSON schema:
 
       const ai = new GoogleGenAI({ apiKey });
       const response = await generateContentWithRetry(ai, {
-        model: "gemini-3.5-flash",
+        model: "gemini-2.5-flash",
         contents: [
           {
             role: "user",
@@ -4922,14 +5233,7 @@ Format your response exactly according to the following JSON schema:
       console.log("AI Extraction complete.");
       let extractedData: any;
       try {
-        let rawText = response.text;
-        if (rawText.includes("```")) {
-          const matches = rawText.match(/```(?:json)?([\s\S]*?)```/);
-          if (matches && matches[1]) {
-            rawText = matches[1].trim();
-          }
-        }
-        extractedData = JSON.parse(rawText.trim());
+        extractedData = robustParseJson(response.text || "");
       } catch (parseErr: any) {
         console.error("JSON Parse Error. Raw response was:");
         console.error(response.text);
@@ -5876,6 +6180,18 @@ Format your response exactly according to the following JSON schema:
       console.error(`NEDA ${key} save exception:`, err);
       res.status(500).json({ error: err.message });
     }
+  });
+
+  // Global error handler for /api endpoints to ensure JSON is always returned instead of HTML
+  app.use('/api', (err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error(`[API Handler Error] ${req.method} ${req.url}:`, err);
+    if (res.headersSent) {
+      return next(err);
+    }
+    res.status(err.status || 500).json({
+      success: false,
+      error: err.message || "Internal Server Error"
+    });
   });
 
   // Vite middleware for development

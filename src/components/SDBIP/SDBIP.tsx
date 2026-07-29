@@ -236,7 +236,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
   const [selectedKpa, setSelectedKpa] = useState('ALL');
   const [selectedNationalKpa, setSelectedNationalKpa] = useState('ALL');
 
-  // Computed unique KPA functional areas
+  // Computed unique Responsible Owners
   const uniqueKpas = React.useMemo(() => {
     const kpaSet = new Set<string>();
     rows.forEach(row => {
@@ -273,7 +273,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
         }
       }
 
-      // 2. Filter by KPA Functional Area
+      // 2. Filter by Responsible Owner
       if (selectedKpa !== 'ALL') {
         if (row.kpas !== selectedKpa) {
           return false;
@@ -351,17 +351,17 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
             </div>
           </div>
 
-          {/* 2. KPA Functional Area Filter */}
+          {/* 2. Responsible Owner Filter */}
           <div className="space-y-1">
             <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500">
-              KPA Functional Area
+              Responsible Owner
             </label>
             <select
               value={selectedKpa}
               onChange={(e) => setSelectedKpa(e.target.value)}
               className="w-full bg-white border border-slate-200 hover:border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none transition-all"
             >
-              <option value="ALL">All Functional Areas ({uniqueKpas.length})</option>
+              <option value="ALL">All Responsible Owners ({uniqueKpas.length})</option>
               {uniqueKpas.map((kpa) => (
                 <option key={kpa} value={kpa}>{kpa}</option>
               ))}
@@ -1221,7 +1221,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
   const exportToCSV = () => {
     const headers = [
       "Reference Number", "Strategic Objectives", "KPI", "BSD", "LED", "MFVM",
-      "GGPP", "MIDT", "KPA Functional Area", "Operational Activity",
+      "GGPP", "MIDT", "Responsible Owner", "Operational Activity",
       "Compliance", "Unit of Measure", "mSCOA Tracking", "Baseline",
       "Annual Target", "Budget Allocation", "Weight", "Score",
       "Q1 Target", "Q1 Actual", "Q1 Variance", "Q1 Corrective",
@@ -1679,7 +1679,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                             <th className="p-3 border-r border-slate-200 w-20 text-center bg-indigo-100 text-indigo-900">GGPP</th>
                             <th className="p-3 border-r border-slate-200 w-20 text-center bg-rose-100 text-rose-900">MIDT</th>
                             <th className="p-3 border-r border-slate-200 w-20 text-center bg-orange-100 text-orange-900">SR</th>
-                            <th className="p-3 border-r border-slate-200 w-52">KPA FUNCTIONAL AREA</th>
+                            <th className="p-3 border-r border-slate-200 w-52">RESPONSIBLE OWNER</th>
                             <th className="p-3 border-r border-slate-200 w-40">BASELINE</th>
                             <th className="p-3 border-r border-slate-200 w-44">ANNUAL TARGET</th>
                             <th className="p-3 border-r border-slate-200 w-40">TOTAL BUDGET</th>
@@ -2062,7 +2062,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                                         <h5 className="font-bold text-slate-900 text-[11px] uppercase tracking-wider font-mono">Strategic Context & Scope</h5>
                                         <div className="space-y-1.5 leading-relaxed text-slate-700">
                                           <p><strong className="font-bold">Objective:</strong> {row.strategicObj || '-'}</p>
-                                          <p><strong className="font-bold">Functional Area:</strong> {row.kpas || '-'}</p>
+                                          <p><strong className="font-bold">Responsible Owner:</strong> {row.kpas || '-'}</p>
                                           <p><strong className="font-bold">Baseline:</strong> {row.baseline || '-'}</p>
                                           <p><strong className="font-bold">Annual Target:</strong> {row.annualTarget || '-'}</p>
                                         </div>
@@ -2210,7 +2210,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                                         <h5 className="font-bold text-slate-900 text-[11px] uppercase tracking-wider font-mono">Strategic Scope</h5>
                                         <div className="space-y-1.5 leading-relaxed text-slate-700">
                                           <p><strong className="font-bold">Objective:</strong> {row.strategicObj || '-'}</p>
-                                          <p><strong className="font-bold">Functional Area:</strong> {row.kpas || '-'}</p>
+                                          <p><strong className="font-bold">Responsible Owner:</strong> {row.kpas || '-'}</p>
                                           <p><strong className="font-bold">Baseline:</strong> {row.baseline || '-'}</p>
                                           <p><strong className="font-bold">Annual Target:</strong> {row.annualTarget || '-'}</p>
                                         </div>
@@ -2424,7 +2424,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                                         <h5 className="font-bold text-slate-900 text-[11px] uppercase tracking-wider font-mono">Strategic Scope</h5>
                                         <div className="space-y-1.5 leading-relaxed text-slate-700">
                                           <p><strong className="font-bold">Objective:</strong> {row.strategicObj || '-'}</p>
-                                          <p><strong className="font-bold">Functional Area:</strong> {row.kpas || '-'}</p>
+                                          <p><strong className="font-bold">Responsible Owner:</strong> {row.kpas || '-'}</p>
                                           <p><strong className="font-bold">Baseline:</strong> {row.baseline || '-'}</p>
                                           <p><strong className="font-bold">Annual Target:</strong> {row.annualTarget || '-'}</p>
                                         </div>
@@ -2815,7 +2815,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                     <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-purple-100 text-purple-900">GGPP (X)</th>
                     <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-rose-100 text-rose-900">MIDT (X)</th>
                     <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-orange-100 text-orange-900">SR (X)</th>
-                    <th className="p-3 border-r border-slate-200 w-52 sticky top-0 z-20 bg-slate-100">KPA FUNCTIONAL AREA</th>
+                    <th className="p-3 border-r border-slate-200 w-52 sticky top-0 z-20 bg-slate-100">RESPONSIBLE OWNER</th>
                     <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-slate-100">UNIT OF MEASURE</th>
                     <th className="p-3 border-r border-slate-200 w-44 sticky top-0 z-20 bg-slate-100">MSCOA TRACKING</th>
                     <th className="p-3 border-r border-slate-200 w-40 sticky top-0 z-20 bg-slate-100">BASELINE</th>
@@ -3171,7 +3171,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                 />
                 <input 
                   type="text"
-                  placeholder="KPA Functional Area"
+                  placeholder="Responsible Owner"
                   value={newRowData.kpas || ''}
                   onChange={(e) => setNewRowData(p => ({ ...p, kpas: e.target.value }))}
                   className="px-3 py-2 bg-white border border-slate-200 rounded-lg outline-none focus:border-indigo-505"
@@ -3297,7 +3297,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                     <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-indigo-100 text-indigo-900">GGPP (X)</th>
                     <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-rose-100 text-rose-900">MIDT (X)</th>
                     <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-orange-100 text-orange-900">SR (X)</th>
-                    <th className="p-3 border-r border-slate-200 w-52 sticky top-0 z-20 bg-slate-100">KPA FUNCTIONAL AREA</th>
+                    <th className="p-3 border-r border-slate-200 w-52 sticky top-0 z-20 bg-slate-100">RESPONSIBLE OWNER</th>
                     <th className="p-3 border-r border-slate-200 w-40 sticky top-0 z-20 bg-slate-100">BASELINE</th>
                     <th className="p-3 border-r border-slate-200 w-44 sticky top-0 z-20 bg-slate-100">ANNUAL TARGET</th>
                     <th className="p-3 border-r border-slate-200 w-40 sticky top-0 z-20 bg-slate-100">TOTAL BUDGET</th>
