@@ -4280,17 +4280,17 @@ Format your response exactly according to the following JSON schema:
 
       const defaultOfficials = {
         reviewers: [
-          'Sipho Dlamini',
-          'Zama Khumalo',
-          'Mike Thompson',
-          'Lerato Mokwena'
+          'Nompumelelo P. Nsibande',
+          'Sibusiso M. Shabanga',
+          'Noluthando Zulu',
+          'Mduduzi Lukele'
         ],
         internalAuditors: [
-          'Fatima Patel',
-          'Brandon Naidoo',
-          'Thabo Mokoena',
-          'Nomvula Sithole',
-          'Audrey Mpanza'
+          'Amos D. Twala',
+          'Peggy L. Seerane',
+          'Jayvanti Morar',
+          'Katlego Masemola',
+          'Sthembile C. Mpanza'
         ]
       };
 
