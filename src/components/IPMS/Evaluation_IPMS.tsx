@@ -47,7 +47,7 @@ export function QuarterPoeSelector({
 }: QuarterPoeSelectorProps) {
   const [dragActive, setDragActive] = useState(false);
 
-  const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB limit per file / per upload
+  const MAX_FILE_SIZE = 200 * 1024 * 1024; // 200MB limit per file / per upload
 
   const formatFileSize = (bytes?: number) => {
     if (!bytes) return '';
@@ -59,6 +59,16 @@ export function QuarterPoeSelector({
   const handleFilesSelected = async (fileList: FileList | null) => {
     if (!fileList || disabled) return;
 
+    if (fileList.length > 20) {
+      alert(`File Upload Limits Notice:\n\n• You can upload at most 20 files at a time. Please select fewer files.`);
+      return;
+    }
+
+    if (files.length + fileList.length > 20) {
+      alert(`File Upload Limits Notice:\n\n• You can have a maximum of 20 PoE files per KPI.`);
+      return;
+    }
+
     const currentTotalSize = files.reduce((sum, f) => sum + (f.size || 0), 0);
     let runningTotalSize = currentTotalSize;
 
@@ -69,12 +79,12 @@ export function QuarterPoeSelector({
       const file = fileList[i];
 
       if (file.size > MAX_FILE_SIZE) {
-        errors.push(`"${file.name}" (${(file.size / (1024 * 1024)).toFixed(1)} MB) exceeds the 100MB maximum file size limit.`);
+        errors.push(`"${file.name}" (${(file.size / (1024 * 1024)).toFixed(1)} MB) exceeds the 200MB maximum file size limit.`);
         continue;
       }
 
       if (runningTotalSize + file.size > MAX_FILE_SIZE) {
-        errors.push(`Adding "${file.name}" would cause total PoE files for this KPI section to exceed 100MB.`);
+        errors.push(`Adding "${file.name}" would cause total PoE files for this KPI section to exceed 200MB.`);
         continue;
       }
 
@@ -236,7 +246,7 @@ export function QuarterPoeSelector({
             Drag &amp; drop multiple files or <span className="text-emerald-700 underline">browse</span>
           </p>
           <p className="text-[8px] text-slate-500 mt-0.5 mb-0 leading-tight">
-            PowerPoint (.pptx), Word (.docx), PDF, Excel (.xlsx), Images (PNG/JPG) • 100MB limit per KPI
+            PowerPoint (.pptx), Word (.docx), PDF, Excel (.xlsx), Images (PNG/JPG) • 200MB limit per KPI
           </p>
           {!disabled && (
             <input

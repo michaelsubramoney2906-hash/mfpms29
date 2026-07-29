@@ -121,7 +121,7 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
     }
   };
 
-  const handlePushToAudit = async () => {
+  const handlePushToReviewer = async () => {
     if (!selectedKpi) return;
     setLoading(true);
     try {
@@ -130,21 +130,21 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
           const currentHistory = (r as any).workflowHistory || [];
           const newHistoryItem = {
             date: new Date().toISOString(),
-            action: 'Pushed to Internal Audit',
+            action: 'Pushed to Reviewer',
             user: currentUser.email,
-            notes: approverNotes || 'Pushed to Internal Audit desk by Executive Approver.'
+            notes: approverNotes || 'Pushed to PMU Reviewer by Executive Approver.'
           };
 
           const workflows = r.workflows || {};
           ['q1', 'q2', 'midTerm', 'q3', 'q4', 'annual'].forEach(ph => {
             if (workflows[ph]) {
-              workflows[ph] = { ...workflows[ph], status: 'pending_audit', approvedBy: currentUser.email };
+              workflows[ph] = { ...workflows[ph], status: 'pending_review', approvedBy: currentUser.email };
             }
           });
 
           return {
             ...r,
-            workflowStatus: 'Pending Audit',
+            workflowStatus: 'Pending Review',
             approvedBy: currentUser.email,
             approverNotes: approverNotes,
             workflows,
@@ -160,10 +160,10 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
         body: JSON.stringify({ items: updatedRows })
       });
 
-      if (!response.ok) throw new Error('Failed to push item to Internal Audit');
+      if (!response.ok) throw new Error('Failed to push item to Reviewer');
       
       setRows(updatedRows);
-      setSuccess('SDBIP Item pushed to Internal Audit desk successfully!');
+      setSuccess('SDBIP Item pushed to PMU Reviewer desk successfully!');
       setTimeout(() => setSuccess(null), 4000);
       setSelectedKpi(null);
     } catch (err: any) {
@@ -253,17 +253,20 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
 
   // Calculate high level stats
   const totalKpis = rows.length;
-  const submittedCount = rows.filter(r => (r as any).workflowStatus === 'Submitted').length;
-  const reviewedCount = rows.filter(r => (r as any).workflowStatus === 'Reviewed').length;
+  const submittedCount = rows.filter(r => (r as any).workflowStatus === 'Submitted to Approver' || (r as any).workflowStatus === 'Submitted').length;
+  const reviewedCount = rows.filter(r => (r as any).workflowStatus === 'Reviewed' || (r as any).workflowStatus === 'Pending Review').length;
   const approvedCount = rows.filter(r => (r as any).workflowStatus === 'Approved').length;
 
   const getStatusBadge = (status: string | undefined) => {
     const s = status || 'Draft';
     switch (s) {
       case 'Submitted':
-        return <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider">Awaiting Review</span>;
+      case 'Submitted to Approver':
+        return <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider">Awaiting Approver</span>;
+      case 'Pending Review':
+        return <span className="bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider">Awaiting Reviewer</span>;
       case 'Reviewed':
-        return <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider">Awaiting Executive Approval</span>;
+        return <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider">Awaiting MM Approval</span>;
       case 'Approved':
         return <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider">Approved & Sealed</span>;
       case 'Returned':
@@ -509,12 +512,12 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
                   Decline & Return
                 </button>
                 <button
-                  onClick={handlePushToAudit}
+                  onClick={handlePushToReviewer}
                   disabled={loading}
-                  className="w-full bg-amber-950/40 hover:bg-amber-900/30 text-amber-300 border border-amber-800/30 rounded-xl py-3 font-bold text-[11px] uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1"
+                  className="w-full bg-indigo-950/40 hover:bg-indigo-900/30 text-indigo-300 border border-indigo-800/30 rounded-xl py-3 font-bold text-[11px] uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1"
                 >
-                  <ShieldAlert className="w-3.5 h-3.5" />
-                  Push to Audit
+                  <UserCheck className="w-3.5 h-3.5" />
+                  Push to Reviewer
                 </button>
                 <button
                   onClick={handleGrantApproval}

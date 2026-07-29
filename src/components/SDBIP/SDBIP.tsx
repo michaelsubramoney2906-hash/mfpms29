@@ -147,6 +147,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
   const [poeFileName, setPoeFileName] = useState('');
   const [poeFileSize, setPoeFileSize] = useState('1.5 MB');
   const [poeDescription, setPoeDescription] = useState('');
+  const [poeUploadedFiles, setPoeUploadedFiles] = useState<{ name: string; size: string }[]>([]);
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ rowId: string; type: 'row' | 'q1' | 'q2' | 'midTerm' | 'q3' | 'q4' } | null>(null);
 
@@ -466,6 +467,25 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
   // Fetch SDBIP rows, POEs, Notifications, and Appointed Officials from Supabase on load & periodically
   const fetchSDBIPAll = (isBackground = false) => {
     if (!isBackground) setLoading(true);
+
+    const safeJson = async (res: Response, fallback: any) => {
+      if (!res.ok) {
+        console.warn(`Fetch to ${res.url} failed with status ${res.status}`);
+        return fallback;
+      }
+      const contentType = res.headers.get("content-type");
+      if (!contentType || !contentType.toLowerCase().includes("application/json")) {
+        console.warn(`Fetch to ${res.url} returned non-JSON content: ${contentType}`);
+        return fallback;
+      }
+      try {
+        return await res.json();
+      } catch (e) {
+        console.warn(`Error parsing JSON from ${res.url}:`, e);
+        return fallback;
+      }
+    };
+
     Promise.all([
       fetch(`/api/tenant/${activeTenantId}/sdbip`),
       fetch(`/api/tenant/${activeTenantId}/sdbip-poes`),
@@ -473,10 +493,10 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
       fetch(`/api/tenant/${activeTenantId}/sdbip-officials`)
     ])
       .then(async ([rowsRes, poesRes, notifRes, officialsRes]) => {
-        const rowsData = await rowsRes.json();
-        const poesData = await poesRes.json();
-        const notifData = await notifRes.json();
-        const officialsData = await officialsRes.json();
+        const rowsData = await safeJson(rowsRes, { items: [] });
+        const poesData = await safeJson(poesRes, { poes: [] });
+        const notifData = await safeJson(notifRes, { notifications: [] });
+        const officialsData = await safeJson(officialsRes, { reviewers: [], internalAuditors: [] });
         
         // If no rows are loaded, generate 25 default blank template rows
         if (rowsData && Array.isArray(rowsData.items) && rowsData.items.length > 0) {
@@ -935,7 +955,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     return details.status;
   };
 
-  const calcVar = (target: string | undefined, actual: string | undefined) => {
+  const calcVar = (target: string | undefined, actual: string | undefined, uom?: string) => {
     const tVal = (target || '').trim();
     const aVal = (actual || '').trim();
     if (!tVal && !aVal) return '';
@@ -951,6 +971,12 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     if (isNaN(nT) || isNaN(nA)) return '';
 
     const diff = nT - nA;
+    const isPercentage = tVal.includes('%') || aVal.includes('%') || (uom && uom.toLowerCase().includes('percent'));
+
+    if (isPercentage) {
+      return `${diff}%`;
+    }
+
     const prefix = tVal.startsWith('R') || aVal.startsWith('R') ? 'R ' : '';
     return prefix + diff.toLocaleString();
   };
@@ -982,11 +1008,11 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
         }
 
         // Auto-calculate Variance for all quarters
-        updatedRow.q1Variance = calcVar(updatedRow.q1, updatedRow.q1Actual);
-        updatedRow.q2Variance = calcVar(updatedRow.q2, updatedRow.q2Actual);
-        updatedRow.midTermVariance = calcVar(updatedRow.midTermTarget, updatedRow.midTermActual);
-        updatedRow.q3Variance = calcVar(updatedRow.q3, updatedRow.q3Actual);
-        updatedRow.q4Variance = calcVar(updatedRow.q4, updatedRow.q4Actual);
+        updatedRow.q1Variance = calcVar(updatedRow.q1, updatedRow.q1Actual, updatedRow.uom);
+        updatedRow.q2Variance = calcVar(updatedRow.q2, updatedRow.q2Actual, updatedRow.uom);
+        updatedRow.midTermVariance = calcVar(updatedRow.midTermTarget, updatedRow.midTermActual, updatedRow.uom);
+        updatedRow.q3Variance = calcVar(updatedRow.q3, updatedRow.q3Actual, updatedRow.uom);
+        updatedRow.q4Variance = calcVar(updatedRow.q4, updatedRow.q4Actual, updatedRow.uom);
         
         // Auto-calculate RAG Status if actual or target values change
         if (field === 'q1' || field === 'q2' || field === 'q3' || field === 'q4' ||
@@ -1006,6 +1032,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     setPoeModal({ isOpen: true, rowId, refNum, quarter });
     const suffix = quarter !== 'general' ? `_${quarter}` : '';
     setPoeFileName(`poe_evidence_ref_${refNum.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()}${suffix}.pdf`);
+    setPoeUploadedFiles([]);
     
     // Find existing description to pre-populate if any
     const existingRow = rows.find(r => r.id === rowId);
@@ -1028,18 +1055,22 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     if (!poeModal.rowId) return;
     const quarter = poeModal.quarter || 'general';
 
-    // Append to virtual POEs list for Backup Archive
-    const newPoe: SdbipPoeFile = {
-      id: `poe-${Date.now()}`,
-      name: poeFileName.trim(),
+    // Collect all the files we've uploaded
+    const filesToSave: { name: string; size: string }[] = poeUploadedFiles.length > 0 
+      ? poeUploadedFiles 
+      : [{ name: poeFileName.trim(), size: poeFileSize }];
+
+    const newPoesToAdd: SdbipPoeFile[] = filesToSave.map((f, i) => ({
+      id: `poe-${Date.now()}-${i}`,
+      name: f.name,
       type: `${quarter !== 'general' ? quarter.toUpperCase() + ' ' : ''}SDBIP Portfolio of Evidence`,
       date: new Date().toISOString().replace('T', ' ').substring(0, 16),
-      size: poeFileSize,
+      size: f.size,
       refNum: poeModal.refNum,
       description: poeDescription.trim()
-    };
+    }));
 
-    const updatedPoes = [newPoe, ...poes];
+    const updatedPoes = [...newPoesToAdd, ...poes];
     setPoes(updatedPoes);
     savePoes(updatedPoes);
 
@@ -1047,27 +1078,29 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     const updatedRows = rows.map(r => {
       if (r.id === poeModal.rowId) {
         const u = { ...r };
+        const fileNames = filesToSave.map(f => f.name);
+
         if (quarter === 'general') {
           u.poeStatus = 'Uploaded - Visit Backup';
           u.poeDesc = poeDescription.trim();
         } else if (quarter === 'q1') {
-          u.q1Poes = Array.from(new Set([...(u.q1Poes || []), poeFileName.trim()]));
+          u.q1Poes = Array.from(new Set([...(u.q1Poes || []), ...fileNames]));
           u.q1PoeDesc = poeDescription.trim();
           u.poeStatus = 'Attached';
         } else if (quarter === 'q2') {
-          u.q2Poes = Array.from(new Set([...(u.q2Poes || []), poeFileName.trim()]));
+          u.q2Poes = Array.from(new Set([...(u.q2Poes || []), ...fileNames]));
           u.q2PoeDesc = poeDescription.trim();
           u.poeStatus = 'Attached';
         } else if (quarter === 'midTerm') {
-          u.midTermPoes = Array.from(new Set([...(u.midTermPoes || []), poeFileName.trim()]));
+          u.midTermPoes = Array.from(new Set([...(u.midTermPoes || []), ...fileNames]));
           u.midTermPoeDesc = poeDescription.trim();
           u.poeStatus = 'Attached';
         } else if (quarter === 'q3') {
-          u.q3Poes = Array.from(new Set([...(u.q3Poes || []), poeFileName.trim()]));
+          u.q3Poes = Array.from(new Set([...(u.q3Poes || []), ...fileNames]));
           u.q3PoeDesc = poeDescription.trim();
           u.poeStatus = 'Attached';
         } else if (quarter === 'q4') {
-          u.q4Poes = Array.from(new Set([...(u.q4Poes || []), poeFileName.trim()]));
+          u.q4Poes = Array.from(new Set([...(u.q4Poes || []), ...fileNames]));
           u.q4PoeDesc = poeDescription.trim();
           u.poeStatus = 'Attached';
         }
@@ -1079,7 +1112,8 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     saveRows(updatedRows);
 
     setPoeModal({ isOpen: false, rowId: null, refNum: '' });
-    setSuccessToast(`Document "${newPoe.name}" correctly stored in municipality SDBIP backup archive virtual folder!`);
+    setPoeUploadedFiles([]);
+    setSuccessToast(`Successfully attached ${filesToSave.length} document(s) to KPI ${poeModal.refNum} SDBIP reporting entry!`);
     setTimeout(() => setSuccessToast(null), 5000);
   };
 
@@ -1278,23 +1312,6 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
               >
                 <Send className="w-2.5 h-2.5" /> Push to Approver
               </button>
-              <button
-                onClick={() => {
-                  const auditorName = row.internalAudit || 'Internal Auditor';
-                  updateWorkflowState(
-                    row.id, 
-                    phase, 
-                    'pending_audit', 
-                    { submittedBy: submitterName, submittedAt: new Date().toLocaleDateString() },
-                    `KPI ${row.refNum} (${phaseLabel}) submitted to Internal Audit verification.`,
-                    auditorName
-                  );
-                }}
-                className="px-2 py-0.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[9px] font-medium rounded flex items-center justify-center gap-1 transition cursor-pointer"
-                title="Push directly to Internal Audit Desk"
-              >
-                <ShieldCheck className="w-2.5 h-2.5" /> Push to Audit
-              </button>
             </div>
           )}
 
@@ -1320,23 +1337,6 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
               </button>
               <button
                 onClick={() => {
-                  const auditorName = row.internalAudit || 'Internal Auditor';
-                  updateWorkflowState(
-                    row.id,
-                    phase,
-                    'pending_audit',
-                    { approvedBy: submitterName, comments: 'Pushed to Internal Audit.' },
-                    `KPI ${row.refNum} (${phaseLabel}) pushed to Internal Audit desk.`,
-                    auditorName
-                  );
-                }}
-                className="px-2 py-0.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[9px] font-medium rounded flex items-center justify-center gap-1 transition cursor-pointer"
-                title="Push to Internal Audit"
-              >
-                <ShieldCheck className="w-2.5 h-2.5" /> Push to Audit
-              </button>
-              <button
-                onClick={() => {
                   updateWorkflowState(
                     row.id,
                     phase,
@@ -1358,21 +1358,20 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
             <div className="flex flex-col gap-1 w-full">
               <button
                 onClick={() => {
-                  const submitterNameVal = row.submitter || 'Submitter';
-                  const approverNameVal = row.approver || 'Approver';
+                  const auditorName = row.internalAudit || 'Internal Auditor';
                   updateWorkflowState(
                     row.id,
                     phase,
-                    'approved',
-                    { reviewedBy: submitterName, reviewedAt: new Date().toLocaleDateString(), comments: 'Final review sign-off completed.' },
-                    `Reviewer verification success! KPI ${row.refNum} has been fully approved.`,
-                    [submitterNameVal, approverNameVal]
+                    'pending_audit',
+                    { reviewedBy: submitterName, comments: 'Pushed to Internal Audit.' },
+                    `KPI ${row.refNum} (${phaseLabel}) pushed to Internal Audit desk.`,
+                    auditorName
                   );
                 }}
-                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-[10px] text-white font-bold rounded flex items-center justify-center gap-1 transition shadow-sm cursor-pointer"
-                title="Finalize & Approve KPI"
+                className="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-[10px] text-white font-bold rounded flex items-center justify-center gap-1 transition shadow-sm cursor-pointer"
+                title="Push to Internal Audit Desk"
               >
-                <CheckCircle className="w-2.5 h-2.5" /> Final Approve ✅
+                <ShieldCheck className="w-2.5 h-2.5" /> Push to Audit
               </button>
               <button
                 onClick={() => {
@@ -2141,19 +2140,19 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
                                         </button>
                                         <button
                                           onClick={() => {
-                                            const targets = [row.approver, row.submitter].filter(Boolean);
+                                            const targets = [row.approver, row.submitter, row.internalAudit].filter(Boolean);
                                             updateWorkflowState(
                                               row.id,
                                               workflowPhase,
-                                              'approved',
+                                              'pending_audit',
                                               { reviewedBy: currentUserDisplayName, reviewedAt: new Date().toLocaleDateString(), comments: activeComment || 'Review accepted.' },
-                                              `Reviewer ${currentUserDisplayName} accepted and finalized KPI ${row.refNum}: "${activeComment || 'Approved.'}"`,
+                                              `Reviewer ${currentUserDisplayName} accepted and pushed KPI ${row.refNum} to Internal Audit desk.`,
                                               targets
                                             );
                                           }}
                                           className="px-4 py-2 bg-emerald-600 text-white hover:bg-emerald-700 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer inline-flex items-center gap-1"
                                         >
-                                          <Check className="w-3.5 h-3.5" /> Accept & Final Approve ✅
+                                          <Check className="w-3.5 h-3.5" /> Accept & Push to Audit ✅
                                         </button>
                                       </div>
                                     </div>
@@ -4204,32 +4203,61 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
               
               {/* Actual File Selector Component */}
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase font-mono tracking-wider block">Select File (Actual Upload)</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase font-mono tracking-wider block">Select Files (Up to 20 files, Max 200MB total)</label>
                 <div className="border-2 border-dashed border-slate-200 hover:border-indigo-400 rounded-xl p-4 text-center cursor-pointer transition-colors relative bg-slate-50 hover:bg-indigo-50/20 group">
                   <Upload className="w-6 h-6 text-indigo-500 mx-auto mb-1 animate-pulse" />
                   <span className="text-[11px] font-bold text-slate-700 group-hover:text-indigo-600 block">
-                    Click to select file or drag & drop here
+                    Click to select files or drag & drop here
                   </span>
                   <span className="text-[9px] text-slate-400 block mt-0.5">
-                    Supports PDF, DOCX, XLSX, images (Max 50MB)
+                    Supports PDF, DOCX, XLSX, images (Max 20 files, 200MB total)
                   </span>
                   <input 
                     type="file" 
                     className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                    multiple
                     onChange={(e) => {
                       if (!e.target.files || e.target.files.length === 0) return;
-                      const file = e.target.files[0];
-                      const sizeMB = file.size / (1024 * 1024);
-                      if (sizeMB > 50) {
-                        setSuccessToast("File size exceeds 50MB limit.");
+                      const selectedList = Array.from(e.target.files);
+                      if (selectedList.length > 20) {
+                        setSuccessToast("You can upload at most 20 files at a time.");
                         return;
                       }
-                      setPoeFileName(file.name);
-                      setPoeFileSize(`${sizeMB.toFixed(2)} MB`);
+                      
+                      let totalSizeMB = 0;
+                      const newFilesList: { name: string; size: string }[] = [];
+                      for (const file of selectedList) {
+                        const sizeMB = file.size / (1024 * 1024);
+                        totalSizeMB += sizeMB;
+                        newFilesList.push({ name: file.name, size: `${sizeMB.toFixed(2)} MB` });
+                      }
+
+                      if (totalSizeMB > 200) {
+                        setSuccessToast(`Total file size of selected files (${totalSizeMB.toFixed(1)} MB) exceeds the 200MB limit.`);
+                        return;
+                      }
+
+                      setPoeUploadedFiles(newFilesList);
+                      if (newFilesList.length > 0) {
+                        setPoeFileName(newFilesList.map(f => f.name).join(', '));
+                        setPoeFileSize(`${totalSizeMB.toFixed(2)} MB`);
+                      }
                     }}
                   />
                 </div>
               </div>
+
+              {poeUploadedFiles.length > 0 && (
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1.5 max-h-36 overflow-y-auto">
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block font-mono">Selected Documents ({poeUploadedFiles.length})</span>
+                  {poeUploadedFiles.map((f, idx) => (
+                    <div key={idx} className="flex items-center justify-between gap-2 text-[10px] bg-white p-1.5 rounded border border-slate-200">
+                      <span className="truncate font-bold text-slate-700">{f.name}</span>
+                      <span className="shrink-0 font-mono text-[9px] text-slate-400">{f.size}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               <div className="space-y-2">
                 <label className="text-[10px] font-bold text-slate-400 uppercase font-mono tracking-wider block">Document File Name</label>

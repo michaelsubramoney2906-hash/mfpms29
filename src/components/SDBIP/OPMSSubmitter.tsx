@@ -179,9 +179,9 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
           const currentHistory = (r as any).workflowHistory || [];
           const newHistoryItem = {
             date: new Date().toISOString(),
-            action: 'Submitted for Review',
+            action: 'Submitted to Approver',
             user: currentUser.email,
-            notes: submitterNotes || 'Submitted through OPMS Submitter dashboard.'
+            notes: submitterNotes || 'Submitted to Executive Approver through OPMS Submitter dashboard.'
           };
 
           const workflows = r.workflows || {};
@@ -201,7 +201,7 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
             q3Actual, q3Variance, q3Corrective,
             q4Actual, q4Variance, q4Corrective,
             poeDesc,
-            workflowStatus: 'Submitted',
+            workflowStatus: 'Submitted to Approver',
             submittedBy: currentUser.email,
             submitterNotes: submitterNotes,
             workflows,
@@ -217,10 +217,10 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
         body: JSON.stringify({ items: updatedRows })
       });
 
-      if (!response.ok) throw new Error('Failed to submit SDBIP item for review');
+      if (!response.ok) throw new Error('Failed to submit SDBIP item to Approver');
       
       setRows(updatedRows);
-      setSuccess('SDBIP KPI successfully submitted to Reviewer Pipeline!');
+      setSuccess('SDBIP KPI successfully submitted to Executive Approver!');
       setTimeout(() => setSuccess(null), 4000);
       setSelectedKpi(null);
     } catch (err: any) {
@@ -245,8 +245,8 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
   // Calculate high level stats
   const totalKpis = rows.length;
   const draftCount = rows.filter(r => !(r as any).workflowStatus || (r as any).workflowStatus === 'Draft').length;
-  const submittedCount = rows.filter(r => (r as any).workflowStatus === 'Submitted').length;
-  const reviewedCount = rows.filter(r => (r as any).workflowStatus === 'Reviewed').length;
+  const submittedCount = rows.filter(r => (r as any).workflowStatus === 'Submitted to Approver' || (r as any).workflowStatus === 'Submitted').length;
+  const reviewedCount = rows.filter(r => (r as any).workflowStatus === 'Reviewed' || (r as any).workflowStatus === 'Pending Review').length;
   const approvedCount = rows.filter(r => (r as any).workflowStatus === 'Approved').length;
   const returnedCount = rows.filter(r => (r as any).workflowStatus === 'Returned').length;
 
@@ -254,7 +254,10 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
     const s = status || 'Draft';
     switch (s) {
       case 'Submitted':
-        return <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider">Awaiting Review</span>;
+      case 'Submitted to Approver':
+        return <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider">Awaiting Approver</span>;
+      case 'Pending Review':
+        return <span className="bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider">Awaiting Reviewer</span>;
       case 'Reviewed':
         return <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider">Awaiting MM Approval</span>;
       case 'Approved':
@@ -715,7 +718,7 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                   className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl py-3 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-lg disabled:opacity-50"
                 >
                   <Send className="w-3.5 h-3.5" />
-                  Submit for Review
+                  Submit to Approver
                 </button>
               </div>
             )}

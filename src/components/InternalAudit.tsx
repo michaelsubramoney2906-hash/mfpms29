@@ -23,7 +23,14 @@ export function InternalAudit({ currentUser, activeTenantId }: InternalAuditProp
   const fetchSdbip = (isBackground = false) => {
     if (!isBackground) setLoading(true);
     fetch(`/api/tenant/${activeTenantId}/sdbip`)
-      .then(res => res.json())
+      .then(async res => {
+        if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+        const contentType = res.headers.get("content-type");
+        if (!contentType || !contentType.toLowerCase().includes("application/json")) {
+          throw new Error(`Non-JSON response received: ${contentType}`);
+        }
+        return await res.json();
+      })
       .then(data => {
         const items = data.items || [];
         setSdbipRows(items);

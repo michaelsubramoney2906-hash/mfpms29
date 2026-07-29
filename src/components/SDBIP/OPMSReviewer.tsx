@@ -240,7 +240,7 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
     let matchesStatus = true;
     if (statusFilter !== 'ALL') {
       if (statusFilter === 'Submitted') {
-        matchesStatus = rowStatus === 'Submitted' || rowStatus === 'Reviewed' || rowStatus === 'Pending Review' ||
+        matchesStatus = rowStatus === 'Submitted' || rowStatus === 'Submitted to Approver' || rowStatus === 'Reviewed' || rowStatus === 'Pending Review' ||
           r.workflows?.q1?.status === 'pending_review' || r.workflows?.q2?.status === 'pending_review' ||
           r.workflows?.q3?.status === 'pending_review' || r.workflows?.q4?.status === 'pending_review' ||
           r.workflows?.q1?.status === 'pending_approval' || r.workflows?.q2?.status === 'pending_approval';
@@ -258,8 +258,8 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
 
   // Calculate high level stats
   const totalKpis = rows.length;
-  const submittedCount = rows.filter(r => (r as any).workflowStatus === 'Submitted').length;
-  const reviewedCount = rows.filter(r => (r as any).workflowStatus === 'Reviewed').length;
+  const submittedCount = rows.filter(r => (r as any).workflowStatus === 'Submitted to Approver' || (r as any).workflowStatus === 'Submitted' || (r as any).workflowStatus === 'Pending Review').length;
+  const reviewedCount = rows.filter(r => (r as any).workflowStatus === 'Reviewed' || (r as any).workflowStatus === 'Pending Audit').length;
   const approvedCount = rows.filter(r => (r as any).workflowStatus === 'Approved').length;
   const returnedCount = rows.filter(r => (r as any).workflowStatus === 'Returned').length;
 
@@ -267,11 +267,16 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
     const s = status || 'Draft';
     switch (s) {
       case 'Submitted':
-        return <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider">Submitted / Awaiting Review</span>;
+      case 'Submitted to Approver':
+        return <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider">Awaiting Approver</span>;
+      case 'Pending Review':
+        return <span className="bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider">Awaiting Reviewer</span>;
       case 'Reviewed':
-        return <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider">Reviewed & Recommended</span>;
+        return <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider">Awaiting MM Approval</span>;
       case 'Approved':
         return <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider">Officially Approved</span>;
+      case 'Pending Audit':
+        return <span className="bg-violet-500/20 text-violet-300 border border-violet-500/30 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider">Awaiting Internal Audit</span>;
       case 'Returned':
         return <span className="bg-rose-500/20 text-rose-300 border border-rose-500/30 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider">Returned / Action Required</span>;
       default:
