@@ -15,11 +15,21 @@ import {
   RefreshCw,
   Sparkles,
   ArrowUpRight,
-  Filter
+  Filter,
+  Send,
+  Paperclip,
+  Volume2,
+  VolumeX,
+  Plus,
+  X,
+  Mail,
+  Download
 } from 'lucide-react';
 
 export interface IPMSNotification {
   id: string;
+  threadId?: string;
+  parentId?: string;
   senderEmail: string;
   senderName: string;
   recipientEmail: string;
@@ -31,8 +41,15 @@ export interface IPMSNotification {
   quarter?: string;
   actionType: 'submission' | 'approval' | 'revision_requested' | 'audit_request' | 'audit_completed' | 'info';
   poeDocsCount?: number;
+  attachments?: Array<{
+    name: string;
+    mimeType: string;
+    size: number;
+    dataUrl: string;
+  }>;
   createdAt: string;
   read?: boolean;
+  readAt?: string;
 }
 
 interface IPMSWorkflowInboxProps {
@@ -42,6 +59,36 @@ interface IPMSWorkflowInboxProps {
   onSelectUserPlan?: (userId: string, kpiId?: string, quarter?: string) => void;
   className?: string;
 }
+
+const playNotificationSound = (force = false) => {
+  const isMuted = localStorage.getItem('ipms_sound_muted') === 'true';
+  if (isMuted && !force) return;
+
+  try {
+    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContext) return;
+    const ctx = new AudioContext();
+    const now = ctx.currentTime;
+
+    // A beautiful 3-tone chime for maximum elegance
+    const notes = [523.25, 659.25, 783.99]; // C5, E5, G5
+    notes.forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+      gainNode.gain.setValueAtTime(0.12, now + idx * 0.08);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.45);
+      
+      osc.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      osc.start(now + idx * 0.08);
+      osc.stop(now + idx * 0.08 + 0.5);
+    });
+  } catch (err) {
+    console.warn("Sound play failed:", err);
+  }
+};
 
 export function IPMSWorkflowInbox({
   role,
@@ -54,6 +101,136 @@ export function IPMSWorkflowInbox({
   const [loading, setLoading] = useState(false);
   const [filterCategory, setFilterCategory] = useState<'all' | 'action' | 'approval' | 'audit'>('all');
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Sounds state
+  const [soundMuted, setSoundMuted] = useState(() => localStorage.getItem('ipms_sound_muted') === 'true');
+  const [prevUnreadCount, setPrevUnreadCount] = useState<number | null>(null);
+
+  // Direct Message & User Directory states
+  const [tenantUsers, setTenantUsers] = useState<any[]>([]);
+  const [azureUsers, setAzureUsers] = useState<any[]>([]);
+  const [searchingAzure, setSearchingAzure] = useState(false);
+  const [showCompose, setShowCompose] = useState(false);
+  const [selectedRecipient, setSelectedRecipient] = useState('');
+  const [recipientSearch, setRecipientSearch] = useState('');
+  const [subject, setSubject] = useState('');
+  const [body, setBody] = useState('');
+  const [attachments, setAttachments] = useState<any[]>([]);
+  const [sending, setSending] = useState(false);
+
+  // Debounced search for Azure AD user base
+  useEffect(() => {
+    if (!recipientSearch.trim()) {
+      setAzureUsers([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        setSearchingAzure(true);
+        const res = await fetch(`/api/azure-search?q=${encodeURIComponent(recipientSearch)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setAzureUsers(data || []);
+        }
+      } catch (err) {
+        console.error("Error searching Azure AD user directory:", err);
+      } finally {
+        setSearchingAzure(false);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [recipientSearch]);
+
+  // Consolidate both local tenant users and Azure AD directory search results uniquely by email
+  const combinedSearchResults = React.useMemo(() => {
+    const map = new Map<string, any>();
+    tenantUsers.forEach(u => {
+      if (u.email) map.set(u.email.toLowerCase().trim(), u);
+    });
+    azureUsers.forEach(u => {
+      if (u.email) map.set(u.email.toLowerCase().trim(), u);
+    });
+
+    const q = recipientSearch.toLowerCase().trim();
+    const list = Array.from(map.values());
+    if (!q) return list;
+    return list.filter(u => 
+      (u.fullName || '').toLowerCase().includes(q) || 
+      (u.email || '').toLowerCase().includes(q) ||
+      (u.jobFunction || '').toLowerCase().includes(q) ||
+      (u.department || '').toLowerCase().includes(q)
+    );
+  }, [tenantUsers, azureUsers, recipientSearch]);
+
+  // Selective delete state
+  const [selectedNotifIds, setSelectedNotifIds] = useState<string[]>([]);
+
+  // Threading & Reply States
+  const [expandedThreads, setExpandedThreads] = useState<Record<string, boolean>>({});
+  const [replyingToId, setReplyingToId] = useState<string | null>(null);
+  const [replyBody, setReplyBody] = useState('');
+  const [replyAttachments, setReplyAttachments] = useState<any[]>([]);
+  const [sendingReply, setSendingReply] = useState(false);
+
+  // Process reply attachments
+  const handleReplyFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files) return;
+    const fileList = Array.from(e.target.files);
+    const errors: string[] = [];
+    const newAttachments: any[] = [];
+
+    for (const file of fileList) {
+      if (file.size > 3.5 * 1024 * 1024) {
+        errors.push(`"${file.name}" exceeds the 3.5MB size limit.`);
+        continue;
+      }
+      try {
+        const attachment = await new Promise<any>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            resolve({
+              name: file.name,
+              mimeType: file.type || 'application/octet-stream',
+              size: file.size,
+              dataUrl: reader.result as string
+            });
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        newAttachments.push(attachment);
+      } catch (err) {
+        errors.push(`Failed to read "${file.name}".`);
+      }
+    }
+
+    if (errors.length > 0) {
+      alert(errors.join('\n'));
+    }
+
+    if (newAttachments.length > 0) {
+      setReplyAttachments(prev => [...prev, ...newAttachments]);
+    }
+    e.target.value = '';
+  };
+
+  // Fetch tenant users for directory
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const res = await fetch(`/api/tenant/${activeTenantId}/users`);
+        if (res.ok) {
+          const data = await res.json();
+          setTenantUsers(data.users || []);
+        }
+      } catch (e) {
+        console.error("Error fetching tenant users for messaging:", e);
+      }
+    };
+    if (activeTenantId) {
+      fetchUsers();
+    }
+  }, [activeTenantId]);
 
   const fetchInbox = async () => {
     setLoading(true);
@@ -73,7 +250,15 @@ export function IPMSWorkflowInbox({
       const res = await fetch(`/api/tenant/${activeTenantId}/ipms-notifications?${queryParams.toString()}`);
       if (res.ok) {
         const data = await res.json();
-        setNotifications(data.notifications || []);
+        const nextNotifs = data.notifications || [];
+        setNotifications(nextNotifs);
+
+        // Check if unread count increased to play notification sound
+        const currentUnread = nextNotifs.filter((n: any) => !n.read).length;
+        if (prevUnreadCount !== null && currentUnread > prevUnreadCount) {
+          playNotificationSound();
+        }
+        setPrevUnreadCount(currentUnread);
       }
     } catch (e) {
       console.error("Error fetching inbox notifications:", e);
@@ -86,7 +271,7 @@ export function IPMSWorkflowInbox({
     fetchInbox();
     const interval = setInterval(fetchInbox, 12000); // Poll every 12 seconds
     return () => clearInterval(interval);
-  }, [currentUser, activeTenantId, role]);
+  }, [currentUser, activeTenantId, role, prevUnreadCount]);
 
   const handleMarkAsRead = async (notifId: string) => {
     try {
@@ -114,37 +299,287 @@ export function IPMSWorkflowInbox({
     }
   };
 
-  const handleClearAll = async () => {
-    if (!window.confirm("Are you sure you want to clear your workflow inbox history?")) return;
+  // Selective & Single notification deletion
+  const handleDeleteSelected = async (idsToDelete: string[]) => {
+    if (idsToDelete.length === 0) return;
+
+    // Resolve any nested replies in the selected threads so they are deleted together and don't orphan!
+    const allIdsInThreads: string[] = [];
+    idsToDelete.forEach(id => {
+      const notif = notifications.find(n => n.id === id);
+      const threadId = notif?.threadId || id;
+      notifications.forEach(n => {
+        const tId = n.threadId || n.id;
+        if (tId === threadId) {
+          allIdsInThreads.push(n.id);
+        }
+      });
+    });
+
+    const finalIdsToDelete = Array.from(new Set([...idsToDelete, ...allIdsInThreads]));
+
+    const confirmMsg = idsToDelete.length === 1 
+      ? "Are you sure you want to delete this conversation thread?" 
+      : `Are you sure you want to delete the ${idsToDelete.length} selected conversation threads?`;
+    if (!window.confirm(confirmMsg)) return;
+
     try {
-      await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, { method: 'DELETE' });
-      setNotifications([]);
+      setLoading(true);
+      const res = await fetch(`/api/tenant/${activeTenantId}/ipms-notifications/delete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notificationIds: finalIdsToDelete })
+      });
+      if (res.ok) {
+        await fetchInbox();
+        setSelectedNotifIds(prev => prev.filter(id => !idsToDelete.includes(id)));
+      }
     } catch (e) {
-      console.error(e);
+      console.error("Error deleting notifications:", e);
+    } finally {
+      setLoading(false);
     }
   };
 
+  const handleClearAll = async () => {
+    const visibleIds = filteredItems.map(item => item.id);
+    if (visibleIds.length === 0) {
+      alert("No notifications to delete in this view.");
+      return;
+    }
+    await handleDeleteSelected(visibleIds);
+  };
+
+  // Attachments processing
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files) return;
+    const fileList = Array.from(e.target.files);
+    
+    const errors: string[] = [];
+    const newAttachments: any[] = [];
+
+    for (const file of fileList) {
+      if (file.size > 3.5 * 1024 * 1024) {
+        errors.push(`"${file.name}" exceeds the 3.5MB size limit.`);
+        continue;
+      }
+
+      try {
+        const attachment = await new Promise<any>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            resolve({
+              name: file.name,
+              mimeType: file.type || 'application/octet-stream',
+              size: file.size,
+              dataUrl: reader.result as string
+            });
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        newAttachments.push(attachment);
+      } catch (err) {
+        errors.push(`Failed to read "${file.name}".`);
+      }
+    }
+
+    if (errors.length > 0) {
+      alert(errors.join('\n'));
+    }
+
+    if (newAttachments.length > 0) {
+      setAttachments(prev => [...prev, ...newAttachments]);
+    }
+    
+    e.target.value = '';
+  };
+
+  // Direct Message send
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedRecipient) {
+      alert("Please select a recipient from the user directory.");
+      return;
+    }
+    if (!subject.trim()) {
+      alert("Please enter a subject.");
+      return;
+    }
+    if (!body.trim()) {
+      alert("Please enter a message body.");
+      return;
+    }
+
+    try {
+      setSending(true);
+      const recipientUser = tenantUsers.find(u => u.email === selectedRecipient);
+      const senderName = currentUser?.fullName || currentUser?.name || currentUser?.email || 'User';
+      
+      const payload = {
+        notification: {
+          senderEmail: currentUser?.email || '',
+          senderName: senderName,
+          recipientEmail: selectedRecipient,
+          recipientName: recipientUser?.fullName || recipientUser?.name || selectedRecipient,
+          title: subject.trim(),
+          message: body.trim(),
+          actionType: 'info' as const, 
+          poeDocsCount: attachments.length,
+          attachments: attachments
+        }
+      };
+
+      const res = await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        setSubject('');
+        setBody('');
+        setAttachments([]);
+        setSelectedRecipient('');
+        setRecipientSearch('');
+        setShowCompose(false);
+        fetchInbox();
+      } else {
+        const err = await res.json();
+        alert(`Failed to send message: ${err.error || 'Unknown error'}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("An error occurred while sending the message.");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleSendReply = async (parent: IPMSNotification) => {
+    if (!replyBody.trim()) {
+      alert("Please type a reply message.");
+      return;
+    }
+
+    try {
+      setSendingReply(true);
+      const isSenderCurrentUser = (parent.senderEmail || '').toLowerCase().trim() === (currentUser?.email || '').toLowerCase().trim();
+      const recipientEmail = isSenderCurrentUser ? parent.recipientEmail : parent.senderEmail;
+      const recipientName = isSenderCurrentUser ? parent.recipientName : parent.senderName;
+      const senderName = currentUser?.fullName || currentUser?.name || currentUser?.email || 'User';
+
+      const payload = {
+        notification: {
+          threadId: parent.threadId || parent.id,
+          parentId: parent.id,
+          senderEmail: currentUser?.email || '',
+          senderName: senderName,
+          recipientEmail: recipientEmail,
+          recipientName: recipientName,
+          title: parent.title.startsWith('Re:') ? parent.title : `Re: ${parent.title}`,
+          message: replyBody.trim(),
+          actionType: 'info' as const, 
+          poeDocsCount: replyAttachments.length,
+          attachments: replyAttachments
+        }
+      };
+
+      const res = await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        setReplyBody('');
+        setReplyAttachments([]);
+        setReplyingToId(null);
+        // Automatically expand this thread
+        setExpandedThreads(prev => ({ ...prev, [parent.threadId || parent.id]: true }));
+        fetchInbox();
+      } else {
+        const err = await res.json();
+        alert(`Failed to send reply: ${err.error || 'Unknown error'}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("An error occurred while sending the reply.");
+    } finally {
+      setSendingReply(false);
+    }
+  };
+
+  const toggleSound = () => {
+    const val = !soundMuted;
+    setSoundMuted(val);
+    localStorage.setItem('ipms_sound_muted', String(val));
+    if (!val) {
+      setTimeout(() => playNotificationSound(true), 100);
+    }
+  };
+
+  // Group replies by threadId
+  const threadGroups = React.useMemo(() => {
+    const groups: Record<string, IPMSNotification[]> = {};
+    notifications.forEach(n => {
+      const tId = n.threadId || n.id;
+      if (!groups[tId]) {
+        groups[tId] = [];
+      }
+      groups[tId].push(n);
+    });
+    // Sort each group so oldest (root) is first, replies are ordered chronologically
+    Object.keys(groups).forEach(tId => {
+      groups[tId].sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
+    });
+    return groups;
+  }, [notifications]);
+
+  // Identify root messages (the earliest message of each threadGroup)
+  const rootMessages = React.useMemo(() => {
+    const roots: IPMSNotification[] = [];
+    Object.keys(threadGroups).forEach(tId => {
+      const group = threadGroups[tId];
+      if (group.length > 0) {
+        roots.push(group[0]);
+      }
+    });
+    // Sort roots by newest first (based on the latest activity in the thread!)
+    roots.sort((a, b) => {
+      const threadA = threadGroups[a.threadId || a.id] || [];
+      const threadB = threadGroups[b.threadId || b.id] || [];
+      const latestA = threadA[threadA.length - 1]?.createdAt || a.createdAt;
+      const latestB = threadB[threadB.length - 1]?.createdAt || b.createdAt;
+      return new Date(latestB).getTime() - new Date(latestA).getTime();
+    });
+    return roots;
+  }, [threadGroups]);
+
   // Filter items
-  const filteredItems = notifications.filter(item => {
-    // Search
-    const searchMatch = !searchTerm || 
+  const filteredItems = rootMessages.filter(root => {
+    const thread = threadGroups[root.threadId || root.id] || [root];
+    
+    // Check if any message in the thread matches search term
+    const matchesSearch = !searchTerm || thread.some(item => 
       item.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.message?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.senderName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.senderEmail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.recipientName?.toLowerCase().includes(searchTerm.toLowerCase());
+      item.recipientName?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
-    if (!searchMatch) return false;
+    if (!matchesSearch) return false;
 
-    // Filter category
+    // Check action type filters on the root or any message in the thread
     if (filterCategory === 'action') {
-      return item.actionType === 'submission' || item.actionType === 'revision_requested' || item.actionType === 'audit_request';
+      return thread.some(item => item.actionType === 'submission' || item.actionType === 'revision_requested' || item.actionType === 'audit_request');
     }
     if (filterCategory === 'approval') {
-      return item.actionType === 'approval' || item.actionType === 'audit_completed';
+      return thread.some(item => item.actionType === 'approval' || item.actionType === 'audit_completed');
     }
     if (filterCategory === 'audit') {
-      return item.actionType === 'audit_request' || item.actionType === 'audit_completed';
+      return thread.some(item => item.actionType === 'audit_request' || item.actionType === 'audit_completed');
     }
 
     return true;
@@ -207,6 +642,32 @@ export function IPMSWorkflowInbox({
 
         {/* Controls */}
         <div className="flex items-center gap-2">
+          {/* Sounds Toggle */}
+          <button
+            type="button"
+            onClick={toggleSound}
+            className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition text-xs flex items-center gap-1 border border-slate-700 cursor-pointer"
+            title={soundMuted ? "Unmute notification sounds" : "Mute notification sounds"}
+          >
+            {soundMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-emerald-400 animate-pulse" />}
+          </button>
+
+          {/* New DM Message Button */}
+          <button
+            type="button"
+            onClick={() => setShowCompose(!showCompose)}
+            className={`px-3 py-1.5 rounded-xl transition text-[11px] font-bold flex items-center gap-1.5 border cursor-pointer ${
+              showCompose 
+                ? 'bg-rose-950/60 hover:bg-rose-900 text-rose-300 border-rose-800' 
+                : 'bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-300 border-indigo-800'
+            }`}
+            title="Compose direct message with attachments"
+          >
+            {showCompose ? <X className="w-3.5 h-3.5" /> : <Mail className="w-3.5 h-3.5" />}
+            <span>{showCompose ? 'Close Draft' : 'Compose DM'}</span>
+          </button>
+
+          {/* Refresh */}
           <button
             type="button"
             onClick={fetchInbox}
@@ -231,15 +692,195 @@ export function IPMSWorkflowInbox({
           {notifications.length > 0 && (
             <button
               type="button"
-              onClick={handleClearAll}
-              className="px-2.5 py-1.5 bg-rose-950/60 hover:bg-rose-900 text-rose-300 rounded-xl transition text-[11px] font-bold flex items-center gap-1 border border-rose-800/80 cursor-pointer"
+              onClick={selectedNotifIds.length > 0 ? () => handleDeleteSelected(selectedNotifIds) : handleClearAll}
+              className={`px-2.5 py-1.5 rounded-xl transition text-[11px] font-bold flex items-center gap-1 cursor-pointer border ${
+                selectedNotifIds.length > 0
+                  ? 'bg-rose-900/80 hover:bg-rose-800 text-rose-100 border-rose-700'
+                  : 'bg-rose-950/60 hover:bg-rose-900 text-rose-300 border-rose-800/80'
+              }`}
             >
-              <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-              Clear
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>{selectedNotifIds.length > 0 ? `Delete Selected (${selectedNotifIds.length})` : 'Clear View'}</span>
             </button>
           )}
         </div>
       </div>
+
+      {/* Compose Form */}
+      {showCompose && (
+        <div className="mt-3 p-4 bg-slate-950/70 border border-slate-800/80 rounded-xl space-y-3">
+          <div className="flex items-center justify-between border-b border-slate-800/60 pb-2">
+            <h4 className="text-xs font-black uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
+              <Send className="w-3.5 h-3.5" />
+              New Direct Message
+            </h4>
+            <span className="text-[10px] text-slate-400 font-mono">Basis: User Directory</span>
+          </div>
+
+          <form onSubmit={handleSendMessage} className="space-y-3">
+            {/* Searchable Recipient Picker */}
+            <div className="space-y-1">
+              <label className="block text-[10px] uppercase font-bold tracking-wider text-slate-400">Recipient</label>
+              {selectedRecipient ? (
+                <div className="flex items-center justify-between bg-slate-900 border border-indigo-500/40 rounded-xl px-3 py-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-white">
+                      {combinedSearchResults.find(u => u.email === selectedRecipient)?.fullName || selectedRecipient}
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-mono">({selectedRecipient})</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedRecipient('');
+                      setRecipientSearch('');
+                    }}
+                    className="text-rose-400 hover:text-rose-300 font-bold px-1 cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={recipientSearch}
+                    onChange={(e) => setRecipientSearch(e.target.value)}
+                    placeholder="Search user by name or email..."
+                    className="w-full pl-8 pr-10 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-indigo-500"
+                  />
+                  {searchingAzure && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <RefreshCw className="w-3 h-3 animate-spin text-indigo-400" />
+                    </div>
+                  )}
+                  {recipientSearch.trim() && (
+                    <div className="absolute left-0 right-0 mt-1 max-h-40 overflow-y-auto bg-slate-900 border border-slate-800 rounded-xl shadow-2xl z-50 divide-y divide-slate-800/60">
+                      {combinedSearchResults.map(u => (
+                        <button
+                          key={u.email}
+                          type="button"
+                          onClick={() => {
+                            setSelectedRecipient(u.email);
+                            setRecipientSearch('');
+                          }}
+                          className="w-full text-left px-3 py-2 hover:bg-slate-800 transition text-xs flex justify-between items-center cursor-pointer"
+                        >
+                          <div>
+                            <span className="font-bold text-slate-200 block">{u.fullName || u.email}</span>
+                            {u.jobFunction && <span className="text-[9px] text-indigo-400 block">{u.jobFunction} • {u.department || 'Staff'}</span>}
+                          </div>
+                          <span className="text-[10px] text-slate-400 font-mono shrink-0 ml-2">{u.email}</span>
+                        </button>
+                      ))}
+                      {combinedSearchResults.length === 0 && !searchingAzure && (
+                        <div className="px-3 py-2 text-xs text-slate-500 text-center">No matching users found</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Subject Line */}
+            <div className="space-y-1">
+              <label className="block text-[10px] uppercase font-bold tracking-wider text-slate-400">Subject</label>
+              <input
+                type="text"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                placeholder="Enter message subject..."
+                className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-indigo-500"
+                required
+              />
+            </div>
+
+            {/* Message Body */}
+            <div className="space-y-1">
+              <label className="block text-[10px] uppercase font-bold tracking-wider text-slate-400">Message</label>
+              <textarea
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                placeholder="Type your message here..."
+                rows={3}
+                className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-indigo-500 resize-none font-sans"
+                required
+              />
+            </div>
+
+            {/* Attachments Section */}
+            <div className="space-y-1.5">
+              <label className="block text-[10px] uppercase font-bold tracking-wider text-slate-400">Attachments (Max 3.5MB per file)</label>
+              
+              <div className="flex items-center gap-2">
+                <label className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl transition text-[11px] font-bold flex items-center gap-1.5 cursor-pointer">
+                  <Paperclip className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Add Files</span>
+                  <input
+                    type="file"
+                    multiple
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                </label>
+                <span className="text-[10px] text-slate-500">Attach PDFs, Word, Excel, images, etc.</span>
+              </div>
+
+              {attachments.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {attachments.map((file, fIdx) => (
+                    <div key={fIdx} className="bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-[11px] flex items-center gap-2">
+                      <span className="text-indigo-300 font-medium truncate max-w-[150px]">{file.name}</span>
+                      <span className="text-[9px] text-slate-500">({(file.size / 1024).toFixed(1)} KB)</span>
+                      <button
+                        type="button"
+                        onClick={() => setAttachments(prev => prev.filter((_, idx) => idx !== fIdx))}
+                        className="text-rose-400 hover:text-rose-300 font-bold cursor-pointer"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Submit Controls */}
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800/50">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCompose(false);
+                  setSubject('');
+                  setBody('');
+                  setAttachments([]);
+                }}
+                className="px-3 py-1.5 hover:bg-slate-800/80 text-slate-400 rounded-xl transition text-[11px] font-bold cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={sending}
+                className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 text-white rounded-xl transition text-[11px] font-bold flex items-center gap-1.5 shadow-md cursor-pointer"
+              >
+                {sending ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Sending...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-3.5 h-3.5" />
+                    <span>Send Message</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Filter and Search Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 pt-3">
@@ -304,8 +945,55 @@ export function IPMSWorkflowInbox({
         </div>
       </div>
 
+      {/* Multi-Select Status Ribbon */}
+      {notifications.length > 0 && (
+        <div className="flex items-center justify-between bg-slate-950/40 border border-slate-800 px-3 py-1.5 rounded-xl text-xs mt-3 text-slate-400">
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={filteredItems.length > 0 && filteredItems.every(item => selectedNotifIds.includes(item.id))}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  const allVisibleIds = filteredItems.map(item => item.id);
+                  setSelectedNotifIds(prev => Array.from(new Set([...prev, ...allVisibleIds])));
+                } else {
+                  const allVisibleIds = filteredItems.map(item => item.id);
+                  setSelectedNotifIds(prev => prev.filter(id => !allVisibleIds.includes(id)));
+                }
+              }}
+              className="w-3.5 h-3.5 rounded border-slate-800 text-indigo-600 bg-slate-900 focus:ring-0 cursor-pointer"
+            />
+            <span className="font-bold text-[10px] uppercase tracking-wider">Select All Visible</span>
+          </div>
+          {selectedNotifIds.length > 0 && (
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] text-indigo-400 font-black tracking-wide font-mono">
+                {selectedNotifIds.length} Selected
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedNotifIds([])}
+                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 hover:text-white text-[10px] text-slate-300 rounded-lg font-bold transition cursor-pointer"
+                title="Deselect all messages"
+              >
+                Clear Selection
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDeleteSelected(selectedNotifIds)}
+                className="px-2.5 py-1 bg-rose-950 hover:bg-rose-900 text-rose-300 hover:text-rose-100 text-[10px] rounded-lg font-bold transition cursor-pointer flex items-center gap-1 border border-rose-800/50"
+                title="Delete selected conversation threads"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                <span>Delete Selected</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Message List */}
-      <div className="mt-3 space-y-2.5 max-h-80 overflow-y-auto pr-1">
+      <div className="mt-3 space-y-2.5 max-h-[450px] overflow-y-auto pr-1">
         {loading && notifications.length === 0 ? (
           <div className="p-8 text-center text-slate-400 text-xs flex flex-col items-center gap-2">
             <RefreshCw className="w-5 h-5 animate-spin text-indigo-400" />
@@ -329,98 +1017,387 @@ export function IPMSWorkflowInbox({
             const isAuditReq = item.actionType === 'audit_request';
             const isSubmission = item.actionType === 'submission';
 
+            const threadReplies = (threadGroups[item.threadId || item.id] || []).filter(r => r.id !== item.id);
+            const hasReplies = threadReplies.length > 0;
+            const isExpanded = !!expandedThreads[item.threadId || item.id];
+            const isSenderCurrentUser = (item.senderEmail || '').toLowerCase().trim() === (currentUser?.email || '').toLowerCase().trim();
+
             return (
-              <div
-                key={item.id}
-                className={`p-3.5 rounded-xl border transition flex flex-col gap-2 relative ${
-                  isUnread 
-                    ? 'bg-slate-800/90 border-indigo-500/80 shadow-md ring-1 ring-indigo-500/30' 
-                    : 'bg-slate-900/80 border-slate-800 hover:border-slate-700'
-                }`}
-              >
-                {/* Top Row: Sender / Recipient + Status Pill + Time */}
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${isUnread ? 'bg-indigo-400 animate-ping' : 'bg-slate-600'}`} />
-                    <span className="text-xs font-bold text-slate-200 truncate">
-                      {item.senderName || item.senderEmail}
-                    </span>
-                    <span className="text-[10px] text-slate-500 truncate hidden sm:inline">
-                      ({item.senderEmail})
-                    </span>
-                  </div>
+              <div key={item.id} className="space-y-2">
+                {/* Root Message Card */}
+                <div
+                  className={`p-3.5 rounded-xl border transition flex gap-3 relative ${
+                    isUnread 
+                      ? 'bg-slate-800/95 border-indigo-500/80 shadow-md ring-1 ring-indigo-500/30' 
+                      : 'bg-slate-900/80 border-slate-800 hover:border-slate-750'
+                  }`}
+                >
+                  {/* Multi-Select Checkbox */}
+                  <input
+                    type="checkbox"
+                    checked={selectedNotifIds.includes(item.id)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedNotifIds(prev => [...prev, item.id]);
+                      } else {
+                        setSelectedNotifIds(prev => prev.filter(id => id !== item.id));
+                      }
+                    }}
+                    className="w-4 h-4 mt-1 rounded border-slate-700 text-indigo-600 bg-slate-950 focus:ring-0 cursor-pointer flex-shrink-0"
+                  />
 
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className={`px-2 py-0.5 text-[9px] font-black uppercase rounded ${
-                      isRevisionReq ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
-                      isApproval ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
-                      isAuditReq ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' :
-                      isSubmission ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' :
-                      'bg-slate-800 text-slate-300'
-                    }`}>
-                      {isRevisionReq ? 'Revision Required' :
-                       isApproval ? 'Approved & Signed' :
-                       isAuditReq ? 'Audit Dispatch' :
-                       isSubmission ? 'Subordinate KPI' :
-                       'Notification'}
-                    </span>
+                  <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+                    {/* Top Row: Sender / Recipient + Status Pill + Time */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${isUnread ? 'bg-indigo-400 animate-ping' : 'bg-slate-600'}`} />
+                        <span className="text-xs font-bold text-slate-200 truncate">
+                          {item.senderName || item.senderEmail}
+                        </span>
+                        <span className="text-[10px] text-slate-500 truncate hidden sm:inline font-mono">
+                          ({item.senderEmail})
+                        </span>
+                      </div>
 
-                    <span className="text-[10px] font-mono text-slate-400">
-                      {item.createdAt ? new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Now'}
-                    </span>
-                  </div>
-                </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className={`px-2 py-0.5 text-[9px] font-black uppercase rounded ${
+                          isRevisionReq ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                          isApproval ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+                          isAuditReq ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' :
+                          isSubmission ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' :
+                          'bg-slate-800/90 text-slate-300 border border-slate-700'
+                        }`}>
+                          {isRevisionReq ? 'Revision Required' :
+                           isApproval ? 'Approved & Signed' :
+                           isAuditReq ? 'Audit Dispatch' :
+                           isSubmission ? 'Subordinate KPI' :
+                           'Direct Message'}
+                        </span>
 
-                {/* Message Title & Content */}
-                <div>
-                  <h4 className="font-bold text-xs text-white m-0 flex items-center gap-1.5">
-                    {item.title}
-                  </h4>
-                  <p className="text-xs text-slate-300 mt-1 mb-0 leading-relaxed font-sans whitespace-pre-wrap select-text">
-                    {item.message}
-                  </p>
-                </div>
+                        <span className="text-[10px] font-mono text-slate-400">
+                          {item.createdAt ? new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Now'}
+                        </span>
 
-                {/* Bottom Actions Row */}
-                <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-800/80">
-                  <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono">
-                    {item.kpiNo && <span>KPI #{item.kpiNo}</span>}
-                    {item.quarter && <span className="bg-slate-800 px-1.5 py-0.5 rounded text-indigo-300">{item.quarter}</span>}
-                    {item.poeDocsCount ? <span>📎 {item.poeDocsCount} PoE File(s)</span> : null}
-                  </div>
+                        {/* Individual Delete Button */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const thread = threadGroups[item.threadId || item.id] || [];
+                            const ids = thread.map(t => t.id);
+                            handleDeleteSelected(ids);
+                          }}
+                          className="p-1 hover:bg-rose-950/40 text-slate-500 hover:text-rose-400 rounded-lg transition"
+                          title="Delete thread"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
 
-                  <div className="flex items-center gap-2">
-                    {isUnread && (
-                      <button
-                        type="button"
-                        onClick={() => handleMarkAsRead(item.id)}
-                        className="text-[10px] text-slate-400 hover:text-slate-200 transition underline cursor-pointer"
-                      >
-                        Mark Read
-                      </button>
+                    {/* Message Title & Content */}
+                    <div>
+                      <h4 className="font-bold text-xs text-white m-0 flex items-center gap-1.5">
+                        {item.title}
+                      </h4>
+                      <p className="text-xs text-slate-300 mt-1 mb-0 leading-relaxed font-sans whitespace-pre-wrap select-text">
+                        {item.message}
+                      </p>
+                    </div>
+
+                    {/* Display Attachments if available */}
+                    {item.attachments && item.attachments.length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-slate-800/40 space-y-1">
+                        <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 m-0">Attachments:</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {item.attachments.map((att, attIdx) => (
+                            <button
+                              key={attIdx}
+                              type="button"
+                              onClick={() => {
+                                try {
+                                  const link = document.createElement('a');
+                                  link.href = att.dataUrl;
+                                  link.download = att.name;
+                                  document.body.appendChild(link);
+                                  link.click();
+                                  document.body.removeChild(link);
+                                } catch (err) {
+                                  console.error("Error downloading attachment:", err);
+                                  alert("Failed to download attachment.");
+                                }
+                              }}
+                              className="bg-slate-950 hover:bg-indigo-950 hover:border-indigo-800 text-[11px] border border-slate-800 rounded-lg px-2 py-1 text-slate-300 hover:text-indigo-300 flex items-center gap-1.5 transition cursor-pointer font-medium max-w-[200px]"
+                              title="Click to download attachment"
+                            >
+                              <Download className="w-3 h-3 text-indigo-400 shrink-0" />
+                              <span className="truncate">{att.name}</span>
+                              <span className="text-[9px] text-slate-500 shrink-0">({(att.size / 1024).toFixed(1)} KB)</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     )}
 
-                    {onSelectUserPlan && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          handleMarkAsRead(item.id);
-                          // Route to target user plan
-                          const targetUser = item.senderEmail && role === 'manager' 
-                            ? item.senderEmail 
-                            : item.recipientEmail && role === 'employee' 
-                              ? currentUser.email 
-                              : item.senderEmail || item.recipientEmail;
-                          onSelectUserPlan(targetUser, item.kpiId, item.quarter);
-                        }}
-                        className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg transition flex items-center gap-1 shadow-xs cursor-pointer"
-                      >
-                        <span>Open & Review</span>
-                        <ArrowUpRight className="w-3 h-3" />
-                      </button>
-                    )}
+                    {/* Bottom Actions Row */}
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-800/80">
+                      <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono">
+                        {item.kpiNo && <span>KPI #{item.kpiNo}</span>}
+                        {item.quarter && <span className="bg-slate-850 px-1.5 py-0.5 rounded text-indigo-300 font-bold">{item.quarter}</span>}
+                        {item.poeDocsCount ? <span>📎 {item.poeDocsCount} file(s)</span> : null}
+                        
+                        {/* Read Receipts for Root */}
+                        {isSenderCurrentUser && (
+                          <span className="flex items-center gap-1 text-[10px] font-bold">
+                            {item.read ? (
+                              <span className="text-emerald-400 flex items-center gap-0.5" title={item.readAt ? `Read at ${new Date(item.readAt).toLocaleString()}` : 'Read'}>
+                                <CheckCheck className="w-3.5 h-3.5" /> Read
+                              </span>
+                            ) : (
+                              <span className="text-slate-500 flex items-center gap-0.5">
+                                <CheckCheck className="w-3.5 h-3.5" /> Sent
+                              </span>
+                            )}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {hasReplies && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setExpandedThreads(prev => ({
+                                ...prev,
+                                [item.threadId || item.id]: !prev[item.threadId || item.id]
+                              }));
+                            }}
+                            className="text-[10px] text-slate-300 hover:text-white font-bold transition flex items-center gap-1 cursor-pointer bg-slate-800 hover:bg-slate-750 px-2 py-0.5 rounded-md border border-slate-700/80"
+                          >
+                            <span>{isExpanded ? 'Hide Thread' : `Show Thread (${threadReplies.length})`}</span>
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (replyingToId === item.id) {
+                              setReplyingToId(null);
+                            } else {
+                              setReplyingToId(item.id);
+                              setReplyBody('');
+                              setReplyAttachments([]);
+                            }
+                          }}
+                          className="text-[10px] text-indigo-400 hover:text-indigo-300 font-bold hover:underline transition cursor-pointer"
+                        >
+                          Reply
+                        </button>
+
+                        {isUnread && (
+                          <button
+                            type="button"
+                            onClick={() => handleMarkAsRead(item.id)}
+                            className="text-[10px] text-slate-400 hover:text-slate-200 transition underline cursor-pointer"
+                          >
+                            Mark Read
+                          </button>
+                        )}
+
+                        {onSelectUserPlan && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleMarkAsRead(item.id);
+                              const targetUser = item.senderEmail && role === 'manager' 
+                                ? item.senderEmail 
+                                : item.recipientEmail && role === 'employee' 
+                                  ? currentUser.email 
+                                  : item.senderEmail || item.recipientEmail;
+                              onSelectUserPlan(targetUser, item.kpiId, item.quarter);
+                            }}
+                            className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg transition flex items-center gap-1 shadow-xs cursor-pointer"
+                          >
+                            <span>Open & Review</span>
+                            <ArrowUpRight className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
+
+                {/* Thread Replies */}
+                {isExpanded && threadReplies.length > 0 && (
+                  <div className="mt-2.5 ml-6 pl-4 border-l-2 border-indigo-500/30 space-y-2">
+                    {threadReplies.map((reply) => {
+                      const isReplyUnread = !reply.read;
+                      const isReplySenderMe = (reply.senderEmail || '').toLowerCase().trim() === (currentUser?.email || '').toLowerCase().trim();
+                      
+                      // Auto-read unread replies when expanded
+                      if (isReplyUnread && (reply.recipientEmail || '').toLowerCase().trim() === (currentUser?.email || '').toLowerCase().trim()) {
+                        handleMarkAsRead(reply.id);
+                      }
+
+                      return (
+                        <div 
+                          key={reply.id} 
+                          className={`p-3 rounded-lg border transition ${
+                            isReplyUnread 
+                              ? 'bg-slate-800/90 border-indigo-500/50 shadow-sm' 
+                              : 'bg-slate-950/40 border-slate-850'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <div className="w-4 h-4 rounded-full bg-slate-800 border border-slate-700 text-slate-300 font-black text-[8px] flex items-center justify-center shrink-0">
+                                {(reply.senderName || reply.senderEmail || 'U').charAt(0).toUpperCase()}
+                              </div>
+                              <span className="text-xs font-bold text-slate-200 truncate">
+                                {reply.senderName || reply.senderEmail}
+                              </span>
+                              <span className="text-[9px] text-slate-500 font-mono hidden md:inline truncate">
+                                ({reply.senderEmail})
+                              </span>
+                            </div>
+                            
+                            <div className="flex items-center gap-2 text-[10px] font-mono text-slate-400">
+                              <span>{reply.createdAt ? new Date(reply.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Now'}</span>
+                              
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteSelected([reply.id])}
+                                className="p-0.5 hover:bg-rose-950/40 text-slate-500 hover:text-rose-400 rounded transition"
+                                title="Delete reply"
+                              >
+                                <Trash2 className="w-2.5 h-2.5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          <p className="text-xs text-slate-300 mt-1 mb-0 leading-relaxed font-sans whitespace-pre-wrap select-text">
+                            {reply.message}
+                          </p>
+
+                          {reply.attachments && reply.attachments.length > 0 && (
+                            <div className="mt-1.5 pt-1.5 border-t border-slate-800/40 flex flex-wrap gap-1.5">
+                              {reply.attachments.map((att, attIdx) => (
+                                <button
+                                  key={attIdx}
+                                  type="button"
+                                  onClick={() => {
+                                    try {
+                                      const link = document.createElement('a');
+                                      link.href = att.dataUrl;
+                                      link.download = att.name;
+                                      document.body.appendChild(link);
+                                      link.click();
+                                      document.body.removeChild(link);
+                                    } catch (err) {
+                                      console.error("Error downloading attachment:", err);
+                                    }
+                                  }}
+                                  className="bg-slate-950 hover:bg-indigo-950 hover:border-indigo-800 text-[10px] border border-slate-800 rounded px-1.5 py-0.5 text-slate-300 hover:text-indigo-300 flex items-center gap-1 cursor-pointer font-medium max-w-[180px]"
+                                >
+                                  <Download className="w-2.5 h-2.5 text-indigo-400" />
+                                  <span className="truncate">{att.name}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+
+                          {isReplySenderMe && (
+                            <div className="flex items-center justify-end gap-1.5 mt-1 pt-1 border-t border-slate-850/60 text-[9px] font-mono">
+                              {reply.read ? (
+                                <span className="text-emerald-400 flex items-center gap-0.5" title={reply.readAt ? `Read at ${new Date(reply.readAt).toLocaleString()}` : 'Read'}>
+                                  <CheckCheck className="w-3.5 h-3.5" /> Read
+                                </span>
+                              ) : (
+                                <span className="text-slate-500 flex items-center gap-0.5">
+                                  <CheckCheck className="w-3.5 h-3.5" /> Sent
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Thread Inline Reply Composer */}
+                {replyingToId === item.id && (
+                  <div className="mt-2 ml-6 p-3 bg-slate-950/60 border border-indigo-500/20 rounded-xl space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-indigo-400">Reply to conversation</span>
+                      <button 
+                        type="button" 
+                        onClick={() => setReplyingToId(null)}
+                        className="text-slate-400 hover:text-slate-200 text-xs font-bold cursor-pointer"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <textarea
+                      value={replyBody}
+                      onChange={(e) => setReplyBody(e.target.value)}
+                      placeholder="Type your reply message here..."
+                      rows={2}
+                      className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-indigo-500 resize-none font-sans"
+                    />
+                    
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-1.5">
+                        <label className="px-2 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg transition text-[10px] font-bold flex items-center gap-1 cursor-pointer">
+                          <Paperclip className="w-3 h-3 text-indigo-400" />
+                          <span>Attach</span>
+                          <input
+                            type="file"
+                            multiple
+                            onChange={handleReplyFileChange}
+                            className="hidden"
+                          />
+                        </label>
+                        
+                        {replyAttachments.length > 0 && (
+                          <div className="flex items-center gap-1">
+                            <span className="text-[9px] text-indigo-300 font-bold">{replyAttachments.length} attached</span>
+                            <button 
+                              type="button" 
+                              onClick={() => setReplyAttachments([])}
+                              className="text-[9px] text-rose-400 hover:text-rose-300 hover:underline cursor-pointer"
+                            >
+                              Clear
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleSendReply(item)}
+                        disabled={sendingReply}
+                        className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 text-white rounded-lg transition text-[10px] font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                      >
+                        {sendingReply ? (
+                          <RefreshCw className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Send className="w-3 h-3" />
+                        )}
+                        <span>Send</span>
+                      </button>
+                    </div>
+                    
+                    {replyAttachments.length > 0 && (
+                      <div className="flex flex-wrap gap-1 pt-1">
+                        {replyAttachments.map((f, fIdx) => (
+                          <span key={fIdx} className="bg-slate-900 px-1.5 py-0.5 rounded text-[9px] text-slate-400 font-mono truncate max-w-[150px]">
+                            {f.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })

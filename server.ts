@@ -3798,8 +3798,11 @@ Format your response exactly according to the following JSON schema:
         } catch(e) {}
       }
 
+      const generatedId = notification.id || `notif_${Date.now()}_${Math.random().toString(36).substring(2,7)}`;
       const newNotif = {
-        id: notification.id || `notif_${Date.now()}_${Math.random().toString(36).substring(2,7)}`,
+        id: generatedId,
+        threadId: notification.threadId || generatedId,
+        parentId: notification.parentId || null,
         senderEmail: notification.senderEmail || '',
         senderName: notification.senderName || '',
         recipientEmail: notification.recipientEmail || '',
@@ -3811,8 +3814,10 @@ Format your response exactly according to the following JSON schema:
         quarter: notification.quarter || '',
         actionType: notification.actionType || 'info', // 'submission' | 'approval' | 'revision_requested' | 'rejected'
         poeDocsCount: notification.poeDocsCount || 0,
+        attachments: notification.attachments || [],
         createdAt: new Date().toISOString(),
-        read: false
+        read: false,
+        readAt: null
       };
 
       notifications.unshift(newNotif);
@@ -3862,9 +3867,9 @@ Format your response exactly according to the following JSON schema:
       let notifications: any[] = parsed.notifications || [];
 
       if (notificationId === 'all') {
-        notifications = notifications.map(n => ({ ...n, read: true }));
+        notifications = notifications.map(n => n.read ? n : { ...n, read: true, readAt: new Date().toISOString() });
       } else {
-        notifications = notifications.map(n => n.id === notificationId ? { ...n, read: true } : n);
+        notifications = notifications.map(n => n.id === notificationId ? { ...n, read: true, readAt: n.readAt || new Date().toISOString() } : n);
       }
 
       await supabase
@@ -3883,6 +3888,65 @@ Format your response exactly according to the following JSON schema:
       return res.json({ success: true, notifications });
     } catch (err: any) {
       console.error("IPMS notification mark-read exception:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/tenant/:tenantId/ipms-notifications/delete", async (req, res) => {
+    const { tenantId } = req.params;
+    const { notificationIds } = req.body;
+    if (!notificationIds || !Array.isArray(notificationIds)) {
+      return res.status(400).json({ error: "Missing or invalid notificationIds array" });
+    }
+    try {
+      const supabase = getSupabase();
+      
+      // Load all ipms_notifications_% documents to clean them up
+      const { data, error } = await supabase
+        .from('messages')
+        .select('id, content, tenant_id, sender_id, sender_email, sender_name, message_type')
+        .like('id', 'ipms_notifications_%');
+
+      if (error) {
+        console.error("Supabase load on delete-selective error:", error.message);
+        return res.status(500).json({ error: error.message });
+      }
+
+      const deletedSet = new Set(notificationIds);
+
+      if (data) {
+        for (const row of data) {
+          if (row.content) {
+            try {
+              const parsed = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
+              const originalNotifications: any[] = parsed.notifications || [];
+              const filteredNotifications = originalNotifications.filter(n => !deletedSet.has(n.id));
+              
+              // Only update if something actually changed
+              if (originalNotifications.length !== filteredNotifications.length) {
+                await supabase
+                  .from('messages')
+                  .upsert({
+                    id: row.id,
+                    tenant_id: row.tenant_id || tenantId,
+                    sender_id: row.sender_id || 'ipms_notification_system',
+                    sender_email: row.sender_email || 'ipms_notif@system.local',
+                    sender_name: row.sender_name || 'IPMS Notification Service',
+                    content: JSON.stringify({ notifications: filteredNotifications }),
+                    message_type: row.message_type || 'ipms_notifications_v1',
+                    created_at: new Date().toISOString()
+                  });
+              }
+            } catch (parseErr) {
+              console.error("Error parsing/cleaning ipms-notifications JSON:", parseErr);
+            }
+          }
+        }
+      }
+
+      return res.json({ success: true });
+    } catch (err: any) {
+      console.error("IPMS notification delete-selective exception:", err);
       res.status(500).json({ error: err.message });
     }
   });

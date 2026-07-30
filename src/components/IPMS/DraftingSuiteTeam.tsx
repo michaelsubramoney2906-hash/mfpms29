@@ -145,6 +145,96 @@ export function DraftingSuiteTeam({
   const [mgrSearch, setMgrSearch] = useState('');
   const [witSearch, setWitSearch] = useState('');
 
+  const [emp1Results, setEmp1Results] = useState<any[]>([]);
+  const [emp2Results, setEmp2Results] = useState<any[]>([]);
+  const [mgrResults, setMgrResults] = useState<any[]>([]);
+  const [witResults, setWitResults] = useState<any[]>([]);
+
+  const [loadingEmp1, setLoadingEmp1] = useState(false);
+  const [loadingEmp2, setLoadingEmp2] = useState(false);
+  const [loadingMgr, setLoadingMgr] = useState(false);
+  const [loadingWit, setLoadingWit] = useState(false);
+
+  // Real-time Azure AD Search for Employee 1
+  useEffect(() => {
+    const delayDebounce = setTimeout(async () => {
+      setLoadingEmp1(true);
+      try {
+        const res = await fetch(`/api/azure-search?q=${encodeURIComponent(emp1Search)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setEmp1Results(data || []);
+        }
+      } catch (err) {
+        console.error("Error searching Azure AD for Employee 1:", err);
+      } finally {
+        setLoadingEmp1(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(delayDebounce);
+  }, [emp1Search]);
+
+  // Real-time Azure AD Search for Employee 2
+  useEffect(() => {
+    const delayDebounce = setTimeout(async () => {
+      setLoadingEmp2(true);
+      try {
+        const res = await fetch(`/api/azure-search?q=${encodeURIComponent(emp2Search)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setEmp2Results(data || []);
+        }
+      } catch (err) {
+        console.error("Error searching Azure AD for Employee 2:", err);
+      } finally {
+        setLoadingEmp2(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(delayDebounce);
+  }, [emp2Search]);
+
+  // Real-time Azure AD Search for Manager
+  useEffect(() => {
+    const delayDebounce = setTimeout(async () => {
+      setLoadingMgr(true);
+      try {
+        const res = await fetch(`/api/azure-search?q=${encodeURIComponent(mgrSearch)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setMgrResults(data || []);
+        }
+      } catch (err) {
+        console.error("Error searching Azure AD for Manager:", err);
+      } finally {
+        setLoadingMgr(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(delayDebounce);
+  }, [mgrSearch]);
+
+  // Real-time Azure AD Search for Witness
+  useEffect(() => {
+    const delayDebounce = setTimeout(async () => {
+      setLoadingWit(true);
+      try {
+        const res = await fetch(`/api/azure-search?q=${encodeURIComponent(witSearch)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setWitResults(data || []);
+        }
+      } catch (err) {
+        console.error("Error searching Azure AD for Witness:", err);
+      } finally {
+        setLoadingWit(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(delayDebounce);
+  }, [witSearch]);
+
   const [annexureA, setAnnexureA] = useState(true);
   const [annexureB, setAnnexureB] = useState(true);
   const [annexureC, setAnnexureC] = useState('Disclosure of interest form...\n\nOther Interests:\nI hereby certify that the above information is complete and correct to the best of my knowledge.');
@@ -1833,7 +1923,7 @@ export function DraftingSuiteTeam({
                     <select
                       onChange={e => {
                         const email = e.target.value;
-                        const u = tenantUsers.find(x => x.email === email);
+                        const u = emp1Results.find(x => x.email === email) || tenantUsers.find(x => x.email === email);
                         if (u) {
                           setUserSignatures(prev => ({
                             ...prev,
@@ -1846,19 +1936,23 @@ export function DraftingSuiteTeam({
                       className="flex-1 text-[10px] bg-white border border-slate-200 rounded px-1.5 py-0.5 outline-none focus:border-emerald-500 text-slate-700"
                     >
                       <option value="">
-                        {emp1Search ? `Matches (${tenantUsers.filter(u => {
-                          const q = emp1Search.toLowerCase();
-                          return (u.fullName || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
-                        }).length})` : '-- Select database user --'}
+                        {emp1Search 
+                          ? `${loadingEmp1 ? 'Searching Azure AD...' : `AD Matches (${emp1Results.length})`}` 
+                          : '-- Select from Tenant Users --'}
                       </option>
-                      {tenantUsers.filter(u => {
-                        const q = emp1Search.toLowerCase();
-                        return (u.fullName || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
-                      }).map((u, idx) => (
-                        <option key={`emp1-${u.email || 'empty'}-${idx}`} value={u.email || ''}>
-                          {u.fullName || u.email} {u.signatureData ? '✍️ (Signed)' : '(No Signature)'}
-                        </option>
-                      ))}
+                      {emp1Search ? (
+                        emp1Results.map((u, idx) => (
+                          <option key={`emp1-${u.email || 'empty'}-${idx}`} value={u.email || ''}>
+                            {u.fullName || u.email} {u.signatureData ? '✍️ (Signed)' : '(No Signature)'} — AD
+                          </option>
+                        ))
+                      ) : (
+                        tenantUsers.map((u, idx) => (
+                          <option key={`emp1-${u.email || 'empty'}-${idx}`} value={u.email || ''}>
+                            {u.fullName || u.email} {u.signatureData ? '✍️ (Signed)' : '(No Signature)'}
+                          </option>
+                        ))
+                      )}
                     </select>
                   </div>
                   {userSignatures.employeeSig && (
@@ -1916,7 +2010,7 @@ export function DraftingSuiteTeam({
                     <select
                       onChange={e => {
                         const email = e.target.value;
-                        const u = tenantUsers.find(x => x.email === email);
+                        const u = emp2Results.find(x => x.email === email) || tenantUsers.find(x => x.email === email);
                         if (u) {
                           setUserSignatures(prev => ({
                             ...prev,
@@ -1929,19 +2023,23 @@ export function DraftingSuiteTeam({
                       className="flex-1 text-[10px] bg-white border border-slate-200 rounded px-1.5 py-0.5 outline-none focus:border-emerald-500 text-slate-700"
                     >
                       <option value="">
-                        {emp2Search ? `Matches (${tenantUsers.filter(u => {
-                          const q = emp2Search.toLowerCase();
-                          return (u.fullName || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
-                        }).length})` : '-- Select database user --'}
+                        {emp2Search 
+                          ? `${loadingEmp2 ? 'Searching Azure AD...' : `AD Matches (${emp2Results.length})`}` 
+                          : '-- Select from Tenant Users --'}
                       </option>
-                      {tenantUsers.filter(u => {
-                        const q = emp2Search.toLowerCase();
-                        return (u.fullName || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
-                      }).map((u, idx) => (
-                        <option key={`emp2-${u.email || 'empty'}-${idx}`} value={u.email || ''}>
-                          {u.fullName || u.email} {u.signatureData ? '✍️ (Signed)' : '(No Signature)'}
-                        </option>
-                      ))}
+                      {emp2Search ? (
+                        emp2Results.map((u, idx) => (
+                          <option key={`emp2-${u.email || 'empty'}-${idx}`} value={u.email || ''}>
+                            {u.fullName || u.email} {u.signatureData ? '✍️ (Signed)' : '(No Signature)'} — AD
+                          </option>
+                        ))
+                      ) : (
+                        tenantUsers.map((u, idx) => (
+                          <option key={`emp2-${u.email || 'empty'}-${idx}`} value={u.email || ''}>
+                            {u.fullName || u.email} {u.signatureData ? '✍️ (Signed)' : '(No Signature)'}
+                          </option>
+                        ))
+                      )}
                     </select>
                   </div>
                   {userSignatures.employee2Sig && (
@@ -1999,7 +2097,7 @@ export function DraftingSuiteTeam({
                     <select
                       onChange={e => {
                         const email = e.target.value;
-                        const u = tenantUsers.find(x => x.email === email);
+                        const u = mgrResults.find(x => x.email === email) || tenantUsers.find(x => x.email === email);
                         if (u) {
                           setUserSignatures(prev => ({
                             ...prev,
@@ -2012,19 +2110,23 @@ export function DraftingSuiteTeam({
                       className="flex-1 text-[10px] bg-white border border-slate-200 rounded px-1.5 py-0.5 outline-none focus:border-emerald-500 text-slate-700"
                     >
                       <option value="">
-                        {mgrSearch ? `Matches (${tenantUsers.filter(u => {
-                          const q = mgrSearch.toLowerCase();
-                          return (u.fullName || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
-                        }).length})` : '-- Select database user --'}
+                        {mgrSearch 
+                          ? `${loadingMgr ? 'Searching Azure AD...' : `AD Matches (${mgrResults.length})`}` 
+                          : '-- Select from Tenant Users --'}
                       </option>
-                      {tenantUsers.filter(u => {
-                        const q = mgrSearch.toLowerCase();
-                        return (u.fullName || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
-                      }).map((u, idx) => (
-                        <option key={`mgr-${u.email || 'empty'}-${idx}`} value={u.email || ''}>
-                          {u.fullName || u.email} {u.signatureData ? '✍️ (Signed)' : '(No Signature)'}
-                        </option>
-                      ))}
+                      {mgrSearch ? (
+                        mgrResults.map((u, idx) => (
+                          <option key={`mgr-${u.email || 'empty'}-${idx}`} value={u.email || ''}>
+                            {u.fullName || u.email} {u.signatureData ? '✍️ (Signed)' : '(No Signature)'} — AD
+                          </option>
+                        ))
+                      ) : (
+                        tenantUsers.map((u, idx) => (
+                          <option key={`mgr-${u.email || 'empty'}-${idx}`} value={u.email || ''}>
+                            {u.fullName || u.email} {u.signatureData ? '✍️ (Signed)' : '(No Signature)'}
+                          </option>
+                        ))
+                      )}
                     </select>
                   </div>
                   {userSignatures.managerSig && (
@@ -2082,7 +2184,7 @@ export function DraftingSuiteTeam({
                     <select
                       onChange={e => {
                         const email = e.target.value;
-                        const u = tenantUsers.find(x => x.email === email);
+                        const u = witResults.find(x => x.email === email) || tenantUsers.find(x => x.email === email);
                         if (u) {
                           setUserSignatures(prev => ({
                             ...prev,
@@ -2095,19 +2197,23 @@ export function DraftingSuiteTeam({
                       className="flex-1 text-[10px] bg-white border border-slate-200 rounded px-1.5 py-0.5 outline-none focus:border-emerald-500 text-slate-700"
                     >
                       <option value="">
-                        {witSearch ? `Matches (${tenantUsers.filter(u => {
-                          const q = witSearch.toLowerCase();
-                          return (u.fullName || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
-                        }).length})` : '-- Select database user --'}
+                        {witSearch 
+                          ? `${loadingWit ? 'Searching Azure AD...' : `AD Matches (${witResults.length})`}` 
+                          : '-- Select from Tenant Users --'}
                       </option>
-                      {tenantUsers.filter(u => {
-                        const q = witSearch.toLowerCase();
-                        return (u.fullName || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
-                      }).map((u, idx) => (
-                        <option key={`wit-${u.email || 'empty'}-${idx}`} value={u.email || ''}>
-                          {u.fullName || u.email} {u.signatureData ? '✍️ (Signed)' : '(No Signature)'}
-                        </option>
-                      ))}
+                      {witSearch ? (
+                        witResults.map((u, idx) => (
+                          <option key={`wit-${u.email || 'empty'}-${idx}`} value={u.email || ''}>
+                            {u.fullName || u.email} {u.signatureData ? '✍️ (Signed)' : '(No Signature)'} — AD
+                          </option>
+                        ))
+                      ) : (
+                        tenantUsers.map((u, idx) => (
+                          <option key={`wit-${u.email || 'empty'}-${idx}`} value={u.email || ''}>
+                            {u.fullName || u.email} {u.signatureData ? '✍️ (Signed)' : '(No Signature)'}
+                          </option>
+                        ))
+                      )}
                     </select>
                   </div>
                   {userSignatures.witnessSig && (
