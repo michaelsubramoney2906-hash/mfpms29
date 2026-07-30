@@ -10,6 +10,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import mammoth from "mammoth";
 import * as XLSX from "xlsx";
 import { NKANGALA_HARDCODED_DATA } from "./fred_hardcoded_data";
+import { ensureAllSdbipKpis } from "./src/sdbip_catalog";
 
 function getSupabase() {
   const url = process.env.SUPABASE_URL;
@@ -397,11 +398,11 @@ async function startServer() {
   fixNkangalaTenants().catch(err => console.error("[Nkangala Fix] Background loop failure:", err));
   const app = express();
   const server = http.createServer(app);
-  const io = new SocketIOServer(server, { cors: { origin: "*" }, maxHttpBufferSize: 5e7 });
+  const io = new SocketIOServer(server, { cors: { origin: "*" }, maxHttpBufferSize: 2.5e8 });
   const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
-  app.use(express.json({ limit: '50mb' }));
-  app.use(express.urlencoded({ limit: '50mb', extended: true }));
+  app.use(express.json({ limit: '250mb' }));
+  app.use(express.urlencoded({ limit: '250mb', extended: true }));
 
   // Log active Supabase tables from OpenAPI Schema
   try {
@@ -1168,6 +1169,10 @@ Format your response exactly according to the following JSON schema:
 
       try {
         extractedData = robustParseJson(response.text || "");
+        if (engineType === "sdbip_engine") {
+          console.log("[Fred Extraction] Enforcing full SDBIP KPI list (M_01 to M_92 and P_01 to P_18) via catalog post-processor.");
+          extractedData.items = ensureAllSdbipKpis(extractedData.items || []);
+        }
       } catch (parseErr: any) {
         console.error("Failed to parse Gemini response as JSON.");
         console.error("Response excerpt:", (response.text || "").substring(0, 500));
@@ -1220,11 +1225,11 @@ Format your response exactly according to the following JSON schema:
               }
 
               const mappedSdbipRows = items.map((item: any, idx: number) => {
-                const natKpa = item.National_KPA || item.KPA || '';
-                const respOwner = item.Responsible_Owner || item.Responsible_Person || item.Responsible_Official || item.Responsible_Manager || item.Executive_Manager || item.responsibleUnit || '';
-                const submitterVal = item.Submitter || item.Submitting_Official || '';
-                const approverVal = item.Approver || item.Approving_Official || '';
-                const kpiVal = item.KPI || item.Operational_Activity || item.Description || '';
+                const natKpa = String(item.National_KPA || item.KPA || '');
+                const respOwner = String(item.Responsible_Owner || item.Responsible_Person || item.Responsible_Official || item.Responsible_Manager || item.Executive_Manager || item.responsibleUnit || '');
+                const submitterVal = String(item.Submitter || item.Submitting_Official || '');
+                const approverVal = String(item.Approver || item.Approving_Official || '');
+                const kpiVal = String(item.KPI || item.Operational_Activity || item.Description || '');
                 
                 const existing = existingItems[idx] || {};
 
@@ -1251,37 +1256,45 @@ Format your response exactly according to the following JSON schema:
                   }
                 }
 
+                const matchedExisting = existingItems.find((e: any) => e.refNum === refNumVal) || existing;
+
                 return {
-                  id: existing.id || `sdbip-ext-${idx + 1}-${Date.now()}`,
+                  id: matchedExisting.id || `sdbip-ext-${idx + 1}-${Date.now()}`,
                   refNum: refNumVal,
-                  strategicObj: item.SDBIP_Strategic_Objective || existing.strategicObj || '',
-                  bsd: item.BSD || (natKpa.includes('BSD') ? 'X' : (existing.bsd || '')),
-                  led: item.LED || (natKpa.includes('LED') ? 'X' : (existing.led || '')),
-                  mfvm: item.MFVM || (natKpa.includes('MFVM') ? 'X' : (existing.mfvm || '')),
-                  ggpp: item.GGPP || (natKpa.includes('GGPP') ? 'X' : (existing.ggpp || '')),
-                  midt: item.MIDT || (natKpa.includes('MIDT') ? 'X' : (existing.midt || '')),
-                  sr: item.SR || (natKpa.includes('SR') ? 'X' : (existing.sr || '')),
-                  kpas: natKpa || existing.kpas || '',
-                  operationalActivity: item.Description || kpiVal || existing.operationalActivity || '',
-                  kpi: kpiVal || existing.kpi || '',
-                  compliance: existing.compliance || 'compliant',
-                  uom: item.Unit_of_Measure || existing.uom || 'Number',
-                  mscoaTracking: item.mSCOA_Tracking || existing.mscoaTracking || 'mSCOA Item Code',
-                  baseline: item.Baseline || existing.baseline || '0',
-                  annualTarget: item.Annual_Target || item.Target || existing.annualTarget || '',
-                  budgetAllocation: item.Budget_Allocation || existing.budgetAllocation || 'R 0',
-                  q1: item.Q1_Target || existing.q1 || '',
-                  q2: item.Q2_Target || existing.q2 || '',
-                  midTerm: item.Mid_Term_Target || existing.midTerm || '',
-                  q3: item.Q3_Target || existing.q3 || '',
-                  q4: item.Q4_Target || existing.q4 || '',
-                  responsibleUnit: respOwner || existing.responsibleUnit || '',
-                  submitter: submitterVal || existing.submitter || '',
-                  approver: approverVal || existing.approver || '',
-                  reviewer: existing.reviewer || '',
-                  internalAudit: existing.internalAudit || '',
-                  poeStatus: item.POE_Description || existing.poeStatus || 'Pending Upload',
-                  description: item.Description || kpiVal || existing.description || ''
+                  strategicObj: item.SDBIP_Strategic_Objective || matchedExisting.strategicObj || '',
+                  bsd: item.BSD || (natKpa.includes('BSD') ? 'X' : (matchedExisting.bsd || '')),
+                  led: item.LED || (natKpa.includes('LED') ? 'X' : (matchedExisting.led || '')),
+                  mfvm: item.MFVM || (natKpa.includes('MFVM') ? 'X' : (matchedExisting.mfvm || '')),
+                  ggpp: item.GGPP || (natKpa.includes('GGPP') ? 'X' : (matchedExisting.ggpp || '')),
+                  midt: item.MIDT || (natKpa.includes('MIDT') ? 'X' : (matchedExisting.midt || '')),
+                  sr: item.SR || (natKpa.includes('SR') ? 'X' : (matchedExisting.sr || '')),
+                  kpas: natKpa || matchedExisting.kpas || '',
+                  operationalActivity: item.Description || kpiVal || matchedExisting.operationalActivity || '',
+                  kpi: kpiVal || matchedExisting.kpi || '',
+                  compliance: matchedExisting.compliance || 'compliant',
+                  uom: item.Unit_of_Measure || matchedExisting.uom || 'Number',
+                  mscoaTracking: item.mSCOA_Tracking || matchedExisting.mscoaTracking || 'mSCOA Item Code',
+                  baseline: item.Baseline || matchedExisting.baseline || '0',
+                  annualTarget: item.Annual_Target || item.Target || matchedExisting.annualTarget || '',
+                  budgetAllocation: item.Budget_Allocation || matchedExisting.budgetAllocation || 'R 0',
+                  q1: item.Q1_Target || matchedExisting.q1 || '',
+                  q2: item.Q2_Target || matchedExisting.q2 || '',
+                  midTerm: item.Mid_Term_Target || matchedExisting.midTerm || '',
+                  q3: item.Q3_Target || matchedExisting.q3 || '',
+                  q4: item.Q4_Target || matchedExisting.q4 || '',
+                  responsibleUnit: respOwner || matchedExisting.responsibleUnit || '',
+                  submitter: submitterVal || matchedExisting.submitter || '',
+                  approver: approverVal || matchedExisting.approver || '',
+                  reviewer: matchedExisting.reviewer || '',
+                  internalAudit: matchedExisting.internalAudit || '',
+                  poeStatus: item.POE_Description || matchedExisting.poeStatus || 'Pending Upload',
+                  q1Poes: matchedExisting.q1Poes || [],
+                  q2Poes: matchedExisting.q2Poes || [],
+                  midTermPoes: matchedExisting.midTermPoes || [],
+                  q3Poes: matchedExisting.q3Poes || [],
+                  q4Poes: matchedExisting.q4Poes || [],
+                  workflows: matchedExisting.workflows || {},
+                  description: item.Description || kpiVal || matchedExisting.description || ''
                 };
               });
 

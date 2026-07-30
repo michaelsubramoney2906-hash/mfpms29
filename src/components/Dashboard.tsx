@@ -60,6 +60,23 @@ import { FredExtractionAgent } from './FredExtractionAgent';
 import { GuidedIPMSWorkflow, GUIDE_STEPS } from './IPMS/GuidedIPMSWorkflow';
 import { Lock } from 'lucide-react';
 
+const fetchWithRetry = async (url: string, options?: RequestInit, retries = 3, delay = 1000): Promise<Response> => {
+  try {
+    const res = await fetch(url, options);
+    if (!res.ok && retries > 0) {
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return fetchWithRetry(url, options, retries - 1, delay * 1.5);
+    }
+    return res;
+  } catch (err) {
+    if (retries > 0) {
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return fetchWithRetry(url, options, retries - 1, delay * 1.5);
+    }
+    throw err;
+  }
+};
+
 interface DashboardProps {
   user: User;
   onLogout: () => void;
@@ -107,7 +124,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
       if (activeModule.id !== 'ipms') return;
       try {
         const emailParam = user?.email || 'default';
-        const res = await fetch(`/api/tenant/${activeTenantId}/ipms-progress?userId=${emailParam}`);
+        const res = await fetchWithRetry(`/api/tenant/${activeTenantId}/ipms-progress?userId=${emailParam}`);
         if (res.ok) {
           const contentType = res.headers.get("content-type");
           if (contentType && contentType.includes("application/json")) {
@@ -128,7 +145,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
     // Attempt to fetch full user profile to retrieve signature details and other metadata
     const fetchProfile = async () => {
       try {
-        const res = await fetch(`/api/tenant/${activeTenantId === 'global' ? tenants[0].id : activeTenantId}/users`);
+        const res = await fetchWithRetry(`/api/tenant/${activeTenantId === 'global' ? tenants[0].id : activeTenantId}/users`);
         if (res.ok) {
           const contentType = res.headers.get("content-type");
           if (contentType && contentType.includes("application/json")) {
@@ -191,7 +208,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
 
       if (isStdUser) {
         try {
-          const res = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${email}&t=${Date.now()}`);
+          const res = await fetchWithRetry(`/api/tenant/${activeTenantId}/pplan?userId=${email}&t=${Date.now()}`);
           if (res.ok) {
             const data = await res.json();
             const revStatus = data?.metadata?.reviewStatus;
@@ -212,7 +229,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
         }
       } else if (isManagerUser) {
         try {
-          const res = await fetch(`/api/tenant/${activeTenantId}/team-pplans?t=${Date.now()}`);
+          const res = await fetchWithRetry(`/api/tenant/${activeTenantId}/team-pplans?t=${Date.now()}`);
           if (res.ok) {
             const data = await res.json();
             const arr = Array.isArray(data) ? data : (data?.teamPlans || []);

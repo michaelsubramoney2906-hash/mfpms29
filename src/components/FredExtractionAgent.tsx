@@ -19,6 +19,23 @@ import {
 } from 'lucide-react';
 import type { User } from '../types';
 
+const fetchWithRetry = async (url: string, options?: RequestInit, retries = 3, delay = 1000): Promise<Response> => {
+  try {
+    const res = await fetch(url, options);
+    if (!res.ok && retries > 0) {
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return fetchWithRetry(url, options, retries - 1, delay * 1.5);
+    }
+    return res;
+  } catch (err) {
+    if (retries > 0) {
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return fetchWithRetry(url, options, retries - 1, delay * 1.5);
+    }
+    throw err;
+  }
+};
+
 interface FredExtractionAgentProps {
   currentUser: User;
   activeTenantId: string;
@@ -48,9 +65,9 @@ export function FredExtractionAgent({ currentUser, activeTenantId }: FredExtract
     setSuccessMsg(null);
     try {
       const mappedItems = rawItems.map((item: any, idx: number) => {
-        const natKpa = item.National_KPA || item.KPA || item.kpas || '';
-        const respOwner = item.Responsible_Owner || item.responsibleUnit || item.Responsible_Person || item.Responsible_Official || item.Responsible_Manager || item.Executive_Manager || '';
-        const kpiVal = item.KPI || item.kpi || item.Operational_Activity || item.Description || '';
+        const natKpa = String(item.National_KPA || item.KPA || item.kpas || '');
+        const respOwner = String(item.Responsible_Owner || item.responsibleUnit || item.Responsible_Person || item.Responsible_Official || item.Responsible_Manager || item.Executive_Manager || '');
+        const kpiVal = String(item.KPI || item.kpi || item.Operational_Activity || item.Description || '');
         
         const rawRef = item.Ref_Number || item.Ref_No || item.Ref || item.refNum || '';
         let refNumVal = String(rawRef).trim();
@@ -121,7 +138,7 @@ export function FredExtractionAgent({ currentUser, activeTenantId }: FredExtract
         setExtractionResult(null);
         setSuccessMsg(null);
         
-        const response = await fetch(`/api/tenant/${activeTenantId}/fred-extraction/${selectedEngine}?userId=${currentUser?.email || 'default'}`);
+        const response = await fetchWithRetry(`/api/tenant/${activeTenantId}/fred-extraction/${selectedEngine}?userId=${currentUser?.email || 'default'}`);
         const rawText = await response.text();
         if (response.ok && rawText.trim()) {
           try {
