@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
-import { Upload, Download, FileText, CheckCircle2, ChevronRight, Check, Save, Plus, Trash2, X, Printer, FileDown, FileSpreadsheet, Loader2, Briefcase, GraduationCap, Award, TrendingUp, Sparkles } from 'lucide-react';
+import { Upload, Download, FileText, CheckCircle2, ChevronRight, Check, Save, Plus, Trash2, X, Printer, FileDown, FileSpreadsheet, Loader2, Briefcase, GraduationCap, Award, TrendingUp, Sparkles, PenTool, Search } from 'lucide-react';
 import type { User } from '../../types';
 import { NKANGALA_LOGO_BASE64 } from './nkangala_logo_base64';
 
@@ -129,11 +129,21 @@ export function DraftingSuiteTeam({
   
   const [userSignatures, setUserSignatures] = useState({
     employee: '',
+    employeeSig: '',
+    employee2: 'Nompumelelo P. Nsibande',
+    employee2Sig: '',
     manager: '',
+    managerSig: '',
     hod: '',
     pmu: '',
-    witness: 'Yena Khuboni'
+    witness: 'Yena Khuboni',
+    witnessSig: ''
   });
+
+  const [emp1Search, setEmp1Search] = useState('');
+  const [emp2Search, setEmp2Search] = useState('');
+  const [mgrSearch, setMgrSearch] = useState('');
+  const [witSearch, setWitSearch] = useState('');
 
   const [annexureA, setAnnexureA] = useState(true);
   const [annexureB, setAnnexureB] = useState(true);
@@ -216,10 +226,15 @@ export function DraftingSuiteTeam({
       setCoverPage(`PERFORMANCE AGREEMENT\n\nENTERED INTO BY AND BETWEEN:\nThe Municipality herein represented by the Municipal Manager\n\n&\n\n${currentUser.fullName || '[Employee Name]'}\n\n${teamTitle.toUpperCase()} TEAM\n\nFOR THE FINANCIAL YEAR: 2025/2026`);
       setUserSignatures({
         employee: currentUser.fullName || '',
+        employeeSig: currentUser.signatureData || '',
+        employee2: 'Nompumelelo P. Nsibande',
+        employee2Sig: '',
         manager: currentUser.manager || '',
+        managerSig: '',
         hod: 'Mr. Jacob Chief Financial Officer',
         pmu: 'Corporate Performance Unit',
-        witness: 'Yena Khuboni'
+        witness: 'Yena Khuboni',
+        witnessSig: ''
       });
     }
   }, [currentUser, teamTitle]);
@@ -291,17 +306,22 @@ export function DraftingSuiteTeam({
 
   const getSafeUserSignatures = (val: any) => {
     if (!val) {
-      return { employee: '', manager: '', hod: '', pmu: '', witness: 'Yena Khuboni' };
+      return { employee: '', employeeSig: '', employee2: 'Nompumelelo P. Nsibande', employee2Sig: '', manager: '', managerSig: '', hod: '', pmu: '', witness: 'Yena Khuboni', witnessSig: '' };
     }
     if (typeof val === 'string') {
-      return { employee: val, manager: '', hod: '', pmu: '', witness: 'Yena Khuboni' };
+      return { employee: val, employeeSig: '', employee2: 'Nompumelelo P. Nsibande', employee2Sig: '', manager: '', managerSig: '', hod: '', pmu: '', witness: 'Yena Khuboni', witnessSig: '' };
     }
     return {
       employee: val.employee || '',
+      employeeSig: val.employeeSig || '',
+      employee2: val.employee2 || 'Nompumelelo P. Nsibande',
+      employee2Sig: val.employee2Sig || '',
       manager: val.manager || '',
+      managerSig: val.managerSig || '',
       hod: val.hod || '',
       pmu: val.pmu || '',
-      witness: val.witness || 'Yena Khuboni'
+      witness: val.witness || 'Yena Khuboni',
+      witnessSig: val.witnessSig || ''
     };
   };
 
@@ -409,10 +429,15 @@ export function DraftingSuiteTeam({
         signatures,
         userSignatures: {
           employee: 'Noluthando Zulu',
+          employeeSig: '',
+          employee2: 'Nompumelelo P. Nsibande',
+          employee2Sig: '',
           manager: 'Nsibande NP',
+          managerSig: '',
           hod: 'Mr. Jacob Chief Financial Officer',
           pmu: 'Corporate Performance Unit',
-          witness: 'Yena Khuboni'
+          witness: 'Yena Khuboni',
+          witnessSig: ''
         },
         annexureA,
         annexureB,
@@ -1753,6 +1778,354 @@ export function DraftingSuiteTeam({
               )}
             </div>
           </div>
+
+          {/* Signatures & Witnesses Configuration Card */}
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-4">
+            <div className="flex items-center gap-1.5 border-b border-slate-100 pb-2">
+              <PenTool className="w-4 h-4 text-emerald-600" />
+              <label className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                Signatures & Witness Names
+              </label>
+            </div>
+            
+            <p className="text-[10px] text-slate-400">
+              Type the names of the signatories below to customize the signature blocks rendered in the document.
+            </p>
+
+            <div className="space-y-4 pt-1">
+              {/* Employee 1 (Noluthando Zulu) */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-600 uppercase block">
+                  Employee Signature (Noluthando Zulu)
+                </label>
+                <input
+                  type="text"
+                  value={userSignatures.employee}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setUserSignatures(prev => ({ ...prev, employee: val }));
+                  }}
+                  className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none font-sans"
+                  placeholder="Employee 1 Full Name..."
+                />
+                <div className="flex flex-col gap-1.5 mt-1 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                  <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-md px-2 py-1 shadow-inner">
+                    <Search className="w-3 h-3 text-slate-400 shrink-0" />
+                    <input
+                      type="text"
+                      placeholder="Search employee 1..."
+                      value={emp1Search}
+                      onChange={e => setEmp1Search(e.target.value)}
+                      className="flex-1 text-[10px] bg-transparent outline-none text-slate-700"
+                    />
+                    {emp1Search && (
+                      <button
+                        type="button"
+                        onClick={() => setEmp1Search('')}
+                        className="text-[10px] text-slate-400 hover:text-slate-600 font-bold px-0.5"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider shrink-0">Select:</span>
+                    <select
+                      onChange={e => {
+                        const email = e.target.value;
+                        const u = tenantUsers.find(x => x.email === email);
+                        if (u) {
+                          setUserSignatures(prev => ({
+                            ...prev,
+                            employee: u.fullName || u.email,
+                            employeeSig: u.signatureData || ''
+                          }));
+                        }
+                      }}
+                      value=""
+                      className="flex-1 text-[10px] bg-white border border-slate-200 rounded px-1.5 py-0.5 outline-none focus:border-emerald-500 text-slate-700"
+                    >
+                      <option value="">
+                        {emp1Search ? `Matches (${tenantUsers.filter(u => {
+                          const q = emp1Search.toLowerCase();
+                          return (u.fullName || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
+                        }).length})` : '-- Select database user --'}
+                      </option>
+                      {tenantUsers.filter(u => {
+                        const q = emp1Search.toLowerCase();
+                        return (u.fullName || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
+                      }).map((u, idx) => (
+                        <option key={`emp1-${u.email || 'empty'}-${idx}`} value={u.email || ''}>
+                          {u.fullName || u.email} {u.signatureData ? '✍️ (Signed)' : '(No Signature)'}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {userSignatures.employeeSig && (
+                    <div className="flex items-center gap-1 mt-1 text-[9px] text-emerald-600 font-semibold">
+                      <span>✓ Signature image loaded.</span>
+                      <button
+                        type="button"
+                        onClick={() => setUserSignatures(prev => ({ ...prev, employeeSig: '' }))}
+                        className="text-red-500 hover:underline ml-auto"
+                      >
+                        Clear Image
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Employee 2 (Nompumelelo P. Nsibande) */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-600 uppercase block">
+                  Team Member Signature (Nompumelelo P. Nsibande)
+                </label>
+                <input
+                  type="text"
+                  value={userSignatures.employee2}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setUserSignatures(prev => ({ ...prev, employee2: val }));
+                  }}
+                  className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none font-sans"
+                  placeholder="Employee 2 Full Name..."
+                />
+                <div className="flex flex-col gap-1.5 mt-1 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                  <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-md px-2 py-1 shadow-inner">
+                    <Search className="w-3 h-3 text-slate-400 shrink-0" />
+                    <input
+                      type="text"
+                      placeholder="Search team member..."
+                      value={emp2Search}
+                      onChange={e => setEmp2Search(e.target.value)}
+                      className="flex-1 text-[10px] bg-transparent outline-none text-slate-700"
+                    />
+                    {emp2Search && (
+                      <button
+                        type="button"
+                        onClick={() => setEmp2Search('')}
+                        className="text-[10px] text-slate-400 hover:text-slate-600 font-bold px-0.5"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider shrink-0">Select:</span>
+                    <select
+                      onChange={e => {
+                        const email = e.target.value;
+                        const u = tenantUsers.find(x => x.email === email);
+                        if (u) {
+                          setUserSignatures(prev => ({
+                            ...prev,
+                            employee2: u.fullName || u.email,
+                            employee2Sig: u.signatureData || ''
+                          }));
+                        }
+                      }}
+                      value=""
+                      className="flex-1 text-[10px] bg-white border border-slate-200 rounded px-1.5 py-0.5 outline-none focus:border-emerald-500 text-slate-700"
+                    >
+                      <option value="">
+                        {emp2Search ? `Matches (${tenantUsers.filter(u => {
+                          const q = emp2Search.toLowerCase();
+                          return (u.fullName || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
+                        }).length})` : '-- Select database user --'}
+                      </option>
+                      {tenantUsers.filter(u => {
+                        const q = emp2Search.toLowerCase();
+                        return (u.fullName || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
+                      }).map((u, idx) => (
+                        <option key={`emp2-${u.email || 'empty'}-${idx}`} value={u.email || ''}>
+                          {u.fullName || u.email} {u.signatureData ? '✍️ (Signed)' : '(No Signature)'}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {userSignatures.employee2Sig && (
+                    <div className="flex items-center gap-1 mt-1 text-[9px] text-emerald-600 font-semibold">
+                      <span>✓ Signature image loaded.</span>
+                      <button
+                        type="button"
+                        onClick={() => setUserSignatures(prev => ({ ...prev, employee2Sig: '' }))}
+                        className="text-red-500 hover:underline ml-auto"
+                      >
+                        Clear Image
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Manager (Nsibande NP) */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-600 uppercase block">
+                  Municipal Manager (Nsibande NP)
+                </label>
+                <input
+                  type="text"
+                  value={userSignatures.manager}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setUserSignatures(prev => ({ ...prev, manager: val }));
+                  }}
+                  className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none font-sans"
+                  placeholder="Manager Full Name..."
+                />
+                <div className="flex flex-col gap-1.5 mt-1 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                  <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-md px-2 py-1 shadow-inner">
+                    <Search className="w-3 h-3 text-slate-400 shrink-0" />
+                    <input
+                      type="text"
+                      placeholder="Search manager..."
+                      value={mgrSearch}
+                      onChange={e => setMgrSearch(e.target.value)}
+                      className="flex-1 text-[10px] bg-transparent outline-none text-slate-700"
+                    />
+                    {mgrSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setMgrSearch('')}
+                        className="text-[10px] text-slate-400 hover:text-slate-600 font-bold px-0.5"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider shrink-0">Select:</span>
+                    <select
+                      onChange={e => {
+                        const email = e.target.value;
+                        const u = tenantUsers.find(x => x.email === email);
+                        if (u) {
+                          setUserSignatures(prev => ({
+                            ...prev,
+                            manager: u.fullName || u.email,
+                            managerSig: u.signatureData || ''
+                          }));
+                        }
+                      }}
+                      value=""
+                      className="flex-1 text-[10px] bg-white border border-slate-200 rounded px-1.5 py-0.5 outline-none focus:border-emerald-500 text-slate-700"
+                    >
+                      <option value="">
+                        {mgrSearch ? `Matches (${tenantUsers.filter(u => {
+                          const q = mgrSearch.toLowerCase();
+                          return (u.fullName || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
+                        }).length})` : '-- Select database user --'}
+                      </option>
+                      {tenantUsers.filter(u => {
+                        const q = mgrSearch.toLowerCase();
+                        return (u.fullName || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
+                      }).map((u, idx) => (
+                        <option key={`mgr-${u.email || 'empty'}-${idx}`} value={u.email || ''}>
+                          {u.fullName || u.email} {u.signatureData ? '✍️ (Signed)' : '(No Signature)'}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {userSignatures.managerSig && (
+                    <div className="flex items-center gap-1 mt-1 text-[9px] text-emerald-600 font-semibold">
+                      <span>✓ Signature image loaded.</span>
+                      <button
+                        type="button"
+                        onClick={() => setUserSignatures(prev => ({ ...prev, managerSig: '' }))}
+                        className="text-red-500 hover:underline ml-auto"
+                      >
+                        Clear Image
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Witness (PMS Coordinator) */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-600 uppercase block">
+                  Witness (PMS Coordinator)
+                </label>
+                <input
+                  type="text"
+                  value={userSignatures.witness}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setUserSignatures(prev => ({ ...prev, witness: val }));
+                  }}
+                  className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none font-sans"
+                  placeholder="Witness Full Name..."
+                />
+                <div className="flex flex-col gap-1.5 mt-1 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                  <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-md px-2 py-1 shadow-inner">
+                    <Search className="w-3 h-3 text-slate-400 shrink-0" />
+                    <input
+                      type="text"
+                      placeholder="Search witness..."
+                      value={witSearch}
+                      onChange={e => setWitSearch(e.target.value)}
+                      className="flex-1 text-[10px] bg-transparent outline-none text-slate-700"
+                    />
+                    {witSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setWitSearch('')}
+                        className="text-[10px] text-slate-400 hover:text-slate-600 font-bold px-0.5"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider shrink-0">Select:</span>
+                    <select
+                      onChange={e => {
+                        const email = e.target.value;
+                        const u = tenantUsers.find(x => x.email === email);
+                        if (u) {
+                          setUserSignatures(prev => ({
+                            ...prev,
+                            witness: u.fullName || u.email,
+                            witnessSig: u.signatureData || ''
+                          }));
+                        }
+                      }}
+                      value=""
+                      className="flex-1 text-[10px] bg-white border border-slate-200 rounded px-1.5 py-0.5 outline-none focus:border-emerald-500 text-slate-700"
+                    >
+                      <option value="">
+                        {witSearch ? `Matches (${tenantUsers.filter(u => {
+                          const q = witSearch.toLowerCase();
+                          return (u.fullName || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
+                        }).length})` : '-- Select database user --'}
+                      </option>
+                      {tenantUsers.filter(u => {
+                        const q = witSearch.toLowerCase();
+                        return (u.fullName || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
+                      }).map((u, idx) => (
+                        <option key={`wit-${u.email || 'empty'}-${idx}`} value={u.email || ''}>
+                          {u.fullName || u.email} {u.signatureData ? '✍️ (Signed)' : '(No Signature)'}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {userSignatures.witnessSig && (
+                    <div className="flex items-center gap-1 mt-1 text-[9px] text-emerald-600 font-semibold">
+                      <span>✓ Signature image loaded.</span>
+                      <button
+                        type="button"
+                        onClick={() => setUserSignatures(prev => ({ ...prev, witnessSig: '' }))}
+                        className="text-red-500 hover:underline ml-auto"
+                      >
+                        Clear Image
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -2252,8 +2625,17 @@ export function DraftingSuiteTeam({
                           {/* Nsibande NP Signature first */}
                           <div className="border border-emerald-300 p-4 rounded-lg bg-emerald-50/20 space-y-4 shadow-sm">
                             <p className="font-extrabold text-xs uppercase text-emerald-800 tracking-wider">Signed on behalf of Municipality (Manager):</p>
-                            <div className="h-12 border-b border-black flex items-end font-serif italic text-sm text-emerald-950 font-bold">
-                              {userSignatures.manager || 'Nsibande NP'}
+                            <div className="h-12 border-b border-black flex flex-col justify-end items-center font-serif italic text-sm text-emerald-950 font-bold relative pb-1">
+                              {userSignatures.managerSig ? (
+                                <img
+                                  src={userSignatures.managerSig}
+                                  alt="Manager Signature"
+                                  className="absolute bottom-1 max-h-11 object-contain py-0.5"
+                                  referrerPolicy="no-referrer"
+                                />
+                              ) : (
+                                <span>{userSignatures.manager || 'Nsibande NP'}</span>
+                              )}
                             </div>
                             <div className="flex justify-between text-[10px] text-slate-500">
                               <span>Date: ________________</span>
@@ -2264,8 +2646,38 @@ export function DraftingSuiteTeam({
                           {/* Noluthando Zulu Signature second */}
                           <div className="border border-slate-300 p-4 rounded-lg bg-slate-50 space-y-4 shadow-sm">
                             <p className="font-bold text-xs uppercase text-slate-700 tracking-wide">Signed by Employee:</p>
-                            <div className="h-12 border-b border-black flex items-end font-serif italic text-sm text-slate-800 font-medium">
-                              {userSignatures.employee || 'Noluthando Zulu'}
+                            <div className="h-12 border-b border-black flex flex-col justify-end items-center font-serif italic text-sm text-slate-800 font-medium relative pb-1">
+                              {userSignatures.employeeSig ? (
+                                <img
+                                  src={userSignatures.employeeSig}
+                                  alt="Employee Signature"
+                                  className="absolute bottom-1 max-h-11 object-contain py-0.5"
+                                  referrerPolicy="no-referrer"
+                                />
+                              ) : (
+                                <span>{userSignatures.employee || 'Noluthando Zulu'}</span>
+                              )}
+                            </div>
+                            <div className="flex justify-between text-[10px] text-slate-500">
+                              <span>Date: ________________</span>
+                              <span>Place: Nkangala</span>
+                            </div>
+                          </div>
+
+                          {/* Nompumelelo P. Nsibande Signature */}
+                          <div className="border border-slate-300 p-4 rounded-lg bg-slate-50 space-y-4 shadow-sm">
+                            <p className="font-bold text-xs uppercase text-slate-700 tracking-wide">Signed by Employee (Team Member):</p>
+                            <div className="h-12 border-b border-black flex flex-col justify-end items-center font-serif italic text-sm text-slate-800 font-medium relative pb-1">
+                              {userSignatures.employee2Sig ? (
+                                <img
+                                  src={userSignatures.employee2Sig}
+                                  alt="Team Member Signature"
+                                  className="absolute bottom-1 max-h-11 object-contain py-0.5"
+                                  referrerPolicy="no-referrer"
+                                />
+                              ) : (
+                                <span>{userSignatures.employee2 || 'Nompumelelo P. Nsibande'}</span>
+                              )}
                             </div>
                             <div className="flex justify-between text-[10px] text-slate-500">
                               <span>Date: ________________</span>
@@ -2276,8 +2688,17 @@ export function DraftingSuiteTeam({
                           {/* Yena Khuboni Witness Signature */}
                           <div className="border border-slate-300 p-4 rounded-lg bg-slate-50 space-y-4 shadow-sm">
                             <p className="font-bold text-xs uppercase text-slate-700 tracking-wide">Witnessed by (PMS Coordinator):</p>
-                            <div className="h-12 border-b border-black flex items-end font-serif italic text-sm text-indigo-950 font-semibold">
-                              {userSignatures.witness || 'Yena Khuboni'}
+                            <div className="h-12 border-b border-black flex flex-col justify-end items-center font-serif italic text-sm text-indigo-950 font-semibold relative pb-1">
+                              {userSignatures.witnessSig ? (
+                                <img
+                                  src={userSignatures.witnessSig}
+                                  alt="Witness Signature"
+                                  className="absolute bottom-1 max-h-11 object-contain py-0.5"
+                                  referrerPolicy="no-referrer"
+                                />
+                              ) : (
+                                <span>{userSignatures.witness || 'Yena Khuboni'}</span>
+                              )}
                             </div>
                             <div className="flex justify-between text-[10px] text-slate-500">
                               <span>Date: ________________</span>
@@ -2290,8 +2711,38 @@ export function DraftingSuiteTeam({
                           {/* Noluthando Zulu Signature first */}
                           <div className="border border-emerald-300 p-4 rounded-lg bg-emerald-50/20 space-y-4 shadow-sm">
                             <p className="font-extrabold text-xs uppercase text-emerald-800 tracking-wider">Signed by Employee:</p>
-                            <div className="h-12 border-b border-black flex items-end font-serif italic text-sm text-emerald-950 font-bold">
-                              {userSignatures.employee || 'Noluthando Zulu'}
+                            <div className="h-12 border-b border-black flex flex-col justify-end items-center font-serif italic text-sm text-emerald-950 font-bold relative pb-1">
+                              {userSignatures.employeeSig ? (
+                                <img
+                                  src={userSignatures.employeeSig}
+                                  alt="Employee Signature"
+                                  className="absolute bottom-1 max-h-11 object-contain py-0.5"
+                                  referrerPolicy="no-referrer"
+                                />
+                              ) : (
+                                <span>{userSignatures.employee || 'Noluthando Zulu'}</span>
+                              )}
+                            </div>
+                            <div className="flex justify-between text-[10px] text-slate-500">
+                              <span>Date: ________________</span>
+                              <span>Place: Nkangala</span>
+                            </div>
+                          </div>
+
+                          {/* Nompumelelo P. Nsibande Signature */}
+                          <div className="border border-slate-300 p-4 rounded-lg bg-slate-50 space-y-4 shadow-sm">
+                            <p className="font-bold text-xs uppercase text-slate-700 tracking-wide">Signed by Employee (Team Member):</p>
+                            <div className="h-12 border-b border-black flex flex-col justify-end items-center font-serif italic text-sm text-slate-800 font-medium relative pb-1">
+                              {userSignatures.employee2Sig ? (
+                                <img
+                                  src={userSignatures.employee2Sig}
+                                  alt="Team Member Signature"
+                                  className="absolute bottom-1 max-h-11 object-contain py-0.5"
+                                  referrerPolicy="no-referrer"
+                                />
+                              ) : (
+                                <span>{userSignatures.employee2 || 'Nompumelelo P. Nsibande'}</span>
+                              )}
                             </div>
                             <div className="flex justify-between text-[10px] text-slate-500">
                               <span>Date: ________________</span>
@@ -2302,8 +2753,17 @@ export function DraftingSuiteTeam({
                           {/* Nsibande NP Signature second */}
                           <div className="border border-slate-300 p-4 rounded-lg bg-slate-50 space-y-4 shadow-sm">
                             <p className="font-bold text-xs uppercase text-slate-700 tracking-wide">Signed on behalf of Municipality (Manager):</p>
-                            <div className="h-12 border-b border-black flex items-end font-serif italic text-sm text-slate-800 font-medium">
-                              {userSignatures.manager || 'Nsibande NP'}
+                            <div className="h-12 border-b border-black flex flex-col justify-end items-center font-serif italic text-sm text-slate-800 font-medium relative pb-1">
+                              {userSignatures.managerSig ? (
+                                <img
+                                  src={userSignatures.managerSig}
+                                  alt="Manager Signature"
+                                  className="absolute bottom-1 max-h-11 object-contain py-0.5"
+                                  referrerPolicy="no-referrer"
+                                />
+                              ) : (
+                                <span>{userSignatures.manager || 'Nsibande NP'}</span>
+                              )}
                             </div>
                             <div className="flex justify-between text-[10px] text-slate-500">
                               <span>Date: ________________</span>
@@ -2314,8 +2774,17 @@ export function DraftingSuiteTeam({
                           {/* Yena Khuboni Witness Signature */}
                           <div className="border border-slate-300 p-4 rounded-lg bg-slate-50 space-y-4 shadow-sm">
                             <p className="font-bold text-xs uppercase text-slate-700 tracking-wide">Witnessed by (PMS Coordinator):</p>
-                            <div className="h-12 border-b border-black flex items-end font-serif italic text-sm text-indigo-950 font-semibold">
-                              {userSignatures.witness || 'Yena Khuboni'}
+                            <div className="h-12 border-b border-black flex flex-col justify-end items-center font-serif italic text-sm text-indigo-950 font-semibold relative pb-1">
+                              {userSignatures.witnessSig ? (
+                                <img
+                                  src={userSignatures.witnessSig}
+                                  alt="Witness Signature"
+                                  className="absolute bottom-1 max-h-11 object-contain py-0.5"
+                                  referrerPolicy="no-referrer"
+                                />
+                              ) : (
+                                <span>{userSignatures.witness || 'Yena Khuboni'}</span>
+                              )}
                             </div>
                             <div className="flex justify-between text-[10px] text-slate-500">
                               <span>Date: ________________</span>
@@ -2453,8 +2922,17 @@ export function DraftingSuiteTeam({
                   <div className="grid grid-cols-2 gap-8 my-8 font-sans">
                     <div className="border border-slate-300 p-4 rounded bg-slate-50 space-y-4">
                       <p className="font-bold text-xs uppercase text-slate-700">Signed by Employee:</p>
-                      <div className="h-12 border-b border-black flex items-end font-serif italic text-sm text-slate-800">
-                        {userSignatures.employee}
+                      <div className="h-12 border-b border-black flex flex-col justify-end items-center font-serif italic text-sm text-slate-800 relative pb-1">
+                        {userSignatures.employeeSig ? (
+                          <img
+                            src={userSignatures.employeeSig}
+                            alt="Employee Signature"
+                            className="absolute bottom-1 max-h-11 object-contain py-0.5"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <span>{userSignatures.employee}</span>
+                        )}
                       </div>
                       <div className="flex justify-between text-[10px] text-slate-500">
                         <span>Date: ________________</span>
@@ -2464,8 +2942,17 @@ export function DraftingSuiteTeam({
 
                     <div className="border border-slate-300 p-4 rounded bg-slate-50 space-y-4">
                       <p className="font-bold text-xs uppercase text-slate-700">Signed on behalf of Municipality:</p>
-                      <div className="h-12 border-b border-black flex items-end font-serif italic text-sm text-slate-800">
-                        {userSignatures.manager}
+                      <div className="h-12 border-b border-black flex flex-col justify-end items-center font-serif italic text-sm text-slate-800 relative pb-1">
+                        {userSignatures.managerSig ? (
+                          <img
+                            src={userSignatures.managerSig}
+                            alt="Manager Signature"
+                            className="absolute bottom-1 max-h-11 object-contain py-0.5"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <span>{userSignatures.manager}</span>
+                        )}
                       </div>
                       <div className="flex justify-between text-[10px] text-slate-500">
                         <span>Date: ________________</span>
