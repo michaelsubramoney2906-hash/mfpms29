@@ -3895,6 +3895,7 @@ Format your response exactly according to the following JSON schema:
   app.post("/api/tenant/:tenantId/ipms-notifications/delete", async (req, res) => {
     const { tenantId } = req.params;
     const { notificationIds } = req.body;
+    console.log("[IPMS Delete] Received request to delete notification IDs:", notificationIds, "for tenant:", tenantId);
     if (!notificationIds || !Array.isArray(notificationIds)) {
       return res.status(400).json({ error: "Missing or invalid notificationIds array" });
     }
@@ -3902,60 +3903,71 @@ Format your response exactly according to the following JSON schema:
       const supabase = getSupabase();
       
       // Load all ipms_notifications_% documents to clean them up
-      const { data, error } = await supabase
+      const { data, error: selectError } = await supabase
         .from('messages')
         .select('id, content, tenant_id, sender_id, sender_email, sender_name, message_type')
         .like('id', 'ipms_notifications_%');
 
-      if (error) {
-        console.error("Supabase load on delete-selective error:", error.message);
-        return res.status(500).json({ error: error.message });
+      if (selectError) {
+        console.error("[IPMS Delete] Supabase load on delete-selective error:", selectError.message);
+        return res.status(500).json({ error: selectError.message });
       }
 
-      const deletedSet = new Set(notificationIds);
+      const deletedSet = new Set(notificationIds.map(id => String(id).toLowerCase().trim()));
+      let totalDeletedCount = 0;
 
       if (data) {
+        console.log("[IPMS Delete] Found", data.length, "ipms_notifications documents in db.");
         for (const row of data) {
           if (row.content) {
             try {
               const parsed = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
               const originalNotifications: any[] = parsed.notifications || [];
-              const filteredNotifications = originalNotifications.filter(n => !deletedSet.has(n.id));
+              const filteredNotifications = originalNotifications.filter(n => n && n.id && !deletedSet.has(String(n.id).toLowerCase().trim()));
               
-              // Only update if something actually changed
-              if (originalNotifications.length !== filteredNotifications.length) {
-                await supabase
+              const diff = originalNotifications.length - filteredNotifications.length;
+              if (diff > 0) {
+                totalDeletedCount += diff;
+                console.log(`[IPMS Delete] Document ${row.id}: removing ${diff} notifications. Before: ${originalNotifications.length}, After: ${filteredNotifications.length}`);
+                
+                // Store as JSON string since the content column in messages table is of text type
+                const updatedContent = JSON.stringify({ notifications: filteredNotifications });
+
+                const { error: updateError } = await supabase
                   .from('messages')
-                  .upsert({
-                    id: row.id,
-                    tenant_id: row.tenant_id || tenantId,
-                    sender_id: row.sender_id || 'ipms_notification_system',
-                    sender_email: row.sender_email || 'ipms_notif@system.local',
-                    sender_name: row.sender_name || 'IPMS Notification Service',
-                    content: JSON.stringify({ notifications: filteredNotifications }),
-                    message_type: row.message_type || 'ipms_notifications_v1',
+                  .update({
+                    content: updatedContent,
                     created_at: new Date().toISOString()
-                  });
+                  })
+                  .eq('id', row.id);
+
+                if (updateError) {
+                  console.error(`[IPMS Delete] Update error for row ${row.id}:`, updateError.message);
+                  throw new Error(`Failed to update database row ${row.id}: ${updateError.message}`);
+                }
               }
-            } catch (parseErr) {
-              console.error("Error parsing/cleaning ipms-notifications JSON:", parseErr);
+            } catch (parseErr: any) {
+              console.error("[IPMS Delete] Error parsing/cleaning ipms-notifications JSON:", parseErr);
             }
           }
         }
       }
 
-      return res.json({ success: true });
+      console.log("[IPMS Delete] Deletion completed. Total removed notifications:", totalDeletedCount);
+      return res.json({ success: true, deletedCount: totalDeletedCount, debug: { foundDocs: data?.length, notificationIds, deletedSet: Array.from(deletedSet) } });
     } catch (err: any) {
-      console.error("IPMS notification delete-selective exception:", err);
-      res.status(500).json({ error: err.message });
+      console.error("[IPMS Delete] IPMS notification delete-selective exception:", err);
+      res.status(500).json({ error: err.message || String(err) });
     }
   });
 
   app.delete("/api/tenant/:tenantId/ipms-notifications", async (req, res) => {
+    const { tenantId } = req.params;
     try {
       const supabase = getSupabase();
-      await supabase.from('messages').delete().like('id', 'ipms_notifications_%');
-      return res.json({ success: true, message: "All IPMS notifications cleared successfully." });
+      // Safely delete only the specific tenant's notifications document
+      await supabase.from('messages').delete().eq('id', `ipms_notifications_${tenantId}`);
+      return res.json({ success: true, message: `All IPMS notifications for tenant ${tenantId} cleared successfully.` });
     } catch (err: any) {
       console.error("IPMS notification delete exception:", err);
       res.status(500).json({ error: err.message });

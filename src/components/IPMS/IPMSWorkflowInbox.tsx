@@ -90,6 +90,36 @@ const playNotificationSound = (force = false) => {
   }
 };
 
+const playActionSound = (force = false) => {
+  const isMuted = localStorage.getItem('ipms_sound_muted') === 'true';
+  if (isMuted && !force) return;
+
+  try {
+    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContext) return;
+    const ctx = new AudioContext();
+    const now = ctx.currentTime;
+
+    // A crisp, soft, rapid double-tone (E5 -> A5) for action completion feedback
+    const notes = [659.25, 880.00]; // E5, A5
+    notes.forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + idx * 0.06);
+      gainNode.gain.setValueAtTime(0.08, now + idx * 0.06);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.06 + 0.25);
+      
+      osc.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      osc.start(now + idx * 0.06);
+      osc.stop(now + idx * 0.06 + 0.3);
+    });
+  } catch (err) {
+    console.warn("Action sound play failed:", err);
+  }
+};
+
 export function IPMSWorkflowInbox({
   role,
   currentUser,
@@ -104,7 +134,7 @@ export function IPMSWorkflowInbox({
 
   // Sounds state
   const [soundMuted, setSoundMuted] = useState(() => localStorage.getItem('ipms_sound_muted') === 'true');
-  const [prevUnreadCount, setPrevUnreadCount] = useState<number | null>(null);
+  const prevUnreadCountRef = React.useRef<number | null>(null);
 
   // Direct Message & User Directory states
   const [tenantUsers, setTenantUsers] = useState<any[]>([]);
@@ -221,7 +251,11 @@ export function IPMSWorkflowInbox({
         const res = await fetch(`/api/tenant/${activeTenantId}/users`);
         if (res.ok) {
           const data = await res.json();
-          setTenantUsers(data.users || []);
+          if (Array.isArray(data)) {
+            setTenantUsers(data);
+          } else {
+            setTenantUsers(data.users || []);
+          }
         }
       } catch (e) {
         console.error("Error fetching tenant users for messaging:", e);
@@ -255,10 +289,10 @@ export function IPMSWorkflowInbox({
 
         // Check if unread count increased to play notification sound
         const currentUnread = nextNotifs.filter((n: any) => !n.read).length;
-        if (prevUnreadCount !== null && currentUnread > prevUnreadCount) {
+        if (prevUnreadCountRef.current !== null && currentUnread > prevUnreadCountRef.current) {
           playNotificationSound();
         }
-        setPrevUnreadCount(currentUnread);
+        prevUnreadCountRef.current = currentUnread;
       }
     } catch (e) {
       console.error("Error fetching inbox notifications:", e);
@@ -271,7 +305,7 @@ export function IPMSWorkflowInbox({
     fetchInbox();
     const interval = setInterval(fetchInbox, 12000); // Poll every 12 seconds
     return () => clearInterval(interval);
-  }, [currentUser, activeTenantId, role, prevUnreadCount]);
+  }, [currentUser?.email, activeTenantId, role]);
 
   const handleMarkAsRead = async (notifId: string) => {
     try {
@@ -281,6 +315,7 @@ export function IPMSWorkflowInbox({
         body: JSON.stringify({ notificationId: notifId })
       });
       setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, read: true } : n));
+      playActionSound();
     } catch (e) {
       console.error(e);
     }
@@ -294,6 +329,7 @@ export function IPMSWorkflowInbox({
         body: JSON.stringify({ notificationId: 'all' })
       });
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      playActionSound();
     } catch (e) {
       console.error(e);
     }
@@ -301,6 +337,7 @@ export function IPMSWorkflowInbox({
 
   // Selective & Single notification deletion
   const handleDeleteSelected = async (idsToDelete: string[]) => {
+    console.log("[IPMS Delete UI] handleDeleteSelected called with IDs:", idsToDelete);
     if (idsToDelete.length === 0) return;
 
     // Resolve any nested replies in the selected threads so they are deleted together and don't orphan!
@@ -317,34 +354,52 @@ export function IPMSWorkflowInbox({
     });
 
     const finalIdsToDelete = Array.from(new Set([...idsToDelete, ...allIdsInThreads]));
+    console.log("[IPMS Delete UI] Final IDs to delete (including threads):", finalIdsToDelete);
 
-    const confirmMsg = idsToDelete.length === 1 
-      ? "Are you sure you want to delete this conversation thread?" 
-      : `Are you sure you want to delete the ${idsToDelete.length} selected conversation threads?`;
-    if (!window.confirm(confirmMsg)) return;
+    // Save previous state in case we need to rollback
+    const previousNotifications = [...notifications];
 
     try {
       setLoading(true);
+      // Optimistic UI state update so user gets instant confirmation
+      console.log("[IPMS Delete UI] Mutating optimistic local state...");
+      setNotifications(prev => prev.filter(n => n && n.id && !finalIdsToDelete.includes(n.id)));
+      setSelectedNotifIds(prev => prev.filter(id => !finalIdsToDelete.includes(id)));
+
+      console.log(`[IPMS Delete UI] Sending DELETE API call for tenant ${activeTenantId}...`);
       const res = await fetch(`/api/tenant/${activeTenantId}/ipms-notifications/delete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ notificationIds: finalIdsToDelete })
       });
+      
       if (res.ok) {
+        console.log(`[IPMS Delete UI] Backend deletion successful.`);
+        // Refresh silently from backend
         await fetchInbox();
-        setSelectedNotifIds(prev => prev.filter(id => !idsToDelete.includes(id)));
+        playActionSound();
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        console.error(`[IPMS Delete UI] Backend deletion failed:`, errorData);
+        // Rollback state
+        setNotifications(previousNotifications);
       }
-    } catch (e) {
-      console.error("Error deleting notifications:", e);
+    } catch (e: any) {
+      console.error("[IPMS Delete UI] Network/Execution Error deleting notifications:", e);
+      // Rollback state
+      setNotifications(previousNotifications);
     } finally {
       setLoading(false);
+      console.log("[IPMS Delete UI] Deletion lifecycle complete.");
     }
   };
 
   const handleClearAll = async () => {
     const visibleIds = filteredItems.map(item => item.id);
+    console.log("[IPMS Delete UI] handleClearAll called. Visible IDs:", visibleIds);
+    
     if (visibleIds.length === 0) {
-      alert("No notifications to delete in this view.");
+      console.log("No notifications to delete in this view.");
       return;
     }
     await handleDeleteSelected(visibleIds);
@@ -444,6 +499,7 @@ export function IPMSWorkflowInbox({
         setRecipientSearch('');
         setShowCompose(false);
         fetchInbox();
+        playActionSound();
       } else {
         const err = await res.json();
         alert(`Failed to send message: ${err.error || 'Unknown error'}`);
@@ -498,6 +554,7 @@ export function IPMSWorkflowInbox({
         // Automatically expand this thread
         setExpandedThreads(prev => ({ ...prev, [parent.threadId || parent.id]: true }));
         fetchInbox();
+        playActionSound();
       } else {
         const err = await res.json();
         alert(`Failed to send reply: ${err.error || 'Unknown error'}`);
@@ -1081,7 +1138,9 @@ export function IPMSWorkflowInbox({
                         {/* Individual Delete Button */}
                         <button
                           type="button"
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
                             const thread = threadGroups[item.threadId || item.id] || [];
                             const ids = thread.map(t => t.id);
                             handleDeleteSelected(ids);
@@ -1265,7 +1324,11 @@ export function IPMSWorkflowInbox({
                               
                               <button
                                 type="button"
-                                onClick={() => handleDeleteSelected([reply.id])}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  handleDeleteSelected([reply.id]);
+                                }}
                                 className="p-0.5 hover:bg-rose-950/40 text-slate-500 hover:text-rose-400 rounded transition"
                                 title="Delete reply"
                               >
