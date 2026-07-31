@@ -1,4 +1,5 @@
 import express from "express";
+import compression from "compression";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import http from "http";
@@ -397,6 +398,7 @@ async function fixNkangalaTenants() {
 async function startServer() {
   fixNkangalaTenants().catch(err => console.error("[Nkangala Fix] Background loop failure:", err));
   const app = express();
+  app.use(compression());
   const server = http.createServer(app);
   const io = new SocketIOServer(server, { cors: { origin: "*" }, maxHttpBufferSize: 2.5e8 });
   const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
@@ -3699,6 +3701,142 @@ Format your response exactly according to the following JSON schema:
     }
   });
 
+  app.get("/api/tenant/:tenantId/reset-old-reviews", async (req, res) => {
+    try {
+      const supabase = getSupabase();
+      if (!supabase) throw new Error("Supabase is not initialized");
+      
+      const { data: plans } = await supabase.from('messages').select('*').like('id', `pplan_%`);
+      let updatedCount = 0;
+      console.log("Found plans length:", plans ? plans.length : 0);
+      
+      for (const row of plans || []) {
+        try {
+          let content = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
+          let changed = false;
+          
+          if (content && Array.isArray(content.items)) {
+            content.items.forEach((item) => {
+               if (
+                 item.reviewStatus === 'Submitted for Review' || 
+                 item.reviewStatus === 'Submitted for Approval' ||
+                 item.reviewStatus === 'Reviewed' ||
+                 item.reviewStatus === 'Approved'
+               ) {
+                  // Keep Noluthando Zulu's KPI from today untouched
+                  if (!row.id.includes('zulune@') && !row.id.includes('Zulune@')) {
+                     item.reviewStatus = 'In Progress';
+                     changed = true;
+                  }
+               }
+            });
+          }
+          
+          if (changed) {
+             console.log("Updating plan:", row.id);
+             await supabase.from('messages').update({ content }).eq('id', row.id);
+             updatedCount++;
+          }
+        } catch(e) {
+          console.error("Error processing plan reset:", e);
+        }
+      }
+      
+      const { data: notifData } = await supabase.from('messages').select('*').like('id', `ipms_notifications_%`);
+      if (notifData && notifData.length > 0) {
+        for (let row of notifData) {
+          let content = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
+          if (content && Array.isArray(content.notifications)) {
+            const today = new Date().toISOString().split('T')[0];
+            const newNotifs = content.notifications.filter(n => {
+              const createdDate = new Date(n.createdAt).toISOString().split('T')[0];
+              // Keep today's notifications, especially for Noluthando Zulu
+              return createdDate === today;
+            });
+            if (newNotifs.length !== content.notifications.length) {
+              await supabase.from('messages').update({ content: { notifications: newNotifs } }).eq('id', row.id);
+            }
+          }
+        }
+      }
+      
+      res.json({ message: "Reset complete", updatedCount });
+    } catch(err) {
+      console.error("Reset old reviews exception:", err);
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  const handleClearAwaitingAuditsEndpoint = async (req: any, res: any) => {
+    try {
+      const supabase = getSupabase();
+      if (!supabase) throw new Error("Supabase is not initialized");
+      
+      const { data: plans } = await supabase.from('messages').select('*').like('id', `pplan_%`);
+      let updatedCount = 0;
+      console.log("Found plans for audit clear:", plans ? plans.length : 0);
+      
+      for (const row of plans || []) {
+        try {
+          let content = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
+          let changed = false;
+          
+          // Check if this plan belongs to Noluthando Zulu - if so, DO NOT clear/reset it
+          const isZulu = row.id.toLowerCase().includes('zulune') || 
+            row.id.toLowerCase().includes('zulu') ||
+            (content?.metadata?.name && content.metadata.name.toLowerCase().includes('zulu')) ||
+            (content?.metadata?.email && content.metadata.email.toLowerCase().includes('zulune'));
+            
+          if (isZulu) {
+            continue;
+          }
+          
+          // A plan is awaiting quality assurance audit if its internalAuditStatus is not 'Audited' and not 'Pushed to DPMC'
+          const auditStatus = content?.metadata?.internalAuditStatus || '';
+          if (auditStatus !== 'Audited' && auditStatus !== 'Pushed to DPMC') {
+            if (content && Array.isArray(content.items)) {
+              content.items.forEach((item: any) => {
+                delete item.internalAuditRating;
+                delete item.internalAuditComment;
+                item.reviewStatus = 'In Progress';
+                changed = true;
+              });
+            }
+            
+            if (content?.metadata) {
+              content.metadata.internalAuditStatus = 'Draft';
+              content.metadata.reviewStatus = 'Draft';
+              changed = true;
+            }
+          }
+          
+          if (changed) {
+            console.log("Audit clearing plan:", row.id);
+            if (row.id.includes('mock') || row.id.includes('temp') || row.id.includes('sample')) {
+              await supabase.from('messages').delete().eq('id', row.id);
+            } else {
+              const updatedContentStr = typeof row.content === 'string' ? JSON.stringify(content) : content;
+              await supabase.from('messages').update({ content: updatedContentStr }).eq('id', row.id);
+            }
+            pplanCache.delete(row.id);
+            updatedCount++;
+          }
+        } catch(e) {
+          console.error("Error processing plan audit clear:", e);
+        }
+      }
+      
+      pplanCache.clear();
+      res.json({ message: "Audit reset complete", updatedCount });
+    } catch(err) {
+      console.error("Clear audit plans exception:", err);
+      res.status(500).json({ error: String(err) });
+    }
+  };
+
+  app.get("/api/tenant/:tenantId/clear-awaiting-audits", handleClearAwaitingAuditsEndpoint);
+  app.post("/api/tenant/:tenantId/clear-awaiting-audits", handleClearAwaitingAuditsEndpoint);
+
   // 13.8.1. IPMS Notifications System
   app.get("/api/tenant/:tenantId/ipms-notifications", async (req, res) => {
     const { tenantId } = req.params;
@@ -4747,6 +4885,9 @@ Format your response exactly according to the following JSON schema:
   });
 
   // Performance Plan (PPLAN) Routes
+  const pplanCache = new Map<string, { raw: string, timestamp: number }>();
+  const CACHE_TTL = 1000 * 60 * 5; // 5 minutes
+
   app.get("/api/tenant/:tenantId/pplan", async (req, res) => {
     const { tenantId: routeTenantId } = req.params;
     const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
@@ -4754,6 +4895,16 @@ Format your response exactly according to the following JSON schema:
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
       const documentId = `pplan_${tenantId}_${userId}`;
+      
+      // Check cache first
+      const cached = pplanCache.get(documentId);
+      if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
+        console.log(`[Cache Hit] PPLAN for ${documentId} served from memory`);
+        res.setHeader('Content-Type', 'application/json');
+        return res.send(cached.raw);
+      }
+      console.log(`[Cache Miss] Loading PPLAN for ${documentId} from DB`);
+
       const { data, error } = await supabase
         .from('messages')
         .select('content')
@@ -4766,14 +4917,15 @@ Format your response exactly according to the following JSON schema:
       }
 
       if (data && data.content) {
-        try {
-          const parsed = JSON.parse(data.content);
-          return res.json(parsed);
-        } catch (parseErr) {
-          console.error("Error parsing pplan JSON:", parseErr);
-        }
+        pplanCache.set(documentId, { raw: data.content, timestamp: Date.now() });
+        res.setHeader('Content-Type', 'application/json');
+        return res.send(data.content);
       }
-      return res.json({ metadata: {}, items: [] });
+      
+      const emptyFallback = JSON.stringify({ metadata: {}, items: [] });
+      pplanCache.set(documentId, { raw: emptyFallback, timestamp: Date.now() });
+      res.setHeader('Content-Type', 'application/json');
+      return res.send(emptyFallback);
     } catch (err: any) {
       console.error("pplan load exception:", err);
       res.status(500).json({ error: err.message });
@@ -4841,6 +4993,22 @@ Format your response exactly according to the following JSON schema:
                   if (!emailIdentifier.includes('zulune') && !emailIdentifier.includes('nkangaladm')) {
                     continue;
                   }
+                }
+
+                // Strip dataUrl from PoE docs to prevent massive response sizes
+                if (parsed.items && Array.isArray(parsed.items)) {
+                  parsed.items.forEach((item: any) => {
+                    const docFields = ['q1PoeDocs', 'q2PoeDocs', 'q3PoeDocs', 'q4PoeDocs', 'annualPoeDocs', 'midtermPoeDocs'];
+                    docFields.forEach(field => {
+                      if (item[field] && Array.isArray(item[field])) {
+                        item[field] = item[field].map((doc: any) => {
+                          if (!doc) return doc;
+                          const { dataUrl, ...rest } = doc;
+                          return rest;
+                        });
+                      }
+                    });
+                  });
                 }
 
                 teamPlans.push({
@@ -4985,6 +5153,8 @@ Format your response exactly according to the following JSON schema:
         });
       
       if (error) throw error;
+      
+      pplanCache.delete(documentId);
       
       // Automatically map Performance Plan items to the 2nd/3rd Layer SDBIP table
       if (items && Array.isArray(items)) {
