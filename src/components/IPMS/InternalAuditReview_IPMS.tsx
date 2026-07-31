@@ -37,6 +37,7 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
   const [activeQuarterTab, setActiveQuarterTab] = useState<'Q1' | 'Q2' | 'Q3' | 'Q4'>('Q1');
   const [previewDoc, setPreviewDoc] = useState<any | null>(null);
   const [auditLedger, setAuditLedger] = useState<any[]>([]);
+  const [clearingAudits, setClearingAudits] = useState(false);
 
   useEffect(() => {
     if (selectedPlan && selectedPlan.plan && Array.isArray(selectedPlan.plan.items) && selectedPlan.plan.items.length > 0) {
@@ -89,12 +90,68 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
       if (res.ok) {
         const data = await res.json();
         const plans = data.teamPlans || [];
-        setTeamPlans(plans);
+        // Filter out plans that have been cleared or reset to Draft from the Awaiting Audit queue
+        const queuePlans = plans.filter((tp: any) => {
+          const isZulu = tp.userId?.toLowerCase().includes('zulune') || 
+                         tp.userId?.toLowerCase().includes('zulu') ||
+                         tp.plan?.metadata?.name?.toLowerCase().includes('zulu');
+          if (isZulu) return true;
+          const status = tp.plan?.metadata?.internalAuditStatus;
+          return status !== 'Draft' && status !== 'Cleared';
+        });
+        setTeamPlans(queuePlans);
       }
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleClearAwaitingAudits = async () => {
+    if (!window.confirm("Are you sure you want to clear all assessed performance plans awaiting quality assurance audit (except Noluthando Zulu's plan) and reset them to Draft?")) {
+      return;
+    }
+    setClearingAudits(true);
+    try {
+      const res = await fetch(`/api/tenant/${activeTenantId}/clear-awaiting-audits?t=${Date.now()}`, {
+        method: 'POST'
+      });
+      if (res.ok) {
+        const data = await res.json();
+        alert(`Success! Successfully cleared and reset ${data.updatedCount || 0} plan(s) awaiting quality assurance audit.`);
+        await fetchTeamPlans();
+        setSelectedPlan(null);
+      } else {
+        const err = await res.json();
+        alert(`Error: ${err.error || 'Failed to clear awaiting plans'}`);
+      }
+    } catch (e: any) {
+      console.error(e);
+      alert(`Error clearing plans: ${e.message || e}`);
+    } finally {
+      setClearingAudits(false);
+    }
+  };
+
+  const handleSelectPlan = async (tp: any, onLoaded?: () => void) => {
+    // We must fetch the individual plan to get the full documents (including dataUrl)
+    // because dataUrl is stripped from the team-pplans endpoint.
+    setSelectedPlan(tp); 
+    try {
+      const res = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${tp.userId}`);
+      if (res.ok) {
+        const fullPlan = await res.json();
+        if (fullPlan && fullPlan.items) {
+          setSelectedPlan({ userId: tp.userId, plan: fullPlan });
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load full plan", e);
+    } finally {
+      if (onLoaded) {
+        setTimeout(onLoaded, 100);
+      }
     }
   };
 
@@ -117,6 +174,32 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
     try {
       const payload = { ...selectedPlan.plan };
       payload.metadata.internalAuditStatus = status;
+
+      // Record in audit history
+      if (!payload.metadata) payload.metadata = {};
+      if (!payload.metadata.history) payload.metadata.history = [];
+      
+      let actionName = `Audited: Status "${status}"`;
+      let auditComment = `Internal Audit verification completed with rating update and portfolios signed-off.`;
+      if (status === 'Rejected') {
+        actionName = 'Rejected by Internal Audit';
+        auditComment = 'Internal Audit rejected the submission and requested portfolios of evidence revisions due to compliance gaps.';
+        // Also unlock the plan for employee edit and manager re-review
+        payload.metadata.reviewStatus = 'Revision Required';
+      } else if (status === 'Pushed to DPMC') {
+        actionName = 'Pushed to DPMC';
+        auditComment = 'Dispatched to Departmental Performance Moderation Committee (DPMC) for final review.';
+      }
+
+      payload.metadata.history.push({
+        timestamp: new Date().toISOString(),
+        userEmail: (currentUser?.email || '').toLowerCase().trim(),
+        userName: currentUser?.fullName || currentUser?.full_name || 'Internal Auditor',
+        role: currentUser?.systemRole || currentUser?.role || 'Internal Auditor',
+        action: actionName,
+        status,
+        comment: auditComment
+      });
 
       await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${selectedPlan.userId}`, {
         method: 'POST',
@@ -154,12 +237,64 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
 
       setAuditLedger(updatedLedger);
 
-      // Dispatch audit notification to employee
+      // Dispatch audit notification to employee and manager
       const auditorName = currentUser.fullName || currentUser.full_name || 'Internal Audit Oversight';
       const employeeEmail = selectedPlan.userId;
       const employeeName = payload.metadata?.name || employeeEmail;
-      const managerEmail = payload.metadata?.manager || 'managers';
 
+      // Locate managerEmail
+      let managerEmail = payload.metadata?.manager;
+      if (!managerEmail && Array.isArray(payload.metadata?.history)) {
+        const mgrLog = payload.metadata.history.find((h: any) => h.role?.toLowerCase().includes('manager') || h.userEmail?.includes('khuboni'));
+        if (mgrLog) {
+          managerEmail = mgrLog.userEmail;
+        }
+      }
+      if (!managerEmail && employeeEmail.toLowerCase().includes('zulune')) {
+        managerEmail = 'khuboniy@nkangaladm.gov.za';
+      }
+      if (!managerEmail) {
+        managerEmail = 'khuboniy@nkangaladm.gov.za';
+      }
+
+      const isApproved = status === 'Audited' || status === 'Approved';
+      const isRejected = status === 'Rejected' || status === 'Revision Required';
+
+      // Compile detailed KPI-by-KPI findings and ratings
+      const auditDetails = payload.items?.map((item: any) => {
+        return `• KPI #${item.kpiNo || 'Unassigned'}: "${item.kpi || 'N/A'}"\n` +
+               `  Manager Score: ${item.managerScore || 'Not rated'}\n` +
+               `  Auditor Score/Rating: ${item.internalAuditRating || 'Not rated'}\n` +
+               `  Audit Findings/Comment: ${item.internalAuditComment || 'No comments captured.'}`;
+      }).join('\n\n');
+
+      let titleEmployee = `🛡️ Internal Audit Verification Completed: Status "${status}"`;
+      let messageEmployee = `Internal Audit (${auditorName}) has completed quality assurance audit on your performance plan.\n\n` +
+        `Quality Rating: ${avgRating}/5.0\n` +
+        `Audit Status: ${status}\n\n` +
+        `📋 **AUDIT FINDINGS & MODERATION DETAILS**:\n\n${auditDetails}`;
+
+      let titleManager = `🛡️ Internal Audit Compliance Completed for Subordinate ${employeeName}`;
+      let messageManager = `Internal Audit has finalized QA review for your subordinate ${employeeName} (${employeeEmail}).\n\n` +
+        `Quality Rating: ${avgRating}/5.0\n` +
+        `Audit Status: ${status}\n\n` +
+        `📋 **AUDIT FINDINGS & MODERATION DETAILS**:\n\n${auditDetails}`;
+
+      if (isRejected) {
+        titleEmployee = `⚠️ Internal Audit Audit REJECTED: Status "${status}"`;
+        messageEmployee = `Internal Audit (${auditorName}) has evaluated your submitted Portfolios of Evidence (PoEs) and performance plans, and REJECTED the submission due to compliance gaps.\n\n` +
+          `Quality Rating: ${avgRating}/5.0\n` +
+          `Please collaborate with your Line Manager (${managerEmail}) to address findings and resubmit correct documents.\n\n` +
+          `📋 **AUDIT FINDINGS & COMPLIANCE GAPS**:\n\n${auditDetails}`;
+
+        titleManager = `⚠️ Internal Audit REJECTED Subordinate ${employeeName}'s Submission`;
+        messageManager = `Internal Audit has rejected or requested revisions for your subordinate ${employeeName}'s (${employeeEmail}) performance plan.\n\n` +
+          `Quality Rating: ${avgRating}/5.0\n` +
+          `Please review the compliance gaps below and coordinate with the subordinate to resubmit correct Portfolio of Evidence (PoE) records.\n\n` +
+          `📋 **AUDIT FINDINGS & COMPLIANCE GAPS**:\n\n${auditDetails}`;
+      }
+
+      // Notify Employee
       await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -169,33 +304,33 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
             senderName: auditorName,
             recipientEmail: employeeEmail,
             recipientName: employeeName,
-            title: `🛡️ Internal Audit Verification Completed: Status "${status}"`,
-            message: `Internal Audit (${auditorName}) has completed quality assurance audit on your performance plan. Quality Rating: ${avgRating}/5.0. Audit status marked as "${status}".`,
-            actionType: 'audit_completed'
+            title: titleEmployee,
+            message: messageEmployee,
+            actionType: 'audit_completed',
+            employeeEmail: employeeEmail
           }
         })
       });
 
-      // Dispatch audit notification to manager
-      if (managerEmail) {
-        await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            notification: {
-              senderEmail: currentUser.email || 'audit@system.local',
-              senderName: auditorName,
-              recipientEmail: managerEmail,
-              recipientName: 'Line Manager',
-              title: `🛡️ Internal Audit Compliance Completed for Subordinate ${employeeName}`,
-              message: `Internal Audit has finalized QA review for ${employeeName} (${employeeEmail}). Quality Rating: ${avgRating}/5.0. Status marked as "${status}".`,
-              actionType: 'audit_completed'
-            }
-          })
-        });
-      }
+      // Notify Manager
+      await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          notification: {
+            senderEmail: currentUser.email || 'audit@system.local',
+            senderName: auditorName,
+            recipientEmail: managerEmail,
+            recipientName: 'Line Manager',
+            title: titleManager,
+            message: messageManager,
+            actionType: 'audit_completed',
+            employeeEmail: employeeEmail
+          }
+        })
+      });
 
-      alert(`Internal Audit successfully saved & status marked as "${status}". Logged inside the audit review ledger and notifications dispatched!`);
+      alert(`Internal Audit successfully saved & status marked as "${status}". Logged inside the audit review ledger and notifications dispatched to both subordinate (${employeeEmail}) and manager (${managerEmail})!`);
       
       const updatedPlans = teamPlans.map(tp => 
         tp.userId === selectedPlan.userId ? { ...tp, plan: payload } : tp
@@ -238,25 +373,94 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
     }
   };
 
+  const createMockFileUrl = (name: string, mimeType: string, holderName: string) => {
+    const ext = name.split('.').pop()?.toUpperCase() || 'PDF';
+    
+    const svgString = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1100" width="100%" height="100%">
+    <rect width="100%" height="100%" fill="#f8fafc" />
+    <rect x="30" y="30" width="740" height="1040" fill="white" stroke="#334155" stroke-width="4" rx="8" />
+    <rect x="40" y="40" width="720" height="1020" fill="none" stroke="#cbd5e1" stroke-width="1" rx="6" />
+    
+    <path d="M 40 40 L 760 40 L 760 180 L 40 180 Z" fill="#0f172a" />
+    
+    <text x="80" y="100" font-family="sans-serif" font-size="22" font-weight="900" fill="#ffffff" letter-spacing="1">MZANSIFLOW MUNICIPALITY</text>
+    <text x="80" y="130" font-family="sans-serif" font-size="11" font-weight="700" fill="#94a3b8" letter-spacing="2">DIRECTORATE OF PERFORMANCE AND COMPLIANCE AUDIT</text>
+    <text x="80" y="155" font-family="sans-serif" font-size="9" font-weight="500" fill="#64748b">SECURE TRANSACTION BLOCK ID: POE-VERIFIED</text>
+    
+    <text x="80" y="240" font-family="sans-serif" font-size="18" font-weight="800" fill="#1e293b">PORTFOLIO OF EVIDENCE (PoE) VERIFICATION REPORT</text>
+    <line x1="80" y1="255" x2="720" y2="255" stroke="#cbd5e1" stroke-width="2" />
+    
+    <g transform="translate(80, 280)">
+      <rect x="0" y="0" width="640" height="150" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1" rx="8" />
+      
+      <text x="20" y="30" font-family="sans-serif" font-size="11" font-weight="700" fill="#64748b">DOCUMENT FILENAME</text>
+      <text x="20" y="50" font-family="sans-serif" font-size="13" font-weight="800" fill="#0f172a">${name}</text>
+      
+      <text x="340" y="30" font-family="sans-serif" font-size="11" font-weight="700" fill="#64748b">ASSIGNED HOLDER</text>
+      <text x="340" y="50" font-family="sans-serif" font-size="13" font-weight="800" fill="#0f172a">${holderName}</text>
+      
+      <text x="20" y="95" font-family="sans-serif" font-size="11" font-weight="700" fill="#64748b">FILE EXTENSION</text>
+      <text x="20" y="115" font-family="sans-serif" font-size="13" font-weight="800" fill="#4f46e5">${ext}</text>
+      
+      <text x="340" y="95" font-family="sans-serif" font-size="11" font-weight="700" fill="#64748b">VERIFICATION TIMESTAMP</text>
+      <text x="340" y="115" font-family="sans-serif" font-size="12" font-weight="800" fill="#0f172a">${new Date().toLocaleString()}</text>
+    </g>
+    
+    <text x="80" y="475" font-family="sans-serif" font-size="14" font-weight="800" fill="#0f172a">1. AUDIT EVIDENCE INTEGRITY DECLARATION</text>
+    <text x="80" y="505" font-family="serif" font-size="13" font-style="italic" fill="#334155">"We hereby submit and verify that the performance objectives outlined in the target municipal ledger</text>
+    <text x="80" y="525" font-family="serif" font-size="13" font-style="italic" fill="#334155">for this quarter have been fully realized. The files attached are verified outputs of our operational</text>
+    <text x="80" y="545" font-family="serif" font-size="13" font-style="italic" fill="#334155">duties, aligning with legislated mSCOA frameworks and South African Local Government rules."</text>
+    
+    <text x="80" y="600" font-family="sans-serif" font-size="14" font-weight="800" fill="#0f172a">2. COMPLIANCE STAMP AND VERIFICATION SIGN-OFF</text>
+    
+    <g transform="translate(480, 640)">
+      <circle cx="100" cy="100" r="80" fill="none" stroke="#10b981" stroke-width="4" stroke-dasharray="8,4" />
+      <circle cx="100" cy="100" r="72" fill="none" stroke="#10b981" stroke-width="1.5" />
+      <rect x="40" y="85" width="120" height="30" fill="#10b981" rx="4" />
+      <text x="100" y="105" font-family="sans-serif" font-size="14" font-weight="900" fill="#ffffff" text-anchor="middle">APPROVED</text>
+      <text x="100" y="145" font-family="sans-serif" font-size="9" font-weight="700" fill="#10b981" text-anchor="middle">AUDITED SYSTEM</text>
+    </g>
+    
+    <g transform="translate(80, 640)">
+      <line x1="0" y1="80" x2="250" y2="80" stroke="#475569" stroke-width="1.5" stroke-dasharray="4,4" />
+      <text x="0" y="100" font-family="sans-serif" font-size="11" font-weight="700" fill="#475569">MUNICIPAL COMPLIANCE DESK</text>
+      <text x="0" y="115" font-family="sans-serif" font-size="9" font-weight="500" fill="#94a3b8">AUTHORIZED SIGN-OFF ENVELOPE</text>
+    </g>
+    
+    <line x1="80" y1="960" x2="720" y2="960" stroke="#cbd5e1" stroke-width="2" />
+    <text x="80" y="990" font-family="sans-serif" font-size="10" font-weight="700" fill="#64748b">DOCUMENT CLASS: SECURE REGULATORY PROOF (CLASS-A)</text>
+    <text x="80" y="1010" font-family="sans-serif" font-size="9" font-weight="500" fill="#94a3b8">This document is electronically signed and secured under South African Municipal Systems guidelines.</text>
+    
+    <text x="720" y="990" font-family="sans-serif" font-size="10" font-weight="900" fill="#4f46e5" text-anchor="end">MZANSIFLOW COMPLIANCE PORTAL</text>
+  </svg>`;
+
+    try {
+      return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgString)));
+    } catch (e) {
+      return 'data:image/svg+xml;utf8,' + encodeURIComponent(svgString);
+    }
+  };
+
   const handleGenerateSamplePoes = () => {
     if (!selectedPlan) return;
     
+    const holder = selectedPlan.plan.metadata?.name || 'Employee';
     const mockFilesByQuarter = {
       Q1: [
-        { id: `mock-pdf-q1-${selectedPlan.userId}`, name: 'Q1_ServiceDelivery_Operational_Audit.pdf', mimeType: 'application/pdf', uploadedAt: new Date().toISOString(), uploadedBy: selectedPlan.plan.metadata?.name || 'Employee' },
-        { id: `mock-xlsx-q1-${selectedPlan.userId}`, name: 'Q1_mSCOA_Ledger_Balance_Sheet.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', uploadedAt: new Date().toISOString(), uploadedBy: selectedPlan.plan.metadata?.name || 'Employee' }
+        { id: `mock-pdf-q1-${selectedPlan.userId}`, name: 'Q1_ServiceDelivery_Operational_Audit.pdf', mimeType: 'application/pdf', uploadedAt: new Date().toISOString(), uploadedBy: holder, size: 1420500, dataUrl: createMockFileUrl('Q1_ServiceDelivery_Operational_Audit.pdf', 'application/pdf', holder) },
+        { id: `mock-xlsx-q1-${selectedPlan.userId}`, name: 'Q1_mSCOA_Ledger_Balance_Sheet.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', uploadedAt: new Date().toISOString(), uploadedBy: holder, size: 840200, dataUrl: createMockFileUrl('Q1_mSCOA_Ledger_Balance_Sheet.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', holder) }
       ],
       Q2: [
-        { id: `mock-pdf-q2-${selectedPlan.userId}`, name: 'Q2_Consolidated_Financial_Statement_Final.pdf', mimeType: 'application/pdf', uploadedAt: new Date().toISOString(), uploadedBy: selectedPlan.plan.metadata?.name || 'Employee' },
-        { id: `mock-png-q2-${selectedPlan.userId}`, name: 'CoGTA_Official_Acknowledge_Receipt.png', mimeType: 'image/png', uploadedAt: new Date().toISOString(), uploadedBy: selectedPlan.plan.metadata?.name || 'Employee' }
+        { id: `mock-pdf-q2-${selectedPlan.userId}`, name: 'Q2_Consolidated_Financial_Statement_Final.pdf', mimeType: 'application/pdf', uploadedAt: new Date().toISOString(), uploadedBy: holder, size: 2100400, dataUrl: createMockFileUrl('Q2_Consolidated_Financial_Statement_Final.pdf', 'application/pdf', holder) },
+        { id: `mock-png-q2-${selectedPlan.userId}`, name: 'CoGTA_Official_Acknowledge_Receipt.png', mimeType: 'image/png', uploadedAt: new Date().toISOString(), uploadedBy: holder, size: 520100, dataUrl: createMockFileUrl('CoGTA_Official_Acknowledge_Receipt.png', 'image/png', holder) }
       ],
       Q3: [
-        { id: `mock-xlsx-q3-${selectedPlan.userId}`, name: 'Q3_WaterQuality_And_Purity_LabLogs.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', uploadedAt: new Date().toISOString(), uploadedBy: selectedPlan.plan.metadata?.name || 'Employee' },
-        { id: `mock-pdf-q3-${selectedPlan.userId}`, name: 'Internal_Audit_Committee_SignOff_Chamber.pdf', mimeType: 'application/pdf', uploadedAt: new Date().toISOString(), uploadedBy: selectedPlan.plan.metadata?.name || 'Employee' }
+        { id: `mock-xlsx-q3-${selectedPlan.userId}`, name: 'Q3_WaterQuality_And_Purity_LabLogs.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', uploadedAt: new Date().toISOString(), uploadedBy: holder, size: 950600, dataUrl: createMockFileUrl('Q3_WaterQuality_And_Purity_LabLogs.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', holder) },
+        { id: `mock-pdf-q3-${selectedPlan.userId}`, name: 'Internal_Audit_Committee_SignOff_Chamber.pdf', mimeType: 'application/pdf', uploadedAt: new Date().toISOString(), uploadedBy: holder, size: 1250100, dataUrl: createMockFileUrl('Internal_Audit_Committee_SignOff_Chamber.pdf', 'application/pdf', holder) }
       ],
       Q4: [
-        { id: `mock-pdf-q4-${selectedPlan.userId}`, name: 'Q4_Annual_Report_Full_Performance_Metric.pdf', mimeType: 'application/pdf', uploadedAt: new Date().toISOString(), uploadedBy: selectedPlan.plan.metadata?.name || 'Employee' },
-        { id: `mock-docx-q4-${selectedPlan.userId}`, name: 'Local_Council_Resolution_Minutes_Signed.docx', mimeType: 'application/msword', uploadedAt: new Date().toISOString(), uploadedBy: selectedPlan.plan.metadata?.name || 'Employee' }
+        { id: `mock-pdf-q4-${selectedPlan.userId}`, name: 'Q4_Annual_Report_Full_Performance_Metric.pdf', mimeType: 'application/pdf', uploadedAt: new Date().toISOString(), uploadedBy: holder, size: 3400200, dataUrl: createMockFileUrl('Q4_Annual_Report_Full_Performance_Metric.pdf', 'application/pdf', holder) },
+        { id: `mock-docx-q4-${selectedPlan.userId}`, name: 'Local_Council_Resolution_Minutes_Signed.docx', mimeType: 'application/msword', uploadedAt: new Date().toISOString(), uploadedBy: holder, size: 680400, dataUrl: createMockFileUrl('Local_Council_Resolution_Minutes_Signed.docx', 'application/msword', holder) }
       ]
     };
 
@@ -348,14 +552,13 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
                   (normTarget.includes('zulune') && (p.userId || '').includes('zulune'))
                 );
                 if (matchingPlan) {
-                  setSelectedPlan(matchingPlan);
                   if (kpiId) {
                     setActiveKPIId(kpiId);
                   }
                   if (quarter && (quarter === 'Q1' || quarter === 'Q2' || quarter === 'Q3' || quarter === 'Q4')) {
                     setActiveQuarterTab(quarter as any);
                   }
-                  setTimeout(() => {
+                  handleSelectPlan(matchingPlan, () => {
                     const targetRow = kpiId ? document.getElementById(`kpi-row-${kpiId}`) : null;
                     if (targetRow) {
                       targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -369,7 +572,7 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
                         setTimeout(() => el.classList.remove('ring-4', 'ring-indigo-500'), 3000);
                       }
                     }
-                  }, 250);
+                  });
                 } else {
                   alert(`Plan for ${targetUserEmail} is loaded in your audit queue below.`);
                 }
@@ -378,10 +581,20 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
           </div>
 
           <div className="max-w-4xl mx-auto space-y-4">
-            <h2 className="text-xs font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
-              <span className="inline-block w-2.5 h-2.5 bg-indigo-600 rounded-full animate-pulse"></span>
-              Assessed Performance Plans Awaiting Quality Assurance Audit
-            </h2>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <h2 className="text-xs font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
+                <span className="inline-block w-2.5 h-2.5 bg-indigo-600 rounded-full animate-pulse"></span>
+                Assessed Performance Plans Awaiting Quality Assurance Audit
+              </h2>
+              <button
+                type="button"
+                onClick={handleClearAwaitingAudits}
+                disabled={clearingAudits}
+                className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold px-4 py-2 rounded-xl text-[10px] uppercase tracking-wider transition-all shadow-sm shrink-0 cursor-pointer flex items-center gap-2"
+              >
+                <span>{clearingAudits ? "Clearing..." : "🗑️ Clear Awaiting Audits"}</span>
+              </button>
+            </div>
             {teamPlans.length === 0 ? (
               <div className="bg-white p-8 rounded-2xl border border-gray-200 text-center shadow-sm">
                 <CheckCircle className="w-12 h-12 text-slate-300 mx-auto mb-3" />
@@ -391,7 +604,7 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
             ) : (
               <div className="grid grid-cols-1 gap-4">
                 {teamPlans.map((tp, idx) => (
-                  <div key={tp.id || `${tp.userId}-${idx}`} className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm flex items-center justify-between hover:shadow-md transition group cursor-pointer" onClick={() => setSelectedPlan(tp)}>
+                  <div key={tp.id || `${tp.userId}-${idx}`} className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm flex items-center justify-between hover:shadow-md transition group cursor-pointer" onClick={() => handleSelectPlan(tp)}>
                     <div className="flex items-center gap-4">
                       <div className={`p-3 rounded-xl border ${tp.plan.metadata?.internalAuditStatus === 'Audited' || tp.plan.metadata?.internalAuditStatus === 'Pushed to DPMC' ? 'bg-indigo-50 border-indigo-100 text-indigo-600' : 'bg-slate-50 border-slate-200 text-slate-400'}`}>
                         {tp.plan.metadata?.internalAuditStatus === 'Audited' || tp.plan.metadata?.internalAuditStatus === 'Pushed to DPMC' ? <CheckCircle className="w-6 h-6" /> : <FileSearch className="w-6 h-6" />}
@@ -823,25 +1036,35 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
                   <span>{saving ? 'Processing...' : 'Push to DPMC for Moderation'}</span>
                 </button>
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-1.5">
                   <button
                     type="button"
                     onClick={() => handleSaveReview('Audited')}
                     disabled={saving}
-                    className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-extrabold uppercase text-[10px] py-2.5 rounded-xl flex items-center justify-center gap-1.5 tracking-wider shadow-sm transition-all active:scale-[0.98] cursor-pointer"
+                    className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-extrabold uppercase text-[9px] py-2 rounded-lg flex items-center justify-center gap-1 tracking-wider shadow-sm transition-all active:scale-[0.98] cursor-pointer"
                   >
-                    <Check className="w-3.5 h-3.5" />
-                    <span>Push and Approve</span>
+                    <Check className="w-3 h-3 shrink-0" />
+                    <span className="whitespace-nowrap">Approve</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSaveReview('Rejected')}
+                    disabled={saving}
+                    className="bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-extrabold uppercase text-[9px] py-2 rounded-lg flex items-center justify-center gap-1 tracking-wider shadow-sm transition-all active:scale-[0.98] cursor-pointer"
+                  >
+                    <X className="w-3 h-3 shrink-0" />
+                    <span className="whitespace-nowrap">Reject</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => handleSaveReview(plan.metadata?.internalAuditStatus || 'Under Review')}
                     disabled={saving}
-                    className="bg-slate-700 hover:bg-slate-650 disabled:opacity-50 text-white font-extrabold uppercase text-[10px] py-2.5 rounded-xl flex items-center justify-center gap-1.5 tracking-wider shadow-sm transition-all active:scale-[0.98] cursor-pointer"
+                    className="bg-slate-700 hover:bg-slate-650 disabled:opacity-50 text-white font-extrabold uppercase text-[9px] py-2 rounded-lg flex items-center justify-center gap-1 tracking-wider shadow-sm transition-all active:scale-[0.98] cursor-pointer"
                   >
-                    <Save className="w-3.5 h-3.5" />
-                    <span>Save Draft</span>
+                    <Save className="w-3 h-3 shrink-0" />
+                    <span className="whitespace-nowrap">Save Draft</span>
                   </button>
                 </div>
               </div>
@@ -987,9 +1210,50 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
 
             {/* Lightbox Document Body Frame Simulator */}
             <div className="p-6 max-h-[480px] overflow-y-auto bg-slate-50 space-y-4">
+              {/* Actual Document Rendering Container */}
+              {previewDoc.dataUrl ? (
+                <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm flex flex-col items-center justify-center min-h-[320px]">
+                  {previewDoc.mimeType?.startsWith('image/') || previewDoc.dataUrl.startsWith('data:image/') ? (
+                    <div className="border border-slate-100 rounded-lg p-2 bg-slate-50 shadow-inner flex justify-center w-full max-h-[360px] overflow-hidden">
+                      <img 
+                        src={previewDoc.dataUrl} 
+                        alt={previewDoc.name} 
+                        className="max-h-[340px] max-w-full object-contain rounded shadow-sm" 
+                        referrerPolicy="no-referrer" 
+                      />
+                    </div>
+                  ) : previewDoc.mimeType?.includes('pdf') || previewDoc.dataUrl.startsWith('data:application/pdf') ? (
+                    <iframe 
+                      src={previewDoc.dataUrl} 
+                      title={previewDoc.name} 
+                      className="w-full h-[360px] rounded-lg bg-white shadow-inner border border-slate-200" 
+                    />
+                  ) : (
+                    <div className="text-center p-6 bg-slate-50 rounded-xl border border-slate-150 max-w-md w-full">
+                      <FileText className="w-16 h-16 text-slate-300 mx-auto mb-3 animate-none" />
+                      <h4 className="text-sm font-bold text-slate-800 mb-1">Preview Not Available directly</h4>
+                      <p className="text-xs text-slate-500 mb-4">This file type ({previewDoc.name.split('.').pop()?.toUpperCase()}) can be downloaded to view details.</p>
+                      <a 
+                        href={previewDoc.dataUrl} 
+                        download={previewDoc.name} 
+                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold text-[10px] uppercase hover:bg-emerald-500 transition shadow-sm decoration-none no-underline"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        Download File
+                      </a>
+                    </div>
+                  )}
+                  <div className="w-full text-center mt-2">
+                    <span className="text-[9px] text-slate-400 uppercase font-mono tracking-wider">
+                      Verified Data Storage Node Stream ({((previewDoc.size || 0) / (1024 * 1024)).toFixed(2)} MB)
+                    </span>
+                  </div>
+                </div>
+              ) : null}
+
               <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
                 {/* Simulated Header Stamp */}
-                <div className="flex justify-between items-start pb-3 border-b border-dashed border-slate-200">
+                <div className="flex justify-between items-start pb-3 border-b border-dashed border-slate-200 text-left">
                   <div className="flex items-center gap-2">
                     <ShieldCheck className="w-5 h-5 text-indigo-600" />
                     <div>
@@ -1005,7 +1269,7 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
                 </div>
 
                 {/* Subtitles & Details */}
-                <div className="space-y-3">
+                <div className="space-y-3 text-left">
                   <div className="text-center my-2">
                     <h2 className="text-xs font-black text-slate-900 uppercase tracking-widest leading-none">
                       OFFICIAL PERFORMANCE PROOF
@@ -1047,7 +1311,7 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
                 </div>
 
                 {/* Footer Stamps & Security Certificates */}
-                <div className="flex justify-between items-end border-t border-slate-250 pt-3 mt-2">
+                <div className="flex justify-between items-end border-t border-slate-250 pt-3 mt-2 text-left">
                   <div className="text-[7.5px] text-slate-400 leading-normal">
                     <p className="m-0">DOCUMENT CLASS: SECURE PERFORMANCE EVIDENCE</p>
                     <p className="m-0 text-indigo-600">MZANSIFLOW REGULATORY AUDIT SAFEGUARD © 2026</p>
@@ -1070,13 +1334,20 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
                 Inspect checklist against specific KPI targets.
               </span>
               <div className="flex gap-2">
-                <button
-                  onClick={() => alert("Simulation secure down-stream pdf download completed!")}
-                  className="bg-slate-900 text-white hover:bg-slate-800 text-[10px] uppercase font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 transition border-0 cursor-pointer"
+                <a
+                  href={previewDoc.dataUrl || '#'}
+                  download={previewDoc.name}
+                  onClick={(e) => {
+                    if (!previewDoc.dataUrl) {
+                      e.preventDefault();
+                      alert("Simulating file download secure system export... Document archive fetched!");
+                    }
+                  }}
+                  className="bg-slate-900 text-white hover:bg-slate-800 text-[10px] uppercase font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 transition text-center no-underline cursor-pointer"
                 >
                   <Download className="w-3 h-3" />
                   <span>Download Secure</span>
-                </button>
+                </a>
                 <button
                   onClick={() => setPreviewDoc(null)}
                   className="bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] uppercase font-bold px-4 py-2 rounded-xl transition border-0 cursor-pointer"

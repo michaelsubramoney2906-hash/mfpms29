@@ -5,10 +5,10 @@
   "jobFunction": "PMS Coordinator",
   "department": "Performance Management Unit",
   "source": "azure_ad",
-  "role": "Standard User",
+  "role": "tenant_user",
   "tenantId": "nkangala_auto",
-  "manager": "Amos D. Twala",
+  "manager": "Sibusiso M. Shabangu",
   "directorate": "Office of the Municipal Manager",
-  "reportTo": "Amos D. Twala",
+  "reportTo": "Sibusiso M. Shabangu",
   "level": "3"
 }

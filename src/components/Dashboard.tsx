@@ -197,7 +197,8 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                             jobFunction.includes('manager') ||
                             jobFunction.includes('director') ||
                             jobFunction.includes('head of') ||
-                            jobFunction.includes('divisional manager');
+                            jobFunction.includes('divisional manager') ||
+                            email.includes('khuboni');
 
       const isStdUser = !isAuditorUser && !isManagerUser && profileToUse.role !== 'admin';
 
@@ -282,7 +283,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                           jobFunction.includes('manager') ||
                           jobFunction.includes('director') ||
                           jobFunction.includes('head of') ||
-                          jobFunction.includes('divisional manager');
+                          jobFunction.includes('divisional manager') || email.includes('khuboni');
 
     const isStdUser = !isAuditorUser && !isManagerUser && profileToUse.role !== 'admin';
 
@@ -340,7 +341,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                           jobFunction.includes('manager') ||
                           jobFunction.includes('director') ||
                           jobFunction.includes('head of') ||
-                          jobFunction.includes('divisional manager');
+                          jobFunction.includes('divisional manager') || email.includes('khuboni');
 
     const isStdUser = !isAuditorUser && !isManagerUser && profileToUse?.role !== 'admin';
 
@@ -355,6 +356,18 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
       // 2. Managers will see up to managers approval module and not see internal audit module
       if (isManagerUser && !isAuditorUser && profileToUse?.role !== 'admin') {
         if (sub.id === 'ipms-internal-audit' || sub.id === 'ipms-dpmc') {
+          return false;
+        }
+      }
+
+      // 3. Internal Audit Oversight is strictly restricted to internal auditors and global/systems admins
+      if (sub.id === 'ipms-internal-audit') {
+        const isAuthorizedAuditor = isAuditorUser || 
+          user.role === 'admin' || 
+          user.systemRole === 'Global Administrator' || 
+          user.systemRole === 'Systems Administrator' ||
+          user.systemRole === 'admin';
+        if (!isAuthorizedAuditor) {
           return false;
         }
       }
@@ -391,6 +404,26 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
     setActiveSubModule(sub);
   };
 
+  const isSystemsOrGlobalAdmin = 
+    user.role === 'admin' || 
+    user.systemRole === 'Global Administrator' || 
+    user.systemRole === 'Systems Administrator' ||
+    user.systemRole === 'admin' ||
+    ['mike@mzansiflow.co.za', 'audrey@mzansiflow.co.za', 'mike@massivedynamixdistributors.com'].includes((user.email || '').toLowerCase().trim());
+
+  const displayedModules = modules.filter(mod => {
+    if (mod.id === 'admin') {
+      return isSystemsOrGlobalAdmin;
+    }
+    return true;
+  });
+
+  useEffect(() => {
+    if (activeModule && activeModule.id === 'admin' && !isSystemsOrGlobalAdmin) {
+      setActiveModule(modules[0]);
+    }
+  }, [activeModule, isSystemsOrGlobalAdmin]);
+
   return (
     <div className="min-h-screen bg-transparent flex flex-col font-sans overflow-hidden">
       {/* Top Header */}
@@ -401,7 +434,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
 
         {/* Global Navigation */}
         <nav className="flex space-x-1 overflow-x-auto hide-scrollbar">
-          {modules.map((mod) => (
+          {displayedModules.map((mod) => (
             <div key={mod.id} className="relative group flex-shrink-0">
               <button
                 onClick={() => {

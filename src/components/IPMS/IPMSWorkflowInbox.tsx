@@ -39,8 +39,9 @@ export interface IPMSNotification {
   kpiId?: string;
   kpiNo?: string;
   quarter?: string;
-  actionType: 'submission' | 'approval' | 'revision_requested' | 'audit_request' | 'audit_completed' | 'info';
+  actionType: 'submission' | 'approval' | 'revision_requested' | 'audit_request' | 'audit_completed' | 'info' | 'planner_grid_sync' | 'redo_unlocked';
   poeDocsCount?: number;
+  employeeEmail?: string;
   attachments?: Array<{
     name: string;
     mimeType: string;
@@ -576,10 +577,29 @@ export function IPMSWorkflowInbox({
     }
   };
 
+  // Filter by role to avoid manager receiving employee notifications in manager inbox, and vice versa
+  const roleFilteredNotifications = React.useMemo(() => {
+    return notifications.filter(n => {
+      const rec = (n.recipientEmail || '').toLowerCase().trim();
+      const user = (currentUser?.email || '').toLowerCase().trim();
+      
+      if (role === 'employee') {
+        if (n.actionType === 'submission' && rec === user) return false;
+        if (n.actionType === 'planner_grid_sync' && rec === user) return false;
+        if (n.actionType === 'audit_request' && rec === user) return false;
+      } else if (role === 'manager') {
+        if (n.actionType === 'approval' && rec === user) return false;
+        if (n.actionType === 'revision_requested' && rec === user) return false;
+        if (n.actionType === 'redo_unlocked' && rec === user) return false;
+      }
+      return true;
+    });
+  }, [notifications, role, currentUser]);
+
   // Group replies by threadId
   const threadGroups = React.useMemo(() => {
     const groups: Record<string, IPMSNotification[]> = {};
-    notifications.forEach(n => {
+    roleFilteredNotifications.forEach(n => {
       const tId = n.threadId || n.id;
       if (!groups[tId]) {
         groups[tId] = [];
@@ -1267,11 +1287,33 @@ export function IPMSWorkflowInbox({
                             type="button"
                             onClick={() => {
                               handleMarkAsRead(item.id);
-                              const targetUser = item.senderEmail && role === 'manager' 
-                                ? item.senderEmail 
-                                : item.recipientEmail && role === 'employee' 
-                                  ? currentUser.email 
-                                  : item.senderEmail || item.recipientEmail;
+                              let targetUser = '';
+                              if (role === 'auditor') {
+                                if (item.employeeEmail) {
+                                  targetUser = item.employeeEmail;
+                                } else {
+                                  const emailRegex = /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9._-]+)/g;
+                                  const matches = ((item.message || '') + ' ' + (item.title || '')).match(emailRegex) || [];
+                                  const senderNorm = (item.senderEmail || '').toLowerCase().trim();
+                                  const filtered = matches.filter((m: string) => {
+                                    const mNorm = m.toLowerCase().trim();
+                                    return mNorm !== senderNorm && 
+                                           mNorm !== 'audit@system.local' && 
+                                           !mNorm.includes('audit');
+                                  });
+                                  if (filtered.length > 0) {
+                                    targetUser = filtered[0].toLowerCase().trim();
+                                  } else {
+                                    targetUser = item.senderEmail || item.recipientEmail;
+                                  }
+                                }
+                              } else {
+                                targetUser = item.senderEmail && role === 'manager' 
+                                  ? item.senderEmail 
+                                  : item.recipientEmail && role === 'employee' 
+                                    ? currentUser.email 
+                                    : item.senderEmail || item.recipientEmail;
+                              }
                               onSelectUserPlan(targetUser, item.kpiId, item.quarter);
                             }}
                             className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg transition flex items-center gap-1 shadow-xs cursor-pointer"

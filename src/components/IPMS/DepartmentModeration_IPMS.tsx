@@ -156,6 +156,27 @@ export function DepartmentModerationIPMS({ currentUser, activeTenantId }: Props)
     }
   };
 
+  const handleSelectPlan = async (tp: any, onLoaded?: () => void) => {
+    // We must fetch the individual plan to get the full documents (including dataUrl)
+    // because dataUrl is stripped from the team-pplans endpoint.
+    setSelectedPlan(tp); 
+    try {
+      const res = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${tp.userId}`);
+      if (res.ok) {
+        const fullPlan = await res.json();
+        if (fullPlan && fullPlan.items) {
+          setSelectedPlan({ userId: tp.userId, plan: fullPlan });
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load full plan", e);
+    } finally {
+      if (onLoaded) {
+        setTimeout(onLoaded, 100);
+      }
+    }
+  };
+
   useEffect(() => {
     if (selectedPlan && selectedPlan.plan && Array.isArray(selectedPlan.plan.items) && selectedPlan.plan.items.length > 0) {
       if (!activeKPIId || !selectedPlan.plan.items.find((x: any) => x.id === activeKPIId)) {
@@ -166,25 +187,94 @@ export function DepartmentModerationIPMS({ currentUser, activeTenantId }: Props)
     }
   }, [selectedPlan]);
 
+  const createMockFileUrl = (name: string, mimeType: string, holderName: string) => {
+    const ext = name.split('.').pop()?.toUpperCase() || 'PDF';
+    
+    const svgString = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1100" width="100%" height="100%">
+    <rect width="100%" height="100%" fill="#f8fafc" />
+    <rect x="30" y="30" width="740" height="1040" fill="white" stroke="#334155" stroke-width="4" rx="8" />
+    <rect x="40" y="40" width="720" height="1020" fill="none" stroke="#cbd5e1" stroke-width="1" rx="6" />
+    
+    <path d="M 40 40 L 760 40 L 760 180 L 40 180 Z" fill="#0f172a" />
+    
+    <text x="80" y="100" font-family="sans-serif" font-size="22" font-weight="900" fill="#ffffff" letter-spacing="1">MZANSIFLOW MUNICIPALITY</text>
+    <text x="80" y="130" font-family="sans-serif" font-size="11" font-weight="700" fill="#94a3b8" letter-spacing="2">DIRECTORATE OF PERFORMANCE AND COMPLIANCE AUDIT</text>
+    <text x="80" y="155" font-family="sans-serif" font-size="9" font-weight="500" fill="#64748b">SECURE TRANSACTION BLOCK ID: POE-VERIFIED</text>
+    
+    <text x="80" y="240" font-family="sans-serif" font-size="18" font-weight="800" fill="#1e293b">PORTFOLIO OF EVIDENCE (PoE) VERIFICATION REPORT</text>
+    <line x1="80" y1="255" x2="720" y2="255" stroke="#cbd5e1" stroke-width="2" />
+    
+    <g transform="translate(80, 280)">
+      <rect x="0" y="0" width="640" height="150" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1" rx="8" />
+      
+      <text x="20" y="30" font-family="sans-serif" font-size="11" font-weight="700" fill="#64748b">DOCUMENT FILENAME</text>
+      <text x="20" y="50" font-family="sans-serif" font-size="13" font-weight="800" fill="#0f172a">${name}</text>
+      
+      <text x="340" y="30" font-family="sans-serif" font-size="11" font-weight="700" fill="#64748b">ASSIGNED HOLDER</text>
+      <text x="340" y="50" font-family="sans-serif" font-size="13" font-weight="800" fill="#0f172a">${holderName}</text>
+      
+      <text x="20" y="95" font-family="sans-serif" font-size="11" font-weight="700" fill="#64748b">FILE EXTENSION</text>
+      <text x="20" y="115" font-family="sans-serif" font-size="13" font-weight="800" fill="#4f46e5">${ext}</text>
+      
+      <text x="340" y="95" font-family="sans-serif" font-size="11" font-weight="700" fill="#64748b">VERIFICATION TIMESTAMP</text>
+      <text x="340" y="115" font-family="sans-serif" font-size="12" font-weight="800" fill="#0f172a">${new Date().toLocaleString()}</text>
+    </g>
+    
+    <text x="80" y="475" font-family="sans-serif" font-size="14" font-weight="800" fill="#0f172a">1. AUDIT EVIDENCE INTEGRITY DECLARATION</text>
+    <text x="80" y="505" font-family="serif" font-size="13" font-style="italic" fill="#334155">"We hereby submit and verify that the performance objectives outlined in the target municipal ledger</text>
+    <text x="80" y="525" font-family="serif" font-size="13" font-style="italic" fill="#334155">for this quarter have been fully realized. The files attached are verified outputs of our operational</text>
+    <text x="80" y="545" font-family="serif" font-size="13" font-style="italic" fill="#334155">duties, aligning with legislated mSCOA frameworks and South African Local Government rules."</text>
+    
+    <text x="80" y="600" font-family="sans-serif" font-size="14" font-weight="800" fill="#0f172a">2. COMPLIANCE STAMP AND VERIFICATION SIGN-OFF</text>
+    
+    <g transform="translate(480, 640)">
+      <circle cx="100" cy="100" r="80" fill="none" stroke="#10b981" stroke-width="4" stroke-dasharray="8,4" />
+      <circle cx="100" cy="100" r="72" fill="none" stroke="#10b981" stroke-width="1.5" />
+      <rect x="40" y="85" width="120" height="30" fill="#10b981" rx="4" />
+      <text x="100" y="105" font-family="sans-serif" font-size="14" font-weight="900" fill="#ffffff" text-anchor="middle">APPROVED</text>
+      <text x="100" y="145" font-family="sans-serif" font-size="9" font-weight="700" fill="#10b981" text-anchor="middle">AUDITED SYSTEM</text>
+    </g>
+    
+    <g transform="translate(80, 640)">
+      <line x1="0" y1="80" x2="250" y2="80" stroke="#475569" stroke-width="1.5" stroke-dasharray="4,4" />
+      <text x="0" y="100" font-family="sans-serif" font-size="11" font-weight="700" fill="#475569">MUNICIPAL COMPLIANCE DESK</text>
+      <text x="0" y="115" font-family="sans-serif" font-size="9" font-weight="500" fill="#94a3b8">AUTHORIZED SIGN-OFF ENVELOPE</text>
+    </g>
+    
+    <line x1="80" y1="960" x2="720" y2="960" stroke="#cbd5e1" stroke-width="2" />
+    <text x="80" y="990" font-family="sans-serif" font-size="10" font-weight="700" fill="#64748b">DOCUMENT CLASS: SECURE REGULATORY PROOF (CLASS-A)</text>
+    <text x="80" y="1010" font-family="sans-serif" font-size="9" font-weight="500" fill="#94a3b8">This document is electronically signed and secured under South African Municipal Systems guidelines.</text>
+    
+    <text x="720" y="990" font-family="sans-serif" font-size="10" font-weight="900" fill="#4f46e5" text-anchor="end">MZANSIFLOW COMPLIANCE PORTAL</text>
+  </svg>`;
+
+    try {
+      return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgString)));
+    } catch (e) {
+      return 'data:image/svg+xml;utf8,' + encodeURIComponent(svgString);
+    }
+  };
+
   const handleGenerateSamplePoes = () => {
     if (!selectedPlan) return;
     
+    const holder = selectedPlan.plan.metadata?.name || 'Employee';
     const mockFilesByQuarter = {
       Q1: [
-        { id: `mock-pdf-q1-${selectedPlan.userId}`, name: 'Q1_ServiceDelivery_Operational_Audit.pdf', mimeType: 'application/pdf', uploadedAt: new Date().toISOString(), uploadedBy: selectedPlan.plan.metadata?.name || 'Employee' },
-        { id: `mock-xlsx-q1-${selectedPlan.userId}`, name: 'Q1_mSCOA_Ledger_Balance_Sheet.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', uploadedAt: new Date().toISOString(), uploadedBy: selectedPlan.plan.metadata?.name || 'Employee' }
+        { id: `mock-pdf-q1-${selectedPlan.userId}`, name: 'Q1_ServiceDelivery_Operational_Audit.pdf', mimeType: 'application/pdf', uploadedAt: new Date().toISOString(), uploadedBy: holder, size: 1420500, dataUrl: createMockFileUrl('Q1_ServiceDelivery_Operational_Audit.pdf', 'application/pdf', holder) },
+        { id: `mock-xlsx-q1-${selectedPlan.userId}`, name: 'Q1_mSCOA_Ledger_Balance_Sheet.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', uploadedAt: new Date().toISOString(), uploadedBy: holder, size: 840200, dataUrl: createMockFileUrl('Q1_mSCOA_Ledger_Balance_Sheet.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', holder) }
       ],
       Q2: [
-        { id: `mock-pdf-q2-${selectedPlan.userId}`, name: 'Q2_Consolidated_Financial_Statement_Final.pdf', mimeType: 'application/pdf', uploadedAt: new Date().toISOString(), uploadedBy: selectedPlan.plan.metadata?.name || 'Employee' },
-        { id: `mock-png-q2-${selectedPlan.userId}`, name: 'CoGTA_Official_Acknowledge_Receipt.png', mimeType: 'image/png', uploadedAt: new Date().toISOString(), uploadedBy: selectedPlan.plan.metadata?.name || 'Employee' }
+        { id: `mock-pdf-q2-${selectedPlan.userId}`, name: 'Q2_Consolidated_Financial_Statement_Final.pdf', mimeType: 'application/pdf', uploadedAt: new Date().toISOString(), uploadedBy: holder, size: 2100400, dataUrl: createMockFileUrl('Q2_Consolidated_Financial_Statement_Final.pdf', 'application/pdf', holder) },
+        { id: `mock-png-q2-${selectedPlan.userId}`, name: 'CoGTA_Official_Acknowledge_Receipt.png', mimeType: 'image/png', uploadedAt: new Date().toISOString(), uploadedBy: holder, size: 520100, dataUrl: createMockFileUrl('CoGTA_Official_Acknowledge_Receipt.png', 'image/png', holder) }
       ],
       Q3: [
-        { id: `mock-xlsx-q3-${selectedPlan.userId}`, name: 'Q3_WaterQuality_And_Purity_LabLogs.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', uploadedAt: new Date().toISOString(), uploadedBy: selectedPlan.plan.metadata?.name || 'Employee' },
-        { id: `mock-pdf-q3-${selectedPlan.userId}`, name: 'Internal_Audit_Committee_SignOff_Chamber.pdf', mimeType: 'application/pdf', uploadedAt: new Date().toISOString(), uploadedBy: selectedPlan.plan.metadata?.name || 'Employee' }
+        { id: `mock-xlsx-q3-${selectedPlan.userId}`, name: 'Q3_WaterQuality_And_Purity_LabLogs.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', uploadedAt: new Date().toISOString(), uploadedBy: holder, size: 950600, dataUrl: createMockFileUrl('Q3_WaterQuality_And_Purity_LabLogs.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', holder) },
+        { id: `mock-pdf-q3-${selectedPlan.userId}`, name: 'Internal_Audit_Committee_SignOff_Chamber.pdf', mimeType: 'application/pdf', uploadedAt: new Date().toISOString(), uploadedBy: holder, size: 1250100, dataUrl: createMockFileUrl('Internal_Audit_Committee_SignOff_Chamber.pdf', 'application/pdf', holder) }
       ],
       Q4: [
-        { id: `mock-pdf-q4-${selectedPlan.userId}`, name: 'Q4_Annual_Report_Full_Performance_Metric.pdf', mimeType: 'application/pdf', uploadedAt: new Date().toISOString(), uploadedBy: selectedPlan.plan.metadata?.name || 'Employee' },
-        { id: `mock-docx-q4-${selectedPlan.userId}`, name: 'Local_Council_Resolution_Minutes_Signed.docx', mimeType: 'application/msword', uploadedAt: new Date().toISOString(), uploadedBy: selectedPlan.plan.metadata?.name || 'Employee' }
+        { id: `mock-pdf-q4-${selectedPlan.userId}`, name: 'Q4_Annual_Report_Full_Performance_Metric.pdf', mimeType: 'application/pdf', uploadedAt: new Date().toISOString(), uploadedBy: holder, size: 3400200, dataUrl: createMockFileUrl('Q4_Annual_Report_Full_Performance_Metric.pdf', 'application/pdf', holder) },
+        { id: `mock-docx-q4-${selectedPlan.userId}`, name: 'Local_Council_Resolution_Minutes_Signed.docx', mimeType: 'application/msword', uploadedAt: new Date().toISOString(), uploadedBy: holder, size: 680400, dataUrl: createMockFileUrl('Local_Council_Resolution_Minutes_Signed.docx', 'application/msword', holder) }
       ]
     };
 
@@ -482,7 +572,7 @@ export function DepartmentModerationIPMS({ currentUser, activeTenantId }: Props)
             ) : (
               <div className="grid grid-cols-1 gap-4">
                 {teamPlans.map((tp, idx) => (
-                  <div key={tp.id || `${tp.userId}-${idx}`} className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm flex items-center justify-between hover:shadow-md transition group cursor-pointer" onClick={() => setSelectedPlan(tp)}>
+                  <div key={tp.id || `${tp.userId}-${idx}`} className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm flex items-center justify-between hover:shadow-md transition group cursor-pointer" onClick={() => handleSelectPlan(tp)}>
                     <div className="flex items-center gap-4">
                       <div className={`p-3 rounded-xl border ${tp.plan.metadata?.dpmcStatus === 'Pushed to Stakeholders' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : tp.plan.metadata?.dpmcStatus === 'Moderated' ? 'bg-indigo-50 border-indigo-100 text-indigo-600' : 'bg-slate-50 border-slate-200 text-slate-400'}`}>
                         {tp.plan.metadata?.dpmcStatus === 'Pushed to Stakeholders' ? <Send className="w-6 h-6" /> : tp.plan.metadata?.dpmcStatus === 'Moderated' ? <CheckCircle className="w-6 h-6" /> : <FileSearch className="w-6 h-6" />}
@@ -1409,13 +1499,13 @@ export function DepartmentModerationIPMS({ currentUser, activeTenantId }: Props)
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
       <div className="bg-white rounded-3xl overflow-hidden shadow-2xl max-w-2xl w-full border border-slate-200 animate-in fade-in zoom-in-95 duration-200 text-slate-850 leading-normal">
         {/* Lightbox Header */}
-        <div className="px-6 py-4 bg-slate-900 text-white flex justify-between items-center">
+        <div className="px-6 py-4 bg-slate-900 text-white flex justify-between items-center text-left">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-white/10 rounded-xl">
               {getFileIconComponent(previewDoc.name)}
             </div>
             <div>
-              <h3 className="font-extrabold text-sm m-0 max-w-md truncate">{previewDoc.name}</h3>
+              <h3 className="font-extrabold text-sm m-0 max-w-md truncate text-white">{previewDoc.name}</h3>
               <p className="text-[9px] text-[#93c5fd] uppercase font-mono tracking-wider m-0">Moderation Desk Proof Verification</p>
             </div>
           </div>
@@ -1430,6 +1520,47 @@ export function DepartmentModerationIPMS({ currentUser, activeTenantId }: Props)
 
         {/* Lightbox Document Body Frame Simulator */}
         <div className="p-6 max-h-[480px] overflow-y-auto bg-slate-50 space-y-4">
+          {/* Actual Document Rendering Container */}
+          {previewDoc.dataUrl ? (
+            <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm flex flex-col items-center justify-center min-h-[320px]">
+              {previewDoc.mimeType?.startsWith('image/') || previewDoc.dataUrl.startsWith('data:image/') ? (
+                <div className="border border-slate-100 rounded-lg p-2 bg-slate-50 shadow-inner flex justify-center w-full max-h-[360px] overflow-hidden">
+                  <img 
+                    src={previewDoc.dataUrl} 
+                    alt={previewDoc.name} 
+                    className="max-h-[340px] max-w-full object-contain rounded shadow-sm" 
+                    referrerPolicy="no-referrer" 
+                  />
+                </div>
+              ) : previewDoc.mimeType?.includes('pdf') || previewDoc.dataUrl.startsWith('data:application/pdf') ? (
+                <iframe 
+                  src={previewDoc.dataUrl} 
+                  title={previewDoc.name} 
+                  className="w-full h-[360px] rounded-lg bg-white shadow-inner border border-slate-200" 
+                />
+              ) : (
+                <div className="text-center p-6 bg-slate-50 rounded-xl border border-slate-150 max-w-md w-full">
+                  <FileText className="w-16 h-16 text-slate-300 mx-auto mb-3 animate-none" />
+                  <h4 className="text-sm font-bold text-slate-800 mb-1">Preview Not Available directly</h4>
+                  <p className="text-xs text-slate-500 mb-4">This file type ({previewDoc.name.split('.').pop()?.toUpperCase()}) can be downloaded to view details.</p>
+                  <a 
+                    href={previewDoc.dataUrl} 
+                    download={previewDoc.name} 
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold text-[10px] uppercase hover:bg-emerald-500 transition shadow-sm decoration-none no-underline"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Download File
+                  </a>
+                </div>
+              )}
+              <div className="w-full text-center mt-2">
+                <span className="text-[9px] text-slate-400 uppercase font-mono tracking-wider">
+                  Verified Data Storage Node Stream ({((previewDoc.size || 0) / (1024 * 1024)).toFixed(2)} MB)
+                </span>
+              </div>
+            </div>
+          ) : null}
+
           <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4 text-left">
             {/* Simulated Header Stamp */}
             <div className="flex justify-between items-start pb-3 border-b border-dashed border-slate-200">
@@ -1448,7 +1579,7 @@ export function DepartmentModerationIPMS({ currentUser, activeTenantId }: Props)
             </div>
 
             {/* Subtitles & Details */}
-            <div className="space-y-3 font-semibold">
+            <div className="space-y-3 font-semibold text-left">
               <div className="text-center my-2">
                 <h2 className="text-xs font-black text-slate-900 uppercase tracking-widest leading-none">
                   CERTIFIED PERFORMANCE COMPLIANCE PROOF
@@ -1490,7 +1621,7 @@ export function DepartmentModerationIPMS({ currentUser, activeTenantId }: Props)
             </div>
 
             {/* Footer Stamps & Security Certificates */}
-            <div className="flex justify-between items-end border-t border-slate-200 pt-3 mt-2">
+            <div className="flex justify-between items-end border-t border-slate-200 pt-3 mt-2 text-left">
               <div className="text-[7.5px] text-slate-400 leading-normal">
                 <p className="m-0 uppercase">REGULATION CHECKLIST: SECURE PERFORMANCE EVIDENCE</p>
                 <p className="m-0 text-amber-600">MZANSIFLOW PERFORMANCE MODERATION COMPLIANCE © 2026</p>
@@ -1513,14 +1644,20 @@ export function DepartmentModerationIPMS({ currentUser, activeTenantId }: Props)
             Review this verified evidence document. Ensure matching recommendations format.
           </span>
           <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => alert("Simulation secured moderation log CSV generated!")}
-              className="bg-slate-900 text-white hover:bg-slate-850 text-[10px] uppercase font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 transition border-0 cursor-pointer"
+            <a
+              href={previewDoc.dataUrl || '#'}
+              download={previewDoc.name}
+              onClick={(e) => {
+                if (!previewDoc.dataUrl) {
+                  e.preventDefault();
+                  alert("Simulating file download secure system export... Document archive fetched!");
+                }
+              }}
+              className="bg-slate-900 text-white hover:bg-slate-850 text-[10px] uppercase font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 transition text-center no-underline cursor-pointer"
             >
               <Download className="w-3 h-3 animate-none" />
               <span>Download</span>
-            </button>
+            </a>
             <button
               type="button"
               onClick={() => setPreviewDoc(null)}

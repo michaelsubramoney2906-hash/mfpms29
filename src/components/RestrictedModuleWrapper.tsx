@@ -106,6 +106,44 @@ export function RestrictedModuleWrapper({ currentUser, item, unlockedModules, on
     Boolean(currentUser.manager) ||
     Boolean(currentUser.reportTo);
 
+  const isAdminSubmodule = ['admin', 'al', 'scp', 'um', 'tl', 'admin-chat'].includes(item.id) || parentId === 'admin';
+  const isSystemsOrGlobalAdmin = 
+    currentUser.role === 'admin' || 
+    currentUser.systemRole === 'Global Administrator' || 
+    currentUser.systemRole === 'Systems Administrator' ||
+    currentUser.systemRole === 'admin' ||
+    isAuthorizedAdmin;
+
+  if (isAdminSubmodule && !isSystemsOrGlobalAdmin) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-8 m-6 min-h-[500px] bg-red-950/20 backdrop-blur-md border-2 border-red-500/30 rounded-3xl relative z-10 shadow-[0_20px_50px_rgba(239,68,68,0.15)] ring-1 ring-red-500/10">
+        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-red-500 to-transparent opacity-80" />
+
+        <button 
+          onClick={onClose} 
+          className="absolute top-6 right-6 text-red-400 hover:text-red-200 hover:bg-red-900/40 p-2.5 rounded-full transition-all cursor-pointer border border-transparent hover:border-red-500/20"
+          aria-label="Close"
+        >
+          <X className="w-5 h-5" />
+        </button>
+        
+        <div className="flex items-center justify-center w-20 h-20 rounded-full bg-red-500/10 border border-red-500/30 text-red-500 mb-6 shadow-[0_0_30px_rgba(239,68,68,0.2)]">
+          <ShieldAlert className="w-8 h-8" />
+        </div>
+
+        <h2 className="text-xl font-black text-red-400 uppercase tracking-[0.2em] text-center mb-2 font-mono">
+          ⚠️ Authorization Failed
+        </h2>
+        
+        <div className="w-16 h-[2px] bg-red-500/30 mb-4" />
+
+        <p className="text-red-300 text-xs text-center max-w-sm font-sans mb-8 leading-relaxed">
+          The module <span className="font-extrabold text-white underline decoration-red-500 underline-offset-4">{`"${item.name}"`}</span> is strictly restricted to Systems and Global Administrators.
+        </p>
+      </div>
+    );
+  }
+
   if (isMikeOnlyModule && !isManagerOrAuditorOrOfficial) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 m-6 min-h-[500px] bg-red-950/20 backdrop-blur-md border-2 border-red-500/30 rounded-3xl relative z-10 shadow-[0_20px_50px_rgba(239,68,68,0.15)] ring-1 ring-red-500/10">
