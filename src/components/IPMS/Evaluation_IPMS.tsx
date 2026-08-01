@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   FileSignature, Send, User, Target, ClipboardList,
   Upload, X, File, FileSpreadsheet, Image, FileText, Check, AlertCircle, Info, CalendarCheck, HelpCircle, Presentation,
-  Bell, AlertTriangle, CheckCircle, Eye, Download
+  Bell, AlertTriangle, CheckCircle, Eye, Download, CheckSquare, Square
 } from 'lucide-react';
 import { IPMSWorkflowInbox } from './IPMSWorkflowInbox';
 
@@ -396,6 +396,21 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
   const [saving, setSaving] = useState(false);
   const [activeTabs, setActiveTabs] = useState<Record<string, string>>({});
   const [toastMessage, setToastMessage] = useState<{ text: string, type: 'success' | 'info' | 'warning' } | null>(null);
+  const [selectedKpiIds, setSelectedKpiIds] = useState<string[]>([]);
+
+  const toggleSelectKpi = (id: string) => {
+    setSelectedKpiIds(prev => 
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAllKpis = () => {
+    if (selectedKpiIds.length === (pplanData.items?.length || 0)) {
+      setSelectedKpiIds([]);
+    } else {
+      setSelectedKpiIds((pplanData.items || []).map(i => i.id));
+    }
+  };
 
   const [notifications, setNotifications] = useState<any[]>([]);
 
@@ -557,6 +572,110 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
     } catch (e) {
       console.error(e);
       alert("Error saving: " + String(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleBatchSubmitSelectedKpis = async (targetIds: string[], submitForReview = true) => {
+    if (!targetIds || targetIds.length === 0) {
+      alert("Please select at least one KPI to submit.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const metadata = { 
+        ...pplanData.metadata,
+        email: pplanData.metadata?.email || currentUser.email,
+        manager: pplanData.metadata?.manager || currentUser.manager || currentUser.reportTo || 'Yena Khuboni',
+        managerEmail: pplanData.metadata?.managerEmail || 'KhuboniY@nkangaladm.gov.za',
+        reportTo: pplanData.metadata?.reportTo || currentUser.reportTo || currentUser.manager || '',
+        reviewStatus: submitForReview ? 'Submitted for Approval' : (pplanData.metadata?.reviewStatus || 'Draft')
+      };
+
+      const submittedItems = pplanData.items.filter(it => targetIds.includes(it.id));
+      const kpiNosText = submittedItems.map(i => `#${i.kpiNo || i.id}`).join(', ');
+
+      const updatedItems = pplanData.items.map(item => {
+        if (targetIds.includes(item.id)) {
+          const q1Text = item.q1Poe || '';
+          const q2Text = item.q2Poe || '';
+          const q3Text = item.q3Poe || '';
+          const q4Text = item.q4Poe || '';
+          const aggregatePoe = [
+            q1Text ? `Q1: ${q1Text}` : '',
+            q2Text ? `Q2: ${q2Text}` : '',
+            q3Text ? `Q3: ${q3Text}` : '',
+            q4Text ? `Q4: ${q4Text}` : ''
+          ].filter(Boolean).join('\n');
+
+          return {
+            ...item,
+            reviewStatus: submitForReview ? 'Submitted for Approval' : (item.reviewStatus || 'Draft'),
+            poe: aggregatePoe || item.poe
+          };
+        }
+        return item;
+      });
+
+      const payload = {
+        metadata,
+        items: updatedItems
+      };
+
+      await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${currentUser.email}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const managerEmail = metadata.managerEmail || 'KhuboniY@nkangaladm.gov.za';
+      const managerName = metadata.manager || 'Yena Khuboni';
+      const submitterEmail = currentUser.email;
+      const submitterName = currentUser.fullName || currentUser.full_name || 'Noluthando Zulu';
+
+      let totalPoeCount = 0;
+      submittedItems.forEach(it => {
+        totalPoeCount += (it.q1PoeDocs?.length || 0) + (it.q2PoeDocs?.length || 0) + (it.q3PoeDocs?.length || 0) + (it.q4PoeDocs?.length || 0) + (it.annualPoeDocs?.length || 0) + (it.midtermPoeDocs?.length || 0);
+      });
+
+      const isSingle = targetIds.length === 1;
+      const notifTitle = isSingle 
+        ? `⚡ Single KPI ${kpiNosText} & PoE Submitted for Manager Approval by ${submitterName}`
+        : `⚡ Multiple KPIs (${targetIds.length} KPIs: ${kpiNosText}) & PoE Submitted for Manager Approval by ${submitterName}`;
+      
+      const notifMessage = isSingle
+        ? `${submitterName} (${submitterEmail}) submitted single KPI ${kpiNosText} with ${totalPoeCount} attached PoE document(s) for manager review (${managerName}).`
+        : `${submitterName} (${submitterEmail}) submitted ${targetIds.length} selected KPIs (${kpiNosText}) with ${totalPoeCount} total attached PoE document(s) for manager review (${managerName}).`;
+
+      await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          notification: {
+            senderEmail: submitterEmail,
+            senderName: submitterName,
+            recipientEmail: managerEmail,
+            recipientName: managerName,
+            title: notifTitle,
+            message: notifMessage,
+            actionType: 'submission',
+            kpiId: isSingle ? targetIds[0] : undefined,
+            kpiIds: targetIds,
+            poeDocsCount: totalPoeCount
+          }
+        })
+      });
+
+      setPplanData(payload);
+      setSelectedKpiIds([]);
+      alert(isSingle 
+        ? `Single KPI (${kpiNosText}) successfully submitted to manager (${managerName})! Notification sent.` 
+        : `Selected ${targetIds.length} KPIs (${kpiNosText}) successfully submitted to manager (${managerName})! Notification sent.`
+      );
+    } catch (e) {
+      console.error(e);
+      alert("Error submitting KPIs: " + String(e));
     } finally {
       setSaving(false);
     }
@@ -923,18 +1042,78 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
           </div>
         ) : (
           <div className="space-y-6">
+            {/* Selection & Multi-KPI Submission Toolbar */}
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={toggleSelectAllKpis}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-300 text-slate-700 bg-slate-50 hover:bg-slate-100 font-bold text-xs cursor-pointer transition"
+                >
+                  {selectedKpiIds.length === items.length ? (
+                    <CheckSquare className="w-4 h-4 text-emerald-600" />
+                  ) : (
+                    <Square className="w-4 h-4 text-slate-400" />
+                  )}
+                  <span>{selectedKpiIds.length === items.length ? 'Deselect All' : 'Select All KPIs'}</span>
+                </button>
+
+                <span className="text-xs text-slate-500 font-bold">
+                  {selectedKpiIds.length} of {items.length} KPI(s) selected
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {selectedKpiIds.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => handleBatchSubmitSelectedKpis(selectedKpiIds, true)}
+                    disabled={saving}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-xl text-xs uppercase tracking-wider flex items-center gap-2 shadow-sm cursor-pointer transition disabled:opacity-50"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>Submit {selectedKpiIds.length} Selected KPI(s) to Manager</span>
+                  </button>
+                )}
+                
+                <button
+                  type="button"
+                  onClick={() => handleSave(true)}
+                  disabled={saving}
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2 rounded-xl text-xs uppercase tracking-wider flex items-center gap-2 shadow-sm cursor-pointer transition disabled:opacity-50"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>Submit All ({items.length}) KPIs to Manager</span>
+                </button>
+              </div>
+            </div>
+
             {items.map((kpi, idx) => {
               const currentTab = activeTabs[kpi.id] || 'q1';
               const setTab = (tab: string) => {
                 setActiveTabs(prev => ({ ...prev, [kpi.id]: tab }));
               };
               const kpiIsReadOnly = false;
+              const isSelected = selectedKpiIds.includes(kpi.id);
 
               return (
-                <div key={kpi.id} id={`kpi-card-${kpi.id}`} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-5 transition-all duration-300">
+                <div key={kpi.id} id={`kpi-card-${kpi.id}`} className={`bg-white p-5 rounded-2xl border ${isSelected ? 'border-emerald-500 ring-2 ring-emerald-500/20' : 'border-slate-200'} shadow-sm flex flex-col gap-5 transition-all duration-300`}>
                   {/* Header metadata layout */}
                   <div className="flex flex-wrap justify-between items-start gap-3 pb-3 border-b border-slate-100">
                     <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => toggleSelectKpi(kpi.id)}
+                        className="p-1 rounded text-slate-600 hover:text-emerald-600 cursor-pointer"
+                        title={isSelected ? 'Deselect KPI' : 'Select KPI for batch submission'}
+                      >
+                        {isSelected ? (
+                          <CheckSquare className="w-5 h-5 text-emerald-600" />
+                        ) : (
+                          <Square className="w-5 h-5 text-slate-400" />
+                        )}
+                      </button>
+
                       <span className="bg-slate-900 text-white font-mono text-[9px] font-bold px-2 py-0.5 rounded tracking-wider">
                         {kpi.kpiNo || `KPI #${idx + 1}`}
                       </span>
@@ -964,9 +1143,23 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-100 px-3 py-1 rounded-full text-xs font-black">
-                      <span className="text-[10px] font-bold uppercase text-emerald-600/80">Weighting:</span>
-                      <span>{kpi.weighting || 0}%</span>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleBatchSubmitSelectedKpis([kpi.id], true)}
+                        disabled={saving}
+                        className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold px-3 py-1 rounded-xl text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
+                        title="Submit ONLY this single KPI and its attached PoE files for Manager approval"
+                      >
+                        <Send className="w-3 h-3 text-emerald-600" />
+                        <span>Submit Single KPI #{kpi.kpiNo || idx + 1}</span>
+                      </button>
+
+                      <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-100 px-3 py-1 rounded-full text-xs font-black">
+                        <span className="text-[10px] font-bold uppercase text-emerald-600/80">Weighting:</span>
+                        <span>{kpi.weighting || 0}%</span>
+                      </div>
                     </div>
                   </div>
 

@@ -4,13 +4,182 @@ import {
   FileText, Search, Settings, Download, Upload, Cpu, LayoutTemplate, 
   Plus, Trash2, Check, ArrowRight, Info, AlertTriangle, User,
   BarChart as BarChartIcon, TrendingUp, PieChart, FileCheck, Printer, ChevronRight, Download as DownloadIcon,
-  FileSpreadsheet
+  FileSpreadsheet, Image as ImageIcon, Camera, Sparkles, X, RotateCcw, Sliders, Type, Edit3
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell
 } from 'recharts';
 import type { SdbipRow } from './SDBIP';
 import { WordProcessor } from './WordProcessor';
+
+const DEFAULT_COVER_IMAGE = "https://images.unsplash.com/photo-1547471080-7cc2caa01a7e?auto=format&fit=crop&q=80";
+
+export interface CoverTextElement {
+  id: string;
+  type?: 'title' | 'subtitle' | 'organization' | 'custom';
+  label: string;
+  text: string;
+  fontSize: 'xs' | 'sm' | 'base' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl';
+  customFontSizePx?: number;
+  color: string;
+  customColor?: string;
+  uppercase: boolean;
+  fontWeight: 'normal' | 'semibold' | 'bold' | 'black';
+  letterSpacing?: 'normal' | 'wide' | 'widest';
+  fontFamily?: 'sans' | 'serif' | 'mono';
+  bgColor?: 'none' | 'dark' | 'light' | 'indigo';
+}
+
+export const DEFAULT_COVER_TEXTS: CoverTextElement[] = [
+  {
+    id: 'title',
+    type: 'title',
+    label: 'Main Report Title',
+    text: 'SDBIP {QUARTER} REPORT',
+    fontSize: '2xl',
+    color: 'white',
+    uppercase: true,
+    fontWeight: 'black',
+    letterSpacing: 'widest',
+    fontFamily: 'sans',
+    bgColor: 'none'
+  },
+  {
+    id: 'subtitle',
+    type: 'subtitle',
+    label: 'Financial Year / Subtitle',
+    text: '2025/2026 FINANCIAL YEAR',
+    fontSize: 'lg',
+    color: 'indigo-300',
+    uppercase: true,
+    fontWeight: 'bold',
+    letterSpacing: 'widest',
+    fontFamily: 'sans',
+    bgColor: 'none'
+  },
+  {
+    id: 'organization',
+    type: 'organization',
+    label: 'Organization / Footer Tagline',
+    text: 'MZANSI FLOW AUTOMATED PMS SYSTEM',
+    fontSize: 'xs',
+    color: 'slate-300',
+    uppercase: true,
+    fontWeight: 'semibold',
+    letterSpacing: 'widest',
+    fontFamily: 'sans',
+    bgColor: 'none'
+  }
+];
+
+export function getCoverTextClasses(el: CoverTextElement) {
+  const sizeClass = {
+    xs: 'text-xs',
+    sm: 'text-sm',
+    base: 'text-base',
+    lg: 'text-lg',
+    xl: 'text-xl',
+    '2xl': 'text-2xl',
+    '3xl': 'text-3xl',
+    '4xl': 'text-4xl',
+    '5xl': 'text-5xl',
+    '6xl': 'text-6xl'
+  }[el.fontSize] || 'text-base';
+
+  const colorClass = el.customColor ? '' : ({
+    white: 'text-white',
+    'indigo-200': 'text-indigo-200',
+    'indigo-300': 'text-indigo-300',
+    'amber-300': 'text-amber-300',
+    'slate-300': 'text-slate-300',
+    'emerald-300': 'text-emerald-300',
+    'rose-300': 'text-rose-300',
+    'sky-300': 'text-sky-300',
+    'purple-300': 'text-purple-300',
+    'yellow-400': 'text-yellow-400',
+    'black': 'text-slate-900',
+  }[el.color] || 'text-white');
+
+  const weightClass = {
+    normal: 'font-normal',
+    semibold: 'font-semibold',
+    bold: 'font-bold',
+    black: 'font-black'
+  }[el.fontWeight] || 'font-bold';
+
+  const caseClass = el.uppercase ? 'uppercase' : 'normal-case';
+
+  const spacingClass = {
+    normal: 'tracking-normal',
+    wide: 'tracking-wide',
+    widest: 'tracking-widest'
+  }[el.letterSpacing || 'widest'];
+
+  const fontFamClass = {
+    sans: 'font-sans',
+    serif: 'font-serif',
+    mono: 'font-mono'
+  }[el.fontFamily || 'sans'];
+
+  const bgPillClass = {
+    none: '',
+    dark: 'bg-slate-900/75 backdrop-blur-xs px-5 py-2 rounded-2xl border border-slate-700/60 shadow-lg',
+    light: 'bg-white/85 backdrop-blur-xs px-5 py-2 rounded-2xl border border-white/60 text-slate-900 shadow-lg',
+    indigo: 'bg-indigo-950/80 backdrop-blur-xs px-5 py-2 rounded-2xl border border-indigo-500/40 shadow-lg'
+  }[el.bgColor || 'none'];
+
+  return `${sizeClass} ${colorClass} ${weightClass} ${caseClass} ${spacingClass} ${fontFamClass} ${bgPillClass}`.trim();
+}
+
+export function getCoverElementStyle(el: CoverTextElement): React.CSSProperties {
+  const style: React.CSSProperties = {};
+  if (el.customColor) {
+    style.color = el.customColor;
+  }
+  if (el.customFontSizePx && el.customFontSizePx > 0) {
+    style.fontSize = `${el.customFontSizePx}px`;
+    style.lineHeight = '1.2';
+  }
+  return style;
+}
+
+const COVER_PRESETS = [
+  {
+    id: 'dullstroom-highlands',
+    name: 'Dullstroom Highlands & Catchments (Emakhazeni)',
+    url: 'https://images.unsplash.com/photo-1516026672322-bc52d61a55d5?auto=format&fit=crop&q=80'
+  },
+  {
+    id: 'middelburg-highveld',
+    name: 'Middelburg Industrial & Highveld Hub (Mpumalanga)',
+    url: 'https://images.unsplash.com/photo-1547471080-7cc2caa01a7e?auto=format&fit=crop&q=80'
+  },
+  {
+    id: 'sa-water-sanitation',
+    name: 'Water Purification & Sanitation Service Delivery',
+    url: 'https://images.unsplash.com/photo-1581094794329-c8112a89af12?auto=format&fit=crop&q=80'
+  },
+  {
+    id: 'sa-roads-transport',
+    name: 'Municipal Road Construction & Civil Engineering',
+    url: 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&q=80'
+  },
+  {
+    id: 'sa-energy-grid',
+    name: 'Electricity Substation & Power Grid Infrastructure',
+    url: 'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?auto=format&fit=crop&q=80'
+  },
+  {
+    id: 'sa-civic-governance',
+    name: 'South African Civic Governance & Municipal HQ',
+    url: 'https://images.unsplash.com/photo-1576485290814-1c72aa4bbb8e?auto=format&fit=crop&q=80'
+  },
+  {
+    id: 'sa-human-settlements',
+    name: 'Human Settlements & Community Infrastructure',
+    url: 'https://images.unsplash.com/photo-1541888946425-d0fbb186a5b3?auto=format&fit=crop&q=80'
+  }
+];
 
 interface SDBIPDraftingSuiteProps {
   currentUser: any;
@@ -23,6 +192,74 @@ export function SDBIPDraftingSuite({ currentUser, activeTenantId, rows }: SDBIPD
   const [selectedQuarter, setSelectedQuarter] = useState<'q1' | 'q2' | 'midTerm' | 'q3' | 'q4' | 'annual'>('q1');
   const [draftingContent, setDraftingContent] = useState<string | undefined>(undefined);
   const [reportPeriod, setReportPeriod] = useState<'q1' | 'q2' | 'midTerm' | 'q3' | 'q4' | 'annual'>('q1');
+
+  // Cover Image & Opacity state with tenant persistence
+  const [coverImage, setCoverImage] = useState<string>(() => {
+    return localStorage.getItem(`sdbip_cover_img_${activeTenantId}`) || DEFAULT_COVER_IMAGE;
+  });
+
+  const [overlayOpacity, setOverlayOpacity] = useState<number>(() => {
+    const saved = localStorage.getItem(`sdbip_cover_opacity_${activeTenantId}`);
+    return saved ? parseFloat(saved) : 0.8;
+  });
+
+  const [coverTexts, setCoverTexts] = useState<CoverTextElement[]>(() => {
+    const saved = localStorage.getItem(`sdbip_cover_texts_${activeTenantId}`);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return DEFAULT_COVER_TEXTS;
+  });
+
+  const [isCoverModalOpen, setIsCoverModalOpen] = useState(false);
+
+  const handleUpdateCoverImage = (url: string) => {
+    setCoverImage(url);
+    localStorage.setItem(`sdbip_cover_img_${activeTenantId}`, url);
+  };
+
+  const handleUpdateOverlayOpacity = (op: number) => {
+    setOverlayOpacity(op);
+    localStorage.setItem(`sdbip_cover_opacity_${activeTenantId}`, op.toString());
+  };
+
+  const handleUpdateCoverTexts = (newTexts: CoverTextElement[]) => {
+    setCoverTexts(newTexts);
+    localStorage.setItem(`sdbip_cover_texts_${activeTenantId}`, JSON.stringify(newTexts));
+  };
+
+  const handleUpdateTextElement = (id: string, updates: Partial<CoverTextElement>) => {
+    const updated = coverTexts.map(item => item.id === id ? { ...item, ...updates } : item);
+    handleUpdateCoverTexts(updated);
+  };
+
+  const handleDeleteCoverText = (id: string) => {
+    const updated = coverTexts.filter(item => item.id !== id);
+    handleUpdateCoverTexts(updated);
+  };
+
+  const handleAddCoverText = () => {
+    const newEl: CoverTextElement = {
+      id: `custom_${Date.now()}`,
+      type: 'custom',
+      label: `Custom Text Line ${coverTexts.length + 1}`,
+      text: 'CONFIDENTIAL - MUNICIPAL REPORT',
+      fontSize: 'sm',
+      color: 'amber-300',
+      uppercase: true,
+      fontWeight: 'bold'
+    };
+    handleUpdateCoverTexts([...coverTexts, newEl]);
+  };
+
+  const handleResetCoverTexts = () => {
+    handleUpdateCoverTexts(DEFAULT_COVER_TEXTS);
+  };
 
   const handleAdoptTemplate = (html: string) => {
     setDraftingContent(html);
@@ -45,7 +282,16 @@ export function SDBIPDraftingSuite({ currentUser, activeTenantId, rows }: SDBIPD
         </div>
         
         {/* Navigation Tabs */}
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsCoverModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg border border-indigo-200 transition-all cursor-pointer mr-2 shadow-xs"
+            title="Upload custom cover photo or edit text for SDBIP reports"
+          >
+            <Camera className="w-3.5 h-3.5 text-indigo-600" />
+            <span>Cover Setup</span>
+          </button>
+
           {['brief', 'research', 'template', 'drafting', 'reports'].map((tab) => (
             <button 
               key={tab}
@@ -66,7 +312,21 @@ export function SDBIPDraftingSuite({ currentUser, activeTenantId, rows }: SDBIPD
       <div className="flex-1 overflow-hidden relative">
         {activeTab === 'brief' && <SDBIPBriefTab />}
         {activeTab === 'research' && <SDBIPResearchTab />}
-        {activeTab === 'template' && <SDBIPTemplateTab rows={rows} selectedQuarter={selectedQuarter} setSelectedQuarter={setSelectedQuarter} currentUser={currentUser} onAdopt={handleAdoptTemplate} />}
+        {activeTab === 'template' && (
+          <SDBIPTemplateTab 
+            rows={rows} 
+            selectedQuarter={selectedQuarter} 
+            setSelectedQuarter={setSelectedQuarter} 
+            currentUser={currentUser} 
+            onAdopt={handleAdoptTemplate}
+            coverImage={coverImage}
+            overlayOpacity={overlayOpacity}
+            coverTexts={coverTexts}
+            onOpenCoverModal={() => setIsCoverModalOpen(true)}
+            onUpdateTextElement={handleUpdateTextElement}
+            onDeleteCoverText={handleDeleteCoverText}
+          />
+        )}
         {activeTab === 'drafting' && (
           <div className="h-full flex flex-col overflow-hidden">
             <div className="px-4 py-2 border-b border-gray-100 flex gap-3 bg-gray-50/50">
@@ -85,8 +345,39 @@ export function SDBIPDraftingSuite({ currentUser, activeTenantId, rows }: SDBIPD
             </div>
           </div>
         )}
-        {activeTab === 'reports' && <SDBIPReportsTab rows={rows} currentUser={currentUser} activeTenantId={activeTenantId} period={reportPeriod} setPeriod={setReportPeriod} />}
+        {activeTab === 'reports' && (
+          <SDBIPReportsTab 
+            rows={rows} 
+            currentUser={currentUser} 
+            activeTenantId={activeTenantId} 
+            period={reportPeriod} 
+            setPeriod={setReportPeriod}
+            coverImage={coverImage}
+            overlayOpacity={overlayOpacity}
+            coverTexts={coverTexts}
+            onOpenCoverModal={() => setIsCoverModalOpen(true)}
+            onUpdateTextElement={handleUpdateTextElement}
+            onDeleteCoverText={handleDeleteCoverText}
+          />
+        )}
       </div>
+
+      {/* Cover Picture & Text Manager Modal */}
+      {isCoverModalOpen && (
+        <CoverPictureModal
+          coverImage={coverImage}
+          overlayOpacity={overlayOpacity}
+          coverTexts={coverTexts}
+          onUpdateCoverImage={handleUpdateCoverImage}
+          onUpdateOverlayOpacity={handleUpdateOverlayOpacity}
+          onUpdateCoverTexts={handleUpdateCoverTexts}
+          onUpdateTextElement={handleUpdateTextElement}
+          onDeleteCoverText={handleDeleteCoverText}
+          onAddCoverText={handleAddCoverText}
+          onResetCoverTexts={handleResetCoverTexts}
+          onClose={() => setIsCoverModalOpen(false)}
+        />
+      )}
     </div>
   );
 }
@@ -334,7 +625,29 @@ function getCombinedPoesText(row: SdbipRow, quarters: number[]): string {
   }).filter(Boolean).join('; ');
 }
 
-function ReportDocument({ rows, selectedQuarter, currentUser, id = "template-content" }: { rows: SdbipRow[], selectedQuarter: 'q1' | 'q2' | 'midTerm' | 'q3' | 'q4' | 'annual', currentUser: any, id?: string }) {
+function ReportDocument({ 
+  rows, 
+  selectedQuarter, 
+  currentUser, 
+  id = "template-content",
+  coverImage,
+  overlayOpacity = 0.8,
+  coverTexts,
+  onOpenCoverModal,
+  onUpdateTextElement,
+  onDeleteCoverText
+}: { 
+  rows: SdbipRow[], 
+  selectedQuarter: 'q1' | 'q2' | 'midTerm' | 'q3' | 'q4' | 'annual', 
+  currentUser: any, 
+  id?: string,
+  coverImage?: string,
+  overlayOpacity?: number,
+  coverTexts?: CoverTextElement[],
+  onOpenCoverModal?: () => void,
+  onUpdateTextElement?: (id: string, updates: Partial<CoverTextElement>) => void,
+  onDeleteCoverText?: (id: string) => void
+}) {
   const quarterDates: Record<string, string> = {
     q1: 'September 30, 2025',
     q2: 'December 31, 2025',
@@ -472,25 +785,65 @@ function ReportDocument({ rows, selectedQuarter, currentUser, id = "template-con
     <div id={id} className="bg-white w-full max-w-[297mm] justify-center mx-auto shadow-[0_0_50px_rgba(0,0,0,0.1)] text-slate-800">
       
       {/* Front Cover */}
-      <section className="relative w-[297mm] h-[210mm] flex flex-col justify-center items-center text-center p-12 text-white page-break-after" style={{ backgroundColor: "#1e293b", backgroundImage: "url('https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80')", backgroundSize: "cover", backgroundPosition: "center" }}>
-         <div className="absolute inset-0 bg-slate-900/80 mix-blend-multiply" />
-         <div className="relative z-10 w-full flex flex-col items-center">
-            <h1 
-              className="text-2xl font-black uppercase tracking-widest mb-6 outline-none border-b-2 border-transparent focus:border-white text-center w-3/4 mx-auto"
-              contentEditable 
-              suppressContentEditableWarning
-            >
-              SDBIP {quarterLabels[selectedQuarter]} REPORT
-            </h1>
-            <h2 
-              className="text-lg font-bold uppercase tracking-widest outline-none border-b-2 border-transparent focus:border-white text-center w-2/3 mx-auto text-indigo-300"
-              contentEditable 
-              suppressContentEditableWarning
-            >
-              2025/2026 FINANCIAL YEAR
-            </h2>
-            <div className="mt-16 w-1/4 h-1 bg-indigo-500 rounded-full"></div>
-            <p className="mt-8 text-xs font-medium tracking-widest text-slate-400 uppercase">MZANSI FLOW AUTOMATED PMS SYSTEM</p>
+      <section 
+        className="relative w-[297mm] h-[210mm] flex flex-col justify-center items-center text-center p-12 text-white page-break-after group" 
+        style={{ 
+          backgroundColor: "#1e293b", 
+          backgroundImage: coverImage ? (coverImage.startsWith('linear-gradient') ? coverImage : `url('${coverImage}')`) : `url('${DEFAULT_COVER_IMAGE}')`, 
+          backgroundSize: "cover", 
+          backgroundPosition: "center" 
+        }}
+      >
+         <div className="absolute inset-0 bg-slate-900 mix-blend-multiply transition-opacity" style={{ opacity: overlayOpacity }} />
+         {onOpenCoverModal && (
+           <button
+             type="button"
+             onClick={onOpenCoverModal}
+             className="absolute top-6 right-6 z-20 bg-white/95 hover:bg-white text-slate-900 font-bold px-3.5 py-2 rounded-xl text-xs flex items-center gap-2 shadow-xl transition-all opacity-90 group-hover:opacity-100 cursor-pointer border border-slate-200 hover:scale-105"
+             title="Upload custom picture or select preset for cover"
+           >
+             <Camera className="w-4 h-4 text-indigo-600" />
+             <span>Change Cover Picture</span>
+           </button>
+         )}
+         <div className="relative z-10 w-full flex flex-col items-center space-y-4 px-8">
+            {coverTexts && coverTexts.length > 0 ? (
+              coverTexts.map((el) => {
+                const formattedText = el.text.replace(/\{QUARTER\}|\{quarter\}/gi, quarterLabels[selectedQuarter] || selectedQuarter.toUpperCase());
+                return (
+                  <div key={el.id} className="relative group/textitem w-full flex justify-center items-center">
+                    <div 
+                      className={`tracking-widest text-center outline-none border-b-2 border-transparent focus:border-white transition-all ${getCoverTextClasses(el)}`}
+                      style={getCoverElementStyle(el)}
+                      contentEditable 
+                      suppressContentEditableWarning
+                      onBlur={(e) => {
+                        const newText = e.currentTarget.innerText;
+                        if (onUpdateTextElement) {
+                          onUpdateTextElement(el.id, { text: newText });
+                        }
+                      }}
+                    >
+                      {formattedText}
+                    </div>
+                    {onDeleteCoverText && (
+                      <button
+                        type="button"
+                        onClick={() => onDeleteCoverText(el.id)}
+                        className="absolute right-0 opacity-0 group-hover/textitem:opacity-100 bg-rose-600/90 hover:bg-rose-600 text-white p-1.5 rounded-lg text-[10px] font-bold transition shadow-lg cursor-pointer flex items-center gap-1 z-30 print:hidden"
+                        title={`Delete "${el.label || 'text'}" from cover`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Delete Text</span>
+                      </button>
+                    )}
+                  </div>
+                );
+              })
+            ) : null}
+            {coverTexts && coverTexts.length > 0 && (
+              <div className="mt-8 w-1/4 h-1 bg-indigo-500 rounded-full"></div>
+            )}
          </div>
       </section>
 
@@ -706,50 +1059,50 @@ function ReportDocument({ rows, selectedQuarter, currentUser, id = "template-con
                 </div>
               </div>
               
-              <div className="overflow-x-auto w-full">
-                <table className="w-full border-collapse text-[8px] border border-slate-300 shadow-sm text-black">
+              <div className="overflow-hidden w-full">
+                <table className="w-full table-fixed border-collapse text-[8px] border border-slate-300 shadow-sm text-black">
                   <thead className="bg-slate-900 text-white uppercase text-left break-inside-avoid">
                     {selectedQuarter === 'annual' ? (
                       <tr>
-                        <th className="border border-slate-700 p-2 font-black w-10 text-white bg-slate-900">KPA</th>
-                        <th className="border border-slate-700 p-2 font-black w-10 text-white bg-slate-900">Ref</th>
-                        <th className="border border-slate-700 p-2 font-black w-32 text-white bg-slate-900">Indicators (KPI)</th>
-                        <th className="border border-slate-700 p-2 font-black w-12 text-white bg-slate-900">Total Budget</th>
-                        <th className="border border-slate-700 p-2 font-black text-center w-8 text-white bg-slate-900">RAG</th>
-                        <th className="border border-slate-700 p-2 font-black bg-indigo-950 text-indigo-100 w-24">Q1,q2,q3,q4 Targets</th>
-                        <th className="border border-slate-700 p-2 font-black bg-emerald-950 text-emerald-100 w-24">q1,q2,q3,q4 Actuals</th>
-                        <th className="border border-slate-700 p-2 font-black bg-teal-950 text-teal-100 w-24">q1, q2, q3, q4 expenditures</th>
-                        <th className="border border-slate-700 p-2 font-black bg-amber-950 text-amber-100 w-28">q1, q2, q3, q4 poes</th>
-                        <th className="border border-slate-700 p-2 font-black w-16 text-white bg-slate-900">variance/issue</th>
-                        <th className="border border-slate-700 p-2 font-black w-16 text-white bg-slate-900">corrective action</th>
+                        <th className="border border-slate-700 p-1.5 font-black w-[5%] text-white bg-slate-900 text-center">KPA</th>
+                        <th className="border border-slate-700 p-1.5 font-black w-[5%] text-white bg-slate-900 text-center">Ref</th>
+                        <th className="border border-slate-700 p-1.5 font-black w-[22%] text-white bg-slate-900">Indicators (KPI)</th>
+                        <th className="border border-slate-700 p-1.5 font-black w-[8%] text-white bg-slate-900">Total Budget</th>
+                        <th className="border border-slate-700 p-1.5 font-black text-center w-[4%] text-white bg-slate-900">RAG</th>
+                        <th className="border border-slate-700 p-1.5 font-black bg-indigo-950 text-indigo-100 w-[10%] text-center">Q1-Q4 Targets</th>
+                        <th className="border border-slate-700 p-1.5 font-black bg-emerald-950 text-emerald-100 w-[10%] text-center">Q1-Q4 Actuals</th>
+                        <th className="border border-slate-700 p-1.5 font-black bg-teal-950 text-teal-100 w-[10%] text-center">Q1-Q4 Spend</th>
+                        <th className="border border-slate-700 p-1.5 font-black bg-amber-950 text-amber-100 w-[12%]">Q1-Q4 POEs</th>
+                        <th className="border border-slate-700 p-1.5 font-black w-[7%] text-white bg-slate-900">Variance</th>
+                        <th className="border border-slate-700 p-1.5 font-black w-[7%] text-white bg-slate-900">Corrective</th>
                       </tr>
                     ) : selectedQuarter === 'midTerm' ? (
                       <tr>
-                        <th className="border border-slate-700 p-2 font-black w-10 text-white bg-slate-900">KPA</th>
-                        <th className="border border-slate-700 p-2 font-black w-10 text-white bg-slate-900">Ref</th>
-                        <th className="border border-slate-700 p-2 font-black w-32 text-white bg-slate-900">Indicator (KPI)</th>
-                        <th className="border border-slate-700 p-2 font-black w-12 text-white bg-slate-900">Total Budget</th>
-                        <th className="border border-slate-700 p-2 font-black text-center w-8 text-white bg-slate-900">RAG</th>
-                        <th className="border border-slate-700 p-2 font-black bg-indigo-950 text-indigo-100 w-20">Q1 + Q2 Targets</th>
-                        <th className="border border-slate-700 p-2 font-black bg-emerald-950 text-emerald-100 w-20">Q1 + Q2 Actuals</th>
-                        <th className="border border-slate-700 p-2 font-black bg-teal-950 text-teal-100 w-20">Q1 + Q2 expenditures</th>
-                        <th className="border border-slate-700 p-2 font-black bg-amber-950 text-amber-100 w-24">q1 + q2 poes</th>
-                        <th className="border border-slate-700 p-2 font-black w-16 text-white bg-slate-900">variance/issue</th>
-                        <th className="border border-slate-700 p-2 font-black w-16 text-white bg-slate-900">corrective action</th>
+                        <th className="border border-slate-700 p-1.5 font-black w-[5%] text-white bg-slate-900 text-center">KPA</th>
+                        <th className="border border-slate-700 p-1.5 font-black w-[5%] text-white bg-slate-900 text-center">Ref</th>
+                        <th className="border border-slate-700 p-1.5 font-black w-[22%] text-white bg-slate-900">Indicator (KPI)</th>
+                        <th className="border border-slate-700 p-1.5 font-black w-[8%] text-white bg-slate-900">Total Budget</th>
+                        <th className="border border-slate-700 p-1.5 font-black text-center w-[4%] text-white bg-slate-900">RAG</th>
+                        <th className="border border-slate-700 p-1.5 font-black bg-indigo-950 text-indigo-100 w-[10%] text-center">Q1+Q2 Targets</th>
+                        <th className="border border-slate-700 p-1.5 font-black bg-emerald-950 text-emerald-100 w-[10%] text-center">Q1+Q2 Actuals</th>
+                        <th className="border border-slate-700 p-1.5 font-black bg-teal-950 text-teal-100 w-[10%] text-center">Q1+Q2 Spend</th>
+                        <th className="border border-slate-700 p-1.5 font-black bg-amber-950 text-amber-100 w-[12%]">Q1+Q2 POEs</th>
+                        <th className="border border-slate-700 p-1.5 font-black w-[7%] text-white bg-slate-900">Variance</th>
+                        <th className="border border-slate-700 p-1.5 font-black w-[7%] text-white bg-slate-900">Corrective</th>
                       </tr>
                     ) : (
                       <tr>
-                        <th className="border border-slate-700 p-2 font-black w-10 text-white bg-slate-900">KPA</th>
-                        <th className="border border-slate-700 p-2 font-black w-10 text-white bg-slate-900">Ref</th>
-                        <th className="border border-slate-700 p-2 font-black w-36 text-white bg-slate-900">Indicator (KPI)</th>
-                        <th className="border border-slate-700 p-2 font-black w-14 text-white bg-slate-900">total budget</th>
-                        <th className="border border-slate-700 p-2 font-black text-center w-8 text-white bg-slate-900">RAG</th>
-                        <th className="border border-slate-700 p-2 font-black bg-indigo-900 text-white w-24">{selectedQuarter.toUpperCase()} Target</th>
-                        <th className="border border-slate-700 p-2 font-black bg-emerald-900 text-white w-24">{selectedQuarter.toUpperCase()} Actual</th>
-                        <th className="border border-slate-700 p-2 font-black bg-teal-800 text-white w-24">{selectedQuarter.toLowerCase()} expenditure</th>
-                        <th className="border border-slate-700 p-2 font-black bg-amber-800 text-white w-28">{selectedQuarter.toLowerCase()} poe</th>
-                        <th className="border border-slate-700 p-2 font-black w-20 text-white bg-slate-900">variance/issue</th>
-                        <th className="border border-slate-700 p-2 font-black w-20 text-white bg-slate-900">corrective action</th>
+                        <th className="border border-slate-700 p-1.5 font-black w-[5%] text-white bg-slate-900 text-center">KPA</th>
+                        <th className="border border-slate-700 p-1.5 font-black w-[5%] text-white bg-slate-900 text-center">Ref</th>
+                        <th className="border border-slate-700 p-1.5 font-black w-[24%] text-white bg-slate-900">Indicator (KPI)</th>
+                        <th className="border border-slate-700 p-1.5 font-black w-[8%] text-white bg-slate-900">Total Budget</th>
+                        <th className="border border-slate-700 p-1.5 font-black text-center w-[4%] text-white bg-slate-900">RAG</th>
+                        <th className="border border-slate-700 p-1.5 font-black bg-indigo-900 text-white w-[9%] text-center">{selectedQuarter.toUpperCase()} Target</th>
+                        <th className="border border-slate-700 p-1.5 font-black bg-emerald-900 text-white w-[9%] text-center">{selectedQuarter.toUpperCase()} Actual</th>
+                        <th className="border border-slate-700 p-1.5 font-black bg-teal-800 text-white w-[9%] text-center">{selectedQuarter.toUpperCase()} Spend</th>
+                        <th className="border border-slate-700 p-1.5 font-black bg-amber-800 text-white w-[13%]">{selectedQuarter.toUpperCase()} POE</th>
+                        <th className="border border-slate-700 p-1.5 font-black w-[7%] text-white bg-slate-900">Variance</th>
+                        <th className="border border-slate-700 p-1.5 font-black w-[7%] text-white bg-slate-900">Corrective</th>
                       </tr>
                     )}
                   </thead>
@@ -766,40 +1119,40 @@ function ReportDocument({ rows, selectedQuarter, currentUser, id = "template-con
                         
                         return (
                           <tr key={rIdx} className={`border-b break-inside-avoid text-black font-medium ${bgColor}`}>
-                            <td className="border border-slate-300 p-1.5 font-black text-center text-[7px] text-slate-600 bg-slate-100/50">{kpaLabel}</td>
-                            <td className="border border-slate-300 p-1.5 font-bold font-mono text-center">{row.refNum}</td>
-                            <td className="border border-slate-300 p-1.5 font-bold leading-tight">{row.kpi}</td>
-                            <td className="border border-slate-300 p-1.5 font-bold text-slate-700">{row.budgetAllocation || 'Opex'}</td>
+                            <td className="border border-slate-300 p-1.5 font-black text-center text-[7px] text-slate-600 bg-slate-100/50 break-words">{kpaLabel}</td>
+                            <td className="border border-slate-300 p-1.5 font-bold font-mono text-center break-words">{row.refNum}</td>
+                            <td className="border border-slate-300 p-1.5 font-bold leading-tight break-words">{row.kpi}</td>
+                            <td className="border border-slate-300 p-1.5 font-bold text-slate-700 break-words">{row.budgetAllocation || 'Opex'}</td>
                             <td className="border border-slate-300 p-1.5 text-center">
                               <span className="text-xs" title={rag.tooltip}>{rag.face}</span>
                             </td>
-                            <td className="border border-slate-300 p-1.5 font-bold text-indigo-800 text-xs text-center">
+                            <td className="border border-slate-300 p-1.5 font-bold text-indigo-800 text-xs text-center break-words">
                               {sumStringValues([row.q1, row.q2, row.q3, row.q4])}
                             </td>
-                            <td className="border border-slate-300 p-1.5 font-bold text-emerald-800 text-xs text-center">
+                            <td className="border border-slate-300 p-1.5 font-bold text-emerald-800 text-xs text-center break-words">
                               {sumStringValues([row.q1Actual, row.q2Actual, row.q3Actual, row.q4Actual])}
                             </td>
-                            <td className="border border-slate-300 p-1.5 font-medium text-slate-700 text-xs text-center">
+                            <td className="border border-slate-300 p-1.5 font-medium text-slate-700 text-xs text-center break-words">
                               {sumStringValues([row.q1Expenditure, row.q2Expenditure, row.q3Expenditure, row.q4Expenditure])}
                             </td>
-                            <td className="border border-slate-300 p-1">
+                            <td className="border border-slate-300 p-1 break-words">
                               <div className="flex flex-col gap-0.5 text-[6px] leading-tight text-slate-600">
                                 {[1, 2, 3, 4].map(q => {
                                   const poeDesc = (row as any)[`q${q}PoeDesc`] || '';
                                   const poes = (row as any)[`q${q}Poes`] || [];
                                   if (!poeDesc && poes.length === 0) return null;
                                   return (
-                                    <div key={q} className="border-b border-slate-100 last:border-0 pb-0.5 mb-0.5 last:pb-0 last:mb-0">
+                                    <div key={q} className="border-b border-slate-100 last:border-0 pb-0.5 mb-0.5 last:pb-0 last:mb-0 break-words">
                                       <span className="font-bold text-slate-500 mr-0.5">Q{q}:</span>
-                                      <span className="truncate" title={poeDesc}>{poeDesc || 'Submitted'}</span>
+                                      <span className="break-words" title={poeDesc}>{poeDesc || 'Submitted'}</span>
                                       {poes.length > 0 && <span className="text-emerald-800 ml-1">📄</span>}
                                     </div>
                                   );
                                 })}
                               </div>
                             </td>
-                            <td className="border border-slate-300 p-1.5 italic text-rose-900 font-bold leading-tight">{variance}</td>
-                            <td className="border border-slate-300 p-1.5 font-medium leading-tight">{corrective}</td>
+                            <td className="border border-slate-300 p-1.5 italic text-rose-900 font-bold leading-tight break-words">{variance}</td>
+                            <td className="border border-slate-300 p-1.5 font-medium leading-tight break-words">{corrective}</td>
                           </tr>
                         );
                       } else if (selectedQuarter === 'midTerm') {
@@ -815,40 +1168,40 @@ function ReportDocument({ rows, selectedQuarter, currentUser, id = "template-con
                         
                         return (
                           <tr key={rIdx} className={`border-b break-inside-avoid text-black font-medium ${bgColor}`}>
-                            <td className="border border-slate-300 p-1.5 font-black text-center text-[7px] text-slate-600 bg-slate-100/50">{kpaLabel}</td>
-                            <td className="border border-slate-300 p-1.5 font-bold font-mono text-center">{row.refNum}</td>
-                            <td className="border border-slate-300 p-1.5 font-bold leading-tight">{row.kpi}</td>
-                            <td className="border border-slate-300 p-1.5 font-bold text-slate-700">{row.budgetAllocation || 'Opex'}</td>
+                            <td className="border border-slate-300 p-1.5 font-black text-center text-[7px] text-slate-600 bg-slate-100/50 break-words">{kpaLabel}</td>
+                            <td className="border border-slate-300 p-1.5 font-bold font-mono text-center break-words">{row.refNum}</td>
+                            <td className="border border-slate-300 p-1.5 font-bold leading-tight break-words">{row.kpi}</td>
+                            <td className="border border-slate-300 p-1.5 font-bold text-slate-700 break-words">{row.budgetAllocation || 'Opex'}</td>
                             <td className="border border-slate-300 p-1.5 text-center">
                               <span className="text-xs" title={rag.tooltip}>{rag.face}</span>
                             </td>
-                            <td className="border border-slate-300 p-1.5 font-bold text-indigo-800 text-xs text-center">
+                            <td className="border border-slate-300 p-1.5 font-bold text-indigo-800 text-xs text-center break-words">
                               {sumStringValues([row.q1, row.q2])}
                             </td>
-                            <td className="border border-slate-300 p-1.5 font-bold text-emerald-800 text-xs text-center">
+                            <td className="border border-slate-300 p-1.5 font-bold text-emerald-800 text-xs text-center break-words">
                               {sumStringValues([row.q1Actual, row.q2Actual])}
                             </td>
-                            <td className="border border-slate-300 p-1.5 font-medium text-slate-700 text-xs text-center">
+                            <td className="border border-slate-300 p-1.5 font-medium text-slate-700 text-xs text-center break-words">
                               {sumStringValues([row.q1Expenditure, row.q2Expenditure])}
                             </td>
-                            <td className="border border-slate-300 p-1.5 text-left">
+                            <td className="border border-slate-300 p-1.5 text-left break-words">
                               <div className="flex flex-col gap-0.5 text-[6px] leading-tight text-slate-600">
                                 {[1, 2].map(q => {
                                   const poeDesc = (row as any)[`q${q}PoeDesc`] || '';
                                   const poes = (row as any)[`q${q}Poes`] || [];
                                   if (!poeDesc && poes.length === 0) return null;
                                   return (
-                                    <div key={q} className="border-b border-slate-100 last:border-0 pb-0.5 mb-0.5 last:pb-0 last:mb-0">
+                                    <div key={q} className="border-b border-slate-100 last:border-0 pb-0.5 mb-0.5 last:pb-0 last:mb-0 break-words">
                                       <span className="font-bold text-slate-500 mr-0.5">Q{q}:</span>
-                                      <span className="truncate" title={poeDesc}>{poeDesc || 'Submitted'}</span>
+                                      <span className="break-words" title={poeDesc}>{poeDesc || 'Submitted'}</span>
                                       {poes.length > 0 && <span className="text-emerald-800 ml-1">📄</span>}
                                     </div>
                                   );
                                 })}
                               </div>
                             </td>
-                            <td className="border border-slate-300 p-1.5 italic text-rose-900 font-bold leading-tight">{variance}</td>
-                            <td className="border border-slate-300 p-1.5 font-medium leading-tight">{corrective}</td>
+                            <td className="border border-slate-300 p-1.5 italic text-rose-900 font-bold leading-tight break-words">{variance}</td>
+                            <td className="border border-slate-300 p-1.5 font-medium leading-tight break-words">{corrective}</td>
                           </tr>
                         );
                       } else {
@@ -866,26 +1219,26 @@ function ReportDocument({ rows, selectedQuarter, currentUser, id = "template-con
                         
                         return (
                           <tr key={rIdx} className={`border-b break-inside-avoid text-black font-medium ${bgColor}`}>
-                            <td className="border border-slate-300 p-1.5 font-black text-center text-[7px] text-slate-600 bg-slate-100/50">{kpaLabel}</td>
-                            <td className="border border-slate-300 p-1.5 font-bold font-mono text-center">{row.refNum}</td>
-                            <td className="border border-slate-300 p-1.5 font-bold leading-tight">{row.kpi}</td>
-                            <td className="border border-slate-300 p-1.5 font-bold text-slate-700">{row.budgetAllocation || 'Opex'}</td>
+                            <td className="border border-slate-300 p-1.5 font-black text-center text-[7px] text-slate-600 bg-slate-100/50 break-words">{kpaLabel}</td>
+                            <td className="border border-slate-300 p-1.5 font-bold font-mono text-center break-words">{row.refNum}</td>
+                            <td className="border border-slate-300 p-1.5 font-bold leading-tight break-words">{row.kpi}</td>
+                            <td className="border border-slate-300 p-1.5 font-bold text-slate-700 break-words">{row.budgetAllocation || 'Opex'}</td>
                             <td className="border border-slate-300 p-1.5 text-center">
                               <span className="text-xs" title={rag.tooltip}>{rag.face}</span>
                             </td>
-                            <td className="border border-slate-300 p-1.5 font-bold text-indigo-700">{target}</td>
-                            <td className="border border-slate-300 p-1.5 font-bold text-emerald-700">{actual}</td>
-                            <td className="border border-slate-300 p-1.5 font-medium">{exp}</td>
-                            <td className="border border-slate-300 p-1.5">
-                              {poeDesc && <div className="text-[8px] text-slate-600 leading-tight mb-1">{poeDesc}</div>}
+                            <td className="border border-slate-300 p-1.5 font-bold text-indigo-700 text-center break-words">{target}</td>
+                            <td className="border border-slate-300 p-1.5 font-bold text-emerald-700 text-center break-words">{actual}</td>
+                            <td className="border border-slate-300 p-1.5 font-medium text-center break-words">{exp}</td>
+                            <td className="border border-slate-300 p-1.5 break-words">
+                              {poeDesc && <div className="text-[8px] text-slate-600 leading-tight mb-1 break-words">{poeDesc}</div>}
                               {poes && poes.length > 0 && (
                                 <div className="text-[7px] text-emerald-850 bg-emerald-50 px-1 py-0.5 rounded truncate" title={poes.join(', ')}>
                                   📄 {poes[poes.length - 1]}
                                 </div>
                               )}
                             </td>
-                            <td className="border border-slate-300 p-1.5 italic text-rose-900 font-bold leading-tight">{variance}</td>
-                            <td className="border border-slate-300 p-1.5 font-medium leading-tight">{corrective}</td>
+                            <td className="border border-slate-300 p-1.5 italic text-rose-900 font-bold leading-tight break-words">{variance}</td>
+                            <td className="border border-slate-300 p-1.5 font-medium leading-tight break-words">{corrective}</td>
                           </tr>
                         );
                       }
@@ -930,8 +1283,16 @@ function ReportDocument({ rows, selectedQuarter, currentUser, id = "template-con
       </section>
 
       {/* Back Cover */}
-      <section className="relative w-[297mm] h-[210mm] flex flex-col justify-center items-center text-center p-12 text-white" style={{ backgroundColor: "#1e293b", backgroundImage: "url('https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80')", backgroundSize: "cover", backgroundPosition: "center" }}>
-         <div className="absolute inset-0 bg-slate-900/90 mix-blend-multiply" />
+      <section 
+        className="relative w-[297mm] h-[210mm] flex flex-col justify-center items-center text-center p-12 text-white" 
+        style={{ 
+          backgroundColor: "#1e293b", 
+          backgroundImage: coverImage ? (coverImage.startsWith('linear-gradient') ? coverImage : `url('${coverImage}')`) : `url('${DEFAULT_COVER_IMAGE}')`, 
+          backgroundSize: "cover", 
+          backgroundPosition: "center" 
+        }}
+      >
+         <div className="absolute inset-0 bg-slate-900 mix-blend-multiply transition-opacity" style={{ opacity: Math.min(1, overlayOpacity + 0.1) }} />
          <div className="relative z-10 w-full flex flex-col items-center">
             <h2 
               className="text-xl font-black uppercase tracking-widest outline-none border-b-2 border-transparent focus:border-white text-center w-2/3 mx-auto"
@@ -951,7 +1312,31 @@ function ReportDocument({ rows, selectedQuarter, currentUser, id = "template-con
   );
 }
 
-function SDBIPTemplateTab({ rows, selectedQuarter, setSelectedQuarter, currentUser, onAdopt }: { rows: SdbipRow[], selectedQuarter: 'q1' | 'q2' | 'midTerm' | 'q3' | 'q4' | 'annual', setSelectedQuarter: (q: any) => void, currentUser: any, onAdopt: (html: string) => void }) {
+function SDBIPTemplateTab({ 
+  rows, 
+  selectedQuarter, 
+  setSelectedQuarter, 
+  currentUser, 
+  onAdopt,
+  coverImage,
+  overlayOpacity,
+  coverTexts,
+  onOpenCoverModal,
+  onUpdateTextElement,
+  onDeleteCoverText
+}: { 
+  rows: SdbipRow[], 
+  selectedQuarter: 'q1' | 'q2' | 'midTerm' | 'q3' | 'q4' | 'annual', 
+  setSelectedQuarter: (q: any) => void, 
+  currentUser: any, 
+  onAdopt: (html: string) => void,
+  coverImage?: string,
+  overlayOpacity?: number,
+  coverTexts?: CoverTextElement[],
+  onOpenCoverModal?: () => void,
+  onUpdateTextElement?: (id: string, updates: Partial<CoverTextElement>) => void,
+  onDeleteCoverText?: (id: string) => void
+}) {
   return (
     <div className="h-full flex overflow-hidden bg-gray-50 animate-fade-in">
       <div className="w-80 border-r border-gray-200 bg-white p-6 overflow-y-auto">
@@ -961,7 +1346,7 @@ function SDBIPTemplateTab({ rows, selectedQuarter, setSelectedQuarter, currentUs
             <label className="text-[10px] font-black text-gray-400 uppercase mb-2 block">Reporting Period</label>
             <select 
               value={selectedQuarter}
-              onChange={(e) => setSelectedQuarter(e.target.value)}
+              onChange={(e) => setSelectedQuarter(e.target.value as any)}
               className="w-full px-3 py-2 bg-indigo-50 border border-indigo-100 rounded-xl text-xs font-bold text-indigo-700 outline-none"
             >
               <option value="q1">1st Quarter (July - Sept)</option>
@@ -973,13 +1358,24 @@ function SDBIPTemplateTab({ rows, selectedQuarter, setSelectedQuarter, currentUs
             </select>
           </div>
           
-          <div className="pt-6 border-t border-gray-100 text-center">
+          <div className="pt-4 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={onOpenCoverModal}
+              className="w-full py-2.5 bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 text-[11px] font-bold rounded-xl border border-slate-200 hover:border-indigo-200 transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+            >
+              <Camera className="w-4 h-4 text-indigo-600" />
+              <span>Cover Setup & Text Editor</span>
+            </button>
+          </div>
+
+          <div className="pt-4 border-t border-gray-100 text-center">
             <button 
               onClick={() => {
                 const el = document.getElementById('template-content');
                 if (el) onAdopt(el.innerHTML);
               }}
-              className="w-full py-3 bg-indigo-600 text-white text-[11px] font-black rounded-xl uppercase tracking-widest mt-4 shadow-lg shadow-indigo-200 flex items-center justify-center gap-2"
+              className="w-full py-3 bg-indigo-600 text-white text-[11px] font-black rounded-xl uppercase tracking-widest mt-2 shadow-lg shadow-indigo-200 flex items-center justify-center gap-2 cursor-pointer"
             >
               <FileCheck className="w-4 h-4" /> Adopt Template
             </button>
@@ -988,13 +1384,48 @@ function SDBIPTemplateTab({ rows, selectedQuarter, setSelectedQuarter, currentUs
       </div>
 
       <div className="flex-1 p-8 overflow-y-auto hide-scrollbar flex justify-center bg-gray-200/50">
-        <ReportDocument rows={rows} selectedQuarter={selectedQuarter} currentUser={currentUser} id="template-content" />
+        <ReportDocument 
+          rows={rows} 
+          selectedQuarter={selectedQuarter} 
+          currentUser={currentUser} 
+          id="template-content" 
+          coverImage={coverImage}
+          overlayOpacity={overlayOpacity}
+          coverTexts={coverTexts}
+          onOpenCoverModal={onOpenCoverModal}
+          onUpdateTextElement={onUpdateTextElement}
+          onDeleteCoverText={onDeleteCoverText}
+        />
       </div>
     </div>
   );
 }
 
-function SDBIPReportsTab({ rows, currentUser, activeTenantId, period, setPeriod }: { rows: SdbipRow[], currentUser: any, activeTenantId: string, period: string, setPeriod: (p: any) => void }) {
+function SDBIPReportsTab({ 
+  rows, 
+  currentUser, 
+  activeTenantId, 
+  period, 
+  setPeriod,
+  coverImage,
+  overlayOpacity,
+  coverTexts,
+  onOpenCoverModal,
+  onUpdateTextElement,
+  onDeleteCoverText
+}: { 
+  rows: SdbipRow[], 
+  currentUser: any, 
+  activeTenantId: string, 
+  period: string, 
+  setPeriod: (p: any) => void,
+  coverImage?: string,
+  overlayOpacity?: number,
+  coverTexts?: CoverTextElement[],
+  onOpenCoverModal?: () => void,
+  onUpdateTextElement?: (id: string, updates: Partial<CoverTextElement>) => void,
+  onDeleteCoverText?: (id: string) => void
+}) {
   const [isExportingWord, setIsExportingWord] = useState(false);
   const [isExportingPDF, setIsExportingPDF] = useState(false);
 
@@ -1295,6 +1726,16 @@ function SDBIPReportsTab({ rows, currentUser, activeTenantId, period, setPeriod 
           ))}
         </div>
         <div className="flex gap-2">
+          {onOpenCoverModal && (
+            <button 
+              type="button" 
+              onClick={onOpenCoverModal} 
+              className="flex items-center gap-2 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold rounded-lg transition shadow-sm cursor-pointer"
+              title="Upload custom image or pick preset for report cover"
+            >
+              <Camera className="w-3.5 h-3.5" /> Cover Picture
+            </button>
+          )}
           <button onClick={exportToWord} disabled={isExportingWord || isExportingPDF} className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 text-white text-[10px] font-bold rounded-lg hover:bg-indigo-700 transition shadow-sm disabled:opacity-50">
             {isExportingWord ? <span className="animate-pulse">Exporting...</span> : <><FileText className="w-3.5 h-3.5" /> Word</>}
           </button>
@@ -1311,7 +1752,18 @@ function SDBIPReportsTab({ rows, currentUser, activeTenantId, period, setPeriod 
       </div>
 
       <div className="flex-1 p-8 overflow-y-auto hide-scrollbar flex justify-center bg-gray-200/50">
-        <ReportDocument rows={rows} selectedQuarter={period as any} currentUser={currentUser} id="report-content" />
+        <ReportDocument 
+          rows={rows} 
+          selectedQuarter={period as any} 
+          currentUser={currentUser} 
+          id="report-content" 
+          coverImage={coverImage}
+          overlayOpacity={overlayOpacity}
+          coverTexts={coverTexts}
+          onOpenCoverModal={onOpenCoverModal}
+          onUpdateTextElement={onUpdateTextElement}
+          onDeleteCoverText={onDeleteCoverText}
+        />
       </div>
     </div>
   );
@@ -1369,6 +1821,537 @@ function EditableTable({ headers: initialHeaders, initialRows }: { headers: stri
       <button onClick={addRow} className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold rounded-lg border border-slate-200 transition-all shadow-sm">
         <Plus className="w-3 h-3" /> Add Row
       </button>
+    </div>
+  );
+}
+
+function CoverPictureModal({
+  coverImage,
+  overlayOpacity,
+  coverTexts = DEFAULT_COVER_TEXTS,
+  onUpdateCoverImage,
+  onUpdateOverlayOpacity,
+  onUpdateCoverTexts,
+  onUpdateTextElement,
+  onDeleteCoverText,
+  onAddCoverText,
+  onResetCoverTexts,
+  onClose
+}: {
+  coverImage: string;
+  overlayOpacity: number;
+  coverTexts?: CoverTextElement[];
+  onUpdateCoverImage: (url: string) => void;
+  onUpdateOverlayOpacity: (opacity: number) => void;
+  onUpdateCoverTexts: (texts: CoverTextElement[]) => void;
+  onUpdateTextElement: (id: string, updates: Partial<CoverTextElement>) => void;
+  onDeleteCoverText: (id: string) => void;
+  onAddCoverText: () => void;
+  onResetCoverTexts: () => void;
+  onClose: () => void;
+}) {
+  const [customUrl, setCustomUrl] = useState('');
+  const [activeTab, setActiveTab] = useState<'text' | 'preset' | 'upload' | 'url'>('text');
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert("File size exceeds 5MB limit. Please choose a smaller image.");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          onUpdateCoverImage(event.target.result as string);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleApplyUrl = () => {
+    if (customUrl.trim()) {
+      onUpdateCoverImage(customUrl.trim());
+      setCustomUrl('');
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-fade-in">
+      <div className="bg-white rounded-2xl max-w-3xl w-full shadow-2xl overflow-hidden border border-slate-100 flex flex-col max-h-[92vh]">
+        {/* Header */}
+        <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-indigo-500/20 rounded-xl text-indigo-400">
+              <Type className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="font-bold text-base text-white">SDBIP Report Cover Customizer</h3>
+              <p className="text-xs text-slate-400">Edit or delete cover titles, upload background images, choose presets, or adjust tint.</p>
+            </div>
+          </div>
+          <button 
+            onClick={onClose}
+            className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Content Body */}
+        <div className="p-6 overflow-y-auto space-y-6 flex-1">
+          {/* Live Preview Card */}
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                Live Cover Preview
+              </label>
+              <span className="text-[10px] text-slate-400 font-medium">Hover text lines in preview to delete</span>
+            </div>
+            <div 
+              className="relative w-full h-48 rounded-2xl overflow-hidden shadow-inner flex flex-col justify-center items-center text-center p-6 text-white border border-slate-200"
+              style={{
+                backgroundImage: coverImage.startsWith('linear-gradient') ? coverImage : `url('${coverImage}')`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center'
+              }}
+            >
+              <div 
+                className="absolute inset-0 bg-slate-900 mix-blend-multiply transition-opacity" 
+                style={{ opacity: overlayOpacity }}
+              />
+              <div className="relative z-10 w-full flex flex-col items-center space-y-2">
+                {coverTexts && coverTexts.length > 0 ? (
+                  coverTexts.map((el) => (
+                    <div key={el.id} className="relative group/previtem w-full flex justify-center items-center">
+                      <p 
+                        className={`px-4 text-center ${getCoverTextClasses(el)}`}
+                        style={getCoverElementStyle(el)}
+                      >
+                        {el.text}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => onDeleteCoverText(el.id)}
+                        className="absolute right-2 opacity-0 group-hover/previtem:opacity-100 bg-rose-600 hover:bg-rose-700 text-white p-1 rounded-md text-[10px] font-bold transition shadow-sm cursor-pointer flex items-center gap-1 z-30"
+                        title="Delete from cover"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))
+                ) : null}
+                {coverTexts && coverTexts.length > 0 && (
+                  <div className="w-16 h-1 bg-indigo-500 rounded-full mt-3"></div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Dark Overlay Opacity Slider */}
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
+            <div className="flex justify-between items-center text-xs font-bold text-slate-700">
+              <span className="flex items-center gap-1.5">
+                <Sliders className="w-4 h-4 text-indigo-600" /> Overlay Background Opacity
+              </span>
+              <span className="bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-md font-mono text-[11px]">
+                {Math.round(overlayOpacity * 100)}%
+              </span>
+            </div>
+            <input 
+              type="range" 
+              min="0.1" 
+              max="0.95" 
+              step="0.05"
+              value={overlayOpacity}
+              onChange={(e) => onUpdateOverlayOpacity(parseFloat(e.target.value))}
+              className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+            />
+          </div>
+
+          {/* Selection Mode Tabs */}
+          <div className="flex border-b border-slate-200 space-x-4">
+            <button
+              onClick={() => setActiveTab('text')}
+              className={`pb-2.5 text-xs font-bold transition border-b-2 cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'text'
+                  ? 'border-indigo-600 text-indigo-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <Edit3 className="w-3.5 h-3.5" /> Text Elements ({coverTexts.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('preset')}
+              className={`pb-2.5 text-xs font-bold transition border-b-2 cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'preset'
+                  ? 'border-indigo-600 text-indigo-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5" /> Background Presets
+            </button>
+            <button
+              onClick={() => setActiveTab('upload')}
+              className={`pb-2.5 text-xs font-bold transition border-b-2 cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'upload'
+                  ? 'border-indigo-600 text-indigo-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <Camera className="w-3.5 h-3.5" /> Upload Image
+            </button>
+            <button
+              onClick={() => setActiveTab('url')}
+              className={`pb-2.5 text-xs font-bold transition border-b-2 cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'url'
+                  ? 'border-indigo-600 text-indigo-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <ImageIcon className="w-3.5 h-3.5" /> URL / Gradient
+            </button>
+          </div>
+
+          {/* Tab Content: Text Editor Tool */}
+          {activeTab === 'text' && (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-800">Cover Page Text Elements</span>
+                  <span className="bg-indigo-100 text-indigo-700 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
+                    {coverTexts.length} Lines
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onUpdateCoverTexts([])}
+                    className="flex items-center gap-1 text-[11px] font-bold text-rose-600 hover:text-rose-700 px-2.5 py-1 bg-rose-50 hover:bg-rose-100 rounded-lg transition cursor-pointer border border-rose-200"
+                    title="Remove all text lines to display background image 100% cleanly"
+                  >
+                    <Trash2 className="w-3 h-3" /> Clear All Text
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onResetCoverTexts}
+                    className="flex items-center gap-1 text-[11px] font-bold text-slate-600 hover:text-slate-900 px-2.5 py-1 bg-white hover:bg-slate-100 rounded-lg transition cursor-pointer border border-slate-200"
+                  >
+                    <RotateCcw className="w-3 h-3" /> Reset Defaults
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onAddCoverText}
+                    className="flex items-center gap-1 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-1 rounded-xl transition cursor-pointer shadow-xs"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add Text Line
+                  </button>
+                </div>
+              </div>
+
+              {coverTexts.length === 0 ? (
+                <div className="p-8 text-center border-2 border-dashed border-emerald-200 rounded-2xl bg-emerald-50/50">
+                  <div className="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-2">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <p className="text-xs font-bold text-emerald-900">Clean Cover Mode Active</p>
+                  <p className="text-[11px] text-emerald-700 mt-1 mb-4 max-w-md mx-auto">
+                    All cover text lines have been deleted. Your cover background image will render 100% cleanly without any text boxes, overlays, or blue divider lines.
+                  </p>
+                  <div className="flex justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={onAddCoverText}
+                      className="px-3.5 py-1.5 bg-indigo-600 text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer hover:bg-indigo-700 transition flex items-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Add Custom Text Line
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onResetCoverTexts}
+                      className="px-3.5 py-1.5 bg-white text-slate-700 font-bold text-xs rounded-xl border border-slate-200 shadow-xs cursor-pointer hover:bg-slate-50 transition"
+                    >
+                      Restore Default Titles
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {coverTexts.map((el, index) => (
+                    <div 
+                      key={el.id} 
+                      className="p-4 bg-slate-50 hover:bg-indigo-50/20 rounded-2xl border border-slate-200 transition-all space-y-3 group shadow-xs"
+                    >
+                      {/* Item Header */}
+                      <div className="flex items-center justify-between gap-2 border-b border-slate-200/60 pb-2">
+                        <span className="text-[11px] font-black uppercase tracking-wider text-slate-500 flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold">
+                            {index + 1}
+                          </span>
+                          {el.label || `Text Line ${index + 1}`}
+                        </span>
+
+                        <div className="flex items-center gap-1.5">
+                          {/* Uppercase toggle */}
+                          <button
+                            type="button"
+                            onClick={() => onUpdateTextElement(el.id, { uppercase: !el.uppercase })}
+                            className={`px-2 py-0.5 rounded text-[10px] font-extrabold transition cursor-pointer border ${
+                              el.uppercase 
+                                ? 'bg-indigo-600 text-white border-indigo-600' 
+                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+                            }`}
+                            title="Toggle uppercase styling"
+                          >
+                            UPPERCASE
+                          </button>
+
+                          {/* Font Weight selector */}
+                          <select
+                            value={el.fontWeight || 'bold'}
+                            onChange={(e) => onUpdateTextElement(el.id, { fontWeight: e.target.value as any })}
+                            className="px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-700 text-[10px] font-bold outline-none cursor-pointer"
+                            title="Font Weight"
+                          >
+                            <option value="normal">Normal (400)</option>
+                            <option value="semibold">Semibold (600)</option>
+                            <option value="bold">Bold (700)</option>
+                            <option value="black">Black (900)</option>
+                          </select>
+
+                          {/* Delete button */}
+                          <button
+                            type="button"
+                            onClick={() => onDeleteCoverText(el.id)}
+                            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer ml-1"
+                            title="Delete text element"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Main Text Content Input */}
+                      <div>
+                        <input 
+                          type="text" 
+                          value={el.text}
+                          onChange={(e) => onUpdateTextElement(el.id, { text: e.target.value })}
+                          className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition"
+                          placeholder="Enter title string... (use {QUARTER} for dynamic period)"
+                        />
+                      </div>
+
+                      {/* Advanced Formatting Controls: Grid */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 text-[11px]">
+                        {/* Font Size & Custom PX */}
+                        <div className="space-y-1 bg-white p-2.5 rounded-xl border border-slate-200/80">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                            Font Size
+                          </label>
+                          <div className="flex items-center gap-1.5">
+                            <select 
+                              value={el.fontSize || 'base'}
+                              onChange={(e) => onUpdateTextElement(el.id, { fontSize: e.target.value as any })}
+                              className="flex-1 px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 outline-none"
+                            >
+                              <option value="xs">Extra Small (12px)</option>
+                              <option value="sm">Small (14px)</option>
+                              <option value="base">Medium (16px)</option>
+                              <option value="lg">Large (18px)</option>
+                              <option value="xl">X-Large (20px)</option>
+                              <option value="2xl">2X Large (24px)</option>
+                              <option value="3xl">3X Large (30px)</option>
+                              <option value="4xl">4X Large (36px)</option>
+                              <option value="5xl">5X Large (48px)</option>
+                              <option value="6xl">6X Large (60px)</option>
+                            </select>
+                            <div className="flex items-center gap-1 shrink-0" title="Custom size in pixels">
+                              <input
+                                type="number"
+                                min="8"
+                                max="120"
+                                placeholder="px"
+                                value={el.customFontSizePx || ''}
+                                onChange={(e) => onUpdateTextElement(el.id, { customFontSizePx: e.target.value ? parseInt(e.target.value) : undefined })}
+                                className="w-12 px-1.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono text-slate-800 text-center outline-none"
+                              />
+                              <span className="text-[10px] text-slate-400 font-bold">px</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Color Picker & Custom Hex */}
+                        <div className="space-y-1 bg-white p-2.5 rounded-xl border border-slate-200/80">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                            Text Color
+                          </label>
+                          <div className="flex items-center gap-1.5">
+                            <select 
+                              value={el.customColor ? 'custom' : (el.color || 'white')}
+                              onChange={(e) => {
+                                if (e.target.value === 'custom') {
+                                  onUpdateTextElement(el.id, { customColor: '#ffffff' });
+                                } else {
+                                  onUpdateTextElement(el.id, { color: e.target.value, customColor: undefined });
+                                }
+                              }}
+                              className="flex-1 px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 outline-none"
+                            >
+                              <option value="white">Pure White (#FFF)</option>
+                              <option value="amber-300">Amber Gold (#FCD34D)</option>
+                              <option value="indigo-300">Indigo Accent (#A5B4FC)</option>
+                              <option value="emerald-300">Emerald Green (#6EE7B7)</option>
+                              <option value="sky-300">Sky Blue (#7DD3FC)</option>
+                              <option value="rose-300">Rose Pink (#F472B6)</option>
+                              <option value="purple-300">Purple Accent (#D8B4FE)</option>
+                              <option value="slate-300">Muted Slate (#CBD5E1)</option>
+                              <option value="black">Jet Black (#0F172A)</option>
+                              <option value="custom">Custom Hex Code...</option>
+                            </select>
+                            
+                            {/* Color Swatch / Hex Input */}
+                            <div className="flex items-center gap-1 shrink-0">
+                              <input 
+                                type="color" 
+                                value={el.customColor || (el.color === 'amber-300' ? '#fcd34d' : el.color === 'indigo-300' ? '#a5b4fc' : el.color === 'emerald-300' ? '#6ee7b7' : el.color === 'black' ? '#0f172a' : '#ffffff')}
+                                onChange={(e) => onUpdateTextElement(el.id, { customColor: e.target.value })}
+                                className="w-7 h-7 rounded-lg border border-slate-300 p-0.5 cursor-pointer"
+                                title="Pick exact custom color"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Background Container Pill */}
+                        <div className="space-y-1 bg-white p-2.5 rounded-xl border border-slate-200/80">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                            Background Box Pill
+                          </label>
+                          <select 
+                            value={el.bgColor || 'none'}
+                            onChange={(e) => onUpdateTextElement(el.id, { bgColor: e.target.value as any })}
+                            className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 outline-none"
+                          >
+                            <option value="none">None (Transparent)</option>
+                            <option value="dark">Dark Glass Pill</option>
+                            <option value="light">Light Glass Pill</option>
+                            <option value="indigo">Indigo Dark Pill</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Tab Content: Presets */}
+          {activeTab === 'preset' && (
+            <div className="grid grid-cols-3 gap-3">
+              {COVER_PRESETS.map((preset) => {
+                const isSelected = coverImage === preset.url;
+                return (
+                  <button
+                    key={preset.id}
+                    onClick={() => onUpdateCoverImage(preset.url)}
+                    className={`relative rounded-xl overflow-hidden h-24 text-left border-2 transition-all p-2 flex flex-col justify-end text-white cursor-pointer group ${
+                      isSelected 
+                        ? 'border-indigo-600 ring-2 ring-indigo-600/30 scale-[1.02]' 
+                        : 'border-transparent hover:border-slate-300'
+                    }`}
+                    style={{
+                      backgroundImage: preset.url.startsWith('linear-gradient') ? preset.url : `url('${preset.url}')`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center'
+                    }}
+                  >
+                    <div className="absolute inset-0 bg-slate-900/60 group-hover:bg-slate-900/40 transition-colors" />
+                    <span className="relative z-10 text-[11px] font-bold drop-shadow-sm">
+                      {preset.name}
+                    </span>
+                    {isSelected && (
+                      <span className="absolute top-2 right-2 z-10 bg-indigo-600 text-white rounded-full p-1 shadow-md">
+                        <Sparkles className="w-3 h-3" />
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Tab Content: Upload */}
+          {activeTab === 'upload' && (
+            <div className="border-2 border-dashed border-slate-300 hover:border-indigo-500 rounded-2xl p-8 text-center bg-slate-50 hover:bg-indigo-50/30 transition-all cursor-pointer relative group">
+              <input 
+                type="file" 
+                accept="image/*"
+                onChange={handleFileUpload}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+              />
+              <div className="w-12 h-12 bg-indigo-100 group-hover:bg-indigo-200 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-3 transition">
+                <Camera className="w-6 h-6" />
+              </div>
+              <h4 className="text-sm font-bold text-slate-800 mb-1">Click to browse or drag and drop image</h4>
+              <p className="text-xs text-slate-500 mb-4">Supports PNG, JPG, WEBP or SVG up to 5MB</p>
+              <span className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white font-bold text-xs rounded-xl shadow-md group-hover:bg-indigo-700 transition">
+                Choose Local Image
+              </span>
+            </div>
+          )}
+
+          {/* Tab Content: URL */}
+          {activeTab === 'url' && (
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1.5">Image URL</label>
+                <div className="flex gap-2">
+                  <input 
+                    type="url" 
+                    placeholder="https://images.unsplash.com/..."
+                    value={customUrl}
+                    onChange={(e) => setCustomUrl(e.target.value)}
+                    className="flex-1 px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-indigo-500 focus:bg-white"
+                  />
+                  <button 
+                    onClick={handleApplyUrl}
+                    disabled={!customUrl.trim()}
+                    className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition disabled:opacity-50 cursor-pointer"
+                  >
+                    Apply Image
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
+          <button 
+            type="button"
+            onClick={() => {
+              onUpdateCoverImage(DEFAULT_COVER_IMAGE);
+              onUpdateOverlayOpacity(0.8);
+              onResetCoverTexts();
+            }}
+            className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-800 transition cursor-pointer"
+          >
+            <RotateCcw className="w-3.5 h-3.5" /> Reset All Cover Settings
+          </button>
+
+          <button 
+            type="button"
+            onClick={onClose}
+            className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-md transition cursor-pointer"
+          >
+            Save & Close
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

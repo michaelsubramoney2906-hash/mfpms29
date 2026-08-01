@@ -4,7 +4,7 @@ import {
   FolderOpen, FileSpreadsheet, Image, File, Download, Search,
   Award, ShieldCheck, AlertTriangle, ExternalLink, Lock, Check,
   Eye, Sparkles, FolderIcon, HardDrive, ThumbsUp, ThumbsDown, X, Info, AlertCircle,
-  XCircle, Save, ShieldAlert, History
+  XCircle, Save, ShieldAlert, History, CheckSquare, Square, Send
 } from 'lucide-react';
 import { IPMSWorkflowInbox } from './IPMSWorkflowInbox';
 
@@ -26,6 +26,22 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
   const [activeKpiQuarter, setActiveKpiQuarter] = useState<{ [kpiId: string]: string }>({});
   const [incomingNotifications, setIncomingNotifications] = useState<any[]>([]);
   const [activeDetailTab, setActiveDetailTab] = useState<'kpis' | 'history'>('kpis');
+  const [selectedKpiIdsForReview, setSelectedKpiIdsForReview] = useState<string[]>([]);
+
+  const toggleSelectKpiForReview = (id: string) => {
+    setSelectedKpiIdsForReview(prev => 
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAllKpisForReview = () => {
+    const items = selectedPlan?.plan?.items || [];
+    if (selectedKpiIdsForReview.length === items.length) {
+      setSelectedKpiIdsForReview([]);
+    } else {
+      setSelectedKpiIdsForReview(items.map((i: any) => i.id));
+    }
+  };
 
   const getDisplayLogs = () => {
     if (!selectedPlan || !selectedPlan.plan) return [];
@@ -531,14 +547,27 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
     }
   };
 
-  const handleApproveReview = async () => {
+  const handleApproveReview = async (targetIds?: string[]) => {
     if (!selectedPlan) return;
     setSaving(true);
     try {
       const payload = { ...selectedPlan.plan };
-      payload.metadata.reviewStatus = 'Approved';
+      const allItems = payload.items || [];
+      const isTargeted = targetIds && targetIds.length > 0;
+      const targetItems = isTargeted ? allItems.filter((i: any) => targetIds.includes(i.id)) : allItems;
+      const kpiNosText = targetItems.map((i: any) => `#${i.kpiNo || i.id}`).join(', ');
 
-      // Record in audit history
+      payload.items = allItems.map((item: any) => {
+        if (!isTargeted || targetIds.includes(item.id)) {
+          return { ...item, reviewStatus: 'Approved' };
+        }
+        return item;
+      });
+
+      if (!isTargeted || targetIds.length === allItems.length) {
+        payload.metadata.reviewStatus = 'Approved';
+      }
+
       if (!payload.metadata) payload.metadata = {};
       if (!payload.metadata.history) payload.metadata.history = [];
       payload.metadata.history.push({
@@ -546,9 +575,9 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
         userEmail: (currentUser?.email || '').toLowerCase().trim(),
         userName: currentUser?.fullName || currentUser?.full_name || 'Manager Yena Khuboni',
         role: currentUser?.systemRole || currentUser?.role || 'Line Manager',
-        action: 'Approved by Manager',
+        action: isTargeted ? `Approved KPI(s) (${kpiNosText})` : 'Approved All KPIs',
         status: 'Approved',
-        comment: 'Manager reviewed and approved the portfolios of evidence (PoE) and performance self-evaluations.'
+        comment: `Manager reviewed and approved ${isTargeted ? `${targetItems.length} KPI(s) (${kpiNosText})` : 'all KPIs'}.`
       });
 
       await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${selectedPlan.userId}`, {
@@ -562,8 +591,11 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
       const submitterEmail = selectedPlan.userId;
       const submitterName = selectedPlan.plan?.metadata?.name || submitterEmail;
 
-      const title = `✅ Performance Evaluation & PoE Approved by ${managerName}`;
-      const message = `Manager ${managerName} (${managerEmail}) has verified and approved your performance evaluation and portfolios of evidence. All KPI records are signed off and updated.`;
+      const title = isTargeted && targetIds.length === 1
+        ? `✅ Single KPI ${kpiNosText} & PoE Approved by ${managerName}`
+        : `✅ ${isTargeted ? `${targetIds.length} Selected KPIs` : 'All KPIs'} & PoE Approved by ${managerName}`;
+
+      const message = `Manager ${managerName} (${managerEmail}) has verified and approved ${isTargeted ? `${targetItems.length} KPI(s) (${kpiNosText})` : 'all KPIs'} and portfolios of evidence.`;
 
       await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
         method: 'POST',
@@ -576,12 +608,13 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
             recipientName: submitterName,
             title,
             message,
-            actionType: 'approval'
+            actionType: 'approval',
+            kpiIds: isTargeted ? targetIds : undefined
           }
         })
       });
 
-      alert(`Employee performance review approved successfully! Signed-off notification sent to submitter (${submitterEmail}).`);
+      alert(`KPI review approval saved! Notification sent to submitter (${submitterEmail}).`);
       
       const updatedPlans = teamPlans.map(tp => 
         tp.userId === selectedPlan.userId ? { ...tp, plan: payload } : tp
@@ -590,20 +623,31 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
       setSelectedPlan({ ...selectedPlan, plan: payload });
     } catch (e) {
       console.error(e);
-      alert("Error occurred while approving review. Please try again.");
+      alert("Error occurred while approving review: " + String(e));
     } finally {
       setSaving(false);
     }
   };
 
-  const handleRejectReview = async () => {
+  const handleRejectReview = async (targetIds?: string[]) => {
     if (!selectedPlan) return;
     setSaving(true);
     try {
       const payload = { ...selectedPlan.plan };
+      const allItems = payload.items || [];
+      const isTargeted = targetIds && targetIds.length > 0;
+      const targetItems = isTargeted ? allItems.filter((i: any) => targetIds.includes(i.id)) : allItems;
+      const kpiNosText = targetItems.map((i: any) => `#${i.kpiNo || i.id}`).join(', ');
+
+      payload.items = allItems.map((item: any) => {
+        if (!isTargeted || targetIds.includes(item.id)) {
+          return { ...item, reviewStatus: 'Revision Required' };
+        }
+        return item;
+      });
+
       payload.metadata.reviewStatus = 'Revision Required';
 
-      // Record in audit history
       if (!payload.metadata) payload.metadata = {};
       if (!payload.metadata.history) payload.metadata.history = [];
       payload.metadata.history.push({
@@ -611,9 +655,9 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
         userEmail: (currentUser?.email || '').toLowerCase().trim(),
         userName: currentUser?.fullName || currentUser?.full_name || 'Manager Yena Khuboni',
         role: currentUser?.systemRole || currentUser?.role || 'Line Manager',
-        action: 'Revision Required / Rejected',
+        action: isTargeted ? `Revision Requested on KPI(s) (${kpiNosText})` : 'Revision Required / Rejected',
         status: 'Revision Required',
-        comment: 'Manager rejected submission/requested revisions for Portfolios of Evidence.'
+        comment: `Manager requested revisions for ${isTargeted ? `${targetItems.length} KPI(s) (${kpiNosText})` : 'the performance plan'}.`
       });
 
       await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${selectedPlan.userId}`, {
@@ -627,8 +671,11 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
       const submitterEmail = selectedPlan.userId;
       const submitterName = selectedPlan.plan?.metadata?.name || submitterEmail;
 
-      const title = `⚠️ PoE Revision Requested by ${managerName}`;
-      const message = `Manager ${managerName} (${managerEmail}) reviewed your performance evaluations and requested revisions/rejected your submission. Please check your self-evaluation dashboard to review feedback and submit missing PoE documents.`;
+      const title = isTargeted && targetIds.length === 1
+        ? `⚠️ Single KPI ${kpiNosText} Revision Requested by ${managerName}`
+        : `⚠️ PoE Revision Requested for ${isTargeted ? `${targetIds.length} KPIs` : 'Performance Plan'} by ${managerName}`;
+
+      const message = `Manager ${managerName} (${managerEmail}) reviewed ${isTargeted ? `${targetItems.length} KPI(s) (${kpiNosText})` : 'your performance evaluation'} and requested revisions. Please check your self-evaluation dashboard to update requested fields and PoE files.`;
 
       await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
         method: 'POST',
@@ -641,12 +688,13 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
             recipientName: submitterName,
             title,
             message,
-            actionType: 'revision_requested'
+            actionType: 'revision_requested',
+            kpiIds: isTargeted ? targetIds : undefined
           }
         })
       });
 
-      alert(`Employee performance review rejected/marked for revision! Notification sent to submitter (${submitterEmail}).`);
+      alert(`KPI revision request sent! Notification dispatched to submitter (${submitterEmail}).`);
       
       const updatedPlans = teamPlans.map(tp => 
         tp.userId === selectedPlan.userId ? { ...tp, plan: payload } : tp
@@ -655,20 +703,32 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
       setSelectedPlan({ ...selectedPlan, plan: payload });
     } catch (e) {
       console.error(e);
-      alert("Error occurred while requesting revisions. Please try again.");
+      alert("Error occurred while requesting revisions: " + String(e));
     } finally {
       setSaving(false);
     }
   };
 
-  const handlePushToAudit = async () => {
+  const handlePushToAudit = async (targetIds?: string[]) => {
     if (!selectedPlan) return;
     setSaving(true);
     try {
       const payload = { ...selectedPlan.plan };
-      payload.metadata.reviewStatus = 'Dispatched to Audit';
+      const allItems = payload.items || [];
+      const isTargeted = targetIds && targetIds.length > 0;
+      const targetItems = isTargeted ? allItems.filter((i: any) => targetIds.includes(i.id)) : allItems;
+      const kpiNosText = targetItems.map((i: any) => `#${i.kpiNo || i.id}`).join(', ');
 
-      // Record in audit history
+      payload.items = allItems.map((item: any) => {
+        if (!isTargeted || targetIds.includes(item.id)) {
+          return { ...item, reviewStatus: 'Dispatched to Audit', internalAuditStatus: 'Dispatched to Audit' };
+        }
+        return item;
+      });
+
+      payload.metadata.reviewStatus = 'Dispatched to Audit';
+      payload.metadata.internalAuditStatus = 'Dispatched to Audit';
+
       if (!payload.metadata) payload.metadata = {};
       if (!payload.metadata.history) payload.metadata.history = [];
       payload.metadata.history.push({
@@ -676,9 +736,9 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
         userEmail: (currentUser?.email || '').toLowerCase().trim(),
         userName: currentUser?.fullName || currentUser?.full_name || 'Manager Yena Khuboni',
         role: currentUser?.systemRole || currentUser?.role || 'Line Manager',
-        action: 'Forwarded to Internal Audit',
+        action: isTargeted ? `Dispatched KPI(s) (${kpiNosText}) to Internal Audit` : 'Forwarded All to Internal Audit',
         status: 'Dispatched to Audit',
-        comment: 'Manager approved the Performance Plan and dispatched portfolios/ratings to the Internal Audit Committee.'
+        comment: `Manager approved and dispatched ${isTargeted ? `${targetItems.length} KPI(s) (${kpiNosText})` : 'all KPIs'} to the Internal Audit Committee.`
       });
 
       await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${selectedPlan.userId}`, {
@@ -692,7 +752,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
       const submitterEmail = selectedPlan.userId;
       const submitterName = selectedPlan.plan?.metadata?.name || submitterEmail;
 
-      const kpisDetail = (payload.items || []).map((item: any) => {
+      const kpisDetail = targetItems.map((item: any) => {
         const poeDocsList = [
           ...(item.q1PoeDocs || []),
           ...(item.q2PoeDocs || []),
@@ -709,15 +769,16 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
                `  Portfolios of Evidence (PoEs): ${poeDocsList || 'No documents attached'}`;
       }).join('\n\n');
 
-      const poeCount = payload.items?.reduce((acc: number, item: any) => 
-        acc + (item.q1PoeDocs?.length || 0) + (item.q2PoeDocs?.length || 0) + (item.q3PoeDocs?.length || 0) + (item.q4PoeDocs?.length || 0), 0) || 0;
+      const isSingle = isTargeted && targetIds.length === 1;
+      const title = isSingle
+        ? `🛡️ Audit Dispatch: Single KPI ${kpiNosText} (${submitterName}) Approved by ${managerName}`
+        : `🛡️ Audit Dispatch: ${targetItems.length} KPIs (${kpiNosText}) (${submitterName}) Approved by ${managerName}`;
 
-      const title = `🛡️ Audit Dispatch: ${submitterName}'s KPIs Approved by ${managerName}`;
-      const message = `Line Manager ${managerName} (${managerEmail}) has verified and approved the Individual Performance Plan for Subordinate Submission.\n\n` +
-        `👤 **KPI Submitter/Owner (Subordinate)**: ${submitterName} (${submitterEmail})\n` +
+      const message = `Line Manager ${managerName} (${managerEmail}) has verified and approved ${isSingle ? `single KPI ${kpiNosText}` : `${targetItems.length} KPIs (${kpiNosText})`} for Subordinate (${submitterName}).\n\n` +
+        `👤 **KPI Submitter/Owner**: ${submitterName} (${submitterEmail})\n` +
         `💼 **Reviewed & Dispatched By**: ${managerName} (${managerEmail})\n\n` +
         `📋 **APPROVED KPI & EVIDENCE DETAILS**:\n\n${kpisDetail}\n\n` +
-        `Please access the Internal Audit module to conduct compliance verification, verify evidence documentation validity, and input auditor moderation scores.`;
+        `Please access the Internal Audit module to conduct compliance verification and audit evaluation.`;
 
       await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
         method: 'POST',
@@ -730,14 +791,16 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
             recipientName: 'Internal Audit Committee',
             title,
             message,
-            actionType: 'audit_request',
-            poeDocsCount: poeCount,
-            employeeEmail: submitterEmail
+            actionType: 'audit_dispatch',
+            kpiIds: targetIds
           }
         })
       });
 
-      alert(`Successfully dispatched employee performance plan & portfolios to Internal Audit! Auditor inbox notified.`);
+      alert(isSingle 
+        ? `Single KPI (${kpiNosText}) dispatched to Internal Audit committee! Notification sent.`
+        : `${targetItems.length} KPI(s) (${kpiNosText}) dispatched to Internal Audit committee! Notification sent.`
+      );
       
       const updatedPlans = teamPlans.map(tp => 
         tp.userId === selectedPlan.userId ? { ...tp, plan: payload } : tp
@@ -746,7 +809,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
       setSelectedPlan({ ...selectedPlan, plan: payload });
     } catch (e) {
       console.error(e);
-      alert("Error occurred while pushing to Internal Audit. Please try again.");
+      alert("Error occurred while pushing to audit: " + String(e));
     } finally {
       setSaving(false);
     }
@@ -1060,7 +1123,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
           </div>
 
           <button 
-            onClick={handleApproveReview}
+            onClick={() => handleApproveReview()}
             disabled={saving}
             className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-2 rounded-xl text-[10px] uppercase tracking-wide flex items-center gap-1.5 transition disabled:opacity-50 shadow-sm cursor-pointer border-0"
           >
@@ -1069,7 +1132,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
           </button>
 
           <button 
-            onClick={handleRejectReview}
+            onClick={() => handleRejectReview()}
             disabled={saving}
             className="bg-rose-600 hover:bg-rose-700 text-white font-bold px-3 py-2 rounded-xl text-[10px] uppercase tracking-wide flex items-center gap-1.5 transition disabled:opacity-50 shadow-sm cursor-pointer border-0"
           >
@@ -1078,7 +1141,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
           </button>
 
           <button 
-            onClick={handlePushToAudit}
+            onClick={() => handlePushToAudit()}
             disabled={saving}
             className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-2 rounded-xl text-[10px] uppercase tracking-wide flex items-center gap-1.5 transition disabled:opacity-50 shadow-sm cursor-pointer border-0"
           >
@@ -1131,6 +1194,64 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
             </div>
           ) : (
           <div className="space-y-4">
+            {/* Multi-Selection & Batch Manager Review Action Bar */}
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={toggleSelectAllKpisForReview}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-300 text-slate-700 bg-slate-50 hover:bg-slate-100 font-bold text-xs cursor-pointer transition"
+                >
+                  {selectedKpiIdsForReview.length === plan.items.length ? (
+                    <CheckSquare className="w-4 h-4 text-emerald-600" />
+                  ) : (
+                    <Square className="w-4 h-4 text-slate-400" />
+                  )}
+                  <span>{selectedKpiIdsForReview.length === plan.items.length ? 'Deselect All' : 'Select All KPIs'}</span>
+                </button>
+
+                <span className="text-xs text-slate-500 font-bold">
+                  {selectedKpiIdsForReview.length} of {plan.items.length} KPI(s) selected for review
+                </span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {selectedKpiIdsForReview.length > 0 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleApproveReview(selectedKpiIdsForReview)}
+                      disabled={saving}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 rounded-xl text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-sm cursor-pointer transition disabled:opacity-50"
+                    >
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      <span>Approve Selected ({selectedKpiIdsForReview.length})</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleRejectReview(selectedKpiIdsForReview)}
+                      disabled={saving}
+                      className="bg-rose-600 hover:bg-rose-500 text-white font-bold px-3 py-1.5 rounded-xl text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-sm cursor-pointer transition disabled:opacity-50"
+                    >
+                      <XCircle className="w-3.5 h-3.5" />
+                      <span>Reject Selected ({selectedKpiIdsForReview.length})</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handlePushToAudit(selectedKpiIdsForReview)}
+                      disabled={saving}
+                      className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3 py-1.5 rounded-xl text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-sm cursor-pointer transition disabled:opacity-50"
+                    >
+                      <ShieldAlert className="w-3.5 h-3.5" />
+                      <span>Dispatch Selected ({selectedKpiIdsForReview.length}) to Audit</span>
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+
             {plan.items
               .filter((kpi: any) => {
                 // Specific rule: For khoboniy@nkangaladm.gov.za reviewing zulune, only show Noluthando Zulu's KPI from today (KPI M_21)
@@ -1144,6 +1265,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
               .map((kpi: any, idx: number) => {
               // Retrieve active selected quarter tab for auditing this specific KPI
               const currentQuarterTab = activeKpiQuarter[kpi.id] || 'Q1';
+              const isSelected = selectedKpiIdsForReview.includes(kpi.id);
               
               // Map variables specifically
               const activeQuartersList = [
@@ -1158,10 +1280,23 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
               const currentQuarterData = activeQuartersList.find(q => q.id === currentQuarterTab) || activeQuartersList[0];
 
               return (
-                <div key={kpi.id} id={`kpi-card-${kpi.id}`} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-4 transition-all duration-300">
+                <div key={kpi.id} id={`kpi-card-${kpi.id}`} className={`bg-white p-5 rounded-2xl border ${isSelected ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'border-slate-200'} shadow-sm flex flex-col gap-4 transition-all duration-300`}>
                   {/* Header with metadata badging */}
                   <div className="flex flex-wrap justify-between items-start gap-3 pb-3 border-b border-rose-100/50">
                     <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => toggleSelectKpiForReview(kpi.id)}
+                        className="p-1 rounded text-slate-600 hover:text-indigo-600 cursor-pointer"
+                        title={isSelected ? 'Deselect KPI' : 'Select KPI for manager review actions'}
+                      >
+                        {isSelected ? (
+                          <CheckSquare className="w-5 h-5 text-indigo-600" />
+                        ) : (
+                          <Square className="w-5 h-5 text-slate-400" />
+                        )}
+                      </button>
+
                       <span className="bg-slate-900 text-white font-mono text-[9px] font-bold px-2 py-0.5 rounded tracking-wider">
                         {kpi.kpiNo || `KPI #${idx + 1}`}
                       </span>
@@ -1173,10 +1308,62 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
                           mSCOA: {kpi.mscoaCode}
                         </span>
                       )}
+                      
+                      {kpi.reviewStatus === 'Approved' && (
+                        <span className="bg-emerald-600 text-white font-black text-[9px] px-2 py-0.5 rounded-full uppercase tracking-wider">
+                          ✅ Approved
+                        </span>
+                      )}
+                      {kpi.reviewStatus === 'Revision Required' && (
+                        <span className="bg-rose-600 text-white font-black text-[9px] px-2 py-0.5 rounded-full uppercase tracking-wider">
+                          ⚠️ Revision Requested
+                        </span>
+                      )}
+                      {kpi.reviewStatus === 'Dispatched to Audit' && (
+                        <span className="bg-indigo-600 text-white font-black text-[9px] px-2 py-0.5 rounded-full uppercase tracking-wider">
+                          🛡️ In Internal Audit
+                        </span>
+                      )}
                     </div>
-                    <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-100 px-3 py-1 rounded-full text-xs font-black">
-                      <span className="text-[10px] font-bold uppercase text-emerald-600/80">Weighting:</span>
-                      <span>{kpi.weighting || 0}%</span>
+
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleApproveReview([kpi.id])}
+                        disabled={saving}
+                        className="bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 font-bold px-2.5 py-1 rounded-lg text-[10px] uppercase flex items-center gap-1 cursor-pointer transition"
+                        title="Approve single KPI"
+                      >
+                        <Check className="w-3 h-3 text-emerald-600" />
+                        <span>Approve Single</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleRejectReview([kpi.id])}
+                        disabled={saving}
+                        className="bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 font-bold px-2.5 py-1 rounded-lg text-[10px] uppercase flex items-center gap-1 cursor-pointer transition"
+                        title="Reject / Request revision for single KPI"
+                      >
+                        <X className="w-3 h-3 text-rose-600" />
+                        <span>Reject Single</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handlePushToAudit([kpi.id])}
+                        disabled={saving}
+                        className="bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 font-bold px-2.5 py-1 rounded-lg text-[10px] uppercase flex items-center gap-1 cursor-pointer transition"
+                        title="Dispatch single KPI to Internal Audit Committee"
+                      >
+                        <ShieldAlert className="w-3 h-3 text-indigo-600" />
+                        <span>Dispatch Single to Audit</span>
+                      </button>
+
+                      <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-100 px-2.5 py-1 rounded-full text-xs font-black">
+                        <span className="text-[9px] font-bold uppercase text-emerald-600/80">Weighting:</span>
+                        <span>{kpi.weighting || 0}%</span>
+                      </div>
                     </div>
                   </div>
 

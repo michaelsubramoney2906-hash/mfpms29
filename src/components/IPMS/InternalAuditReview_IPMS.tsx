@@ -19,7 +19,9 @@ import {
   ShieldCheck, 
   FileSpreadsheet, 
   FileImage, 
-  FileCode 
+  FileCode,
+  CheckSquare,
+  Square
 } from 'lucide-react';
 import { IPMSWorkflowInbox } from './IPMSWorkflowInbox';
 
@@ -38,6 +40,22 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
   const [previewDoc, setPreviewDoc] = useState<any | null>(null);
   const [auditLedger, setAuditLedger] = useState<any[]>([]);
   const [clearingAudits, setClearingAudits] = useState(false);
+  const [selectedKpiIdsForAudit, setSelectedKpiIdsForAudit] = useState<string[]>([]);
+
+  const toggleSelectKpiForAudit = (id: string) => {
+    setSelectedKpiIdsForAudit(prev => 
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAllKpisForAudit = () => {
+    const items = selectedPlan?.plan?.items || [];
+    if (selectedKpiIdsForAudit.length === items.length) {
+      setSelectedKpiIdsForAudit([]);
+    } else {
+      setSelectedKpiIdsForAudit(items.map((i: any) => i.id));
+    }
+  };
 
   useEffect(() => {
     if (selectedPlan && selectedPlan.plan && Array.isArray(selectedPlan.plan.items) && selectedPlan.plan.items.length > 0) {
@@ -168,27 +186,42 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
     });
   };
 
-  const handleSaveReview = async (status: string = 'Audited') => {
+  const handleSaveReview = async (status: string = 'Audited', targetKpiIds?: string[]) => {
     if (!selectedPlan) return;
     setSaving(true);
     try {
       const payload = { ...selectedPlan.plan };
+      const allItems = payload.items || [];
+      const isTargeted = targetKpiIds && targetKpiIds.length > 0;
+      const targetItems = isTargeted ? allItems.filter((i: any) => targetKpiIds.includes(i.id)) : allItems;
+      const kpiNosText = targetItems.map((i: any) => `#${i.kpiNo || i.id}`).join(', ');
+
+      payload.items = allItems.map((item: any) => {
+        if (!isTargeted || targetKpiIds.includes(item.id)) {
+          return {
+            ...item,
+            internalAuditStatus: status,
+            reviewStatus: status === 'Rejected' ? 'Revision Required' : (item.reviewStatus || 'Dispatched to Audit')
+          };
+        }
+        return item;
+      });
+
       payload.metadata.internalAuditStatus = status;
 
       // Record in audit history
       if (!payload.metadata) payload.metadata = {};
       if (!payload.metadata.history) payload.metadata.history = [];
       
-      let actionName = `Audited: Status "${status}"`;
-      let auditComment = `Internal Audit verification completed with rating update and portfolios signed-off.`;
+      let actionName = isTargeted ? `Audited KPI(s) (${kpiNosText}): "${status}"` : `Audited All KPIs: Status "${status}"`;
+      let auditComment = `Internal Audit verification completed for ${isTargeted ? `${targetItems.length} KPI(s) (${kpiNosText})` : 'all KPIs'}.`;
       if (status === 'Rejected') {
-        actionName = 'Rejected by Internal Audit';
-        auditComment = 'Internal Audit rejected the submission and requested portfolios of evidence revisions due to compliance gaps.';
-        // Also unlock the plan for employee edit and manager re-review
+        actionName = isTargeted ? `Rejected KPI(s) (${kpiNosText}) by Internal Audit` : 'Rejected by Internal Audit';
+        auditComment = `Internal Audit rejected ${isTargeted ? `${targetItems.length} KPI(s) (${kpiNosText})` : 'submission'} due to compliance gaps.`;
         payload.metadata.reviewStatus = 'Revision Required';
       } else if (status === 'Pushed to DPMC') {
-        actionName = 'Pushed to DPMC';
-        auditComment = 'Dispatched to Departmental Performance Moderation Committee (DPMC) for final review.';
+        actionName = isTargeted ? `Pushed KPI(s) (${kpiNosText}) to DPMC` : 'Pushed to DPMC';
+        auditComment = `Dispatched ${isTargeted ? `${targetItems.length} KPI(s) (${kpiNosText})` : 'all KPIs'} to DPMC.`;
       }
 
       payload.metadata.history.push({
@@ -208,8 +241,8 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
       });
       
       // Update Audit Ledger Log in Supabase
-      const ratingSum = payload.items?.reduce((sum: number, k: any) => sum + (parseFloat(k.internalAuditRating || k.managerScore || '0')), 0) || 0;
-      const kpisCount = payload.items?.length || 1;
+      const ratingSum = targetItems?.reduce((sum: number, k: any) => sum + (parseFloat(k.internalAuditRating || k.managerScore || '0')), 0) || 0;
+      const kpisCount = targetItems?.length || 1;
       const avgRating = (ratingSum / kpisCount).toFixed(2);
 
       const logItem = {
@@ -260,35 +293,54 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
       const isApproved = status === 'Audited' || status === 'Approved';
       const isRejected = status === 'Rejected' || status === 'Revision Required';
 
-      // Compile detailed KPI-by-KPI findings and ratings
-      const auditDetails = payload.items?.map((item: any) => {
+      // Compile detailed KPI-by-KPI findings and ratings ONLY for targeted items
+      const auditDetails = targetItems.map((item: any) => {
         return `• KPI #${item.kpiNo || 'Unassigned'}: "${item.kpi || 'N/A'}"\n` +
                `  Manager Score: ${item.managerScore || 'Not rated'}\n` +
                `  Auditor Score/Rating: ${item.internalAuditRating || 'Not rated'}\n` +
                `  Audit Findings/Comment: ${item.internalAuditComment || 'No comments captured.'}`;
       }).join('\n\n');
 
-      let titleEmployee = `🛡️ Internal Audit Verification Completed: Status "${status}"`;
-      let messageEmployee = `Internal Audit (${auditorName}) has completed quality assurance audit on your performance plan.\n\n` +
-        `Quality Rating: ${avgRating}/5.0\n` +
-        `Audit Status: ${status}\n\n` +
-        `📋 **AUDIT FINDINGS & MODERATION DETAILS**:\n\n${auditDetails}`;
+      const isSingle = isTargeted && targetKpiIds.length === 1;
 
-      let titleManager = `🛡️ Internal Audit Compliance Completed for Subordinate ${employeeName}`;
-      let messageManager = `Internal Audit has finalized QA review for your subordinate ${employeeName} (${employeeEmail}).\n\n` +
+      let titleEmployee = isSingle 
+        ? `🛡️ Internal Audit Feedback: Single KPI ${kpiNosText} (${status})`
+        : `🛡️ Internal Audit Feedback: ${targetItems.length} KPIs Reviewed (${status})`;
+
+      let messageEmployee = isSingle
+        ? `Internal Audit (${auditorName}) reviewed single KPI ${kpiNosText} on your performance plan.\n\n` +
+          `Quality Rating: ${avgRating}/5.0\n` +
+          `Audit Status: ${status}\n\n` +
+          `📋 **SINGLE KPI AUDIT FINDINGS**:\n\n${auditDetails}`
+        : `Internal Audit (${auditorName}) reviewed ${targetItems.length} KPIs (${kpiNosText}) on your performance plan.\n\n` +
+          `Quality Rating: ${avgRating}/5.0\n` +
+          `Audit Status: ${status}\n\n` +
+          `📋 **AUDIT FINDINGS & MODERATION DETAILS (${targetItems.length} KPIs)**:\n\n${auditDetails}`;
+
+      let titleManager = isSingle
+        ? `🛡️ Internal Audit Feedback: Single KPI ${kpiNosText} for Subordinate ${employeeName} (${status})`
+        : `🛡️ Internal Audit Feedback: ${targetItems.length} KPIs for Subordinate ${employeeName} (${status})`;
+
+      let messageManager = `Internal Audit completed review of ${isSingle ? `single KPI ${kpiNosText}` : `${targetItems.length} KPIs (${kpiNosText})`} for subordinate ${employeeName} (${employeeEmail}).\n\n` +
         `Quality Rating: ${avgRating}/5.0\n` +
         `Audit Status: ${status}\n\n` +
         `📋 **AUDIT FINDINGS & MODERATION DETAILS**:\n\n${auditDetails}`;
 
       if (isRejected) {
-        titleEmployee = `⚠️ Internal Audit Audit REJECTED: Status "${status}"`;
-        messageEmployee = `Internal Audit (${auditorName}) has evaluated your submitted Portfolios of Evidence (PoEs) and performance plans, and REJECTED the submission due to compliance gaps.\n\n` +
+        titleEmployee = isSingle
+          ? `⚠️ Internal Audit REJECTED Single KPI ${kpiNosText}`
+          : `⚠️ Internal Audit REJECTED ${targetItems.length} KPIs (${kpiNosText})`;
+
+        messageEmployee = `Internal Audit (${auditorName}) evaluated your submitted Portfolios of Evidence (PoEs) for ${isSingle ? `single KPI ${kpiNosText}` : `${targetItems.length} KPIs (${kpiNosText})`} and REJECTED the submission due to compliance gaps.\n\n` +
           `Quality Rating: ${avgRating}/5.0\n` +
           `Please collaborate with your Line Manager (${managerEmail}) to address findings and resubmit correct documents.\n\n` +
           `📋 **AUDIT FINDINGS & COMPLIANCE GAPS**:\n\n${auditDetails}`;
 
-        titleManager = `⚠️ Internal Audit REJECTED Subordinate ${employeeName}'s Submission`;
-        messageManager = `Internal Audit has rejected or requested revisions for your subordinate ${employeeName}'s (${employeeEmail}) performance plan.\n\n` +
+        titleManager = isSingle
+          ? `⚠️ Internal Audit REJECTED Single KPI ${kpiNosText} for Subordinate ${employeeName}`
+          : `⚠️ Internal Audit REJECTED ${targetItems.length} KPIs (${kpiNosText}) for Subordinate ${employeeName}`;
+
+        messageManager = `Internal Audit has rejected or requested revisions for ${isSingle ? `single KPI ${kpiNosText}` : `${targetItems.length} KPIs (${kpiNosText})`} for subordinate ${employeeName} (${employeeEmail}).\n\n` +
           `Quality Rating: ${avgRating}/5.0\n` +
           `Please review the compliance gaps below and coordinate with the subordinate to resubmit correct Portfolio of Evidence (PoE) records.\n\n` +
           `📋 **AUDIT FINDINGS & COMPLIANCE GAPS**:\n\n${auditDetails}`;
@@ -307,7 +359,8 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
             title: titleEmployee,
             message: messageEmployee,
             actionType: 'audit_completed',
-            employeeEmail: employeeEmail
+            employeeEmail: employeeEmail,
+            kpiIds: targetKpiIds
           }
         })
       });
@@ -325,12 +378,16 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
             title: titleManager,
             message: messageManager,
             actionType: 'audit_completed',
-            employeeEmail: employeeEmail
+            employeeEmail: employeeEmail,
+            kpiIds: targetKpiIds
           }
         })
       });
 
-      alert(`Internal Audit successfully saved & status marked as "${status}". Logged inside the audit review ledger and notifications dispatched to both subordinate (${employeeEmail}) and manager (${managerEmail})!`);
+      alert(isSingle 
+        ? `Internal Audit feedback for Single KPI (${kpiNosText}) saved & status marked as "${status}". Notifications sent to subordinate (${employeeEmail}) and manager (${managerEmail})!`
+        : `Internal Audit feedback for ${targetItems.length} KPI(s) (${kpiNosText}) saved & status marked as "${status}". Notifications sent to subordinate (${employeeEmail}) and manager (${managerEmail})!`
+      );
       
       const updatedPlans = teamPlans.map(tp => 
         tp.userId === selectedPlan.userId ? { ...tp, plan: payload } : tp
@@ -339,9 +396,38 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
       setSelectedPlan({ ...selectedPlan, plan: payload });
     } catch (e) {
       console.error(e);
-      alert("Error saving internal audit review.");
+      alert("Error saving internal audit review: " + String(e));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDownloadDoc = (doc: any) => {
+    if (!doc) return;
+    try {
+      let downloadUrl = doc.dataUrl;
+      let filename = doc.name || 'PoE-Evidence-Document.txt';
+      if (!downloadUrl) {
+        const textContent = `MZANSIFLOW IPMS PORTFOLIO OF EVIDENCE (PoE) DOCUMENT\n` +
+          `===================================================\n` +
+          `Document Name: ${filename}\n` +
+          `KPI Context: ${doc.kpiName || 'Performance Indicator Target'}\n` +
+          `Quarter Term: ${doc.quarter || 'Annual'}\n` +
+          `Uploaded By: ${doc.uploadedBy || 'Employee / Submitter'}\n` +
+          `Timestamp: ${new Date().toLocaleString()}\n` +
+          `Compliance Audit Verification: Validated and signed-off by Internal Audit\n`;
+        const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8;' });
+        downloadUrl = URL.createObjectURL(blob);
+      }
+      const anchor = document.createElement('a');
+      anchor.href = downloadUrl;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+    } catch (e) {
+      console.error("Error triggering download:", e);
+      alert("Failed to initiate file download.");
     }
   };
 
@@ -910,14 +996,26 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
                                       </div>
                                       <p className="font-extrabold text-[10px] text-slate-700 truncate m-0">{doc.name}</p>
                                     </div>
-                                    <button
-                                      type="button"
-                                      onClick={() => setPreviewDoc({ ...doc, quarter: currentQDetails.id, kpiName: activeKPI.kpi })}
-                                      className="bg-indigo-50 hover:bg-indigo-100 text-indigo-750 font-extrabold text-[8.5px] px-2 py-0.5 rounded transition border-0 flex items-center gap-0.5 cursor-pointer shrink-0"
-                                    >
-                                      <Eye className="w-3 h-3" />
-                                      <span>View</span>
-                                    </button>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      <button
+                                        type="button"
+                                        onClick={() => setPreviewDoc({ ...doc, quarter: currentQDetails.id, kpiName: activeKPI.kpi })}
+                                        className="bg-indigo-50 hover:bg-indigo-100 text-indigo-750 font-extrabold text-[8.5px] px-2 py-0.5 rounded transition border-0 flex items-center gap-0.5 cursor-pointer"
+                                        title="View document in lightbox"
+                                      >
+                                        <Eye className="w-3 h-3" />
+                                        <span>View</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDownloadDoc({ ...doc, quarter: currentQDetails.id, kpiName: activeKPI.kpi })}
+                                        className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-extrabold text-[8.5px] px-2 py-0.5 rounded transition border-0 flex items-center gap-0.5 cursor-pointer"
+                                        title="Download document file"
+                                      >
+                                        <Download className="w-3 h-3 text-emerald-600" />
+                                        <span>Download</span>
+                                      </button>
+                                    </div>
                                   </div>
                                 ))}
                               </div>
@@ -1024,49 +1122,84 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
                 })()}
               </div>
 
-              {/* Actions: Push to DPMC, Push to Manager, Save Audit */}
-              <div className="pt-2 space-y-2 border-t border-slate-100">
+              {/* Actions: Single KPI vs Multi KPI Audit Feedback */}
+              <div className="pt-2 space-y-2.5 border-t border-slate-100">
+                {/* Active Single KPI actions */}
+                <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 space-y-2">
+                  <span className="text-[9px] font-black uppercase text-indigo-700 tracking-wider block">
+                    Active KPI #{plan.items.find((x: any) => x.id === activeKPIId)?.kpiNo || 'Single'} Feedback Actions
+                  </span>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => handleSaveReview('Audited', activeKPIId ? [activeKPIId] : undefined)}
+                      disabled={saving || !activeKPIId}
+                      className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-extrabold uppercase text-[9px] py-1.5 rounded-lg flex items-center justify-center gap-1 tracking-wider shadow-sm transition-all cursor-pointer"
+                    >
+                      <Check className="w-3 h-3 shrink-0" />
+                      <span>Approve Single KPI</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSaveReview('Rejected', activeKPIId ? [activeKPIId] : undefined)}
+                      disabled={saving || !activeKPIId}
+                      className="bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-extrabold uppercase text-[9px] py-1.5 rounded-lg flex items-center justify-center gap-1 tracking-wider shadow-sm transition-all cursor-pointer"
+                    >
+                      <X className="w-3 h-3 shrink-0" />
+                      <span>Reject Single KPI</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Selected KPIs batch actions */}
+                {selectedKpiIdsForAudit.length > 0 && (
+                  <div className="bg-indigo-50 p-2.5 rounded-xl border border-indigo-200 space-y-2">
+                    <span className="text-[9px] font-black uppercase text-indigo-800 tracking-wider block">
+                      Batch Feedback on {selectedKpiIdsForAudit.length} Selected KPI(s)
+                    </span>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleSaveReview('Audited', selectedKpiIdsForAudit)}
+                        disabled={saving}
+                        className="bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold uppercase text-[9px] py-1.5 rounded-lg flex items-center justify-center gap-1 tracking-wider shadow-sm transition-all cursor-pointer"
+                      >
+                        <Check className="w-3 h-3 shrink-0" />
+                        <span>Approve Selected ({selectedKpiIdsForAudit.length})</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSaveReview('Rejected', selectedKpiIdsForAudit)}
+                        disabled={saving}
+                        className="bg-rose-700 hover:bg-rose-600 text-white font-extrabold uppercase text-[9px] py-1.5 rounded-lg flex items-center justify-center gap-1 tracking-wider shadow-sm transition-all cursor-pointer"
+                      >
+                        <X className="w-3 h-3 shrink-0" />
+                        <span>Reject Selected ({selectedKpiIdsForAudit.length})</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Push to DPMC for full plan or selected */}
                 <button
                   type="button"
-                  onClick={() => handleSaveReview('Pushed to DPMC')}
+                  onClick={() => handleSaveReview('Pushed to DPMC', selectedKpiIdsForAudit.length > 0 ? selectedKpiIdsForAudit : undefined)}
                   disabled={saving}
-                  className="w-full bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 disabled:opacity-50 text-white font-extrabold uppercase text-xs py-3 rounded-xl flex items-center justify-center gap-2 tracking-wide shadow-md transition-all active:scale-[0.98] cursor-pointer"
+                  className="w-full bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 disabled:opacity-50 text-white font-extrabold uppercase text-xs py-2.5 rounded-xl flex items-center justify-center gap-2 tracking-wide shadow-md transition-all cursor-pointer"
                 >
                   <Send className="w-4 h-4" />
-                  <span>{saving ? 'Processing...' : 'Push to DPMC for Moderation'}</span>
+                  <span>{saving ? 'Processing...' : selectedKpiIdsForAudit.length > 0 ? `Push ${selectedKpiIdsForAudit.length} Selected KPI(s) to DPMC` : 'Push All KPIs to DPMC'}</span>
                 </button>
 
-                <div className="grid grid-cols-3 gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => handleSaveReview('Audited')}
-                    disabled={saving}
-                    className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-extrabold uppercase text-[9px] py-2 rounded-lg flex items-center justify-center gap-1 tracking-wider shadow-sm transition-all active:scale-[0.98] cursor-pointer"
-                  >
-                    <Check className="w-3 h-3 shrink-0" />
-                    <span className="whitespace-nowrap">Approve</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleSaveReview('Rejected')}
-                    disabled={saving}
-                    className="bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-extrabold uppercase text-[9px] py-2 rounded-lg flex items-center justify-center gap-1 tracking-wider shadow-sm transition-all active:scale-[0.98] cursor-pointer"
-                  >
-                    <X className="w-3 h-3 shrink-0" />
-                    <span className="whitespace-nowrap">Reject</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleSaveReview(plan.metadata?.internalAuditStatus || 'Under Review')}
-                    disabled={saving}
-                    className="bg-slate-700 hover:bg-slate-650 disabled:opacity-50 text-white font-extrabold uppercase text-[9px] py-2 rounded-lg flex items-center justify-center gap-1 tracking-wider shadow-sm transition-all active:scale-[0.98] cursor-pointer"
-                  >
-                    <Save className="w-3 h-3 shrink-0" />
-                    <span className="whitespace-nowrap">Save Draft</span>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => handleSaveReview(plan.metadata?.internalAuditStatus || 'Under Review')}
+                  disabled={saving}
+                  className="w-full bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white font-extrabold uppercase text-[10px] py-2 rounded-xl flex items-center justify-center gap-1.5 tracking-wider shadow-sm transition-all cursor-pointer"
+                >
+                  <Save className="w-3.5 h-3.5 shrink-0" />
+                  <span>Save Audit Progress Draft</span>
+                </button>
               </div>
             </div>
 
@@ -1334,21 +1467,16 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
                 Inspect checklist against specific KPI targets.
               </span>
               <div className="flex gap-2">
-                <a
-                  href={previewDoc.dataUrl || '#'}
-                  download={previewDoc.name}
-                  onClick={(e) => {
-                    if (!previewDoc.dataUrl) {
-                      e.preventDefault();
-                      alert("Simulating file download secure system export... Document archive fetched!");
-                    }
-                  }}
-                  className="bg-slate-900 text-white hover:bg-slate-800 text-[10px] uppercase font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 transition text-center no-underline cursor-pointer"
-                >
-                  <Download className="w-3 h-3" />
-                  <span>Download Secure</span>
-                </a>
                 <button
+                  type="button"
+                  onClick={() => handleDownloadDoc(previewDoc)}
+                  className="bg-slate-900 hover:bg-slate-800 text-white text-[10px] uppercase font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 transition border-0 cursor-pointer shadow-sm"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download Secure</span>
+                </button>
+                <button
+                  type="button"
                   onClick={() => setPreviewDoc(null)}
                   className="bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] uppercase font-bold px-4 py-2 rounded-xl transition border-0 cursor-pointer"
                 >
