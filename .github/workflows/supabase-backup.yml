@@ -1,0 +1,39 @@
+name: Hourly Supabase Database Backup
+
+on:
+  schedule:
+    # Runs automatically every hour on the hour (00:00, 01:00, 02:00, etc.)
+    - cron: '0 * * * *'
+  # Allows you to trigger the backup manually anytime from GitHub Actions UI
+  workflow_dispatch:
+
+jobs:
+  backup:
+    name: Run Database Dump
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install PostgreSQL Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Create Backup Timestamp & Directory
+        id: vars
+        run: |
+          mkdir -p backups
+          TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
+          echo "filename=supabase_backup_${TIMESTAMP}.sql.gz" >> $GITHUB_OUTPUT
+
+      - name: Dump Database from Supabase
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          pg_dump "$DB_URL" | gzip > "backups/${{ steps.vars.outputs.filename }}"
+
+      - name: Upload Backup File to GitHub Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.vars.outputs.filename }}
+          path: backups/${{ steps.vars.outputs.filename }}
+          retention-days: 14
