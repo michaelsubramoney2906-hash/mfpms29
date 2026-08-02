@@ -314,20 +314,36 @@ export function DraftingSuiteTeam({
   useEffect(() => {
     if (currentUser) {
       setCoverPage(`PERFORMANCE AGREEMENT\n\nENTERED INTO BY AND BETWEEN:\nThe Municipality herein represented by the Municipal Manager\n\n&\n\n${currentUser.fullName || '[Employee Name]'}\n\n${teamTitle.toUpperCase()} TEAM\n\nFOR THE FINANCIAL YEAR: 2025/2026`);
-      setUserSignatures({
+      
+      const empUser = tenantUsers.find(u => u.email?.toLowerCase() === currentUser.email?.toLowerCase()) || currentUser;
+      const mgrUser = tenantUsers.find(u => 
+        (u.jobFunction || u.position || '').toLowerCase().includes('municipal manager') ||
+        (u.jobFunction || u.position || '').toLowerCase().includes('mayor') ||
+        (u.email || '').toLowerCase().includes('mandlaml') ||
+        (currentUser.manager && u.fullName?.toLowerCase().includes(currentUser.manager.toLowerCase()))
+      );
+      const witUser = tenantUsers.find(u => 
+        (u.fullName || '').toLowerCase().includes('khuboni') ||
+        (u.email || '').toLowerCase().includes('khuboniy')
+      );
+      const emp2User = tenantUsers.find(u => 
+        (u.fullName || '').toLowerCase().includes('nsibande')
+      );
+
+      setUserSignatures(prev => ({
         employee: currentUser.fullName || '',
-        employeeSig: currentUser.signatureData || '',
+        employeeSig: empUser?.signatureData || currentUser.signatureData || prev.employeeSig || '',
         employee2: 'Nompumelelo P. Nsibande',
-        employee2Sig: '',
-        manager: currentUser.manager || '',
-        managerSig: '',
+        employee2Sig: emp2User?.signatureData || prev.employee2Sig || '',
+        manager: currentUser.manager || mgrUser?.fullName || 'Nsibande NP',
+        managerSig: mgrUser?.signatureData || prev.managerSig || '',
         hod: 'Mr. Jacob Chief Financial Officer',
         pmu: 'Corporate Performance Unit',
-        witness: 'Yena Khuboni',
-        witnessSig: ''
-      });
+        witness: witUser?.fullName || 'Yena Khuboni',
+        witnessSig: witUser?.signatureData || prev.witnessSig || ''
+      }));
     }
-  }, [currentUser, teamTitle]);
+  }, [currentUser, teamTitle, tenantUsers]);
 
   const fetchAllAgreementSources = async () => {
     if (!activeTenantId || !currentUser?.email) return;
@@ -2744,7 +2760,7 @@ export function DraftingSuiteTeam({
                               )}
                             </div>
                             <div className="flex justify-between text-[10px] text-slate-500">
-                              <span>Date: ________________</span>
+                              <span>Date: 29 July 2026</span>
                               <span>Place: Nkangala</span>
                             </div>
                           </div>
@@ -2765,7 +2781,7 @@ export function DraftingSuiteTeam({
                               )}
                             </div>
                             <div className="flex justify-between text-[10px] text-slate-500">
-                              <span>Date: ________________</span>
+                              <span>Date: 29 July 2026</span>
                               <span>Place: Nkangala</span>
                             </div>
                           </div>
@@ -2786,7 +2802,7 @@ export function DraftingSuiteTeam({
                               )}
                             </div>
                             <div className="flex justify-between text-[10px] text-slate-500">
-                              <span>Date: ________________</span>
+                              <span>Date: 29 July 2026</span>
                               <span>Place: Nkangala</span>
                             </div>
                           </div>
@@ -2807,7 +2823,7 @@ export function DraftingSuiteTeam({
                               )}
                             </div>
                             <div className="flex justify-between text-[10px] text-slate-500">
-                              <span>Date: ________________</span>
+                              <span>Date: 29 July 2026</span>
                               <span>Place: Nkangala</span>
                             </div>
                           </div>
@@ -2830,7 +2846,7 @@ export function DraftingSuiteTeam({
                               )}
                             </div>
                             <div className="flex justify-between text-[10px] text-slate-500">
-                              <span>Date: ________________</span>
+                              <span>Date: 29 July 2026</span>
                               <span>Place: Nkangala</span>
                             </div>
                           </div>
@@ -2851,7 +2867,7 @@ export function DraftingSuiteTeam({
                               )}
                             </div>
                             <div className="flex justify-between text-[10px] text-slate-500">
-                              <span>Date: ________________</span>
+                              <span>Date: 29 July 2026</span>
                               <span>Place: Nkangala</span>
                             </div>
                           </div>
@@ -2872,7 +2888,7 @@ export function DraftingSuiteTeam({
                               )}
                             </div>
                             <div className="flex justify-between text-[10px] text-slate-500">
-                              <span>Date: ________________</span>
+                              <span>Date: 29 July 2026</span>
                               <span>Place: Nkangala</span>
                             </div>
                           </div>
@@ -2893,7 +2909,7 @@ export function DraftingSuiteTeam({
                               )}
                             </div>
                             <div className="flex justify-between text-[10px] text-slate-500">
-                              <span>Date: ________________</span>
+                              <span>Date: 29 July 2026</span>
                               <span>Place: Nkangala</span>
                             </div>
                           </div>
@@ -3041,7 +3057,7 @@ export function DraftingSuiteTeam({
                         )}
                       </div>
                       <div className="flex justify-between text-[10px] text-slate-500">
-                        <span>Date: ________________</span>
+                        <span>Date: 29 July 2026</span>
                         <span>Place: Nkangala</span>
                       </div>
                     </div>
@@ -3061,7 +3077,7 @@ export function DraftingSuiteTeam({
                         )}
                       </div>
                       <div className="flex justify-between text-[10px] text-slate-500">
-                        <span>Date: ________________</span>
+                        <span>Date: 29 July 2026</span>
                         <span>Place: Nkangala</span>
                       </div>
                     </div>

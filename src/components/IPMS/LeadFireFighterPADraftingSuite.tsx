@@ -1868,7 +1868,7 @@ export function LeadFireFighterPADraftingSuite({ currentUser, activeTenantId }: 
                             <span className="text-[9px] text-slate-400 text-center italic leading-tight block">No signature uploaded. System automatically displays here once uploaded in User Management.</span>
                           </div>
                         )}
-                        <div className="text-[10px] font-bold text-gray-600 mt-1 uppercase">Date: {new Date().toLocaleDateString()}</div>
+                        <div className="text-[10px] font-bold text-gray-600 mt-1 uppercase">Date: 29 July 2026</div>
                       </div>
                     </div>
 
@@ -1893,7 +1893,7 @@ export function LeadFireFighterPADraftingSuite({ currentUser, activeTenantId }: 
                             <span className="text-[9px] text-slate-400 text-center italic leading-tight block">No signature uploaded. System automatically displays here once uploaded in User Management.</span>
                           </div>
                         )}
-                        <div className="text-[10px] font-bold text-gray-600 mt-1 uppercase">Date: {new Date().toLocaleDateString()}</div>
+                        <div className="text-[10px] font-bold text-gray-600 mt-1 uppercase">Date: 29 July 2026</div>
                       </div>
                     </div>
 
@@ -1918,7 +1918,7 @@ export function LeadFireFighterPADraftingSuite({ currentUser, activeTenantId }: 
                             <span className="text-[9px] text-slate-400 text-center italic leading-tight block">No signature uploaded. System automatically displays here once uploaded in User Management.</span>
                           </div>
                         )}
-                        <div className="text-[10px] font-bold text-gray-600 mt-1 uppercase">Date: {new Date().toLocaleDateString()}</div>
+                        <div className="text-[10px] font-bold text-gray-600 mt-1 uppercase">Date: 29 July 2026</div>
                       </div>
                     </div>
                   </div>

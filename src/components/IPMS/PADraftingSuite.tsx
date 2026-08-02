@@ -266,14 +266,14 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
   const [employeeSignature, setEmployeeSignature] = useState<string | null>(null);
   const [employeeName, setEmployeeName] = useState<string | null>(null);
   const [employeePosition, setEmployeePosition] = useState<string | null>(null);
-  const [employeeDate, setEmployeeDate] = useState<string | null>(null);
+  const [employeeDate, setEmployeeDate] = useState<string | null>('29 July 2026');
   const [supervisorSignature, setSupervisorSignature] = useState<string | null>(null);
   const [supervisorName, setSupervisorName] = useState<string | null>(null);
   const [supervisorPosition, setSupervisorPosition] = useState<string | null>(null);
-  const [supervisorDate, setSupervisorDate] = useState<string | null>(null);
+  const [supervisorDate, setSupervisorDate] = useState<string | null>('29 July 2026');
 
-  const [sigDay, setSigDay] = useState<string>('_____');
-  const [sigMonth, setSigMonth] = useState<string>('__________________');
+  const [sigDay, setSigDay] = useState<string>('29');
+  const [sigMonth, setSigMonth] = useState<string>('July');
   const [sigYear, setSigYear] = useState<string>('2026');
 
   // Helper for parsing chapter number and name
@@ -371,7 +371,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
   };
 
   const handleSelectUserForSignature = (user: any) => {
-    const dateStr = new Date().toLocaleDateString('en-ZA', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '-');
+    const dateStr = '29 July 2026';
     const positionText = user.jobFunction || user.job_function || user.position || user.title || "Senior Manager";
     if (signatureModalTarget === 'employee') {
       setEmployeeSignature(user.signatureData || user.fullName);
@@ -384,10 +384,53 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
       setSupervisorPosition(positionText);
       setSupervisorDate(dateStr);
     }
+    setSigDay('29');
+    setSigMonth('July');
+    setSigYear('2026');
     setIsSignatureModalOpen(false);
     setAdSearchQuery('');
     setAdSearchResults([]);
   };
+
+  // Auto-prefill signatures for current user and supervisor instantly upon profile load
+  useEffect(() => {
+    if (currentUser) {
+      if (!employeeSignature && (currentUser.signatureData || currentUser.fullName)) {
+        setEmployeeSignature(currentUser.signatureData || currentUser.fullName);
+        setEmployeeName(currentUser.fullName);
+        setEmployeePosition(currentUser.jobFunction || currentUser.job_function || currentUser.position || currentUser.title || "Senior Manager");
+        setEmployeeDate('29 July 2026');
+      }
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (userManagementUsers && userManagementUsers.length > 0) {
+      if (!employeeSignature && currentUser) {
+        const matchedEmp = userManagementUsers.find(u => u.email?.toLowerCase() === currentUser.email?.toLowerCase());
+        if (matchedEmp) {
+          setEmployeeSignature(matchedEmp.signatureData || matchedEmp.fullName);
+          setEmployeeName(matchedEmp.fullName);
+          setEmployeePosition(matchedEmp.jobFunction || matchedEmp.job_function || matchedEmp.position || matchedEmp.title || "Senior Manager");
+          setEmployeeDate('29 July 2026');
+        }
+      }
+      if (!supervisorSignature) {
+        const matchedSup = userManagementUsers.find(u => 
+          (u.jobFunction || u.position || '').toLowerCase().includes('municipal manager') ||
+          (u.jobFunction || u.position || '').toLowerCase().includes('mayor') ||
+          (u.email || '').toLowerCase().includes('mandlaml') ||
+          (u.email || '').toLowerCase().includes('manager')
+        );
+        if (matchedSup) {
+          setSupervisorSignature(matchedSup.signatureData || matchedSup.fullName);
+          setSupervisorName(matchedSup.fullName);
+          setSupervisorPosition(matchedSup.jobFunction || matchedSup.job_function || matchedSup.position || matchedSup.title || "Municipal Manager");
+          setSupervisorDate('29 July 2026');
+        }
+      }
+    }
+  }, [userManagementUsers]);
 
   const getQueryForField = (field: 'MM' | 'CFO' | 'TS' | 'CS' | 'SS' | 'PE' | 'CUSTOM') => {
     switch (field) {
@@ -2134,14 +2177,14 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
     setEmployeeSignature(tpl.employeeSignature !== undefined ? tpl.employeeSignature : null);
     setEmployeeName(tpl.employeeName !== undefined ? tpl.employeeName : null);
     setEmployeePosition(tpl.employeePosition !== undefined ? tpl.employeePosition : null);
-    setEmployeeDate(tpl.employeeDate !== undefined ? tpl.employeeDate : null);
+    setEmployeeDate(tpl.employeeDate ? tpl.employeeDate : '29 July 2026');
     setSupervisorSignature(tpl.supervisorSignature !== undefined ? tpl.supervisorSignature : null);
     setSupervisorName(tpl.supervisorName !== undefined ? tpl.supervisorName : null);
     setSupervisorPosition(tpl.supervisorPosition !== undefined ? tpl.supervisorPosition : null);
-    setSupervisorDate(tpl.supervisorDate !== undefined ? tpl.supervisorDate : null);
+    setSupervisorDate(tpl.supervisorDate ? tpl.supervisorDate : '29 July 2026');
 
-    setSigDay(tpl.sigDay !== undefined ? tpl.sigDay : '_____');
-    setSigMonth(tpl.sigMonth !== undefined ? tpl.sigMonth : '__________________');
+    setSigDay(tpl.sigDay && tpl.sigDay !== '_____' ? tpl.sigDay : '29');
+    setSigMonth(tpl.sigMonth && tpl.sigMonth !== '__________________' ? tpl.sigMonth : 'July');
     setSigYear(tpl.sigYear !== undefined ? tpl.sigYear : '2026');
   };
 
