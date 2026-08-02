@@ -193,7 +193,7 @@ export function SDBIPDraftingSuite({ currentUser, activeTenantId, rows }: SDBIPD
   const [draftingContent, setDraftingContent] = useState<string | undefined>(undefined);
   const [reportPeriod, setReportPeriod] = useState<'q1' | 'q2' | 'midTerm' | 'q3' | 'q4' | 'annual'>('q1');
 
-  // Cover Image & Opacity state with tenant persistence
+  // Cover Image & Sizing state with tenant persistence
   const [coverImage, setCoverImage] = useState<string>(() => {
     return localStorage.getItem(`sdbip_cover_img_${activeTenantId}`) || DEFAULT_COVER_IMAGE;
   });
@@ -201,6 +201,23 @@ export function SDBIPDraftingSuite({ currentUser, activeTenantId, rows }: SDBIPD
   const [overlayOpacity, setOverlayOpacity] = useState<number>(() => {
     const saved = localStorage.getItem(`sdbip_cover_opacity_${activeTenantId}`);
     return saved ? parseFloat(saved) : 0.8;
+  });
+
+  const [coverFit, setCoverFit] = useState<'contain' | 'cover' | 'stretch' | 'scale'>(() => {
+    return (localStorage.getItem(`sdbip_cover_fit_${activeTenantId}`) as any) || 'contain';
+  });
+
+  const [coverScale, setCoverScale] = useState<number>(() => {
+    const saved = localStorage.getItem(`sdbip_cover_scale_${activeTenantId}`);
+    return saved ? parseInt(saved) : 100;
+  });
+
+  const [coverBgColor, setCoverBgColor] = useState<string>(() => {
+    return localStorage.getItem(`sdbip_cover_bgcolor_${activeTenantId}`) || '#0f172a';
+  });
+
+  const [coverPosition, setCoverPosition] = useState<'center' | 'top' | 'bottom'>(() => {
+    return (localStorage.getItem(`sdbip_cover_pos_${activeTenantId}`) as any) || 'center';
   });
 
   const [coverTexts, setCoverTexts] = useState<CoverTextElement[]>(() => {
@@ -226,6 +243,26 @@ export function SDBIPDraftingSuite({ currentUser, activeTenantId, rows }: SDBIPD
   const handleUpdateOverlayOpacity = (op: number) => {
     setOverlayOpacity(op);
     localStorage.setItem(`sdbip_cover_opacity_${activeTenantId}`, op.toString());
+  };
+
+  const handleUpdateCoverFit = (fit: 'contain' | 'cover' | 'stretch' | 'scale') => {
+    setCoverFit(fit);
+    localStorage.setItem(`sdbip_cover_fit_${activeTenantId}`, fit);
+  };
+
+  const handleUpdateCoverScale = (scale: number) => {
+    setCoverScale(scale);
+    localStorage.setItem(`sdbip_cover_scale_${activeTenantId}`, scale.toString());
+  };
+
+  const handleUpdateCoverBgColor = (color: string) => {
+    setCoverBgColor(color);
+    localStorage.setItem(`sdbip_cover_bgcolor_${activeTenantId}`, color);
+  };
+
+  const handleUpdateCoverPosition = (pos: 'center' | 'top' | 'bottom') => {
+    setCoverPosition(pos);
+    localStorage.setItem(`sdbip_cover_pos_${activeTenantId}`, pos);
   };
 
   const handleUpdateCoverTexts = (newTexts: CoverTextElement[]) => {
@@ -321,6 +358,10 @@ export function SDBIPDraftingSuite({ currentUser, activeTenantId, rows }: SDBIPD
             onAdopt={handleAdoptTemplate}
             coverImage={coverImage}
             overlayOpacity={overlayOpacity}
+            coverFit={coverFit}
+            coverScale={coverScale}
+            coverBgColor={coverBgColor}
+            coverPosition={coverPosition}
             coverTexts={coverTexts}
             onOpenCoverModal={() => setIsCoverModalOpen(true)}
             onUpdateTextElement={handleUpdateTextElement}
@@ -354,6 +395,10 @@ export function SDBIPDraftingSuite({ currentUser, activeTenantId, rows }: SDBIPD
             setPeriod={setReportPeriod}
             coverImage={coverImage}
             overlayOpacity={overlayOpacity}
+            coverFit={coverFit}
+            coverScale={coverScale}
+            coverBgColor={coverBgColor}
+            coverPosition={coverPosition}
             coverTexts={coverTexts}
             onOpenCoverModal={() => setIsCoverModalOpen(true)}
             onUpdateTextElement={handleUpdateTextElement}
@@ -367,9 +412,17 @@ export function SDBIPDraftingSuite({ currentUser, activeTenantId, rows }: SDBIPD
         <CoverPictureModal
           coverImage={coverImage}
           overlayOpacity={overlayOpacity}
+          coverFit={coverFit}
+          coverScale={coverScale}
+          coverBgColor={coverBgColor}
+          coverPosition={coverPosition}
           coverTexts={coverTexts}
           onUpdateCoverImage={handleUpdateCoverImage}
           onUpdateOverlayOpacity={handleUpdateOverlayOpacity}
+          onUpdateCoverFit={handleUpdateCoverFit}
+          onUpdateCoverScale={handleUpdateCoverScale}
+          onUpdateCoverBgColor={handleUpdateCoverBgColor}
+          onUpdateCoverPosition={handleUpdateCoverPosition}
           onUpdateCoverTexts={handleUpdateCoverTexts}
           onUpdateTextElement={handleUpdateTextElement}
           onDeleteCoverText={handleDeleteCoverText}
@@ -632,6 +685,10 @@ function ReportDocument({
   id = "template-content",
   coverImage,
   overlayOpacity = 0.8,
+  coverFit = 'contain',
+  coverScale = 100,
+  coverBgColor = '#0f172a',
+  coverPosition = 'center',
   coverTexts,
   onOpenCoverModal,
   onUpdateTextElement,
@@ -643,6 +700,10 @@ function ReportDocument({
   id?: string,
   coverImage?: string,
   overlayOpacity?: number,
+  coverFit?: 'contain' | 'cover' | 'stretch' | 'scale',
+  coverScale?: number,
+  coverBgColor?: string,
+  coverPosition?: 'center' | 'top' | 'bottom',
   coverTexts?: CoverTextElement[],
   onOpenCoverModal?: () => void,
   onUpdateTextElement?: (id: string, updates: Partial<CoverTextElement>) => void,
@@ -785,67 +846,77 @@ function ReportDocument({
     <div id={id} className="bg-white w-full max-w-[297mm] justify-center mx-auto shadow-[0_0_50px_rgba(0,0,0,0.1)] text-slate-800">
       
       {/* Front Cover */}
-      <section 
-        className="relative w-[297mm] h-[210mm] flex flex-col justify-center items-center text-center p-12 text-white page-break-after group" 
-        style={{ 
-          backgroundColor: "#1e293b", 
-          backgroundImage: coverImage ? (coverImage.startsWith('linear-gradient') ? coverImage : `url('${coverImage}')`) : `url('${DEFAULT_COVER_IMAGE}')`, 
-          backgroundSize: "cover", 
-          backgroundPosition: "center" 
-        }}
-      >
-         <div className="absolute inset-0 bg-slate-900 mix-blend-multiply transition-opacity" style={{ opacity: overlayOpacity }} />
-         {onOpenCoverModal && (
-           <button
-             type="button"
-             onClick={onOpenCoverModal}
-             className="absolute top-6 right-6 z-20 bg-white/95 hover:bg-white text-slate-900 font-bold px-3.5 py-2 rounded-xl text-xs flex items-center gap-2 shadow-xl transition-all opacity-90 group-hover:opacity-100 cursor-pointer border border-slate-200 hover:scale-105"
-             title="Upload custom picture or select preset for cover"
-           >
-             <Camera className="w-4 h-4 text-indigo-600" />
-             <span>Change Cover Picture</span>
-           </button>
-         )}
-         <div className="relative z-10 w-full flex flex-col items-center space-y-4 px-8">
-            {coverTexts && coverTexts.length > 0 ? (
-              coverTexts.map((el) => {
-                const formattedText = el.text.replace(/\{QUARTER\}|\{quarter\}/gi, quarterLabels[selectedQuarter] || selectedQuarter.toUpperCase());
-                return (
-                  <div key={el.id} className="relative group/textitem w-full flex justify-center items-center">
-                    <div 
-                      className={`tracking-widest text-center outline-none border-b-2 border-transparent focus:border-white transition-all ${getCoverTextClasses(el)}`}
-                      style={getCoverElementStyle(el)}
-                      contentEditable 
-                      suppressContentEditableWarning
-                      onBlur={(e) => {
-                        const newText = e.currentTarget.innerText;
-                        if (onUpdateTextElement) {
-                          onUpdateTextElement(el.id, { text: newText });
-                        }
-                      }}
-                    >
-                      {formattedText}
-                    </div>
-                    {onDeleteCoverText && (
-                      <button
-                        type="button"
-                        onClick={() => onDeleteCoverText(el.id)}
-                        className="absolute right-0 opacity-0 group-hover/textitem:opacity-100 bg-rose-600/90 hover:bg-rose-600 text-white p-1.5 rounded-lg text-[10px] font-bold transition shadow-lg cursor-pointer flex items-center gap-1 z-30 print:hidden"
-                        title={`Delete "${el.label || 'text'}" from cover`}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        <span>Delete Text</span>
-                      </button>
-                    )}
-                  </div>
-                );
-              })
-            ) : null}
-            {coverTexts && coverTexts.length > 0 && (
-              <div className="mt-8 w-1/4 h-1 bg-indigo-500 rounded-full"></div>
-            )}
-         </div>
-      </section>
+      {(() => {
+        let bgSizeStr = "contain";
+        if (coverFit === "cover") bgSizeStr = "cover";
+        else if (coverFit === "stretch") bgSizeStr = "100% 100%";
+        else if (coverFit === "scale") bgSizeStr = `${coverScale}% auto`;
+
+        return (
+          <section 
+            className="relative w-[297mm] max-w-full h-[195mm] print:h-[200mm] min-h-[190mm] flex flex-col justify-center items-center text-center p-10 text-white page-break-after group overflow-hidden box-border" 
+            style={{ 
+              backgroundColor: coverBgColor || "#0f172a", 
+              backgroundImage: coverImage ? (coverImage.startsWith('linear-gradient') ? coverImage : `url('${coverImage}')`) : `url('${DEFAULT_COVER_IMAGE}')`, 
+              backgroundSize: bgSizeStr, 
+              backgroundPosition: coverPosition || "center",
+              backgroundRepeat: "no-repeat"
+            }}
+          >
+             <div className="absolute inset-0 bg-slate-900 mix-blend-multiply transition-opacity" style={{ opacity: overlayOpacity }} />
+             {onOpenCoverModal && (
+               <button
+                 type="button"
+                 onClick={onOpenCoverModal}
+                 className="absolute top-6 right-6 z-20 bg-white/95 hover:bg-white text-slate-900 font-bold px-3.5 py-2 rounded-xl text-xs flex items-center gap-2 shadow-xl transition-all opacity-90 group-hover:opacity-100 cursor-pointer border border-slate-200 hover:scale-105"
+                 title="Upload custom picture or adjust picture size/fit for cover"
+               >
+                 <Camera className="w-4 h-4 text-indigo-600" />
+                 <span>Adjust Cover Picture & Size</span>
+               </button>
+             )}
+             <div className="relative z-10 w-full flex flex-col items-center space-y-4 px-8">
+                {coverTexts && coverTexts.length > 0 ? (
+                  coverTexts.map((el) => {
+                    const formattedText = el.text.replace(/\{QUARTER\}|\{quarter\}/gi, quarterLabels[selectedQuarter] || selectedQuarter.toUpperCase());
+                    return (
+                      <div key={el.id} className="relative group/textitem w-full flex justify-center items-center">
+                        <div 
+                          className={`tracking-widest text-center outline-none border-b-2 border-transparent focus:border-white transition-all ${getCoverTextClasses(el)}`}
+                          style={getCoverElementStyle(el)}
+                          contentEditable 
+                          suppressContentEditableWarning
+                          onBlur={(e) => {
+                            const newText = e.currentTarget.innerText;
+                            if (onUpdateTextElement) {
+                              onUpdateTextElement(el.id, { text: newText });
+                            }
+                          }}
+                        >
+                          {formattedText}
+                        </div>
+                        {onDeleteCoverText && (
+                          <button
+                            type="button"
+                            onClick={() => onDeleteCoverText(el.id)}
+                            className="absolute right-0 opacity-0 group-hover/textitem:opacity-100 bg-rose-600/90 hover:bg-rose-600 text-white p-1.5 rounded-lg text-[10px] font-bold transition shadow-lg cursor-pointer flex items-center gap-1 z-30 print:hidden"
+                            title={`Delete "${el.label || 'text'}" from cover`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Delete Text</span>
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })
+                ) : null}
+                {coverTexts && coverTexts.length > 0 && (
+                  <div className="mt-8 w-1/4 h-1 bg-indigo-500 rounded-full"></div>
+                )}
+             </div>
+          </section>
+        );
+      })()}
 
       {/* Page 1: Purpose */}
       <section className="relative w-[297mm] min-h-[210mm] p-12 flex flex-col page-break-after border-b border-gray-100 bg-white">
@@ -1320,6 +1391,10 @@ function SDBIPTemplateTab({
   onAdopt,
   coverImage,
   overlayOpacity,
+  coverFit,
+  coverScale,
+  coverBgColor,
+  coverPosition,
   coverTexts,
   onOpenCoverModal,
   onUpdateTextElement,
@@ -1332,6 +1407,10 @@ function SDBIPTemplateTab({
   onAdopt: (html: string) => void,
   coverImage?: string,
   overlayOpacity?: number,
+  coverFit?: 'contain' | 'cover' | 'stretch' | 'scale',
+  coverScale?: number,
+  coverBgColor?: string,
+  coverPosition?: 'center' | 'top' | 'bottom',
   coverTexts?: CoverTextElement[],
   onOpenCoverModal?: () => void,
   onUpdateTextElement?: (id: string, updates: Partial<CoverTextElement>) => void,
@@ -1391,6 +1470,10 @@ function SDBIPTemplateTab({
           id="template-content" 
           coverImage={coverImage}
           overlayOpacity={overlayOpacity}
+          coverFit={coverFit}
+          coverScale={coverScale}
+          coverBgColor={coverBgColor}
+          coverPosition={coverPosition}
           coverTexts={coverTexts}
           onOpenCoverModal={onOpenCoverModal}
           onUpdateTextElement={onUpdateTextElement}
@@ -1409,6 +1492,10 @@ function SDBIPReportsTab({
   setPeriod,
   coverImage,
   overlayOpacity,
+  coverFit,
+  coverScale,
+  coverBgColor,
+  coverPosition,
   coverTexts,
   onOpenCoverModal,
   onUpdateTextElement,
@@ -1421,6 +1508,10 @@ function SDBIPReportsTab({
   setPeriod: (p: any) => void,
   coverImage?: string,
   overlayOpacity?: number,
+  coverFit?: 'contain' | 'cover' | 'stretch' | 'scale',
+  coverScale?: number,
+  coverBgColor?: string,
+  coverPosition?: 'center' | 'top' | 'bottom',
   coverTexts?: CoverTextElement[],
   onOpenCoverModal?: () => void,
   onUpdateTextElement?: (id: string, updates: Partial<CoverTextElement>) => void,
@@ -1759,6 +1850,10 @@ function SDBIPReportsTab({
           id="report-content" 
           coverImage={coverImage}
           overlayOpacity={overlayOpacity}
+          coverFit={coverFit}
+          coverScale={coverScale}
+          coverBgColor={coverBgColor}
+          coverPosition={coverPosition}
           coverTexts={coverTexts}
           onOpenCoverModal={onOpenCoverModal}
           onUpdateTextElement={onUpdateTextElement}
@@ -1828,9 +1923,17 @@ function EditableTable({ headers: initialHeaders, initialRows }: { headers: stri
 function CoverPictureModal({
   coverImage,
   overlayOpacity,
+  coverFit = 'contain',
+  coverScale = 100,
+  coverBgColor = '#0f172a',
+  coverPosition = 'center',
   coverTexts = DEFAULT_COVER_TEXTS,
   onUpdateCoverImage,
   onUpdateOverlayOpacity,
+  onUpdateCoverFit,
+  onUpdateCoverScale,
+  onUpdateCoverBgColor,
+  onUpdateCoverPosition,
   onUpdateCoverTexts,
   onUpdateTextElement,
   onDeleteCoverText,
@@ -1840,9 +1943,17 @@ function CoverPictureModal({
 }: {
   coverImage: string;
   overlayOpacity: number;
+  coverFit?: 'contain' | 'cover' | 'stretch' | 'scale';
+  coverScale?: number;
+  coverBgColor?: string;
+  coverPosition?: 'center' | 'top' | 'bottom';
   coverTexts?: CoverTextElement[];
   onUpdateCoverImage: (url: string) => void;
   onUpdateOverlayOpacity: (opacity: number) => void;
+  onUpdateCoverFit: (fit: 'contain' | 'cover' | 'stretch' | 'scale') => void;
+  onUpdateCoverScale: (scale: number) => void;
+  onUpdateCoverBgColor: (color: string) => void;
+  onUpdateCoverPosition: (pos: 'center' | 'top' | 'bottom') => void;
   onUpdateCoverTexts: (texts: CoverTextElement[]) => void;
   onUpdateTextElement: (id: string, updates: Partial<CoverTextElement>) => void;
   onDeleteCoverText: (id: string) => void;
@@ -1877,6 +1988,13 @@ function CoverPictureModal({
     }
   };
 
+  const getPreviewBgSize = () => {
+    if (coverFit === 'contain') return 'contain';
+    if (coverFit === 'stretch') return '100% 100%';
+    if (coverFit === 'scale') return `${coverScale}% auto`;
+    return 'cover';
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-fade-in">
       <div className="bg-white rounded-2xl max-w-3xl w-full shadow-2xl overflow-hidden border border-slate-100 flex flex-col max-h-[92vh]">
@@ -1888,7 +2006,7 @@ function CoverPictureModal({
             </div>
             <div>
               <h3 className="font-bold text-base text-white">SDBIP Report Cover Customizer</h3>
-              <p className="text-xs text-slate-400">Edit or delete cover titles, upload background images, choose presets, or adjust tint.</p>
+              <p className="text-xs text-slate-400">Control picture size, fit modes, zoom scale, background colors & cover text elements.</p>
             </div>
           </div>
           <button 
@@ -1900,28 +2018,30 @@ function CoverPictureModal({
         </div>
 
         {/* Content Body */}
-        <div className="p-6 overflow-y-auto space-y-6 flex-1">
+        <div className="p-6 overflow-y-auto space-y-5 flex-1">
           {/* Live Preview Card */}
           <div>
             <div className="flex justify-between items-center mb-2">
-              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-                Live Cover Preview
+              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-indigo-600" /> Live Cover Preview
               </label>
-              <span className="text-[10px] text-slate-400 font-medium">Hover text lines in preview to delete</span>
+              <span className="text-[10px] text-slate-400 font-medium">Hover text lines to delete</span>
             </div>
             <div 
-              className="relative w-full h-48 rounded-2xl overflow-hidden shadow-inner flex flex-col justify-center items-center text-center p-6 text-white border border-slate-200"
+              className="relative w-full h-44 rounded-2xl overflow-hidden shadow-inner flex flex-col justify-center items-center text-center p-6 text-white border border-slate-200 transition-all"
               style={{
+                backgroundColor: coverBgColor || '#0f172a',
                 backgroundImage: coverImage.startsWith('linear-gradient') ? coverImage : `url('${coverImage}')`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center'
+                backgroundSize: getPreviewBgSize(),
+                backgroundPosition: coverPosition || 'center',
+                backgroundRepeat: 'no-repeat'
               }}
             >
               <div 
                 className="absolute inset-0 bg-slate-900 mix-blend-multiply transition-opacity" 
                 style={{ opacity: overlayOpacity }}
               />
-              <div className="relative z-10 w-full flex flex-col items-center space-y-2">
+              <div className="relative z-10 w-full flex flex-col items-center space-y-1.5">
                 {coverTexts && coverTexts.length > 0 ? (
                   coverTexts.map((el) => (
                     <div key={el.id} className="relative group/previtem w-full flex justify-center items-center">
@@ -1943,17 +2063,133 @@ function CoverPictureModal({
                   ))
                 ) : null}
                 {coverTexts && coverTexts.length > 0 && (
-                  <div className="w-16 h-1 bg-indigo-500 rounded-full mt-3"></div>
+                  <div className="w-16 h-1 bg-indigo-500 rounded-full mt-2"></div>
                 )}
               </div>
             </div>
           </div>
 
+          {/* Interactive Cover Picture Sizing & Fit Control Box */}
+          <div className="bg-indigo-50/60 p-4 rounded-2xl border border-indigo-100 space-y-3.5 shadow-xs">
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-bold text-indigo-950 flex items-center gap-1.5 uppercase tracking-wider">
+                <Sliders className="w-4 h-4 text-indigo-600" /> Picture Size & Frame Fit Mode
+              </span>
+              <span className="text-[10px] font-extrabold bg-indigo-200 text-indigo-900 px-2.5 py-0.5 rounded-full uppercase">
+                {coverFit === 'contain' ? 'Fit Entire Graphic' : coverFit === 'cover' ? 'Fill Full Box' : coverFit === 'stretch' ? 'Stretch 100%' : `${coverScale}% Custom Zoom`}
+              </span>
+            </div>
+
+            {/* Fit Mode Button Group */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <button
+                type="button"
+                onClick={() => onUpdateCoverFit('contain')}
+                className={`px-3 py-2 rounded-xl text-[11px] font-bold transition-all border text-center cursor-pointer ${
+                  coverFit === 'contain'
+                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                }`}
+                title="Fits 100% of image inside A4 without cropping any text or graphics"
+              >
+                Fit Entire Image (No Cutoff)
+              </button>
+              <button
+                type="button"
+                onClick={() => onUpdateCoverFit('cover')}
+                className={`px-3 py-2 rounded-xl text-[11px] font-bold transition-all border text-center cursor-pointer ${
+                  coverFit === 'cover'
+                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                }`}
+                title="Fills the entire cover box edge to edge"
+              >
+                Fill Page Edge-to-Edge
+              </button>
+              <button
+                type="button"
+                onClick={() => onUpdateCoverFit('stretch')}
+                className={`px-3 py-2 rounded-xl text-[11px] font-bold transition-all border text-center cursor-pointer ${
+                  coverFit === 'stretch'
+                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                }`}
+                title="Stretches graphic 100% width x 100% height"
+              >
+                Stretch Exact (100% x 100%)
+              </button>
+              <button
+                type="button"
+                onClick={() => onUpdateCoverFit('scale')}
+                className={`px-3 py-2 rounded-xl text-[11px] font-bold transition-all border text-center cursor-pointer ${
+                  coverFit === 'scale'
+                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                }`}
+                title="Manually adjust image zoom percentage slider"
+              >
+                Custom % Scale Zoom
+              </button>
+            </div>
+
+            {/* Sub-controls: Zoom Slider & Background Frame Color */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              {/* Scale Zoom Slider */}
+              <div className="bg-white p-2.5 rounded-xl border border-slate-200 space-y-1.5">
+                <div className="flex justify-between items-center text-[11px] font-bold text-slate-700">
+                  <span>Image Zoom Scale</span>
+                  <span className="font-mono text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded text-[10px]">
+                    {coverScale}%
+                  </span>
+                </div>
+                <input 
+                  type="range" 
+                  min="20" 
+                  max="200" 
+                  step="5"
+                  value={coverScale}
+                  onChange={(e) => {
+                    onUpdateCoverScale(parseInt(e.target.value));
+                    if (coverFit !== 'scale') onUpdateCoverFit('scale');
+                  }}
+                  className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                />
+              </div>
+
+              {/* Background Frame Color (for letterbox when containing) */}
+              <div className="bg-white p-2.5 rounded-xl border border-slate-200 space-y-1.5">
+                <div className="flex justify-between items-center text-[11px] font-bold text-slate-700">
+                  <span>Letterbox Padding Color</span>
+                  <div className="flex items-center gap-1">
+                    {['#0f172a', '#000000', '#ffffff', '#064e3b', '#1e1b4b'].map((hex) => (
+                      <button
+                        key={hex}
+                        type="button"
+                        onClick={() => onUpdateCoverBgColor(hex)}
+                        className={`w-4 h-4 rounded-full border border-slate-300 cursor-pointer transition-transform ${
+                          coverBgColor === hex ? 'scale-125 ring-2 ring-indigo-500' : 'hover:scale-110'
+                        }`}
+                        style={{ backgroundColor: hex }}
+                      />
+                    ))}
+                    <input 
+                      type="color" 
+                      value={coverBgColor}
+                      onChange={(e) => onUpdateCoverBgColor(e.target.value)}
+                      className="w-5 h-5 rounded p-0 border border-slate-300 cursor-pointer ml-1"
+                      title="Custom Hex color"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Dark Overlay Opacity Slider */}
-          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
+          <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-1.5">
             <div className="flex justify-between items-center text-xs font-bold text-slate-700">
               <span className="flex items-center gap-1.5">
-                <Sliders className="w-4 h-4 text-indigo-600" /> Overlay Background Opacity
+                <Sliders className="w-4 h-4 text-indigo-600" /> Tint Overlay Darkness
               </span>
               <span className="bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-md font-mono text-[11px]">
                 {Math.round(overlayOpacity * 100)}%
@@ -1961,7 +2197,7 @@ function CoverPictureModal({
             </div>
             <input 
               type="range" 
-              min="0.1" 
+              min="0.0" 
               max="0.95" 
               step="0.05"
               value={overlayOpacity}
@@ -1971,7 +2207,7 @@ function CoverPictureModal({
           </div>
 
           {/* Selection Mode Tabs */}
-          <div className="flex border-b border-slate-200 space-x-4">
+          <div className="flex border-b border-slate-200 space-x-4 pt-1">
             <button
               onClick={() => setActiveTab('text')}
               className={`pb-2.5 text-xs font-bold transition border-b-2 cursor-pointer flex items-center gap-1.5 ${
