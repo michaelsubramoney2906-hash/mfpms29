@@ -124,6 +124,7 @@ interface PATemplate {
   sigDay?: string;
   sigMonth?: string;
   sigYear?: string;
+  pdpCustomTable?: { title: string; headers: string[]; rows: string[][] };
 }
 
 export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
@@ -1974,7 +1975,8 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
         supervisorDate,
         sigDay,
         sigMonth,
-        sigYear
+        sigYear,
+        pdpCustomTable
       };
 
       // Merge current active template into the compiled templates pool
@@ -2069,6 +2071,7 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
     setEvaluation(tpl.evaluation);
     setAnnexureC(tpl.annexureC);
     setCustomTables(tpl.customTables || []);
+    if (tpl.pdpCustomTable) setPdpCustomTable(tpl.pdpCustomTable);
 
     setMunicipalityName(tpl.municipalityName || 'NKANGALA DISTRICT MUNICIPALITY');
     setTemplateSubHeader(tpl.templateSubHeader || 'DRAFT REGULATORY DOCUMENT TEMPLATE');

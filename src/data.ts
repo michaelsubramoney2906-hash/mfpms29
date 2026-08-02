@@ -4,7 +4,7 @@ import {
   Briefcase, Target, Building, AlertTriangle, Layers,
   Users, Landmark, Search, ShieldAlert, Users2, Mic, Settings,
   MessageCircle, HelpCircle, Calendar, Database, Box, GraduationCap,
-  Shield, Key, Ticket, List, MessageSquare, FileBarChart, UserCheck, LayoutGrid, BadgePlus
+  Shield, Key, Ticket, List, MessageSquare, FileBarChart, UserCheck, LayoutGrid, BadgePlus, Mail
 } from 'lucide-react';
 import type { Module, Tenant } from './types';
 
@@ -328,6 +328,7 @@ export const modules: Module[] = [
     icon: Target,
     subModules: [
       { id: 'ipms-team-dashboard', name: 'Team Dashboard', icon: Users },
+      { id: 'ipms-inbox', name: 'Inbox', icon: Mail },
       { id: 'ipms-kpa', name: 'IPMS KPA', icon: Flag },
       { id: 'jsc', name: 'Job Specific Competencies', icon: FileBadge },
       { id: 'ccomp', name: 'Core Competencies', icon: BadgePlus },

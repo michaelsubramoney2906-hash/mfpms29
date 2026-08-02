@@ -125,6 +125,7 @@ interface PATemplate {
   sigDay?: string;
   sigMonth?: string;
   sigYear?: string;
+  pdpCustomTable?: { title: string; headers: string[]; rows: string[][] };
 }
 
 export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuiteProps) {
@@ -2050,7 +2051,8 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
         supervisorDate,
         sigDay,
         sigMonth,
-        sigYear
+        sigYear,
+        pdpCustomTable
       };
 
       const res = await fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=${currentUser.email}`, {
@@ -2144,6 +2146,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
     setEvaluation(tpl.evaluation);
     setAnnexureC(tpl.annexureC);
     setCustomTables(tpl.customTables || []);
+    if (tpl.pdpCustomTable) setPdpCustomTable(tpl.pdpCustomTable);
 
     setMunicipalityName(tpl.municipalityName || 'NKANGALA DISTRICT MUNICIPALITY');
     setTemplateSubHeader(tpl.templateSubHeader || 'DRAFT REGULATORY DOCUMENT TEMPLATE');

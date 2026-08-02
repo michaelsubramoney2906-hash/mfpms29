@@ -39,6 +39,7 @@ import { DepartmentModerationIPMS } from './IPMS/DepartmentModeration_IPMS';
 import { InternalAudit } from './InternalAudit';
 import { CalendarEvents } from './CalendarEvents';
 import { Reports } from './IPMS/Reports';
+import { IPMSInbox } from './IPMS/IPMSInbox';
 import { CouncilCommittees } from './CouncilCommittees/CouncilCommittees';
 import { OfficeOfTheMayor } from './OfficeOfTheMayor/OfficeOfTheMayor';
 import { OfficeOfTheMM } from './OfficeOfTheMM/OfficeOfTheMM';
@@ -751,6 +752,10 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
           ) : activeSubModule.id === 'ipms-reports' ? (
              <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
                 <Reports currentUser={fullUserProfile} activeTenantId={activeTenantId} />
+             </div>
+          ) : activeSubModule.id === 'ipms-inbox' ? (
+             <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
+                <IPMSInbox currentUser={fullUserProfile} activeTenantId={activeTenantId} />
              </div>
           ) : activeSubModule.id === 'ia' ? (
              <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
