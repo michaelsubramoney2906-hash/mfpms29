@@ -2316,6 +2316,264 @@ Format your response exactly according to the following JSON schema:
     }
   });
 
+  // ==========================================
+  // IPMS INBOX & MESSAGING API ENDPOINTS
+  // ==========================================
+
+  // Fetch IPMS inbox messages for a user
+  app.get("/api/tenant/:tenantId/ipms-inbox", async (req, res) => {
+    const { tenantId } = req.params;
+    const { userId } = req.query;
+
+    if (!userId || typeof userId !== 'string') {
+      return res.status(400).json({ error: "Missing required userId query parameter." });
+    }
+
+    const userEmail = userId.toLowerCase().trim();
+
+    try {
+      const supabase = getSupabase();
+
+      // 1. Try reading individual ipms_inbox_item messages from Supabase
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('message_type', 'ipms_inbox_item')
+        .order('created_at', { ascending: false });
+
+      let allMessages: any[] = [];
+
+      if (!error && data && data.length > 0) {
+        allMessages = data.map(m => {
+          try {
+            const parsed = typeof m.content === 'string' ? JSON.parse(m.content) : m.content;
+            return { id: m.id, createdAt: m.created_at, ...parsed };
+          } catch (e) {
+            return null;
+          }
+        }).filter(Boolean);
+      } else {
+        // Fallback: Read aggregated store ipms_inbox_store_${tenantId}
+        const { data: storeData } = await supabase
+          .from('messages')
+          .select('content')
+          .eq('id', `ipms_inbox_store_${tenantId}`)
+          .maybeSingle();
+
+        if (storeData && storeData.content) {
+          try {
+            allMessages = JSON.parse(storeData.content);
+          } catch (e) {
+            allMessages = [];
+          }
+        }
+      }
+
+      // Filter messages where user is sender or recipient
+      const userMessages = allMessages.filter((m: any) => {
+        const sender = (m.senderEmail || '').toLowerCase();
+        const recipients = (m.recipientEmails || []).map((r: string) => (r || '').toLowerCase());
+        return sender === userEmail || recipients.includes(userEmail);
+      });
+
+      res.json(userMessages);
+    } catch (err: any) {
+      console.error("Error in GET /api/tenant/:tenantId/ipms-inbox:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Post new message or reply to IPMS Inbox
+  app.post("/api/tenant/:tenantId/ipms-inbox", async (req, res) => {
+    const { tenantId } = req.params;
+    const {
+      senderEmail,
+      senderName,
+      senderJobTitle,
+      recipientEmails,
+      recipientNames,
+      subject,
+      body,
+      attachments,
+      threadId,
+      replyToId
+    } = req.body;
+
+    if (!senderEmail || !recipientEmails || !Array.isArray(recipientEmails) || !recipientEmails.length || !subject || !body) {
+      return res.status(400).json({ error: "Missing required fields: senderEmail, recipientEmails, subject, body." });
+    }
+
+    try {
+      const supabase = getSupabase();
+      const createdAt = new Date().toISOString();
+      const msgId = `ipms_msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const effectiveThreadId = threadId || `thread_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+      const newMsgObj = {
+        id: msgId,
+        threadId: effectiveThreadId,
+        replyToId: replyToId || null,
+        tenantId,
+        senderEmail: senderEmail.trim(),
+        senderName: senderName || senderEmail.split('@')[0],
+        senderJobTitle: senderJobTitle || 'Staff Member',
+        recipientEmails: recipientEmails.map((e: string) => e.trim()),
+        recipientNames: recipientNames || recipientEmails.map((e: string) => e.split('@')[0]),
+        subject: subject.trim(),
+        body: body.trim(),
+        attachments: attachments || [],
+        createdAt,
+        readBy: [senderEmail.trim().toLowerCase()],
+        starredBy: [],
+        trashedBy: []
+      };
+
+      // 1. Store individual message row in Supabase
+      const { error: insertErr } = await supabase
+        .from('messages')
+        .insert({
+          id: msgId,
+          tenant_id: tenantId,
+          sender_id: senderEmail.trim().toLowerCase(),
+          sender_email: senderEmail.trim().toLowerCase(),
+          sender_name: senderName || senderEmail.split('@')[0],
+          content: JSON.stringify(newMsgObj),
+          message_type: 'ipms_inbox_item',
+          created_at: createdAt
+        });
+
+      if (insertErr) {
+        console.warn("Notice: Individual insert warning, syncing to aggregated store:", insertErr.message);
+      }
+
+      // 2. Also update aggregated store in Supabase
+      const { data: storeData } = await supabase
+        .from('messages')
+        .select('content')
+        .eq('id', `ipms_inbox_store_${tenantId}`)
+        .maybeSingle();
+
+      let existingMessages: any[] = [];
+      if (storeData && storeData.content) {
+        try {
+          existingMessages = JSON.parse(storeData.content);
+        } catch (e) {
+          existingMessages = [];
+        }
+      }
+
+      // Prepend new message
+      existingMessages.unshift(newMsgObj);
+
+      // Keep max 1000 items in store
+      if (existingMessages.length > 1000) {
+        existingMessages = existingMessages.slice(0, 1000);
+      }
+
+      await supabase
+        .from('messages')
+        .upsert({
+          id: `ipms_inbox_store_${tenantId}`,
+          tenant_id: tenantId,
+          sender_id: 'system_inbox',
+          sender_email: 'inbox@system.local',
+          sender_name: 'IPMS Inbox Store',
+          content: JSON.stringify(existingMessages),
+          message_type: 'ipms_inbox_store',
+          created_at: createdAt
+        });
+
+      res.json({ success: true, message: newMsgObj });
+    } catch (err: any) {
+      console.error("Error in POST /api/tenant/:tenantId/ipms-inbox:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Action endpoint (mark read/unread, star/unstar, trash, restore)
+  app.put("/api/tenant/:tenantId/ipms-inbox/:messageId/action", async (req, res) => {
+    const { tenantId, messageId } = req.params;
+    const { action, userEmail } = req.body;
+
+    if (!userEmail || !action) {
+      return res.status(400).json({ error: "Missing required parameters action and userEmail." });
+    }
+
+    const normalizedUser = userEmail.trim().toLowerCase();
+
+    try {
+      const supabase = getSupabase();
+
+      // Read aggregated store
+      const { data: storeData } = await supabase
+        .from('messages')
+        .select('content')
+        .eq('id', `ipms_inbox_store_${tenantId}`)
+        .maybeSingle();
+
+      let messages: any[] = [];
+      if (storeData && storeData.content) {
+        try {
+          messages = JSON.parse(storeData.content);
+        } catch (e) {
+          messages = [];
+        }
+      }
+
+      let updated = false;
+      messages = messages.map((m: any) => {
+        if (m.id === messageId || m.threadId === messageId) {
+          updated = true;
+          const readBy = new Set((m.readBy || []).map((e: string) => e.toLowerCase()));
+          const starredBy = new Set((m.starredBy || []).map((e: string) => e.toLowerCase()));
+          const trashedBy = new Set((m.trashedBy || []).map((e: string) => e.toLowerCase()));
+
+          if (action === 'markRead') {
+            readBy.add(normalizedUser);
+          } else if (action === 'markUnread') {
+            readBy.delete(normalizedUser);
+          } else if (action === 'toggleStar') {
+            if (starredBy.has(normalizedUser)) starredBy.delete(normalizedUser);
+            else starredBy.add(normalizedUser);
+          } else if (action === 'moveToTrash') {
+            trashedBy.add(normalizedUser);
+          } else if (action === 'restore') {
+            trashedBy.delete(normalizedUser);
+          }
+
+          return {
+            ...m,
+            readBy: Array.from(readBy),
+            starredBy: Array.from(starredBy),
+            trashedBy: Array.from(trashedBy)
+          };
+        }
+        return m;
+      });
+
+      if (updated) {
+        await supabase
+          .from('messages')
+          .upsert({
+            id: `ipms_inbox_store_${tenantId}`,
+            tenant_id: tenantId,
+            sender_id: 'system_inbox',
+            sender_email: 'inbox@system.local',
+            sender_name: 'IPMS Inbox Store',
+            content: JSON.stringify(messages),
+            message_type: 'ipms_inbox_store',
+            created_at: new Date().toISOString()
+          });
+      }
+
+      res.json({ success: true, messageId, action });
+    } catch (err: any) {
+      console.error("Error in PUT /api/tenant/:tenantId/ipms-inbox/:messageId/action:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // 1. Save Azure AD Configuration for a Tenant
   app.post("/api/tenant/:tenantId/azure-config", async (req, res) => {
     const { tenantId } = req.params;
