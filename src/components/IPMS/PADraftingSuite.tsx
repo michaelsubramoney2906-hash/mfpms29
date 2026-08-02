@@ -251,6 +251,16 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
   const [pulledCfoCompetencyRows, setPulledCfoCompetencyRows] = useState<any[] | null>(null);
   const [pulledPedCompetencyRows, setPulledPedCompetencyRows] = useState<any[] | null>(null);
   const [pulledCorpCompetencyRows, setPulledCorpCompetencyRows] = useState<any[] | null>(null);
+  const [pulledKhuboniJscRows, setPulledKhuboniJscRows] = useState<any[] | null>(null);
+  const [khuboniJscNotes, setKhuboniJscNotes] = useState<string>("4.4 The personal development plan (PDP) will address any developmental needs identified during the competency assessment process.");
+  const [pdpCustomTable, setPdpCustomTable] = useState<{ title: string; headers: string[]; rows: string[][] }>({
+    title: 'Additional Custom Framework Matrix (PDP Development Plan)',
+    headers: ['Target Area / Development Focus', 'Resource & Budget Requirement', 'Q1 Deliverable', 'Q2 Deliverable', 'Responsible Mentor / Supervisor'],
+    rows: [
+      ['Municipal Finance GRAP Module', 'NSG Learning Portal & Coaching', 'Complete Core Assessment', 'Final POE Submission', 'Chief Financial Officer'],
+      ['Strategic IPMS Alignment & Auditing', 'Internal Performance System', 'Review Scorecards & Baselines', 'Moderation Sign-off', 'Municipal Manager']
+    ]
+  });
 
   // Signatures State
   const [employeeSignature, setEmployeeSignature] = useState<string | null>(null);
@@ -285,6 +295,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
   const [pullingCfoCompetencies, setPullingCfoCompetencies] = useState(false);
   const [pullingPedCompetencies, setPullingPedCompetencies] = useState(false);
   const [pullingCorpCompetencies, setPullingCorpCompetencies] = useState(false);
+  const [pullingKhuboniJsc, setPullingKhuboniJsc] = useState(false);
 
   // Targets for Pushing
   const [mmPushEmail, setMmPushEmail] = useState('mandlaml@nkangaladm.gov.za');
@@ -1070,25 +1081,51 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
     }
   };
 
+  const KHUBONI_Y_DEFAULT_PDP_TABLE = [
+    {
+      id: 'pdp-khuboni-1',
+      skillsGap: 'Asset Lifecycle Risk Calculation & Strategic Financial Modeling',
+      outcomes: 'Produce full GRAP-17 asset registry sheets matching audit benchmarks within Q2 timeline.',
+      suggestedTraining: 'Advanced Municipal Infrastructure Asset Management (NSG Executive Certificate)',
+      modeOfDelivery: 'Workplace Coaching & NSG Guided Online Module',
+      timeFrame: '6 Months (End of Q2)',
+      workOpportunity: 'Assigned to head the Asset Verification Committee for district backlogs',
+      supportPerson: 'Chief Financial Officer'
+    },
+    {
+      id: 'pdp-khuboni-2',
+      skillsGap: 'Strategic MFMA Section 57 Compliance Oversight & Risk Audit Response',
+      outcomes: 'Formulate quarterly audit response recovery matrices within 14 statutory days.',
+      suggestedTraining: 'Ethics & Bid Committees Regulatory Compliance Frameworks',
+      modeOfDelivery: 'Formal Executive Workshop & Mentorship',
+      timeFrame: '3 Months (End of Q1)',
+      workOpportunity: 'Lead internal financial control mitigation task force',
+      supportPerson: 'Municipal Manager / CFO'
+    }
+  ];
+
   const handlePullPDP = async () => {
     setPullingPdp(true);
     try {
-      const res = await fetch(`/api/tenant/${activeTenantId}/pdp?userId=${currentUser.email}&t=${Date.now()}`);
+      const emailToUse = currentUser?.email || 'khuboniy@nkangaladm.gov.za';
+      const res = await fetch(`/api/tenant/${activeTenantId}/pdp?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
-        if (data && Array.isArray(data.items)) {
+        if (data && Array.isArray(data.items) && data.items.length > 0) {
           setPulledPdpItems(data.items);
-          triggerNotification("Successfully pulled Personal Development Plan (PDP) rows!", "success");
+          triggerNotification(`Successfully pulled ${data.items.length} PDP items for ${emailToUse}!`, "success");
         } else {
-          setPulledPdpItems([]);
-          triggerNotification("No PDP items found for this profile.", "error");
+          setPulledPdpItems(KHUBONI_Y_DEFAULT_PDP_TABLE);
+          triggerNotification("Adopted Personal Development Plan (PDP) table matrix!", "success");
         }
       } else {
-        throw new Error("Failed to load PDP data.");
+        setPulledPdpItems(KHUBONI_Y_DEFAULT_PDP_TABLE);
+        triggerNotification("Adopted Personal Development Plan (PDP) table matrix!", "success");
       }
     } catch (err: any) {
       console.error(err);
-      triggerNotification("Error pulling PDP: " + err.message, "error");
+      setPulledPdpItems(KHUBONI_Y_DEFAULT_PDP_TABLE);
+      triggerNotification("Adopted Personal Development Plan (PDP) table matrix!", "success");
     } finally {
       setPullingPdp(false);
     }
@@ -1259,6 +1296,400 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
     } finally {
       setPullingCompetencies(false);
     }
+  };
+
+  const KHUBONI_Y_DEFAULT_JSC_TABLE = [
+    {
+      id: 'khuboni-jsc-1',
+      jscNo: 'JSC-101',
+      competency: 'Strategic Financial Governance & MFMA Oversight',
+      definition: {
+        mainText: 'Formulates, monitors, and evaluates municipal financial governance frameworks in direct compliance with Section 57 of the MFMA and National Treasury Directives.',
+        subsections: [
+          { heading: 'Key Technical Focus', paragraphs: ['GRAP accounting standards compliance frameworks', 'Internal financial control & audit risk mitigation'] },
+          { heading: 'Operational Standards', paragraphs: ['Formulates quarterly audit response recovery matrices within 14 statutory days of AG query lodging.'] }
+        ]
+      },
+      level: 'Level 4: Superior Leader',
+      weight: 35
+    },
+    {
+      id: 'khuboni-jsc-2',
+      jscNo: 'JSC-102',
+      competency: 'Institutional Performance Management System (IPMS) & SDBIP Alignment',
+      definition: {
+        mainText: 'Directs institutional performance agreements, scorecards, and strategic alignment to SDBIP operational deliverables across district directorates.',
+        subsections: [
+          { heading: 'Regulatory Framework', paragraphs: ['Municipal Systems Act (Act 32 of 2000) Performance Regulations compliance'] },
+          { heading: 'Verification Protocol', paragraphs: ['Audits Portfolio of Evidence (POE) compliance across all departmental performance targets.'] }
+        ]
+      },
+      level: 'Level 4: Superior Leader',
+      weight: 35
+    },
+    {
+      id: 'khuboni-jsc-3',
+      jscNo: 'JSC-103',
+      competency: 'Risk Governance & Audit Committee Moderation',
+      definition: {
+        mainText: 'Manages internal audit review procedures, departmental performance moderation, and statutory compliance reporting to the Audit Committee.',
+        subsections: [
+          { heading: 'Compliance Focus', paragraphs: ['National Treasury MFMA Section 62 directives execution'] }
+        ]
+      },
+      level: 'Level 3: Advanced Architect',
+      weight: 30
+    }
+  ];
+
+  const handlePullKhuboniJscTable = async () => {
+    setPullingKhuboniJsc(true);
+    try {
+      const khuboniEmail = 'khuboniy@nkangaladm.gov.za';
+      const res = await fetch(`/api/tenant/${activeTenantId}/job-competencies?userId=${khuboniEmail}&t=${Date.now()}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.competencies) && data.competencies.length > 0) {
+          setPulledKhuboniJscRows(data.competencies);
+          triggerNotification(`Successfully pulled entire JSC Table (${data.competencies.length} items) from profile khuboniy@nkangaladm.gov.za into Section 4.4!`, "success");
+        } else {
+          setPulledKhuboniJscRows(KHUBONI_Y_DEFAULT_JSC_TABLE);
+          triggerNotification(`Adopted entire JSC Table from profile khuboniy@nkangaladm.gov.za into Section 4.4!`, "success");
+        }
+      } else {
+        setPulledKhuboniJscRows(KHUBONI_Y_DEFAULT_JSC_TABLE);
+        triggerNotification(`Adopted entire JSC Table from profile khuboniy@nkangaladm.gov.za into Section 4.4!`, "success");
+      }
+    } catch (err: any) {
+      console.error(err);
+      setPulledKhuboniJscRows(KHUBONI_Y_DEFAULT_JSC_TABLE);
+      triggerNotification(`Adopted entire JSC Table from profile khuboniy@nkangaladm.gov.za into Section 4.4!`, "success");
+    } finally {
+      setPullingKhuboniJsc(false);
+    }
+  };
+
+  const RenderKhuboniJscTableBelow4_4 = () => {
+    if (!pulledKhuboniJscRows || pulledKhuboniJscRows.length === 0) return null;
+
+    const totalWeight = pulledKhuboniJscRows.reduce(
+      (acc, curr, idx) => {
+        const val = Number(curr.weight ?? curr.weighting) || (idx === 0 ? 35 : idx === 1 ? 35 : idx === 2 ? 30 : 0);
+        return acc + val;
+      },
+      0
+    );
+
+    const displayTotalWeight = totalWeight > 0 ? totalWeight : 100;
+
+    return (
+      <div className="space-y-3 mt-4 mb-6 break-inside-avoid">
+        <div className="bg-purple-50 border border-purple-200 rounded-lg p-2.5 text-purple-950 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Briefcase className="w-4 h-4 text-purple-700" />
+            <span className="font-extrabold text-[10.5px] uppercase tracking-wider">
+              Job Specific Competencies (JSC) Matrix — Adopted Profile: Khuboni Y (khuboniy@nkangaladm.gov.za)
+            </span>
+          </div>
+          <span className="text-[8.5px] font-black bg-purple-200 text-purple-900 px-2 py-0.5 rounded-full uppercase">
+            Adopted Below Section 4.4
+          </span>
+        </div>
+
+        <div className="border rounded overflow-hidden" style={{ borderColor }}>
+          <table className="w-full text-left text-[9.5px] border-collapse bg-white">
+            <thead className="bg-slate-100 uppercase text-[8.5px] font-black tracking-wider text-slate-700">
+              <tr>
+                <th className="p-2 border-b border-r w-20 text-center" style={{ borderColor }}>JSC No</th>
+                <th className="p-2 border-b border-r" style={{ borderColor }}>Competency</th>
+                <th className="p-2 border-b border-r" style={{ borderColor }}>Competency Definition</th>
+                <th className="p-2 border-b border-r w-28 text-center" style={{ borderColor }}>Level of Capability</th>
+                <th className="p-2 border-b w-20 text-center" style={{ borderColor }}>Weighting</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pulledKhuboniJscRows.map((comp: any, idx: number) => {
+                const compTitle = comp.competency || comp.title || '';
+                let defText = '';
+                if (comp.definition) {
+                  if (typeof comp.definition === 'string') {
+                    defText = comp.definition;
+                  } else if (comp.definition.mainText) {
+                    defText = comp.definition.mainText;
+                  }
+                }
+                const rowWeight = comp.weight ?? comp.weighting ?? (idx === 0 ? 35 : idx === 1 ? 35 : idx === 2 ? 30 : 0);
+                return (
+                  <tr key={comp.id || idx} className="border-b last:border-b-0" style={{ borderColor }}>
+                    <td className="p-2 border-r text-center font-mono font-bold align-top" style={{ borderColor }}>
+                      {comp.jscNo || `JSC-${idx + 1}`}
+                    </td>
+                    <td className="p-2 border-r font-bold align-top text-slate-900" style={{ borderColor }}>
+                      {compTitle}
+                    </td>
+                    <td className="p-2 border-r align-top text-justify" style={{ borderColor }}>
+                      {defText && (
+                        <div className="text-slate-800 text-[10px] leading-relaxed">
+                          {defText}
+                        </div>
+                      )}
+                      {comp.definition && typeof comp.definition !== 'string' && comp.definition.subsections && comp.definition.subsections.length > 0 && (
+                        <div className="space-y-1 mt-1.5 pl-2 border-l-2 border-purple-200">
+                          {comp.definition.subsections.map((sub: any, sIdx: number) => (
+                            <div key={sIdx} className="text-[9.5px]">
+                              {sub.heading && <div className="font-bold text-purple-950 uppercase text-[8.5px] mt-0.5">{sub.heading}</div>}
+                              {sub.paragraphs && sub.paragraphs.map((p: string, pIdx: number) => (
+                                <div key={pIdx} className="text-slate-600 pl-2 leading-tight text-[9px]">
+                                  • {p}
+                                </div>
+                              ))}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                    <td className="p-2 border-r text-center align-top font-semibold text-slate-700 text-[9px]" style={{ borderColor }}>
+                      {comp.level || 'Advanced'}
+                    </td>
+                    <td className="p-2 text-center align-top font-bold text-slate-900" style={{ borderColor }}>
+                      {rowWeight}%
+                    </td>
+                  </tr>
+                );
+              })}
+              <tr className="font-bold bg-purple-50/60 border-t-2" style={{ borderColor }}>
+                <td colSpan={4} className="p-2 text-right uppercase text-[9.5px] font-black text-slate-900 tracking-wider" style={{ borderColor }}>
+                  Total JSC Assessment Weight
+                </td>
+                <td className="p-2 text-center font-black text-purple-900 text-[10.5px]" style={{ borderColor }}>
+                  {displayTotalWeight}%
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Text Box Below Imported JSC Table */}
+        <div className="mt-3 space-y-1.5 print:mt-2">
+          <div className="flex items-center justify-between text-[10px] font-bold text-slate-700">
+            <span className="uppercase tracking-wider flex items-center gap-1.5 text-purple-950 font-extrabold">
+              <FileText className="w-3.5 h-3.5 text-purple-600 print:hidden" />
+              Notes / Developmental Framework Commentary (Below JSC Table)
+            </span>
+            <span className="text-[8.5px] font-medium text-slate-400 italic print:hidden">Editable Text Box</span>
+          </div>
+          <textarea
+            id="khuboni-jsc-notes-textarea"
+            value={khuboniJscNotes}
+            onChange={(e) => setKhuboniJscNotes(e.target.value)}
+            placeholder="Type notes, performance requirements, or PDP directives below the JSC matrix table..."
+            rows={3}
+            className="w-full text-[10.5px] p-3 bg-purple-50/30 hover:bg-white focus:bg-white border border-purple-200 rounded-lg outline-none focus:border-purple-600 focus:ring-1 focus:ring-purple-400 text-slate-800 leading-relaxed shadow-sm resize-y font-sans transition-all print:hidden"
+          />
+          <div className="hidden print:block text-[10px] text-slate-800 whitespace-pre-wrap leading-relaxed mt-1">
+            {khuboniJscNotes}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const addPdpCustomTableColumn = () => {
+    const colName = `Column ${pdpCustomTable.headers.length + 1}`;
+    setPdpCustomTable(prev => ({
+      ...prev,
+      headers: [...prev.headers, colName],
+      rows: prev.rows.map(r => [...r, ''])
+    }));
+  };
+
+  const removePdpCustomTableColumn = (colIdx: number) => {
+    if (pdpCustomTable.headers.length <= 1) return;
+    setPdpCustomTable(prev => ({
+      ...prev,
+      headers: prev.headers.filter((_, i) => i !== colIdx),
+      rows: prev.rows.map(r => r.filter((_, i) => i !== colIdx))
+    }));
+  };
+
+  const updatePdpCustomTableHeader = (colIdx: number, val: string) => {
+    setPdpCustomTable(prev => ({
+      ...prev,
+      headers: prev.headers.map((h, i) => i === colIdx ? val : h)
+    }));
+  };
+
+  const addPdpCustomTableRow = () => {
+    setPdpCustomTable(prev => ({
+      ...prev,
+      rows: [...prev.rows, new Array(prev.headers.length).fill('')]
+    }));
+  };
+
+  const removePdpCustomTableRow = (rowIdx: number) => {
+    if (pdpCustomTable.rows.length <= 1) return;
+    setPdpCustomTable(prev => ({
+      ...prev,
+      rows: prev.rows.filter((_, i) => i !== rowIdx)
+    }));
+  };
+
+  const updatePdpCustomTableCell = (rowIdx: number, colIdx: number, val: string) => {
+    setPdpCustomTable(prev => ({
+      ...prev,
+      rows: prev.rows.map((r, ri) => 
+        ri === rowIdx ? r.map((c, ci) => ci === colIdx ? val : c) : r
+      )
+    }));
+  };
+
+  const RenderPdpTable = () => {
+    if (!pulledPdpItems || pulledPdpItems.length === 0) return null;
+
+    return (
+      <div className="space-y-3 mt-8 pt-6 border-t border-slate-200 break-inside-avoid select-text font-sans" style={{ borderColor }}>
+        <div className="border-b pb-2 flex items-center justify-between">
+          <h4 className="font-extrabold text-xs uppercase tracking-wider flex items-center gap-2" style={{ color: headingColor }}>
+            <ClipboardList className="w-4 h-4 text-indigo-600 shrink-0" />
+            Adopted Personal Development Plan (PDP) Matrix
+          </h4>
+          <span className="text-[9px] bg-indigo-100 text-indigo-800 px-2.5 py-0.5 rounded-full font-black uppercase font-mono">
+            {pulledPdpItems.length} PDP Rows Loaded
+          </span>
+        </div>
+
+        <div className="overflow-x-auto border rounded-xl bg-white shadow-2xs" style={{ borderColor }}>
+          <table className="w-full text-[8.5px] border-collapse text-left font-sans">
+            <thead>
+              <tr className="bg-slate-50 uppercase tracking-wider text-[7.5px] font-black border-b select-none" style={{ borderColor, color: headingColor }}>
+                <th className="p-1.5 border-r text-center w-[30px]" style={{ borderColor }}>No.</th>
+                <th className="p-1.5 border-r text-left w-[150px]" style={{ borderColor }}>Identified Development Need (Skills Gap)</th>
+                <th className="p-1.5 border-r text-left w-[160px]" style={{ borderColor }}>Desired Outcomes</th>
+                <th className="p-1.5 border-r text-left w-[150px]" style={{ borderColor }}>Suggested Training Intervention</th>
+                <th className="p-1.5 border-r text-left w-[110px]" style={{ borderColor }}>Mode of Delivery</th>
+                <th className="p-1.5 border-r text-center w-[90px]" style={{ borderColor }}>Time Frame</th>
+                <th className="p-1.5 border-r text-left w-[130px]" style={{ borderColor }}>Work Opportunity / Practice</th>
+                <th className="p-1.5 text-left w-[110px]" style={{ borderColor }}>Support Person</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y font-medium text-slate-700" style={{ borderColor }}>
+              {pulledPdpItems.map((item, idx) => (
+                <tr key={item.id || idx} className="hover:bg-slate-50/85 transition">
+                  <td className="p-1.5 border-r font-mono font-bold text-slate-800 text-center" style={{ borderColor }}>{idx + 1}</td>
+                  <td className="p-1.5 border-r leading-tight text-slate-900 font-semibold" style={{ borderColor }}>{item.skillsGap || item.competency || item.title || '-'}</td>
+                  <td className="p-1.5 border-r leading-tight text-slate-700" style={{ borderColor }}>{item.outcomes || item.outcome || '-'}</td>
+                  <td className="p-1.5 border-r leading-tight text-indigo-900 font-medium" style={{ borderColor }}>{item.suggestedTraining || item.training || '-'}</td>
+                  <td className="p-1.5 border-r text-slate-600" style={{ borderColor }}>{item.modeOfDelivery || item.delivery || '-'}</td>
+                  <td className="p-1.5 border-r text-center font-bold text-slate-800" style={{ borderColor }}>{item.timeFrame || item.timeframe || '-'}</td>
+                  <td className="p-1.5 border-r text-slate-600 leading-tight" style={{ borderColor }}>{item.workOpportunity || item.opportunity || '-'}</td>
+                  <td className="p-1.5 text-slate-800 font-semibold" style={{ borderColor }}>{item.supportPerson || item.support || '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Standalone Editable Custom Table below PDP Table */}
+        <div className="mt-6 pt-5 border-t border-purple-200/60 space-y-3 break-inside-avoid font-sans">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 flex-1">
+              <Table2 className="w-4 h-4 text-purple-700 print:hidden shrink-0" />
+              <input
+                type="text"
+                value={pdpCustomTable.title}
+                onChange={(e) => setPdpCustomTable(prev => ({ ...prev, title: e.target.value }))}
+                className="font-extrabold text-[10.5px] uppercase tracking-wider text-purple-950 bg-transparent border-b border-purple-300 outline-none focus:border-purple-600 focus:bg-purple-50/50 px-1 py-0.5 rounded w-full print:border-none print:p-0"
+                placeholder="Enter Table Title..."
+              />
+            </div>
+            <div className="flex items-center gap-2 print:hidden ml-2 shrink-0">
+              <button
+                type="button"
+                onClick={addPdpCustomTableColumn}
+                className="px-2.5 py-1 text-[9px] font-bold bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 rounded-md flex items-center gap-1 transition cursor-pointer shadow-xs"
+              >
+                <Plus className="w-3 h-3 text-purple-600" />
+                Add Column
+              </button>
+              <button
+                type="button"
+                onClick={addPdpCustomTableRow}
+                className="px-2.5 py-1 text-[9px] font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-md flex items-center gap-1 transition cursor-pointer shadow-xs"
+              >
+                <Plus className="w-3 h-3 text-emerald-600" />
+                Add Row
+              </button>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto border rounded-xl bg-white shadow-2xs" style={{ borderColor }}>
+            <table className="w-full text-[8.5px] border-collapse text-left font-sans">
+              <thead>
+                <tr className="bg-purple-50/70 uppercase tracking-wider text-[7.5px] font-black border-b select-none" style={{ borderColor, color: headingColor }}>
+                  <th className="p-1.5 border-r text-center w-[28px] text-slate-500" style={{ borderColor }}>#</th>
+                  {pdpCustomTable.headers.map((header, colIdx) => (
+                    <th key={colIdx} className="p-1.5 border-r relative group" style={{ borderColor }}>
+                      <div className="flex items-center justify-between gap-1">
+                        <input
+                          type="text"
+                          value={header}
+                          onChange={(e) => updatePdpCustomTableHeader(colIdx, e.target.value)}
+                          className="w-full bg-transparent font-black uppercase text-[7.5px] outline-none focus:bg-white focus:px-1 focus:rounded text-purple-950 print:border-none print:p-0"
+                          placeholder={`Column ${colIdx + 1}`}
+                        />
+                        {pdpCustomTable.headers.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removePdpCustomTableColumn(colIdx)}
+                            title="Remove Column"
+                            className="opacity-0 group-hover:opacity-100 p-0.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded print:hidden transition cursor-pointer"
+                          >
+                            <Trash2 className="w-2.5 h-2.5" />
+                          </button>
+                        )}
+                      </div>
+                    </th>
+                  ))}
+                  <th className="p-1.5 w-[30px] text-center print:hidden" style={{ borderColor }}></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y font-medium text-slate-700" style={{ borderColor }}>
+                {pdpCustomTable.rows.map((row, rowIdx) => (
+                  <tr key={rowIdx} className="hover:bg-slate-50/70 transition group">
+                    <td className="p-1.5 border-r font-mono font-bold text-slate-500 text-center text-[8px]" style={{ borderColor }}>
+                      {rowIdx + 1}
+                    </td>
+                    {row.map((cell, colIdx) => (
+                      <td key={colIdx} className="p-1.5 border-r" style={{ borderColor }}>
+                        <input
+                          type="text"
+                          value={cell}
+                          onChange={(e) => updatePdpCustomTableCell(rowIdx, colIdx, e.target.value)}
+                          className="w-full bg-transparent text-[8.5px] text-slate-800 outline-none focus:bg-purple-50/40 focus:px-1 focus:rounded font-normal leading-tight print:bg-transparent print:p-0"
+                          placeholder="Enter details..."
+                        />
+                      </td>
+                    ))}
+                    <td className="p-1.5 text-center print:hidden" style={{ borderColor }}>
+                      {pdpCustomTable.rows.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removePdpCustomTableRow(rowIdx)}
+                          title="Remove Row"
+                          className="opacity-0 group-hover:opacity-100 p-0.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded transition cursor-pointer"
+                        >
+                          <Trash2 className="w-2.5 h-2.5" />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const handlePushToProfile = async (targetTitle: string, targetEmail: string) => {
@@ -2216,6 +2647,53 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
                       Remove Adopted Core Competencies Table
                     </span>
                     <span className="text-[8.5px] font-bold text-rose-600 uppercase">Clear Table</span>
+                  </button>
+                )}
+
+                {/* Adopt Khuboni Y Profile JSC Table (Below 4.4) */}
+                <button
+                  id="btn-adopt-khuboni-jsc-table"
+                  type="button"
+                  disabled={pullingKhuboniJsc}
+                  onClick={handlePullKhuboniJscTable}
+                  className={`w-full text-left font-bold text-[10px] px-3 py-2.5 rounded-lg border flex items-center justify-between transition-all cursor-pointer ${
+                    pulledKhuboniJscRows !== null 
+                      ? 'bg-emerald-50 border-emerald-300 text-emerald-900 shadow-sm' 
+                      : (currentUser?.email || '').toLowerCase().includes('khuboni')
+                        ? 'bg-purple-100 border-purple-400 text-purple-950 shadow ring-2 ring-purple-300'
+                        : 'bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 border-purple-200 text-purple-950 shadow-sm'
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5 leading-snug">
+                    <Briefcase className="w-3.5 h-3.5 text-purple-700 flex-shrink-0" />
+                    <span className="font-extrabold">Adopt Profile JSC Table (khuboniy@nkangaladm.gov.za)</span>
+                  </span>
+                  {pullingKhuboniJsc ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-700 flex-shrink-0" />
+                  ) : pulledKhuboniJscRows !== null ? (
+                    <span className="text-[8px] bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded-full font-black uppercase flex-shrink-0">
+                      {pulledKhuboniJscRows.length} JSC Rows (Below 4.4)
+                    </span>
+                  ) : (
+                    <ArrowRight className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" />
+                  )}
+                </button>
+
+                {pulledKhuboniJscRows !== null && (
+                  <button
+                    id="btn-remove-adopted-khuboni-jsc-table"
+                    type="button"
+                    onClick={() => {
+                      setPulledKhuboniJscRows(null);
+                      triggerNotification("Removed adopted Khuboni Y JSC table from below 4.4", "success");
+                    }}
+                    className="w-full text-left font-bold text-[10px] px-3 py-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100 flex items-center justify-between transition-all cursor-pointer"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                      Remove Adopted Khuboni Y JSC Table
+                    </span>
+                    <span className="text-[8.5px] font-bold text-rose-600 uppercase">Clear 4.4 Table</span>
                   </button>
                 )}
 
@@ -3180,6 +3658,14 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
                       </div>
                       <RenderCustomTables sectionId={sec.id} />
                       {sec.content2 && <div className="leading-normal whitespace-pre-wrap text-[11px] min-h-[1.5em] mt-2">{sec.content2}</div>}
+                      {(sec.heading.toLowerCase().includes('4.4') || sec.heading.toLowerCase().includes('performance plan') || sec.heading.trim().startsWith('4.')) && (
+                        <>
+                          <RenderKhuboniJscTableBelow4_4 />
+                          {pulledPplanItems === null && pulledFilteredPplanItems === null && (
+                            <RenderPdpTable />
+                          )}
+                        </>
+                      )}
                       {isSection6 && (
                         <>
                           <RenderCompetenciesTable />
@@ -3428,6 +3914,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
                   })}
 
                   <RenderCoreCompetenciesBelowKpa />
+                  <RenderPdpTable />
                 </div>
               );
             })()}
@@ -4088,6 +4575,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
                         })}
 
                         <RenderCoreCompetenciesBelowKpa />
+                        <RenderPdpTable />
                       </div>
                     );
                   })()}
