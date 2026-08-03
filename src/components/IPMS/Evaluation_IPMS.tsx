@@ -437,6 +437,23 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
       const res = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${currentUser.email}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
+        if (data && data.metadata) {
+          const uEmail = (currentUser?.email || '').toLowerCase().trim();
+          const currMgrEmail = (currentUser?.managerEmail || '').toLowerCase().trim();
+          const metaMgrEmail = (data.metadata.managerEmail || '').toLowerCase().trim();
+          
+          if (currMgrEmail && currMgrEmail !== uEmail) {
+            data.metadata.managerEmail = currentUser.managerEmail;
+          } else if (!metaMgrEmail || metaMgrEmail === uEmail) {
+            if (uEmail.includes('khuboni')) {
+              data.metadata.managerEmail = 'ShabanguSM@nkangaladm.gov.za';
+              data.metadata.manager = 'Sibusiso M. Shabangu';
+            } else {
+              data.metadata.managerEmail = 'KhuboniY@nkangaladm.gov.za';
+              data.metadata.manager = 'Yena Khuboni';
+            }
+          }
+        }
         setPplanData(data);
       }
     } catch (e) {

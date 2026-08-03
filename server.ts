@@ -3407,6 +3407,39 @@ Format your response exactly according to the following JSON schema:
       console.error("Error merging SDBIP officials into users:", offErr);
     }
 
+    // Resolve managerEmail dynamically based on manager name to ensure correct submission targets
+    const nameToUserMap = new Map<string, any>();
+    formatted.forEach((u: any) => {
+      const cleanName = (u.fullName || '').toLowerCase().trim().replace(/['"\.,]/g, '').replace(/\s+/g, ' ');
+      if (cleanName && u.email) {
+        nameToUserMap.set(cleanName, u);
+      }
+    });
+
+    formatted.forEach((u: any) => {
+      const mName = (u.manager || u.reportTo || '').toLowerCase().trim().replace(/['"\.,]/g, '').replace(/\s+/g, ' ');
+      if (mName) {
+        const mgrUser = nameToUserMap.get(mName);
+        if (mgrUser) {
+          u.managerEmail = mgrUser.email;
+        } else {
+          let found = false;
+          for (const [name, mu] of nameToUserMap.entries()) {
+            if (name.includes(mName) || mName.includes(name)) {
+              u.managerEmail = mu.email;
+              found = true;
+              break;
+            }
+          }
+          if (!found) {
+            u.managerEmail = '';
+          }
+        }
+      } else {
+        u.managerEmail = '';
+      }
+    });
+
     usersCacheMap[cacheKey] = {
       data: formatted,
       timestamp: Date.now()
