@@ -317,8 +317,8 @@ export function DraftingSuiteTeam({
       
       const empUser = tenantUsers.find(u => u.email?.toLowerCase() === currentUser.email?.toLowerCase()) || currentUser;
       const mgrUser = tenantUsers.find(u => 
-        (u.jobFunction || u.position || '').toLowerCase().includes('municipal manager') ||
-        (u.jobFunction || u.position || '').toLowerCase().includes('mayor') ||
+        (u.jobFunction || (u as any).position || '').toLowerCase().includes('municipal manager') ||
+        (u.jobFunction || (u as any).position || '').toLowerCase().includes('mayor') ||
         (u.email || '').toLowerCase().includes('mandlaml') ||
         (currentUser.manager && u.fullName?.toLowerCase().includes(currentUser.manager.toLowerCase()))
       );

@@ -210,18 +210,27 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
 
       if (isStdUser) {
         try {
-          const res = await fetchWithRetry(`/api/tenant/${activeTenantId}/pplan?userId=${email}&t=${Date.now()}`);
+          const tenantToUse = (activeTenantId && activeTenantId !== 'undefined' && activeTenantId !== 'null')
+            ? activeTenantId
+            : resolvedUserTenant;
+          const res = await fetchWithRetry(`/api/tenant/${tenantToUse}/pplan?userId=${email}&t=${Date.now()}`);
           if (res.ok) {
-            const data = await res.json();
-            const revStatus = data?.metadata?.reviewStatus;
-            const auditStatus = data?.metadata?.internalAuditStatus;
-            
-            // Managers review sets reviewStatus to 'Reviewed' or 'Approved'
-            const managerDone = revStatus === 'Reviewed' || revStatus === 'Approved';
-            // Internal audit sets internalAuditStatus to 'Audited' or 'Pushed to DPMC' or 'Pushed to Moderation'
-            const auditDone = auditStatus === 'Audited' || auditStatus === 'Pushed to DPMC' || auditStatus === 'Pushed to Moderation';
+            const contentType = res.headers.get("content-type");
+            if (contentType && contentType.includes("application/json")) {
+              const data = await res.json();
+              const revStatus = data?.metadata?.reviewStatus;
+              const auditStatus = data?.metadata?.internalAuditStatus;
+              
+              // Managers review sets reviewStatus to 'Reviewed' or 'Approved'
+              const managerDone = revStatus === 'Reviewed' || revStatus === 'Approved';
+              // Internal audit sets internalAuditStatus to 'Audited' or 'Pushed to DPMC' or 'Pushed to Moderation'
+              const auditDone = auditStatus === 'Audited' || auditStatus === 'Pushed to DPMC' || auditStatus === 'Pushed to Moderation';
 
-            setReportsUnlocked(!!(managerDone && auditDone));
+              setReportsUnlocked(!!(managerDone && auditDone));
+            } else {
+              console.warn("Expected JSON response for checkReportsUnlock standard user but received:", contentType);
+              setReportsUnlocked(false);
+            }
           } else {
             setReportsUnlocked(false);
           }
@@ -231,15 +240,24 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
         }
       } else if (isManagerUser) {
         try {
-          const res = await fetchWithRetry(`/api/tenant/${activeTenantId}/team-pplans?t=${Date.now()}`);
+          const tenantToUse = (activeTenantId && activeTenantId !== 'undefined' && activeTenantId !== 'null')
+            ? activeTenantId
+            : resolvedUserTenant;
+          const res = await fetchWithRetry(`/api/tenant/${tenantToUse}/team-pplans?t=${Date.now()}`);
           if (res.ok) {
-            const data = await res.json();
-            const arr = Array.isArray(data) ? data : (data?.teamPlans || []);
-            const anyAudited = arr.some((tp: any) => {
-              const auditStatus = tp?.plan?.metadata?.internalAuditStatus;
-              return auditStatus === 'Audited' || auditStatus === 'Pushed to DPMC' || auditStatus === 'Pushed to Moderation';
-            });
-            setReportsUnlocked(anyAudited);
+            const contentType = res.headers.get("content-type");
+            if (contentType && contentType.includes("application/json")) {
+              const data = await res.json();
+              const arr = Array.isArray(data) ? data : (data?.teamPlans || []);
+              const anyAudited = arr.some((tp: any) => {
+                const auditStatus = tp?.plan?.metadata?.internalAuditStatus;
+                return auditStatus === 'Audited' || auditStatus === 'Pushed to DPMC' || auditStatus === 'Pushed to Moderation';
+              });
+              setReportsUnlocked(anyAudited);
+            } else {
+              console.warn("Expected JSON response for checkReportsUnlock manager user but received:", contentType);
+              setReportsUnlocked(false);
+            }
           } else {
             setReportsUnlocked(false);
           }

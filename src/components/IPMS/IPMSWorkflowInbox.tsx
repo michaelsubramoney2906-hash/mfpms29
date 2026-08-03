@@ -249,23 +249,31 @@ export function IPMSWorkflowInbox({
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const res = await fetch(`/api/tenant/${activeTenantId}/users`);
+        const tenantToUse = (activeTenantId && activeTenantId !== 'undefined' && activeTenantId !== 'null')
+          ? activeTenantId
+          : (currentUser?.tenantId || 'nkangala_auto');
+        const res = await fetch(`/api/tenant/${tenantToUse}/users`);
         if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data)) {
-            setTenantUsers(data);
+          const contentType = res.headers.get("content-type");
+          if (contentType && contentType.includes("application/json")) {
+            const data = await res.json();
+            if (Array.isArray(data)) {
+              setTenantUsers(data);
+            } else {
+              setTenantUsers(data.users || []);
+            }
           } else {
-            setTenantUsers(data.users || []);
+            console.warn("Expected JSON response for tenant users but received:", contentType);
           }
         }
       } catch (e) {
         console.error("Error fetching tenant users for messaging:", e);
       }
     };
-    if (activeTenantId) {
+    if (activeTenantId && activeTenantId !== 'undefined' && activeTenantId !== 'null') {
       fetchUsers();
     }
-  }, [activeTenantId]);
+  }, [activeTenantId, currentUser]);
 
   const fetchInbox = async () => {
     setLoading(true);
@@ -282,18 +290,27 @@ export function IPMSWorkflowInbox({
         t: String(Date.now())
       });
 
-      const res = await fetch(`/api/tenant/${activeTenantId}/ipms-notifications?${queryParams.toString()}`);
-      if (res.ok) {
-        const data = await res.json();
-        const nextNotifs = data.notifications || [];
-        setNotifications(nextNotifs);
+      const tenantToUse = (activeTenantId && activeTenantId !== 'undefined' && activeTenantId !== 'null')
+        ? activeTenantId
+        : (currentUser?.tenantId || 'nkangala_auto');
 
-        // Check if unread count increased to play notification sound
-        const currentUnread = nextNotifs.filter((n: any) => !n.read).length;
-        if (prevUnreadCountRef.current !== null && currentUnread > prevUnreadCountRef.current) {
-          playNotificationSound();
+      const res = await fetch(`/api/tenant/${tenantToUse}/ipms-notifications?${queryParams.toString()}`);
+      if (res.ok) {
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          const data = await res.json();
+          const nextNotifs = data.notifications || [];
+          setNotifications(nextNotifs);
+
+          // Check if unread count increased to play notification sound
+          const currentUnread = nextNotifs.filter((n: any) => !n.read).length;
+          if (prevUnreadCountRef.current !== null && currentUnread > prevUnreadCountRef.current) {
+            playNotificationSound();
+          }
+          prevUnreadCountRef.current = currentUnread;
+        } else {
+          console.warn("Expected JSON response for inbox notifications but received:", contentType);
         }
-        prevUnreadCountRef.current = currentUnread;
       }
     } catch (e) {
       console.error("Error fetching inbox notifications:", e);

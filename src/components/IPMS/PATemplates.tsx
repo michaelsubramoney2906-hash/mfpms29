@@ -393,10 +393,10 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
   // Auto-prefill signatures for current user and supervisor instantly upon profile load
   useEffect(() => {
     if (currentUser) {
-      if (!employeeSignature && (currentUser.signatureData || currentUser.fullName)) {
-        setEmployeeSignature(currentUser.signatureData || currentUser.fullName);
+      if (!employeeSignature && ((currentUser as any).signatureData || currentUser.fullName)) {
+        setEmployeeSignature((currentUser as any).signatureData || currentUser.fullName);
         setEmployeeName(currentUser.fullName);
-        setEmployeePosition(currentUser.jobFunction || currentUser.job_function || currentUser.position || currentUser.title || "Senior Manager");
+        setEmployeePosition(currentUser.jobFunction || (currentUser as any).job_function || (currentUser as any).position || (currentUser as any).title || "Senior Manager");
         setEmployeeDate('29 July 2026');
       }
     }
