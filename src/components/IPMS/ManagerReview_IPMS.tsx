@@ -154,6 +154,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
+      window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: selectedPlan.userId } }));
       if (res.ok) {
         setSelectedPlan({
           ...selectedPlan,
@@ -568,6 +569,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
+      window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: selectedPlan.userId } }));
 
       // Check if any items have revision required or rejected
       const hasRevisions = Array.isArray(payload.items) && payload.items.some((it: any) => 
@@ -706,6 +708,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
+      window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: selectedPlan.userId } }));
 
       const managerEmail = currentUser.email || '';
       const managerName = currentUser.fullName || currentUser.full_name || 'Manager Yena Khuboni';
@@ -787,6 +790,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
+      window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: selectedPlan.userId } }));
 
       const managerEmail = currentUser.email || '';
       const managerName = currentUser.fullName || currentUser.full_name || 'Manager Yena Khuboni';
@@ -869,6 +873,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
+      window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: selectedPlan.userId } }));
 
       const managerEmail = currentUser.email || '';
       const managerName = currentUser.fullName || currentUser.full_name || 'Manager Yena Khuboni';

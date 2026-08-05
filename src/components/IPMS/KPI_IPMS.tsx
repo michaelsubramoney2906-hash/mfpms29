@@ -601,6 +601,7 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedPlanData)
       });
+      window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: currentUser.email } }));
     }
 
     // 3. Save to database
@@ -877,6 +878,7 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedPlanData)
       });
+      window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: currentUser.email } }));
 
       // Synchronize to 2nd & 3rd layer SDBIP
       try {
@@ -1008,6 +1010,7 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updatedPlanData)
         });
+        window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: currentUser.email } }));
 
         showNotification(`KPI target ${codeStr} removed from list and Performance Plan.`);
       } catch (err) {

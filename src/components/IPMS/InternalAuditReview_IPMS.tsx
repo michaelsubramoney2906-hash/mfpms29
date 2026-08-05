@@ -281,6 +281,7 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
+      window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: selectedPlan.userId } }));
       
       // Update Audit Ledger Log in Supabase
       const ratingSum = targetItems?.reduce((sum: number, k: any) => sum + (parseFloat(k.internalAuditRating || k.managerScore || '0')), 0) || 0;
