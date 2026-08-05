@@ -1,0 +1,36 @@
+--- server.ts
++++ server.ts
+@@ -6895,7 +6895,7 @@
+       "type": "title" | "content",
+       "title": "Slide/Section Title",
+       "subtitle": "Optional",
+-      "content": "For documents: write extensive, well-spaced, richly formatted text. Use double newlines (\\n\\n) for paragraph spacing, bullet points (•) for structured lists, and ensure professional pagination flow. If the user provided a file/image, incorporate its insights deeply into the content."
++      "content": "For documents: write well-spaced, richly formatted text. Use double newlines (\\n\\n) for paragraph spacing and bullet points (•). Summarize and condense large inputs so the entire response fits within the output limits. If the user provided a large file/text, extract and structure the key insights rather than reproducing it in full."
+     }
+   ]
+ }
+@@ -6918,11 +6918,22 @@
+         contents,
+         config: {
+           temperature: 0.7,
+-          responseMimeType: "application/json"
++          responseMimeType: "application/json",
++          safetySettings: [
++            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
++            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
++            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
++            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
++          ]
+         }
+       });
+       
+-      const jsonRes = JSON.parse(response.text || "{}");
++      let responseText = response.text || "{}";
++      responseText = responseText.replace(/^```json\n?/, '').replace(/\n?```$/, '');
++      if (!responseText.trim().endsWith("}")) {
++         responseText += "]}"; // Attempt to fix truncation if minor
++      }
++      const jsonRes = JSON.parse(responseText);
+       res.json(jsonRes);
+     } catch (err: any) {
+       console.error("Fred generation error:", err);

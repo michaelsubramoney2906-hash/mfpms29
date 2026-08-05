@@ -40,6 +40,7 @@ export interface IPMSNotification {
   kpiNo?: string;
   quarter?: string;
   actionType: 'submission' | 'approval' | 'revision_requested' | 'audit_request' | 'audit_completed' | 'info' | 'planner_grid_sync' | 'redo_unlocked';
+  senderCapacity?: 'standard_user' | 'manager_as_self' | 'manager_as_subordinate' | 'internal_auditor';
   poeDocsCount?: number;
   employeeEmail?: string;
   attachments?: Array<{
@@ -1111,6 +1112,39 @@ export function IPMSWorkflowInbox({
             const isAuditReq = item.actionType === 'audit_request';
             const isSubmission = item.actionType === 'submission';
 
+            const rawCapacity = item.senderCapacity || (
+              item.actionType === 'submission'
+                ? ((item.senderEmail || '').toLowerCase().includes('khuboni') ? 'manager_as_self' : 'standard_user')
+                : (['approval', 'revision_requested', 'redo_unlocked', 'audit_request', 'audit_dispatch', 'audit_completed'].includes(item.actionType) ? 'manager_as_subordinate' : 'standard_user')
+            );
+            
+            const capacityBadge = (() => {
+              switch (rawCapacity) {
+                case 'standard_user':
+                  return {
+                    label: '👤 Standard User',
+                    classes: 'bg-blue-500/15 text-blue-300 border border-blue-500/30'
+                  };
+                case 'manager_as_self':
+                  return {
+                    label: '👔 Manager Self',
+                    classes: 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                  };
+                case 'manager_as_subordinate':
+                  return {
+                    label: '🛡️ Line Manager',
+                    classes: 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/30'
+                  };
+                case 'internal_auditor':
+                  return {
+                    label: '🔒 Internal Audit Reviewer',
+                    classes: 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                  };
+                default:
+                  return null;
+              }
+            })();
+
             const threadReplies = (threadGroups[item.threadId || item.id] || []).filter(r => r.id !== item.id);
             const hasReplies = threadReplies.length > 0;
             const isExpanded = !!expandedThreads[item.threadId || item.id];
@@ -1154,6 +1188,12 @@ export function IPMSWorkflowInbox({
                       </div>
 
                       <div className="flex items-center gap-2 flex-shrink-0">
+                        {capacityBadge && (
+                          <span className={`px-2 py-0.5 text-[9px] font-black uppercase rounded ${capacityBadge.classes}`}>
+                            {capacityBadge.label}
+                          </span>
+                        )}
+
                         <span className={`px-2 py-0.5 text-[9px] font-black uppercase rounded ${
                           isRevisionReq ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
                           isApproval ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :

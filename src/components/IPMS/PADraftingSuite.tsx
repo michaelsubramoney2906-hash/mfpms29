@@ -1923,7 +1923,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
   const fetchTemplates = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=${currentUser.email}`);
+      const res = await fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=${currentUser.email}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
         const docState = data.html || data;

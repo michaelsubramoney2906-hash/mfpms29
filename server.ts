@@ -1498,6 +1498,25 @@ Format your response exactly according to the following JSON schema:
     }
   });
 
+  // Endpoints to clear previously saved extraction records from Supabase
+  app.delete("/api/tenant/:tenantId/fred-extraction/:engineType", async (req, res) => {
+    const { tenantId: routeTenantId, engineType } = req.params;
+    const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
+    try {
+      const supabase = getSupabase();
+      const resolvedTenantId = await resolveTenantId(routeTenantId, userId);
+      const userSuffix = userId && userId !== 'default' ? `_${userId}` : '';
+      const storageId = `fred_ext_${engineType}_${resolvedTenantId}${userSuffix}`;
+      const { error } = await supabase.from('messages').delete().eq('id', storageId);
+      if (error) {
+        return res.status(500).json({ error: error.message });
+      }
+      return res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Azure AD Authentication Middleware for Tenant ID b150ea84-eccf-4999-8145-632f636c1dc5
   const azureAdAuthMiddleware = (req: any, res: any, next: any) => {
     const authHeader = req.headers.authorization;
@@ -4889,6 +4908,8 @@ Format your response exactly according to the following JSON schema:
     return routeTenantId;
   }
 
+  const SYNCED_EMAILS: string[] = [];
+
   // 17.3 Fetch Job Specific Competencies for a tenant
   app.get("/api/tenant/:tenantId/job-competencies", async (req, res) => {
     const { tenantId: routeTenantId } = req.params;
@@ -4897,6 +4918,30 @@ Format your response exactly according to the following JSON schema:
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
       const documentId = `job_competencies_${tenantId}_${userId}`;
+
+      // Replicate data for the PMS Team members (zulune and nsibandenp)
+      if (SYNCED_EMAILS.includes(userId)) {
+        const id1 = `job_competencies_${tenantId}_zulune@nkangaladm.gov.za`;
+        const id2 = `job_competencies_${tenantId}_nsibandenp@nkangaladm.gov.za`;
+        
+        const { data: res1 } = await supabase.from('messages').select('content').eq('id', id1).maybeSingle();
+        const { data: res2 } = await supabase.from('messages').select('content').eq('id', id2).maybeSingle();
+        
+        let bestContent = null;
+        if (res2 && res2.content && (!res1 || !res1.content || res2.content.length > res1.content.length)) {
+          bestContent = res2.content;
+        } else if (res1 && res1.content) {
+          bestContent = res1.content;
+        }
+        
+        if (bestContent) {
+          try {
+            const parsed = JSON.parse(bestContent);
+            return res.json(parsed);
+          } catch (e) {}
+        }
+      }
+
       const { data, error } = await supabase
         .from('messages')
         .select('content')
@@ -4931,28 +4976,32 @@ Format your response exactly according to the following JSON schema:
     try {
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
-      const documentId = `job_competencies_${tenantId}_${userId}`;
-      const { error } = await supabase
-        .from('messages')
-        .upsert({ 
-          id: documentId,
-          tenant_id: tenantId,
-          sender_id: 'job_competencies_editor',
-          sender_email: 'job_competencies@system.local',
-          sender_name: 'Job Competencies Editor',
-          content: JSON.stringify({
-            competencies,
-            jscMasters,
-            competencyMasters,
-            definitionMasters,
-            levelMasters,
-            weightMasters
-          }),
-          message_type: 'job_specific_competencies',
-          created_at: new Date().toISOString()
-        });
       
-      if (error) throw error;
+      const targetUsers = SYNCED_EMAILS.includes(userId) ? SYNCED_EMAILS : [userId];
+      for (const u of targetUsers) {
+        const uDocId = `job_competencies_${tenantId}_${u}`;
+        const { error } = await supabase
+          .from('messages')
+          .upsert({ 
+            id: uDocId,
+            tenant_id: tenantId,
+            sender_id: 'job_competencies_editor',
+            sender_email: 'job_competencies@system.local',
+            sender_name: 'Job Competencies Editor',
+            content: JSON.stringify({
+              competencies,
+              jscMasters,
+              competencyMasters,
+              definitionMasters,
+              levelMasters,
+              weightMasters
+            }),
+            message_type: 'job_specific_competencies',
+            created_at: new Date().toISOString()
+          });
+        
+        if (error) throw error;
+      }
       res.json({ success: true });
     } catch (err: any) {
       console.error("Job competencies save exception:", err);
@@ -5120,6 +5169,30 @@ Format your response exactly according to the following JSON schema:
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
       const documentId = `pdp_${tenantId}_${userId}`;
+
+      // Replicate data for the PMS Team members (zulune and nsibandenp)
+      if (SYNCED_EMAILS.includes(userId)) {
+        const id1 = `pdp_${tenantId}_zulune@nkangaladm.gov.za`;
+        const id2 = `pdp_${tenantId}_nsibandenp@nkangaladm.gov.za`;
+        
+        const { data: res1 } = await supabase.from('messages').select('content').eq('id', id1).maybeSingle();
+        const { data: res2 } = await supabase.from('messages').select('content').eq('id', id2).maybeSingle();
+        
+        let bestContent = null;
+        if (res2 && res2.content && (!res1 || !res1.content || res2.content.length > res1.content.length)) {
+          bestContent = res2.content;
+        } else if (res1 && res1.content) {
+          bestContent = res1.content;
+        }
+        
+        if (bestContent) {
+          try {
+            const parsed = JSON.parse(bestContent);
+            return res.json(parsed);
+          } catch (e) {}
+        }
+      }
+
       const { data, error } = await supabase
         .from('messages')
         .select('content')
@@ -5153,21 +5226,25 @@ Format your response exactly according to the following JSON schema:
     try {
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
-      const documentId = `pdp_${tenantId}_${userId}`;
-      const { error } = await supabase
-        .from('messages')
-        .upsert({ 
-          id: documentId,
-          tenant_id: tenantId,
-          sender_id: 'pdp_editor_tool',
-          sender_email: 'pdp@system.local',
-          sender_name: 'PDP Editor',
-          content: JSON.stringify({ items }),
-          message_type: 'pdp_list',
-          created_at: new Date().toISOString()
-        });
       
-      if (error) throw error;
+      const targetUsers = SYNCED_EMAILS.includes(userId) ? SYNCED_EMAILS : [userId];
+      for (const u of targetUsers) {
+        const uDocId = `pdp_${tenantId}_${u}`;
+        const { error } = await supabase
+          .from('messages')
+          .upsert({ 
+            id: uDocId,
+            tenant_id: tenantId,
+            sender_id: 'pdp_editor_tool',
+            sender_email: 'pdp@system.local',
+            sender_name: 'PDP Editor',
+            content: JSON.stringify({ items }),
+            message_type: 'pdp_list',
+            created_at: new Date().toISOString()
+          });
+        
+        if (error) throw error;
+      }
       res.json({ success: true });
     } catch (err: any) {
       console.error("pdp save exception:", err);
@@ -5187,6 +5264,33 @@ Format your response exactly according to the following JSON schema:
       const tenantId = await resolveTenantId(routeTenantId, userId);
       const documentId = `pplan_${tenantId}_${userId}`;
       
+      // Replicate data for the PMS Team members (zulune and nsibandenp)
+      if (SYNCED_EMAILS.includes(userId)) {
+        const id1 = `pplan_${tenantId}_zulune@nkangaladm.gov.za`;
+        const id2 = `pplan_${tenantId}_nsibandenp@nkangaladm.gov.za`;
+        
+        const { data: res1 } = await supabase.from('messages').select('content').eq('id', id1).maybeSingle();
+        const { data: res2 } = await supabase.from('messages').select('content').eq('id', id2).maybeSingle();
+        
+        let bestContent = null;
+        if (res2 && res2.content && (!res1 || !res1.content || res2.content.length > res1.content.length)) {
+          bestContent = res2.content;
+        } else if (res1 && res1.content) {
+          bestContent = res1.content;
+        }
+        
+        if (bestContent) {
+          try {
+            const parsed = JSON.parse(bestContent);
+            parsed.metadata = parsed.metadata || {};
+            parsed.metadata.email = userId;
+            parsed.metadata.name = userId === 'zulune@nkangaladm.gov.za' ? 'Noluthando Zulu' : 'Nompumelelo P. Nsibande';
+            parsed.metadata.position = userId === 'zulune@nkangaladm.gov.za' ? 'PMS Officer' : 'PMS Unit Member';
+            return res.json(parsed);
+          } catch (e) {}
+        }
+      }
+
       // Check cache first
       const cached = pplanCache.get(documentId);
       if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
@@ -5429,23 +5533,33 @@ Format your response exactly according to the following JSON schema:
     try {
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
-      const documentId = `pplan_${tenantId}_${userId}`;
-      const { error } = await supabase
-        .from('messages')
-        .upsert({ 
-          id: documentId,
-          tenant_id: tenantId,
-          sender_id: 'pplan_editor_tool',
-          sender_email: 'pplan@system.local',
-          sender_name: 'PPLAN Editor',
-          content: JSON.stringify({ metadata, items }),
-          message_type: 'pplan_list',
-          created_at: new Date().toISOString()
-        });
       
-      if (error) throw error;
-      
-      pplanCache.delete(documentId);
+      const targetUsers = SYNCED_EMAILS.includes(userId) ? SYNCED_EMAILS : [userId];
+      for (const u of targetUsers) {
+        const uDocId = `pplan_${tenantId}_${u}`;
+        
+        // Keep individual identities in metadata
+        const uMetadata = { ...metadata };
+        uMetadata.email = u;
+        uMetadata.name = u === 'zulune@nkangaladm.gov.za' ? 'Noluthando Zulu' : 'Nompumelelo P. Nsibande';
+        uMetadata.position = u === 'zulune@nkangaladm.gov.za' ? 'PMS Officer' : 'PMS Unit Member';
+
+        const { error } = await supabase
+          .from('messages')
+          .upsert({ 
+            id: uDocId,
+            tenant_id: tenantId,
+            sender_id: 'pplan_editor_tool',
+            sender_email: 'pplan@system.local',
+            sender_name: 'PPLAN Editor',
+            content: JSON.stringify({ metadata: uMetadata, items }),
+            message_type: 'pplan_list',
+            created_at: new Date().toISOString()
+          });
+        
+        if (error) throw error;
+        pplanCache.delete(uDocId);
+      }
       
       // Automatically map Performance Plan items to the 2nd/3rd Layer SDBIP table
       if (items && Array.isArray(items)) {
@@ -5491,7 +5605,9 @@ Format your response exactly according to the following JSON schema:
             q4: pplanItem.annualTarget || '-',
             weight: pplanItem.weighting || '10',
             responsibleUnit: 'Assigned User Ward',
-            evaluationUser: decodeURIComponent(userId) || 'Employee',
+            evaluationUser: SYNCED_EMAILS.includes(userId) 
+              ? 'Noluthando Zulu / Nompumelelo P. Nsibande'
+              : (decodeURIComponent(userId) || 'Employee'),
             reviewManager: 'Line Supervisor',
             poeStatus: existing ? existing.poeStatus : 'Not Uploaded',
             q1PoeDocs: existing ? existing.q1PoeDocs : [],
@@ -5895,6 +6011,29 @@ Format your response exactly according to the following JSON schema:
     try {
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
+      
+      // Replicate data for the PMS Team members (zulune and nsibandenp)
+      if (SYNCED_EMAILS.includes(userId)) {
+        const id1 = `draft_doc_pms_team_${tenantId}_zulune@nkangaladm.gov.za`;
+        const id2 = `draft_doc_pms_team_${tenantId}_nsibandenp@nkangaladm.gov.za`;
+        
+        const { data: res1 } = await supabase.from('messages').select('content').eq('id', id1).maybeSingle();
+        const { data: res2 } = await supabase.from('messages').select('content').eq('id', id2).maybeSingle();
+        
+        let bestContent = null;
+        if (res2 && res2.content && (!res1 || !res1.content || res2.content.length > res1.content.length)) {
+          bestContent = res2.content;
+        } else if (res1 && res1.content) {
+          bestContent = res1.content;
+        }
+        
+        if (bestContent) {
+          try {
+            return res.json(JSON.parse(bestContent));
+          } catch (e) {}
+        }
+      }
+
       let documentId = reqDocumentId || `draft_doc_${tenantId}`;
       if (userId && userId !== 'default') {
         if (reqDocumentId) {
@@ -5954,262 +6093,266 @@ Format your response exactly according to the following JSON schema:
     try {
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
-      let documentId = htmlDocumentId || `draft_doc_${tenantId}`;
-      if (userId && userId !== 'default') {
-        if (htmlDocumentId) {
-          const resolvedHtmlDocumentId = htmlDocumentId.replace(`_${routeTenantId}`, `_${tenantId}`).replace(routeTenantId, tenantId);
-          documentId = resolvedHtmlDocumentId.toLowerCase().includes(userId.toLowerCase()) ? resolvedHtmlDocumentId : `${resolvedHtmlDocumentId}_${userId}`;
-        } else {
-          documentId = `draft_doc_${tenantId}_${userId}`;
-        }
-      }
-      documentId = documentId.toLowerCase();
       
-      const { error } = await supabase
-        .from('messages')
-        .upsert({ 
-          id: documentId,
-          tenant_id: tenantId,
-          sender_id: 'pa_editor_tool',
-          sender_email: 'pa@system.local',
-          sender_name: 'PA Editor',
-          content: JSON.stringify({ html }),
-          message_type: 'drafting_suite_doc',
-          created_at: new Date().toISOString()
-        });
-      
-      if (error) throw error;
-
-      // Auto-overwrite the target user's other profile modules (PPLAN, Core Competencies, PDP)
-      if (userId && userId !== 'default') {
-        let stateObj: any = {};
-        if (typeof html === 'string') {
-          try {
-            stateObj = JSON.parse(html);
-          } catch (e) {
-            stateObj = {};
+      const targetUsers = SYNCED_EMAILS.includes(userId) ? SYNCED_EMAILS : [userId];
+      for (const u of targetUsers) {
+        let documentId = htmlDocumentId || `draft_doc_${tenantId}`;
+        if (u && u !== 'default') {
+          if (htmlDocumentId) {
+            const resolvedHtmlDocumentId = htmlDocumentId.replace(`_${routeTenantId}`, `_${tenantId}`).replace(routeTenantId, tenantId);
+            documentId = resolvedHtmlDocumentId.toLowerCase().includes(u.toLowerCase()) ? resolvedHtmlDocumentId : `${resolvedHtmlDocumentId}_${u}`;
+          } else {
+            documentId = `draft_doc_${tenantId}_${u}`;
           }
-        } else if (html && typeof html === 'object') {
-          stateObj = html;
         }
+        documentId = documentId.toLowerCase();
+        
+        const { error } = await supabase
+          .from('messages')
+          .upsert({ 
+            id: documentId,
+            tenant_id: tenantId,
+            sender_id: 'pa_editor_tool',
+            sender_email: 'pa@system.local',
+            sender_name: 'PA Editor',
+            content: JSON.stringify({ html }),
+            message_type: 'drafting_suite_doc',
+            created_at: new Date().toISOString()
+          });
+        
+        if (error) throw error;
 
-        // 1) Overwrite Performance Plan (PPLAN) Module
-        const planItems = stateObj.pulledPplanItems || stateObj.pulledFilteredPplanItems;
-        if (planItems && Array.isArray(planItems) && planItems.length > 0) {
-          const pplanDocId = `pplan_${tenantId}_${userId}`;
-          
-          const { data: existingPplan } = await supabase
-            .from('messages')
-            .select('content')
-            .eq('id', pplanDocId)
-            .maybeSingle();
-          
-          let existingMetadata = {};
-          if (existingPplan && existingPplan.content) {
+        // Auto-overwrite the target user's other profile modules (PPLAN, Core Competencies, PDP)
+        if (u && u !== 'default') {
+          let stateObj: any = {};
+          if (typeof html === 'string') {
             try {
-              const parsed = JSON.parse(existingPplan.content);
-              existingMetadata = parsed.metadata || {};
-            } catch (e) {}
-          }
-
-          await supabase
-            .from('messages')
-            .upsert({
-              id: pplanDocId,
-              tenant_id: tenantId,
-              sender_id: 'pplan_editor_tool',
-              sender_email: 'pplan@system.local',
-              sender_name: 'PPLAN Editor',
-              content: JSON.stringify({ 
-                metadata: {
-                  ...existingMetadata,
-                  lastPushedFromTemplate: new Date().toISOString(),
-                  pushedBy: stateObj.pushedBy || 'System'
-                }, 
-                items: planItems 
-              }),
-              message_type: 'pplan_list',
-              created_at: new Date().toISOString()
-            });
-
-          // Automatically map Performance Plan items to the 2nd/3rd Layer SDBIP table for this tenant
-          const sdbipId = `sdbip23_${tenantId}`;
-          const { data: sdbipData, error: sdbipGetError } = await supabase
-            .from('messages')
-            .select('content')
-            .eq('id', sdbipId)
-            .maybeSingle();
-
-          let sdbipItems: any[] = [];
-          if (!sdbipGetError && sdbipData && sdbipData.content) {
-            try {
-              const parsed = JSON.parse(sdbipData.content);
-              sdbipItems = parsed.items || [];
-            } catch(e) {}
-          }
-          
-          planItems.forEach((pplanItem: any) => {
-            const existingIdx = sdbipItems.findIndex((s: any) => s.id === pplanItem.id);
-            const sdbipRow = {
-              id: pplanItem.id,
-              refNum: pplanItem.kpiNo || 'Unassigned',
-              kpi: pplanItem.kpi || '',
-              weight: pplanItem.weighting || 0,
-              baseline: pplanItem.baseline || '',
-              target: pplanItem.annualTarget || '',
-              q1: pplanItem.q1Target || '',
-              q2: pplanItem.q2Target || '',
-              q3: pplanItem.q3Target || '',
-              q4: pplanItem.q4Target || '',
-              poe: pplanItem.poe || '',
-              budget: pplanItem.budget || '',
-              kpa: pplanItem.kpa || '',
-              owner: userId,
-              status: 'Adopted'
-            };
-            if (existingIdx !== -1) {
-              sdbipItems[existingIdx] = { ...sdbipItems[existingIdx], ...sdbipRow };
-            } else {
-              sdbipItems.push(sdbipRow);
+              stateObj = JSON.parse(html);
+            } catch (e) {
+              stateObj = {};
             }
-          });
-
-          await supabase
-            .from('messages')
-            .upsert({
-              id: sdbipId,
-              tenant_id: tenantId,
-              sender_id: 'sdbip_system',
-              sender_email: 'sdbip@system.local',
-              sender_name: 'SDBIP Master Engine',
-              content: JSON.stringify({ items: sdbipItems }),
-              message_type: 'sdbip23_list',
-              created_at: new Date().toISOString()
-            });
-        }
-
-        // 2) Overwrite Core Competencies (job-competencies) Module
-        const competencyRows = stateObj.pulledCompetencyRows;
-        if (competencyRows && Array.isArray(competencyRows) && competencyRows.length > 0) {
-          const compDocId = `job_competencies_${tenantId}_${userId}`;
-          
-          const { data: existingComp } = await supabase
-            .from('messages')
-            .select('content')
-            .eq('id', compDocId)
-            .maybeSingle();
-          
-          let jscMasters = [];
-          let competencyMasters = [];
-          let definitionMasters = [];
-          let levelMasters = [];
-          let weightMasters = [];
-          
-          if (existingComp && existingComp.content) {
-            try {
-              const parsed = JSON.parse(existingComp.content);
-              jscMasters = parsed.jscMasters || [];
-              competencyMasters = parsed.competencyMasters || [];
-              definitionMasters = parsed.definitionMasters || [];
-              levelMasters = parsed.levelMasters || [];
-              weightMasters = parsed.weightMasters || [];
-            } catch (e) {}
+          } else if (html && typeof html === 'object') {
+            stateObj = html;
           }
 
-          const mappedCompetencies = competencyRows.map((row: any, idx: number) => {
-            return {
-              id: row.id || `comp-row-${idx}-${Date.now()}`,
-              jscNo: row.jscNo || `CORE-${idx + 1}`,
-              competency: row.title || row.competency || row.name || 'Core Competency',
-              definition: {
-                mainText: row.mainText || row.description || row.competent || row.basic || 'Standard competency level mapping.',
-                subsections: row.subsections || []
-              },
-              level: row.level || 'Level 2: Competent Operator',
-              weight: Number(row.weight || row.weighting || 10)
-            };
-          });
+          // 1) Overwrite Performance Plan (PPLAN) Module
+          const planItems = stateObj.pulledPplanItems || stateObj.pulledFilteredPplanItems;
+          if (planItems && Array.isArray(planItems) && planItems.length > 0) {
+            const pplanDocId = `pplan_${tenantId}_${u}`;
+            
+            const { data: existingPplan } = await supabase
+              .from('messages')
+              .select('content')
+              .eq('id', pplanDocId)
+              .maybeSingle();
+            
+            let existingMetadata = {};
+            if (existingPplan && existingPplan.content) {
+              try {
+                const parsed = JSON.parse(existingPplan.content);
+                existingMetadata = parsed.metadata || {};
+              } catch (e) {}
+            }
 
-          await supabase
-            .from('messages')
-            .upsert({
-              id: compDocId,
-              tenant_id: tenantId,
-              sender_id: 'job_competencies_editor',
-              sender_email: 'job_competencies@system.local',
-              sender_name: 'Job Competencies System',
-              content: JSON.stringify({
-                competencies: mappedCompetencies,
-                jscMasters,
-                competencyMasters,
-                definitionMasters,
-                levelMasters,
-                weightMasters,
-                lastPushedFromTemplate: new Date().toISOString()
-              }),
-              message_type: 'job_specific_competencies',
-              created_at: new Date().toISOString()
+            await supabase
+              .from('messages')
+              .upsert({
+                id: pplanDocId,
+                tenant_id: tenantId,
+                sender_id: 'pplan_editor_tool',
+                sender_email: 'pplan@system.local',
+                sender_name: 'PPLAN Editor',
+                content: JSON.stringify({ 
+                  metadata: {
+                    ...existingMetadata,
+                    lastPushedFromTemplate: new Date().toISOString(),
+                    pushedBy: stateObj.pushedBy || 'System'
+                  }, 
+                  items: planItems 
+                }),
+                message_type: 'pplan_list',
+                created_at: new Date().toISOString()
+              });
+
+            // Automatically map Performance Plan items to the 2nd/3rd Layer SDBIP table for this tenant
+            const sdbipId = `sdbip23_${tenantId}`;
+            const { data: sdbipData, error: sdbipGetError } = await supabase
+              .from('messages')
+              .select('content')
+              .eq('id', sdbipId)
+              .maybeSingle();
+
+            let sdbipItems: any[] = [];
+            if (!sdbipGetError && sdbipData && sdbipData.content) {
+              try {
+                const parsed = JSON.parse(sdbipData.content);
+                sdbipItems = parsed.items || [];
+              } catch(e) {}
+            }
+            
+            planItems.forEach((pplanItem: any) => {
+              const existingIdx = sdbipItems.findIndex((s: any) => s.id === pplanItem.id);
+              const sdbipRow = {
+                id: pplanItem.id,
+                refNum: pplanItem.kpiNo || 'Unassigned',
+                kpi: pplanItem.kpi || '',
+                weight: pplanItem.weighting || 0,
+                baseline: pplanItem.baseline || '',
+                target: pplanItem.annualTarget || '',
+                q1: pplanItem.q1Target || '',
+                q2: pplanItem.q2Target || '',
+                q3: pplanItem.q3Target || '',
+                q4: pplanItem.q4Target || '',
+                poe: pplanItem.poe || '',
+                budget: pplanItem.budget || '',
+                kpa: pplanItem.kpa || '',
+                owner: u,
+                status: 'Adopted'
+              };
+              if (existingIdx !== -1) {
+                sdbipItems[existingIdx] = { ...sdbipItems[existingIdx], ...sdbipRow };
+              } else {
+                sdbipItems.push(sdbipRow);
+              }
             });
-        }
 
-        // 3) Overwrite PDP (pdp) Module
-        const pdpRows = stateObj.pulledPdpItems;
-        if (pdpRows && Array.isArray(pdpRows) && pdpRows.length > 0) {
-          const pdpDocId = `pdp_${tenantId}_${userId}`;
-          
-          const { data: existingPdp } = await supabase
-            .from('messages')
-            .select('content')
-            .eq('id', pdpDocId)
-            .maybeSingle();
-          
-          let skillsGapsMasters = [];
-          let trainingsMasters = [];
-          let modesMasters = [];
-          let supportMasters = [];
-          
-          if (existingPdp && existingPdp.content) {
-            try {
-              const parsed = JSON.parse(existingPdp.content);
-              skillsGapsMasters = parsed.skillsGapsMasters || [];
-              trainingsMasters = parsed.trainingsMasters || [];
-              modesMasters = parsed.modesMasters || [];
-              supportMasters = parsed.supportMasters || [];
-            } catch (e) {}
+            await supabase
+              .from('messages')
+              .upsert({
+                id: sdbipId,
+                tenant_id: tenantId,
+                sender_id: 'sdbip_system',
+                sender_email: 'sdbip@system.local',
+                sender_name: 'SDBIP Master Engine',
+                content: JSON.stringify({ items: sdbipItems }),
+                message_type: 'sdbip23_list',
+                created_at: new Date().toISOString()
+              });
           }
 
-          const mappedPdp = pdpRows.map((row: any, idx: number) => {
-            return {
-              id: row.id || `pdp-row-${idx}-${Date.now()}`,
-              skillsGap: row.skillsGap || row.gap || '',
-              outcomes: row.outcomes || row.outcome || '',
-              suggestedTraining: row.suggestedTraining || row.training || '',
-              modeOfDelivery: row.modeOfDelivery || row.mode || '',
-              timeFrame: row.timeFrame || row.period || '',
-              workOpportunity: row.workOpportunity || row.opportunity || '',
-              supportPerson: row.supportPerson || row.support || ''
-            };
-          });
+          // 2) Overwrite Core Competencies (job-competencies) Module
+          const competencyRows = stateObj.pulledCompetencyRows;
+          if (competencyRows && Array.isArray(competencyRows) && competencyRows.length > 0) {
+            const compDocId = `job_competencies_${tenantId}_${u}`;
+            
+            const { data: existingComp } = await supabase
+              .from('messages')
+              .select('content')
+              .eq('id', compDocId)
+              .maybeSingle();
+            
+            let jscMasters = [];
+            let competencyMasters = [];
+            let definitionMasters = [];
+            let levelMasters = [];
+            let weightMasters = [];
+            
+            if (existingComp && existingComp.content) {
+              try {
+                const parsed = JSON.parse(existingComp.content);
+                jscMasters = parsed.jscMasters || [];
+                competencyMasters = parsed.competencyMasters || [];
+                definitionMasters = parsed.definitionMasters || [];
+                levelMasters = parsed.levelMasters || [];
+                weightMasters = parsed.weightMasters || [];
+              } catch (e) {}
+            }
 
-          await supabase
-            .from('messages')
-            .upsert({
-              id: pdpDocId,
-              tenant_id: tenantId,
-              sender_id: 'pdp_editor_tool',
-              sender_email: 'pdp@system.local',
-              sender_name: 'PDP System',
-              content: JSON.stringify({
-                items: mappedPdp,
-                skillsGapsMasters,
-                trainingsMasters,
-                modesMasters,
-                supportMasters,
-                lastPushedFromTemplate: new Date().toISOString()
-              }),
-              message_type: 'pdp_list',
-              created_at: new Date().toISOString()
+            const mappedCompetencies = competencyRows.map((row: any, idx: number) => {
+              return {
+                id: row.id || `comp-row-${idx}-${Date.now()}`,
+                jscNo: row.jscNo || `CORE-${idx + 1}`,
+                competency: row.title || row.competency || row.name || 'Core Competency',
+                definition: {
+                  mainText: row.mainText || row.description || row.competent || row.basic || 'Standard competency level mapping.',
+                  subsections: row.subsections || []
+                },
+                level: row.level || 'Level 2: Competent Operator',
+                weight: Number(row.weight || row.weighting || 10)
+              };
             });
+
+            await supabase
+              .from('messages')
+              .upsert({
+                id: compDocId,
+                tenant_id: tenantId,
+                sender_id: 'job_competencies_editor',
+                sender_email: 'job_competencies@system.local',
+                sender_name: 'Job Competencies System',
+                content: JSON.stringify({
+                  competencies: mappedCompetencies,
+                  jscMasters,
+                  competencyMasters,
+                  definitionMasters,
+                  levelMasters,
+                  weightMasters,
+                  lastPushedFromTemplate: new Date().toISOString()
+                }),
+                message_type: 'job_specific_competencies',
+                created_at: new Date().toISOString()
+              });
+          }
+
+          // 3) Overwrite PDP (pdp) Module
+          const pdpRows = stateObj.pulledPdpItems;
+          if (pdpRows && Array.isArray(pdpRows) && pdpRows.length > 0) {
+            const pdpDocId = `pdp_${tenantId}_${u}`;
+            
+            const { data: existingPdp } = await supabase
+              .from('messages')
+              .select('content')
+              .eq('id', pdpDocId)
+              .maybeSingle();
+            
+            let skillsGapsMasters = [];
+            let trainingsMasters = [];
+            let modesMasters = [];
+            let supportMasters = [];
+            
+            if (existingPdp && existingPdp.content) {
+              try {
+                const parsed = JSON.parse(existingPdp.content);
+                skillsGapsMasters = parsed.skillsGapsMasters || [];
+                trainingsMasters = parsed.trainingsMasters || [];
+                modesMasters = parsed.modesMasters || [];
+                supportMasters = parsed.supportMasters || [];
+              } catch (e) {}
+            }
+
+            const mappedPdp = pdpRows.map((row: any, idx: number) => {
+              return {
+                id: row.id || `pdp-row-${idx}-${Date.now()}`,
+                skillsGap: row.skillsGap || row.gap || '',
+                outcomes: row.outcomes || row.outcome || '',
+                suggestedTraining: row.suggestedTraining || row.training || '',
+                modeOfDelivery: row.modeOfDelivery || row.mode || '',
+                timeFrame: row.timeFrame || row.period || '',
+                workOpportunity: row.workOpportunity || row.opportunity || '',
+                supportPerson: row.supportPerson || row.support || ''
+              };
+            });
+
+            await supabase
+              .from('messages')
+              .upsert({
+                id: pdpDocId,
+                tenant_id: tenantId,
+                sender_id: 'pdp_editor_tool',
+                sender_email: 'pdp@system.local',
+                sender_name: 'PDP System',
+                content: JSON.stringify({
+                  items: mappedPdp,
+                  skillsGapsMasters,
+                  trainingsMasters,
+                  modesMasters,
+                  supportMasters,
+                  lastPushedFromTemplate: new Date().toISOString()
+                }),
+                message_type: 'pdp_list',
+                created_at: new Date().toISOString()
+              });
+          }
         }
       }
 
@@ -6742,6 +6885,99 @@ Format your response exactly according to the following JSON schema:
       success: false,
       error: err.message || "Internal Server Error"
     });
+  });
+
+  // Fred Generation Endpoint (Gamma AI equivalent)
+  app.post("/api/fred/generate", async (req, res) => {
+    try {
+      const { prompt, fileData, mimeType } = req.body;
+      const apiKey = process.env.GEMINI_API_KEY || process.env.GEMINI || process.env.gemini;
+      if (!apiKey) {
+        return res.status(500).json({ error: "Gemini API key is missing." });
+      }
+      const genai = new GoogleGenAI({ apiKey });
+      
+      let userPrompt = `You are Fred, an advanced AI document and presentation generator.
+Generate a structured, beautifully spaced, and professional document or presentation based on this request.
+Return ONLY valid JSON with no markdown wrapping (just the raw JSON string).
+Schema:
+{
+  "title": "Main Title",
+  "subtitle": "Optional",
+  "type": "presentation" | "document",
+  "theme": "dark" | "light" | "corporate" | "colorful",
+  "pages": [
+    {
+      "type": "title" | "content",
+      "title": "Slide/Section Title",
+      "subtitle": "Optional",
+      "content": "For documents: write well-spaced, richly formatted text. Use double newlines (\\n\\n) for paragraph spacing and bullet points (•). Summarize and condense large inputs so the entire response fits within the output limits. If the user provided a large file/text, extract and structure the key insights rather than reproducing it in full."
+    }
+  ]
+}
+
+User Request: ${prompt}`;
+
+      const contents: any[] = [];
+      
+      if (fileData && mimeType) {
+         contents.push({
+            role: 'user',
+            parts: [
+              { inlineData: { data: fileData, mimeType } },
+              { text: userPrompt }
+            ]
+         });
+      } else {
+         contents.push({
+            role: 'user',
+            parts: [ { text: userPrompt } ]
+         });
+      }
+      
+      const response = await genai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents,
+        config: {
+          temperature: 0.7,
+          responseMimeType: "application/json",
+          safetySettings: [
+            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+          ]
+        }
+      });
+      
+      let responseText = response.text || "{}";
+      responseText = responseText.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+      
+      let jsonRes;
+      try {
+        jsonRes = JSON.parse(responseText);
+      } catch (e) {
+        // Fallback for truncated JSON
+        console.warn("JSON parsing failed, attempting repair:", e);
+        if (!responseText.trim().endsWith("}")) {
+          const match = responseText.lastIndexOf("}");
+          if (match !== -1) {
+             responseText = responseText.substring(0, match + 1);
+             if (responseText.includes('"pages":')) {
+                responseText += "]}";
+             }
+          }
+          try { jsonRes = JSON.parse(responseText); } catch(e2) { jsonRes = { title: "Error", pages: [{ type: "content", content: "The response was truncated or invalid. Try again with a smaller prompt." }] }; }
+        } else {
+          jsonRes = { title: "Error", pages: [{ type: "content", content: "Invalid format returned by AI." }] };
+        }
+      }
+      
+      res.json(jsonRes);
+    } catch (err: any) {
+      console.error("Fred generation error:", err);
+      res.status(500).json({ error: err.message });
+    }
   });
 
   // Vite middleware for development

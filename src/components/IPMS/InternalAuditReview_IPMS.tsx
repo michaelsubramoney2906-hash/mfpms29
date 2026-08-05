@@ -21,7 +21,8 @@ import {
   FileImage, 
   FileCode,
   CheckSquare,
-  Square
+  Square,
+  Trash2
 } from 'lucide-react';
 import { IPMSWorkflowInbox } from './IPMSWorkflowInbox';
 
@@ -40,6 +41,7 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
   const [previewDoc, setPreviewDoc] = useState<any | null>(null);
   const [auditLedger, setAuditLedger] = useState<any[]>([]);
   const [clearingAudits, setClearingAudits] = useState(false);
+  const [showClearKpiModal, setShowClearKpiModal] = useState(false);
   const [selectedKpiIdsForAudit, setSelectedKpiIdsForAudit] = useState<string[]>([]);
 
   const toggleSelectKpiForAudit = (id: string) => {
@@ -123,6 +125,46 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
       console.error(e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleClearAllKpis = async () => {
+    if (!selectedPlan) return;
+    if (!window.confirm("CRITICAL WARNING: Are you sure you want to permanently clear all KPIs in this employee's performance plan? This action CANNOT be undone and will be saved persistently to the database.")) {
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload = {
+        metadata: {
+          ...selectedPlan.plan?.metadata,
+          reviewStatus: 'Draft'
+        },
+        items: []
+      };
+      const res = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${selectedPlan.userId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        setSelectedPlan({
+          ...selectedPlan,
+          plan: payload
+        });
+        setTeamPlans(prev => prev.map(tp => 
+          tp.userId === selectedPlan.userId ? { ...tp, plan: payload } : tp
+        ));
+        alert("All KPIs have been successfully and persistently cleared from this performance plan.");
+        setShowClearKpiModal(false);
+      } else {
+        alert("Failed to persist cleared KPIs to database.");
+      }
+    } catch (e: any) {
+      console.error(e);
+      alert("Error clearing KPIs: " + e.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -359,6 +401,7 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
             title: titleEmployee,
             message: messageEmployee,
             actionType: 'audit_completed',
+            senderCapacity: 'internal_auditor',
             employeeEmail: employeeEmail,
             kpiIds: targetKpiIds
           }
@@ -378,6 +421,7 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
             title: titleManager,
             message: messageManager,
             actionType: 'audit_completed',
+            senderCapacity: 'internal_auditor',
             employeeEmail: employeeEmail,
             kpiIds: targetKpiIds
           }
@@ -827,7 +871,17 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
             {plan.metadata?.position} • FY {plan.metadata?.period}
           </p>
         </div>
-        
+
+        <div className="flex flex-wrap items-center gap-3 shrink-0">
+          <button 
+            type="button" 
+            onClick={() => setShowClearKpiModal(true)}
+            className="bg-white border border-slate-300 text-slate-700 hover:bg-indigo-50 font-bold px-3 py-2 rounded-xl text-[10px] uppercase tracking-wide flex items-center gap-1.5 transition shadow-sm cursor-pointer border-0"
+          >
+            <Eye className="w-3.5 h-3.5 text-indigo-600" />
+            <span>📋 See / Clear KPIs</span>
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 bg-slate-100">
@@ -1483,6 +1537,91 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
                   Close
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showClearKpiModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-[9999] animate-fade-in" id="audit-clear-kpis-modal">
+          <div className="bg-white rounded-3xl max-w-4xl w-full max-h-[85vh] overflow-hidden shadow-2xl border border-slate-200 flex flex-col text-slate-800">
+            <div className="bg-slate-900 px-6 py-4 flex justify-between items-center text-white shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="p-1.5 bg-slate-800 rounded-lg">
+                  <FileText className="w-5 h-5 text-indigo-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black uppercase tracking-wider">Registered KPIs: {plan.metadata?.name || selectedPlan.userId}</h3>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Official clear-view listing of active performance targets</p>
+                </div>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setShowClearKpiModal(false)}
+                className="p-1 text-slate-400 hover:text-white rounded-lg transition bg-transparent border-0 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-6 flex-1 bg-slate-50">
+              {plan.items && plan.items.length > 0 ? (
+                <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-xs">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-100 border-b border-slate-200 text-[10px] font-black text-slate-700 uppercase tracking-wider">
+                        <th className="py-3 px-4">KPI No</th>
+                        <th className="py-3 px-4">KPI / Description</th>
+                        <th className="py-3 px-4">Annual Target</th>
+                        <th className="py-3 px-4">Baseline</th>
+                        <th className="py-3 px-4">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-xs text-slate-800">
+                      {plan.items.map((kpi: any) => (
+                        <tr key={kpi.id} className="hover:bg-slate-50/50 transition">
+                          <td className="py-3 px-4 font-bold text-indigo-900">{kpi.kpiNo || kpi.id}</td>
+                          <td className="py-3 px-4 leading-relaxed max-w-xs truncate" title={kpi.kpi}>{kpi.kpi}</td>
+                          <td className="py-3 px-4 font-medium">{kpi.target}</td>
+                          <td className="py-3 px-4 text-slate-500">{kpi.baseline || 'N/A'}</td>
+                          <td className="py-3 px-4">
+                            <span className="px-2 py-0.5 text-[9px] font-bold uppercase rounded bg-slate-100 text-slate-700 border border-slate-200">
+                              {kpi.reviewStatus || 'Draft'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 p-6">
+                  <div className="w-12 h-12 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <FileText className="w-6 h-6" />
+                  </div>
+                  <h4 className="text-xs font-black uppercase text-slate-700">No KPIs Configured</h4>
+                  <p className="text-xs text-slate-400 mt-1">This performance plan is currently empty.</p>
+                </div>
+              )}
+            </div>
+
+            <div className="px-6 py-4 bg-slate-100 border-t border-slate-200 flex justify-between items-center shrink-0">
+              <button 
+                type="button"
+                onClick={handleClearAllKpis}
+                disabled={saving || !plan.items || plan.items.length === 0}
+                className="bg-rose-600 hover:bg-rose-700 text-white font-bold px-4 py-2 rounded-xl text-[10px] uppercase tracking-wider flex items-center gap-2 transition shadow-sm cursor-pointer border-0 disabled:opacity-40"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>🗑️ Clear All KPIs</span>
+              </button>
+              <button 
+                type="button"
+                onClick={() => setShowClearKpiModal(false)}
+                className="bg-slate-800 hover:bg-slate-700 text-white font-bold px-4 py-2 rounded-xl text-[10px] uppercase tracking-wider transition shadow-sm cursor-pointer border-0"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>

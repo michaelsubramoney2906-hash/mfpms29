@@ -349,6 +349,11 @@ export function CoreCompetencies({ currentUser, activeTenantId }: CoreCompetenci
               text: `Successfully imported ${mappedRows.length} CFO core competencies from Fred CFO Extraction! Click "Save Configuration" to persist.`,
               type: 'success'
             });
+            try {
+              await fetch(`/api/tenant/${activeTenantId}/fred-extraction/cfo_competencies_engine?userId=${currentUser?.email || 'default'}`, { method: 'DELETE' });
+            } catch (e) {
+              console.error("Failed to clear fred extraction state after pull", e);
+            }
           } else {
             setImportMessage({
               text: "No competencies found in the saved CFO extraction JSON structure.",
@@ -404,6 +409,11 @@ export function CoreCompetencies({ currentUser, activeTenantId }: CoreCompetenci
               text: `Successfully imported ${mappedRows.length} PED core competencies from Fred PED Extraction! Click "Save Configuration" to persist.`,
               type: 'success'
             });
+            try {
+              await fetch(`/api/tenant/${activeTenantId}/fred-extraction/ped_competencies_engine?userId=${currentUser?.email || 'default'}`, { method: 'DELETE' });
+            } catch (e) {
+              console.error("Failed to clear fred extraction state after pull", e);
+            }
           } else {
             setImportMessage({
               text: "No competencies found in the saved PED extraction JSON structure.",
@@ -460,6 +470,11 @@ export function CoreCompetencies({ currentUser, activeTenantId }: CoreCompetenci
               text: `Successfully imported ${mappedRows.length} Corporate Services core competencies from Fred Extraction! Click "Save Configuration" to persist.`,
               type: 'success'
             });
+            try {
+              await fetch(`/api/tenant/${activeTenantId}/fred-extraction/corporate_services_competencies_engine?userId=${currentUser?.email || 'default'}`, { method: 'DELETE' });
+            } catch (e) {
+              console.error("Failed to clear fred extraction state after pull", e);
+            }
           } else {
             setImportMessage({
               text: "No competencies found in the saved Corporate Services extraction JSON structure.",
@@ -516,6 +531,11 @@ export function CoreCompetencies({ currentUser, activeTenantId }: CoreCompetenci
               text: `Successfully imported ${mappedRows.length} standard core competencies from Fred Core Competencies Extraction! Click "Save Configuration" to persist.`,
               type: 'success'
             });
+            try {
+              await fetch(`/api/tenant/${activeTenantId}/fred-extraction/core_competencies_engine?userId=${currentUser?.email || 'default'}`, { method: 'DELETE' });
+            } catch (e) {
+              console.error("Failed to clear fred extraction state after pull", e);
+            }
           } else {
             setImportMessage({
               text: "No competencies found in the saved Core Competencies extraction JSON structure.",

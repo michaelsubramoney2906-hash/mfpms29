@@ -42,20 +42,6 @@
     "level": "1"
   },
   {
-    "id": "0df28c52-7ad2-4fdd-9bd4-c5b8e194c68f",
-    "fullName": "Sibusiso M. Shabangu",
-    "email": "ShabanguSM@nkangaladm.gov.za",
-    "jobFunction": "Divisional Manager: IPMS & OPMS",
-    "department": "PMS",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "ML Mahlangu",
-    "directorate": "Office of the MM",
-    "reportTo": "",
-    "level": "3"
-  },
-  {
     "id": "24838f77-a2f0-43b6-9871-efd4f425a131",
     "fullName": "Dick Z. Skhosana",
     "email": "SkhosanaDZ@nkangaladm.gov.za",
@@ -166,6 +152,20 @@
     "directorate": "",
     "reportTo": "",
     "level": "1"
+  },
+  {
+    "id": "0df28c52-7ad2-4fdd-9bd4-c5b8e194c68f",
+    "fullName": "Sibusiso M. Shabangu",
+    "email": "ShabanguSM@nkangaladm.gov.za",
+    "jobFunction": "Divisional Manager: IPMS & OPMS",
+    "department": "PMS",
+    "source": "azure_ad",
+    "role": "Approver",
+    "tenantId": "nkangala_auto",
+    "manager": "ML Mahlangu",
+    "directorate": "Office of the Municipal Manager",
+    "reportTo": "Mandla L. Mahlangu",
+    "level": "3"
   },
   {
     "id": "d2a18c17-0ade-487b-8237-4fc63049754b",
@@ -1062,6 +1062,20 @@
     "directorate": "",
     "reportTo": "",
     "level": "1"
+  },
+  {
+    "id": "user-bonganim-mzansiflow",
+    "fullName": "Bongani M.",
+    "email": "bonganim@mzansiflow.co.za",
+    "jobFunction": "Systems Specialist",
+    "department": "Mzansi Flow Operations",
+    "source": "manual",
+    "role": "Standard User",
+    "tenantId": "global",
+    "manager": "Mike",
+    "directorate": "Mzansi Flow Operations",
+    "reportTo": "Mike",
+    "level": "L3 Specialist"
   },
   {
     "id": "f10b1ed6-2d47-40f7-833f-6770a090ed44",
@@ -2198,6 +2212,20 @@
     "level": "1"
   },
   {
+    "id": "169d4306-8f98-4635-a290-b255f00a19e5",
+    "fullName": "Nompumelelo P. Nsibande",
+    "email": "NsibandeNP@nkangaladm.gov.za",
+    "jobFunction": "PMS Officer",
+    "department": "Performance Management Unit",
+    "source": "azure_ad",
+    "role": "tenant_user",
+    "tenantId": "nkangala_auto",
+    "manager": "Yena Khuboni",
+    "directorate": "Office of the Municipal Manager",
+    "reportTo": "Yena Khuboni",
+    "level": "4"
+  },
+  {
     "id": "b4f47e9e-4246-4eac-aca7-9eb98d5386b4",
     "fullName": "Naume Nkosi",
     "email": "nkosinm@nkangaladm.gov.za",
@@ -2322,20 +2350,6 @@
     "directorate": "Finance",
     "reportTo": "",
     "level": "1"
-  },
-  {
-    "id": "169d4306-8f98-4635-a290-b255f00a19e5",
-    "fullName": "Nompumelelo P. Nsibande",
-    "email": "NsibandeNP@nkangaladm.gov.za",
-    "jobFunction": "PMS Officer",
-    "department": "Performance Management Unit",
-    "source": "azure_ad",
-    "role": "tenant_user",
-    "tenantId": "nkangala_auto",
-    "manager": "Yena Khuboni",
-    "directorate": "Office of the Municipal Manager",
-    "reportTo": "Yena Khuboni",
-    "level": "4"
   },
   {
     "id": "a49aae9b-a9e8-426f-b4b7-a112860f91d1",
@@ -4377,37 +4391,9 @@
     "role": "Standard User",
     "tenantId": "nkangala_auto",
     "manager": "ML Mahlangu",
-    "directorate": "Office of the MM",
-    "reportTo": "",
-    "level": "2"
-  },
-  {
-    "id": "bongani-mzansiflow-uuid-zgcjz",
-    "fullName": "Bongani M.",
-    "email": "bonganim@mzansiflow.co.za",
-    "jobFunction": "Systems Administrator",
-    "department": "Information Technology",
-    "source": "azure_ad",
-    "role": "Systems Administrator",
-    "tenantId": "tenant-1",
-    "manager": "",
-    "directorate": "",
-    "reportTo": "",
-    "level": "1"
-  },
-  {
-    "id": "f60af742-7b20-4eae-93ff-6ae7877fce6a",
-    "fullName": "Noluthando Zulu",
-    "email": "zulune@nkangaladm.gov.za",
-    "jobFunction": "PMS Officer",
-    "department": "Performance Management Unit",
-    "source": "azure_ad",
-    "role": "tenant_user",
-    "tenantId": "nkangala_auto",
-    "manager": "Yena Khuboni",
     "directorate": "Office of the Municipal Manager",
-    "reportTo": "Yena Khuboni",
-    "level": "4"
+    "reportTo": "Mandla L. Mahlangu",
+    "level": "2"
   },
   {
     "id": "aa73f82c-92ae-4402-9764-29c1f5650062",
@@ -4786,6 +4772,20 @@
     "directorate": "",
     "reportTo": "",
     "level": "1"
+  },
+  {
+    "id": "f60af742-7b20-4eae-93ff-6ae7877fce6a",
+    "fullName": "Noluthando Zulu",
+    "email": "zulune@nkangaladm.gov.za",
+    "jobFunction": "PMS Officer",
+    "department": "Performance Management Unit",
+    "source": "azure_ad",
+    "role": "tenant_user",
+    "tenantId": "nkangala_auto",
+    "manager": "Yena Khuboni",
+    "directorate": "Office of the Municipal Manager",
+    "reportTo": "Yena Khuboni",
+    "level": "4"
   },
   {
     "id": "5cb09328-f074-4cad-bc4f-08840d1e4a08",
@@ -5432,20 +5432,6 @@
     "level": "1"
   },
   {
-    "id": "2c5d23c6-7f0d-46cc-93b5-8c9d1feaab23",
-    "fullName": "Kgomotso Gwangwa",
-    "email": "Gwangwapk@nkangaladm.gov.za",
-    "jobFunction": "Senior Internal Auditor",
-    "department": "Internal Audit",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "",
-    "directorate": "",
-    "reportTo": "",
-    "level": "1"
-  },
-  {
     "id": "1c1e326a-6ae1-49db-8880-608674594fee",
     "fullName": "HealthMailbox-NDMSVMBGFEXC01-Mailbox-Database-4",
     "email": "HealthMailbox02742f95045e460b9f85cb06232654e1@nkangaladm.gov.za",
@@ -5904,6 +5890,20 @@
     "tenantId": "nkangala_auto",
     "manager": "",
     "directorate": "",
+    "reportTo": "",
+    "level": "1"
+  },
+  {
+    "id": "2c5d23c6-7f0d-46cc-93b5-8c9d1feaab23",
+    "fullName": "Kgomotso Gwangwa",
+    "email": "Gwangwapk@nkangaladm.gov.za",
+    "jobFunction": "Senior Internal Auditor",
+    "department": "Internal Audit",
+    "source": "azure_ad",
+    "role": "Standard User",
+    "tenantId": "nkangala_auto",
+    "manager": "",
+    "directorate": "Office of the Municipal Manager",
     "reportTo": "",
     "level": "1"
   },
@@ -7770,20 +7770,6 @@
     "level": "1"
   },
   {
-    "id": "32640881-296d-4a3d-82c0-5be1e8d51305",
-    "fullName": "Yena Khuboni",
-    "email": "KhuboniY@nkangaladm.gov.za",
-    "jobFunction": "PMS Coordinator",
-    "department": "Performance Management Unit",
-    "source": "azure_ad",
-    "role": "tenant_user",
-    "tenantId": "nkangala_auto",
-    "manager": "Sibusiso M. Shabangu",
-    "directorate": "Office of the Municipal Manager",
-    "reportTo": "Sibusiso M. Shabangu",
-    "level": "3"
-  },
-  {
     "id": "b5664005-edb8-4ef7-899a-49a40f3ef963",
     "fullName": "Aaron B. Khumalo",
     "email": "KhumaloAB@nkangaladm.gov.za",
@@ -7978,6 +7964,20 @@
     "directorate": "",
     "reportTo": "",
     "level": "1"
+  },
+  {
+    "id": "32640881-296d-4a3d-82c0-5be1e8d51305",
+    "fullName": "Yena Khuboni",
+    "email": "KhuboniY@nkangaladm.gov.za",
+    "jobFunction": "PMS Coordinator",
+    "department": "Performance Management Unit",
+    "source": "azure_ad",
+    "role": "tenant_user",
+    "tenantId": "nkangala_auto",
+    "manager": "Sibusiso M. Shabangu",
+    "directorate": "Office of the Municipal Manager",
+    "reportTo": "Sibusiso M. Shabangu",
+    "level": "3"
   },
   {
     "id": "79e769cf-52e6-40bb-9d3d-d972bce62dfa",
@@ -10954,7 +10954,7 @@
     "jobFunction": "Senior IT Administrator",
     "department": "Information and Communication Technology",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
     "manager": "Samuel Bongani Nkosi",
     "directorate": "",

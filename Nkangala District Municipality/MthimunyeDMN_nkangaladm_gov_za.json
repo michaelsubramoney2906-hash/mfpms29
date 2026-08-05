@@ -5,7 +5,7 @@
   "jobFunction": "Senior IT Administrator",
   "department": "Information and Communication Technology",
   "source": "azure_ad",
-  "role": "Standard User",
+  "role": "tenant_user",
   "tenantId": "nkangala_auto",
   "manager": "Samuel Bongani Nkosi",
   "directorate": "",

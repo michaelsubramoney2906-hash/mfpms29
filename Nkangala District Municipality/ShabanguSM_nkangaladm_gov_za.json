@@ -5,10 +5,10 @@
   "jobFunction": "Divisional Manager: IPMS & OPMS",
   "department": "PMS",
   "source": "azure_ad",
-  "role": "Standard User",
+  "role": "Approver",
   "tenantId": "nkangala_auto",
   "manager": "ML Mahlangu",
-  "directorate": "Office of the MM",
-  "reportTo": "",
+  "directorate": "Office of the Municipal Manager",
+  "reportTo": "Mandla L. Mahlangu",
   "level": "3"
 }

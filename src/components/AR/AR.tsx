@@ -6,13 +6,15 @@ import { User } from '../../types';
 import io, { Socket } from 'socket.io-client';
 import { VirtualWordProcessor } from './VirtualWordProcessor';
 
+import { GenerationTab } from './GenerationTab';
+
 interface ARProps {
   currentUser: User;
   activeTenantId: string;
 }
 
 export function AR({ currentUser, activeTenantId }: ARProps) {
-  const [activeTab, setActiveTab] = useState<'brief' | 'research' | 'template' | 'drafts'>('brief');
+  const [activeTab, setActiveTab] = useState<'brief' | 'research' | 'template' | 'drafts' | 'generation'>('brief');
   const [extractedData, setExtractedData] = useState<string | null>(null);
   const [templateData, setTemplateData] = useState<string | null>(null);
 
@@ -57,6 +59,12 @@ export function AR({ currentUser, activeTenantId }: ARProps) {
           >
             Drafts
           </button>
+          <button 
+            onClick={() => setActiveTab('generation')}
+            className={cn("px-4 py-2 text-sm font-bold rounded-lg transition-all flex items-center gap-2", activeTab === 'generation' ? "bg-indigo-600 text-white" : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100")}
+          >
+            <Cpu className="w-4 h-4" /> Generation
+          </button>
         </div>
       </div>
 
@@ -66,6 +74,7 @@ export function AR({ currentUser, activeTenantId }: ARProps) {
         {activeTab === 'research' && <ResearchTab extractedData={extractedData} setExtractedData={setExtractedData} />}
         {activeTab === 'template' && <TemplateTab templateData={templateData} setTemplateData={setTemplateData} />}
         {activeTab === 'drafts' && <VirtualWordProcessor activeTenantId={activeTenantId} currentUser={currentUser} />}
+        {activeTab === 'generation' && <GenerationTab />}
       </div>
     </div>
   );

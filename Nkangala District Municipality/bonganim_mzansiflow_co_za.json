@@ -1,14 +1,14 @@
 {
-  "id": "bongani-mzansiflow-uuid-zgcjz",
+  "id": "user-bonganim-mzansiflow",
   "fullName": "Bongani M.",
   "email": "bonganim@mzansiflow.co.za",
-  "jobFunction": "Systems Administrator",
-  "department": "Information Technology",
-  "source": "azure_ad",
-  "role": "Systems Administrator",
-  "tenantId": "tenant-1",
-  "manager": "",
-  "directorate": "",
-  "reportTo": "",
-  "level": "1"
+  "jobFunction": "Systems Specialist",
+  "department": "Mzansi Flow Operations",
+  "source": "manual",
+  "role": "Standard User",
+  "tenantId": "global",
+  "manager": "Mike",
+  "directorate": "Mzansi Flow Operations",
+  "reportTo": "Mike",
+  "level": "L3 Specialist"
 }

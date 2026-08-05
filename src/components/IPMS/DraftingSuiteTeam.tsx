@@ -51,6 +51,7 @@ export function DraftingSuiteTeam({
 }: PADraftingSuiteTeamProps) {
   const isZulunePMS = (currentUser?.email?.toLowerCase() === 'zulune@nkangaladm.gov.za' || currentUser?.email?.toLowerCase() === 'nsibandenp@nkangaladm.gov.za') && documentIdSuffix === 'pms_team';
   const [logoUrl, setLogoUrl] = useState<string>(NKANGALA_LOGO_BASE64);
+  const [hasLoadedDraft, setHasLoadedDraft] = useState(false);
 
   // Fetch system customized logo and ensure it is shared across all user accounts
   useEffect(() => {
@@ -312,6 +313,7 @@ export function DraftingSuiteTeam({
   };
 
   useEffect(() => {
+    if (hasLoadedDraft) return;
     if (currentUser) {
       setCoverPage(`PERFORMANCE AGREEMENT\n\nENTERED INTO BY AND BETWEEN:\nThe Municipality herein represented by the Municipal Manager\n\n&\n\n${currentUser.fullName || '[Employee Name]'}\n\n${teamTitle.toUpperCase()} TEAM\n\nFOR THE FINANCIAL YEAR: 2025/2026`);
       
@@ -606,6 +608,7 @@ export function DraftingSuiteTeam({
           }
           
           if (state && typeof state === 'object') {
+            setHasLoadedDraft(true);
             const systemLogo = (window as any).__systemCustomLogo;
             if (systemLogo) {
               setLogoUrl(systemLogo);

@@ -1,0 +1,54 @@
+--- server.ts
++++ server.ts
+@@ -6870,6 +6870,41 @@
+     }
+   });
+ 
++  // Fred Generation Endpoint (Gamma AI equivalent)
++  app.post("/api/fred/generate", async (req, res) => {
++    try {
++      const { prompt, fileData, mimeType } = req.body;
++      const apiKey = process.env.GEMINI_API_KEY || process.env.GEMINI || process.env.gemini;
++      if (!apiKey) {
++        return res.status(500).json({ error: "Gemini API key is missing." });
++      }
++      const genai = new GoogleGenAI({ apiKey });
++      
++      let userPrompt = "Generate a structured document or presentation based on this request. Return ONLY valid JSON with no markdown formatting. The JSON should match this schema: { \"title\": \"Main Title\", \"subtitle\": \"Optional\", \"type\": \"presentation\" | \"document\", \"theme\": \"dark\" | \"light\" | \"corporate\" | \"colorful\", \"pages\": [ { \"type\": \"title\" | \"content\", \"title\": \"Slide/Section Title\", \"subtitle\": \"Optional\", \"content\": \"Main body content here\" } ] }\n\nUser Request: " + prompt;
++      
++      const contents: any[] = [];
++      
++      if (fileData && mimeType) {
++         contents.push({
++            role: 'user',
++            parts: [
++              { inlineData: { data: fileData, mimeType } },
++              { text: userPrompt }
++            ]
++         });
++      } else {
++         contents.push({
++            role: 'user',
++            parts: [ { text: userPrompt } ]
++         });
++      }
++      
++      const response = await genai.models.generateContent({
++        model: "gemini-2.5-flash",
++        contents,
++        config: {
++          temperature: 0.7,
++          responseMimeType: "application/json"
++        }
++      });
++      
++      const jsonRes = JSON.parse(response.text || "{}");
++      res.json(jsonRes);
++    } catch (err: any) {
++      console.error("Fred generation error:", err);
++      res.status(500).json({ error: err.message });
++    }
++  });
++
+   // Vite middleware for development
+   if (process.env.NODE_ENV !== "production") {

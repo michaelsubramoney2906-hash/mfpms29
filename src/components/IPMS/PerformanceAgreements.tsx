@@ -983,7 +983,13 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
       setItems(finalKpiItems);
       await handleSaveToDatabase(metadata, finalKpiItems, false);
 
+      // Automatically clear Fred Extraction state so it is only used once
       if (foundExtraction) {
+        try {
+          await fetch(`/api/tenant/${activeTenantId}/fred-extraction/agreement_to_plan_engine?userId=${currentUser?.email || 'default'}`, { method: 'DELETE' });
+        } catch (e) {
+          console.error("Failed to clear fred extraction state after pull", e);
+        }
         alert(`Successfully imported all ${finalKpiItems.length} KPIs from the Fred Extraction Agent's active 'agreement_to_plan_engine' output, complete with correct category mapping, objectives, and quarterly targets!`);
       } else {
         alert(`No active Fred Extraction record found for 'agreement_to_plan_engine'. Auto-populated full COGTA compliant Statutory Planner Grid with all 97 KPIs (M_01 to M_92 and U_01 to U_05) mapped perfectly!`);

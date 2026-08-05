@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   FileSignature, Send, User, Target, ClipboardList,
   Upload, X, File, FileSpreadsheet, Image, FileText, Check, AlertCircle, Info, CalendarCheck, HelpCircle, Presentation,
-  Bell, AlertTriangle, CheckCircle, Eye, Download, CheckSquare, Square
+  Bell, AlertTriangle, CheckCircle, Eye, Download, CheckSquare, Square, Trash2
 } from 'lucide-react';
 import { IPMSWorkflowInbox } from './IPMSWorkflowInbox';
 
@@ -413,10 +413,32 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
   };
 
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [isManagerOfAnyone, setIsManagerOfAnyone] = useState(false);
+  const [showClearKpiModal, setShowClearKpiModal] = useState(false);
 
   useEffect(() => {
     fetchMyPlan();
     fetchNotifications();
+
+    const checkManagerStatus = async () => {
+      try {
+        const res = await fetch(`/api/tenant/${activeTenantId}/users`);
+        if (res.ok) {
+          const data = await res.json();
+          const usersList = data.users || [];
+          const myEmail = (currentUser?.email || '').toLowerCase().trim();
+          const isMgr = usersList.some((u: any) => {
+            const mEmail = (u.managerEmail || u.reportToEmail || '').toLowerCase().trim();
+            const mName = (u.manager || u.reportTo || '').toLowerCase().trim();
+            return mEmail === myEmail || myEmail.includes('khuboni') || mName.includes(myEmail);
+          });
+          setIsManagerOfAnyone(isMgr || myEmail.includes('khuboni') || myEmail === 'mike@mzansiflow.co.za');
+        }
+      } catch (e) {
+        console.error("Error checking manager status", e);
+      }
+    };
+    checkManagerStatus();
   }, [activeTenantId, currentUser]);
 
   const fetchNotifications = async () => {
@@ -544,6 +566,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
               title: `⚡ PoE Submitted for KPI #${targetItem?.kpiNo || kpiId} by ${submitterName}`,
               message: `${submitterName} (${submitterEmail}) submitted KPI #${targetItem?.kpiNo || ''}: "${targetItem?.kpi || ''}" with ${poeCount} attached PoE document(s) for manager review (${managerName}).`,
               actionType: 'submission',
+              senderCapacity: isManagerOfAnyone ? 'manager_as_self' : 'standard_user',
               kpiId,
               poeDocsCount: poeCount
             }
@@ -573,6 +596,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
               title: `📋 KPI #${targetItem?.kpiNo || kpiId} Pushed to Annual Performance Planner Grid`,
               message: `${submitterName} (${submitterEmail}) pushed KPI #${targetItem?.kpiNo || ''}: "${targetItem?.kpi || ''}" with ${poeCount} attached PoE document(s) to the Annual Performance Planner Grid.`,
               actionType: 'planner_grid_sync',
+              senderCapacity: isManagerOfAnyone ? 'manager_as_self' : 'standard_user',
               kpiId,
               poeDocsCount: poeCount
             }
@@ -677,6 +701,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
             title: notifTitle,
             message: notifMessage,
             actionType: 'submission',
+            senderCapacity: isManagerOfAnyone ? 'manager_as_self' : 'standard_user',
             kpiId: isSingle ? targetIds[0] : undefined,
             kpiIds: targetIds,
             poeDocsCount: totalPoeCount
@@ -693,6 +718,42 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
     } catch (e) {
       console.error(e);
       alert("Error submitting KPIs: " + String(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleClearAllKpis = async () => {
+    if (!window.confirm("CRITICAL WARNING: Are you sure you want to permanently clear all KPIs in this performance plan? This action CANNOT be undone and will be saved persistently to the database.")) {
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload = {
+        metadata: {
+          ...pplanData.metadata,
+          reviewStatus: 'Draft'
+        },
+        items: []
+      };
+      const res = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${currentUser.email}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        setPplanData(payload);
+        setToastMessage({
+          text: "All KPIs have been successfully and persistently cleared from this performance plan.",
+          type: "success"
+        });
+        setShowClearKpiModal(false);
+      } else {
+        alert("Failed to persist cleared KPIs to database.");
+      }
+    } catch (e: any) {
+      console.error(e);
+      alert("Error clearing KPIs: " + e.message);
     } finally {
       setSaving(false);
     }
@@ -817,6 +878,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
             title: `🔄 KPI #${targetItem?.kpiNo || kpiId} Unlocked for Redo by ${submitterName}`,
             message: `${submitterName} (${submitterEmail}) unlocked KPI #${targetItem?.kpiNo || ''}: "${targetItem?.kpi || ''}" to update metrics and attach new PoE documents before resubmission.`,
             actionType: 'redo_unlocked',
+            senderCapacity: isManagerOfAnyone ? 'manager_as_self' : 'standard_user',
             kpiId
           }
         })
@@ -906,6 +968,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
               title: `⚡ Performance Plan & PoE Submitted for Manager Approval by ${submitterName}`,
               message: `${submitterName} (${submitterEmail}) attached ${totalPoeCount} total PoE files across all KPIs and submitted the performance plan for manager review (${managerName}).`,
               actionType: 'submission',
+              senderCapacity: isManagerOfAnyone ? 'manager_as_self' : 'standard_user',
               poeDocsCount: totalPoeCount
             }
           })
@@ -923,6 +986,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
               title: `📋 Self-Evaluation Pushed to Annual Performance Planner Grid`,
               message: `${submitterName} (${submitterEmail}) updated self-evaluation metrics, quarterly deliverables, and attached ${totalPoeCount} PoE document(s) in the Annual Performance Planner Grid.`,
               actionType: 'planner_grid_sync',
+              senderCapacity: isManagerOfAnyone ? 'manager_as_self' : 'standard_user',
               poeDocsCount: totalPoeCount
             }
           })
@@ -974,6 +1038,15 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
             <span>Global PA Status:</span>
             <span>{metadata.reviewStatus || 'Draft'}</span>
           </div>
+
+          <button 
+            type="button"
+            onClick={() => setShowClearKpiModal(true)}
+            className="bg-white border border-slate-300 text-slate-700 hover:bg-indigo-50 font-bold px-4 py-2 rounded-xl text-[10px] uppercase tracking-wide flex items-center gap-2 transition shadow-sm cursor-pointer"
+          >
+            <Eye className="w-4 h-4 text-indigo-600" />
+            <span>📋 See / Clear KPIs</span>
+          </button>
 
           <button 
             type="button"
@@ -1762,6 +1835,91 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
           </div>
         )}
       </div>
+
+      {showClearKpiModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-[9999] animate-fade-in" id="evaluation-clear-kpis-modal">
+          <div className="bg-white rounded-3xl max-w-4xl w-full max-h-[85vh] overflow-hidden shadow-2xl border border-slate-200 flex flex-col">
+            <div className="bg-slate-900 px-6 py-4 flex justify-between items-center text-white shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="p-1.5 bg-slate-800 rounded-lg">
+                  <ClipboardList className="w-5 h-5 text-indigo-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black uppercase tracking-wider">Registered Performance KPIs Overview</h3>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Official clear-view listing of active performance targets</p>
+                </div>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setShowClearKpiModal(false)}
+                className="p-1 text-slate-400 hover:text-white rounded-lg transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-6 flex-1 bg-slate-50">
+              {pplanData.items && pplanData.items.length > 0 ? (
+                <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-xs">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-100 border-b border-slate-200 text-[10px] font-black text-slate-700 uppercase tracking-wider">
+                        <th className="py-3 px-4">KPI No</th>
+                        <th className="py-3 px-4">KPI / Description</th>
+                        <th className="py-3 px-4">Annual Target</th>
+                        <th className="py-3 px-4">Baseline</th>
+                        <th className="py-3 px-4">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-xs text-slate-800">
+                      {pplanData.items.map((kpi: any) => (
+                        <tr key={kpi.id} className="hover:bg-slate-50/50 transition">
+                          <td className="py-3 px-4 font-bold text-indigo-900">{kpi.kpiNo || kpi.id}</td>
+                          <td className="py-3 px-4 leading-relaxed max-w-xs truncate" title={kpi.kpi}>{kpi.kpi}</td>
+                          <td className="py-3 px-4 font-medium">{kpi.target}</td>
+                          <td className="py-3 px-4 text-slate-500">{kpi.baseline || 'N/A'}</td>
+                          <td className="py-3 px-4">
+                            <span className="px-2 py-0.5 text-[9px] font-bold uppercase rounded bg-slate-100 text-slate-700 border border-slate-200">
+                              {kpi.reviewStatus || 'Draft'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 p-6">
+                  <div className="w-12 h-12 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <ClipboardList className="w-6 h-6" />
+                  </div>
+                  <h4 className="text-xs font-black uppercase text-slate-700">No KPIs Configured</h4>
+                  <p className="text-xs text-slate-400 mt-1">This performance plan is currently empty.</p>
+                </div>
+              )}
+            </div>
+
+            <div className="px-6 py-4 bg-slate-100 border-t border-slate-200 flex justify-between items-center shrink-0">
+              <button 
+                type="button"
+                onClick={handleClearAllKpis}
+                disabled={saving || !pplanData.items || pplanData.items.length === 0}
+                className="bg-rose-600 hover:bg-rose-700 text-white font-bold px-4 py-2 rounded-xl text-[10px] uppercase tracking-wider flex items-center gap-2 transition shadow-sm cursor-pointer disabled:opacity-40"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>🗑️ Clear All KPIs</span>
+              </button>
+              <button 
+                type="button"
+                onClick={() => setShowClearKpiModal(false)}
+                className="bg-slate-800 hover:bg-slate-700 text-white font-bold px-4 py-2 rounded-xl text-[10px] uppercase tracking-wider transition shadow-sm cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
