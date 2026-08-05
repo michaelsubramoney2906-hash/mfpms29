@@ -682,26 +682,51 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
                   (normTarget.includes('zulune') && (p.userId || '').includes('zulune'))
                 );
                 if (matchingPlan) {
+                  // Resolve the active quarter to show
+                  let targetQuarter = quarter ? quarter.toUpperCase() : '';
+                  if (!targetQuarter && kpiId && Array.isArray(matchingPlan.plan?.items)) {
+                    const targetKpi = matchingPlan.plan.items.find((i: any) => i.id === kpiId);
+                    if (targetKpi) {
+                      if (targetKpi.q1PoeDocs?.length > 0 || targetKpi.q1Poe) targetQuarter = 'Q1';
+                      else if (targetKpi.q2PoeDocs?.length > 0 || targetKpi.q2Poe) targetQuarter = 'Q2';
+                      else if (targetKpi.q3PoeDocs?.length > 0 || targetKpi.q3Poe) targetQuarter = 'Q3';
+                      else if (targetKpi.q4PoeDocs?.length > 0 || targetKpi.q4Poe) targetQuarter = 'Q4';
+                      else if (targetKpi.annualPoeDocs?.length > 0 || targetKpi.annualPoe) targetQuarter = 'ANNUAL';
+                      else if (targetKpi.midtermPoeDocs?.length > 0 || targetKpi.midtermPoe) targetQuarter = 'MIDTERM';
+                    }
+                  }
+                  if (!targetQuarter) targetQuarter = 'Q1';
+
                   if (kpiId) {
                     setActiveKPIId(kpiId);
                   }
-                  if (quarter && (quarter === 'Q1' || quarter === 'Q2' || quarter === 'Q3' || quarter === 'Q4')) {
-                    setActiveQuarterTab(quarter as any);
+                  if (targetQuarter === 'Q1' || targetQuarter === 'Q2' || targetQuarter === 'Q3' || targetQuarter === 'Q4') {
+                    setActiveQuarterTab(targetQuarter as any);
                   }
                   handleSelectPlan(matchingPlan, () => {
-                    const targetRow = kpiId ? document.getElementById(`kpi-row-${kpiId}`) : null;
-                    if (targetRow) {
-                      targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                      targetRow.classList.add('bg-amber-100', 'ring-4', 'ring-indigo-500');
-                      setTimeout(() => targetRow.classList.remove('bg-amber-100', 'ring-4', 'ring-indigo-500'), 3000);
-                    } else {
-                      const el = document.getElementById('internal-audit-detail');
-                      if (el) {
-                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        el.classList.add('ring-4', 'ring-indigo-500', 'transition-all');
-                        setTimeout(() => el.classList.remove('ring-4', 'ring-indigo-500'), 3000);
+                    // Try to scroll and highlight with interval retries to handle async react rendering
+                    let attempts = 0;
+                    const interval = setInterval(() => {
+                      const targetRow = kpiId ? document.getElementById(`kpi-row-${kpiId}`) : null;
+                      if (targetRow) {
+                        targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        targetRow.classList.add('bg-amber-100', 'ring-4', 'ring-indigo-500');
+                        setTimeout(() => targetRow.classList.remove('bg-amber-100', 'ring-4', 'ring-indigo-500'), 3000);
+                        clearInterval(interval);
+                      } else {
+                        const el = document.getElementById('internal-audit-detail');
+                        if (el) {
+                          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                          el.classList.add('ring-4', 'ring-indigo-500', 'transition-all');
+                          setTimeout(() => el.classList.remove('ring-4', 'ring-indigo-500'), 3000);
+                          clearInterval(interval);
+                        }
                       }
-                    }
+                      if (attempts > 35) { // max 3.5 seconds
+                        clearInterval(interval);
+                      }
+                      attempts++;
+                    }, 100);
                   });
                 } else {
                   alert(`Plan for ${targetUserEmail} is loaded in your audit queue below.`);

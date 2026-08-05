@@ -122,6 +122,18 @@ const playActionSound = (force = false) => {
   }
 };
 
+const safeJson = async (res: Response) => {
+  try {
+    const contentType = res.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+      return await res.json();
+    }
+  } catch (e) {
+    console.error("Error parsing JSON:", e);
+  }
+  return null;
+};
+
 export function IPMSWorkflowInbox({
   role,
   currentUser,
@@ -161,7 +173,7 @@ export function IPMSWorkflowInbox({
         setSearchingAzure(true);
         const res = await fetch(`/api/azure-search?q=${encodeURIComponent(recipientSearch)}`);
         if (res.ok) {
-          const data = await res.json();
+          const data = await safeJson(res) || {};
           setAzureUsers(data || []);
         }
       } catch (err) {
@@ -257,7 +269,7 @@ export function IPMSWorkflowInbox({
         if (res.ok) {
           const contentType = res.headers.get("content-type");
           if (contentType && contentType.includes("application/json")) {
-            const data = await res.json();
+            const data = await safeJson(res) || {};
             if (Array.isArray(data)) {
               setTenantUsers(data);
             } else {
@@ -299,7 +311,7 @@ export function IPMSWorkflowInbox({
       if (res.ok) {
         const contentType = res.headers.get("content-type");
         if (contentType && contentType.includes("application/json")) {
-          const data = await res.json();
+          const data = await safeJson(res) || {};
           const nextNotifs = data.notifications || [];
           setNotifications(nextNotifs);
 
@@ -398,7 +410,7 @@ export function IPMSWorkflowInbox({
         await fetchInbox();
         playActionSound();
       } else {
-        const errorData = await res.json().catch(() => ({}));
+        const errorData = await safeJson(res) || {};
         console.error(`[IPMS Delete UI] Backend deletion failed:`, errorData);
         // Rollback state
         setNotifications(previousNotifications);
@@ -520,7 +532,7 @@ export function IPMSWorkflowInbox({
         fetchInbox();
         playActionSound();
       } else {
-        const err = await res.json();
+        const err = await safeJson(res) || {};
         alert(`Failed to send message: ${err.error || 'Unknown error'}`);
       }
     } catch (err) {
@@ -575,7 +587,7 @@ export function IPMSWorkflowInbox({
         fetchInbox();
         playActionSound();
       } else {
-        const err = await res.json();
+        const err = await safeJson(res) || {};
         alert(`Failed to send reply: ${err.error || 'Unknown error'}`);
       }
     } catch (err) {

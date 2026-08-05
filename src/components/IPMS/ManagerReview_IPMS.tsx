@@ -13,6 +13,18 @@ interface Props {
   activeTenantId: string;
 }
 
+const safeJson = async (res: Response) => {
+  try {
+    const contentType = res.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+      return await res.json();
+    }
+  } catch (e) {
+    console.error("Error parsing JSON:", e);
+  }
+  return null;
+};
+
 export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
   const [loading, setLoading] = useState(true);
   const [teamPlans, setTeamPlans] = useState<any[]>([]);
@@ -21,6 +33,8 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
   const [kpiFilter, setKpiFilter] = useState<'all' | 'submitted' | 'poe_attached' | 'approved' | 'revision'>('all');
   const [clearingOldReviews, setClearingOldReviews] = useState(false);
   const [showClearKpiModal, setShowClearKpiModal] = useState(false);
+  const [clearingLedger, setClearingLedger] = useState(false);
+  const [clearingReview, setClearingReview] = useState(false);
 
   // Advanced PoE state variables
   const [previewDoc, setPreviewDoc] = useState<any | null>(null);
@@ -103,7 +117,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
     try {
       const res = await fetch(`/api/tenant/${activeTenantId}/ipms-notifications?userEmail=${currentUser.email}&t=${Date.now()}`);
       if (res.ok) {
-        const data = await res.json();
+        const data = await safeJson(res) || {};
         setIncomingNotifications(data.notifications || []);
       }
     } catch(e) {
@@ -169,12 +183,12 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
     try {
       const res = await fetch(`/api/tenant/${activeTenantId}/reset-old-reviews?t=${Date.now()}`);
       if (res.ok) {
-        const data = await res.json();
+        const data = await safeJson(res) || {};
         alert(`Success! Successfully cleared and reset old reviews. ${data.updatedCount || 0} plan(s) updated.`);
         await fetchTeamPlans();
         await fetchNotifications();
       } else {
-        const err = await res.json();
+        const err = await safeJson(res) || {};
         alert(`Error: ${err.error || 'Failed to reset old reviews'}`);
       }
     } catch (e: any) {
@@ -185,6 +199,77 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
     }
   };
 
+  const handleClearSubordinatesLedger = async () => {
+    const ids = teamPlans.map(tp => tp.userId);
+    if (ids.length === 0) {
+      alert("There are no direct subordinates in your ledger to clear.");
+      return;
+    }
+    if (!window.confirm(`Are you sure you want to clear approval status (setting overall and KPI status back to In Progress / Draft) for all ${ids.length} subordinate(s) in your ledger?`)) {
+      return;
+    }
+    setClearingLedger(true);
+    try {
+      const res = await fetch(`/api/tenant/${activeTenantId}/clear-subordinates-ledger`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userIds: ids })
+      });
+      if (res.ok) {
+        alert("Successfully cleared subordinate approval status ledger.");
+        await fetchTeamPlans();
+      } else {
+        alert("Failed to clear ledger status.");
+      }
+    } catch (e: any) {
+      console.error(e);
+      alert("Error: " + e.message);
+    } finally {
+      setClearingLedger(false);
+    }
+  };
+
+  const handleClearSubordinatesReview = async () => {
+    const list = teamPlans.filter(tp => {
+      let submittedCount = 0;
+      if (Array.isArray(tp.plan?.items)) {
+        tp.plan.items.forEach((it: any) => {
+          if (it.reviewStatus === 'Submitted for Approval' || it.reviewStatus === 'Submitted for Review') {
+            submittedCount++;
+          }
+        });
+      }
+      return submittedCount > 0;
+    });
+    const ids = list.map(tp => tp.userId);
+    if (ids.length === 0) {
+      alert("There are currently no subordinates requiring service review to clear.");
+      return;
+    }
+    if (!window.confirm(`Are you sure you want to clear the 'Submitted for Approval' / 'Submitted for Review' status for all ${ids.length} subordinate(s) and reset them back to In Progress?`)) {
+      return;
+    }
+    setClearingReview(true);
+    try {
+      const res = await fetch(`/api/tenant/${activeTenantId}/clear-subordinates-review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userIds: ids })
+      });
+      if (res.ok) {
+        alert("Successfully cleared and reset subordinates requiring service review.");
+        await fetchTeamPlans();
+      } else {
+        alert("Failed to clear subordinates requiring service review.");
+      }
+    } catch (e: any) {
+      console.error(e);
+      alert("Error: " + e.message);
+    } finally {
+      setClearingReview(false);
+    }
+  };
+
   const fetchTeamPlans = async () => {
     setLoading(true);
     try {
@@ -192,13 +277,13 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
       const usersRes = await fetch(`/api/tenant/${activeTenantId}/users`);
       let allUsers: any[] = [];
       if (usersRes.ok) {
-        allUsers = await usersRes.json();
+        allUsers = await safeJson(usersRes) || {};
       }
 
       // 2. Fetch all team plans
       const res = await fetch(`/api/tenant/${activeTenantId}/team-pplans?t=${Date.now()}`);
       if (res.ok) {
-        const data = await res.json();
+        const data = await safeJson(res) || {};
         const plans = data.teamPlans || [];
         
         let managerName = currentUser.fullName || currentUser.full_name || '';
@@ -213,6 +298,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
         const khuboniSubordinates = [
           'zulune@nkangaladm.gov.za',
           'nsibandenp@nkangaladm.gov.za',
+          'nsibandenp@nkangaldm.gov.za',
           'lukhelema@nkangaladm.gov.za',
           'sakisd@nkangaladm.gov.za'
         ];
@@ -274,14 +360,6 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
           return true;
         });
 
-        // Specific rule: For khoboniy@nkangaladm.gov.za, ensure only Noluthando Zulu is visible
-        if (managerEmail.includes('khuboni')) {
-          myTeamPlans = myTeamPlans.filter((p: any) => {
-            const targetEmail = (p.userId || '').toLowerCase().trim();
-            return targetEmail.includes('zulune');
-          });
-        }
-        
         setTeamPlans(myTeamPlans);
       }
     } catch (e) {
@@ -298,7 +376,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
     try {
       const res = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${tp.userId}`);
       if (res.ok) {
-        const fullPlan = await res.json();
+        const fullPlan = await safeJson(res) || {};
         if (fullPlan && fullPlan.items) {
           setSelectedPlan({ userId: tp.userId, plan: fullPlan });
         }
@@ -937,17 +1015,41 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
                   (normTarget.includes('zulune') && (p.userId || '').includes('zulune'))
                 );
                 if (matchingPlan) {
-                  if (kpiId && quarter) {
-                    setActiveKpiQuarter(prev => ({ ...prev, [kpiId]: quarter.toUpperCase() }));
-                  }
-                  handleSelectPlan(matchingPlan, () => {
-                    const targetId = kpiId ? `kpi-card-${kpiId}` : 'manager-review-detail';
-                    const el = document.getElementById(targetId) || document.getElementById('manager-review-detail');
-                    if (el) {
-                      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                      el.classList.add('ring-4', 'ring-indigo-500', 'transition-all');
-                      setTimeout(() => el.classList.remove('ring-4', 'ring-indigo-500'), 3000);
+                  // Resolve the active quarter to show
+                  let targetQuarter = quarter ? quarter.toUpperCase() : '';
+                  if (!targetQuarter && kpiId && Array.isArray(matchingPlan.plan?.items)) {
+                    const targetKpi = matchingPlan.plan.items.find((i: any) => i.id === kpiId);
+                    if (targetKpi) {
+                      if (targetKpi.q1PoeDocs?.length > 0 || targetKpi.q1Poe) targetQuarter = 'Q1';
+                      else if (targetKpi.q2PoeDocs?.length > 0 || targetKpi.q2Poe) targetQuarter = 'Q2';
+                      else if (targetKpi.q3PoeDocs?.length > 0 || targetKpi.q3Poe) targetQuarter = 'Q3';
+                      else if (targetKpi.q4PoeDocs?.length > 0 || targetKpi.q4Poe) targetQuarter = 'Q4';
+                      else if (targetKpi.annualPoeDocs?.length > 0 || targetKpi.annualPoe) targetQuarter = 'ANNUAL';
+                      else if (targetKpi.midtermPoeDocs?.length > 0 || targetKpi.midtermPoe) targetQuarter = 'MIDTERM';
                     }
+                  }
+                  if (!targetQuarter) targetQuarter = 'Q1';
+
+                  if (kpiId) {
+                    setActiveKpiQuarter(prev => ({ ...prev, [kpiId]: targetQuarter }));
+                  }
+
+                  handleSelectPlan(matchingPlan, () => {
+                    // Try to scroll and highlight with interval retries to handle async react rendering
+                    const targetId = kpiId ? `kpi-card-${kpiId}` : 'manager-review-detail';
+                    let attempts = 0;
+                    const interval = setInterval(() => {
+                      const el = document.getElementById(targetId) || document.getElementById('manager-review-detail');
+                      if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        el.classList.add('ring-4', 'ring-indigo-500', 'transition-all');
+                        setTimeout(() => el.classList.remove('ring-4', 'ring-indigo-500'), 3000);
+                        clearInterval(interval);
+                      } else if (attempts > 35) { // max 3.5 seconds
+                        clearInterval(interval);
+                      }
+                      attempts++;
+                    }, 100);
                   });
                 } else {
                   alert(`Plan for ${targetUserEmail} is loaded in your team queue below.`);
@@ -957,10 +1059,19 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
           </div>
 
           <div className="max-w-4xl mx-auto space-y-4">
-            <h2 className="text-xs font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
-              <span className="inline-block w-2.5 h-2.5 bg-indigo-600 rounded-full animate-pulse"></span>
-              Direct Subordinates Requiring Service Review
-            </h2>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+              <h2 className="text-xs font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
+                <span className="inline-block w-2.5 h-2.5 bg-indigo-600 rounded-full animate-pulse"></span>
+                Direct Subordinates Requiring Service Review
+              </h2>
+              <button
+                onClick={handleClearSubordinatesReview}
+                disabled={clearingReview}
+                className="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 font-extrabold px-3 py-1.5 rounded-lg text-[9px] uppercase tracking-wider transition shadow-xs cursor-pointer flex items-center gap-1 select-none"
+              >
+                <span>{clearingReview ? "Clearing..." : "🧹 Clear Subordinates Requiring Review"}</span>
+              </button>
+            </div>
             {teamPlans.filter(tp => {
               let submittedCount = 0;
               if (Array.isArray(tp.plan?.items)) {
@@ -1044,7 +1155,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
 
           {/* Manager's Direct Subordinates & Approval Status Ledger */}
           <div className="max-w-4xl mx-auto bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-4">
-            <div className="border-b border-slate-150 pb-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div className="border-b border-slate-150 pb-3 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3">
               <div>
                 <h2 className="text-sm font-black text-slate-800 uppercase tracking-tight flex items-center gap-2">
                   <UserCheck className="w-4 h-4 text-indigo-600" />
@@ -1054,9 +1165,18 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
                   Real-time manager supervision ledger tracking annual performance agreement approval statuses
                 </p>
               </div>
-              <span className="bg-indigo-100 text-indigo-850 text-[10px] font-black px-2.5 py-1 rounded-lg uppercase shrink-0">
-                {teamPlans.length} Total Subordinates
-              </span>
+              <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto justify-end">
+                <button
+                  onClick={handleClearSubordinatesLedger}
+                  disabled={clearingLedger}
+                  className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-extrabold px-3 py-1.5 rounded-lg text-[9px] uppercase tracking-wider transition shadow-xs cursor-pointer flex items-center gap-1 select-none"
+                >
+                  <span>{clearingLedger ? "Clearing..." : "🗑️ Clear Ledger Approval Statuses"}</span>
+                </button>
+                <span className="bg-indigo-100 text-indigo-850 text-[10px] font-black px-2.5 py-1 rounded-lg uppercase shrink-0">
+                  {teamPlans.length} Total Subordinates
+                </span>
+              </div>
             </div>
 
             {teamPlans.length === 0 ? (
@@ -1309,12 +1429,6 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
 
             {plan.items
               .filter((kpi: any) => {
-                // Specific rule: For khoboniy@nkangaladm.gov.za reviewing zulune, only show Noluthando Zulu's KPI from today (KPI M_21)
-                const isKhuboni = (currentUser?.email || '').toLowerCase().trim().includes('khuboni');
-                const isZulu = (selectedPlan.userId || '').toLowerCase().trim().includes('zulune');
-                if (isKhuboni && isZulu) {
-                  return kpi.id === 'pplan-fred-kpi-M_21-0.707738296352239' || kpi.kpiNo === 'M_21';
-                }
                 return true;
               })
               .map((kpi: any, idx: number) => {

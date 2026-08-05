@@ -2,12 +2,16 @@
   "paths": [
     "/",
     "/azure_configs",
+    "/audit_change_logs",
     "/messages",
-    "/users"
+    "/users",
+    "/audit_logs"
   ],
   "definitions": [
     "azure_configs",
+    "audit_change_logs",
     "messages",
-    "users"
+    "users",
+    "audit_logs"
   ]
 }

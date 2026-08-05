@@ -4093,21 +4093,20 @@ Format your response exactly according to the following JSON schema:
           
           // Check if this plan belongs to Noluthando Zulu - if so, DO NOT clear/reset it
           const isZulu = row.id.toLowerCase().includes('zulune') || 
-            row.id.toLowerCase().includes('zulu') ||
-            (content?.metadata?.name && content.metadata.name.toLowerCase().includes('zulu')) ||
-            (content?.metadata?.email && content.metadata.email.toLowerCase().includes('zulune'));
+            row.id.toLowerCase().includes('zulu');
             
           if (isZulu) {
             continue;
           }
           
-          // A plan is awaiting quality assurance audit if its internalAuditStatus is not 'Audited' and not 'Pushed to DPMC'
+          // A plan is in the quality assurance audit flow if its internalAuditStatus is set and not 'Draft' and not 'Cleared'
           const auditStatus = content?.metadata?.internalAuditStatus || '';
-          if (auditStatus !== 'Audited' && auditStatus !== 'Pushed to DPMC') {
+          if (auditStatus && auditStatus !== 'Draft' && auditStatus !== 'Cleared') {
             if (content && Array.isArray(content.items)) {
               content.items.forEach((item: any) => {
                 delete item.internalAuditRating;
                 delete item.internalAuditComment;
+                delete item.internalAuditStatus;
                 item.reviewStatus = 'In Progress';
                 changed = true;
               });
@@ -4935,12 +4934,11 @@ Format your response exactly according to the following JSON schema:
         
         const { data: res1 } = await supabase.from('messages').select('content').eq('id', id1).maybeSingle();
         const { data: res2 } = await supabase.from('messages').select('content').eq('id', id2).maybeSingle();
-        
         let bestContent = null;
-        if (res2 && res2.content && (!res1 || !res1.content || res2.content.length > res1.content.length)) {
+        if (res1 && res1.content) {
+          bestContent = res1.content; // Always use Zulune as master for synced users
+        } else if (res2 && res2.content) {
           bestContent = res2.content;
-        } else if (res1 && res1.content) {
-          bestContent = res1.content;
         }
         
         if (bestContent) {
@@ -4997,108 +4995,15 @@ Format your response exactly according to the following JSON schema:
             sender_id: 'job_competencies_editor',
             sender_email: 'job_competencies@system.local',
             sender_name: 'Job Competencies Editor',
-            content: JSON.stringify({
-              competencies,
-              jscMasters,
-              competencyMasters,
-              definitionMasters,
-              levelMasters,
-              weightMasters
-            }),
-            message_type: 'job_specific_competencies',
+            content: JSON.stringify({ competencies, jscMasters, competencyMasters, definitionMasters, levelMasters, weightMasters }),
+            message_type: 'job_competencies_list',
             created_at: new Date().toISOString()
           });
-        
         if (error) throw error;
       }
       res.json({ success: true });
     } catch (err: any) {
-      console.error("Job competencies save exception:", err);
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  // 17.5 Fetch SDBIP 2nd & 3rd Layers (sdbip23) for a tenant
-  app.get("/api/tenant/:tenantId/sdbip23", async (req, res) => {
-    const { tenantId } = req.params;
-    try {
-      const supabase = getSupabase();
-      const documentId = `sdbip23_${tenantId}`;
-      const { data, error } = await supabase
-        .from('messages')
-        .select('content')
-        .eq('id', documentId)
-        .maybeSingle();
-
-      if (error) {
-        console.error("Supabase load sdbip23 error:", error.message);
-        return res.json({ items: [] });
-      }
-
-      if (data && data.content) {
-        try {
-          const parsed = JSON.parse(data.content);
-          return res.json({ items: parsed });
-        } catch (parseErr) {
-          console.error("Error parsing sdbip23 JSON:", parseErr);
-        }
-      }
-      return res.json({ items: [] });
-    } catch (err: any) {
-      console.error("SDBIP23 load exception:", err);
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  app.get("/api/tenant/:tenantId/performance-agreements/extraction/:layer", async (req, res) => {
-    const { tenantId, layer } = req.params;
-    try {
-      const supabase = getSupabase();
-      const documentId = layer === '2nd' ? `pa_extract_sdbip_2nd_${tenantId}` : `pa_extract_sdbip_3rd_${tenantId}`;
-      const { data, error } = await supabase
-        .from('messages')
-        .select('content')
-        .eq('id', documentId)
-        .maybeSingle();
-
-      if (error) {
-        console.error("Extraction fetch error:", error.message);
-        return res.json({ items: [] });
-      }
-
-      if (data && data.content) {
-        try { return res.json({ items: JSON.parse(data.content) }); } catch(e) { return res.json({items:[]}); }
-      }
-      return res.json({ items: [] });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  // 17.6 Save SDBIP 2nd & 3rd Layers (sdbip23) for a tenant
-  app.post("/api/tenant/:tenantId/sdbip23", async (req, res) => {
-    const { tenantId } = req.params;
-    const { items } = req.body;
-    try {
-      const supabase = getSupabase();
-      const documentId = `sdbip23_${tenantId}`;
-      const { error } = await supabase
-        .from('messages')
-        .upsert({ 
-          id: documentId,
-          tenant_id: tenantId,
-          sender_id: 'sdbip23_editor',
-          sender_email: 'sdbip23@system.local',
-          sender_name: 'SDBIP 2nd & 3rd Layer Editor',
-          content: JSON.stringify(items),
-          message_type: 'sdbip23_list',
-          created_at: new Date().toISOString()
-        });
-      
-      if (error) throw error;
-      res.json({ success: true });
-    } catch (err: any) {
-      console.error("SDBIP23 save exception:", err);
+      console.error("job-competencies save exception:", err);
       res.status(500).json({ error: err.message });
     }
   });
@@ -5109,9 +5014,20 @@ Format your response exactly according to the following JSON schema:
     const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
     try {
       const supabase = getSupabase();
-      const resolvedTenantId = await resolveTenantId(routeTenantId, userId);
-      const userSuffix = userId && userId !== 'default' ? `_${userId}` : '';
-      const documentId = `core_competencies_${resolvedTenantId}${userSuffix}`;
+      const tenantId = await resolveTenantId(routeTenantId, userId);
+      const documentId = `core_competencies_${tenantId}_${userId}`;
+      
+      if (SYNCED_EMAILS.includes(userId)) {
+        const id1 = `core_competencies_${tenantId}_zulune@nkangaladm.gov.za`;
+        const id2 = `core_competencies_${tenantId}_nsibandenp@nkangaladm.gov.za`;
+        const { data: res1 } = await supabase.from('messages').select('content').eq('id', id1).maybeSingle();
+        const { data: res2 } = await supabase.from('messages').select('content').eq('id', id2).maybeSingle();
+        let bestContent = null;
+        if (res1 && res1.content) bestContent = res1.content;
+        else if (res2 && res2.content) bestContent = res2.content;
+        if (bestContent) return res.json(JSON.parse(bestContent));
+      }
+
       const { data, error } = await supabase
         .from('messages')
         .select('content')
@@ -5120,20 +5036,18 @@ Format your response exactly according to the following JSON schema:
 
       if (error) {
         console.error("Supabase load core competencies error:", error.message);
-        return res.json({ items: [] });
+        return res.json({ items: [], cfoItems: [], pedItems: [], corporateServicesItems: [] });
       }
 
       if (data && data.content) {
         try {
           const parsed = JSON.parse(data.content);
           return res.json(parsed);
-        } catch (parseErr) {
-          console.error("Error parsing core competencies JSON:", parseErr);
-        }
+        } catch (parseErr) {}
       }
-      return res.json({ items: [] });
+      return res.json({ items: [], cfoItems: [], pedItems: [], corporateServicesItems: [] });
     } catch (err: any) {
-      console.error("core competencies load exception:", err);
+      console.error("Core competencies load exception:", err);
       res.status(500).json({ error: err.message });
     }
   });
@@ -5144,33 +5058,32 @@ Format your response exactly according to the following JSON schema:
     const { items, cfoItems, pedItems, corporateServicesItems } = req.body;
     try {
       const supabase = getSupabase();
-      const resolvedTenantId = await resolveTenantId(routeTenantId, userId);
-      const userSuffix = userId && userId !== 'default' ? `_${userId}` : '';
-      const documentId = `core_competencies_${resolvedTenantId}${userSuffix}`;
-      const { error } = await supabase
-         .from('messages')
-         .upsert({ 
-          id: documentId,
-          tenant_id: resolvedTenantId,
-          sender_id: 'core_competencies_editor_tool',
-          sender_email: 'core@system.local',
-          sender_name: 'Core Competencies Editor',
-          content: JSON.stringify({ items, cfoItems, pedItems, corporateServicesItems }),
-          message_type: 'core_competencies_list',
-          created_at: new Date().toISOString()
-        });
-
-      if (error) {
-        throw error;
+      const tenantId = await resolveTenantId(routeTenantId, userId);
+      const targetUsers = SYNCED_EMAILS.includes(userId) ? SYNCED_EMAILS : [userId];
+      for (const u of targetUsers) {
+        const uDocId = `core_competencies_${tenantId}_${u}`;
+        const { error } = await supabase
+          .from('messages')
+          .upsert({ 
+            id: uDocId,
+            tenant_id: tenantId,
+            sender_id: 'core_competencies_editor',
+            sender_email: 'core_competencies@system.local',
+            sender_name: 'Core Competencies Editor',
+            content: JSON.stringify({ items, cfoItems, pedItems, corporateServicesItems }),
+            message_type: 'core_competencies_list',
+            created_at: new Date().toISOString()
+          });
+        if (error) throw error;
       }
       res.json({ success: true });
     } catch (err: any) {
-      console.error("core competencies save error:", err);
+      console.error("core-competencies save exception:", err);
       res.status(500).json({ error: err.message });
     }
   });
 
-  // PDP Routes
+  // Personal Development Plan (PDP) Routes
   app.get("/api/tenant/:tenantId/pdp", async (req, res) => {
     const { tenantId: routeTenantId } = req.params;
     const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
@@ -5178,28 +5091,16 @@ Format your response exactly according to the following JSON schema:
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
       const documentId = `pdp_${tenantId}_${userId}`;
-
-      // Replicate data for the PMS Team members (zulune and nsibandenp)
+      
       if (SYNCED_EMAILS.includes(userId)) {
         const id1 = `pdp_${tenantId}_zulune@nkangaladm.gov.za`;
         const id2 = `pdp_${tenantId}_nsibandenp@nkangaladm.gov.za`;
-        
         const { data: res1 } = await supabase.from('messages').select('content').eq('id', id1).maybeSingle();
         const { data: res2 } = await supabase.from('messages').select('content').eq('id', id2).maybeSingle();
-        
         let bestContent = null;
-        if (res2 && res2.content && (!res1 || !res1.content || res2.content.length > res1.content.length)) {
-          bestContent = res2.content;
-        } else if (res1 && res1.content) {
-          bestContent = res1.content;
-        }
-        
-        if (bestContent) {
-          try {
-            const parsed = JSON.parse(bestContent);
-            return res.json(parsed);
-          } catch (e) {}
-        }
+        if (res1 && res1.content) bestContent = res1.content;
+        else if (res2 && res2.content) bestContent = res2.content;
+        if (bestContent) return res.json(JSON.parse(bestContent));
       }
 
       const { data, error } = await supabase
@@ -5217,9 +5118,7 @@ Format your response exactly according to the following JSON schema:
         try {
           const parsed = JSON.parse(data.content);
           return res.json(parsed);
-        } catch (parseErr) {
-          console.error("Error parsing pdp JSON:", parseErr);
-        }
+        } catch (parseErr) {}
       }
       return res.json({ items: [] });
     } catch (err: any) {
@@ -5231,11 +5130,10 @@ Format your response exactly according to the following JSON schema:
   app.post("/api/tenant/:tenantId/pdp", async (req, res) => {
     const { tenantId: routeTenantId } = req.params;
     const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
-    const { items } = req.body;
+    const { items, gapsMasters, outcomesMasters, trainingsMasters, modesMasters, supportMasters } = req.body;
     try {
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
-      
       const targetUsers = SYNCED_EMAILS.includes(userId) ? SYNCED_EMAILS : [userId];
       for (const u of targetUsers) {
         const uDocId = `pdp_${tenantId}_${u}`;
@@ -5244,14 +5142,13 @@ Format your response exactly according to the following JSON schema:
           .upsert({ 
             id: uDocId,
             tenant_id: tenantId,
-            sender_id: 'pdp_editor_tool',
+            sender_id: 'pdp_editor',
             sender_email: 'pdp@system.local',
             sender_name: 'PDP Editor',
-            content: JSON.stringify({ items }),
+            content: JSON.stringify({ items, gapsMasters, outcomesMasters, trainingsMasters, modesMasters, supportMasters }),
             message_type: 'pdp_list',
             created_at: new Date().toISOString()
           });
-        
         if (error) throw error;
       }
       res.json({ success: true });
@@ -5262,7 +5159,11 @@ Format your response exactly according to the following JSON schema:
   });
 
   // Performance Plan (PPLAN) Routes
-  const pplanCache = new Map<string, { raw: string, timestamp: number }>();
+  let pplanCache;
+  if (typeof global.pplanCache === 'undefined') {
+    global.pplanCache = new Map();
+  }
+  pplanCache = global.pplanCache;
   const CACHE_TTL = 1000 * 60 * 5; // 5 minutes
 
   app.get("/api/tenant/:tenantId/pplan", async (req, res) => {
@@ -5273,41 +5174,12 @@ Format your response exactly according to the following JSON schema:
       const tenantId = await resolveTenantId(routeTenantId, userId);
       const documentId = `pplan_${tenantId}_${userId}`;
       
-      // Replicate data for the PMS Team members (zulune and nsibandenp)
-      if (SYNCED_EMAILS.includes(userId)) {
-        const id1 = `pplan_${tenantId}_zulune@nkangaladm.gov.za`;
-        const id2 = `pplan_${tenantId}_nsibandenp@nkangaladm.gov.za`;
-        
-        const { data: res1 } = await supabase.from('messages').select('content').eq('id', id1).maybeSingle();
-        const { data: res2 } = await supabase.from('messages').select('content').eq('id', id2).maybeSingle();
-        
-        let bestContent = null;
-        if (res2 && res2.content && (!res1 || !res1.content || res2.content.length > res1.content.length)) {
-          bestContent = res2.content;
-        } else if (res1 && res1.content) {
-          bestContent = res1.content;
-        }
-        
-        if (bestContent) {
-          try {
-            const parsed = JSON.parse(bestContent);
-            parsed.metadata = parsed.metadata || {};
-            parsed.metadata.email = userId;
-            parsed.metadata.name = userId === 'zulune@nkangaladm.gov.za' ? 'Noluthando Zulu' : 'Nompumelelo P. Nsibande';
-            parsed.metadata.position = userId === 'zulune@nkangaladm.gov.za' ? 'PMS Officer' : 'PMS Unit Member';
-            return res.json(parsed);
-          } catch (e) {}
-        }
-      }
-
-      // Check cache first
       const cached = pplanCache.get(documentId);
-      if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
-        console.log(`[Cache Hit] PPLAN for ${documentId} served from memory`);
-        res.setHeader('Content-Type', 'application/json');
-        return res.send(cached.raw);
+      if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        try {
+          return res.json(JSON.parse(cached.raw));
+        } catch (e) {}
       }
-      console.log(`[Cache Miss] Loading PPLAN for ${documentId} from DB`);
 
       const { data, error } = await supabase
         .from('messages')
@@ -5321,15 +5193,13 @@ Format your response exactly according to the following JSON schema:
       }
 
       if (data && data.content) {
-        pplanCache.set(documentId, { raw: data.content, timestamp: Date.now() });
-        res.setHeader('Content-Type', 'application/json');
-        return res.send(data.content);
+        try {
+          const parsed = JSON.parse(data.content);
+          pplanCache.set(documentId, { raw: data.content, timestamp: Date.now() });
+          return res.json(parsed);
+        } catch (parseErr) {}
       }
-      
-      const emptyFallback = JSON.stringify({ metadata: {}, items: [] });
-      pplanCache.set(documentId, { raw: emptyFallback, timestamp: Date.now() });
-      res.setHeader('Content-Type', 'application/json');
-      return res.send(emptyFallback);
+      return res.json({ metadata: {}, items: [] });
     } catch (err: any) {
       console.error("pplan load exception:", err);
       res.status(500).json({ error: err.message });
@@ -5337,200 +5207,210 @@ Format your response exactly according to the following JSON schema:
   });
 
   app.get("/api/tenant/:tenantId/team-pplans", async (req, res) => {
-    const { tenantId } = req.params;
+    const { tenantId: routeTenantId } = req.params;
     try {
       const supabase = getSupabase();
       
-      // If global or nkangala variant, load all performance agreements, then filter appropriately in memory.
-      // This is extremely robust and ensures that when administrators/managers log out of impersonation,
-      // or view cross-tenant dashboards, they can retrieve agreements saved under other tenants/users.
-      const queryTenantPattern = 'pplan_%';
+      let tenantId = routeTenantId || 'nkangala_auto';
+      let tenantIds = [tenantId];
+      if (tenantId === 'nkangala_auto' || tenantId === 'tenant-229') {
+        tenantIds = ['nkangala_auto', 'tenant-229'];
+      }
+
       const { data, error } = await supabase
         .from('messages')
-        .select('id, content')
-        .like('id', queryTenantPattern);
+        .select('*')
+        .eq('message_type', 'pplan_list');
 
       if (error) {
-        console.error("Supabase load team pplans error:", error.message);
-        return res.status(500).json({ error: error.message });
+        console.error("Supabase load team-pplans error:", error.message);
+        return res.json({ teamPlans: [] });
       }
 
-      const tenantList = [tenantId];
-      if (tenantId === 'nkangala_auto' || tenantId === 'tenant-240' || tenantId === 'tenant-229') {
-        tenantList.push('nkangala_auto');
-        tenantList.push('tenant-240');
-        tenantList.push('tenant-229');
-      }
+      const teamPlans = (data || [])
+        .filter((row: any) => {
+          return tenantIds.includes(row.tenant_id) || 
+                 tenantIds.some(tId => row.id.startsWith(`pplan_${tId}_`));
+        })
+        .map((row: any) => {
+          // Extract userId/email from the message ID
+          let userId = '';
+          const foundTenantId = tenantIds.find(tId => row.id.startsWith(`pplan_${tId}_`));
+          if (foundTenantId) {
+            userId = row.id.substring(`pplan_${foundTenantId}_`.length);
+          } else {
+            const parts = row.id.split('_');
+            userId = parts[parts.length - 1] || row.sender_email || '';
+          }
 
-      const teamPlans = [];
-      if (data) {
-        for (const row of data) {
-          try {
-            if (row.id && row.id.startsWith('pplan_')) {
-              const parsed = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
-              if (parsed && parsed.metadata) {
-                let emailIdentifier = (parsed.metadata?.email || parsed.email || '').toLowerCase().trim();
-                if (!emailIdentifier) {
-                  if (row.id.includes('@')) {
-                    const atIdx = row.id.indexOf('@');
-                    const lastUnderscoreBeforeAt = row.id.lastIndexOf('_', atIdx);
-                    if (lastUnderscoreBeforeAt !== -1) {
-                      emailIdentifier = row.id.substring(lastUnderscoreBeforeAt + 1).toLowerCase().trim();
-                    }
-                  } else {
-                    const idParts = row.id.split('_');
-                    emailIdentifier = idParts.slice(2).join('_').toLowerCase().trim();
-                  }
-                }
-
-                let rowTenant = 'global';
-                if (row.id.startsWith('pplan_') && emailIdentifier && row.id.endsWith(`_${emailIdentifier}`)) {
-                  rowTenant = row.id.substring(6, row.id.length - emailIdentifier.length - 1);
-                } else {
-                  const idParts = row.id.split('_');
-                  rowTenant = idParts[1] || 'global';
-                }
-
-                // Filter in-memory if tenant context is specified and not 'global'
-                if (tenantId !== 'global' && tenantList.length > 0 && !tenantList.includes(rowTenant) && !tenantList.includes('global')) {
-                  // Keep targeted test emails regardless of tenant key
-                  if (!emailIdentifier.includes('zulune') && !emailIdentifier.includes('nkangaladm')) {
-                    continue;
-                  }
-                }
-
-                // Strip dataUrl from PoE docs to prevent massive response sizes
-                if (parsed.items && Array.isArray(parsed.items)) {
-                  parsed.items.forEach((item: any) => {
-                    const docFields = ['q1PoeDocs', 'q2PoeDocs', 'q3PoeDocs', 'q4PoeDocs', 'annualPoeDocs', 'midtermPoeDocs'];
-                    docFields.forEach(field => {
-                      if (item[field] && Array.isArray(item[field])) {
-                        item[field] = item[field].map((doc: any) => {
-                          if (!doc) return doc;
-                          const { dataUrl, ...rest } = doc;
-                          return rest;
-                        });
-                      }
-                    });
-                  });
-                }
-
-                teamPlans.push({
-                  userId: emailIdentifier,
-                  plan: parsed
+          let planObj: any = { metadata: {}, items: [] };
+          if (row.content) {
+            try {
+              planObj = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
+              if (planObj && Array.isArray(planObj.items)) {
+                planObj.items = planObj.items.map((item: any) => {
+                  const { dataUrl, ...rest } = item;
+                  return rest;
                 });
               }
+            } catch (e) {}
+          }
+
+          return {
+            userId,
+            plan: planObj
+          };
+        });
+
+      return res.json({ teamPlans });
+    } catch (err: any) {
+      console.error("team-pplans load exception:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/tenant/:tenantId/clear-subordinates-ledger", async (req, res) => {
+    const { tenantId: routeTenantId } = req.params;
+    const { userIds } = req.body;
+    try {
+      const supabase = getSupabase();
+      if (!supabase) throw new Error("Supabase is not initialized");
+      if (!Array.isArray(userIds) || userIds.length === 0) {
+        return res.json({ success: true, updatedCount: 0 });
+      }
+
+      let updatedCount = 0;
+      let tenantId = routeTenantId || 'nkangala_auto';
+      let tenantIds = [tenantId];
+      if (tenantId === 'nkangala_auto' || tenantId === 'tenant-229') {
+        tenantIds = ['nkangala_auto', 'tenant-229'];
+      }
+
+      // Query all messages of type pplan_list
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('message_type', 'pplan_list');
+
+      if (error) throw error;
+
+      for (const row of data || []) {
+        // Extract userId/email
+        let userId = '';
+        const foundTenantId = tenantIds.find(tId => row.id.startsWith(`pplan_${tId}_`));
+        if (foundTenantId) {
+          userId = row.id.substring(`pplan_${foundTenantId}_`.length);
+        } else {
+          const parts = row.id.split('_');
+          userId = parts[parts.length - 1] || row.sender_email || '';
+        }
+
+        const normUser = userId.toLowerCase().trim();
+        const matchesUser = userIds.some(u => u.toLowerCase().trim() === normUser);
+
+        if (matchesUser) {
+          let content = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
+          if (content) {
+            let changed = false;
+            if (!content.metadata) content.metadata = {};
+            if (content.metadata.reviewStatus && content.metadata.reviewStatus !== 'In Progress') {
+              content.metadata.reviewStatus = 'In Progress';
+              changed = true;
             }
-          } catch(e) {}
+            if (Array.isArray(content.items)) {
+              content.items.forEach((item: any) => {
+                if (item.reviewStatus && item.reviewStatus !== 'In Progress') {
+                  item.reviewStatus = 'In Progress';
+                  changed = true;
+                }
+              });
+            }
+            if (changed) {
+              const updatedContentStr = typeof row.content === 'string' ? JSON.stringify(content) : content;
+              await supabase.from('messages').update({ content: updatedContentStr }).eq('id', row.id);
+              pplanCache.delete(row.id);
+              updatedCount++;
+            }
+          }
         }
       }
-      res.json({ teamPlans });
+
+      pplanCache.clear();
+      return res.json({ success: true, updatedCount });
     } catch (err: any) {
-      console.error("team-pplans exception:", err);
+      console.error("clear-subordinates-ledger exception:", err);
       res.status(500).json({ error: err.message });
     }
   });
 
-  app.get("/api/tenant/:tenantId/dpmc-ledger", async (req, res) => {
-    const { tenantId } = req.params;
+  app.post("/api/tenant/:tenantId/clear-subordinates-review", async (req, res) => {
+    const { tenantId: routeTenantId } = req.params;
+    const { userIds } = req.body;
     try {
       const supabase = getSupabase();
+      if (!supabase) throw new Error("Supabase is not initialized");
+      if (!Array.isArray(userIds) || userIds.length === 0) {
+        return res.json({ success: true, updatedCount: 0 });
+      }
+
+      let updatedCount = 0;
+      let tenantId = routeTenantId || 'nkangala_auto';
+      let tenantIds = [tenantId];
+      if (tenantId === 'nkangala_auto' || tenantId === 'tenant-229') {
+        tenantIds = ['nkangala_auto', 'tenant-229'];
+      }
+
+      // Query all messages of type pplan_list
       const { data, error } = await supabase
         .from('messages')
-        .select('content')
-        .eq('id', `dpmc_ledger_${tenantId}`)
-        .maybeSingle();
+        .select('*')
+        .eq('message_type', 'pplan_list');
 
-      if (error) {
-        console.error("DPMC Ledger query error:", error);
-        return res.json({ logs: [] });
-      }
-      if (data && data.content) {
-        try {
-          const parsed = JSON.parse(data.content);
-          return res.json(parsed);
-        } catch(parseErr) {
-          console.error("DPMC Ledger parsing error:", parseErr);
+      if (error) throw error;
+
+      for (const row of data || []) {
+        // Extract userId/email
+        let userId = '';
+        const foundTenantId = tenantIds.find(tId => row.id.startsWith(`pplan_${tId}_`));
+        if (foundTenantId) {
+          userId = row.id.substring(`pplan_${foundTenantId}_`.length);
+        } else {
+          const parts = row.id.split('_');
+          userId = parts[parts.length - 1] || row.sender_email || '';
+        }
+
+        const normUser = userId.toLowerCase().trim();
+        const matchesUser = userIds.some(u => u.toLowerCase().trim() === normUser);
+
+        if (matchesUser) {
+          let content = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
+          if (content) {
+            let changed = false;
+            if (Array.isArray(content.items)) {
+              content.items.forEach((item: any) => {
+                if (item.reviewStatus === 'Submitted for Approval' || item.reviewStatus === 'Submitted for Review') {
+                  item.reviewStatus = 'In Progress';
+                  changed = true;
+                }
+              });
+            }
+            if (changed) {
+              if (content.metadata && content.metadata.reviewStatus && content.metadata.reviewStatus !== 'In Progress') {
+                content.metadata.reviewStatus = 'In Progress';
+              }
+              const updatedContentStr = typeof row.content === 'string' ? JSON.stringify(content) : content;
+              await supabase.from('messages').update({ content: updatedContentStr }).eq('id', row.id);
+              pplanCache.delete(row.id);
+              updatedCount++;
+            }
+          }
         }
       }
-      return res.json({ logs: [] });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
 
-  app.post("/api/tenant/:tenantId/dpmc-ledger", async (req, res) => {
-    const { tenantId } = req.params;
-    const { logs } = req.body;
-    try {
-      const supabase = getSupabase();
-      const { error } = await supabase
-        .from('messages')
-        .upsert({
-          id: `dpmc_ledger_${tenantId}`,
-          tenant_id: tenantId,
-          sender_id: 'dpmc_system',
-          sender_email: 'dpmc@system.local',
-          sender_name: 'DPMC System Ledger',
-          content: JSON.stringify({ logs }),
-          message_type: 'dpmc_ledger_v1',
-          created_at: new Date().toISOString()
-        });
-      if (error) throw error;
-      res.json({ success: true, logs });
+      pplanCache.clear();
+      return res.json({ success: true, updatedCount });
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  app.get("/api/tenant/:tenantId/audit-ledger", async (req, res) => {
-    const { tenantId } = req.params;
-    try {
-      const supabase = getSupabase();
-      const { data, error } = await supabase
-        .from('messages')
-        .select('content')
-        .eq('id', `audit_ledger_${tenantId}`)
-        .maybeSingle();
-
-      if (error) {
-        console.error("Audit Ledger query error:", error);
-        return res.json({ logs: [] });
-      }
-      if (data && data.content) {
-        try {
-          const parsed = JSON.parse(data.content);
-          return res.json(parsed);
-        } catch(parseErr) {
-          console.error("Audit Ledger parsing error:", parseErr);
-        }
-      }
-      return res.json({ logs: [] });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  app.post("/api/tenant/:tenantId/audit-ledger", async (req, res) => {
-    const { tenantId } = req.params;
-    const { logs } = req.body;
-    try {
-      const supabase = getSupabase();
-      const { error } = await supabase
-        .from('messages')
-        .upsert({
-          id: `audit_ledger_${tenantId}`,
-          tenant_id: tenantId,
-          sender_id: 'audit_system',
-          sender_email: 'audit@system.local',
-          sender_name: 'Audit System Ledger',
-          content: JSON.stringify({ logs }),
-          message_type: 'audit_ledger_v1',
-          created_at: new Date().toISOString()
-        });
-      if (error) throw error;
-      res.json({ success: true, logs });
-    } catch (err: any) {
+      console.error("clear-subordinates-review exception:", err);
       res.status(500).json({ error: err.message });
     }
   });
@@ -5542,34 +5422,22 @@ Format your response exactly according to the following JSON schema:
     try {
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
-      
-      const targetUsers = SYNCED_EMAILS.includes(userId) ? SYNCED_EMAILS : [userId];
-      for (const u of targetUsers) {
-        const uDocId = `pplan_${tenantId}_${u}`;
-        
-        // Keep individual identities in metadata
-        const uMetadata = { ...metadata };
-        uMetadata.email = u;
-        uMetadata.name = u === 'zulune@nkangaladm.gov.za' ? 'Noluthando Zulu' : 'Nompumelelo P. Nsibande';
-        uMetadata.position = u === 'zulune@nkangaladm.gov.za' ? 'PMS Officer' : 'PMS Unit Member';
+      const uDocId = `pplan_${tenantId}_${userId}`;
+      const { error } = await supabase
+        .from('messages')
+        .upsert({ 
+          id: uDocId,
+          tenant_id: tenantId,
+          sender_id: 'pplan_editor_tool',
+          sender_email: 'pplan@system.local',
+          sender_name: 'PPLAN Editor',
+          content: JSON.stringify({ metadata, items }),
+          message_type: 'pplan_list',
+          created_at: new Date().toISOString()
+        });
+      if (error) throw error;
+      pplanCache.delete(uDocId);
 
-        const { error } = await supabase
-          .from('messages')
-          .upsert({ 
-            id: uDocId,
-            tenant_id: tenantId,
-            sender_id: 'pplan_editor_tool',
-            sender_email: 'pplan@system.local',
-            sender_name: 'PPLAN Editor',
-            content: JSON.stringify({ metadata: uMetadata, items }),
-            message_type: 'pplan_list',
-            created_at: new Date().toISOString()
-          });
-        
-        if (error) throw error;
-        pplanCache.delete(uDocId);
-      }
-      
       // Automatically map Performance Plan items to the 2nd/3rd Layer SDBIP table
       if (items && Array.isArray(items)) {
         const sdbipId = `sdbip23_${tenantId}`;
@@ -5578,8 +5446,7 @@ Format your response exactly according to the following JSON schema:
           .select('content')
           .eq('id', sdbipId)
           .maybeSingle();
-
-        let sdbipItems: any[] = [];
+        let sdbipItems = [];
         if (!sdbipGetError && sdbipData && sdbipData.content) {
           try {
             const parsed = JSON.parse(sdbipData.content);
@@ -5587,8 +5454,8 @@ Format your response exactly according to the following JSON schema:
           } catch(e) {}
         }
         
-        items.forEach((pplanItem: any) => {
-          const existing = sdbipItems.find((s: any) => s.id === pplanItem.id);
+        items.forEach((pplanItem) => {
+          const existing = sdbipItems.find((s) => s.id === pplanItem.id);
           const sdbipRow = {
             id: pplanItem.id,
             refNum: pplanItem.kpiNo || 'Unassigned',
@@ -5618,16 +5485,16 @@ Format your response exactly according to the following JSON schema:
               ? 'Noluthando Zulu / Nompumelelo P. Nsibande'
               : (decodeURIComponent(userId) || 'Employee'),
             reviewManager: 'Line Supervisor',
-            poeStatus: existing ? existing.poeStatus : 'Not Uploaded',
-            q1PoeDocs: existing ? existing.q1PoeDocs : [],
-            q2PoeDocs: existing ? existing.q2PoeDocs : [],
-            q3PoeDocs: existing ? existing.q3PoeDocs : [],
-            q4PoeDocs: existing ? existing.q4PoeDocs : []
+            poeStatus: pplanItem.poeStatus || (existing ? existing.poeStatus : "Not Uploaded"),
+            q1PoeDocs: pplanItem.q1PoeDocs || (existing ? existing.q1PoeDocs : []),
+            q2PoeDocs: pplanItem.q2PoeDocs || (existing ? existing.q2PoeDocs : []),
+            q3PoeDocs: pplanItem.q3PoeDocs || (existing ? existing.q3PoeDocs : []),
+            q4PoeDocs: pplanItem.q4PoeDocs || (existing ? existing.q4PoeDocs : [])
           };
-          if (existing) {
-             Object.assign(existing, sdbipRow);
-          } else {
-             sdbipItems.push(sdbipRow);
+          if (existing) { 
+            Object.assign(existing, sdbipRow);
+          } else { 
+            sdbipItems.push(sdbipRow);
           }
         });
         
@@ -5644,9 +5511,8 @@ Format your response exactly according to the following JSON schema:
             created_at: new Date().toISOString()
           });
       }
-
       res.json({ success: true });
-    } catch (err: any) {
+    } catch (err) {
       console.error("pplan save exception:", err);
       res.status(500).json({ error: err.message });
     }
@@ -6028,12 +5894,11 @@ Format your response exactly according to the following JSON schema:
         
         const { data: res1 } = await supabase.from('messages').select('content').eq('id', id1).maybeSingle();
         const { data: res2 } = await supabase.from('messages').select('content').eq('id', id2).maybeSingle();
-        
         let bestContent = null;
-        if (res2 && res2.content && (!res1 || !res1.content || res2.content.length > res1.content.length)) {
+        if (res1 && res1.content) {
+          bestContent = res1.content; // Always use Zulune as master for synced users
+        } else if (res2 && res2.content) {
           bestContent = res2.content;
-        } else if (res1 && res1.content) {
-          bestContent = res1.content;
         }
         
         if (bestContent) {

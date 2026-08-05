@@ -8,6 +8,14 @@ interface TeamDashboardProps {
   activeTenantId: string;
 }
 
+const safeJson = async (res: Response) => {
+  const contentType = res.headers.get("content-type");
+  if (contentType && contentType.includes("application/json")) {
+    return await res.json();
+  }
+  return null;
+};
+
 export function TeamDashboard({ currentUser, activeTenantId }: TeamDashboardProps) {
   const [directReports, setDirectReports] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,14 +74,14 @@ export function TeamDashboard({ currentUser, activeTenantId }: TeamDashboardProp
       if (!response.ok) {
         throw new Error('Failed to load users');
       }
-      const data = await response.json();
+      const data = await safeJson(response) || {};
 
       // Fetch team plans to get real metrics
       let teamPlans: any[] = [];
       try {
         const plansRes = await fetch(`/api/tenant/${activeTenantId}/team-pplans`);
         if (plansRes.ok) {
-          const plansData = await plansRes.json();
+          const plansData = await safeJson(plansRes) || {};
           teamPlans = plansData.teamPlans || [];
         }
       } catch (err) {

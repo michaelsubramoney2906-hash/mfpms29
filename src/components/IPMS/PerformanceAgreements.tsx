@@ -130,6 +130,18 @@ interface PlanKPIItem {
   review?: string;
 }
 
+const safeJson = async (res: Response) => {
+  try {
+    const contentType = res.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+      return await res.json();
+    }
+  } catch (e) {
+    console.error("Error parsing JSON:", e);
+  }
+  return null;
+};
+
 export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: PerformanceAgreementsProps) {
   const headingTitle = isPlan ? "Performance Plan" : "Performance Agreement";
   const subTitle = isPlan 
@@ -317,7 +329,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
 
         if (usersRes.ok) {
           try {
-            const usersData = await usersRes.json();
+            const usersData = await safeJson(usersRes) || {};
             if (Array.isArray(usersData)) {
               setUsers(usersData);
             }
@@ -328,7 +340,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
         let fetchedCustomKpaTable: any = null;
         if (kpaRes.ok) {
           try {
-            const kpaJson = await kpaRes.json();
+            const kpaJson = await safeJson(kpaRes) || {};
             if (kpaJson) {
               if (Array.isArray(kpaJson.kpas)) {
                 fetchedKpas = kpaJson.kpas;
@@ -344,7 +356,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
         let fetchedKpis: any[] = [];
         if (kpisRes.ok) {
           try {
-            const kpiJson = await kpisRes.json();
+            const kpiJson = await safeJson(kpisRes) || {};
             if (kpiJson && Array.isArray(kpiJson.kpis)) {
               fetchedKpis = kpiJson.kpis;
             }
@@ -352,7 +364,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
         }
 
         if (res.ok) {
-          const data = await res.json();
+          const data = await safeJson(res) || {};
           if (data.metadata && Object.keys(data.metadata).length > 0) {
             setMetadata(data.metadata);
           } else {
@@ -862,7 +874,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
       let foundExtraction = false;
       
       if (res.ok) {
-        const result = await res.json();
+        const result = await safeJson(res) || {};
         if (result.success && result.data && result.data.Performance_Plan) {
           const perfPlan = result.data.Performance_Plan;
           if (perfPlan.KPAs && Array.isArray(perfPlan.KPAs)) {

@@ -119,6 +119,7 @@ export function QuarterPoeSelector({
 
     if (newDocs.length > 0) {
       setFiles([...files, ...newDocs]);
+      alert(`Success! ${newDocs.length} PoE document(s) uploaded.`);
     }
   };
 
@@ -423,7 +424,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
     const checkManagerStatus = async () => {
       try {
         const res = await fetch(`/api/tenant/${activeTenantId}/users`);
-        if (res.ok) {
+        if (true) {
           const data = await res.json();
           const usersList = data.users || [];
           const myEmail = (currentUser?.email || '').toLowerCase().trim();
@@ -443,8 +444,8 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
 
   const fetchNotifications = async () => {
     try {
-      const res = await fetch(`/api/tenant/${activeTenantId}/ipms-notifications?userEmail=${currentUser.email}&t=${Date.now()}`);
-      if (res.ok) {
+      const res = await fetch(`/api/tenant/${activeTenantId}/ipms-notifications?userEmail=${encodeURIComponent(currentUser.email)}&t=${Date.now()}`);
+      if (true) {
         const data = await res.json();
         setNotifications(data.notifications || []);
       }
@@ -456,8 +457,8 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
   const fetchMyPlan = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${currentUser.email}&t=${Date.now()}`);
-      if (res.ok) {
+      const res = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(currentUser.email)}&t=${Date.now()}`);
+      if (true) {
         const data = await res.json();
         if (data && data.metadata) {
           const uEmail = (currentUser?.email || '').toLowerCase().trim();
@@ -520,9 +521,14 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
           q4Text ? `Q4: ${q4Text}` : ''
         ].filter(Boolean).join('\n');
 
+        const docs = [...(item.q1PoeDocs || []), ...(item.q2PoeDocs || []), ...(item.q3PoeDocs || []), ...(item.q4PoeDocs || []), ...(item.annualPoeDocs || []), ...(item.midtermPoeDocs || [])];
+        const firstDoc = docs[0];
+
         let updatedItem = {
           ...item,
-          poe: aggregatePoe || item.poe
+          poe: aggregatePoe || item.poe,
+          poeFileBase64: firstDoc ? firstDoc.dataUrl : item.poeFileBase64,
+          poeFileName: firstDoc ? firstDoc.name : item.poeFileName
         };
 
         if (item.id === kpiId && submitForReview) {
@@ -536,17 +542,20 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
         items: updatedItems
       };
 
-      await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${currentUser.email}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const pplanRes = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(currentUser.email)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
+      if (!pplanRes.ok) {
+        throw new Error("Failed to save. Status: " + pplanRes.status + " " + pplanRes.statusText);
+      }
 
       if (submitForReview) {
         const managerEmail = metadata.managerEmail || 'KhuboniY@nkangaladm.gov.za';
         const managerName = metadata.manager || 'Yena Khuboni';
         const submitterEmail = currentUser.email;
-        const submitterName = currentUser.fullName || currentUser.full_name || 'Noluthando Zulu';
+        const submitterName = currentUser.fullName || currentUser.full_name || (currentUser.email?.toLowerCase() === 'nsibandenp@nkangaladm.gov.za' ? 'Nompumelelo P. Nsibande' : 'Noluthando Zulu');
 
         let poeCount = 0;
         const targetItem = updatedItems.find(i => i.id === kpiId);
@@ -568,6 +577,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
               actionType: 'submission',
               senderCapacity: isManagerOfAnyone ? 'manager_as_self' : 'standard_user',
               kpiId,
+              kpiNo: targetItem?.kpiNo || '',
               poeDocsCount: poeCount
             }
           })
@@ -576,7 +586,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
         const managerEmail = metadata.managerEmail || 'KhuboniY@nkangaladm.gov.za';
         const managerName = metadata.manager || 'Yena Khuboni';
         const submitterEmail = currentUser.email;
-        const submitterName = currentUser.fullName || currentUser.full_name || 'Noluthando Zulu';
+        const submitterName = currentUser.fullName || currentUser.full_name || (currentUser.email?.toLowerCase() === 'nsibandenp@nkangaladm.gov.za' ? 'Nompumelelo P. Nsibande' : 'Noluthando Zulu');
 
         let poeCount = 0;
         const targetItem = updatedItems.find(i => i.id === kpiId);
@@ -598,6 +608,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
               actionType: 'planner_grid_sync',
               senderCapacity: isManagerOfAnyone ? 'manager_as_self' : 'standard_user',
               kpiId,
+              kpiNo: targetItem?.kpiNo || '',
               poeDocsCount: poeCount
             }
           })
@@ -605,6 +616,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
       }
 
       setPplanData(payload);
+      window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: currentUser.email } }));
       if (submitForReview) {
         alert(`KPI evaluation and uploaded PoE documents successfully submitted to manager (${metadata.manager || 'Yena Khuboni'})! Notification sent.`);
       } else {
@@ -650,10 +662,15 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
             q4Text ? `Q4: ${q4Text}` : ''
           ].filter(Boolean).join('\n');
 
+          const docs = [...(item.q1PoeDocs || []), ...(item.q2PoeDocs || []), ...(item.q3PoeDocs || []), ...(item.q4PoeDocs || []), ...(item.annualPoeDocs || []), ...(item.midtermPoeDocs || [])];
+          const firstDoc = docs[0];
+
           return {
             ...item,
             reviewStatus: submitForReview ? 'Submitted for Approval' : (item.reviewStatus || 'Draft'),
-            poe: aggregatePoe || item.poe
+            poe: aggregatePoe || item.poe,
+            poeFileBase64: firstDoc ? firstDoc.dataUrl : item.poeFileBase64,
+            poeFileName: firstDoc ? firstDoc.name : item.poeFileName
           };
         }
         return item;
@@ -664,16 +681,19 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
         items: updatedItems
       };
 
-      await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${currentUser.email}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const pplanRes = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(currentUser.email)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
+      if (!pplanRes.ok) {
+        throw new Error("Failed to save. Status: " + pplanRes.status + " " + pplanRes.statusText);
+      }
 
       const managerEmail = metadata.managerEmail || 'KhuboniY@nkangaladm.gov.za';
       const managerName = metadata.manager || 'Yena Khuboni';
       const submitterEmail = currentUser.email;
-      const submitterName = currentUser.fullName || currentUser.full_name || 'Noluthando Zulu';
+      const submitterName = currentUser.fullName || currentUser.full_name || (currentUser.email?.toLowerCase() === 'nsibandenp@nkangaladm.gov.za' ? 'Nompumelelo P. Nsibande' : 'Noluthando Zulu');
 
       let totalPoeCount = 0;
       submittedItems.forEach(it => {
@@ -704,6 +724,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
             senderCapacity: isManagerOfAnyone ? 'manager_as_self' : 'standard_user',
             kpiId: isSingle ? targetIds[0] : undefined,
             kpiIds: targetIds,
+            kpiNo: kpiNosText,
             poeDocsCount: totalPoeCount
           }
         })
@@ -711,6 +732,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
 
       setPplanData(payload);
       setSelectedKpiIds([]);
+      window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: currentUser.email } }));
       alert(isSingle 
         ? `Single KPI (${kpiNosText}) successfully submitted to manager (${managerName})! Notification sent.` 
         : `Selected ${targetIds.length} KPIs (${kpiNosText}) successfully submitted to manager (${managerName})! Notification sent.`
@@ -736,13 +758,17 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
         },
         items: []
       };
-      const res = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${currentUser.email}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const pplanRes = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(currentUser.email)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
-      if (res.ok) {
+      if (!pplanRes.ok) {
+        throw new Error("Failed to save. Status: " + pplanRes.status + " " + pplanRes.statusText);
+      }
+      if (true) {
         setPplanData(payload);
+        window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: currentUser.email } }));
         setToastMessage({
           text: "All KPIs have been successfully and persistently cleared from this performance plan.",
           type: "success"
@@ -783,16 +809,19 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
         items: updatedItems
       };
 
-      await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${currentUser.email}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const pplanRes = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(currentUser.email)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
+      if (!pplanRes.ok) {
+        throw new Error("Failed to save. Status: " + pplanRes.status + " " + pplanRes.statusText);
+      }
 
       const managerEmail = metadata.managerEmail || 'KhuboniY@nkangaladm.gov.za';
       const managerName = metadata.manager || 'Yena Khuboni';
       const submitterEmail = currentUser.email;
-      const submitterName = currentUser.fullName || currentUser.full_name || 'Noluthando Zulu';
+      const submitterName = currentUser.fullName || currentUser.full_name || (currentUser.email?.toLowerCase() === 'nsibandenp@nkangaladm.gov.za' ? 'Nompumelelo P. Nsibande' : 'Noluthando Zulu');
 
       await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
         method: 'POST',
@@ -811,6 +840,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
       });
 
       setPplanData(payload);
+      window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: currentUser.email } }));
       setToastMessage({
         text: "Self-evaluation unlocked! You can now edit quarterly actuals, upload or replace Portfolios of Evidence (PoE), and click 'Push to Manager for Approval' when ready.",
         type: "success"
@@ -855,16 +885,19 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
         items: updatedItems
       };
 
-      await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${currentUser.email}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const pplanRes = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(currentUser.email)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
+      if (!pplanRes.ok) {
+        throw new Error("Failed to save. Status: " + pplanRes.status + " " + pplanRes.statusText);
+      }
 
       const managerEmail = metadata.managerEmail || 'KhuboniY@nkangaladm.gov.za';
       const managerName = metadata.manager || 'Yena Khuboni';
       const submitterEmail = currentUser.email;
-      const submitterName = currentUser.fullName || currentUser.full_name || 'Noluthando Zulu';
+      const submitterName = currentUser.fullName || currentUser.full_name || (currentUser.email?.toLowerCase() === 'nsibandenp@nkangaladm.gov.za' ? 'Nompumelelo P. Nsibande' : 'Noluthando Zulu');
 
       await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
         method: 'POST',
@@ -885,6 +918,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
       });
 
       setPplanData(payload);
+      window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: currentUser.email } }));
       setToastMessage({
         text: `KPI #${targetItem?.kpiNo || kpiId} unlocked for resubmission! You can now update actuals, upload/replace PoE files, and click 'Push to Manager for Approval'.`,
         type: "success"
@@ -927,10 +961,15 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
           q4Text ? `Q4: ${q4Text}` : ''
         ].filter(Boolean).join('\n');
 
+        const docs = [...(item.q1PoeDocs || []), ...(item.q2PoeDocs || []), ...(item.q3PoeDocs || []), ...(item.q4PoeDocs || []), ...(item.annualPoeDocs || []), ...(item.midtermPoeDocs || [])];
+        const firstDoc = docs[0];
+
         return {
           ...item,
           reviewStatus: submitForReview ? 'Submitted for Approval' : (item.reviewStatus || 'Draft'),
-          poe: aggregatePoe || item.poe
+          poe: aggregatePoe || item.poe,
+          poeFileBase64: firstDoc ? firstDoc.dataUrl : item.poeFileBase64,
+          poeFileName: firstDoc ? firstDoc.name : item.poeFileName
         };
       });
 
@@ -939,16 +978,19 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
         items: updatedItems
       };
 
-      await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${currentUser.email}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const pplanRes = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(currentUser.email)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
+      if (!pplanRes.ok) {
+        throw new Error("Failed to save. Status: " + pplanRes.status + " " + pplanRes.statusText);
+      }
 
       const managerEmail = metadata.managerEmail || 'KhuboniY@nkangaladm.gov.za';
       const managerName = metadata.manager || 'Yena Khuboni';
       const submitterEmail = currentUser.email;
-      const submitterName = currentUser.fullName || currentUser.full_name || 'Noluthando Zulu';
+      const submitterName = currentUser.fullName || currentUser.full_name || (currentUser.email?.toLowerCase() === 'nsibandenp@nkangaladm.gov.za' ? 'Nompumelelo P. Nsibande' : 'Noluthando Zulu');
 
       let totalPoeCount = 0;
       updatedItems.forEach(it => {
@@ -969,6 +1011,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
               message: `${submitterName} (${submitterEmail}) attached ${totalPoeCount} total PoE files across all KPIs and submitted the performance plan for manager review (${managerName}).`,
               actionType: 'submission',
               senderCapacity: isManagerOfAnyone ? 'manager_as_self' : 'standard_user',
+              kpiNo: 'Multiple',
               poeDocsCount: totalPoeCount
             }
           })
@@ -987,6 +1030,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
               message: `${submitterName} (${submitterEmail}) updated self-evaluation metrics, quarterly deliverables, and attached ${totalPoeCount} PoE document(s) in the Annual Performance Planner Grid.`,
               actionType: 'planner_grid_sync',
               senderCapacity: isManagerOfAnyone ? 'manager_as_self' : 'standard_user',
+              kpiNo: 'Multiple',
               poeDocsCount: totalPoeCount
             }
           })
@@ -994,6 +1038,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
       }
 
       setPplanData(payload);
+      window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: currentUser.email } }));
       if (submitForReview) {
         alert(`Evaluation successfully committed and submitted to your manager (${metadata.manager || 'Yena Khuboni'})! High-priority review notification sent.`);
       } else {
