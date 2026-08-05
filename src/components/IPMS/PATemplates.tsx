@@ -148,6 +148,13 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
     return email === 'mandlaml@nkangaladm.gov.za' || email === 'mahlanguml@nkangaladm.gov.za';
   }, [currentUser]);
 
+  // Checks if the logged-in user is Yena Khuboni
+  const isYenaKhuboni = React.useMemo(() => {
+    if (!currentUser) return false;
+    const email = (currentUser.email || '').toLowerCase().trim();
+    return email === 'khuboniy@nkangaladm.gov.za' || email.includes('khuboni');
+  }, [currentUser]);
+
   // Document Headings state (editable)
   const [headingCover, setHeadingCover] = useState('COVER PAGE');
   const [headingRegulatoryInfo, setHeadingRegulatoryInfo] = useState('Regulatory Information & Definitions');
@@ -414,16 +421,24 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
         }
       }
       if (!supervisorSignature) {
-        const matchedSup = userManagementUsers.find(u => 
-          (u.jobFunction || u.position || '').toLowerCase().includes('municipal manager') ||
-          (u.jobFunction || u.position || '').toLowerCase().includes('mayor') ||
-          (u.email || '').toLowerCase().includes('mandlaml') ||
-          (u.email || '').toLowerCase().includes('manager')
-        );
+        let matchedSup = null;
+        if (isYenaKhuboni) {
+          matchedSup = userManagementUsers.find(u => (u.email || '').toLowerCase().includes('shabangusm'));
+        }
+        if (!matchedSup) {
+          matchedSup = userManagementUsers.find(u => 
+            (u.jobFunction || u.position || '').toLowerCase().includes('municipal manager') ||
+            (u.jobFunction || u.position || '').toLowerCase().includes('mayor') ||
+            (u.email || '').toLowerCase().includes('mandlaml') ||
+            (u.email || '').toLowerCase().includes('manager')
+          );
+        }
         if (matchedSup) {
+          const resolvedName = isYenaKhuboni && matchedSup.email?.toLowerCase().includes('shabangusm') ? "S Shabangu" : matchedSup.fullName;
+          const resolvedPosition = isYenaKhuboni && matchedSup.email?.toLowerCase().includes('shabangusm') ? "Divisional Manager" : (matchedSup.jobFunction || matchedSup.job_function || matchedSup.position || matchedSup.title || "Municipal Manager");
           setSupervisorSignature(matchedSup.signatureData || matchedSup.fullName);
-          setSupervisorName(matchedSup.fullName);
-          setSupervisorPosition(matchedSup.jobFunction || matchedSup.job_function || matchedSup.position || matchedSup.title || "Municipal Manager");
+          setSupervisorName(resolvedName);
+          setSupervisorPosition(resolvedPosition);
           setSupervisorDate('29 July 2026');
         }
       }
@@ -3699,7 +3714,7 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
                 <div className="border rounded-xl p-3 space-y-2 bg-slate-50/50 flex flex-col justify-between" style={{ borderColor: borderColor }}>
                   <div>
                     <span className="font-bold text-slate-800 block uppercase tracking-wider text-[8px]">
-                      {isMandlaMahlangu ? "Executive Mayor (on behalf of Nkangala District Municipality)" : "Supervisor / Executive Mayor Approval"}
+                      {isMandlaMahlangu ? "Executive Mayor (on behalf of Nkangala District Municipality)" : isYenaKhuboni ? "Divisional Manager Approval" : "Supervisor / Executive Mayor Approval"}
                     </span>
                     
                     {/* Slot for Name and Position above signature */}
@@ -4360,7 +4375,7 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
                       <div className="border rounded-xl p-3 space-y-2 bg-slate-50/50 flex flex-col justify-between" style={{ borderColor: borderColor }}>
                         <div>
                           <span className="font-bold text-slate-800 block uppercase tracking-wider text-[8px]">
-                            {isMandlaMahlangu ? "Executive Mayor (on behalf of Nkangala District Municipality)" : "Supervisor / Executive Mayor Approval"}
+                            {isMandlaMahlangu ? "Executive Mayor (on behalf of Nkangala District Municipality)" : isYenaKhuboni ? "Divisional Manager Approval" : "Supervisor / Executive Mayor Approval"}
                           </span>
                           
                           {/* Slot for Name and Position above signature */}

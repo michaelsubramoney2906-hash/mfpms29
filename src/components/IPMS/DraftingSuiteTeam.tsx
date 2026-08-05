@@ -347,6 +347,69 @@ export function DraftingSuiteTeam({
     }
   }, [currentUser, teamTitle, tenantUsers]);
 
+  // Dynamically enrich/pull signatures from the loaded user directory database if they are currently blank/empty
+  useEffect(() => {
+    if (!tenantUsers || tenantUsers.length === 0) return;
+    
+    setUserSignatures(prev => {
+      let updated = false;
+      const next = { ...prev };
+      
+      // 1. Employee
+      if (!next.employeeSig && next.employee) {
+        const match = tenantUsers.find(u => 
+          (u.fullName || '').toLowerCase().trim() === next.employee.toLowerCase().trim() ||
+          (currentUser && (u.email || '').toLowerCase().trim() === (currentUser.email || '').toLowerCase().trim())
+        );
+        if (match && match.signatureData) {
+          next.employeeSig = match.signatureData;
+          updated = true;
+        }
+      }
+      
+      // 2. Employee 2
+      if (!next.employee2Sig && next.employee2) {
+        const match = tenantUsers.find(u => 
+          (u.fullName || '').toLowerCase().trim() === next.employee2.toLowerCase().trim() ||
+          (u.fullName || '').toLowerCase().includes('nsibande') ||
+          (u.email || '').toLowerCase().includes('nsibande')
+        );
+        if (match && match.signatureData) {
+          next.employee2Sig = match.signatureData;
+          updated = true;
+        }
+      }
+      
+      // 3. Manager
+      if (!next.managerSig && next.manager) {
+        const match = tenantUsers.find(u => 
+          (u.fullName || '').toLowerCase().trim() === next.manager.toLowerCase().trim() ||
+          (u.jobFunction || '').toLowerCase().includes('municipal manager') ||
+          (u.email || '').toLowerCase().includes('mahlanguml')
+        );
+        if (match && match.signatureData) {
+          next.managerSig = match.signatureData;
+          updated = true;
+        }
+      }
+      
+      // 4. Witness / Direct Manager (Yena Khuboni)
+      if (!next.witnessSig && next.witness) {
+        const match = tenantUsers.find(u => 
+          (u.fullName || '').toLowerCase().trim() === next.witness.toLowerCase().trim() ||
+          (u.fullName || '').toLowerCase().includes('khuboni') ||
+          (u.email || '').toLowerCase().includes('khuboni')
+        );
+        if (match && match.signatureData) {
+          next.witnessSig = match.signatureData;
+          updated = true;
+        }
+      }
+      
+      return updated ? next : prev;
+    });
+  }, [tenantUsers, currentUser]);
+
   const fetchAllAgreementSources = async () => {
     if (!activeTenantId || !currentUser?.email) return;
     setLoadingRealData(true);
