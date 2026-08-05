@@ -67,6 +67,11 @@ interface PlanMetadata {
   email: string;
   manager: string;
   reportTo?: string;
+  managerEmail?: string;
+  dateSignedEmployee?: string;
+  dateSignedManager?: string;
+  _isCleared?: boolean;
+  _isFredExtracted?: boolean;
 }
 
 interface PlanKPIItem {
@@ -366,11 +371,20 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
 
           let currentItems = [];
           if (data.items && Array.isArray(data.items) && data.items.length > 0) {
-            currentItems = data.items;
+            // Filter out accidentally saved dummy KPI-KPA rows
+            currentItems = data.items.filter((item: any) => {
+              if (item.kpiNo && item.kpiNo.startsWith('KPI-KPA-') && item.kpi?.includes('Execution and operational oversight')) {
+                return false;
+              }
+              return true;
+            });
           }
 
+          const isCleared = data.metadata && data.metadata._isCleared === true;
+          const isFredExtracted = data.metadata && data.metadata._isFredExtracted === true;
+
           // Auto-sync captured KPIs into Performance Plan
-          if (fetchedKpis.length > 0) {
+          if (!isCleared && !isFredExtracted && fetchedKpis.length > 0) {
             // First, update existing items if they match kpiNo
             currentItems = currentItems.map(item => {
               const matchedKpi = fetchedKpis.find(fk => fk.kpiNo === item.kpiNo);
@@ -461,7 +475,8 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
           }
 
           // Automatic KPA-to-PerformancePlanner Synchronization
-          if (allCustomKpas.length > 0) {
+          if (!isCleared && allCustomKpas.length > 0) {
+            const wasEmptyInitially = currentItems.length === 0;
             const getNationalKpaFlags = (natKpa: string) => {
               const normalized = (natKpa || '').toLowerCase();
               return {
@@ -497,8 +512,8 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
                   midt: existing.midt || flags.midt,
                   sr: existing.sr || flags.sr
                 };
-              } else {
-                // Pre-populate a row matching the custom captured KPA
+              } else if (wasEmptyInitially) {
+                // Pre-populate a row matching the custom captured KPA only if grid was completely empty
                 const newRowId = `pplan-sync-kpa-${kpa.id || kpaIdx}`;
                 currentItems.push({
                   id: newRowId,
@@ -565,15 +580,33 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
     setIsSaving(true);
     try {
       const targetEmail = selectedUserEmail || currentUser.email;
+      const metaToSave = { ...customMetadata, _isCleared: customItems.length === 0 };
       const res = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(targetEmail)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ metadata: customMetadata, items: customItems })
+        body: JSON.stringify({ metadata: metaToSave, items: customItems })
       });
       if (!res.ok) throw new Error("Failed to post payload to database");
       setHasSavedOnce(true);
       if (showFeedback) {
         alert("Performance Plan in its entirety has been successfully saved to DB and pushed into the Employee Self-Evaluation module!");
+      }
+      
+      // Replication logic for PMS Team
+      const email = currentUser?.email?.toLowerCase().trim();
+      const isZulune = email === 'zulune@nkangaladm.gov.za';
+      const isNsibande = email === 'nsibandenp@nkangaladm.gov.za';
+      if ((isZulune || isNsibande) && (!selectedUserEmail || selectedUserEmail === email)) {
+        const otherEmail = isZulune ? 'nsibandenp@nkangaladm.gov.za' : 'zulune@nkangaladm.gov.za';
+        try {
+          await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(otherEmail)}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ metadata: metaToSave, items: customItems })
+          });
+        } catch (repErr) {
+          console.error("Failed to replicate PMS Team plan:", repErr);
+        }
       }
     } catch (err: any) {
       console.error("Save Performance Plan Database Error:", err);
@@ -814,7 +847,9 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
   const confirmClearGrid = async () => {
     setItems([]);
     setShowClearConfirm(false);
-    await handleSaveToDatabase(metadata, [], false);
+    const updatedMetadata = { ...metadata, _isCleared: true, _isFredExtracted: false };
+    setMetadata(updatedMetadata);
+    await handleSaveToDatabase(updatedMetadata, [], false);
   };
 
   const handlePullFredExtraction = async () => {
@@ -960,7 +995,9 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
       });
 
       setItems(finalKpiItems);
-      await handleSaveToDatabase(metadata, finalKpiItems, false);
+      const updatedMetadata = { ...metadata, _isFredExtracted: true, _isCleared: false };
+      setMetadata(updatedMetadata);
+      await handleSaveToDatabase(updatedMetadata, finalKpiItems, false);
 
       // Automatically clear Fred Extraction state so it is only used once
       if (foundExtraction) {
@@ -1684,6 +1721,15 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
     </div>
   );
 
+  const empUser = users.find(u => u.email?.toLowerCase() === (metadata.email || currentUser.email)?.toLowerCase()) || currentUser;
+  const mgrUser = users.find(u => 
+    (metadata.managerEmail && u.email?.toLowerCase() === metadata.managerEmail.toLowerCase()) || 
+    (metadata.manager && u.fullName?.toLowerCase() === metadata.manager.toLowerCase())
+  );
+  
+  const empSignature = empUser?.signatureData || currentUser.signatureData || '';
+  const mgrSignature = mgrUser?.signatureData || '';
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-full min-h-[400px] bg-slate-50 text-slate-600 p-8 rounded-3xl border border-gray-200">
@@ -1883,11 +1929,23 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
                     <p className="text-xs text-slate-700"><b>Name:</b> {metadata.name || currentUser.fullName || currentUser.email || 'Representative'}</p>
                     <p className="text-xs text-slate-700"><b>Designation:</b> {metadata.position || currentUser.jobFunction || 'Officer Representative'}</p>
                     <div className="pt-2">
-                      <div className="border-2 border-dashed border-emerald-800/15 bg-slate-50 h-16 rounded-lg flex items-center justify-center text-[10px] text-emerald-700/40 font-mono italic">
-                        [ Signature Area ]
+                      <div className="border-2 border-dashed border-emerald-800/15 bg-slate-50 h-16 rounded-lg flex items-center justify-center text-[10px] text-emerald-700/40 font-mono italic relative overflow-hidden">
+                        {empSignature ? (
+                          <img src={empSignature} alt="Employee Signature" className="max-h-full object-contain" referrerPolicy="no-referrer" />
+                        ) : (
+                          "[ Signature Area ]"
+                        )}
                       </div>
                     </div>
-                    <p className="text-[10px] text-slate-600 font-medium pt-1">Date: ________________________</p>
+                    <div className="pt-1 flex items-center gap-2">
+                      <label className="text-[10px] text-slate-600 font-medium whitespace-nowrap">Date:</label>
+                      <input 
+                        type="date" 
+                        value={metadata.dateSignedEmployee || ''}
+                        onChange={(e) => handleMetadataChange('dateSignedEmployee', e.target.value)}
+                        className="text-xs p-1 border border-slate-300 rounded focus:border-emerald-500 outline-none w-full"
+                      />
+                    </div>
                   </div>
 
                   <div className="bg-white p-4 border border-emerald-200 rounded-xl space-y-3 shadow-sm">
@@ -1895,11 +1953,23 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
                     <p className="text-xs text-slate-700"><b>Name:</b> {metadata.manager || 'Designated Supervisor'}</p>
                     <p className="text-xs text-slate-700"><b>Designation:</b> Line Manager / Representative</p>
                     <div className="pt-2">
-                      <div className="border-2 border-dashed border-emerald-800/15 bg-slate-50 h-16 rounded-lg flex items-center justify-center text-[10px] text-emerald-700/40 font-mono italic">
-                        [ Signature Area ]
+                      <div className="border-2 border-dashed border-emerald-800/15 bg-slate-50 h-16 rounded-lg flex items-center justify-center text-[10px] text-emerald-700/40 font-mono italic relative overflow-hidden">
+                        {mgrSignature ? (
+                          <img src={mgrSignature} alt="Manager Signature" className="max-h-full object-contain" referrerPolicy="no-referrer" />
+                        ) : (
+                          "[ Signature Area ]"
+                        )}
                       </div>
                     </div>
-                    <p className="text-[10px] text-slate-600 font-medium pt-1">Date: ________________________</p>
+                    <div className="pt-1 flex items-center gap-2">
+                      <label className="text-[10px] text-slate-600 font-medium whitespace-nowrap">Date:</label>
+                      <input 
+                        type="date" 
+                        value={metadata.dateSignedManager || ''}
+                        onChange={(e) => handleMetadataChange('dateSignedManager', e.target.value)}
+                        className="text-xs p-1 border border-slate-300 rounded focus:border-emerald-500 outline-none w-full"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2984,11 +3054,23 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
                 <p className="text-xs text-slate-700"><b>Name:</b> {metadata.name || currentUser.fullName || currentUser.email || 'Representative'}</p>
                 <p className="text-xs text-slate-700"><b>Designation:</b> {metadata.position || currentUser.jobFunction || 'Officer Representative'}</p>
                 <div className="pt-2">
-                  <div className="border-2 border-dashed border-emerald-800/15 bg-slate-50 h-16 rounded-lg flex items-center justify-center text-[10px] text-emerald-700/40 font-mono italic">
-                    [ Signature Area ]
+                  <div className="border-2 border-dashed border-emerald-800/15 bg-slate-50 h-16 rounded-lg flex items-center justify-center text-[10px] text-emerald-700/40 font-mono italic relative overflow-hidden">
+                    {empSignature ? (
+                      <img src={empSignature} alt="Employee Signature" className="max-h-full object-contain" referrerPolicy="no-referrer" />
+                    ) : (
+                      "[ Signature Area ]"
+                    )}
                   </div>
                 </div>
-                <p className="text-[10px] text-slate-600 font-medium pt-1">Date: ________________________</p>
+                <div className="pt-1 flex items-center gap-2">
+                  <label className="text-[10px] text-slate-600 font-medium whitespace-nowrap">Date:</label>
+                  <input 
+                    type="date" 
+                    value={metadata.dateSignedEmployee || ''}
+                    onChange={(e) => handleMetadataChange('dateSignedEmployee', e.target.value)}
+                    className="text-xs p-1 border border-slate-300 rounded focus:border-emerald-500 outline-none w-full"
+                  />
+                </div>
               </div>
 
               <div className="bg-white p-4 border border-emerald-200 rounded-xl space-y-3 shadow-sm">
@@ -2996,11 +3078,23 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
                 <p className="text-xs text-slate-700"><b>Name:</b> {metadata.manager || 'Designated Supervisor'}</p>
                 <p className="text-xs text-slate-700"><b>Designation:</b> Line Manager / Representative</p>
                 <div className="pt-2">
-                  <div className="border-2 border-dashed border-emerald-800/15 bg-slate-50 h-16 rounded-lg flex items-center justify-center text-[10px] text-emerald-700/40 font-mono italic">
-                    [ Signature Area ]
+                  <div className="border-2 border-dashed border-emerald-800/15 bg-slate-50 h-16 rounded-lg flex items-center justify-center text-[10px] text-emerald-700/40 font-mono italic relative overflow-hidden">
+                    {mgrSignature ? (
+                      <img src={mgrSignature} alt="Manager Signature" className="max-h-full object-contain" referrerPolicy="no-referrer" />
+                    ) : (
+                      "[ Signature Area ]"
+                    )}
                   </div>
                 </div>
-                <p className="text-[10px] text-slate-600 font-medium pt-1">Date: ________________________</p>
+                <div className="pt-1 flex items-center gap-2">
+                  <label className="text-[10px] text-slate-600 font-medium whitespace-nowrap">Date:</label>
+                  <input 
+                    type="date" 
+                    value={metadata.dateSignedManager || ''}
+                    onChange={(e) => handleMetadataChange('dateSignedManager', e.target.value)}
+                    className="text-xs p-1 border border-slate-300 rounded focus:border-emerald-500 outline-none w-full"
+                  />
+                </div>
               </div>
             </div>
           </div>

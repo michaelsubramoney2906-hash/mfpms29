@@ -321,7 +321,7 @@ export function DraftingSuiteTeam({
       const mgrUser = tenantUsers.find(u => 
         (u.jobFunction || (u as any).position || '').toLowerCase().includes('municipal manager') ||
         (u.jobFunction || (u as any).position || '').toLowerCase().includes('mayor') ||
-        (u.email || '').toLowerCase().includes('mandlaml') ||
+        (u.email || '').toLowerCase().includes('mahlanguml') ||
         (currentUser.manager && u.fullName?.toLowerCase().includes(currentUser.manager.toLowerCase()))
       );
       const witUser = tenantUsers.find(u => 
@@ -337,7 +337,7 @@ export function DraftingSuiteTeam({
         employeeSig: empUser?.signatureData || currentUser.signatureData || prev.employeeSig || '',
         employee2: 'Nompumelelo P. Nsibande',
         employee2Sig: emp2User?.signatureData || prev.employee2Sig || '',
-        manager: currentUser.manager || mgrUser?.fullName || 'Nsibande NP',
+        manager: mgrUser?.fullName || 'M.L. Mahlangu',
         managerSig: mgrUser?.signatureData || prev.managerSig || '',
         hod: 'Mr. Jacob Chief Financial Officer',
         pmu: 'Corporate Performance Unit',
@@ -492,6 +492,26 @@ export function DraftingSuiteTeam({
       if (res.ok) {
         setSaveStatus('success');
         setTimeout(() => setSaveStatus('idle'), 3000);
+        
+        // Auto-replicate for PMS Team
+        const email = currentUser?.email?.toLowerCase().trim();
+        const isZulune = email === 'zulune@nkangaladm.gov.za';
+        const isNsibande = email === 'nsibandenp@nkangaladm.gov.za';
+        if (isZulune || isNsibande) {
+          const targetUser = isZulune ? 'nsibandenp@nkangaladm.gov.za' : 'zulune@nkangaladm.gov.za';
+          try {
+            await fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=${targetUser}&documentId=${docId}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                html: stateObj,
+                htmlDocumentId: docId
+              })
+            });
+          } catch (e) {
+            console.error("Failed to auto-replicate draft:", e);
+          }
+        }
       } else {
         throw new Error("Failed to save draft document");
       }
@@ -540,7 +560,7 @@ export function DraftingSuiteTeam({
           employeeSig: '',
           employee2: 'Nompumelelo P. Nsibande',
           employee2Sig: '',
-          manager: 'Nsibande NP',
+          manager: 'M.L. Mahlangu',
           managerSig: '',
           hod: 'Mr. Jacob Chief Financial Officer',
           pmu: 'Corporate Performance Unit',
@@ -1461,7 +1481,7 @@ export function DraftingSuiteTeam({
                 <div className="flex justify-between items-center">
                   <span className="font-bold text-slate-700 text-xs flex items-center gap-1.5">
                     <TrendingUp className="w-4 h-4 text-emerald-600" />
-                    Core Performance Plan (KPIs)
+                    Performance Plan KPIs
                   </span>
                   {isPPlanAdopted ? (
                     <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[9px] font-bold rounded-full flex items-center gap-0.5">
@@ -1491,7 +1511,7 @@ export function DraftingSuiteTeam({
                         : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm'
                     }`}
                   >
-                    {isPPlanAdopted ? 'Remove Adopted Plan' : 'Adopt Performance Plan'}
+                    {isPPlanAdopted ? 'Remove Adopted Plan' : 'Pull Performance Plan KPIs'}
                   </button>
                 </div>
               </div>
@@ -1839,7 +1859,7 @@ export function DraftingSuiteTeam({
                   </div>
                   <div className="border-t border-slate-200 pt-3 space-y-4">
                     <div>
-                      <label className="text-xs font-bold text-slate-700 uppercase block mb-1">14. Appended Core Performance Plan (Text Above)</label>
+                      <label className="text-xs font-bold text-slate-700 uppercase block mb-1">14. Appended Performance Plan (Text Above)</label>
                       <textarea
                         value={zulunePPlanAboveText}
                         onChange={e => setZulunePPlanAboveText(e.target.value)}
@@ -1849,7 +1869,7 @@ export function DraftingSuiteTeam({
                       />
                     </div>
                     <div>
-                      <label className="text-xs font-bold text-slate-700 uppercase block mb-1">14. Appended Core Performance Plan (Text Below)</label>
+                      <label className="text-xs font-bold text-slate-700 uppercase block mb-1">14. Appended Performance Plan (Text Below)</label>
                       <textarea
                         value={zulunePPlanBelowText}
                         onChange={e => setZulunePPlanBelowText(e.target.value)}
@@ -2076,10 +2096,10 @@ export function DraftingSuiteTeam({
                 </div>
               </div>
 
-              {/* Manager (Nsibande NP) */}
+              {/* Manager (M.L. Mahlangu) */}
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-600 uppercase block">
-                  Municipal Manager (Nsibande NP)
+                  Municipal Manager (M.L. Mahlangu)
                 </label>
                 <input
                   type="text"
@@ -2163,10 +2183,10 @@ export function DraftingSuiteTeam({
                 </div>
               </div>
 
-              {/* Witness (PMS Coordinator) */}
+              {/* Witness (Direct Manager) */}
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-600 uppercase block">
-                  Witness (PMS Coordinator)
+                  Direct Manager
                 </label>
                 <input
                   type="text"
@@ -2554,7 +2574,7 @@ export function DraftingSuiteTeam({
                 {isPPlanAdopted && (
                   <div className="mt-6 border-t border-slate-300 pt-6">
                     <h4 className="font-bold text-xs text-slate-800 mb-2 font-sans flex items-center justify-between">
-                      <span>Adopted Core Performance Plan (KPIs)</span>
+                      <span>Adopted Performance Plan KPIs</span>
                       <span className="text-[9px] text-emerald-800 bg-emerald-50 border border-emerald-300 px-1.5 py-0.5 rounded font-black uppercase tracking-wider">Synchronized</span>
                     </h4>
                     <p className="text-[11px] text-slate-600 mb-4 font-sans text-justify leading-relaxed">
@@ -2747,9 +2767,9 @@ export function DraftingSuiteTeam({
                     <div className="flex flex-col gap-6 my-8 font-sans max-w-lg mx-auto">
                       {currentUser?.email?.toLowerCase() === 'nsibandenp@nkangaladm.gov.za' ? (
                         <>
-                          {/* Nsibande NP Signature first */}
+                          {/* M.L. Mahlangu Signature first */}
                           <div className="border border-emerald-300 p-4 rounded-lg bg-emerald-50/20 space-y-4 shadow-sm">
-                            <p className="font-extrabold text-xs uppercase text-emerald-800 tracking-wider">Signed on behalf of Municipality (Manager):</p>
+                            <p className="font-extrabold text-xs uppercase text-emerald-800 tracking-wider">Signed on behalf of Municipality (Municipal Manager):</p>
                             <div className="h-12 border-b border-black flex flex-col justify-end items-center font-serif italic text-sm text-emerald-950 font-bold relative pb-1">
                               {userSignatures.managerSig ? (
                                 <img
@@ -2759,7 +2779,7 @@ export function DraftingSuiteTeam({
                                   referrerPolicy="no-referrer"
                                 />
                               ) : (
-                                <span>{userSignatures.manager || 'Nsibande NP'}</span>
+                                <span>{userSignatures.manager || 'M.L. Mahlangu'}</span>
                               )}
                             </div>
                             <div className="flex justify-between text-[10px] text-slate-500">
@@ -2812,7 +2832,7 @@ export function DraftingSuiteTeam({
 
                           {/* Yena Khuboni Witness Signature */}
                           <div className="border border-slate-300 p-4 rounded-lg bg-slate-50 space-y-4 shadow-sm">
-                            <p className="font-bold text-xs uppercase text-slate-700 tracking-wide">Witnessed by (PMS Coordinator):</p>
+                            <p className="font-bold text-xs uppercase text-slate-700 tracking-wide">Signed by Direct Manager:</p>
                             <div className="h-12 border-b border-black flex flex-col justify-end items-center font-serif italic text-sm text-indigo-950 font-semibold relative pb-1">
                               {userSignatures.witnessSig ? (
                                 <img
@@ -2875,9 +2895,9 @@ export function DraftingSuiteTeam({
                             </div>
                           </div>
 
-                          {/* Nsibande NP Signature second */}
+                          {/* M.L. Mahlangu Signature second */}
                           <div className="border border-slate-300 p-4 rounded-lg bg-slate-50 space-y-4 shadow-sm">
-                            <p className="font-bold text-xs uppercase text-slate-700 tracking-wide">Signed on behalf of Municipality (Manager):</p>
+                            <p className="font-bold text-xs uppercase text-slate-700 tracking-wide">Signed on behalf of Municipality (Municipal Manager):</p>
                             <div className="h-12 border-b border-black flex flex-col justify-end items-center font-serif italic text-sm text-slate-800 font-medium relative pb-1">
                               {userSignatures.managerSig ? (
                                 <img
@@ -2887,7 +2907,7 @@ export function DraftingSuiteTeam({
                                   referrerPolicy="no-referrer"
                                 />
                               ) : (
-                                <span>{userSignatures.manager || 'Nsibande NP'}</span>
+                                <span>{userSignatures.manager || 'M.L. Mahlangu'}</span>
                               )}
                             </div>
                             <div className="flex justify-between text-[10px] text-slate-500">
@@ -2898,7 +2918,7 @@ export function DraftingSuiteTeam({
 
                           {/* Yena Khuboni Witness Signature */}
                           <div className="border border-slate-300 p-4 rounded-lg bg-slate-50 space-y-4 shadow-sm">
-                            <p className="font-bold text-xs uppercase text-slate-700 tracking-wide">Witnessed by (PMS Coordinator):</p>
+                            <p className="font-bold text-xs uppercase text-slate-700 tracking-wide">Signed by Direct Manager:</p>
                             <div className="h-12 border-b border-black flex flex-col justify-end items-center font-serif italic text-sm text-indigo-950 font-semibold relative pb-1">
                               {userSignatures.witnessSig ? (
                                 <img
@@ -2921,10 +2941,10 @@ export function DraftingSuiteTeam({
                     </div>
                   </div>
 
-                  {/* 14. Appended Core Performance Plan */}
+                  {/* 14. Appended Performance Plan */}
                   <div className="portrait-section page-break-before pt-6">
                     <h3 className="font-extrabold text-emerald-800 text-center block mb-4 text-sm uppercase tracking-wide font-sans">
-                      <span className="border-b-2 border-emerald-800 pb-0.5 px-4 font-black">14. Appended Core Performance Plan (KPIs)</span>
+                      <span className="border-b-2 border-emerald-800 pb-0.5 px-4 font-black">14. Appended Performance Plan KPIs</span>
                     </h3>
                     {zulunePPlanAboveText && (
                       <div className="text-justify font-sans text-[12px] leading-relaxed text-slate-800 mb-4 whitespace-pre-wrap">
@@ -3066,7 +3086,7 @@ export function DraftingSuiteTeam({
                     </div>
 
                     <div className="border border-slate-300 p-4 rounded bg-slate-50 space-y-4">
-                      <p className="font-bold text-xs uppercase text-slate-700">Signed on behalf of Municipality:</p>
+                      <p className="font-bold text-xs uppercase text-slate-700">Signed on behalf of Municipality (Municipal Manager):</p>
                       <div className="h-12 border-b border-black flex flex-col justify-end items-center font-serif italic text-sm text-slate-800 relative pb-1">
                         {userSignatures.managerSig ? (
                           <img
