@@ -186,7 +186,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
     return isGlobalOrSystemAdmin || hasFireFighterTitle;
   }, [currentUser]);
 
-  const canCurrentUserReview = () => {
+  const canCurrentUserReview = React.useCallback(() => {
     if (!currentUser) return false;
 
     const email = (currentUser.email || '').toLowerCase().trim();
@@ -194,6 +194,17 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
     const role = (currentUser.role || '').toLowerCase().trim();
     const systemRole = (currentUser.systemRole || '').toLowerCase().trim();
     const jobFunction = (currentUser.jobFunction || '').toLowerCase().trim();
+
+    // "they cannot review themselves"
+    const planOwnerEmail = (metadata.email || '').toLowerCase().trim();
+    const planOwnerName = (metadata.name || '').toLowerCase().trim();
+
+    if (email && planOwnerEmail && email === planOwnerEmail) {
+      return false; // Cannot review themselves
+    }
+    if (fullName && planOwnerName && fullName === planOwnerName) {
+      return false; // Cannot review themselves
+    }
 
     // 1. Check if the user is an internal auditor
     const isAuditor = role.includes('auditor') || 
@@ -205,42 +216,16 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
 
     // 2. Check if the user is a manager of other users
     let isManager = role === 'manager' || role === 'admin' || systemRole.includes('manager') || systemRole.includes('admin') || jobFunction.includes('manager');
-    
-    // Check if any other user has this user as their manager in the fetched user list
-    // Recursive hierarchy helper to see if managerName is in any branch above reportEmail
-    const isManagerAnywhereAbove = (managerName: string, reportEmail: string, allUsers: any[], seen = new Set<string>()): boolean => {
-      const normalize = (s: string) => s.toLowerCase().trim().replace(/['"\.,]/g, '').replace(/\s+/g, ' ');
-      const normMan = normalize(managerName);
-      const user = allUsers.find(u => u.email.toLowerCase() === reportEmail.toLowerCase());
-      if (!user) return false;
-
-      const userManFields = [user.manager || '', user.reportTo || user.report_to || ''];
-      const isDirect = userManFields.some(f => {
-        if (!f) return false;
-        const normF = normalize(f);
-        if (normF === normMan) return true;
-        const fParts = normF.split(' ');
-        const mParts = normMan.split(' ');
-        return fParts.length >= 2 && mParts.length >= 2 && fParts[0] === mParts[0] && fParts[fParts.length-1] === mParts[mParts.length-1];
-      });
-
-      if (isDirect) return true;
-
-      // Check one level up (recursion)
-      for (const f of userManFields) {
-        if (!f) continue;
-        const parentUser = allUsers.find(u => normalize(u.fullName || u.full_name || '') === normalize(f));
-        if (parentUser && parentUser.email && !seen.has(parentUser.email)) {
-          seen.add(parentUser.email);
-          if (isManagerAnywhereAbove(managerName, parentUser.email, allUsers, seen)) return true;
-        }
-      }
-      return false;
-    };
 
     if (!isManager && users && users.length > 0) {
-      const myName = fullName || email || '';
-      isManager = users.some(u => isManagerAnywhereAbove(myName, u.email, users));
+      const normalize = (s: string) => s.toLowerCase().trim().replace(/['"\.,]/g, '').replace(/\s+/g, ' ');
+      const myNameNorm = normalize(fullName || email || '');
+      if (myNameNorm) {
+        isManager = users.some(u => {
+          const mgr = normalize(u.manager || u.reportTo || u.report_to || '');
+          return Boolean(mgr && mgr.includes(myNameNorm));
+        });
+      }
     }
 
     // Only managers and internal auditors can review.
@@ -248,34 +233,22 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
       return false;
     }
 
-    // "they cannot review themselves"
-    // Check if the plan belongs to the logged-in user
-    const planOwnerEmail = (metadata.email || '').toLowerCase().trim();
-    const planOwnerName = (metadata.name || '').toLowerCase().trim();
-
-    if (email && planOwnerEmail && email === planOwnerEmail) {
-      return false; // Cannot review themselves
-    }
-    if (fullName && planOwnerName && fullName === planOwnerName) {
-      return false; // Cannot review themselves
-    }
-
     return true;
-  };
+  }, [currentUser, metadata.email, metadata.name, users]);
 
   // Dynamic Options lists for Strategic Objectives and mSCOA Codes (combining default and custom captured parameters)
-  const uniqueStrategicObjectives = Array.from(new Set([
+  const uniqueStrategicObjectives = React.useMemo(() => Array.from(new Set([
     ...STRATEGIC_OBJECTIVES,
     ...availableKpas.map(k => k.parentObjective).filter(Boolean)
-  ]));
+  ])), [availableKpas]);
 
-  const uniqueMscoaCodes = Array.from(new Set([
+  const uniqueMscoaCodes = React.useMemo(() => Array.from(new Set([
     ...MSCOA_CODES,
     ...availableKpas.map(k => k.mscoaCode).filter(Boolean)
-  ]));
+  ])), [availableKpas]);
 
   // Authentication & Access Control Checks
-  const canViewRestricted = () => {
+  const canViewRestricted = React.useCallback(() => {
     if (!currentUser) return false;
     const userName = (currentUser.fullName || '').toLowerCase();
     const userEmail = (currentUser.email || '').toLowerCase();
@@ -318,7 +291,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
     }
 
     return false;
-  };
+  }, [currentUser, metadata.name, metadata.email, metadata.manager, metadata.reportTo]);
 
   const isRestrictedVisible = canViewRestricted() && showRestrictedFieldsOverride;
 
@@ -327,49 +300,52 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
     const fetchPlanAndKpaData = async () => {
       setIsLoading(true);
       try {
-        // Load Tenant users first for manager verification
-        try {
-          const usersRes = await fetch(`/api/tenant/${activeTenantId}/users?t=${Date.now()}`);
-          if (usersRes.ok) {
+        const targetEmail = selectedUserEmail || currentUser?.email || '';
+
+        // Fetch users, kpas, kpis, and pplan concurrently in parallel
+        const [usersRes, kpaRes, kpisRes, res] = await Promise.all([
+          fetch(`/api/tenant/${activeTenantId}/users?minimal=true&t=${Date.now()}`),
+          fetch(`/api/tenant/${activeTenantId}/kpas?t=${Date.now()}`),
+          fetch(`/api/tenant/${activeTenantId}/kpis?t=${Date.now()}`),
+          fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(targetEmail)}&t=${Date.now()}`)
+        ]);
+
+        if (usersRes.ok) {
+          try {
             const usersData = await usersRes.json();
             if (Array.isArray(usersData)) {
               setUsers(usersData);
             }
-          }
-        } catch (usersErr) {
-          console.error("Error loading users in PerformanceAgreements:", usersErr);
+          } catch (e) {}
         }
 
-        // Load KPAs for dropdown and automatic mapping
-        const kpaRes = await fetch(`/api/tenant/${activeTenantId}/kpas?t=${Date.now()}`);
         let fetchedKpas: any[] = [];
         let fetchedCustomKpaTable: any = null;
         if (kpaRes.ok) {
-          const kpaJson = await kpaRes.json();
-          if (kpaJson) {
-            if (Array.isArray(kpaJson.kpas)) {
-              fetchedKpas = kpaJson.kpas;
-              setAvailableKpas(fetchedKpas);
+          try {
+            const kpaJson = await kpaRes.json();
+            if (kpaJson) {
+              if (Array.isArray(kpaJson.kpas)) {
+                fetchedKpas = kpaJson.kpas;
+                setAvailableKpas(fetchedKpas);
+              }
+              if (kpaJson.customKpaTable) {
+                fetchedCustomKpaTable = kpaJson.customKpaTable;
+              }
             }
-            if (kpaJson.customKpaTable) {
-              fetchedCustomKpaTable = kpaJson.customKpaTable;
-            }
-          }
+          } catch (e) {}
         }
 
-        // Load KPIs to automatically pull in captured items
-        const kpisRes = await fetch(`/api/tenant/${activeTenantId}/kpis?t=${Date.now()}`);
         let fetchedKpis: any[] = [];
         if (kpisRes.ok) {
-          const kpiJson = await kpisRes.json();
-          if (kpiJson && Array.isArray(kpiJson.kpis)) {
-             fetchedKpis = kpiJson.kpis;
-          }
+          try {
+            const kpiJson = await kpisRes.json();
+            if (kpiJson && Array.isArray(kpiJson.kpis)) {
+              fetchedKpis = kpiJson.kpis;
+            }
+          } catch (e) {}
         }
 
-        // Load Performance Plan
-        const targetEmail = selectedUserEmail || currentUser.email;
-        const res = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(targetEmail)}&t=${Date.now()}`);
         if (res.ok) {
           const data = await res.json();
           if (data.metadata && Object.keys(data.metadata).length > 0) {
@@ -423,8 +399,8 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
             const existingKpiIds = new Set(currentItems.map((i: any) => i.kpiNo));
             const newItemsToAdd = fetchedKpis
                .filter(fk => !existingKpiIds.has(fk.kpiNo) && fk.kpiNo)
-               .map(fk => ({
-                 id: fk.id || `kpi-${Date.now()}-${Math.random()}`,
+               .map((fk, idx) => ({
+                 id: fk.id || `kpi-${fk.kpiNo || idx}`,
                  strategicGoal: '',
                  kpiNo: fk.kpiNo,
                  kpi: fk.kpi || '',
@@ -470,7 +446,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
 
               if (titleVal && titleVal.trim()) {
                 const cleanedTitle = titleVal.trim();
-                if (!allCustomKpas.some(item => item.title.toLowerCase() === cleanedTitle.toLowerCase())) {
+                if (!allCustomKpas.some(item => ((item.title || item.nationalKpa) || '').toLowerCase() === cleanedTitle.toLowerCase())) {
                   allCustomKpas.push({
                     id: `kpa-table-${rIdx}`,
                     title: cleanedTitle,
@@ -499,15 +475,18 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
             };
 
             allCustomKpas.forEach((kpa, kpaIdx) => {
-              const existingIndex = currentItems.findIndex(item => (item.kpa || '').toLowerCase() === kpa.title.toLowerCase());
-              const flags = getNationalKpaFlags(kpa.nationalKpa);
+              const effectiveTitle = (kpa.title && kpa.title.trim()) || (kpa.nationalKpa && kpa.nationalKpa.trim()) || '';
+              if (!effectiveTitle) return;
+
+              const existingIndex = currentItems.findIndex(item => (item.kpa || '').toLowerCase() === effectiveTitle.toLowerCase());
+              const flags = getNationalKpaFlags(kpa.nationalKpa || effectiveTitle);
 
               if (existingIndex !== -1) {
                 // Update existing row options to match custom KPA specs if empty
                 const existing = currentItems[existingIndex];
                 currentItems[existingIndex] = {
                   ...existing,
-                  kpa: kpa.title, // Enforce exact casing
+                  kpa: effectiveTitle, // Enforce exact casing
                   strategicGoal: existing.strategicGoal || kpa.parentObjective || 'General Departmental Objective Alignment',
                   mscoaCode: existing.mscoaCode || kpa.mscoaCode || '',
                   weighting: existing.weighting || kpa.weighting?.replace('%', '') || '15',
@@ -520,19 +499,19 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
                 };
               } else {
                 // Pre-populate a row matching the custom captured KPA
-                const newRowId = `pplan-sync-kpa-${kpa.id || kpaIdx}-${Math.random()}`;
+                const newRowId = `pplan-sync-kpa-${kpa.id || kpaIdx}`;
                 currentItems.push({
                   id: newRowId,
                   strategicGoal: kpa.parentObjective || 'General Departmental Objective Alignment',
                   kpiNo: `KPI-KPA-${kpaIdx + 1}`,
-                  kpi: `Execution and operational oversight of projects under functional area: ${kpa.title}`,
+                  kpi: `Execution and operational oversight of projects under functional area: ${effectiveTitle}`,
                   bsd: flags.bsd,
                   led: flags.led,
                   mfvm: flags.mfvm,
                   ggpp: flags.ggpp,
                   midt: flags.midt,
                   sr: flags.sr,
-                  kpa: kpa.title,
+                  kpa: effectiveTitle,
                   mscoaCode: kpa.mscoaCode || '',
                   baseline: 'Standard strategic implementation protocols',
                   baselineYear: '2025/2026',
@@ -579,7 +558,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
     };
 
     fetchPlanAndKpaData();
-  }, [activeTenantId, currentUser, selectedUserEmail]);
+  }, [activeTenantId, currentUser?.email, selectedUserEmail]);
 
   // Save to database
   const handleSaveToDatabase = async (customMetadata = metadata, customItems = items, showFeedback = false) => {

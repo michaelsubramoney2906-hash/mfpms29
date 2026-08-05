@@ -144,7 +144,13 @@ export const GuidedIPMSWorkflow: React.FC<GuidedIPMSWorkflowProps> = ({
                           jobFunction.includes('head of') ||
                           jobFunction.includes('divisional manager');
 
-    const isStdUser = !isAuditorUser && !isManagerUser && currentUser.role !== 'admin';
+    const isPMSTeam = email === 'zulune@nkangaladm.gov.za' || 
+                      email === 'nsibandenp@nkangaladm.gov.za' || 
+                      email === 'sakisd@nkangaladm.gov.za' || 
+                      email === 'lukhelema@nkangaladm.gov.za' ||
+                      jobFunction.includes('pms');
+
+    const isStdUser = !isPMSTeam && !isAuditorUser && !isManagerUser && currentUser.role !== 'admin';
 
     const reportsUnlocked = availableSubModules.some(m => m.id === 'ipms-reports');
 
@@ -188,6 +194,22 @@ export const GuidedIPMSWorkflow: React.FC<GuidedIPMSWorkflowProps> = ({
   // Determine if a given index is unlocked
   const isStepUnlockedInput = (index: number): boolean => {
     if (index === 0) return true;
+    
+    // Unlock all for Admins and PMS Team
+    const email = (currentUser?.email || '').toLowerCase().trim();
+    const role = (currentUser?.role || '').toLowerCase().trim();
+    const systemRole = (currentUser?.systemRole || '').toLowerCase().trim();
+    const jobFunction = (currentUser?.jobFunction || '').toLowerCase().trim();
+    
+    const isGlobalOrSystemAdmin = role === 'admin' || systemRole === 'global administrator' || systemRole === 'systems administrator';
+    const isPMSTeam = email === 'zulune@nkangaladm.gov.za' || 
+                      email === 'nsibandenp@nkangaladm.gov.za' || 
+                      email === 'sakisd@nkangaladm.gov.za' || 
+                      email === 'lukhelema@nkangaladm.gov.za' ||
+                      jobFunction.includes('pms');
+                      
+    if (isGlobalOrSystemAdmin || isPMSTeam) return true;
+
     const prevStep = stepsToShow[index - 1];
     return completedIPMSSteps.includes(prevStep.id);
   };

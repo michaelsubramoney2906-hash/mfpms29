@@ -112,6 +112,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
   ) || availableTenants[0];
 
   useEffect(() => {
+    setFullUserProfile(user);
     if (user && user.role !== 'admin') {
       const targetTenant = (user.tenantId === 'nkangala_auto' || user.email?.toLowerCase().includes('nkangala') || user.email?.toLowerCase().includes('shabangu'))
         ? 'tenant-229'
@@ -304,7 +305,13 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                           jobFunction.includes('head of') ||
                           jobFunction.includes('divisional manager') || email.includes('khuboni');
 
-    const isStdUser = !isAuditorUser && !isManagerUser && profileToUse.role !== 'admin';
+    const isPMSTeam = email === 'zulune@nkangaladm.gov.za' || 
+                      email === 'nsibandenp@nkangaladm.gov.za' || 
+                      email === 'sakisd@nkangaladm.gov.za' || 
+                      email === 'lukhelema@nkangaladm.gov.za' ||
+                      jobFunction.includes('pms');
+
+    const isStdUser = !isPMSTeam && !isAuditorUser && !isManagerUser && profileToUse.role !== 'admin';
 
     return GUIDE_STEPS.filter(step => {
       // 1. Standard users cannot go past self evaluation (no manager approval, no internal audit)
@@ -362,7 +369,13 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                           jobFunction.includes('head of') ||
                           jobFunction.includes('divisional manager') || email.includes('khuboni');
 
-    const isStdUser = !isAuditorUser && !isManagerUser && profileToUse?.role !== 'admin';
+    const isPMSTeam = email === 'zulune@nkangaladm.gov.za' || 
+                      email === 'nsibandenp@nkangaladm.gov.za' || 
+                      email === 'sakisd@nkangaladm.gov.za' || 
+                      email === 'lukhelema@nkangaladm.gov.za' ||
+                      jobFunction.includes('pms');
+
+    const isStdUser = !isPMSTeam && !isAuditorUser && !isManagerUser && profileToUse?.role !== 'admin';
 
     return mod.subModules.filter(sub => {
       // 1. Standard users cannot go past self evaluation

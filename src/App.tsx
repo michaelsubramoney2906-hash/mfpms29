@@ -13,6 +13,14 @@ import type { User } from './types';
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
 
+  useEffect(() => {
+    const userStr = localStorage.getItem('currentUser');
+    if (userStr && !user) {
+      setUser(JSON.parse(userStr));
+    }
+  }, []);
+
+
   const handleSetUser = (u: User | null) => {
     if (u && !u.loginTime) {
       u.loginTime = new Date().toISOString();

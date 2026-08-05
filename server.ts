@@ -4888,9 +4888,16 @@ Format your response exactly according to the following JSON schema:
   });
 
   // Helper to resolve the correct tenant ID for user-centric resources
+  const tenantIdCacheMap = new Map<string, { tenantId: string; timestamp: number }>();
+
   async function resolveTenantId(routeTenantId: string, userId: string): Promise<string> {
     if (!userId || userId === 'default') {
       return routeTenantId;
+    }
+    const cacheKey = `${routeTenantId}_${userId.toLowerCase().trim()}`;
+    const cached = tenantIdCacheMap.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp < 1000 * 60 * 10)) {
+      return cached.tenantId;
     }
     try {
       const supabase = getSupabase();
@@ -4900,11 +4907,13 @@ Format your response exactly according to the following JSON schema:
         .ilike('email', userId.toLowerCase().trim())
         .maybeSingle();
       if (!error && data && data.tenant_id) {
+        tenantIdCacheMap.set(cacheKey, { tenantId: data.tenant_id, timestamp: Date.now() });
         return data.tenant_id;
       }
     } catch (e) {
       console.error("resolveTenantId lookup failed:", e);
     }
+    tenantIdCacheMap.set(cacheKey, { tenantId: routeTenantId, timestamp: Date.now() });
     return routeTenantId;
   }
 
@@ -6946,7 +6955,7 @@ User Request: ${prompt}`;
             { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
             { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
             { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
-          ]
+          ] as any
         }
       });
       
