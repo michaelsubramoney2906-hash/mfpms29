@@ -194,6 +194,9 @@ export const GuidedIPMSWorkflow: React.FC<GuidedIPMSWorkflowProps> = ({
   // Determine if a given index is unlocked
   const isStepUnlockedInput = (index: number): boolean => {
     if (index === 0) return true;
+
+    const stepDef = stepsToShow[index];
+    if (stepDef && stepDef.id === 'ipms-manager-review') return true;
     
     // Unlock all for Admins and PMS Team
     const email = (currentUser?.email || '').toLowerCase().trim();

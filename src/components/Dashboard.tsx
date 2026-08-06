@@ -422,8 +422,9 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
       if (guideIndex > 0) {
         const prevStep = filteredSteps[guideIndex - 1];
         const isDPMCBypass = sub.id === 'ipms-dpmc' && user.email.toLowerCase() === 'test.dpmc@local';
+        const isManagerBypass = sub.id === 'ipms-manager-review';
         
-        if (!completedIPMSSteps.includes(prevStep.id) && !isDPMCBypass) {
+        if (!completedIPMSSteps.includes(prevStep.id) && !isDPMCBypass && !isManagerBypass) {
           setLockedStepAlert({
             isOpen: true,
             currentClickedName: sub.name,
