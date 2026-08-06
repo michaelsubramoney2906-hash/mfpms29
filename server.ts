@@ -816,11 +816,11 @@ CRITICAL MAPPING & IDENTIFICATION RULES:
 3. STRICT CODE & REFERENCE HANDLING:
    - Extract ALL KPIs regardless of reference number format. If a reference code or number exists in the document (e.g. "M_01", "P_01", "KPI 1", "1.2", "Ref 5"), capture it exactly as written in "KPI_Code". DO NOT skip, omit, or filter out KPIs simply because they do not have "M_" or "P_" prefixes.
    - If a KPI has NO code/ID/ref in the document (empty or unassigned), assign a sequential code starting with "U_01", "U_02", etc.
-4. For every extracted KPI, extract its exact description, unit of measurement, target, baseline, and associated budget "Total Budget allocated R'000" column/value from the document. Map this value into the 'Total_Budget_Allocated_R000' field. If no budget is specified, leave it as an empty string.
+4. For every extracted KPI, extract its exact description, unit of measurement, target, baseline, weighting/weight, and associated budget "Total Budget allocated R'000" column/value from the document. Map this value into the 'Total_Budget_Allocated_R000' field. Map the baseline value into the 'Baseline' field and the weighting/weight value into the 'Weight' field. If no budget is specified, leave it as an empty string. If no weighting is specified, default to a standard proportional weighting like "10". If no baseline is specified, default to "Standard operational compliance".
 5. In the 'Annual_Planner_Grid' object, distribute the extracted KPI codes across the correct quarter arrays (Quarter_1, Quarter_2, Quarter_3, Quarter_4) based on their specified targets or reporting schedule in the document. If no specific quarters are mentioned, distribute them evenly so that every extracted KPI code appears at least once.
 
 Format your response exactly according to the following JSON schema:
-{"Document_Reference": "","Performance_Plan": {"KPAs": [{"KPA_Number": "","KPA_Description": "","Associated_KPIs": [{"KPI_Code": "","KPI_Description": "","Total_Budget_Allocated_R000": ""}]}], "Annual_Planner_Grid": {"Quarter_1": [],"Quarter_2": [],"Quarter_3": [],"Quarter_4": []}}}`;
+{"Document_Reference": "","Performance_Plan": {"KPAs": [{"KPA_Number": "","KPA_Description": "","Associated_KPIs": [{"KPI_Code": "","KPI_Description": "","Total_Budget_Allocated_R000": "","Baseline": "","Weight": ""}]}], "Annual_Planner_Grid": {"Quarter_1": [],"Quarter_2": [],"Quarter_3": [],"Quarter_4": []}}}`;
 
         responseSchema = {
           type: Type.OBJECT,
@@ -843,9 +843,11 @@ Format your response exactly according to the following JSON schema:
                           properties: {
                             KPI_Code: { type: Type.STRING },
                             KPI_Description: { type: Type.STRING },
-                            Total_Budget_Allocated_R000: { type: Type.STRING }
+                            Total_Budget_Allocated_R000: { type: Type.STRING },
+                            Baseline: { type: Type.STRING },
+                            Weight: { type: Type.STRING }
                           },
-                          required: ["KPI_Code", "KPI_Description", "Total_Budget_Allocated_R000"]
+                          required: ["KPI_Code", "KPI_Description", "Total_Budget_Allocated_R000", "Baseline", "Weight"]
                         }
                       }
                     },

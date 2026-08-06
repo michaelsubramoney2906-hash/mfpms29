@@ -899,6 +899,8 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
                     code: code,
                     description: kpiObj.KPI_Description || kpiObj.kpiDescription || kpiObj.description || kpiObj.kpi || 'Untitled KPI',
                     budget: kpiObj.Total_Budget_Allocated_R000 || kpiObj.totalBudgetAllocatedR000 || kpiObj.budget || kpiObj.Budget || '',
+                    baseline: kpiObj.Baseline || kpiObj.baseline || '',
+                    weighting: kpiObj.Weight || kpiObj.weight || kpiObj.Weighting || kpiObj.weighting || '',
                     kpaNum: kpaNumStr,
                     kpaDesc: kpaDesc
                   });
@@ -970,7 +972,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
             sr: kpaIdx === 6,
             kpa: kpaName,
             mscoaCode: stdCatalogItem?.mscoaCode || "Functions",
-            baseline: stdCatalogItem?.baseline || "Standard operational compliance",
+            baseline: e.baseline || stdCatalogItem?.baseline || "Standard operational compliance",
             baselineYear: stdCatalogItem?.baselineYear || "2025/2026",
             budget: e.budget || stdCatalogItem?.budget || "",
             annualTarget: stdCatalogItem?.annualTarget || "100% compliance/execution of objectives",
@@ -983,7 +985,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
             q3Poe: stdCatalogItem?.q3Poe || '',
             q4Poe: stdCatalogItem?.q4Poe || '',
             poe: stdCatalogItem?.poe || "Standard verification files",
-            weighting: stdCatalogItem?.weighting || "10",
+            weighting: e.weighting || stdCatalogItem?.weighting || "10",
             myScore: stdCatalogItem?.myScore || "3.0"
           };
         });

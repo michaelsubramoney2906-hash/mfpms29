@@ -400,12 +400,15 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
   // Auto-prefill signatures for current user and supervisor instantly upon profile load
   useEffect(() => {
     if (currentUser) {
-      if (!employeeSignature && ((currentUser as any).signatureData || currentUser.fullName)) {
-        setEmployeeSignature((currentUser as any).signatureData || currentUser.fullName);
-        setEmployeeName(currentUser.fullName);
-        setEmployeePosition(currentUser.jobFunction || (currentUser as any).job_function || (currentUser as any).position || (currentUser as any).title || "Senior Manager");
-        setEmployeeDate('29 July 2026');
-      }
+      setEmployeeSignature((currentUser as any).signatureData || currentUser.fullName || null);
+      setEmployeeName(currentUser.fullName || null);
+      setEmployeePosition(currentUser.jobFunction || (currentUser as any).job_function || (currentUser as any).position || (currentUser as any).title || "Senior Manager");
+      setEmployeeDate('29 July 2026');
+
+      // Reset supervisor fields to trigger re-evaluation for the new user profile
+      setSupervisorSignature(null);
+      setSupervisorName(null);
+      setSupervisorPosition(null);
     }
   }, [currentUser]);
 
@@ -443,7 +446,7 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
         }
       }
     }
-  }, [userManagementUsers]);
+  }, [userManagementUsers, currentUser, isYenaKhuboni]);
 
   const getQueryForField = (field: 'MM' | 'CFO' | 'TS' | 'CS' | 'SS' | 'PE' | 'CUSTOM') => {
     switch (field) {
