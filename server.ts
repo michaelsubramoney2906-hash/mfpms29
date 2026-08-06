@@ -4238,14 +4238,14 @@ Format your response exactly according to the following JSON schema:
       let notifications = Array.from(notifMap.values());
 
       if (userEmail) {
-        const normEmail = userEmail.toLowerCase().trim();
+        const normEmail = normalizeNkangalaEmail(userEmail);
         const userRole = req.query.role ? String(req.query.role).toLowerCase().trim() : '';
         const isAuditor = userRole.includes('audit') || normEmail.includes('audit') || req.query.isAuditor === 'true';
         const isManager = userRole.includes('manager') || normEmail.includes('manager') || req.query.isManager === 'true';
 
         notifications = notifications.filter((n: any) => {
-          const rec = (n.recipientEmail || '').toLowerCase().trim();
-          const sen = (n.senderEmail || '').toLowerCase().trim();
+          const rec = normalizeNkangalaEmail(n.recipientEmail);
+          const sen = normalizeNkangalaEmail(n.senderEmail);
           const recName = (n.recipientName || '').toLowerCase().trim();
           
           if (rec === normEmail || sen === normEmail || rec === 'all' || !rec) return true;
@@ -4941,6 +4941,17 @@ Format your response exactly according to the following JSON schema:
     return routeTenantId;
   }
 
+  function normalizeNkangalaEmail(email: string | undefined | null): string {
+    if (!email) return '';
+    let clean = String(email).toLowerCase().trim();
+    // Normalise domain typos
+    if (clean.includes('@nkangladm.gov.za') || clean.includes('@nkanagaladm.gov.za') || clean.includes('@nkangaladm.gov.za')) {
+      const parts = clean.split('@');
+      clean = `${parts[0]}@nkangaladm.gov.za`;
+    }
+    return clean;
+  }
+
   const SYNCED_EMAILS: string[] = [
     'zulune@nkangaladm.gov.za',
     'nsibandenp@nkangaladm.gov.za',
@@ -5261,10 +5272,12 @@ Format your response exactly according to the following JSON schema:
         tenantIds = ['nkangala_auto', 'tenant-229'];
       }
 
+      // Optimization: Select only the required columns and filter by tenantIds to prevent massive loads
       const { data, error } = await supabase
         .from('messages')
-        .select('*')
-        .eq('message_type', 'pplan_list');
+        .select('id, tenant_id, sender_email, content')
+        .eq('message_type', 'pplan_list')
+        .in('tenant_id', tenantIds);
 
       if (error) {
         console.error("Supabase load team-pplans error:", error.message);
@@ -5272,12 +5285,8 @@ Format your response exactly according to the following JSON schema:
       }
 
       const teamPlans = (data || [])
-        .filter((row: any) => {
-          return tenantIds.includes(row.tenant_id) || 
-                 tenantIds.some(tId => row.id.startsWith(`pplan_${tId}_`));
-        })
         .map((row: any) => {
-          // Extract userId/email from the message ID
+          // Extract userId/email from the message ID and normalize to lowercase
           let userId = '';
           const foundTenantId = tenantIds.find(tId => row.id.startsWith(`pplan_${tId}_`));
           if (foundTenantId) {
@@ -5286,17 +5295,35 @@ Format your response exactly according to the following JSON schema:
             const parts = row.id.split('_');
             userId = parts[parts.length - 1] || row.sender_email || '';
           }
+          userId = userId.toLowerCase().trim();
+
+          const sanitizeHeavyPayload = (obj: any): any => {
+            if (!obj) return obj;
+            if (Array.isArray(obj)) {
+              return obj.map(item => sanitizeHeavyPayload(item));
+            }
+            if (typeof obj === 'object') {
+              const newObj: any = {};
+              for (const key of Object.keys(obj)) {
+                if (key === 'dataUrl' || key === 'base64') {
+                  continue; // completely strip base64 content
+                }
+                const val = obj[key];
+                if (typeof val === 'string' && (val.length > 5000 || val.startsWith('data:'))) {
+                  continue; // strip heavy string
+                }
+                newObj[key] = sanitizeHeavyPayload(val);
+              }
+              return newObj;
+            }
+            return obj;
+          };
 
           let planObj: any = { metadata: {}, items: [] };
           if (row.content) {
             try {
-              planObj = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
-              if (planObj && Array.isArray(planObj.items)) {
-                planObj.items = planObj.items.map((item: any) => {
-                  const { dataUrl, ...rest } = item;
-                  return rest;
-                });
-              }
+              const rawObj = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
+              planObj = sanitizeHeavyPayload(rawObj);
             } catch (e) {}
           }
 
@@ -5330,11 +5357,12 @@ Format your response exactly according to the following JSON schema:
         tenantIds = ['nkangala_auto', 'tenant-229'];
       }
 
-      // Query all messages of type pplan_list
+      // Query messages of type pplan_list for the relevant tenants
       const { data, error } = await supabase
         .from('messages')
-        .select('*')
-        .eq('message_type', 'pplan_list');
+        .select('id, tenant_id, sender_email, content')
+        .eq('message_type', 'pplan_list')
+        .in('tenant_id', tenantIds);
 
       if (error) throw error;
 
@@ -5404,11 +5432,12 @@ Format your response exactly according to the following JSON schema:
         tenantIds = ['nkangala_auto', 'tenant-229'];
       }
 
-      // Query all messages of type pplan_list
+      // Query messages of type pplan_list for the relevant tenants
       const { data, error } = await supabase
         .from('messages')
-        .select('*')
-        .eq('message_type', 'pplan_list');
+        .select('id, tenant_id, sender_email, content')
+        .eq('message_type', 'pplan_list')
+        .in('tenant_id', tenantIds);
 
       if (error) throw error;
 

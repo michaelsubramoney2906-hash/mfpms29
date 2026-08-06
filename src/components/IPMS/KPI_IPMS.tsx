@@ -1557,9 +1557,37 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
                             <div className="flex gap-2">
                               <button 
                                 type="button"
-                                onClick={() => {
+                                onClick={async () => {
                                   updateKpiField(k.id, 'reviewApprovalStatus', 'Approved');
                                   showNotification(`KPI ${k.kpiNo} has been APPROVED by your Manager!`);
+                                  
+                                  const managerEmail = currentUser?.manager || 'khuboniy@nkangaladm.gov.za';
+                                  const managerName = 'Manager';
+                                  const subordinateEmail = currentUser?.email || '';
+                                  const subordinateName = currentUser?.fullName || subordinateEmail;
+                                  
+                                  try {
+                                    await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({
+                                        notification: {
+                                          senderEmail: managerEmail,
+                                          senderName: managerName,
+                                          recipientEmail: subordinateEmail,
+                                          recipientName: subordinateName,
+                                          title: `✅ KPI ${k.kpiNo} has been APPROVED by your Manager!`,
+                                          message: `Your Manager approved KPI #${k.kpiNo} ("${k.kpi}").`,
+                                          actionType: 'approval',
+                                          senderCapacity: 'manager_as_subordinate',
+                                          kpiId: k.id,
+                                          kpiNo: k.kpiNo
+                                        }
+                                      })
+                                    });
+                                  } catch (err) {
+                                    console.error("Error sending approval notification:", err);
+                                  }
                                 }}
                                 className={`flex-1 py-1.5 px-2.5 font-black uppercase text-[9px] tracking-widest rounded-lg transition text-white cursor-pointer ${k.reviewApprovalStatus === 'Approved' ? 'bg-emerald-600 border border-emerald-500 font-black shadow-lg' : 'bg-slate-800 border border-slate-700 hover:bg-emerald-700 hover:border-emerald-600'}`}
                               >
@@ -1567,9 +1595,37 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
                               </button>
                               <button 
                                 type="button"
-                                onClick={() => {
+                                onClick={async () => {
                                   updateKpiField(k.id, 'reviewApprovalStatus', 'Rejected');
                                   showNotification(`KPI ${k.kpiNo} has been REJECTED by your Manager!`);
+                                  
+                                  const managerEmail = currentUser?.manager || 'khuboniy@nkangaladm.gov.za';
+                                  const managerName = 'Manager';
+                                  const subordinateEmail = currentUser?.email || '';
+                                  const subordinateName = currentUser?.fullName || subordinateEmail;
+                                  
+                                  try {
+                                    await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({
+                                        notification: {
+                                          senderEmail: managerEmail,
+                                          senderName: managerName,
+                                          recipientEmail: subordinateEmail,
+                                          recipientName: subordinateName,
+                                          title: `⚠️ KPI ${k.kpiNo} has been REJECTED by your Manager!`,
+                                          message: `Your Manager rejected KPI #${k.kpiNo} ("${k.kpi}"). Reason: ${k.reviewComment || 'Please review and update as requested.'}`,
+                                          actionType: 'revision_requested',
+                                          senderCapacity: 'manager_as_subordinate',
+                                          kpiId: k.id,
+                                          kpiNo: k.kpiNo
+                                        }
+                                      })
+                                    });
+                                  } catch (err) {
+                                    console.error("Error sending rejection notification:", err);
+                                  }
                                 }}
                                 className={`flex-1 py-1.5 px-2.5 font-black uppercase text-[9px] tracking-widest rounded-lg transition text-white cursor-pointer ${k.reviewApprovalStatus === 'Rejected' ? 'bg-rose-600 border border-rose-500 font-black shadow-lg' : 'bg-slate-800 border border-slate-700 hover:bg-rose-700 hover:border-rose-600'}`}
                               >
