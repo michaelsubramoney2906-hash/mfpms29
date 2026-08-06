@@ -125,7 +125,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
     const fetchProgress = async () => {
       if (activeModule.id !== 'ipms') return;
       try {
-        const emailParam = user?.email || 'default';
+        const emailParam = (user?.email || 'default').toLowerCase().trim();
         const res = await fetchWithRetry(`/api/tenant/${activeTenantId}/ipms-progress?userId=${emailParam}`);
         if (res.ok) {
           const contentType = res.headers.get("content-type");
@@ -417,20 +417,60 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
 
   const handleSubModuleSelect = (sub: any) => {
     if (activeModule.id === 'ipms') {
-      const filteredSteps = getFilteredSteps();
-      const guideIndex = filteredSteps.findIndex(s => s.id === sub.id);
-      if (guideIndex > 0) {
-        const prevStep = filteredSteps[guideIndex - 1];
-        const isDPMCBypass = sub.id === 'ipms-dpmc' && user.email.toLowerCase() === 'test.dpmc@local';
-        const isManagerBypass = sub.id === 'ipms-manager-review';
-        
-        if (!completedIPMSSteps.includes(prevStep.id) && !isDPMCBypass && !isManagerBypass) {
-          setLockedStepAlert({
-            isOpen: true,
-            currentClickedName: sub.name,
-            requiredPrevName: prevStep.name
-          });
-          return;
+      const profileToUse = fullUserProfile || user;
+      const email = (profileToUse?.email || '').toLowerCase().trim();
+      const role = (profileToUse?.role || '').toLowerCase().trim();
+      const systemRole = (profileToUse?.systemRole || '').toLowerCase().trim();
+      const jobFunction = (profileToUse?.jobFunction || '').toLowerCase().trim();
+      
+      const isGlobalOrSystemAdmin = role === 'admin' || systemRole === 'global administrator' || systemRole === 'systems administrator' || email.includes('massivedynamixdistributors.com');
+      const isPMSTeam = email === 'zulune@nkangaladm.gov.za' || 
+                        email === 'nsibandenp@nkangaladm.gov.za' || 
+                        email === 'sakisd@nkangaladm.gov.za' || 
+                        email === 'lukhelema@nkangaladm.gov.za' ||
+                        jobFunction.includes('pms');
+      const isManagerUser = role === 'manager' || 
+                            role === 'approver' || 
+                            role === 'admin' || 
+                            systemRole.includes('manager') || 
+                            systemRole.includes('admin') || 
+                            jobFunction.includes('manager') ||
+                            jobFunction.includes('director') ||
+                            jobFunction.includes('head of') ||
+                            jobFunction.includes('divisional manager') || 
+                            email.includes('khuboni') ||
+                            email.includes('mike@massivedynamixdistributors.com');
+
+      const isBypassAll = isGlobalOrSystemAdmin || isPMSTeam || isManagerUser;
+
+      if (!isBypassAll) {
+        const filteredSteps = getFilteredSteps();
+        const guideIndex = filteredSteps.findIndex(s => s.id === sub.id);
+        if (guideIndex > 0) {
+          const prevStep = filteredSteps[guideIndex - 1];
+          const isDPMCBypass = sub.id === 'ipms-dpmc' && user.email.toLowerCase() === 'test.dpmc@local';
+          const isManagerBypass = sub.id === 'ipms-manager-review';
+          
+          if (prevStep && prevStep.id === 'ipms-manager-review') {
+            if (guideIndex - 2 >= 0) {
+              const stepBeforePrev = filteredSteps[guideIndex - 2];
+              if (stepBeforePrev && !completedIPMSSteps.includes(stepBeforePrev.id)) {
+                setLockedStepAlert({
+                  isOpen: true,
+                  currentClickedName: sub.name,
+                  requiredPrevName: stepBeforePrev.name
+                });
+                return;
+              }
+            }
+          } else if (!completedIPMSSteps.includes(prevStep.id) && !isDPMCBypass && !isManagerBypass) {
+            setLockedStepAlert({
+              isOpen: true,
+              currentClickedName: sub.name,
+              requiredPrevName: prevStep.name
+            });
+            return;
+          }
         }
       }
     }

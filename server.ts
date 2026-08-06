@@ -3819,7 +3819,7 @@ Format your response exactly according to the following JSON schema:
   // 12. Fetch KPAs for a tenant
   app.get("/api/tenant/:tenantId/kpas", async (req, res) => {
     const { tenantId } = req.params;
-    const userId = req.query.userId ? String(req.query.userId) : 'default';
+    const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
     try {
       const supabase = getSupabase();
       const documentId = `kpas_${tenantId}_${userId}`;
@@ -3859,7 +3859,7 @@ Format your response exactly according to the following JSON schema:
   // 13. Save KPAs list for a tenant
   app.post("/api/tenant/:tenantId/kpas", async (req, res) => {
     const { tenantId } = req.params;
-    const userId = req.query.userId ? String(req.query.userId) : 'default';
+    const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
     const { kpas, customKpaTable } = req.body;
     try {
       const supabase = getSupabase();
@@ -3953,11 +3953,11 @@ Format your response exactly according to the following JSON schema:
   // 13.7. Fetch IPMS guided workflow completion progress
   app.get("/api/tenant/:tenantId/ipms-progress", async (req, res) => {
     const { tenantId } = req.params;
-    const userId = req.query.userId ? String(req.query.userId) : 'default';
+    const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
     try {
       const supabase = getSupabase();
       const documentId = `ipms_progress_${tenantId}_${userId.replace(/[^a-zA-Z0-9_.-]/g, '_')}`;
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('messages')
         .select('content')
         .eq('id', documentId)
@@ -3968,15 +3968,42 @@ Format your response exactly according to the following JSON schema:
         return res.json({ completedSteps: [] });
       }
 
+      let completedSteps: string[] = [];
       if (data && data.content) {
         try {
           const parsed = JSON.parse(data.content);
-          return res.json({ completedSteps: parsed.completedSteps || [] });
+          completedSteps = parsed.completedSteps || [];
         } catch (parseErr) {
           console.error("Error parsing ipms-progress JSON:", parseErr);
         }
       }
-      return res.json({ completedSteps: [] });
+
+      // Fallback check: check other case variations in case-insensitive way (e.g. KhuboniY vs khuboniy)
+      if (completedSteps.length === 0) {
+        const searchPattern = `ipms_progress_${tenantId}_${userId.replace(/[^a-zA-Z0-9_.-]/g, '_')}`;
+        const { data: matches } = await supabase
+          .from('messages')
+          .select('id, content')
+          .ilike('id', searchPattern);
+
+        if (matches && matches.length > 0) {
+          let bestSteps: string[] = [];
+          for (const m of matches) {
+            try {
+              const p = JSON.parse(m.content);
+              const steps = p.completedSteps || [];
+              if (steps.length > bestSteps.length) {
+                bestSteps = steps;
+              }
+            } catch (e) {}
+          }
+          if (bestSteps.length > 0) {
+            completedSteps = bestSteps;
+          }
+        }
+      }
+
+      return res.json({ completedSteps });
     } catch (err: any) {
       console.error("IPMS progress load exception:", err);
       res.status(500).json({ error: err.message });
@@ -3986,7 +4013,7 @@ Format your response exactly according to the following JSON schema:
   // 13.8. Save IPMS guided workflow completion progress
   app.post("/api/tenant/:tenantId/ipms-progress", async (req, res) => {
     const { tenantId } = req.params;
-    const userId = req.query.userId ? String(req.query.userId) : 'default';
+    const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
     const { completedSteps } = req.body;
     try {
       const supabase = getSupabase();
@@ -4006,6 +4033,25 @@ Format your response exactly according to the following JSON schema:
         });
       
       if (error) throw error;
+
+      // Ensure any existing alternative casing records of progress are also updated to stay in sync
+      const searchPattern = `ipms_progress_${tenantId}_${userId.replace(/[^a-zA-Z0-9_.-]/g, '_')}`;
+      const { data: matches } = await supabase
+        .from('messages')
+        .select('id')
+        .ilike('id', searchPattern);
+
+      if (matches && matches.length > 0) {
+        for (const m of matches) {
+          if (m.id !== documentId) {
+            await supabase
+              .from('messages')
+              .update({ content: JSON.stringify(payload) })
+              .eq('id', m.id);
+          }
+        }
+      }
+
       res.json({ success: true, completedSteps });
     } catch (err: any) {
       console.error("IPMS progress save exception:", err);
@@ -4892,33 +4938,14 @@ Format your response exactly according to the following JSON schema:
   const tenantIdCacheMap = new Map<string, { tenantId: string; timestamp: number }>();
 
   async function resolveTenantId(routeTenantId: string, userId: string): Promise<string> {
-    if (!userId || userId === 'default') {
-      return routeTenantId;
-    }
-    const cacheKey = `${routeTenantId}_${userId.toLowerCase().trim()}`;
-    const cached = tenantIdCacheMap.get(cacheKey);
-    if (cached && (Date.now() - cached.timestamp < 1000 * 60 * 10)) {
-      return cached.tenantId;
-    }
-    try {
-      const supabase = getSupabase();
-      const { data, error } = await supabase
-        .from('users')
-        .select('tenant_id')
-        .ilike('email', userId.toLowerCase().trim())
-        .maybeSingle();
-      if (!error && data && data.tenant_id) {
-        tenantIdCacheMap.set(cacheKey, { tenantId: data.tenant_id, timestamp: Date.now() });
-        return data.tenant_id;
-      }
-    } catch (e) {
-      console.error("resolveTenantId lookup failed:", e);
-    }
-    tenantIdCacheMap.set(cacheKey, { tenantId: routeTenantId, timestamp: Date.now() });
     return routeTenantId;
   }
 
-  const SYNCED_EMAILS: string[] = [];
+  const SYNCED_EMAILS: string[] = [
+    'zulune@nkangaladm.gov.za',
+    'nsibandenp@nkangaladm.gov.za',
+    'nsibandenp@nkangladm.gov.za'
+  ];
 
   // 17.3 Fetch Job Specific Competencies for a tenant
   app.get("/api/tenant/:tenantId/job-competencies", async (req, res) => {
@@ -5176,6 +5203,21 @@ Format your response exactly according to the following JSON schema:
       const tenantId = await resolveTenantId(routeTenantId, userId);
       const documentId = `pplan_${tenantId}_${userId}`;
       
+      if (SYNCED_EMAILS.includes(userId)) {
+        const id1 = `pplan_${tenantId}_zulune@nkangaladm.gov.za`;
+        const id2 = `pplan_${tenantId}_nsibandenp@nkangaladm.gov.za`;
+        const { data: res1 } = await supabase.from('messages').select('content').eq('id', id1).maybeSingle();
+        const { data: res2 } = await supabase.from('messages').select('content').eq('id', id2).maybeSingle();
+        let bestContent = null;
+        if (res1 && res1.content) bestContent = res1.content;
+        else if (res2 && res2.content) bestContent = res2.content;
+        if (bestContent) {
+          try {
+            return res.json(JSON.parse(bestContent));
+          } catch (e) {}
+        }
+      }
+
       const cached = pplanCache.get(documentId);
       if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
         try {
@@ -5424,21 +5466,25 @@ Format your response exactly according to the following JSON schema:
     try {
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
-      const uDocId = `pplan_${tenantId}_${userId}`;
-      const { error } = await supabase
-        .from('messages')
-        .upsert({ 
-          id: uDocId,
-          tenant_id: tenantId,
-          sender_id: 'pplan_editor_tool',
-          sender_email: 'pplan@system.local',
-          sender_name: 'PPLAN Editor',
-          content: JSON.stringify({ metadata, items }),
-          message_type: 'pplan_list',
-          created_at: new Date().toISOString()
-        });
-      if (error) throw error;
-      pplanCache.delete(uDocId);
+      
+      const targetUsers = SYNCED_EMAILS.includes(userId) ? SYNCED_EMAILS : [userId];
+      for (const u of targetUsers) {
+        const uDocId = `pplan_${tenantId}_${u}`;
+        const { error } = await supabase
+          .from('messages')
+          .upsert({ 
+            id: uDocId,
+            tenant_id: tenantId,
+            sender_id: 'pplan_editor_tool',
+            sender_email: 'pplan@system.local',
+            sender_name: 'PPLAN Editor',
+            content: JSON.stringify({ metadata, items }),
+            message_type: 'pplan_list',
+            created_at: new Date().toISOString()
+          });
+        if (error) throw error;
+        pplanCache.delete(uDocId);
+      }
 
       // Automatically map Performance Plan items to the 2nd/3rd Layer SDBIP table
       if (items && Array.isArray(items)) {
@@ -6242,7 +6288,7 @@ Format your response exactly according to the following JSON schema:
   // 17.7 Fetch Performance Agreements for a tenant
   app.get("/api/tenant/:tenantId/performance-agreements", async (req, res) => {
     const { tenantId } = req.params;
-    const userId = req.query.userId ? String(req.query.userId) : 'default';
+    const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
     try {
       const supabase = getSupabase();
       const documentId = `perf_agreement_${tenantId}`;
@@ -6275,7 +6321,7 @@ Format your response exactly according to the following JSON schema:
   // 17.8 Save Performance Agreements for a tenant
   app.post("/api/tenant/:tenantId/performance-agreements", async (req, res) => {
     const { tenantId } = req.params;
-    const userId = req.query.userId ? String(req.query.userId) : 'default';
+    const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
     const { agreements } = req.body;
     try {
       const supabase = getSupabase();
@@ -6304,7 +6350,7 @@ Format your response exactly according to the following JSON schema:
   // 17.9 Fetch JSC Custom Drafting Document (jsc-draft) for a tenant
   app.get("/api/tenant/:tenantId/jsc-draft", async (req, res) => {
     const { tenantId } = req.params;
-    const userId = req.query.userId ? String(req.query.userId) : 'default';
+    const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
     try {
       const supabase = getSupabase();
       const documentId = `jsc_draft_${tenantId}_${userId}`;
@@ -6337,7 +6383,7 @@ Format your response exactly according to the following JSON schema:
   // 17.10 Save JSC Custom Drafting Document (jsc-draft) for a tenant
   app.post("/api/tenant/:tenantId/jsc-draft", async (req, res) => {
     const { tenantId } = req.params;
-    const userId = req.query.userId ? String(req.query.userId) : 'default';
+    const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
     const { title, html } = req.body;
     try {
       const supabase = getSupabase();
@@ -6365,7 +6411,7 @@ Format your response exactly according to the following JSON schema:
 
   app.get("/api/tenant/:tenantId/kpis", async (req, res) => {
     const { tenantId } = req.params;
-    const userId = req.query.userId ? String(req.query.userId) : 'default';
+    const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
     try {
       const supabase = getSupabase();
       const documentId = `kpis_${tenantId}_${userId}`;
@@ -6398,7 +6444,7 @@ Format your response exactly according to the following JSON schema:
   // 19. Save KPIs for a tenant
   app.post("/api/tenant/:tenantId/kpis", async (req, res) => {
     const { tenantId } = req.params;
-    const userId = req.query.userId ? String(req.query.userId) : 'default';
+    const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
     const { kpis } = req.body;
     try {
       const supabase = getSupabase();

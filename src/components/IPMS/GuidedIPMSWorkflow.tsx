@@ -69,12 +69,6 @@ export const GUIDE_STEPS: WorkflowStep[] = [
     actionLabel: 'Initiate Self-Evaluation Assessment'
   },
   { 
-    id: 'ipms-manager-review', 
-    name: 'Manager Approval', 
-    desc: 'Analyze, validate ratings, and collaborate on manager score adjustments.',
-    actionLabel: 'Perform Line Manager Approval'
-  },
-  { 
     id: 'ipms-internal-audit', 
     name: 'Internal Audit Review', 
     desc: 'Verify legislative compliance, data validation, and issue formal audit opinions.',
@@ -193,12 +187,13 @@ export const GuidedIPMSWorkflow: React.FC<GuidedIPMSWorkflowProps> = ({
 
   // Determine if a given index is unlocked
   const isStepUnlockedInput = (index: number): boolean => {
-    if (index === 0) return true;
+    if (index <= 0) return true;
+    if (index >= stepsToShow.length) return false;
 
     const stepDef = stepsToShow[index];
     if (stepDef && stepDef.id === 'ipms-manager-review') return true;
     
-    // Unlock all for Admins and PMS Team
+    // Unlock all for Admins, PMS Team, and Managers
     const email = (currentUser?.email || '').toLowerCase().trim();
     const role = (currentUser?.role || '').toLowerCase().trim();
     const systemRole = (currentUser?.systemRole || '').toLowerCase().trim();
@@ -210,10 +205,29 @@ export const GuidedIPMSWorkflow: React.FC<GuidedIPMSWorkflowProps> = ({
                       email === 'sakisd@nkangaladm.gov.za' || 
                       email === 'lukhelema@nkangaladm.gov.za' ||
                       jobFunction.includes('pms');
+    const isManagerUser = role === 'manager' || 
+                          role === 'approver' || 
+                          role === 'admin' || 
+                          systemRole.includes('manager') || 
+                          systemRole.includes('admin') || 
+                          jobFunction.includes('manager') ||
+                          jobFunction.includes('director') ||
+                          jobFunction.includes('head of') ||
+                          jobFunction.includes('divisional manager') ||
+                          email.includes('khuboni') ||
+                          email.includes('mike@massivedynamixdistributors.com');
                       
-    if (isGlobalOrSystemAdmin || isPMSTeam) return true;
+    if (isGlobalOrSystemAdmin || isPMSTeam || isManagerUser) return true;
 
     const prevStep = stepsToShow[index - 1];
+    if (!prevStep) return false;
+
+    if (prevStep.id === 'ipms-manager-review' && index >= 2) {
+      const twoStepsBack = stepsToShow[index - 2];
+      if (twoStepsBack) {
+        return completedIPMSSteps.includes(twoStepsBack.id);
+      }
+    }
     return completedIPMSSteps.includes(prevStep.id);
   };
 
@@ -429,7 +443,8 @@ export const GuidedIPMSWorkflow: React.FC<GuidedIPMSWorkflowProps> = ({
     const updated = Array.from(new Set([...completedIPMSSteps, stepId]));
     
     try {
-      const response = await fetch(`/api/tenant/${activeTenantId}/ipms-progress?userId=${currentUser?.email || 'default'}`, {
+      const emailParam = (currentUser?.email || 'default').toLowerCase().trim();
+      const response = await fetch(`/api/tenant/${activeTenantId}/ipms-progress?userId=${emailParam}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ completedSteps: updated })
@@ -486,7 +501,8 @@ export const GuidedIPMSWorkflow: React.FC<GuidedIPMSWorkflowProps> = ({
             onClick={async () => {
               setLoading(true);
               try {
-                await fetch(`/api/tenant/${activeTenantId}/ipms-progress?userId=${currentUser?.email || 'default'}`, {
+                const emailParam = (currentUser?.email || 'default').toLowerCase().trim();
+                await fetch(`/api/tenant/${activeTenantId}/ipms-progress?userId=${emailParam}`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ completedSteps: [] })
