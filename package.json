@@ -43,7 +43,12 @@
     "socket.io-client": "^4.8.3",
     "tailwind-merge": "^3.6.0",
     "wacomgss-npm": "^0.5.2",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "esbuild": "^0.25.0",
+    "tailwindcss": "^4.1.14",
+    "tsx": "^4.21.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.3"
   },
   "devDependencies": {
     "@types/compression": "^1.8.1",
@@ -51,11 +56,6 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/jszip": "^3.4.1",
     "@types/node": "^22.14.0",
-    "autoprefixer": "^10.4.21",
-    "esbuild": "^0.25.0",
-    "tailwindcss": "^4.1.14",
-    "tsx": "^4.21.0",
-    "typescript": "~5.8.2",
-    "vite": "^6.2.3"
+    "autoprefixer": "^10.4.21"
   }
 }
