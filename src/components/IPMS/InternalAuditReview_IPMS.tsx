@@ -25,6 +25,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { IPMSWorkflowInbox } from './IPMSWorkflowInbox';
+import { OfficeDocumentViewer } from './OfficeDocumentViewer';
 
 interface Props {
   currentUser: any;
@@ -1400,172 +1401,13 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
 
       {/* SECURE DOCUMENT PREVIEW LIGHTBOX/MODAL */}
       {previewDoc && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl overflow-hidden shadow-2xl max-w-2xl w-full border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
-            {/* Lightbox Header */}
-            <div className="px-6 py-4 bg-slate-900 text-white flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-white/10 rounded-xl">
-                  {getFileIconComponent(previewDoc.name)}
-                </div>
-                <div>
-                  <h3 className="font-extrabold text-sm m-0 max-w-md truncate">{previewDoc.name}</h3>
-                  <p className="text-[9px] text-slate-400 uppercase font-mono tracking-wider m-0">Verified Uploaded Evidence Module</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setPreviewDoc(null)}
-                className="text-slate-400 hover:text-white transition bg-transparent border-0 cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Lightbox Document Body Frame Simulator */}
-            <div className="p-6 max-h-[480px] overflow-y-auto bg-slate-50 space-y-4">
-              {/* Actual Document Rendering Container */}
-              {previewDoc.dataUrl ? (
-                <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm flex flex-col items-center justify-center min-h-[320px]">
-                  {previewDoc.mimeType?.startsWith('image/') || previewDoc.dataUrl.startsWith('data:image/') ? (
-                    <div className="border border-slate-100 rounded-lg p-2 bg-slate-50 shadow-inner flex justify-center w-full max-h-[360px] overflow-hidden">
-                      <img 
-                        src={previewDoc.dataUrl} 
-                        alt={previewDoc.name} 
-                        className="max-h-[340px] max-w-full object-contain rounded shadow-sm" 
-                        referrerPolicy="no-referrer" 
-                      />
-                    </div>
-                  ) : previewDoc.mimeType?.includes('pdf') || previewDoc.dataUrl.startsWith('data:application/pdf') ? (
-                    <iframe 
-                      src={previewDoc.dataUrl} 
-                      title={previewDoc.name} 
-                      className="w-full h-[360px] rounded-lg bg-white shadow-inner border border-slate-200" 
-                    />
-                  ) : (
-                    <div className="text-center p-6 bg-slate-50 rounded-xl border border-slate-150 max-w-md w-full">
-                      <FileText className="w-16 h-16 text-slate-300 mx-auto mb-3 animate-none" />
-                      <h4 className="text-sm font-bold text-slate-800 mb-1">Preview Not Available directly</h4>
-                      <p className="text-xs text-slate-500 mb-4">This file type ({previewDoc.name.split('.').pop()?.toUpperCase()}) can be downloaded to view details.</p>
-                      <a 
-                        href={previewDoc.dataUrl} 
-                        download={previewDoc.name} 
-                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold text-[10px] uppercase hover:bg-emerald-500 transition shadow-sm decoration-none no-underline"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        Download File
-                      </a>
-                    </div>
-                  )}
-                  <div className="w-full text-center mt-2">
-                    <span className="text-[9px] text-slate-400 uppercase font-mono tracking-wider">
-                      Verified Data Storage Node Stream ({((previewDoc.size || 0) / (1024 * 1024)).toFixed(2)} MB)
-                    </span>
-                  </div>
-                </div>
-              ) : null}
-
-              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
-                {/* Simulated Header Stamp */}
-                <div className="flex justify-between items-start pb-3 border-b border-dashed border-slate-200 text-left">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-5 h-5 text-indigo-600" />
-                    <div>
-                      <h4 className="text-[10px] uppercase font-black text-slate-800 m-0 tracking-wider">MzansiFlow Audit Protocol</h4>
-                      <p className="text-[8px] text-slate-400 font-mono m-0">SECURE SHELF INTEGRITY VERIFICATION</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-[8px] bg-indigo-50 border border-indigo-200 rounded px-1.5 py-0.5 text-indigo-700 font-mono uppercase font-black">
-                      Ref: PoE-{previewDoc.id ? previewDoc.id.substring(0, 10).toUpperCase() : 'IA-9921'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Subtitles & Details */}
-                <div className="space-y-3 text-left">
-                  <div className="text-center my-2">
-                    <h2 className="text-xs font-black text-slate-900 uppercase tracking-widest leading-none">
-                      OFFICIAL PERFORMANCE PROOF
-                    </h2>
-                    <span className="text-[8px] text-slate-400 bg-slate-100 border border-slate-250 px-2 py-0.5 rounded mt-1 inline-block font-mono">
-                      SYSTEM FILE: {previewDoc.name}
-                    </span>
-                  </div>
-
-                  {/* Info grid */}
-                  <div className="grid grid-cols-2 gap-3 text-[10px] bg-slate-50 border border-slate-150 rounded-xl p-3">
-                    <div>
-                      <p className="m-0 text-slate-400 uppercase text-[7.5px] font-bold tracking-wider">Assigned Holder</p>
-                      <p className="m-0 font-bold text-slate-800">{plan.metadata?.name || 'Assigned Officer'}</p>
-                    </div>
-                    <div>
-                      <p className="m-0 text-slate-400 uppercase text-[7.5px] font-bold tracking-wider">Department Desk</p>
-                      <p className="m-0 font-bold text-slate-800">{plan.metadata?.department || 'Directorate Desk'}</p>
-                    </div>
-                    <div>
-                      <p className="m-0 text-slate-400 uppercase text-[7.5px] font-bold tracking-wider">KPI Target Reference</p>
-                      <p className="m-0 font-bold text-slate-800 truncate" title={previewDoc.kpiName}>{previewDoc.kpiName}</p>
-                    </div>
-                    <div>
-                      <p className="m-0 text-slate-400 uppercase text-[7.5px] font-bold tracking-wider">Evidence Term</p>
-                      <p className="m-0 font-bold text-slate-800">{previewDoc.quarter || 'Annual'}</p>
-                    </div>
-                  </div>
-
-                  {/* Narrative simulation message */}
-                  <div className="pt-2 space-y-1.5 border-t border-slate-150">
-                    <h5 className="font-bold text-[9px] text-slate-800 uppercase tracking-wider m-0">
-                      INTEGRITY STATEMENT
-                    </h5>
-                    <p className="text-[10.5px] leading-relaxed italic text-slate-600 m-0">
-                      "I hereby certify that this documentation has been reviewed and verified by the Internal Audit panel. Cross-referenced output aligns with legislated mSCOA frameworks and general performance review targets."
-                    </p>
-                  </div>
-                </div>
-
-                {/* Footer Stamps & Security Certificates */}
-                <div className="flex justify-between items-end border-t border-slate-250 pt-3 mt-2 text-left">
-                  <div className="text-[7.5px] text-slate-400 leading-normal">
-                    <p className="m-0">DOCUMENT CLASS: SECURE PERFORMANCE EVIDENCE</p>
-                    <p className="m-0 text-indigo-600">MZANSIFLOW REGULATORY AUDIT SAFEGUARD © 2026</p>
-                  </div>
-                  {/* Visual Stamp Ribbon */}
-                  <div className="flex items-center gap-1 border border-emerald-600 rounded-lg px-2 py-0.5 bg-emerald-50 text-emerald-800 transform rotate-[-1deg] shadow-sm">
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                    <div className="text-[7px] font-black uppercase tracking-wider leading-none">
-                      <p className="m-0 text-emerald-800">AUDITED</p>
-                      <p className="m-0 text-[5.5px] text-emerald-600">PORTFOLIO OK</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Lightbox Footer controls */}
-            <div className="px-6 py-4 bg-slate-150 border-t border-slate-200 flex justify-between items-center gap-4">
-              <span className="text-[10px] text-slate-500 font-medium leading-tight">
-                Inspect checklist against specific KPI targets.
-              </span>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleDownloadDoc(previewDoc)}
-                  className="bg-slate-900 hover:bg-slate-800 text-white text-[10px] uppercase font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 transition border-0 cursor-pointer shadow-sm"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Download Secure</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPreviewDoc(null)}
-                  className="bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] uppercase font-bold px-4 py-2 rounded-xl transition border-0 cursor-pointer"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <OfficeDocumentViewer 
+          doc={{
+            ...previewDoc,
+            uploadedBy: plan?.metadata?.name || selectedPlan?.metadata?.name || 'Assigned Officer'
+          }} 
+          onClose={() => setPreviewDoc(null)} 
+        />
       )}
 
       {showClearKpiModal && (

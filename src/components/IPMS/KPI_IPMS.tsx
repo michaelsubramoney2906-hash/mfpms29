@@ -5,6 +5,7 @@ import {
   Eye, Download, AlertCircle
 } from 'lucide-react';
 import type { User } from '../../types';
+import { OfficeDocumentViewer } from './OfficeDocumentViewer';
 
 export interface PoeDocument {
   id: string;
@@ -330,64 +331,7 @@ export function QuarterPoeSelector({
 
       {/* Preview Modal */}
       {previewDoc && (
-        <div className="fixed inset-0 z-[100] bg-slate-900/90 backdrop-blur-sm flex items-center justify-center p-4 lg:p-8" onClick={() => setPreviewDoc(null)}>
-          <div className="bg-white w-full max-w-5xl h-full max-h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600">
-                  <FileText className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-800 text-sm">{previewDoc.name}</h3>
-                  <p className="text-xs text-slate-500 font-medium">Uploaded Document Preview</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {previewDoc.dataUrl && (
-                  <a
-                    href={previewDoc.dataUrl}
-                    download={previewDoc.name}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors"
-                  >
-                    <Download className="w-4 h-4" /> Download
-                  </a>
-                )}
-                <button
-                  onClick={() => setPreviewDoc(null)}
-                  className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 hover:bg-slate-100 rounded-lg text-slate-500 transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-            <div className="flex-1 bg-slate-100 p-6 overflow-hidden flex items-center justify-center relative">
-              {!previewDoc.dataUrl ? (
-                <div className="text-center">
-                  <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-3" />
-                  <h4 className="text-lg font-bold text-slate-800 mb-2">Preview Not Available</h4>
-                  <p className="text-sm text-slate-600 max-w-sm mx-auto">This document's content is not available in the current context. It might have been stripped to optimize loading.</p>
-                </div>
-              ) : previewDoc.mimeType?.startsWith('image/') || previewDoc.dataUrl.startsWith('data:image/') ? (
-                <img src={previewDoc.dataUrl} alt={previewDoc.name} className="max-h-full max-w-full object-contain rounded-lg shadow-sm" />
-              ) : previewDoc.mimeType?.includes('pdf') || previewDoc.dataUrl.startsWith('data:application/pdf') ? (
-                <iframe src={previewDoc.dataUrl} title={previewDoc.name} className="w-full h-full rounded-lg bg-white shadow-sm" />
-              ) : (
-                <div className="text-center bg-white p-8 rounded-xl shadow-sm border border-slate-200 max-w-md w-full">
-                  <File className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                  <h4 className="text-lg font-bold text-slate-800 mb-2">No Preview Available</h4>
-                  <p className="text-sm text-slate-600 mb-6">This file type ({previewDoc.name.split('.').pop()?.toUpperCase()}) cannot be previewed directly in the browser.</p>
-                  <a
-                    href={previewDoc.dataUrl}
-                    download={previewDoc.name}
-                    className="inline-flex items-center gap-2 px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold rounded-lg transition-colors"
-                  >
-                    <Download className="w-4 h-4" /> Download to View
-                  </a>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        <OfficeDocumentViewer doc={previewDoc} onClose={() => setPreviewDoc(null)} />
       )}
     </div>
   );
@@ -452,6 +396,7 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
   const [browseModalQuarter, setBrowseModalQuarter] = useState<'Q1'|'Q2'|'Q3'|'Q4'>('Q1');
   const [poeCommentInput, setPoeCommentInput] = useState('');
   const [browseModalPoeDocs, setBrowseModalPoeDocs] = useState<PoeDocument[]>([]);
+  const [previewDoc, setPreviewDoc] = useState<any | null>(null);
 
   const openBrowseModal = (kpiId: string, quarter: 'Q1'|'Q2'|'Q3'|'Q4') => {
     const k = kpis.find(item => item.id === kpiId);
@@ -1350,9 +1295,9 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
                                     <button
                                       key={doc.id}
                                       type="button"
-                                      onClick={() => downloadDoc(doc)}
+                                      onClick={() => setPreviewDoc({ ...doc, kpiName: k.kpi, quarter: 'Q1' })}
                                       className="inline-flex items-center gap-1 bg-white/5 hover:bg-white/10 active:bg-white/15 text-[8.5px] font-bold text-slate-200 px-2 py-0.5 rounded border border-white/5 truncate max-w-full cursor-pointer hover:text-emerald-300"
-                                      title={`Click to download: ${doc.name}`}
+                                      title={`Click to view: ${doc.name}`}
                                     >
                                       <Paperclip className="w-2.5 h-2.5 text-slate-400 shrink-0" />
                                       <span className="truncate">{doc.name}</span>
@@ -1374,9 +1319,9 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
                                     <button
                                       key={doc.id}
                                       type="button"
-                                      onClick={() => downloadDoc(doc)}
+                                      onClick={() => setPreviewDoc({ ...doc, kpiName: k.kpi, quarter: 'Q2' })}
                                       className="inline-flex items-center gap-1 bg-white/5 hover:bg-white/10 active:bg-white/15 text-[8.5px] font-bold text-slate-200 px-2 py-0.5 rounded border border-white/5 truncate max-w-full cursor-pointer hover:text-emerald-300"
-                                      title={`Click to download: ${doc.name}`}
+                                      title={`Click to view: ${doc.name}`}
                                     >
                                       <Paperclip className="w-2.5 h-2.5 text-slate-400 shrink-0" />
                                       <span className="truncate">{doc.name}</span>
@@ -1398,9 +1343,9 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
                                     <button
                                       key={doc.id}
                                       type="button"
-                                      onClick={() => downloadDoc(doc)}
+                                      onClick={() => setPreviewDoc({ ...doc, kpiName: k.kpi, quarter: 'Q3' })}
                                       className="inline-flex items-center gap-1 bg-white/5 hover:bg-white/10 active:bg-white/15 text-[8.5px] font-bold text-slate-200 px-2 py-0.5 rounded border border-white/5 truncate max-w-full cursor-pointer hover:text-emerald-300"
-                                      title={`Click to download: ${doc.name}`}
+                                      title={`Click to view: ${doc.name}`}
                                     >
                                       <Paperclip className="w-2.5 h-2.5 text-slate-400 shrink-0" />
                                       <span className="truncate">{doc.name}</span>
@@ -1422,9 +1367,9 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
                                     <button
                                       key={doc.id}
                                       type="button"
-                                      onClick={() => downloadDoc(doc)}
+                                      onClick={() => setPreviewDoc({ ...doc, kpiName: k.kpi, quarter: 'Q4' })}
                                       className="inline-flex items-center gap-1 bg-white/5 hover:bg-white/10 active:bg-white/15 text-[8.5px] font-bold text-slate-200 px-2 py-0.5 rounded border border-white/5 truncate max-w-full cursor-pointer hover:text-emerald-300"
-                                      title={`Click to download: ${doc.name}`}
+                                      title={`Click to view: ${doc.name}`}
                                     >
                                       <Paperclip className="w-2.5 h-2.5 text-slate-400 shrink-0" />
                                       <span className="truncate">{doc.name}</span>
@@ -1714,9 +1659,9 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
                           >
                             <button
                               type="button"
-                              onClick={() => downloadDoc(d)}
+                              onClick={() => setPreviewDoc({ ...d, kpiName: kpis.find(item => item.id === browseModalKpiId)?.kpi, quarter: browseModalQuarter })}
                               className="flex items-center gap-2 hover:text-blue-200 truncate cursor-pointer text-left font-mono text-[10px]"
-                              title={`Click to download: ${d.name}`}
+                              title={`Click to view: ${d.name}`}
                             >
                               <Paperclip className="w-3.5 h-3.5 text-blue-400 shrink-0" />
                               <span className="truncate max-w-[150px]">{d.name}</span>
@@ -1828,6 +1773,9 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
             </div>
           </div>
         </div>
+      )}
+      {previewDoc && (
+        <OfficeDocumentViewer doc={previewDoc} onClose={() => setPreviewDoc(null)} />
       )}
     </>
   );

@@ -14,6 +14,133 @@ import { DraftingSuiteFirefighters } from './DraftingSuiteFirefighters';
 import { DraftingSuiteTeam } from './DraftingSuiteTeam';
 import { PATemplates } from './PATemplates';
 import { NKANGALA_LOGO_BASE64 } from './nkangala_logo_base64';
+import { PoeDocument } from './Evaluation_IPMS';
+
+export const calculateVariance = (target?: string, actual?: string): string => {
+  if (!target || !actual) return '0';
+  const cleanNum = (val: string) => {
+    const standardFormat = val.replace(/,/g, '').replace(/\s/g, '');
+    const match = standardFormat.match(/-?\d+(\.\d+)?/);
+    if (match) {
+      const parsed = parseFloat(match[0]);
+      return isNaN(parsed) ? null : parsed;
+    }
+    return null;
+  };
+  const tNum = cleanNum(target);
+  const aNum = cleanNum(actual);
+  if (tNum !== null && aNum !== null) {
+    const diff = tNum - aNum;
+    return Number(diff.toFixed(2)).toString();
+  }
+  return '0';
+};
+
+interface CompactPoeUploaderProps {
+  label: string;
+  files: PoeDocument[];
+  onUpload: (newDocs: PoeDocument[]) => void;
+  onRemove: (id: string) => void;
+  disabled?: boolean;
+}
+
+export function CompactPoeUploader({
+  label,
+  files,
+  onUpload,
+  onRemove,
+  disabled
+}: CompactPoeUploaderProps) {
+  const fileInputId = `compact_poe_${label.replace(/\s+/g, '_')}_${Math.random().toString(36).substr(2, 9)}`;
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const fileList = e.target.files;
+    const newDocs: PoeDocument[] = [];
+    for (let i = 0; i < fileList.length; i++) {
+      const file = fileList[i];
+      if (file.size > 200 * 1024 * 1024) {
+        alert(`File "${file.name}" exceeds 200MB limit.`);
+        continue;
+      }
+      try {
+        const doc = await new Promise<PoeDocument>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            resolve({
+              id: `poe_doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              name: file.name,
+              mimeType: file.type || 'application/octet-stream',
+              size: file.size,
+              dataUrl: reader.result as string,
+              uploadedAt: new Date().toISOString(),
+              uploadedBy: 'System'
+            });
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        newDocs.push(doc);
+      } catch (err) {
+        console.error("File reading failed:", err);
+      }
+    }
+    if (newDocs.length > 0) {
+      onUpload(newDocs);
+    }
+    e.target.value = '';
+  };
+
+  return (
+    <div className="mt-1.5 pt-1.5 border-t border-slate-200/60 w-full text-left">
+      <div className="flex items-center justify-between gap-1 mb-1">
+        <span className="text-[8px] font-extrabold text-slate-500 uppercase tracking-tight">{label}:</span>
+        {!disabled && (
+          <label htmlFor={fileInputId} className="flex items-center gap-0.5 text-[8px] font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer bg-indigo-50 hover:bg-indigo-100 px-1 py-0.5 rounded transition">
+            <Upload className="w-2 h-2" />
+            <span>Upload</span>
+            <input
+              id={fileInputId}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={handleFileChange}
+              accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+            />
+          </label>
+        )}
+      </div>
+      {files && files.length > 0 ? (
+        <div className="flex flex-col gap-1 max-h-[60px] overflow-y-auto">
+          {files.map((file) => (
+            <div key={file.id} className="flex items-center justify-between gap-1 bg-slate-50 border border-slate-150 rounded px-1 py-0.5 text-[8px]">
+              <a
+                href={file.dataUrl}
+                download={file.name}
+                className="font-medium text-blue-600 hover:underline truncate max-w-[90px] flex items-center gap-0.5"
+                title={file.name}
+              >
+                <Paperclip className="w-2 h-2 shrink-0 text-slate-400" />
+                <span className="truncate">{file.name}</span>
+              </a>
+              {!disabled && (
+                <button
+                  type="button"
+                  onClick={() => onRemove(file.id)}
+                  className="text-red-500 hover:text-red-700 font-bold shrink-0"
+                >
+                  <Trash2 className="w-2 h-2" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <span className="text-[8px] text-slate-400 italic">No POE files</span>
+      )}
+    </div>
+  );
+}
 
 const DEFAULT_CORPORATE_SERVICES_ROWS = [
   ['1', 'Audrey Mpanza (Director: Corporate Services)', 'CS-0101'],
@@ -97,28 +224,44 @@ interface PlanKPIItem {
   q1Actual?: string;
   q1Comment?: string;
   q1Score?: string;
+  q1Corrective?: string;
   q2Target?: string;
   q2Actual?: string;
   q2Comment?: string;
   q2Score?: string;
+  q2Corrective?: string;
   midtermTarget?: string;
   midtermActual?: string;
   midtermComment?: string;
   midtermScore?: string;
+  midtermCorrective?: string;
   q3Target?: string;
   q3Actual?: string;
   q3Comment?: string;
   q3Score?: string;
+  q3Corrective?: string;
   q4Target?: string;
   q4Actual?: string;
   q4Comment?: string;
   q4Score?: string;
+  q4Corrective?: string;
 
   // Quarterly POEs
   q1Poe?: string;
   q2Poe?: string;
   q3Poe?: string;
   q4Poe?: string;
+
+  q1PoeDocs?: PoeDocument[];
+  q2PoeDocs?: PoeDocument[];
+  midtermPoeDocs?: PoeDocument[];
+  q3PoeDocs?: PoeDocument[];
+  q4PoeDocs?: PoeDocument[];
+
+  q1Locked?: boolean;
+  q2Locked?: boolean;
+  q3Locked?: boolean;
+  q4Locked?: boolean;
 
   poe: string;
   poeFileBase64?: string;
@@ -872,6 +1015,11 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
       
       let extKpis: any[] = [];
       let foundExtraction = false;
+      let q1Codes: string[] = [];
+      let q2Codes: string[] = [];
+      let q3Codes: string[] = [];
+      let q4Codes: string[] = [];
+      let hasGrid = false;
       
       if (res.ok) {
         const result = await safeJson(res) || {};
@@ -908,12 +1056,21 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
               }
             });
           }
+
+          const grid = perfPlan.Annual_Planner_Grid || {};
+          if (grid) {
+            if (Array.isArray(grid.Quarter_1)) q1Codes = grid.Quarter_1.map((c: any) => c.toString().toUpperCase().trim());
+            if (Array.isArray(grid.Quarter_2)) q2Codes = grid.Quarter_2.map((c: any) => c.toString().toUpperCase().trim());
+            if (Array.isArray(grid.Quarter_3)) q3Codes = grid.Quarter_3.map((c: any) => c.toString().toUpperCase().trim());
+            if (Array.isArray(grid.Quarter_4)) q4Codes = grid.Quarter_4.map((c: any) => c.toString().toUpperCase().trim());
+            hasGrid = q1Codes.length > 0 || q2Codes.length > 0 || q3Codes.length > 0 || q4Codes.length > 0;
+          }
         }
       }
 
       const baseCatalog = generateAll97KPIs(availableKpas);
-
       let finalKpiItems: PlanKPIItem[] = [];
+
       if (foundExtraction && extKpis.length > 0) {
         finalKpiItems = extKpis.map((e, idx) => {
           const codeUpper = e.code.toUpperCase();
@@ -959,6 +1116,11 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
             }
           }
 
+          const q1Locked = hasGrid ? !q1Codes.includes(codeUpper) : false;
+          const q2Locked = hasGrid ? !q2Codes.includes(codeUpper) : false;
+          const q3Locked = hasGrid ? !q3Codes.includes(codeUpper) : false;
+          const q4Locked = hasGrid ? !q4Codes.includes(codeUpper) : false;
+
           return {
             id: stdCatalogItem ? stdCatalogItem.id : `pplan-fred-extra-${e.code}-${idx}-${Math.random()}`,
             strategicGoal: stdCatalogItem?.strategicGoal || "General Departmental Objective Alignment",
@@ -976,10 +1138,14 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
             baselineYear: stdCatalogItem?.baselineYear || "2025/2026",
             budget: e.budget || stdCatalogItem?.budget || "",
             annualTarget: stdCatalogItem?.annualTarget || "100% compliance/execution of objectives",
-            q1Target: stdCatalogItem?.q1Target || "25% progress",
-            q2Target: stdCatalogItem?.q2Target || "50% progress",
-            q3Target: stdCatalogItem?.q3Target || "75% progress",
-            q4Target: stdCatalogItem?.q4Target || "100% progress",
+            q1Target: q1Locked ? "Locked (Not Reportable)" : (stdCatalogItem?.q1Target || "25% progress"),
+            q2Target: q2Locked ? "Locked (Not Reportable)" : (stdCatalogItem?.q2Target || "50% progress"),
+            q3Target: q3Locked ? "Locked (Not Reportable)" : (stdCatalogItem?.q3Target || "75% progress"),
+            q4Target: q4Locked ? "Locked (Not Reportable)" : (stdCatalogItem?.q4Target || "100% progress"),
+            q1Locked,
+            q2Locked,
+            q3Locked,
+            q4Locked,
             q1Poe: stdCatalogItem?.q1Poe || '',
             q2Poe: stdCatalogItem?.q2Poe || '',
             q3Poe: stdCatalogItem?.q3Poe || '',
@@ -2295,7 +2461,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
                   <th rowSpan={2} className="p-3 min-w-[120px] w-auto border-r border-slate-800 align-middle text-emerald-300 bg-emerald-950/20">Budget</th>
                   
                   {/* Financial Year Header above Targets */}
-                  <th colSpan={11} className="p-2 text-center border-r border-slate-800 bg-slate-950/45 text-[10px] tracking-widest text-emerald-400 font-extrabold min-w-[1650px]">
+                  <th colSpan={21} className="p-2 text-center border-r border-slate-800 bg-slate-950/45 text-[10px] tracking-widest text-emerald-400 font-extrabold min-w-[2800px]">
                     MUNICIPAL FINANCIAL YEAR (1 JULY - 30 JUNE)
                   </th>
                   
@@ -2317,22 +2483,32 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
                 <tr>
                   <th className="p-2 border-r border-slate-800 bg-slate-950/20 text-center text-[8px] tracking-tight min-w-[150px]">Annual Target</th>
                   <th className="p-2 border-r border-slate-800 bg-slate-950/20 text-center text-[8px] tracking-tight min-w-[150px]">1st Qtr Target</th>
-                  <th className="p-2 border-r border-slate-800 bg-slate-950/20 text-center text-[8px] tracking-tight min-w-[150px]">Actual<br/><span className="text-[7px] text-slate-400">Comment Below</span></th>
+                  <th className="p-2 border-r border-slate-800 bg-slate-950/20 text-center text-[8px] tracking-tight min-w-[150px]">1st Qtr Actual<br/><span className="text-[7px] text-slate-400">Comment Below</span></th>
+                  <th className="p-2 border-r border-slate-800 bg-slate-950/20 text-center text-[8px] tracking-tight min-w-[120px]">1st Qtr Variance</th>
+                  <th className="p-2 border-r border-slate-800 bg-slate-950/20 text-center text-[8px] tracking-tight min-w-[180px]">1st Qtr Corrective</th>
                   <th className="p-2 border-r border-slate-800 bg-slate-950/20 text-center text-[8px] tracking-tight min-w-[150px]">2nd Qtr Target</th>
-                  <th className="p-2 border-r border-slate-800 bg-slate-950/20 text-center text-[8px] tracking-tight min-w-[150px]">Actual<br/><span className="text-[7px] text-slate-400">Comment Below</span></th>
+                  <th className="p-2 border-r border-slate-800 bg-slate-950/20 text-center text-[8px] tracking-tight min-w-[150px]">2nd Qtr Actual<br/><span className="text-[7px] text-slate-400">Comment Below</span></th>
+                  <th className="p-2 border-r border-slate-800 bg-slate-950/20 text-center text-[8px] tracking-tight min-w-[120px]">2nd Qtr Variance</th>
+                  <th className="p-2 border-r border-slate-800 bg-slate-950/20 text-center text-[8px] tracking-tight min-w-[180px]">2nd Qtr Corrective</th>
                   <th className="p-2 border-r border-slate-800 bg-slate-950/20 text-center text-[8px] tracking-tight min-w-[150px]">Midterm Review</th>
                   <th className="p-2 border-r border-slate-800 bg-slate-950/20 text-center text-[8px] tracking-tight min-w-[150px]">Midterm Actual<br/><span className="text-[7px] text-slate-400">Comment Below</span></th>
+                  <th className="p-2 border-r border-slate-800 bg-slate-950/20 text-center text-[8px] tracking-tight min-w-[120px]">Midterm Variance</th>
+                  <th className="p-2 border-r border-slate-800 bg-slate-950/20 text-center text-[8px] tracking-tight min-w-[180px]">Midterm Corrective</th>
                   <th className="p-2 border-r border-slate-800 bg-slate-950/20 text-center text-[8px] tracking-tight min-w-[150px]">3rd Qtr Target</th>
-                  <th className="p-2 border-r border-slate-800 bg-slate-950/20 text-center text-[8px] tracking-tight min-w-[150px]">Actual<br/><span className="text-[7px] text-slate-400">Comment Below</span></th>
+                  <th className="p-2 border-r border-slate-800 bg-slate-950/20 text-center text-[8px] tracking-tight min-w-[150px]">3rd Qtr Actual<br/><span className="text-[7px] text-slate-400">Comment Below</span></th>
+                  <th className="p-2 border-r border-slate-800 bg-slate-950/20 text-center text-[8px] tracking-tight min-w-[120px]">3rd Qtr Variance</th>
+                  <th className="p-2 border-r border-slate-800 bg-slate-950/20 text-center text-[8px] tracking-tight min-w-[180px]">3rd Qtr Corrective</th>
                   <th className="p-2 border-r border-slate-800 bg-slate-950/20 text-center text-[8px] tracking-tight min-w-[150px]">4th Qtr Target</th>
-                  <th className="p-2 border-r border-slate-800 bg-slate-950/20 text-center text-[8px] tracking-tight min-w-[150px]">Actual<br/><span className="text-[7px] text-slate-400">Comment Below</span></th>
+                  <th className="p-2 border-r border-slate-800 bg-slate-950/20 text-center text-[8px] tracking-tight min-w-[150px]">4th Qtr Actual<br/><span className="text-[7px] text-slate-400">Comment Below</span></th>
+                  <th className="p-2 border-r border-slate-800 bg-slate-950/20 text-center text-[8px] tracking-tight min-w-[120px]">4th Qtr Variance</th>
+                  <th className="p-2 border-r border-slate-800 bg-slate-950/20 text-center text-[8px] tracking-tight min-w-[180px]">4th Qtr Corrective</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 font-semibold text-slate-850">
                 {items.length === 0 ? (
                   <tr>
                     <td 
-                      colSpan={isRestrictedVisible ? 24 : 19} 
+                      colSpan={isRestrictedVisible ? 34 : 29} 
                       className="p-8 text-center text-slate-400 font-bold uppercase tracking-widest bg-white"
                     >
                       No KPI targets configured. Click "Add Record" to start planning.
@@ -2611,11 +2787,12 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
                         />
                       </td>
 
-                      <td className="p-1 border-r border-slate-205 min-w-[150px]">
+                      <td className={`p-1 border-r border-slate-205 min-w-[150px] ${item.q1Locked ? 'bg-slate-100/50 opacity-60' : ''}`}>
                         <textarea
                           rows={2}
                           value={item.q1Target || ''}
                           onChange={(e) => handleRowChange(item.id, 'q1Target', e.target.value)}
+                          disabled={item.q1Locked}
                           onInput={(e) => {
                             e.currentTarget.style.height = 'auto';
                             e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
@@ -2626,47 +2803,107 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
                         />
                       </td>
 
-                      <td className="p-1 border-r border-slate-205 min-w-[150px] bg-slate-50/50">
-                        <div className="flex items-center gap-1 mb-1 justify-center px-1">
-                          <span className="text-[8px] font-bold text-amber-700 uppercase tracking-tight">Score:</span>
-                          <input
-                            type="number" min="1" max="5" step="0.1"
-                            value={item.q1Score || ''}
-                            onChange={(e) => handleRowChange(item.id, 'q1Score', e.target.value)}
-                            className="w-10 text-[9px] font-bold text-emerald-700 text-center bg-white border border-slate-200 outline-none rounded"
-                          />
-                        </div>
-                        <textarea
-                          rows={1}
-                          value={item.q1Actual || ''}
-                          onChange={(e) => handleRowChange(item.id, 'q1Actual', e.target.value)}
-                          onInput={(e) => {
-                            e.currentTarget.style.height = 'auto';
-                            e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
-                          }}
-                          placeholder="Actual..."
-                          className="w-full font-bold bg-transparent p-1 focus:bg-white hover:bg-white border-0 border-b border-dashed border-slate-300 outline-none text-center text-emerald-700 text-[10px] mb-1"
-                          style={{ minHeight: '20px', overflow: 'hidden' }}
-                        />
-                        <textarea
-                          rows={1}
-                          value={item.q1Comment || ''}
-                          onChange={(e) => handleRowChange(item.id, 'q1Comment', e.target.value)}
-                          onInput={(e) => {
-                            e.currentTarget.style.height = 'auto';
-                            e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
-                          }}
-                          placeholder="Comment..."
-                          className="w-full italic bg-transparent p-1 focus:bg-white hover:bg-white border-0 outline-none text-center text-slate-500 text-[9px]"
-                          style={{ minHeight: '20px', overflow: 'hidden' }}
-                        />
+                      <td className={`p-1 border-r border-slate-205 min-w-[150px] ${item.q1Locked ? 'bg-slate-100/80' : 'bg-slate-50/50'}`}>
+                        {item.q1Locked ? (
+                          <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-1 text-[10px] py-4 select-none">
+                            <span>🔒 Locked</span>
+                            <span className="text-[8px] text-slate-400 font-medium">Not reportable</span>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="flex items-center gap-1 mb-1 justify-center px-1">
+                              <span className="text-[8px] font-bold text-amber-700 uppercase tracking-tight">Score:</span>
+                              <input
+                                type="number" min="1" max="5" step="0.1"
+                                value={item.q1Score || ''}
+                                onChange={(e) => handleRowChange(item.id, 'q1Score', e.target.value)}
+                                className="w-10 text-[9px] font-bold text-emerald-700 text-center bg-white border border-slate-200 outline-none rounded"
+                              />
+                            </div>
+                            <textarea
+                              rows={1}
+                              value={item.q1Actual || ''}
+                              onChange={(e) => handleRowChange(item.id, 'q1Actual', e.target.value)}
+                              onInput={(e) => {
+                                e.currentTarget.style.height = 'auto';
+                                e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
+                              }}
+                              placeholder="1st Qtr Actual..."
+                              className="w-full font-bold bg-transparent p-1 focus:bg-white hover:bg-white border-0 border-b border-dashed border-slate-300 outline-none text-center text-emerald-700 text-[10px] mb-1"
+                              style={{ minHeight: '20px', overflow: 'hidden' }}
+                            />
+                            {/* Automatic 1st Qtr Variance */}
+                            {(() => {
+                              const variance = calculateVariance(item.q1Target, item.q1Actual);
+                              const hasVariance = variance !== '0';
+                              return (
+                                <div className="flex flex-col items-center gap-0.5 mb-1 px-1">
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-[8px] font-extrabold text-indigo-700 uppercase tracking-tight">Variance:</span>
+                                    <span className={`text-[9px] font-black px-1 rounded ${hasVariance ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'}`}>
+                                      {variance}
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                            <textarea
+                              rows={1}
+                              value={item.q1Comment || ''}
+                              onChange={(e) => handleRowChange(item.id, 'q1Comment', e.target.value)}
+                              disabled={calculateVariance(item.q1Target, item.q1Actual) === '0'}
+                              onInput={(e) => {
+                                e.currentTarget.style.height = 'auto';
+                                e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
+                              }}
+                              placeholder={calculateVariance(item.q1Target, item.q1Actual) === '0' ? "No variance - locked" : "Variance comment..."}
+                              className={`w-full italic bg-transparent p-1 focus:bg-white hover:bg-white border-0 outline-none text-center text-slate-500 text-[9px] ${calculateVariance(item.q1Target, item.q1Actual) === '0' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                              style={{ minHeight: '20px', overflow: 'hidden' }}
+                            />
+                            {/* Compact 1st Qtr POE */}
+                            <CompactPoeUploader
+                              label="1st Qtr POE"
+                              files={item.q1PoeDocs || []}
+                              onUpload={(newDocs) => handleRowChange(item.id, 'q1PoeDocs', [...(item.q1PoeDocs || []), ...newDocs])}
+                              onRemove={(docId) => handleRowChange(item.id, 'q1PoeDocs', (item.q1PoeDocs || []).filter(f => f.id !== docId))}
+                              disabled={item.q1Locked}
+                            />
+                          </>
+                        )}
                       </td>
 
-                      <td className="p-1 border-r border-slate-205 min-w-[150px]">
+                      {/* Q1 Variance Column */}
+                      <td className="p-1 border-r border-slate-205 min-w-[120px] bg-amber-50/15">
+                        <div className="flex flex-col items-center justify-center h-full gap-1 p-1">
+                          {(() => {
+                            const variance = calculateVariance(item.q1Target, item.q1Actual);
+                            const hasVariance = variance !== '0';
+                            return (
+                              <span className={`text-[10px] font-black px-2 py-1 rounded ${hasVariance ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'}`}>
+                                {variance}
+                              </span>
+                            );
+                          })()}
+                        </div>
+                      </td>
+
+                      {/* Q1 Corrective Column */}
+                      <td className="p-1 border-r border-slate-205 min-w-[180px] bg-amber-50/15">
+                        <div className="text-[9.5px] font-medium text-slate-800 p-2 bg-white border border-slate-200/60 rounded max-h-[110px] overflow-y-auto leading-normal whitespace-normal break-words">
+                          {item.q1Corrective ? (
+                            <span className="font-semibold text-emerald-800">{item.q1Corrective}</span>
+                          ) : (
+                            <span className="text-slate-400 italic">No corrective action logged in self-evaluation</span>
+                          )}
+                        </div>
+                      </td>
+
+                      <td className={`p-1 border-r border-slate-205 min-w-[150px] ${item.q2Locked ? 'bg-slate-100/50 opacity-60' : ''}`}>
                         <textarea
                           rows={2}
                           value={item.q2Target || ''}
                           onChange={(e) => handleRowChange(item.id, 'q2Target', e.target.value)}
+                          disabled={item.q2Locked}
                           onInput={(e) => {
                             e.currentTarget.style.height = 'auto';
                             e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
@@ -2677,40 +2914,99 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
                         />
                       </td>
 
-                      <td className="p-1 border-r border-slate-205 min-w-[150px] bg-slate-50/50">
-                        <div className="flex items-center gap-1 mb-1 justify-center px-1">
-                          <span className="text-[8px] font-bold text-amber-700 uppercase tracking-tight">Score:</span>
-                          <input
-                            type="number" min="1" max="5" step="0.1"
-                            value={item.q2Score || ''}
-                            onChange={(e) => handleRowChange(item.id, 'q2Score', e.target.value)}
-                            className="w-10 text-[9px] font-bold text-emerald-700 text-center bg-white border border-slate-200 outline-none rounded"
-                          />
+                      <td className={`p-1 border-r border-slate-205 min-w-[150px] ${item.q2Locked ? 'bg-slate-100/80' : 'bg-slate-50/50'}`}>
+                        {item.q2Locked ? (
+                          <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-1 text-[10px] py-4 select-none">
+                            <span>🔒 Locked</span>
+                            <span className="text-[8px] text-slate-400 font-medium">Not reportable</span>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="flex items-center gap-1 mb-1 justify-center px-1">
+                              <span className="text-[8px] font-bold text-amber-700 uppercase tracking-tight">Score:</span>
+                              <input
+                                type="number" min="1" max="5" step="0.1"
+                                value={item.q2Score || ''}
+                                onChange={(e) => handleRowChange(item.id, 'q2Score', e.target.value)}
+                                className="w-10 text-[9px] font-bold text-emerald-700 text-center bg-white border border-slate-200 outline-none rounded"
+                              />
+                            </div>
+                            <textarea
+                              rows={1}
+                              value={item.q2Actual || ''}
+                              onChange={(e) => handleRowChange(item.id, 'q2Actual', e.target.value)}
+                              onInput={(e) => {
+                                e.currentTarget.style.height = 'auto';
+                                e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
+                              }}
+                              placeholder="2nd Qtr Actual..."
+                              className="w-full font-bold bg-transparent p-1 focus:bg-white hover:bg-white border-0 border-b border-dashed border-slate-300 outline-none text-center text-emerald-700 text-[10px] mb-1"
+                              style={{ minHeight: '20px', overflow: 'hidden' }}
+                            />
+                            {/* Automatic 2nd Qtr Variance */}
+                            {(() => {
+                              const variance = calculateVariance(item.q2Target, item.q2Actual);
+                              const hasVariance = variance !== '0';
+                              return (
+                                <div className="flex flex-col items-center gap-0.5 mb-1 px-1">
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-[8px] font-extrabold text-indigo-700 uppercase tracking-tight">Variance:</span>
+                                    <span className={`text-[9px] font-black px-1 rounded ${hasVariance ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'}`}>
+                                      {variance}
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                            <textarea
+                              rows={1}
+                              value={item.q2Comment || ''}
+                              onChange={(e) => handleRowChange(item.id, 'q2Comment', e.target.value)}
+                              disabled={calculateVariance(item.q2Target, item.q2Actual) === '0'}
+                              onInput={(e) => {
+                                e.currentTarget.style.height = 'auto';
+                                e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
+                              }}
+                              placeholder={calculateVariance(item.q2Target, item.q2Actual) === '0' ? "No variance - locked" : "Variance comment..."}
+                              className={`w-full italic bg-transparent p-1 focus:bg-white hover:bg-white border-0 outline-none text-center text-slate-500 text-[9px] ${calculateVariance(item.q2Target, item.q2Actual) === '0' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                              style={{ minHeight: '20px', overflow: 'hidden' }}
+                            />
+                            {/* Compact 2nd Qtr POE */}
+                            <CompactPoeUploader
+                              label="2nd Qtr POE"
+                              files={item.q2PoeDocs || []}
+                              onUpload={(newDocs) => handleRowChange(item.id, 'q2PoeDocs', [...(item.q2PoeDocs || []), ...newDocs])}
+                              onRemove={(docId) => handleRowChange(item.id, 'q2PoeDocs', (item.q2PoeDocs || []).filter(f => f.id !== docId))}
+                              disabled={item.q2Locked}
+                            />
+                          </>
+                        )}
+                      </td>
+
+                      {/* Q2 Variance Column */}
+                      <td className="p-1 border-r border-slate-205 min-w-[120px] bg-amber-50/15">
+                        <div className="flex flex-col items-center justify-center h-full gap-1 p-1">
+                          {(() => {
+                            const variance = calculateVariance(item.q2Target, item.q2Actual);
+                            const hasVariance = variance !== '0';
+                            return (
+                              <span className={`text-[10px] font-black px-2 py-1 rounded ${hasVariance ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'}`}>
+                                {variance}
+                              </span>
+                            );
+                          })()}
                         </div>
-                        <textarea
-                          rows={1}
-                          value={item.q2Actual || ''}
-                          onChange={(e) => handleRowChange(item.id, 'q2Actual', e.target.value)}
-                          onInput={(e) => {
-                            e.currentTarget.style.height = 'auto';
-                            e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
-                          }}
-                          placeholder="Actual..."
-                          className="w-full font-bold bg-transparent p-1 focus:bg-white hover:bg-white border-0 border-b border-dashed border-slate-300 outline-none text-center text-emerald-700 text-[10px] mb-1"
-                          style={{ minHeight: '20px', overflow: 'hidden' }}
-                        />
-                        <textarea
-                          rows={1}
-                          value={item.q2Comment || ''}
-                          onChange={(e) => handleRowChange(item.id, 'q2Comment', e.target.value)}
-                          onInput={(e) => {
-                            e.currentTarget.style.height = 'auto';
-                            e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
-                          }}
-                          placeholder="Comment..."
-                          className="w-full italic bg-transparent p-1 focus:bg-white hover:bg-white border-0 outline-none text-center text-slate-500 text-[9px]"
-                          style={{ minHeight: '20px', overflow: 'hidden' }}
-                        />
+                      </td>
+
+                      {/* Q2 Corrective Column */}
+                      <td className="p-1 border-r border-slate-205 min-w-[180px] bg-amber-50/15">
+                        <div className="text-[9.5px] font-medium text-slate-800 p-2 bg-white border border-slate-200/60 rounded max-h-[110px] overflow-y-auto leading-normal whitespace-normal break-words">
+                          {item.q2Corrective ? (
+                            <span className="font-semibold text-emerald-800">{item.q2Corrective}</span>
+                          ) : (
+                            <span className="text-slate-400 italic">No corrective action logged in self-evaluation</span>
+                          )}
+                        </div>
                       </td>
 
                       <td className="p-1 border-r border-slate-205 min-w-[150px] bg-indigo-50/30">
@@ -2746,29 +3042,79 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
                             e.currentTarget.style.height = 'auto';
                             e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
                           }}
-                          placeholder="Actual..."
+                          placeholder="Midterm Actual..."
                           className="w-full font-bold bg-transparent p-1 focus:bg-white hover:bg-white border-0 border-b border-dashed border-slate-300 outline-none text-center text-emerald-700 text-[10px] mb-1"
                           style={{ minHeight: '20px', overflow: 'hidden' }}
                         />
+                        {/* Automatic Midterm Variance */}
+                        {(() => {
+                          const variance = calculateVariance(item.midtermTarget, item.midtermActual);
+                          const hasVariance = variance !== '0';
+                          return (
+                            <div className="flex flex-col items-center gap-0.5 mb-1 px-1">
+                              <div className="flex items-center gap-1">
+                                <span className="text-[8px] font-extrabold text-indigo-700 uppercase tracking-tight">Variance:</span>
+                                <span className={`text-[9px] font-black px-1 rounded ${hasVariance ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'}`}>
+                                  {variance}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })()}
                         <textarea
                           rows={1}
                           value={item.midtermComment || ''}
                           onChange={(e) => handleRowChange(item.id, 'midtermComment', e.target.value)}
+                          disabled={calculateVariance(item.midtermTarget, item.midtermActual) === '0'}
                           onInput={(e) => {
                             e.currentTarget.style.height = 'auto';
                             e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
                           }}
-                          placeholder="Comment..."
-                          className="w-full italic bg-transparent p-1 focus:bg-white hover:bg-white border-0 outline-none text-center text-slate-500 text-[9px]"
+                          placeholder={calculateVariance(item.midtermTarget, item.midtermActual) === '0' ? "No variance - locked" : "Variance comment..."}
+                          className={`w-full italic bg-transparent p-1 focus:bg-white hover:bg-white border-0 outline-none text-center text-slate-500 text-[9px] ${calculateVariance(item.midtermTarget, item.midtermActual) === '0' ? 'opacity-50 cursor-not-allowed' : ''}`}
                           style={{ minHeight: '20px', overflow: 'hidden' }}
+                        />
+                        {/* Compact Midterm POE */}
+                        <CompactPoeUploader
+                          label="Midterm POE"
+                          files={item.midtermPoeDocs || []}
+                          onUpload={(newDocs) => handleRowChange(item.id, 'midtermPoeDocs', [...(item.midtermPoeDocs || []), ...newDocs])}
+                          onRemove={(docId) => handleRowChange(item.id, 'midtermPoeDocs', (item.midtermPoeDocs || []).filter(f => f.id !== docId))}
                         />
                       </td>
 
-                      <td className="p-1 border-r border-slate-205 min-w-[150px]">
+                      {/* Midterm Variance Column */}
+                      <td className="p-1 border-r border-slate-205 min-w-[120px] bg-amber-50/15">
+                        <div className="flex flex-col items-center justify-center h-full gap-1 p-1">
+                          {(() => {
+                            const variance = calculateVariance(item.midtermTarget, item.midtermActual);
+                            const hasVariance = variance !== '0';
+                            return (
+                              <span className={`text-[10px] font-black px-2 py-1 rounded ${hasVariance ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'}`}>
+                                {variance}
+                              </span>
+                            );
+                          })()}
+                        </div>
+                      </td>
+
+                      {/* Midterm Corrective Column */}
+                      <td className="p-1 border-r border-slate-205 min-w-[180px] bg-amber-50/15">
+                        <div className="text-[9.5px] font-medium text-slate-800 p-2 bg-white border border-slate-200/60 rounded max-h-[110px] overflow-y-auto leading-normal whitespace-normal break-words">
+                          {item.midtermCorrective ? (
+                            <span className="font-semibold text-emerald-800">{item.midtermCorrective}</span>
+                          ) : (
+                            <span className="text-slate-400 italic">No corrective action logged in self-evaluation</span>
+                          )}
+                        </div>
+                      </td>
+
+                      <td className={`p-1 border-r border-slate-205 min-w-[150px] ${item.q3Locked ? 'bg-slate-100/50 opacity-60' : ''}`}>
                         <textarea
                           rows={2}
                           value={item.q3Target || ''}
                           onChange={(e) => handleRowChange(item.id, 'q3Target', e.target.value)}
+                          disabled={item.q3Locked}
                           onInput={(e) => {
                             e.currentTarget.style.height = 'auto';
                             e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
@@ -2779,47 +3125,107 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
                         />
                       </td>
 
-                      <td className="p-1 border-r border-slate-205 min-w-[150px] bg-slate-50/50">
-                        <div className="flex items-center gap-1 mb-1 justify-center px-1">
-                          <span className="text-[8px] font-bold text-amber-700 uppercase tracking-tight">Score:</span>
-                          <input
-                            type="number" min="1" max="5" step="0.1"
-                            value={item.q3Score || ''}
-                            onChange={(e) => handleRowChange(item.id, 'q3Score', e.target.value)}
-                            className="w-10 text-[9px] font-bold text-emerald-700 text-center bg-white border border-slate-200 outline-none rounded"
-                          />
-                        </div>
-                        <textarea
-                          rows={1}
-                          value={item.q3Actual || ''}
-                          onChange={(e) => handleRowChange(item.id, 'q3Actual', e.target.value)}
-                          onInput={(e) => {
-                            e.currentTarget.style.height = 'auto';
-                            e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
-                          }}
-                          placeholder="Actual..."
-                          className="w-full font-bold bg-transparent p-1 focus:bg-white hover:bg-white border-0 border-b border-dashed border-slate-300 outline-none text-center text-emerald-700 text-[10px] mb-1"
-                          style={{ minHeight: '20px', overflow: 'hidden' }}
-                        />
-                        <textarea
-                          rows={1}
-                          value={item.q3Comment || ''}
-                          onChange={(e) => handleRowChange(item.id, 'q3Comment', e.target.value)}
-                          onInput={(e) => {
-                            e.currentTarget.style.height = 'auto';
-                            e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
-                          }}
-                          placeholder="Comment..."
-                          className="w-full italic bg-transparent p-1 focus:bg-white hover:bg-white border-0 outline-none text-center text-slate-500 text-[9px]"
-                          style={{ minHeight: '20px', overflow: 'hidden' }}
-                        />
+                      <td className={`p-1 border-r border-slate-205 min-w-[150px] ${item.q3Locked ? 'bg-slate-100/80' : 'bg-slate-50/50'}`}>
+                        {item.q3Locked ? (
+                          <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-1 text-[10px] py-4 select-none">
+                            <span>🔒 Locked</span>
+                            <span className="text-[8px] text-slate-400 font-medium">Not reportable</span>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="flex items-center gap-1 mb-1 justify-center px-1">
+                              <span className="text-[8px] font-bold text-amber-700 uppercase tracking-tight">Score:</span>
+                              <input
+                                type="number" min="1" max="5" step="0.1"
+                                value={item.q3Score || ''}
+                                onChange={(e) => handleRowChange(item.id, 'q3Score', e.target.value)}
+                                className="w-10 text-[9px] font-bold text-emerald-700 text-center bg-white border border-slate-200 outline-none rounded"
+                              />
+                            </div>
+                            <textarea
+                              rows={1}
+                              value={item.q3Actual || ''}
+                              onChange={(e) => handleRowChange(item.id, 'q3Actual', e.target.value)}
+                              onInput={(e) => {
+                                e.currentTarget.style.height = 'auto';
+                                e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
+                              }}
+                              placeholder="3rd Qtr Actual..."
+                              className="w-full font-bold bg-transparent p-1 focus:bg-white hover:bg-white border-0 border-b border-dashed border-slate-300 outline-none text-center text-emerald-700 text-[10px] mb-1"
+                              style={{ minHeight: '20px', overflow: 'hidden' }}
+                            />
+                            {/* Automatic 3rd Qtr Variance */}
+                            {(() => {
+                              const variance = calculateVariance(item.q3Target, item.q3Actual);
+                              const hasVariance = variance !== '0';
+                              return (
+                                <div className="flex flex-col items-center gap-0.5 mb-1 px-1">
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-[8px] font-extrabold text-indigo-700 uppercase tracking-tight">Variance:</span>
+                                    <span className={`text-[9px] font-black px-1 rounded ${hasVariance ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'}`}>
+                                      {variance}
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                            <textarea
+                              rows={1}
+                              value={item.q3Comment || ''}
+                              onChange={(e) => handleRowChange(item.id, 'q3Comment', e.target.value)}
+                              disabled={calculateVariance(item.q3Target, item.q3Actual) === '0'}
+                              onInput={(e) => {
+                                e.currentTarget.style.height = 'auto';
+                                e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
+                              }}
+                              placeholder={calculateVariance(item.q3Target, item.q3Actual) === '0' ? "No variance - locked" : "Variance comment..."}
+                              className={`w-full italic bg-transparent p-1 focus:bg-white hover:bg-white border-0 outline-none text-center text-slate-500 text-[9px] ${calculateVariance(item.q3Target, item.q3Actual) === '0' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                              style={{ minHeight: '20px', overflow: 'hidden' }}
+                            />
+                            {/* Compact 3rd Qtr POE */}
+                            <CompactPoeUploader
+                              label="3rd Qtr POE"
+                              files={item.q3PoeDocs || []}
+                              onUpload={(newDocs) => handleRowChange(item.id, 'q3PoeDocs', [...(item.q3PoeDocs || []), ...newDocs])}
+                              onRemove={(docId) => handleRowChange(item.id, 'q3PoeDocs', (item.q3PoeDocs || []).filter(f => f.id !== docId))}
+                              disabled={item.q3Locked}
+                            />
+                          </>
+                        )}
                       </td>
 
-                      <td className="p-1 border-r border-slate-205 min-w-[150px]">
+                      {/* Q3 Variance Column */}
+                      <td className="p-1 border-r border-slate-205 min-w-[120px] bg-amber-50/15">
+                        <div className="flex flex-col items-center justify-center h-full gap-1 p-1">
+                          {(() => {
+                            const variance = calculateVariance(item.q3Target, item.q3Actual);
+                            const hasVariance = variance !== '0';
+                            return (
+                              <span className={`text-[10px] font-black px-2 py-1 rounded ${hasVariance ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'}`}>
+                                {variance}
+                              </span>
+                            );
+                          })()}
+                        </div>
+                      </td>
+
+                      {/* Q3 Corrective Column */}
+                      <td className="p-1 border-r border-slate-205 min-w-[180px] bg-amber-50/15">
+                        <div className="text-[9.5px] font-medium text-slate-800 p-2 bg-white border border-slate-200/60 rounded max-h-[110px] overflow-y-auto leading-normal whitespace-normal break-words">
+                          {item.q3Corrective ? (
+                            <span className="font-semibold text-emerald-800">{item.q3Corrective}</span>
+                          ) : (
+                            <span className="text-slate-400 italic">No corrective action logged in self-evaluation</span>
+                          )}
+                        </div>
+                      </td>
+
+                      <td className={`p-1 border-r border-slate-205 min-w-[150px] ${item.q4Locked ? 'bg-slate-100/50 opacity-60' : ''}`}>
                         <textarea
                           rows={2}
                           value={item.q4Target || ''}
                           onChange={(e) => handleRowChange(item.id, 'q4Target', e.target.value)}
+                          disabled={item.q4Locked}
                           onInput={(e) => {
                             e.currentTarget.style.height = 'auto';
                             e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
@@ -2830,40 +3236,99 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
                         />
                       </td>
 
-                      <td className="p-1 border-r border-slate-205 min-w-[150px] bg-slate-50/50">
-                        <div className="flex items-center gap-1 mb-1 justify-center px-1">
-                          <span className="text-[8px] font-bold text-amber-700 uppercase tracking-tight">Score:</span>
-                          <input
-                            type="number" min="1" max="5" step="0.1"
-                            value={item.q4Score || ''}
-                            onChange={(e) => handleRowChange(item.id, 'q4Score', e.target.value)}
-                            className="w-10 text-[9px] font-bold text-emerald-700 text-center bg-white border border-slate-200 outline-none rounded"
-                          />
+                      <td className={`p-1 border-r border-slate-205 min-w-[150px] ${item.q4Locked ? 'bg-slate-100/80' : 'bg-slate-50/50'}`}>
+                        {item.q4Locked ? (
+                          <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-1 text-[10px] py-4 select-none">
+                            <span>🔒 Locked</span>
+                            <span className="text-[8px] text-slate-400 font-medium">Not reportable</span>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="flex items-center gap-1 mb-1 justify-center px-1">
+                              <span className="text-[8px] font-bold text-amber-700 uppercase tracking-tight">Score:</span>
+                              <input
+                                type="number" min="1" max="5" step="0.1"
+                                value={item.q4Score || ''}
+                                onChange={(e) => handleRowChange(item.id, 'q4Score', e.target.value)}
+                                className="w-10 text-[9px] font-bold text-emerald-700 text-center bg-white border border-slate-200 outline-none rounded"
+                              />
+                            </div>
+                            <textarea
+                              rows={1}
+                              value={item.q4Actual || ''}
+                              onChange={(e) => handleRowChange(item.id, 'q4Actual', e.target.value)}
+                              onInput={(e) => {
+                                e.currentTarget.style.height = 'auto';
+                                e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
+                              }}
+                              placeholder="4th Qtr Actual..."
+                              className="w-full font-bold bg-transparent p-1 focus:bg-white hover:bg-white border-0 border-b border-dashed border-slate-300 outline-none text-center text-emerald-700 text-[10px] mb-1"
+                              style={{ minHeight: '20px', overflow: 'hidden' }}
+                            />
+                            {/* Automatic 4th Qtr Variance */}
+                            {(() => {
+                              const variance = calculateVariance(item.q4Target, item.q4Actual);
+                              const hasVariance = variance !== '0';
+                              return (
+                                <div className="flex flex-col items-center gap-0.5 mb-1 px-1">
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-[8px] font-extrabold text-indigo-700 uppercase tracking-tight">Variance:</span>
+                                    <span className={`text-[9px] font-black px-1 rounded ${hasVariance ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'}`}>
+                                      {variance}
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                            <textarea
+                              rows={1}
+                              value={item.q4Comment || ''}
+                              onChange={(e) => handleRowChange(item.id, 'q4Comment', e.target.value)}
+                              disabled={calculateVariance(item.q4Target, item.q4Actual) === '0'}
+                              onInput={(e) => {
+                                e.currentTarget.style.height = 'auto';
+                                e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
+                              }}
+                              placeholder={calculateVariance(item.q4Target, item.q4Actual) === '0' ? "No variance - locked" : "Variance comment..."}
+                              className={`w-full italic bg-transparent p-1 focus:bg-white hover:bg-white border-0 outline-none text-center text-slate-500 text-[9px] ${calculateVariance(item.q4Target, item.q4Actual) === '0' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                              style={{ minHeight: '20px', overflow: 'hidden' }}
+                            />
+                            {/* Compact 4th Qtr POE */}
+                            <CompactPoeUploader
+                              label="4th Qtr POE"
+                              files={item.q4PoeDocs || []}
+                              onUpload={(newDocs) => handleRowChange(item.id, 'q4PoeDocs', [...(item.q4PoeDocs || []), ...newDocs])}
+                              onRemove={(docId) => handleRowChange(item.id, 'q4PoeDocs', (item.q4PoeDocs || []).filter(f => f.id !== docId))}
+                              disabled={item.q4Locked}
+                            />
+                          </>
+                        )}
+                      </td>
+
+                      {/* Q4 Variance Column */}
+                      <td className="p-1 border-r border-slate-205 min-w-[120px] bg-amber-50/15">
+                        <div className="flex flex-col items-center justify-center h-full gap-1 p-1">
+                          {(() => {
+                            const variance = calculateVariance(item.q4Target, item.q4Actual);
+                            const hasVariance = variance !== '0';
+                            return (
+                              <span className={`text-[10px] font-black px-2 py-1 rounded ${hasVariance ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'}`}>
+                                {variance}
+                              </span>
+                            );
+                          })()}
                         </div>
-                        <textarea
-                          rows={1}
-                          value={item.q4Actual || ''}
-                          onChange={(e) => handleRowChange(item.id, 'q4Actual', e.target.value)}
-                          onInput={(e) => {
-                            e.currentTarget.style.height = 'auto';
-                            e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
-                          }}
-                          placeholder="Actual..."
-                          className="w-full font-bold bg-transparent p-1 focus:bg-white hover:bg-white border-0 border-b border-dashed border-slate-300 outline-none text-center text-emerald-700 text-[10px] mb-1"
-                          style={{ minHeight: '20px', overflow: 'hidden' }}
-                        />
-                        <textarea
-                          rows={1}
-                          value={item.q4Comment || ''}
-                          onChange={(e) => handleRowChange(item.id, 'q4Comment', e.target.value)}
-                          onInput={(e) => {
-                            e.currentTarget.style.height = 'auto';
-                            e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
-                          }}
-                          placeholder="Comment..."
-                          className="w-full italic bg-transparent p-1 focus:bg-white hover:bg-white border-0 outline-none text-center text-slate-500 text-[9px]"
-                          style={{ minHeight: '20px', overflow: 'hidden' }}
-                        />
+                      </td>
+
+                      {/* Q4 Corrective Column */}
+                      <td className="p-1 border-r border-slate-205 min-w-[180px] bg-amber-50/15">
+                        <div className="text-[9.5px] font-medium text-slate-800 p-2 bg-white border border-slate-200/60 rounded max-h-[110px] overflow-y-auto leading-normal whitespace-normal break-words">
+                          {item.q4Corrective ? (
+                            <span className="font-semibold text-emerald-800">{item.q4Corrective}</span>
+                          ) : (
+                            <span className="text-slate-400 italic">No corrective action logged in self-evaluation</span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Portfolio of Evidence */}

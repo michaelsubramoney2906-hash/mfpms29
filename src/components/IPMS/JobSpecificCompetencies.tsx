@@ -51,6 +51,14 @@ interface WeightMaster {
   value: number;
 }
 
+interface CompetencyQuarterData {
+  selfScore: number;            // 1-5 or 0 (unrated)
+  selfComments: string;         // Self comments
+  managerScore: number;         // 1-5 or 0 (unrated)
+  managerMotivation: string;    // Manager motivation
+  status: 'draft' | 'pending_approval' | 'approved';
+}
+
 // Table Row Schema
 interface CompetencyRow {
   id: string;
@@ -62,11 +70,15 @@ interface CompetencyRow {
   };
   level: string;
   weight: number; 
+  q1?: CompetencyQuarterData;
+  q2?: CompetencyQuarterData;
+  q3?: CompetencyQuarterData;
+  q4?: CompetencyQuarterData;
 }
 
 export function JobSpecificCompetencies({ currentUser, activeTenantId }: JobSpecificCompetenciesProps) {
   // Navigation Tabs state
-  const [activeTab, setActiveTab] = useState<'legislation' | 'templates' | 'reporting'>('templates');
+  const [activeTab, setActiveTab] = useState<'legislation' | 'templates' | 'self_evaluation' | 'manager_approval' | 'reporting'>('templates');
 
   // Database / API Loading Sync states
   const [loading, setLoading] = useState<boolean>(true);
@@ -158,7 +170,11 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId }: JobSpec
         ]
       },
       level: 'Level 3: Advanced Architect',
-      weight: 30
+      weight: 30,
+      q1: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' },
+      q2: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' },
+      q3: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' },
+      q4: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' }
     },
     {
       id: 'row-2',
@@ -171,7 +187,11 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId }: JobSpec
         ]
       },
       level: 'Level 2: Competent Operator',
-      weight: 40
+      weight: 40,
+      q1: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' },
+      q2: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' },
+      q3: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' },
+      q4: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' }
     },
     {
       id: 'row-3',
@@ -182,9 +202,45 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId }: JobSpec
         subsections: []
       },
       level: 'Level 3: Advanced Architect',
-      weight: 30
+      weight: 30,
+      q1: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' },
+      q2: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' },
+      q3: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' },
+      q4: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' }
     }
   ]);
+
+  const [selectedQuarter, setSelectedQuarter] = useState<'q1' | 'q2' | 'q3' | 'q4'>('q1');
+  const [selectedUserEmail, setSelectedUserEmail] = useState<string>(currentUser.email || '');
+
+  useEffect(() => {
+    if (currentUser.email) {
+      setSelectedUserEmail(currentUser.email);
+    }
+  }, [currentUser.email]);
+
+  // Helper to ensure quarterly data structures are not null or undefined
+  const ensureQuarterlyData = (row: CompetencyRow): CompetencyRow => {
+    return {
+      ...row,
+      q1: row.q1 || { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' },
+      q2: row.q2 || { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' },
+      q3: row.q3 || { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' },
+      q4: row.q4 || { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' }
+    };
+  };
+
+  const sendIpmsNotification = async (notifPayload: any) => {
+    try {
+      await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notification: notifPayload })
+      });
+    } catch (e) {
+      console.error("Failed to post IPMS notification:", e);
+    }
+  };
 
   // Load from Supabase on mount/tenant changes
   useEffect(() => {
@@ -192,12 +248,12 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId }: JobSpec
     const fetchCompetencies = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`/api/tenant/${activeTenantId}/job-competencies?userId=${currentUser.email}`);
+        const res = await fetch(`/api/tenant/${activeTenantId}/job-competencies?userId=${encodeURIComponent(selectedUserEmail)}`);
         if (!res.ok) throw new Error("Failed to load server state");
         const data = await res.json();
         if (active && data) {
           if (Array.isArray(data.competencies)) {
-            setRows(data.competencies);
+            setRows(data.competencies.map(ensureQuarterlyData));
           }
           if (Array.isArray(data.jscMasters)) {
             setJscMasters(data.jscMasters);
@@ -223,7 +279,7 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId }: JobSpec
     };
     fetchCompetencies();
     return () => { active = false; };
-  }, [activeTenantId, currentUser]);
+  }, [activeTenantId, selectedUserEmail]);
 
   // Save changes to Supabase
   const handleSaveToDatabase = async (
@@ -247,7 +303,7 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId }: JobSpec
         weightMasters: cmWt
       };
       
-      const res = await fetch(`/api/tenant/${activeTenantId}/job-competencies?userId=${currentUser.email}`, {
+      const res = await fetch(`/api/tenant/${activeTenantId}/job-competencies?userId=${encodeURIComponent(selectedUserEmail)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -256,7 +312,7 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId }: JobSpec
       setSyncStatus('saved');
       
       // Replication logic for PMS Team
-      const email = currentUser?.email?.toLowerCase().trim();
+      const email = selectedUserEmail.toLowerCase().trim();
       const isZulune = email === 'zulune@nkangaladm.gov.za';
       const isNsibande = email === 'nsibandenp@nkangaladm.gov.za';
       if (isZulune || isNsibande) {
@@ -277,6 +333,97 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId }: JobSpec
     } finally {
       setSaving(false);
     }
+  };
+
+  const handlePushToManager = async () => {
+    const unrated = rows.some(r => {
+      const score = r[selectedQuarter]?.selfScore;
+      return !score || score < 1 || score > 5;
+    });
+    if (unrated) {
+      alert(`Please ensure all competencies have a self score between 1 and 5 before pushing to the manager for ${selectedQuarter.toUpperCase()}.`);
+      return;
+    }
+
+    const updated = rows.map(r => {
+      const qData = r[selectedQuarter] || { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' };
+      return {
+        ...r,
+        [selectedQuarter]: {
+          ...qData,
+          status: 'pending_approval' as const
+        }
+      };
+    });
+
+    setRows(updated);
+    await handleSaveToDatabase(updated);
+
+    const summaryMsg = rows.map(r => {
+      const score = r[selectedQuarter]?.selfScore || 0;
+      const comment = r[selectedQuarter]?.selfComments || 'No comment';
+      return `[${r.jscNo}] Score: ${score}/5 | Comment: ${comment}`;
+    }).join('\n');
+
+    await sendIpmsNotification({
+      senderEmail: currentUser.email,
+      senderName: currentUser.name || currentUser.email,
+      recipientEmail: 'managers',
+      recipientName: 'Line Manager',
+      title: `JSC Evaluation Pushed - ${selectedQuarter.toUpperCase()}`,
+      message: `Employee ${currentUser.name || currentUser.email} has pushed self-evaluation scores for ${selectedQuarter.toUpperCase()} for manager's approval:\n\n${summaryMsg}`,
+      actionType: 'submission',
+      quarter: selectedQuarter.toUpperCase(),
+      kpiNo: 'JSC'
+    });
+
+    alert(`Self-evaluation for ${selectedQuarter.toUpperCase()} successfully pushed to manager! Notification sent.`);
+  };
+
+  const handleManagerApprove = async () => {
+    const incomplete = rows.some(r => {
+      const score = r[selectedQuarter]?.managerScore;
+      return !score || score < 1 || score > 5;
+    });
+    if (incomplete) {
+      alert(`Please ensure all competencies have a manager score between 1 and 5 and appropriate motivation before submitting approval for ${selectedQuarter.toUpperCase()}.`);
+      return;
+    }
+
+    const updated = rows.map(r => {
+      const qData = r[selectedQuarter] || { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' };
+      return {
+        ...r,
+        [selectedQuarter]: {
+          ...qData,
+          status: 'approved' as const
+        }
+      };
+    });
+
+    setRows(updated);
+    await handleSaveToDatabase(updated);
+
+    // Send individual notifications as requested by user
+    for (const r of rows) {
+      const qData = r[selectedQuarter];
+      const mScore = qData?.managerScore || 0;
+      const mMotivation = qData?.managerMotivation || '';
+      
+      await sendIpmsNotification({
+        senderEmail: currentUser.email,
+        senderName: currentUser.name || currentUser.email,
+        recipientEmail: selectedUserEmail,
+        recipientName: selectedUserEmail,
+        title: `JSC Approved - ${r.jscNo} (${selectedQuarter.toUpperCase()})`,
+        message: `Manager approved ${r.jscNo}. Manager Score: ${mScore}/5. Motivation: ${mMotivation}`,
+        actionType: 'approval',
+        quarter: selectedQuarter.toUpperCase(),
+        kpiNo: r.jscNo
+      });
+    }
+
+    alert(`Manager review for ${selectedQuarter.toUpperCase()} submitted successfully! Individual JSC notifications sent to the officer.`);
   };
 
   // Live Auto Weight Calculator Total
@@ -447,6 +594,46 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId }: JobSpec
           </tbody>
         </table>
 
+        <h2>V. Quarterly Self-Evaluation & Manager Approval Ledgers</h2>
+        <div style="background: #ffffff; border: 1px solid #cbd5e1; padding: 15px; border-radius: 8px;">
+          ${(() => {
+            return ['q1', 'q2', 'q3', 'q4'].map(q => {
+              const qUpper = q.toUpperCase();
+              const status = rows[0]?.[q as 'q1'|'q2'|'q3'|'q4']?.status || 'draft';
+              const rowsMarkup = rows.map(r => {
+                const qData = r[q as 'q1'|'q2'|'q3'|'q4'] || { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' };
+                return `<tr>
+                  <td style="border: 1px solid #cbd5e1; padding: 6px; font-size: 10px; font-weight: bold; background: #fafafa;">${r.jscNo || ''}</td>
+                  <td style="border: 1px solid #cbd5e1; padding: 6px; font-size: 10px; font-weight: bold;">${r.competency || ''}</td>
+                  <td style="border: 1px solid #cbd5e1; padding: 6px; font-size: 10px; text-align: center;">${qData.selfScore || '-'}</td>
+                  <td style="border: 1px solid #cbd5e1; padding: 6px; font-size: 10px; font-style: italic; color: #475569;">${qData.selfComments || '-'}</td>
+                  <td style="border: 1px solid #cbd5e1; padding: 6px; font-size: 10px; text-align: center; font-weight: bold; background: #f0fdf4;">${qData.managerScore || '-'}</td>
+                  <td style="border: 1px solid #cbd5e1; padding: 6px; font-size: 10px; font-style: italic; color: #15803d; background: #f0fdf4;">${qData.managerMotivation || '-'}</td>
+                </tr>`;
+              }).join('');
+
+              return `
+                <h3 style="font-size: 12px; font-weight: bold; color: #1e3a8a; margin-top: 15px; margin-bottom: 5px;">${qUpper} Performance Evaluation Ledger (Status: ${status.toUpperCase()})</h3>
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
+                  <thead>
+                    <tr style="background-color: #1e293b; color: #ffffff;">
+                      <th style="width: 15%; font-size: 9px; padding: 6px;">JSC Code</th>
+                      <th style="width: 25%; font-size: 9px; padding: 6px;">Competency</th>
+                      <th style="width: 10%; font-size: 9px; padding: 6px; text-align: center;">Self Score</th>
+                      <th style="width: 20%; font-size: 9px; padding: 6px;">Self Comments</th>
+                      <th style="width: 10%; font-size: 9px; padding: 6px; text-align: center;">Mgr Score</th>
+                      <th style="width: 20%; font-size: 9px; padding: 6px;">Mgr Motivation</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${rowsMarkup}
+                  </tbody>
+                </table>
+              `;
+            }).join('');
+          })()}
+        </div>
+
         <!-- empty signature blocks in MS Word output footer -->
         <div style="margin-top: 40px; border-top: 2px solid #cbd5e1; padding-top: 20px;">
           <h3 style="font-size: 11px; text-transform: uppercase; font-weight: bold; color: #1e3a8a; margin-bottom: 15px; margin-top: 0;">Formal Declaration &amp; Sign-off</h3>
@@ -527,6 +714,18 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId }: JobSpec
       'JSC Code,Competency Title,Target Capability Level,Weighting Percentage',
       ...rows.map(r => `"${r.jscNo || ''}","${r.competency || ''}","${r.level || ''}",${r.weight || 0}%`),
       `ACCUMULATED SUM TOTAL,,,${totalWeight}%`,
+      '',
+      '=== SECTION 5: QUARTERLY PERFORMANCE APPRAISAL LEDGER ===',
+      'Quarter,JSC Code,Competency Title,Self Score,Self Comments,Manager Score,Manager Motivation,Status',
+      ...['q1', 'q2', 'q3', 'q4'].flatMap(q => {
+        const qUpper = q.toUpperCase();
+        return rows.map(r => {
+          const qData = r[q as 'q1'|'q2'|'q3'|'q4'] || { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' };
+          const selfCommentsEscaped = (qData.selfComments || '').replace(/"/g, '""');
+          const managerMotivationEscaped = (qData.managerMotivation || '').replace(/"/g, '""');
+          return `"${qUpper}","${r.jscNo || ''}","${r.competency || ''}",${qData.selfScore || ''},"${selfCommentsEscaped}",${qData.managerScore || ''},"${managerMotivationEscaped}","${qData.status || 'draft'}"`;
+        });
+      })
     ];
 
     const csvContent = csvLines.join('\n');
@@ -719,8 +918,54 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId }: JobSpec
                 </tr>
               </tbody>
             </table>
+          </div>
 
-            <!-- empty signature block in print layout -->
+          <!-- Section 7: Quarterly Performance Appraisal Ledgers -->
+          <div class="section-block" style="page-break-before: always;">
+            <div class="section-title">7. Quarterly Performance Appraisal Ledgers</div>
+            ${(() => {
+              return ['q1', 'q2', 'q3', 'q4'].map(q => {
+                const qUpper = q.toUpperCase();
+                const status = rows[0]?.[q as 'q1'|'q2'|'q3'|'q4']?.status || 'draft';
+                const rowsMarkup = rows.map(r => {
+                  const qData = r[q as 'q1'|'q2'|'q3'|'q4'] || { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' };
+                  return `
+                    <tr>
+                      <td style="font-family: monospace; font-weight: bold; padding: 6px; border-bottom: 1px solid #e2e8f0; font-size:10px;">${r.jscNo || ''}</td>
+                      <td style="padding: 6px; border-bottom: 1px solid #e2e8f0; font-size:10px; font-weight:600;">${r.competency || ''}</td>
+                      <td style="text-align: center; padding: 6px; border-bottom: 1px solid #e2e8f0; font-size:10px; font-weight: bold;">${qData.selfScore || '-'}</td>
+                      <td style="font-style: italic; color: #475569; padding: 6px; border-bottom: 1px solid #e2e8f0; font-size:10px;">${qData.selfComments || '-'}</td>
+                      <td style="text-align: center; font-weight: bold; padding: 6px; border-bottom: 1px solid #e2e8f0; font-size:10px; background: #f0fdf4; color: #15803d;">${qData.managerScore || '-'}</td>
+                      <td style="font-style: italic; color: #15803d; padding: 6px; border-bottom: 1px solid #e2e8f0; font-size:10px; background: #f0fdf4;">${qData.managerMotivation || '-'}</td>
+                    </tr>
+                  `;
+                }).join('');
+
+                return `
+                  <h3 style="font-size: 11px; text-transform: uppercase; font-weight: bold; color: #1e3a8a; margin-top: 20px; margin-bottom: 8px; text-align: left;">
+                    ${qUpper} Evaluation Ledger (Status: ${status.toUpperCase()})
+                  </h3>
+                  <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                    <thead>
+                      <tr style="background-color: #1e293b; color: #ffffff;">
+                        <th style="padding: 6px; font-size: 9px; text-align: left;">JSC Code</th>
+                        <th style="padding: 6px; font-size: 9px; text-align: left;">Competency</th>
+                        <th style="padding: 6px; font-size: 9px; text-align: center;">Self Score</th>
+                        <th style="padding: 6px; font-size: 9px; text-align: left;">Self Comments</th>
+                        <th style="padding: 6px; font-size: 9px; text-align: center;">Mgr Score</th>
+                        <th style="padding: 6px; font-size: 9px; text-align: left;">Mgr Motivation</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${rowsMarkup}
+                    </tbody>
+                  </table>
+                `;
+              }).join('');
+            })()}
+          </div>
+
+          <!-- empty signature block in print layout -->
             <div style="margin-top: 40px; border-top: 2px solid #cbd5e1; padding-top: 20px;">
               <h3 style="font-size: 11px; text-transform: uppercase; font-weight: bold; color: #1e3a8a; margin-bottom: 15px; margin-top: 0; text-align: left;">Formal Declaration &amp; Sign-off</h3>
               <table style="width: 100%; border: none; font-size: 9px; font-family: 'Segoe UI', Arial, sans-serif;">
@@ -783,7 +1028,11 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId }: JobSpec
         subsections: []
       },
       level: 'Level 2: Competent Operator',
-      weight: 10
+      weight: 10,
+      q1: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' },
+      q2: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' },
+      q3: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' },
+      q4: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' }
     };
     const updated = [...rows, newRow];
     setRows(updated);
@@ -1112,11 +1361,25 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId }: JobSpec
               <span>2. Expandable Master Planner</span>
             </button>
             <button 
+              onClick={() => setActiveTab('self_evaluation')}
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition duration-150 ${activeTab === 'self_evaluation' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>3. Self Evaluation</span>
+            </button>
+            <button 
+              onClick={() => setActiveTab('manager_approval')}
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition duration-150 ${activeTab === 'manager_approval' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
+            >
+              <CheckCircle className="w-3.5 h-3.5" />
+              <span>4. Manager Approval</span>
+            </button>
+            <button 
               onClick={() => setActiveTab('reporting')}
               className={`px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition duration-150 ${activeTab === 'reporting' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
             >
               <BarChart2 className="w-3.5 h-3.5" />
-              <span>3. Analytical Reporting</span>
+              <span>5. Analytical Reporting</span>
             </button>
           </div>
         </div>
@@ -1881,7 +2144,316 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId }: JobSpec
           </div>
         )}
 
-        {/* TAB 3: Analytical Reporting Statistics and Visualizations */}
+        {/* TAB 3: Employee Self Evaluation */}
+        {activeTab === 'self_evaluation' && (
+          <div className="h-full flex flex-col max-w-5xl mx-auto space-y-4 animate-slide-in overflow-hidden">
+            <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-orange-50 flex items-center justify-center border border-orange-200 text-orange-600 shrink-0 font-bold text-sm">
+                  Q
+                </div>
+                <div>
+                  <h3 className="text-xs font-black text-gray-800 uppercase tracking-wider">Employee Self Evaluation</h3>
+                  <p className="text-[10px] text-gray-400 font-medium">Rate your personal performance score (1-5) and provide comments per competency row.</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center bg-gray-100 p-0.5 rounded-xl border border-gray-200 shrink-0">
+                  {(['q1', 'q2', 'q3', 'q4'] as const).map(q => (
+                    <button
+                      key={q}
+                      onClick={() => setSelectedQuarter(q)}
+                      className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase transition duration-150 ${selectedQuarter === q ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  onClick={handlePushToManager}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-black px-4 py-2 rounded-xl text-[10px] flex items-center gap-1.5 transition uppercase tracking-wide cursor-pointer shadow-sm border border-blue-700"
+                >
+                  <ArrowRight className="w-3.5 h-3.5" />
+                  <span>Push to Manager for Approval</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm flex flex-col">
+              <div className="flex-1 overflow-y-auto">
+                <table className="w-full text-left border-collapse font-sans">
+                  <thead>
+                    <tr className="bg-slate-900 text-white uppercase text-[9px] tracking-wider sticky top-0 z-10 select-none">
+                      <th className="px-4 py-3 font-black text-center w-20">JSC Code</th>
+                      <th className="px-4 py-3 font-black">Competency Title</th>
+                      <th className="px-4 py-3 font-black text-center w-20">Weight (%)</th>
+                      <th className="px-4 py-3 font-black text-center w-36">Self Scoring (1-5)</th>
+                      <th className="px-4 py-3 font-black">Self Comments</th>
+                      <th className="px-4 py-3 font-black text-center w-28">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="text-center py-8 text-xs text-gray-400 font-semibold italic">
+                          No competencies defined in the planner yet. Go to Expandable Master Planner to define them first.
+                        </td>
+                      </tr>
+                    ) : (
+                      rows.map(row => {
+                        const qData = row[selectedQuarter] || { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' };
+                        const isLocked = qData.status === 'pending_approval' || qData.status === 'approved';
+
+                        return (
+                          <tr key={row.id} className="border-b border-gray-150 hover:bg-gray-50 transition duration-100 group">
+                            <td className="px-4 py-3 text-center font-bold text-xs text-slate-800 font-mono">
+                              {row.jscNo || 'N/A'}
+                            </td>
+                            <td className="px-4 py-3 text-xs font-semibold text-slate-800">
+                              {row.competency || 'Mandatory Competency'}
+                              {row.definition?.mainText && (
+                                <p className="text-[10px] text-gray-400 font-medium mt-0.5 line-clamp-1 group-hover:line-clamp-none transition-all duration-150">
+                                  {row.definition.mainText}
+                                </p>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-center font-bold text-xs font-mono text-gray-500">
+                              {row.weight}%
+                            </td>
+                            <td className="px-4 py-3">
+                              <select
+                                value={qData.selfScore || ''}
+                                disabled={isLocked}
+                                onChange={(e) => {
+                                  const val = parseInt(e.target.value) || 0;
+                                  const updated = rows.map(r => r.id === row.id ? {
+                                    ...r,
+                                    [selectedQuarter]: {
+                                      ...(r[selectedQuarter] || { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' }),
+                                      selfScore: val
+                                    }
+                                  } : r);
+                                  setRows(updated);
+                                  handleSaveToDatabase(updated);
+                                }}
+                                className="w-full bg-white border border-gray-300 rounded-lg px-2.5 py-1 text-xs font-bold text-gray-800 focus:outline-none focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                              >
+                                <option value="">Select Score</option>
+                                <option value="1">1 - Unsatisfactory</option>
+                                <option value="2">2 - Basic Competence</option>
+                                <option value="3">3 - Fully Competent</option>
+                                <option value="4">4 - Highly Effective</option>
+                                <option value="5">5 - Outstanding</option>
+                              </select>
+                            </td>
+                            <td className="px-4 py-3">
+                              <input
+                                type="text"
+                                placeholder={isLocked ? "No comment added." : "Enter self evaluation comments between 1-5 score motivators..."}
+                                value={qData.selfComments || ''}
+                                disabled={isLocked}
+                                onChange={(e) => {
+                                  const updated = rows.map(r => r.id === row.id ? {
+                                    ...r,
+                                    [selectedQuarter]: {
+                                      ...(r[selectedQuarter] || { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' }),
+                                      selfComments: e.target.value
+                                    }
+                                  } : r);
+                                  setRows(updated);
+                                  handleSaveToDatabase(updated);
+                                }}
+                                className="w-full bg-white border border-gray-200 rounded-lg px-3 py-1 text-xs text-gray-800 placeholder-gray-400 focus:outline-none focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                              />
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <span className={`inline-block px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider border ${
+                                qData.status === 'approved' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                qData.status === 'pending_approval' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                'bg-slate-50 text-slate-700 border-slate-200'
+                              }`}>
+                                {qData.status === 'approved' ? 'Approved' :
+                                 qData.status === 'pending_approval' ? 'Awaiting Mgr' :
+                                 'Draft'}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 4: Supervisor & Line Manager Approval */}
+        {activeTab === 'manager_approval' && (
+          <div className="h-full flex flex-col max-w-5xl mx-auto space-y-4 animate-slide-in overflow-hidden">
+            <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4 shrink-0">
+              <div className="flex-1 space-y-1">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
+                  <h3 className="text-xs font-black text-gray-800 uppercase tracking-wider">Supervisor & Line Manager Appraisal</h3>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] text-gray-400 font-medium">Select employee email and quarter to review performance.</span>
+                  <input
+                    type="email"
+                    placeholder="Enter employee email..."
+                    value={selectedUserEmail}
+                    onChange={(e) => setSelectedUserEmail(e.target.value.toLowerCase().trim())}
+                    className="bg-gray-55 border border-gray-300 rounded-lg px-3 py-1 text-[11px] font-semibold text-slate-800 focus:outline-none focus:border-blue-500 w-56 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center bg-gray-100 p-0.5 rounded-xl border border-gray-200 shrink-0">
+                  {(['q1', 'q2', 'q3', 'q4'] as const).map(q => (
+                    <button
+                      key={q}
+                      onClick={() => setSelectedQuarter(q)}
+                      className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase transition duration-150 ${selectedQuarter === q ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  onClick={handleManagerApprove}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-4 py-2 rounded-xl text-[10px] flex items-center gap-1.5 transition uppercase tracking-wide cursor-pointer shadow-sm border border-emerald-700"
+                >
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  <span>Submit Manager review</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm flex flex-col">
+              <div className="flex-1 overflow-y-auto">
+                <table className="w-full text-left border-collapse font-sans">
+                  <thead>
+                    <tr className="bg-slate-900 text-white uppercase text-[9px] tracking-wider sticky top-0 z-10 select-none">
+                      <th className="px-4 py-3 font-black text-center w-20">JSC Code</th>
+                      <th className="px-4 py-3 font-black">Competency Title</th>
+                      <th className="px-4 py-3 font-black text-center w-20">Weight (%)</th>
+                      <th className="px-4 py-3 font-black w-48">Self score & Comments</th>
+                      <th className="px-4 py-3 font-black text-center w-36">Manager Scoring (1-5)</th>
+                      <th className="px-4 py-3 font-black">Manager Motivation / Comments</th>
+                      <th className="px-4 py-3 font-black text-center w-24">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="text-center py-8 text-xs text-gray-400 font-semibold italic">
+                          No competencies loaded. Ensure correct employee email is loaded or configured.
+                        </td>
+                      </tr>
+                    ) : (
+                      rows.map(row => {
+                        const qData = row[selectedQuarter] || { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' };
+                        const isApproved = qData.status === 'approved';
+
+                        return (
+                          <tr key={row.id} className="border-b border-gray-150 hover:bg-gray-50 transition duration-100 group">
+                            <td className="px-4 py-3 text-center font-bold text-xs text-slate-800 font-mono">
+                              {row.jscNo || 'N/A'}
+                            </td>
+                            <td className="px-4 py-3 text-xs font-semibold text-slate-800">
+                              {row.competency || 'Mandatory Competency'}
+                            </td>
+                            <td className="px-4 py-3 text-center font-bold text-xs font-mono text-gray-500">
+                              {row.weight}%
+                            </td>
+                            <td className="px-4 py-3 text-xs">
+                              {qData.selfScore ? (
+                                <div className="space-y-0.5">
+                                  <span className="inline-block bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-black text-[10px]">
+                                    Score: {qData.selfScore}/5
+                                  </span>
+                                  <p className="text-[10px] text-gray-500 leading-tight italic break-words">
+                                    "{qData.selfComments || 'No comment added'}"
+                                  </p>
+                                </div>
+                              ) : (
+                                <span className="text-gray-400 italic font-medium">Not evaluated yet</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              <select
+                                value={qData.managerScore || ''}
+                                disabled={isApproved}
+                                onChange={(e) => {
+                                  const val = parseInt(e.target.value) || 0;
+                                  const updated = rows.map(r => r.id === row.id ? {
+                                    ...r,
+                                    [selectedQuarter]: {
+                                      ...(r[selectedQuarter] || { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' }),
+                                      managerScore: val
+                                    }
+                                  } : r);
+                                  setRows(updated);
+                                  handleSaveToDatabase(updated);
+                                }}
+                                className="w-full bg-white border border-gray-300 rounded-lg px-2.5 py-1 text-xs font-bold text-gray-800 focus:outline-none focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500"
+                              >
+                                <option value="">Select Score</option>
+                                <option value="1">1 - Unsatisfactory</option>
+                                <option value="2">2 - Basic Competence</option>
+                                <option value="3">3 - Fully Competent</option>
+                                <option value="4">4 - Highly Effective</option>
+                                <option value="5">5 - Outstanding</option>
+                              </select>
+                            </td>
+                            <td className="px-4 py-3">
+                              <input
+                                type="text"
+                                placeholder={isApproved ? "No motivation added" : "Enter manager's appraisal comments / motivation..."}
+                                value={qData.managerMotivation || ''}
+                                disabled={isApproved}
+                                onChange={(e) => {
+                                  const updated = rows.map(r => r.id === row.id ? {
+                                    ...r,
+                                    [selectedQuarter]: {
+                                      ...(r[selectedQuarter] || { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' }),
+                                      managerMotivation: e.target.value
+                                    }
+                                  } : r);
+                                  setRows(updated);
+                                  handleSaveToDatabase(updated);
+                                }}
+                                className="w-full bg-white border border-gray-200 rounded-lg px-3 py-1 text-xs text-gray-800 placeholder-gray-400 focus:outline-none focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500"
+                              />
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <span className={`inline-block px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider border ${
+                                qData.status === 'approved' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                qData.status === 'pending_approval' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                'bg-slate-50 text-slate-700 border-slate-200'
+                              }`}>
+                                {qData.status === 'approved' ? 'Approved' :
+                                 qData.status === 'pending_approval' ? 'Pending Review' :
+                                 'Draft'}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 5: Analytical Reporting Statistics and Visualizations */}
         {activeTab === 'reporting' && (
           <div className="h-full overflow-y-auto max-w-5xl mx-auto space-y-6 pr-2 select-text animate-slide-in">
             
@@ -2203,6 +2775,49 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId }: JobSpec
                         </tbody>
                       </table>
                     </div>
+                  </div>
+
+                  {/* Section 2: Quarterly Evaluation Ledger */}
+                  <div className="space-y-4 pt-4 border-t border-gray-200">
+                    <span className="text-[10px] uppercase font-black tracking-wider text-indigo-700 block border-b pb-1">Quarterly Self-Evaluation & Manager Approval Ledgers</span>
+                    {['q1', 'q2', 'q3', 'q4'].map((q) => {
+                      const qUpper = q.toUpperCase();
+                      return (
+                        <div key={q} className="border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+                          <div className="bg-slate-900 text-white font-mono font-bold px-3 py-1.5 text-[9px] flex justify-between items-center">
+                            <span>{qUpper} PERFORMANCE STATUS</span>
+                            <span className="uppercase">{rows[0]?.[q as 'q1'|'q2'|'q3'|'q4']?.status || 'draft'}</span>
+                          </div>
+                          <table className="w-full text-left border-collapse text-[9px] font-sans">
+                            <thead>
+                              <tr className="bg-slate-100 text-slate-700 border-b border-slate-200 font-bold">
+                                <th className="p-2 w-16">JSC Code</th>
+                                <th className="p-2">Competency</th>
+                                <th className="p-2 text-center w-16">Self Score</th>
+                                <th className="p-2">Self Comments</th>
+                                <th className="p-2 text-center w-16">Mgr Score</th>
+                                <th className="p-2">Mgr Motivation</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-150">
+                              {rows.map(r => {
+                                const qData = r[q as 'q1'|'q2'|'q3'|'q4'] || { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' };
+                                return (
+                                  <tr key={r.id} className="hover:bg-slate-50/50">
+                                    <td className="p-2 font-mono font-bold text-slate-700">{r.jscNo}</td>
+                                    <td className="p-2 font-semibold text-slate-800">{r.competency}</td>
+                                    <td className="p-2 text-center font-bold">{qData.selfScore || '-'}</td>
+                                    <td className="p-2 italic text-slate-500">{qData.selfComments || '-'}</td>
+                                    <td className="p-2 text-center font-bold bg-emerald-50/50 text-emerald-800">{qData.managerScore || '-'}</td>
+                                    <td className="p-2 bg-emerald-50/50 text-emerald-800 italic">{qData.managerMotivation || '-'}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      );
+                    })}
                   </div>
 
                   {/* Statutory Signature Block (Hollow, blank as requested) */}

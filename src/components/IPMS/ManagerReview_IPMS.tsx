@@ -7,6 +7,7 @@ import {
   XCircle, Save, ShieldAlert, History, CheckSquare, Square, Send, Trash2
 } from 'lucide-react';
 import { IPMSWorkflowInbox } from './IPMSWorkflowInbox';
+import { OfficeDocumentViewer } from './OfficeDocumentViewer';
 
 interface Props {
   currentUser: any;
@@ -374,12 +375,30 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
     // We must fetch the individual plan to get the full documents (including dataUrl)
     // because dataUrl is stripped from the team-pplans endpoint.
     setSelectedPlan(tp); // Set it initially for fast UI feedback
+    
+    // Auto-select KPIs that are in Submitted for Approval/Review state
+    let autoSelectIds: string[] = [];
+    if (tp.plan && Array.isArray(tp.plan.items)) {
+      autoSelectIds = tp.plan.items.filter((it: any) => 
+        it.reviewStatus === 'Submitted for Approval' || it.reviewStatus === 'Submitted for Review'
+      ).map((it: any) => it.id);
+    }
+    setSelectedKpiIdsForReview(autoSelectIds);
+
     try {
       const res = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${tp.userId}`);
       if (res.ok) {
         const fullPlan = await safeJson(res) || {};
         if (fullPlan && fullPlan.items) {
           setSelectedPlan({ userId: tp.userId, plan: fullPlan });
+          
+          let fullAutoSelectIds: string[] = [];
+          if (Array.isArray(fullPlan.items)) {
+            fullAutoSelectIds = fullPlan.items.filter((it: any) => 
+              it.reviewStatus === 'Submitted for Approval' || it.reviewStatus === 'Submitted for Review'
+            ).map((it: any) => it.id);
+          }
+          setSelectedKpiIdsForReview(fullAutoSelectIds);
         }
       }
     } catch (e) {
@@ -387,6 +406,19 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
     } finally {
       if (onLoaded) {
         setTimeout(onLoaded, 100);
+      } else {
+        // Default scroll to first selected KPI if no specific callback provided
+        setTimeout(() => {
+          if (autoSelectIds.length > 0) {
+            const firstId = autoSelectIds[0];
+            const el = document.getElementById(`kpi-card-${firstId}`);
+            if (el) {
+              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              el.classList.add('ring-4', 'ring-indigo-500', 'transition-all');
+              setTimeout(() => el.classList.remove('ring-4', 'ring-indigo-500'), 3000);
+            }
+          }
+        }, 300);
       }
     }
   };
@@ -1063,101 +1095,6 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
             />
           </div>
 
-          <div className="max-w-4xl mx-auto space-y-4">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-              <h2 className="text-xs font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
-                <span className="inline-block w-2.5 h-2.5 bg-indigo-600 rounded-full animate-pulse"></span>
-                Direct Subordinates Requiring Service Review
-              </h2>
-              <button
-                onClick={handleClearSubordinatesReview}
-                disabled={clearingReview}
-                className="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 font-extrabold px-3 py-1.5 rounded-lg text-[9px] uppercase tracking-wider transition shadow-xs cursor-pointer flex items-center gap-1 select-none"
-              >
-                <span>{clearingReview ? "Clearing..." : "🧹 Clear Subordinates Requiring Review"}</span>
-              </button>
-            </div>
-            {teamPlans.filter(tp => {
-              let submittedCount = 0;
-              if (Array.isArray(tp.plan?.items)) {
-                tp.plan.items.forEach((it: any) => {
-                  if (it.reviewStatus === 'Submitted for Approval' || it.reviewStatus === 'Submitted for Review') {
-                    submittedCount++;
-                  }
-                });
-              }
-              return submittedCount > 0;
-            }).length === 0 ? (
-              <div className="bg-white p-8 rounded-2xl border border-gray-200 text-center shadow-sm">
-                <CheckCircle className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                <p className="text-slate-500 font-bold uppercase text-sm">No Pending Approvals</p>
-                <p className="text-[10px] text-slate-400 mt-1">There are no employee evaluations requiring your approval at this time.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-4">
-                {teamPlans.filter(tp => {
-                  let submittedCount = 0;
-                  if (Array.isArray(tp.plan?.items)) {
-                    tp.plan.items.forEach((it: any) => {
-                      if (it.reviewStatus === 'Submitted for Approval' || it.reviewStatus === 'Submitted for Review') {
-                        submittedCount++;
-                      }
-                    });
-                  }
-                  return submittedCount > 0;
-                }).map((tp, idx) => {
-                  let submittedCount = 0;
-                  let totalPoeDocs = 0;
-                  if (Array.isArray(tp.plan?.items)) {
-                    tp.plan.items.forEach((it: any) => {
-                      if (it.reviewStatus === 'Submitted for Approval' || it.reviewStatus === 'Submitted for Review') {
-                        submittedCount++;
-                      }
-                      totalPoeDocs += (it.q1PoeDocs?.length || 0) + (it.q2PoeDocs?.length || 0) + (it.q3PoeDocs?.length || 0) + (it.q4PoeDocs?.length || 0) + (it.annualPoeDocs?.length || 0) + (it.midtermPoeDocs?.length || 0);
-                    });
-                  }
-
-                  return (
-                    <div key={tp.id || `${tp.userId}-${idx}`} className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:border-indigo-400 hover:shadow-md transition group cursor-pointer" onClick={() => handleSelectPlan(tp)}>
-                      <div className="flex items-center gap-4">
-                        <div className={`p-3.5 rounded-2xl border ${tp.plan.metadata?.reviewStatus === 'Reviewed' ? 'bg-emerald-50 border-emerald-200 text-emerald-600' : submittedCount > 0 ? 'bg-amber-50 border-amber-200 text-amber-600' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
-                          {tp.plan.metadata?.reviewStatus === 'Reviewed' ? <CheckCircle className="w-7 h-7" /> : <Clock className="w-7 h-7" />}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-extrabold text-slate-900 text-base">{tp.plan.metadata?.name || tp.userId}</h3>
-                            <span className="text-[10px] font-mono font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">{tp.userId}</span>
-                          </div>
-                          <p className="text-xs text-slate-500 font-bold uppercase mt-0.5">
-                            {tp.plan.metadata?.position || 'Employee'} • {tp.plan.metadata?.department || 'Department'}
-                          </p>
-                          <div className="flex flex-wrap items-center gap-2 mt-2">
-                            {submittedCount > 0 && (
-                              <span className="text-[10px] font-black text-amber-800 bg-amber-100 border border-amber-200 px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-xs">
-                                ⚡ {submittedCount} KPI(s) Submitted for Review
-                              </span>
-                            )}
-                            <span className="text-[10px] font-black text-indigo-800 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-xs">
-                              📎 {totalPoeDocs} PoE File(s) Attached
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3 self-end sm:self-center">
-                        <span className={`text-[10.5px] font-black px-3.5 py-1.5 rounded-xl uppercase tracking-wider ${tp.plan.metadata?.reviewStatus === 'Reviewed' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-amber-100 text-amber-800 border border-amber-200'}`}>
-                          {tp.plan.metadata?.reviewStatus || 'Submitted for Approval'}
-                        </span>
-                        <div className="bg-indigo-600 text-white p-2 rounded-xl group-hover:bg-indigo-500 transition shadow-sm">
-                          <ChevronRight className="w-5 h-5" />
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
           {/* Manager's Direct Subordinates & Approval Status Ledger */}
           <div className="max-w-4xl mx-auto bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-4">
             <div className="border-b border-slate-150 pb-3 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3">
@@ -1203,6 +1140,15 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
                   <tbody>
                     {teamPlans.map((tp, idx) => {
                       const isApproved = tp.plan.metadata?.reviewStatus === 'Reviewed';
+                      let submittedKpisCount = 0;
+                      if (Array.isArray(tp.plan?.items)) {
+                        tp.plan.items.forEach((it: any) => {
+                          if (it.reviewStatus === 'Submitted for Approval' || it.reviewStatus === 'Submitted for Review') {
+                            submittedKpisCount++;
+                          }
+                        });
+                      }
+                      
                       return (
                         <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50/50 transition">
                           <td className="py-3 px-3 font-bold text-slate-800">
@@ -1217,7 +1163,11 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
                             </p>
                           </td>
                           <td className="py-3 px-3 text-center font-bold text-slate-600 uppercase text-[9.5px]">
-                            {tp.plan.metadata?.reviewStatus || 'Draft'}
+                            {submittedKpisCount > 0 ? (
+                              <span className="text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">⚡ {submittedKpisCount} KPI(s) Submitted</span>
+                            ) : (
+                              tp.plan.metadata?.reviewStatus || 'Draft'
+                            )}
                           </td>
                           <td className="py-3 px-3 text-center">
                             {isApproved ? (
@@ -1225,8 +1175,13 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
                                 <Check className="w-2.5 h-2.5 animate-none" />
                                 Approved ✅
                               </span>
+                            ) : submittedKpisCount > 0 ? (
+                              <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-150 animate-pulse">
+                                <Clock className="w-2.5 h-2.5" />
+                                Action Required ⚡
+                              </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-150 animate-none">
+                              <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-slate-50 text-slate-500 border border-slate-200 animate-none">
                                 <Clock className="w-2.5 h-2.5 animate-none" />
                                 Outstanding ❌
                               </span>
@@ -1235,7 +1190,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
                           <td className="py-3 px-3 text-center">
                             <button
                               onClick={() => handleSelectPlan(tp)}
-                              className="bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold px-3 py-1 rounded-lg text-[9px] uppercase tracking-wider inline-flex items-center gap-1 border-0 cursor-pointer transition shadow-sm"
+                              className={`${submittedKpisCount > 0 ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-200' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300'} font-extrabold px-3 py-1 rounded-lg text-[9px] uppercase tracking-wider inline-flex items-center gap-1 cursor-pointer transition`}
                             >
                               <Eye className="w-2.5 h-2.5" />
                               <span>Review Plan</span>
@@ -1926,6 +1881,9 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
 
       {/* DETAILED POE DOCUMENT PREVIEW LIGHTBOX MODAL */}
       {previewDoc && (
+        <OfficeDocumentViewer doc={previewDoc} onClose={() => setPreviewDoc(null)} />
+      )}
+      {previewDoc && false && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in">
           <div className="bg-white w-full max-w-4xl h-[85vh] rounded-3xl overflow-hidden shadow-2xl flex flex-col border border-indigo-200">
             {/* Lightbox Header */}

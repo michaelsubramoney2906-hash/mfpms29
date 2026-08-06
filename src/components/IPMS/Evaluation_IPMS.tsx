@@ -5,6 +5,7 @@ import {
   Bell, AlertTriangle, CheckCircle, Eye, Download, CheckSquare, Square, Trash2
 } from 'lucide-react';
 import { IPMSWorkflowInbox } from './IPMSWorkflowInbox';
+import { OfficeDocumentViewer } from './OfficeDocumentViewer';
 
 export interface PoeDocument {
   id: string;
@@ -15,6 +16,46 @@ export interface PoeDocument {
   uploadedAt: string;
   uploadedBy: string;
 }
+
+export const calculateProgressPercentage = (target?: string, actual?: string): number => {
+  if (!target || !actual) return 0;
+  const cleanNum = (val: string) => {
+    const standardFormat = val.replace(/,/g, '').replace(/\s/g, '');
+    const match = standardFormat.match(/-?\d+(\.\d+)?/);
+    if (match) {
+      const parsed = parseFloat(match[0]);
+      return isNaN(parsed) ? null : parsed;
+    }
+    return null;
+  };
+  const tNum = cleanNum(target);
+  const aNum = cleanNum(actual);
+  if (tNum !== null && aNum !== null && tNum !== 0) {
+    const pct = (aNum / tNum) * 100;
+    return Math.min(Math.max(Math.round(pct), 0), 100);
+  }
+  return 0;
+};
+
+export const calculateVariance = (target?: string, actual?: string): string => {
+  if (!target || !actual) return '0';
+  const cleanNum = (val: string) => {
+    const standardFormat = val.replace(/,/g, '').replace(/\s/g, '');
+    const match = standardFormat.match(/-?\d+(\.\d+)?/);
+    if (match) {
+      const parsed = parseFloat(match[0]);
+      return isNaN(parsed) ? null : parsed;
+    }
+    return null;
+  };
+  const tNum = cleanNum(target);
+  const aNum = cleanNum(actual);
+  if (tNum !== null && aNum !== null) {
+    const diff = tNum - aNum;
+    return Number(diff.toFixed(2)).toString();
+  }
+  return '0';
+};
 
 interface QuarterPoeSelectorProps {
   label: string;
@@ -323,64 +364,7 @@ export function QuarterPoeSelector({
 
       {/* Preview Modal */}
       {previewDoc && (
-        <div className="fixed inset-0 z-[100] bg-slate-900/90 backdrop-blur-sm flex items-center justify-center p-4 lg:p-8" onClick={() => setPreviewDoc(null)}>
-          <div className="bg-white w-full max-w-5xl h-full max-h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600">
-                  <FileText className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-800 text-sm">{previewDoc.name}</h3>
-                  <p className="text-xs text-slate-500 font-medium">Uploaded Document Preview</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {previewDoc.dataUrl && (
-                  <a
-                    href={previewDoc.dataUrl}
-                    download={previewDoc.name}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors"
-                  >
-                    <Download className="w-4 h-4" /> Download
-                  </a>
-                )}
-                <button
-                  onClick={() => setPreviewDoc(null)}
-                  className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 hover:bg-slate-100 rounded-lg text-slate-500 transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-            <div className="flex-1 bg-slate-100 p-6 overflow-hidden flex items-center justify-center relative">
-              {!previewDoc.dataUrl ? (
-                <div className="text-center">
-                  <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-3" />
-                  <h4 className="text-lg font-bold text-slate-800 mb-2">Preview Not Available</h4>
-                  <p className="text-sm text-slate-600 max-w-sm mx-auto">This document's content is not available in the current context. It might have been stripped to optimize loading.</p>
-                </div>
-              ) : previewDoc.mimeType?.startsWith('image/') || previewDoc.dataUrl.startsWith('data:image/') ? (
-                <img src={previewDoc.dataUrl} alt={previewDoc.name} className="max-h-full max-w-full object-contain rounded-lg shadow-sm" />
-              ) : previewDoc.mimeType?.includes('pdf') || previewDoc.dataUrl.startsWith('data:application/pdf') ? (
-                <iframe src={previewDoc.dataUrl} title={previewDoc.name} className="w-full h-full rounded-lg bg-white shadow-sm" />
-              ) : (
-                <div className="text-center bg-white p-8 rounded-xl shadow-sm border border-slate-200 max-w-md w-full">
-                  <File className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                  <h4 className="text-lg font-bold text-slate-800 mb-2">No Preview Available</h4>
-                  <p className="text-sm text-slate-600 mb-6">This file type ({previewDoc.name.split('.').pop()?.toUpperCase()}) cannot be previewed directly in the browser.</p>
-                  <a
-                    href={previewDoc.dataUrl}
-                    download={previewDoc.name}
-                    className="inline-flex items-center gap-2 px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold rounded-lg transition-colors"
-                  >
-                    <Download className="w-4 h-4" /> Download to View
-                  </a>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        <OfficeDocumentViewer doc={{...previewDoc, quarter: quarterName}} onClose={() => setPreviewDoc(null)} />
       )}
     </div>
   );
@@ -582,39 +566,8 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
             }
           })
         });
-      } else {
-        const managerEmail = metadata.managerEmail || 'KhuboniY@nkangaladm.gov.za';
-        const managerName = metadata.manager || 'Yena Khuboni';
-        const submitterEmail = currentUser.email;
-        const submitterName = currentUser.fullName || currentUser.full_name || (currentUser.email?.toLowerCase() === 'nsibandenp@nkangaladm.gov.za' ? 'Nompumelelo P. Nsibande' : 'Noluthando Zulu');
-
-        let poeCount = 0;
-        const targetItem = updatedItems.find(i => i.id === kpiId);
-        if (targetItem) {
-          poeCount = (targetItem.q1PoeDocs?.length || 0) + (targetItem.q2PoeDocs?.length || 0) + (targetItem.q3PoeDocs?.length || 0) + (targetItem.q4PoeDocs?.length || 0) + (targetItem.annualPoeDocs?.length || 0) + (targetItem.midtermPoeDocs?.length || 0);
-        }
-
-        await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            notification: {
-              senderEmail: submitterEmail,
-              senderName: submitterName,
-              recipientEmail: managerEmail,
-              recipientName: managerName,
-              title: `📋 KPI #${targetItem?.kpiNo || kpiId} Pushed to Annual Performance Planner Grid`,
-              message: `${submitterName} (${submitterEmail}) pushed KPI #${targetItem?.kpiNo || ''}: "${targetItem?.kpi || ''}" with ${poeCount} attached PoE document(s) to the Annual Performance Planner Grid.`,
-              actionType: 'planner_grid_sync',
-              senderCapacity: isManagerOfAnyone ? 'manager_as_self' : 'standard_user',
-              kpiId,
-              kpiNo: targetItem?.kpiNo || '',
-              poeDocsCount: poeCount
-            }
-          })
-        });
       }
-
+      
       setPplanData(payload);
       window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: currentUser.email } }));
       if (submitForReview) {
@@ -689,46 +642,6 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
       if (!pplanRes.ok) {
         throw new Error("Failed to save. Status: " + pplanRes.status + " " + pplanRes.statusText);
       }
-
-      const managerEmail = metadata.managerEmail || 'KhuboniY@nkangaladm.gov.za';
-      const managerName = metadata.manager || 'Yena Khuboni';
-      const submitterEmail = currentUser.email;
-      const submitterName = currentUser.fullName || currentUser.full_name || (currentUser.email?.toLowerCase() === 'nsibandenp@nkangaladm.gov.za' ? 'Nompumelelo P. Nsibande' : 'Noluthando Zulu');
-
-      let totalPoeCount = 0;
-      submittedItems.forEach(it => {
-        totalPoeCount += (it.q1PoeDocs?.length || 0) + (it.q2PoeDocs?.length || 0) + (it.q3PoeDocs?.length || 0) + (it.q4PoeDocs?.length || 0) + (it.annualPoeDocs?.length || 0) + (it.midtermPoeDocs?.length || 0);
-      });
-
-      const isSingle = targetIds.length === 1;
-      const notifTitle = isSingle 
-        ? `⚡ Single KPI ${kpiNosText} & PoE Submitted for Manager Approval by ${submitterName}`
-        : `⚡ Multiple KPIs (${targetIds.length} KPIs: ${kpiNosText}) & PoE Submitted for Manager Approval by ${submitterName}`;
-      
-      const notifMessage = isSingle
-        ? `${submitterName} (${submitterEmail}) submitted single KPI ${kpiNosText} with ${totalPoeCount} attached PoE document(s) for manager review (${managerName}).`
-        : `${submitterName} (${submitterEmail}) submitted ${targetIds.length} selected KPIs (${kpiNosText}) with ${totalPoeCount} total attached PoE document(s) for manager review (${managerName}).`;
-
-      await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          notification: {
-            senderEmail: submitterEmail,
-            senderName: submitterName,
-            recipientEmail: managerEmail,
-            recipientName: managerName,
-            title: notifTitle,
-            message: notifMessage,
-            actionType: 'submission',
-            senderCapacity: isManagerOfAnyone ? 'manager_as_self' : 'standard_user',
-            kpiId: isSingle ? targetIds[0] : undefined,
-            kpiIds: targetIds,
-            kpiNo: kpiNosText,
-            poeDocsCount: totalPoeCount
-          }
-        })
-      });
 
       setPplanData(payload);
       setSelectedKpiIds([]);
@@ -818,27 +731,6 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
         throw new Error("Failed to save. Status: " + pplanRes.status + " " + pplanRes.statusText);
       }
 
-      const managerEmail = metadata.managerEmail || 'KhuboniY@nkangaladm.gov.za';
-      const managerName = metadata.manager || 'Yena Khuboni';
-      const submitterEmail = currentUser.email;
-      const submitterName = currentUser.fullName || currentUser.full_name || (currentUser.email?.toLowerCase() === 'nsibandenp@nkangaladm.gov.za' ? 'Nompumelelo P. Nsibande' : 'Noluthando Zulu');
-
-      await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          notification: {
-            senderEmail: submitterEmail,
-            senderName: submitterName,
-            recipientEmail: managerEmail,
-            recipientName: managerName,
-            title: `🔄 Self-Evaluation Unlocked for Redo by ${submitterName}`,
-            message: `${submitterName} (${submitterEmail}) re-opened their performance plan self-evaluation to update quarterly metrics, upload/replace PoE files, and resubmit to manager (${managerName}).`,
-            actionType: 'redo_unlocked'
-          }
-        })
-      });
-
       setPplanData(payload);
       window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: currentUser.email } }));
       setToastMessage({
@@ -893,29 +785,6 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
       if (!pplanRes.ok) {
         throw new Error("Failed to save. Status: " + pplanRes.status + " " + pplanRes.statusText);
       }
-
-      const managerEmail = metadata.managerEmail || 'KhuboniY@nkangaladm.gov.za';
-      const managerName = metadata.manager || 'Yena Khuboni';
-      const submitterEmail = currentUser.email;
-      const submitterName = currentUser.fullName || currentUser.full_name || (currentUser.email?.toLowerCase() === 'nsibandenp@nkangaladm.gov.za' ? 'Nompumelelo P. Nsibande' : 'Noluthando Zulu');
-
-      await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          notification: {
-            senderEmail: submitterEmail,
-            senderName: submitterName,
-            recipientEmail: managerEmail,
-            recipientName: managerName,
-            title: `🔄 KPI #${targetItem?.kpiNo || kpiId} Unlocked for Redo by ${submitterName}`,
-            message: `${submitterName} (${submitterEmail}) unlocked KPI #${targetItem?.kpiNo || ''}: "${targetItem?.kpi || ''}" to update metrics and attach new PoE documents before resubmission.`,
-            actionType: 'redo_unlocked',
-            senderCapacity: isManagerOfAnyone ? 'manager_as_self' : 'standard_user',
-            kpiId
-          }
-        })
-      });
 
       setPplanData(payload);
       window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: currentUser.email } }));
@@ -985,56 +854,6 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
       });
       if (!pplanRes.ok) {
         throw new Error("Failed to save. Status: " + pplanRes.status + " " + pplanRes.statusText);
-      }
-
-      const managerEmail = metadata.managerEmail || 'KhuboniY@nkangaladm.gov.za';
-      const managerName = metadata.manager || 'Yena Khuboni';
-      const submitterEmail = currentUser.email;
-      const submitterName = currentUser.fullName || currentUser.full_name || (currentUser.email?.toLowerCase() === 'nsibandenp@nkangaladm.gov.za' ? 'Nompumelelo P. Nsibande' : 'Noluthando Zulu');
-
-      let totalPoeCount = 0;
-      updatedItems.forEach(it => {
-        totalPoeCount += (it.q1PoeDocs?.length || 0) + (it.q2PoeDocs?.length || 0) + (it.q3PoeDocs?.length || 0) + (it.q4PoeDocs?.length || 0) + (it.annualPoeDocs?.length || 0) + (it.midtermPoeDocs?.length || 0);
-      });
-
-      if (submitForReview) {
-        await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            notification: {
-              senderEmail: submitterEmail,
-              senderName: submitterName,
-              recipientEmail: managerEmail,
-              recipientName: managerName,
-              title: `⚡ Performance Plan & PoE Submitted for Manager Approval by ${submitterName}`,
-              message: `${submitterName} (${submitterEmail}) attached ${totalPoeCount} total PoE files across all KPIs and submitted the performance plan for manager review (${managerName}).`,
-              actionType: 'submission',
-              senderCapacity: isManagerOfAnyone ? 'manager_as_self' : 'standard_user',
-              kpiNo: 'Multiple',
-              poeDocsCount: totalPoeCount
-            }
-          })
-        });
-      } else {
-        await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            notification: {
-              senderEmail: submitterEmail,
-              senderName: submitterName,
-              recipientEmail: managerEmail,
-              recipientName: managerName,
-              title: `📋 Self-Evaluation Pushed to Annual Performance Planner Grid`,
-              message: `${submitterName} (${submitterEmail}) updated self-evaluation metrics, quarterly deliverables, and attached ${totalPoeCount} PoE document(s) in the Annual Performance Planner Grid.`,
-              actionType: 'planner_grid_sync',
-              senderCapacity: isManagerOfAnyone ? 'manager_as_self' : 'standard_user',
-              kpiNo: 'Multiple',
-              poeDocsCount: totalPoeCount
-            }
-          })
-        });
       }
 
       setPplanData(payload);
@@ -1177,6 +996,48 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
           </div>
         ) : (
           <div className="space-y-6">
+            {/* Overall Progress Tracking */}
+            {(() => {
+              let q1Total = 0, q2Total = 0, q3Total = 0, q4Total = 0, midtermTotal = 0, annualTotal = 0;
+              let count = items.length;
+              if (count > 0) {
+                items.forEach(kpi => {
+                  q1Total += calculateProgressPercentage(kpi.q1Target, kpi.q1Actual);
+                  q2Total += calculateProgressPercentage(kpi.q2Target, kpi.q2Actual);
+                  q3Total += calculateProgressPercentage(kpi.q3Target, kpi.q3Actual);
+                  q4Total += calculateProgressPercentage(kpi.q4Target, kpi.q4Actual);
+                  midtermTotal += calculateProgressPercentage(kpi.midtermTarget, kpi.midtermActual);
+                  annualTotal += calculateProgressPercentage(kpi.annualTarget, kpi.annualActual);
+                });
+              }
+
+              const renderProgress = (label: string, percentage: number, colorText: string, colorBg: string) => (
+                <div className="flex-1 min-w-[150px] bg-slate-50 border border-slate-200 p-3 rounded-xl flex flex-col justify-center gap-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] font-black text-slate-700 uppercase tracking-widest">{label}</span>
+                    <span className={`text-[10px] font-black ${colorText}`}>{percentage}%</span>
+                  </div>
+                  <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full transition-all duration-1000 ease-out ${colorBg}`} style={{ width: `${percentage}%` }} />
+                  </div>
+                </div>
+              );
+
+              return (
+                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-3">
+                  <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-widest border-b border-slate-100 pb-2">Overall Progress Tracking</h3>
+                  <div className="flex flex-wrap gap-3">
+                    {renderProgress("Q1 Progress", count > 0 ? Math.round(q1Total / count) : 0, "text-sky-600", "bg-sky-500")}
+                    {renderProgress("Q2 Progress", count > 0 ? Math.round(q2Total / count) : 0, "text-indigo-600", "bg-indigo-500")}
+                    {renderProgress("Midterm Progress", count > 0 ? Math.round(midtermTotal / count) : 0, "text-amber-600", "bg-amber-500")}
+                    {renderProgress("Q3 Progress", count > 0 ? Math.round(q3Total / count) : 0, "text-fuchsia-600", "bg-fuchsia-500")}
+                    {renderProgress("Q4 Progress", count > 0 ? Math.round(q4Total / count) : 0, "text-rose-600", "bg-rose-500")}
+                    {renderProgress("Annual Progress", count > 0 ? Math.round(annualTotal / count) : 0, "text-emerald-600", "bg-emerald-500")}
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Selection & Multi-KPI Submission Toolbar */}
             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -1331,6 +1192,54 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                     </div>
                   </div>
 
+                  {/* KPI Progress Tracking */}
+                  {(() => {
+                    let qTarget = '', qActual = '', qLabel = '';
+                    let quarterProgress = 0;
+                    if (currentTab === 'q1') { qTarget = kpi.q1Target; qActual = kpi.q1Actual; qLabel = 'Q1'; }
+                    else if (currentTab === 'q2') { qTarget = kpi.q2Target; qActual = kpi.q2Actual; qLabel = 'Q2'; }
+                    else if (currentTab === 'midterm') { qTarget = kpi.midtermTarget; qActual = kpi.midtermActual; qLabel = 'Midterm'; }
+                    else if (currentTab === 'q3') { qTarget = kpi.q3Target; qActual = kpi.q3Actual; qLabel = 'Q3'; }
+                    else if (currentTab === 'q4') { qTarget = kpi.q4Target; qActual = kpi.q4Actual; qLabel = 'Q4'; }
+                    else if (currentTab === 'annual') { qTarget = kpi.annualTarget; qActual = kpi.annualActual; qLabel = 'Annual'; }
+                    
+                    if (currentTab !== 'annual') {
+                      quarterProgress = calculateProgressPercentage(qTarget, qActual);
+                    }
+                    const annualProgress = calculateProgressPercentage(kpi.annualTarget, kpi.annualActual);
+                    
+                    return (
+                      <div className="flex flex-col sm:flex-row gap-4 bg-white border border-slate-150 rounded-xl p-3.5 shadow-sm">
+                        {currentTab !== 'annual' && (
+                          <div className="flex-1 space-y-2 border-b sm:border-b-0 sm:border-r border-slate-150 pb-3 sm:pb-0 sm:pr-4">
+                            <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-wider">
+                              <span className="text-slate-600">Current Tab ({qLabel}) Progress</span>
+                              <span className="text-indigo-600">{quarterProgress}%</span>
+                            </div>
+                            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                              <div className="h-full rounded-full bg-indigo-500 transition-all duration-700 ease-out" style={{ width: `${quarterProgress}%` }} />
+                            </div>
+                            <div className="text-[9px] font-bold text-slate-500">
+                              Target: <span className="text-slate-700">{qTarget || 'None'}</span> | Actual: <span className="text-indigo-700">{qActual || 'None'}</span>
+                            </div>
+                          </div>
+                        )}
+                        <div className="flex-1 space-y-2">
+                          <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-wider">
+                            <span className="text-slate-600">Annual YTD Progress</span>
+                            <span className="text-emerald-600">{annualProgress}%</span>
+                          </div>
+                          <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                            <div className="h-full rounded-full bg-emerald-500 transition-all duration-700 ease-out" style={{ width: `${annualProgress}%` }} />
+                          </div>
+                          <div className="text-[9px] font-bold text-slate-500">
+                            Target: <span className="text-slate-700">{kpi.annualTarget || 'None'}</span> | Actual: <span className="text-emerald-700">{kpi.annualActual || 'None'}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                   {/* LINE MANAGER REVIEW & PERFORMANCE FEEDBACK CARD FOR THIS KPI */}
                   {(kpi.review || kpi.managerScore || kpi.q1PoeFeedback || kpi.q2PoeFeedback || kpi.q3PoeFeedback || kpi.q4PoeFeedback || kpi.annualPoeFeedback || kpi.midtermPoeFeedback || (kpi.q1PoeStatus && kpi.q1PoeStatus !== 'Pending Verification')) && (
                     <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-4 rounded-2xl shadow-md border border-indigo-700/80 space-y-3">
@@ -1435,12 +1344,18 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                   <div className="bg-slate-50/40 p-4 rounded-xl border border-slate-150/70">
                     {currentTab === 'q1' && (
                       <div className="space-y-4">
+                        {kpi.q1Locked && (
+                          <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-3 text-xs flex items-center gap-2 font-medium">
+                            <span className="text-base">🔒</span>
+                            <span>This quarter is locked for reporting as it was not scheduled in the imported Performance Agreement.</span>
+                          </div>
+                        )}
                         <div className="flex items-start gap-2 text-[10px] text-slate-500 font-sans">
                           <span className="font-extrabold text-slate-700 shrink-0 uppercase">Q1 Performance Goal Target:</span>
                           <span className="font-bold text-slate-900">{kpi.q1Target || 'Not specified'}</span>
                         </div>
                         
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                           <div className="space-y-1.5">
                             <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider">Q1 Score (1-5)</label>
                             <input
@@ -1450,33 +1365,55 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                               step="0.1"
                               value={kpi.q1Score || ''}
                               onChange={(e) => updateItem(kpi.id, 'q1Score', e.target.value)}
-                              disabled={kpiIsReadOnly}
+                              disabled={kpiIsReadOnly || kpi.q1Locked}
                               placeholder="e.g. 3.5"
-                              className="w-full px-3 py-2 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-semibold text-stone-900 shadow-xs outline-none"
+                              className="w-full px-3 py-2 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-semibold text-stone-900 shadow-xs outline-none disabled:bg-slate-50 disabled:text-slate-400"
                             />
                           </div>
 
                           <div className="space-y-1.5">
-                            <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider">Q1 Deliverables / Actual Reached</label>
+                            <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider">1st Qtr Actual Reached</label>
                             <input
                               type="text"
                               value={kpi.q1Actual || ''}
                               onChange={(e) => updateItem(kpi.id, 'q1Actual', e.target.value)}
-                              disabled={kpiIsReadOnly}
+                              disabled={kpiIsReadOnly || kpi.q1Locked}
                               placeholder="Describe actual results achieved in Q1..."
-                              className="w-full px-3 py-2 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-semibold text-stone-900 shadow-xs outline-none"
+                              className="w-full px-3 py-2 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-semibold text-stone-900 shadow-xs outline-none disabled:bg-slate-50 disabled:text-slate-400"
                             />
                           </div>
 
                           <div className="space-y-1.5">
-                            <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider">Q1 Assessment Comments</label>
+                            <div className="flex items-center justify-between">
+                              <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider">1st Qtr Variance (Auto: Target - Actual)</label>
+                              {(() => {
+                                const varVal = calculateVariance(kpi.q1Target, kpi.q1Actual);
+                                return (
+                                  <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${varVal !== '0' ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'}`}>
+                                    {varVal}
+                                  </span>
+                                );
+                              })()}
+                            </div>
                             <textarea
                               rows={2}
                               value={kpi.q1Comment || ''}
                               onChange={(e) => updateItem(kpi.id, 'q1Comment', e.target.value)}
-                              disabled={kpiIsReadOnly}
-                              placeholder="Provide commentary or challenges faced..."
-                              className="w-full px-3 py-1.5 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-medium text-stone-900 outline-none"
+                              disabled={kpiIsReadOnly || kpi.q1Locked || calculateVariance(kpi.q1Target, kpi.q1Actual) === '0'}
+                              placeholder={calculateVariance(kpi.q1Target, kpi.q1Actual) === '0' ? "No variance - locked for comments" : "Provide variance explanation commentary..."}
+                              className={`w-full px-3 py-1.5 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-medium text-stone-900 outline-none disabled:bg-slate-50 disabled:text-slate-400 ${calculateVariance(kpi.q1Target, kpi.q1Actual) === '0' ? 'opacity-60' : ''}`}
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider">1st Qtr Corrective Action / Measure</label>
+                            <textarea
+                              rows={2}
+                              value={kpi.q1Corrective || ''}
+                              onChange={(e) => updateItem(kpi.id, 'q1Corrective', e.target.value)}
+                              disabled={kpiIsReadOnly || kpi.q1Locked || calculateVariance(kpi.q1Target, kpi.q1Actual) === '0'}
+                              placeholder={calculateVariance(kpi.q1Target, kpi.q1Actual) === '0' ? "No variance - locked for corrective measures" : "Provide corrective action details..."}
+                              className={`w-full px-3 py-1.5 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-medium text-stone-900 outline-none disabled:bg-slate-50 disabled:text-slate-400 ${calculateVariance(kpi.q1Target, kpi.q1Actual) === '0' ? 'opacity-60' : ''}`}
                             />
                           </div>
                         </div>
@@ -1484,18 +1421,18 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                         {/* Portfolio of Evidence block for Quarter 1 */}
                         <div className="pt-2 border-t border-slate-200">
                           <QuarterPoeSelector
-                            label="Q1 Portfolio of Evidence Documentation"
-                            placeholderRef="Evidence Reference: e.g. SCM signoff sheet, business model notes..."
-                            quarterName="Q1"
-                            requiredPoeDescription={kpi.q1RequiredPoe}
-                            textValue={kpi.q1Poe || ''}
-                            setTextValue={(val) => updateItem(kpi.id, 'q1Poe', val)}
-                            files={kpi.q1PoeDocs || []}
-                            setFiles={(filesVal) => updateItem(kpi.id, 'q1PoeDocs', filesVal)}
-                            currentUser={currentUser}
-                            disabled={kpiIsReadOnly}
-                            poeStatus={kpi.q1PoeStatus}
-                            poeFeedback={kpi.q1PoeFeedback}
+                             label="1st Qtr Portfolio of Evidence"
+                             placeholderRef="Evidence Reference: e.g. SCM signoff sheet, business model notes..."
+                             quarterName="Q1"
+                             requiredPoeDescription={kpi.q1RequiredPoe}
+                             textValue={kpi.q1Poe || ''}
+                             setTextValue={(val) => updateItem(kpi.id, 'q1Poe', val)}
+                             files={kpi.q1PoeDocs || []}
+                             setFiles={(filesVal) => updateItem(kpi.id, 'q1PoeDocs', filesVal)}
+                             currentUser={currentUser}
+                             disabled={kpiIsReadOnly || kpi.q1Locked}
+                             poeStatus={kpi.q1PoeStatus}
+                             poeFeedback={kpi.q1PoeFeedback}
                           />
                         </div>
                       </div>
@@ -1503,12 +1440,18 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
 
                     {currentTab === 'q2' && (
                       <div className="space-y-4">
+                        {kpi.q2Locked && (
+                          <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-3 text-xs flex items-center gap-2 font-medium">
+                            <span className="text-base">🔒</span>
+                            <span>This quarter is locked for reporting as it was not scheduled in the imported Performance Agreement.</span>
+                          </div>
+                        )}
                         <div className="flex items-start gap-2 text-[10px] text-slate-500 font-sans">
                           <span className="font-extrabold text-slate-700 shrink-0 uppercase">Q2 Performance Goal Target:</span>
                           <span className="font-bold text-slate-900">{kpi.q2Target || 'Not specified'}</span>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                           <div className="space-y-1.5">
                             <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider">Q2 Score (1-5)</label>
                             <input
@@ -1518,40 +1461,62 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                               step="0.1"
                               value={kpi.q2Score || ''}
                               onChange={(e) => updateItem(kpi.id, 'q2Score', e.target.value)}
-                              disabled={kpiIsReadOnly}
+                              disabled={kpiIsReadOnly || kpi.q2Locked}
                               placeholder="e.g. 3.5"
-                              className="w-full px-3 py-2 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-semibold text-stone-900 shadow-xs outline-none"
+                              className="w-full px-3 py-2 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-semibold text-stone-900 shadow-xs outline-none disabled:bg-slate-50 disabled:text-slate-400"
                             />
                           </div>
 
                           <div className="space-y-1.5">
-                            <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider">Q2 Deliverables / Actual Reached</label>
+                            <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider">2nd Qtr Actual Reached</label>
                             <input
                               type="text"
                               value={kpi.q2Actual || ''}
                               onChange={(e) => updateItem(kpi.id, 'q2Actual', e.target.value)}
-                              disabled={kpiIsReadOnly}
+                              disabled={kpiIsReadOnly || kpi.q2Locked}
                               placeholder="Describe actual results achieved in Q2..."
-                              className="w-full px-3 py-2 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-semibold text-stone-900 shadow-xs outline-none"
+                              className="w-full px-3 py-2 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-semibold text-stone-900 shadow-xs outline-none disabled:bg-slate-50 disabled:text-slate-400"
                             />
                           </div>
 
                           <div className="space-y-1.5">
-                            <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider">Q2 Assessment Comments</label>
+                            <div className="flex items-center justify-between">
+                              <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider">2nd Qtr Variance (Auto: Target - Actual)</label>
+                              {(() => {
+                                const varVal = calculateVariance(kpi.q2Target, kpi.q2Actual);
+                                return (
+                                  <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${varVal !== '0' ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'}`}>
+                                    {varVal}
+                                  </span>
+                                );
+                              })()}
+                            </div>
                             <textarea
                               rows={2}
                               value={kpi.q2Comment || ''}
                               onChange={(e) => updateItem(kpi.id, 'q2Comment', e.target.value)}
-                              disabled={kpiIsReadOnly}
-                              placeholder="Provide commentary or challenges faced..."
-                              className="w-full px-3 py-1.5 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-medium text-stone-900 outline-none"
+                              disabled={kpiIsReadOnly || kpi.q2Locked || calculateVariance(kpi.q2Target, kpi.q2Actual) === '0'}
+                              placeholder={calculateVariance(kpi.q2Target, kpi.q2Actual) === '0' ? "No variance - locked for comments" : "Provide variance explanation commentary..."}
+                              className={`w-full px-3 py-1.5 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-medium text-stone-900 outline-none disabled:bg-slate-50 disabled:text-slate-400 ${calculateVariance(kpi.q2Target, kpi.q2Actual) === '0' ? 'opacity-60' : ''}`}
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider">2nd Qtr Corrective Action / Measure</label>
+                            <textarea
+                              rows={2}
+                              value={kpi.q2Corrective || ''}
+                              onChange={(e) => updateItem(kpi.id, 'q2Corrective', e.target.value)}
+                              disabled={kpiIsReadOnly || kpi.q2Locked || calculateVariance(kpi.q2Target, kpi.q2Actual) === '0'}
+                              placeholder={calculateVariance(kpi.q2Target, kpi.q2Actual) === '0' ? "No variance - locked for corrective measures" : "Provide corrective action details..."}
+                              className={`w-full px-3 py-1.5 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-medium text-stone-900 outline-none disabled:bg-slate-50 disabled:text-slate-400 ${calculateVariance(kpi.q2Target, kpi.q2Actual) === '0' ? 'opacity-60' : ''}`}
                             />
                           </div>
                         </div>
 
                         <div className="pt-2 border-t border-slate-200">
                           <QuarterPoeSelector
-                            label="Q2 Portfolio of Evidence Documentation"
+                            label="2nd Qtr Portfolio of Evidence"
                             placeholderRef="Evidence Reference: e.g. Attendance register, technical approval..."
                             quarterName="Q2"
                             requiredPoeDescription={kpi.q2RequiredPoe}
@@ -1560,7 +1525,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                             files={kpi.q2PoeDocs || []}
                             setFiles={(filesVal) => updateItem(kpi.id, 'q2PoeDocs', filesVal)}
                             currentUser={currentUser}
-                            disabled={kpiIsReadOnly}
+                            disabled={kpiIsReadOnly || kpi.q2Locked}
                             poeStatus={kpi.q2PoeStatus}
                             poeFeedback={kpi.q2PoeFeedback}
                           />
@@ -1575,7 +1540,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                           <span className="font-bold text-slate-900">{kpi.midtermTarget || 'No Midterm Target Specified'}</span>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                           <div className="space-y-1.5">
                             <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider font-sans">Midterm Score (1-5)</label>
                             <input
@@ -1592,7 +1557,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                           </div>
 
                           <div className="space-y-1.5">
-                            <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider font-sans">Midterm Deliverables / Actual Reached</label>
+                            <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider font-sans">Midterm Actual Reached</label>
                             <input
                               type="text"
                               value={kpi.midtermActual || ''}
@@ -1604,21 +1569,43 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                           </div>
 
                           <div className="space-y-1.5">
-                            <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider font-sans">Midterm Assessment Comments</label>
+                            <div className="flex items-center justify-between">
+                              <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider font-sans">Midterm Variance (Auto: Target - Actual)</label>
+                              {(() => {
+                                const varVal = calculateVariance(kpi.midtermTarget, kpi.midtermActual);
+                                return (
+                                  <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${varVal !== '0' ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'}`}>
+                                    {varVal}
+                                  </span>
+                                );
+                              })()}
+                            </div>
                             <textarea
                               rows={2}
                               value={kpi.midtermComment || ''}
                               onChange={(e) => updateItem(kpi.id, 'midtermComment', e.target.value)}
-                              disabled={kpiIsReadOnly}
-                              placeholder="Provide midterm assessment commentary..."
-                              className="w-full px-3 py-1.5 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-medium text-stone-900 outline-none"
+                              disabled={kpiIsReadOnly || calculateVariance(kpi.midtermTarget, kpi.midtermActual) === '0'}
+                              placeholder={calculateVariance(kpi.midtermTarget, kpi.midtermActual) === '0' ? "No variance - locked for comments" : "Provide midterm variance explanation commentary..."}
+                              className={`w-full px-3 py-1.5 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-medium text-stone-900 outline-none ${calculateVariance(kpi.midtermTarget, kpi.midtermActual) === '0' ? 'opacity-60' : ''}`}
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider font-sans">Midterm Corrective Action / Measure</label>
+                            <textarea
+                              rows={2}
+                              value={kpi.midtermCorrective || ''}
+                              onChange={(e) => updateItem(kpi.id, 'midtermCorrective', e.target.value)}
+                              disabled={kpiIsReadOnly || calculateVariance(kpi.midtermTarget, kpi.midtermActual) === '0'}
+                              placeholder={calculateVariance(kpi.midtermTarget, kpi.midtermActual) === '0' ? "No variance - locked for corrective measures" : "Provide corrective action details..."}
+                              className={`w-full px-3 py-1.5 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-medium text-stone-900 outline-none ${calculateVariance(kpi.midtermTarget, kpi.midtermActual) === '0' ? 'opacity-60' : ''}`}
                             />
                           </div>
                         </div>
 
                         <div className="pt-2 border-t border-slate-200">
                           <QuarterPoeSelector
-                            label="Midterm Portfolio of Evidence Documentation"
+                            label="Midterm Portfolio of Evidence"
                             placeholderRef="Evidence Reference: e.g. Midterm audit report..."
                             quarterName="MID"
                             requiredPoeDescription={kpi.midtermRequiredPoe}
@@ -1637,12 +1624,18 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
 
                     {currentTab === 'q3' && (
                       <div className="space-y-4">
+                        {kpi.q3Locked && (
+                          <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-3 text-xs flex items-center gap-2 font-medium">
+                            <span className="text-base">🔒</span>
+                            <span>This quarter is locked for reporting as it was not scheduled in the imported Performance Agreement.</span>
+                          </div>
+                        )}
                         <div className="flex items-start gap-2 text-[10px] text-slate-500 font-sans">
                           <span className="font-extrabold text-slate-700 shrink-0 uppercase">Q3 Performance Goal Target:</span>
                           <span className="font-bold text-slate-900">{kpi.q3Target || 'Not specified'}</span>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                           <div className="space-y-1.5">
                             <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider">Q3 Score (1-5)</label>
                             <input
@@ -1652,40 +1645,62 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                               step="0.1"
                               value={kpi.q3Score || ''}
                               onChange={(e) => updateItem(kpi.id, 'q3Score', e.target.value)}
-                              disabled={kpiIsReadOnly}
+                              disabled={kpiIsReadOnly || kpi.q3Locked}
                               placeholder="e.g. 3.5"
-                              className="w-full px-3 py-2 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-semibold text-stone-900 shadow-xs outline-none"
+                              className="w-full px-3 py-2 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-semibold text-stone-900 shadow-xs outline-none disabled:bg-slate-50 disabled:text-slate-400"
                             />
                           </div>
 
                           <div className="space-y-1.5">
-                            <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider">Q3 Deliverables / Actual Reached</label>
+                            <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider">3rd Qtr Actual Reached</label>
                             <input
                               type="text"
                               value={kpi.q3Actual || ''}
                               onChange={(e) => updateItem(kpi.id, 'q3Actual', e.target.value)}
-                              disabled={kpiIsReadOnly}
+                              disabled={kpiIsReadOnly || kpi.q3Locked}
                               placeholder="Describe actual results achieved in Q3..."
-                              className="w-full px-3 py-2 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-semibold text-stone-900 shadow-xs outline-none"
+                              className="w-full px-3 py-2 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-semibold text-stone-900 shadow-xs outline-none disabled:bg-slate-50 disabled:text-slate-400"
                             />
                           </div>
 
                           <div className="space-y-1.5">
-                            <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider">Q3 Assessment Comments</label>
+                            <div className="flex items-center justify-between">
+                              <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider">3rd Qtr Variance (Auto: Target - Actual)</label>
+                              {(() => {
+                                const varVal = calculateVariance(kpi.q3Target, kpi.q3Actual);
+                                return (
+                                  <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${varVal !== '0' ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'}`}>
+                                    {varVal}
+                                  </span>
+                                );
+                              })()}
+                            </div>
                             <textarea
                               rows={2}
                               value={kpi.q3Comment || ''}
                               onChange={(e) => updateItem(kpi.id, 'q3Comment', e.target.value)}
-                              disabled={kpiIsReadOnly}
-                              placeholder="Provide commentary or challenges faced..."
-                              className="w-full px-3 py-1.5 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-medium text-stone-900 outline-none"
+                              disabled={kpiIsReadOnly || kpi.q3Locked || calculateVariance(kpi.q3Target, kpi.q3Actual) === '0'}
+                              placeholder={calculateVariance(kpi.q3Target, kpi.q3Actual) === '0' ? "No variance - locked for comments" : "Provide variance explanation commentary..."}
+                              className={`w-full px-3 py-1.5 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-medium text-stone-900 outline-none disabled:bg-slate-50 disabled:text-slate-400 ${calculateVariance(kpi.q3Target, kpi.q3Actual) === '0' ? 'opacity-60' : ''}`}
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider">3rd Qtr Corrective Action / Measure</label>
+                            <textarea
+                              rows={2}
+                              value={kpi.q3Corrective || ''}
+                              onChange={(e) => updateItem(kpi.id, 'q3Corrective', e.target.value)}
+                              disabled={kpiIsReadOnly || kpi.q3Locked || calculateVariance(kpi.q3Target, kpi.q3Actual) === '0'}
+                              placeholder={calculateVariance(kpi.q3Target, kpi.q3Actual) === '0' ? "No variance - locked for corrective measures" : "Provide corrective action details..."}
+                              className={`w-full px-3 py-1.5 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-medium text-stone-900 outline-none disabled:bg-slate-50 disabled:text-slate-400 ${calculateVariance(kpi.q3Target, kpi.q3Actual) === '0' ? 'opacity-60' : ''}`}
                             />
                           </div>
                         </div>
 
                         <div className="pt-2 border-t border-slate-200">
                           <QuarterPoeSelector
-                            label="Q3 Portfolio of Evidence Documentation"
+                            label="3rd Qtr Portfolio of Evidence"
                             placeholderRef="Evidence Reference: e.g. Audit ledger extract, completion certificate..."
                             quarterName="Q3"
                             requiredPoeDescription={kpi.q3RequiredPoe}
@@ -1694,7 +1709,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                             files={kpi.q3PoeDocs || []}
                             setFiles={(filesVal) => updateItem(kpi.id, 'q3PoeDocs', filesVal)}
                             currentUser={currentUser}
-                            disabled={kpiIsReadOnly}
+                            disabled={kpiIsReadOnly || kpi.q3Locked}
                             poeStatus={kpi.q3PoeStatus}
                             poeFeedback={kpi.q3PoeFeedback}
                           />
@@ -1704,12 +1719,18 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
 
                     {currentTab === 'q4' && (
                       <div className="space-y-4">
+                        {kpi.q4Locked && (
+                          <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-3 text-xs flex items-center gap-2 font-medium">
+                            <span className="text-base">🔒</span>
+                            <span>This quarter is locked for reporting as it was not scheduled in the imported Performance Agreement.</span>
+                          </div>
+                        )}
                         <div className="flex items-start gap-2 text-[10px] text-slate-500 font-sans">
                           <span className="font-extrabold text-slate-700 shrink-0 uppercase">Q4 Performance Goal Target:</span>
                           <span className="font-bold text-slate-900">{kpi.q4Target || 'Not specified'}</span>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                           <div className="space-y-1.5">
                             <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider">Q4 Score (1-5)</label>
                             <input
@@ -1719,40 +1740,62 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                               step="0.1"
                               value={kpi.q4Score || ''}
                               onChange={(e) => updateItem(kpi.id, 'q4Score', e.target.value)}
-                              disabled={kpiIsReadOnly}
+                              disabled={kpiIsReadOnly || kpi.q4Locked}
                               placeholder="e.g. 3.5"
-                              className="w-full px-3 py-2 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-semibold text-stone-900 shadow-xs outline-none"
+                              className="w-full px-3 py-2 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-semibold text-stone-900 shadow-xs outline-none disabled:bg-slate-50 disabled:text-slate-400"
                             />
                           </div>
 
                           <div className="space-y-1.5">
-                            <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider">Q4 Deliverables / Actual Reached</label>
+                            <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider">4th Qtr Actual Reached</label>
                             <input
                               type="text"
                               value={kpi.q4Actual || ''}
                               onChange={(e) => updateItem(kpi.id, 'q4Actual', e.target.value)}
-                              disabled={kpiIsReadOnly}
+                              disabled={kpiIsReadOnly || kpi.q4Locked}
                               placeholder="Describe actual results achieved in Q4..."
-                              className="w-full px-3 py-2 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-semibold text-stone-900 shadow-xs outline-none"
+                              className="w-full px-3 py-2 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-semibold text-stone-900 shadow-xs outline-none disabled:bg-slate-50 disabled:text-slate-400"
                             />
                           </div>
 
                           <div className="space-y-1.5">
-                            <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider">Q4 Assessment Comments</label>
+                            <div className="flex items-center justify-between">
+                              <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider">4th Qtr Variance (Auto: Target - Actual)</label>
+                              {(() => {
+                                const varVal = calculateVariance(kpi.q4Target, kpi.q4Actual);
+                                return (
+                                  <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${varVal !== '0' ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'}`}>
+                                    {varVal}
+                                  </span>
+                                );
+                              })()}
+                            </div>
                             <textarea
                               rows={2}
                               value={kpi.q4Comment || ''}
                               onChange={(e) => updateItem(kpi.id, 'q4Comment', e.target.value)}
-                              disabled={kpiIsReadOnly}
-                              placeholder="Provide commentary or challenges faced..."
-                              className="w-full px-3 py-1.5 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-medium text-stone-900 outline-none"
+                              disabled={kpiIsReadOnly || kpi.q4Locked || calculateVariance(kpi.q4Target, kpi.q4Actual) === '0'}
+                              placeholder={calculateVariance(kpi.q4Target, kpi.q4Actual) === '0' ? "No variance - locked for comments" : "Provide variance explanation commentary..."}
+                              className={`w-full px-3 py-1.5 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-medium text-stone-900 outline-none disabled:bg-slate-50 disabled:text-slate-400 ${calculateVariance(kpi.q4Target, kpi.q4Actual) === '0' ? 'opacity-60' : ''}`}
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider">4th Qtr Corrective Action / Measure</label>
+                            <textarea
+                              rows={2}
+                              value={kpi.q4Corrective || ''}
+                              onChange={(e) => updateItem(kpi.id, 'q4Corrective', e.target.value)}
+                              disabled={kpiIsReadOnly || kpi.q4Locked || calculateVariance(kpi.q4Target, kpi.q4Actual) === '0'}
+                              placeholder={calculateVariance(kpi.q4Target, kpi.q4Actual) === '0' ? "No variance - locked for corrective measures" : "Provide corrective action details..."}
+                              className={`w-full px-3 py-1.5 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-medium text-stone-900 outline-none disabled:bg-slate-50 disabled:text-slate-400 ${calculateVariance(kpi.q4Target, kpi.q4Actual) === '0' ? 'opacity-60' : ''}`}
                             />
                           </div>
                         </div>
 
                         <div className="pt-2 border-t border-slate-200">
                           <QuarterPoeSelector
-                            label="Q4 Portfolio of Evidence Documentation"
+                            label="4th Qtr Portfolio of Evidence"
                             placeholderRef="Evidence Reference: e.g. Closeout signoff reports, service verification..."
                             quarterName="Q4"
                             requiredPoeDescription={kpi.q4RequiredPoe}
@@ -1761,7 +1804,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                             files={kpi.q4PoeDocs || []}
                             setFiles={(filesVal) => updateItem(kpi.id, 'q4PoeDocs', filesVal)}
                             currentUser={currentUser}
-                            disabled={kpiIsReadOnly}
+                            disabled={kpiIsReadOnly || kpi.q4Locked}
                             poeStatus={kpi.q4PoeStatus}
                             poeFeedback={kpi.q4PoeFeedback}
                           />
