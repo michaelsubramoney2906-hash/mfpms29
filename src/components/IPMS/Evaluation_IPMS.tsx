@@ -646,9 +646,9 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
       setPplanData(payload);
       setSelectedKpiIds([]);
       window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: currentUser.email } }));
-      alert(isSingle 
-        ? `Single KPI (${kpiNosText}) successfully submitted to manager (${managerName})! Notification sent.` 
-        : `Selected ${targetIds.length} KPIs (${kpiNosText}) successfully submitted to manager (${managerName})! Notification sent.`
+      alert(targetIds.length === 1 
+        ? `Single KPI (${kpiNosText}) successfully submitted to manager (${metadata.manager})! Notification sent.` 
+        : `Selected ${targetIds.length} KPIs (${kpiNosText}) successfully submitted to manager (${metadata.manager})! Notification sent.`
       );
     } catch (e) {
       console.error(e);
