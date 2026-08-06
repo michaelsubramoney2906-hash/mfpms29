@@ -1409,18 +1409,23 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
               const currentQuarterData = activeQuartersList.find(q => q.id === currentQuarterTab) || activeQuartersList[0];
 
               return (
-                <div key={kpi.id} id={`kpi-card-${kpi.id}`} className={`bg-white p-5 rounded-2xl border ${isSelected ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'border-slate-200'} shadow-sm flex flex-col gap-4 transition-all duration-300`}>
+                <div key={kpi.id} id={`kpi-card-${kpi.id}`} className={`p-5 rounded-2xl border ${isSelected ? 'bg-amber-50/20 border-amber-500 ring-4 ring-amber-500/30' : 'bg-white border-slate-200'} shadow-sm flex flex-col gap-4 transition-all duration-300`}>
                   {/* Header with metadata badging */}
                   <div className="flex flex-wrap justify-between items-start gap-3 pb-3 border-b border-rose-100/50">
                     <div className="flex flex-wrap items-center gap-2">
+                      {isSelected && (
+                        <span className="bg-amber-500 text-white font-black px-2 py-0.5 rounded text-[9px] uppercase tracking-widest animate-pulse flex items-center shadow-sm">
+                          ⚡ PENDING REVIEW
+                        </span>
+                      )}
                       <button
                         type="button"
                         onClick={() => toggleSelectKpiForReview(kpi.id)}
-                        className="p-1 rounded text-slate-600 hover:text-indigo-600 cursor-pointer"
+                        className={`p-1 rounded cursor-pointer ${isSelected ? 'text-amber-600 hover:text-amber-700' : 'text-slate-600 hover:text-indigo-600'}`}
                         title={isSelected ? 'Deselect KPI' : 'Select KPI for manager review actions'}
                       >
                         {isSelected ? (
-                          <CheckSquare className="w-5 h-5 text-indigo-600" />
+                          <CheckSquare className="w-5 h-5 text-amber-600" />
                         ) : (
                           <Square className="w-5 h-5 text-slate-400" />
                         )}

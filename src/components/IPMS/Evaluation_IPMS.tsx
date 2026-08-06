@@ -646,6 +646,36 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
       setPplanData(payload);
       setSelectedKpiIds([]);
       window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: currentUser.email } }));
+      
+      if (submitForReview) {
+        try {
+          const notifPayload = {
+            action: 'send_notification',
+            notification: {
+              senderEmail: currentUser.email,
+              senderName: currentUser.fullName || currentUser.email.split('@')[0] || 'Employee',
+              recipientEmail: metadata.managerEmail || 'KhuboniY@nkangaladm.gov.za',
+              recipientName: metadata.manager || 'Manager',
+              title: targetIds.length === 1 ? `KPI ${kpiNosText} Submitted for Review` : `${targetIds.length} KPIs Submitted for Review`,
+              message: targetIds.length === 1 
+                ? `I have submitted KPI ${kpiNosText} and its associated Portfolio of Evidence for your review and approval.`
+                : `I have submitted ${targetIds.length} KPIs (${kpiNosText}) and their associated Portfolio of Evidence for your review and approval.`,
+              actionType: 'submission',
+              kpiId: targetIds[0],
+              kpiNo: kpiNosText,
+              senderCapacity: 'standard_user'
+            }
+          };
+          await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(notifPayload)
+          });
+        } catch(e) {
+          console.warn("Failed to dispatch workflow notification", e);
+        }
+      }
+
       alert(targetIds.length === 1 
         ? `Single KPI (${kpiNosText}) successfully submitted to manager (${metadata.manager})! Notification sent.` 
         : `Selected ${targetIds.length} KPIs (${kpiNosText}) successfully submitted to manager (${metadata.manager})! Notification sent.`
@@ -858,6 +888,32 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
 
       setPplanData(payload);
       window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: currentUser.email } }));
+      
+      if (submitForReview) {
+        try {
+          const notifPayload = {
+            action: 'send_notification',
+            notification: {
+              senderEmail: currentUser.email,
+              senderName: currentUser.fullName || currentUser.email.split('@')[0] || 'Employee',
+              recipientEmail: metadata.managerEmail || 'KhuboniY@nkangaladm.gov.za',
+              recipientName: metadata.manager || 'Manager',
+              title: `Complete Performance Plan Submitted for Review`,
+              message: `I have submitted my complete Performance Plan and associated Portfolios of Evidence for your review and approval.`,
+              actionType: 'submission',
+              senderCapacity: 'standard_user'
+            }
+          };
+          await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(notifPayload)
+          });
+        } catch(e) {
+          console.warn("Failed to dispatch workflow notification", e);
+        }
+      }
+
       if (submitForReview) {
         alert(`Evaluation successfully committed and submitted to your manager (${metadata.manager || 'Yena Khuboni'})! High-priority review notification sent.`);
       } else {
