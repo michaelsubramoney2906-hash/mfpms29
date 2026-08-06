@@ -346,41 +346,63 @@ export function Reports({ currentUser, activeTenantId }: ReportsProps) {
     }
   ];
 
+  const calculateProgressPercentage = (target?: string, actual?: string): number => {
+    if (!target || !actual) return 0;
+    const cleanNum = (val: string) => {
+      const standardFormat = val.replace(/,/g, '').replace(/\s/g, '');
+      const match = standardFormat.match(/-?\d+(\.\d+)?/);
+      if (match) {
+        const parsed = parseFloat(match[0]);
+        return isNaN(parsed) ? null : parsed;
+      }
+      return null;
+    };
+    const tNum = cleanNum(target);
+    const aNum = cleanNum(actual);
+    if (tNum !== null && aNum !== null && tNum !== 0) {
+      const pct = (aNum / tNum) * 100;
+      return Math.min(Math.max(Math.round(pct), 0), 100);
+    }
+    return 0;
+  };
+
   const getPeriodData = (item: any, p: 'Q1' | 'Q2' | 'Mid Term' | 'Q3' | 'Q4') => {
+    let target = 'N/A';
+    let actual = 'N/A';
+    let poe = 'N/A';
     switch (p) {
       case 'Q1':
-        return {
-          target: item.q1Target || item.q1 || 'N/A',
-          actual: item.q1Actual || 'N/A',
-          poe: item.q1Poe || item.poe || 'N/A'
-        };
+        target = item.q1Target || item.q1 || 'N/A';
+        actual = item.q1Actual || 'N/A';
+        poe = item.q1Poe || item.poe || 'N/A';
+        break;
       case 'Q2':
-        return {
-          target: item.q2Target || item.q2 || 'N/A',
-          actual: item.q2Actual || 'N/A',
-          poe: item.q2Poe || item.poe || 'N/A'
-        };
+        target = item.q2Target || item.q2 || 'N/A';
+        actual = item.q2Actual || 'N/A';
+        poe = item.q2Poe || item.poe || 'N/A';
+        break;
       case 'Mid Term':
-        return {
-          target: item.midtermTarget || item.midTermTarget || 'N/A',
-          actual: item.midtermActual || item.midTermActual || 'N/A',
-          poe: item.midtermPoe || item.midTermPoe || 'N/A'
-        };
+        target = item.midtermTarget || item.midTermTarget || 'N/A';
+        actual = item.midtermActual || item.midTermActual || 'N/A';
+        poe = item.midtermPoe || item.midTermPoe || 'N/A';
+        break;
       case 'Q3':
-        return {
-          target: item.q3Target || item.q3 || 'N/A',
-          actual: item.q3Actual || 'N/A',
-          poe: item.q3Poe || item.poe || 'N/A'
-        };
+        target = item.q3Target || item.q3 || 'N/A';
+        actual = item.q3Actual || 'N/A';
+        poe = item.q3Poe || item.poe || 'N/A';
+        break;
       case 'Q4':
-        return {
-          target: item.q4Target || item.q4 || 'N/A',
-          actual: item.q4Actual || 'N/A',
-          poe: item.q4Poe || item.poe || 'N/A'
-        };
-      default:
-        return { target: 'N/A', actual: 'N/A', poe: 'N/A' };
+        target = item.q4Target || item.q4 || 'N/A';
+        actual = item.q4Actual || 'N/A';
+        poe = item.q4Poe || item.poe || 'N/A';
+        break;
     }
+    return {
+      target,
+      actual,
+      poe,
+      progress: calculateProgressPercentage(target, actual)
+    };
   };
 
   const handleDownloadCustomReport = (format: 'Word' | 'Excel') => {
@@ -449,12 +471,14 @@ export function Reports({ currentUser, activeTenantId }: ReportsProps) {
                 <th>Annual Target</th>
                 <th>${termLabel} Target</th>
                 <th>${termLabel} Actual</th>
+                <th style="width: 120px;">Progress (QTR & Annual)</th>
                 <th>${termLabel} POE</th>
               </tr>
             </thead>
             <tbody>
               ${planItems.map((item: any, idx: number) => {
                 const pd = getPeriodData(item, selectedPeriod);
+                const annualProgress = calculateProgressPercentage(item.annualTarget, item.annualActual);
                 return `
                   <tr>
                     <td>${idx + 1}</td>
@@ -475,6 +499,16 @@ export function Reports({ currentUser, activeTenantId }: ReportsProps) {
                     <td>${item.annualTarget || 'N/A'}</td>
                     <td>${pd.target}</td>
                     <td>${pd.actual}</td>
+                    <td class="text-center">
+                      <div style="font-size: 10px; text-align: left; margin-bottom: 2px;">QTR: <b>${pd.progress}%</b></div>
+                      <div style="width: 100%; background: #eee; height: 6px; border-radius: 3px; margin-bottom: 6px; overflow: hidden;">
+                        <div style="width: ${Math.min(pd.progress, 100)}%; height: 100%; background: ${pd.progress >= 100 ? '#10b981' : pd.progress >= 50 ? '#f59e0b' : '#f43f5e'};"></div>
+                      </div>
+                      <div style="font-size: 10px; text-align: left; margin-bottom: 2px;">ANNUAL: <b>${annualProgress}%</b></div>
+                      <div style="width: 100%; background: #eee; height: 6px; border-radius: 3px; overflow: hidden;">
+                        <div style="width: ${Math.min(annualProgress, 100)}%; height: 100%; background: ${annualProgress >= 100 ? '#10b981' : annualProgress >= 50 ? '#f59e0b' : '#f43f5e'};"></div>
+                      </div>
+                    </td>
                     <td>${pd.poe}</td>
                   </tr>
                 `;
@@ -490,12 +524,12 @@ export function Reports({ currentUser, activeTenantId }: ReportsProps) {
         <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:x='urn:schemas-microsoft-com:office:excel' xmlns='http://www.w3.org/TR/REC-html40'>
         <body>
           <table>
-            <tr><th colspan="19" style="font-size: 14px; font-weight: bold; background-color: #1e1b4b; color: white; text-align: center;">PERFORMANCE PLAN - ${termLabel.toUpperCase()}</th></tr>
-            <tr><td colspan="2"><strong>Employee Name:</strong></td><td colspan="4">${planMetadata.name || 'N/A'}</td><td colspan="2"><strong>Username/Email:</strong></td><td colspan="11">${planMetadata.email || 'N/A'}</td></tr>
-            <tr><td colspan="2"><strong>Position / Level:</strong></td><td colspan="4">${planMetadata.position || planMetadata.level || 'N/A'}</td><td colspan="2"><strong>Department:</strong></td><td colspan="11">${planMetadata.department || 'N/A'}</td></tr>
-            <tr><td colspan="2"><strong>Manager:</strong></td><td colspan="4">${planMetadata.manager || 'N/A'}</td><td colspan="2"><strong>Manager Email:</strong></td><td colspan="11">${planMetadata.managerEmail || 'N/A'}</td></tr>
-            <tr><td colspan="2"><strong>Financial Year:</strong></td><td colspan="17">${planMetadata.period || '2025/2026 Financial Year'}</td></tr>
-            <tr><td colspan="19"></td></tr>
+            <tr><th colspan="20" style="font-size: 14px; font-weight: bold; background-color: #1e1b4b; color: white; text-align: center;">PERFORMANCE PLAN - ${termLabel.toUpperCase()}</th></tr>
+            <tr><td colspan="2"><strong>Employee Name:</strong></td><td colspan="4">${planMetadata.name || 'N/A'}</td><td colspan="2"><strong>Username/Email:</strong></td><td colspan="12">${planMetadata.email || 'N/A'}</td></tr>
+            <tr><td colspan="2"><strong>Position / Level:</strong></td><td colspan="4">${planMetadata.position || planMetadata.level || 'N/A'}</td><td colspan="2"><strong>Department:</strong></td><td colspan="12">${planMetadata.department || 'N/A'}</td></tr>
+            <tr><td colspan="2"><strong>Manager:</strong></td><td colspan="4">${planMetadata.manager || 'N/A'}</td><td colspan="2"><strong>Manager Email:</strong></td><td colspan="12">${planMetadata.managerEmail || 'N/A'}</td></tr>
+            <tr><td colspan="2"><strong>Financial Year:</strong></td><td colspan="18">${planMetadata.period || '2025/2026 Financial Year'}</td></tr>
+            <tr><td colspan="20"></td></tr>
             <thead>
               <tr>
                 <th style="background-color: #0f172a; color: white;">No.</th>
@@ -516,12 +550,14 @@ export function Reports({ currentUser, activeTenantId }: ReportsProps) {
                 <th style="background-color: #0f172a; color: white;">Annual Target</th>
                 <th style="background-color: #0f172a; color: white;">${termLabel} Target</th>
                 <th style="background-color: #0f172a; color: white;">${termLabel} Actual</th>
+                <th style="background-color: #0f172a; color: white;">Progress (QTR & ANNUAL)</th>
                 <th style="background-color: #0f172a; color: white;">${termLabel} POE</th>
               </tr>
             </thead>
             <tbody>
               ${planItems.map((item: any, idx: number) => {
                 const pd = getPeriodData(item, selectedPeriod);
+                const annualProgress = calculateProgressPercentage(item.annualTarget, item.annualActual);
                 return `
                   <tr>
                     <td>${idx + 1}</td>
@@ -542,6 +578,7 @@ export function Reports({ currentUser, activeTenantId }: ReportsProps) {
                     <td>${item.annualTarget || 'N/A'}</td>
                     <td>${pd.target}</td>
                     <td>${pd.actual}</td>
+                    <td align="center"><b>QTR: ${pd.progress}% | ANNUAL: ${annualProgress}%</b></td>
                     <td>${pd.poe}</td>
                   </tr>
                 `;
@@ -851,12 +888,14 @@ export function Reports({ currentUser, activeTenantId }: ReportsProps) {
                         <th className="p-2 border-r border-slate-200 text-slate-800 font-extrabold uppercase tracking-wider text-[8px] w-24 shrink-0">Annual Target</th>
                         <th className="p-2 border-r border-slate-200 text-slate-800 font-extrabold uppercase tracking-wider text-[8px] w-24 shrink-0">{getPeriodLabel(selectedPeriod)} Target</th>
                         <th className="p-2 border-r border-slate-200 text-slate-800 font-extrabold uppercase tracking-wider text-[8px] w-24 shrink-0">{getPeriodLabel(selectedPeriod)} Actual</th>
+                        <th className="p-2 border-r border-slate-200 text-slate-800 font-extrabold uppercase tracking-wider text-[8px] w-24 shrink-0 text-center">Progress (QTR & ANNUAL)</th>
                         <th className="p-2 text-slate-800 font-extrabold uppercase tracking-wider text-[8px] w-24 shrink-0">{getPeriodLabel(selectedPeriod)} POE</th>
                       </tr>
                     </thead>
                     <tbody>
                       {planItems.map((item: any, idx: number) => {
                         const pData = getPeriodData(item, selectedPeriod);
+                        const annualProgress = calculateProgressPercentage(item.annualTarget, item.annualActual);
                         return (
                           <tr key={item.id} className="border-b border-slate-150 hover:bg-slate-50/50">
                             <td className="p-2 border-r border-slate-150 font-bold text-slate-500">{idx + 1}</td>
@@ -877,6 +916,28 @@ export function Reports({ currentUser, activeTenantId }: ReportsProps) {
                             <td className="p-2 border-r border-slate-150 font-semibold text-slate-800">{item.annualTarget || 'N/A'}</td>
                             <td className="p-2 border-r border-slate-150 font-semibold text-indigo-700 bg-indigo-50/25">{pData.target}</td>
                             <td className="p-2 border-r border-slate-150 font-semibold text-emerald-700 bg-emerald-50/25">{pData.actual}</td>
+                            <td className="p-2 border-r border-slate-150 text-center font-extrabold text-slate-700">
+                              <div className="flex flex-col gap-1.5 min-w-[80px]">
+                                <div className="flex flex-col gap-0.5">
+                                  <div className="flex justify-between text-[8px] font-black uppercase">
+                                    <span className="text-slate-500">QTR</span>
+                                    <span className={pData.progress >= 100 ? 'text-emerald-600' : pData.progress >= 50 ? 'text-amber-600' : 'text-rose-600'}>{pData.progress}%</span>
+                                  </div>
+                                  <div className="w-full h-1 bg-slate-200 rounded-full overflow-hidden">
+                                    <div className={`h-full transition-all duration-700 ease-out ${pData.progress >= 100 ? 'bg-emerald-500' : pData.progress >= 50 ? 'bg-amber-500' : 'bg-rose-500'}`} style={{ width: `${Math.min(pData.progress, 100)}%` }} />
+                                  </div>
+                                </div>
+                                <div className="flex flex-col gap-0.5">
+                                  <div className="flex justify-between text-[8px] font-black uppercase">
+                                    <span className="text-slate-500">ANNUAL</span>
+                                    <span className={annualProgress >= 100 ? 'text-emerald-600' : annualProgress >= 50 ? 'text-amber-600' : 'text-rose-600'}>{annualProgress}%</span>
+                                  </div>
+                                  <div className="w-full h-1 bg-slate-200 rounded-full overflow-hidden">
+                                    <div className={`h-full transition-all duration-700 ease-out ${annualProgress >= 100 ? 'bg-emerald-500' : annualProgress >= 50 ? 'bg-amber-500' : 'bg-rose-500'}`} style={{ width: `${Math.min(annualProgress, 100)}%` }} />
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
                             <td className="p-2 text-slate-500 italic break-all max-w-[120px]">{pData.poe}</td>
                           </tr>
                         );
