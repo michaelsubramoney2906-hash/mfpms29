@@ -95,7 +95,7 @@ export function FredExtractionAgent({ currentUser, activeTenantId }: FredExtract
           compliance: item.compliance || 'compliant',
           uom: item.Unit_of_Measure || item.uom || 'Number',
           mscoaTracking: item.mSCOA_Tracking || item.mscoaTracking || 'mSCOA Item Code',
-          baseline: item.Baseline || item.baseline || '0',
+          baseline: item.Baseline ?? item.baseline ?? '',
           annualTarget: item.Annual_Target || item.Target || item.annualTarget || '',
           budgetAllocation: item.Budget_Allocation || item.budgetAllocation || 'R 0',
           q1: item.Q1_Target || item.q1 || '',
