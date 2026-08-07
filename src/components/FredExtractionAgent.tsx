@@ -391,492 +391,122 @@ export function FredExtractionAgent({ currentUser, activeTenantId }: FredExtract
               </p>
             </div>
 
+            {selectedEngine === 'sdbip_engine' && (
+              <div className="mt-2.5 p-3 bg-indigo-950/20 border border-indigo-900/50 rounded-lg text-[9.5px] leading-relaxed text-slate-400 space-y-1">
+                <p>Extracts SDBIP Top Layer metrics.</p>
+              </div>
+            )}
+            {selectedEngine === 'core_competencies_engine' && (
+              <div className="mt-2.5 p-3 bg-emerald-950/20 border border-emerald-900/50 rounded-lg text-[9.5px] leading-relaxed text-slate-400 space-y-1">
+                <p>Extracts Core Competencies.</p>
+              </div>
+            )}
             {selectedEngine === 'agreement_to_plan_engine' && (
-              <div className="mt-2.5 p-3 bg-indigo-950/20 border border-indigo-900/50 rounded-lg text-[9.5px] leading-relaxed text-slate-400 space-y-1 select-text">
-                <div className="font-bold text-slate-300 uppercase tracking-wider text-[8.5px] flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                  Exhaustive Extraction Protocol
-                </div>
-                <p>
-                  All KPAs and KPIs are exhaustively extracted regardless of reference number format (<strong className="text-slate-200">M_</strong>, <strong className="text-slate-200">P_</strong>, <strong className="text-slate-200">U_</strong>, numeric, custom codes, or unassigned) and mapped directly to their respective Key Performance Area categories.
-                </p>
+              <div className="mt-2.5 p-3 bg-amber-950/20 border border-amber-900/50 rounded-lg text-[9.5px] leading-relaxed text-slate-400 space-y-1">
+                <p>Extracts KPAs and KPIs into a strict matrix mapped to the Annual Planner Grid.</p>
               </div>
             )}
-          </div>
-
-          {/* Document Upload Zone */}
-          <div className="bg-slate-950 p-6 rounded-xl border border-slate-800 shadow-md flex flex-col items-center justify-center text-center">
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              className="hidden"
-              accept=".pdf,.doc,.docx"
-            />
+            {selectedEngine === 'jsc_pdp_engine' && (
+              <div className="mt-2.5 p-3 bg-pink-950/20 border border-pink-900/50 rounded-lg text-[9.5px] leading-relaxed text-slate-400 space-y-1">
+                <p>Extracts Job Specific Competencies and PDP.</p>
+              </div>
+            )}
+            {selectedEngine === 'cfo_competencies_engine' && (
+              <div className="mt-2.5 p-3 bg-sky-950/20 border border-sky-900/50 rounded-lg text-[9.5px] leading-relaxed text-slate-400 space-y-1">
+                <p>Extracts CFO core competencies.</p>
+              </div>
+            )}
+            {selectedEngine === 'ped_competencies_engine' && (
+              <div className="mt-2.5 p-3 bg-amber-950/20 border border-amber-900/50 rounded-lg text-[9.5px] leading-relaxed text-slate-400 space-y-1">
+                <p>Extracts PED core competencies.</p>
+              </div>
+            )}
+            {selectedEngine === 'corporate_services_competencies_engine' && (
+              <div className="mt-2.5 p-3 bg-pink-950/20 border border-pink-900/50 rounded-lg text-[9.5px] leading-relaxed text-slate-400 space-y-1">
+                <p>Extracts Corporate Services core competencies.</p>
+              </div>
+            )}
             
-            <div className="p-4 bg-slate-900 rounded-full border border-slate-800 mb-4 text-indigo-400">
-              <UploadCloud className="w-8 h-8" />
-            </div>
-
-            <h4 className="text-xs font-bold text-white uppercase tracking-wider font-sans">Upload Raw Contract / Document</h4>
-            <p className="text-slate-500 text-[10px] mt-1 max-w-[280px]">
-              Supports standard PDF and Word format (.docx files). File size up to 25MB.
-            </p>
-
-            {selectedFile ? (
-              <div className="mt-4 p-3 bg-slate-900 rounded-xl border border-slate-800 w-full flex items-center justify-between">
-                <div className="flex items-center gap-2 text-left">
-                  <FileText className="w-5 h-5 text-indigo-400" />
-                  <div className="max-w-[170px] truncate">
-                    <p className="text-xs font-bold text-slate-300 truncate">{selectedFile.name}</p>
-                    <p className="text-[10px] text-slate-500 font-mono">{(selectedFile.size / 1024).toFixed(1)} KB</p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setSelectedFile(null)}
-                  className="p-1 text-slate-500 hover:text-white transition"
-                >
-                  &times;
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={triggerSelectFile}
-                className="mt-4 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase tracking-wider rounded-lg shadow-lg active:scale-95 transition"
-              >
-                Select Input File
+            <div className="pt-5 border-t border-slate-800/80 space-y-3">
+              <input type="file" className="hidden" accept=".pdf,.doc,.docx" ref={fileInputRef} onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} />
+              <button type="button" onClick={() => {
+                fileInputRef.current?.click();
+              }} className="w-full flex items-center justify-center gap-2 p-3 bg-slate-900 text-slate-300 rounded-lg border border-slate-700 hover:bg-slate-800 transition text-xs font-bold shadow-sm">
+                <UploadCloud className="w-4 h-4" />
+                {selectedFile ? selectedFile.name : "Upload Document"}
               </button>
-            )}
-
-            {selectedFile && (
-              <button
-                type="button"
-                disabled={isExtracting}
-                onClick={handleExtract}
-                className="w-full mt-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-800 disabled:text-slate-500 text-white font-extrabold text-xs uppercase tracking-widest py-3 rounded-lg flex items-center justify-center gap-2 shadow-lg transition"
-              >
+              
+              <button type="button" onClick={handleExtract} disabled={!selectedFile || isExtracting} className="w-full flex items-center justify-center gap-2 p-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 transition text-xs font-bold shadow-md shadow-indigo-900/20 disabled:opacity-50 disabled:cursor-not-allowed">
                 {isExtracting ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin text-white" />
-                    <span>Analyzing & Syncing...</span>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Extracting...
                   </>
                 ) : (
                   <>
-                    <RefreshCw className="w-4 h-4 text-white" />
-                    <span>Launch Extraction</span>
+                    <Sparkles className="w-4 h-4" />
+                    Initiate Extraction
                   </>
                 )}
               </button>
-            )}
+            </div>
           </div>
         </div>
 
-        {/* Right Column: Dynamic Extraction Result Views */}
-        <div className="lg:col-span-8 space-y-5">
-          {/* Status Message Display */}
-          {successMsg && (
-            <div className="bg-emerald-950/40 border border-emerald-900/60 p-4 rounded-xl text-emerald-400 text-xs font-bold flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0" />
-              <span>{successMsg}</span>
-            </div>
-          )}
-
-          {error && (
-            <div className="bg-red-950/40 border border-red-900/60 p-4 rounded-xl text-red-400 text-xs font-bold flex items-center gap-2">
-              <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
-
+        {/* Right Pane: Workspace Results */}
+        <div className="lg:col-span-8 flex flex-col space-y-4">
           {isExtracting && (
-            <div className="bg-slate-950 p-12 rounded-xl border border-slate-800 text-center py-20 space-y-6">
+            <div className="bg-slate-950 p-6 rounded-xl border border-slate-800 shadow-md text-center py-24 space-y-4">
               <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mx-auto" />
-              <div className="max-w-md mx-auto space-y-4">
-                <div className="space-y-1">
-                  <h4 className="text-white text-xs font-bold uppercase tracking-wider">Fred is digesting the document structures...</h4>
-                  <p className="text-slate-500 text-[10px] leading-relaxed">
-                    Parsing text blocks, invoking strict cognitive output parameters, and mapping schema contents into Supabase relational tables. Please hold on.
-                  </p>
-                </div>
-                
-                {/* Real-time Progress Bar */}
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center text-[10px] text-slate-400 font-mono">
-                    <span>PROGRESS STATUS</span>
-                    <span className="text-indigo-400 font-bold">{Math.round(progress)}%</span>
-                  </div>
-                  <div className="w-full bg-slate-900 h-2.5 rounded-full overflow-hidden border border-slate-800">
-                    <div 
-                      className="bg-indigo-600 h-full rounded-full transition-all duration-150 ease-out" 
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
-                  <p className="text-[9px] text-slate-500 italic">
-                    {progress < 30 ? 'Initializing secure pipeline...' : 
-                     progress < 70 ? 'Extracting text nodes and mapping structural schema...' : 
-                     progress < 90 ? 'Validating schema rules and building associations...' : 
-                     'Finalizing Supabase synchronizations...'}
-                  </p>
-                </div>
+              <div className="max-w-md mx-auto space-y-1">
+                <h4 className="text-white text-xs font-bold uppercase tracking-wider">Cognitive Extraction in Progress</h4>
+                <p className="text-slate-500 text-[10px] leading-relaxed">
+                  Fred is currently analyzing the document. This process requires complex schema mapping and semantic interpretation.
+                </p>
               </div>
             </div>
           )}
-
-          {/* Dynamic Extraction Result View */}
-          {extractionResult && !isExtracting && (
-            <div className="bg-slate-950 rounded-xl border border-slate-800 shadow-md divide-y divide-slate-800/80 overflow-hidden">
-              <div className="p-5 flex items-center justify-between bg-slate-900/60">
-                <div className="flex items-center gap-2">
-                  <Archive className="w-4 h-4 text-indigo-400" />
-                  <span className="text-xs font-bold text-white uppercase tracking-wider">Active Schema Structure</span>
-                </div>
-                <span className="text-[10px] font-mono bg-slate-800 text-indigo-300 px-3 py-1 rounded-full font-bold">
-                  {selectedEngine.replace(/_/g, ' ').toUpperCase()}
-                </span>
+          
+          {error && (
+            <div className="bg-red-500/10 border border-red-500/50 p-4 rounded-xl text-red-400 text-xs flex gap-3 items-start">
+              <AlertCircle className="w-5 h-5 flex-shrink-0" />
+              <div>
+                <strong className="block font-bold mb-1">Extraction Error</strong>
+                {error}
               </div>
-
-              {/* Rendering logic per engine result */}
-              <div className="p-5">
+            </div>
+          )}
+          
+          {successMsg && !isExtracting && extractionResult && (
+            <div className="bg-emerald-500/10 border border-emerald-500/50 p-4 rounded-xl text-emerald-400 text-xs flex gap-3 items-center">
+              <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+              <span className="font-bold">{successMsg}</span>
+            </div>
+          )}
+          
+          {extractionResult && !isExtracting && (
+            <div className="bg-slate-950 rounded-xl border border-slate-800 shadow-xl overflow-hidden flex flex-col">
+              <div className="p-4 md:p-6 flex-1 overflow-y-auto">
                 {selectedEngine === 'sdbip_engine' && (
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center pb-2 border-b border-slate-800/50">
-                      <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Mapped SDBIP Items Table</h4>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-mono text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-850">
-                          {extractionResult.items?.length || 0} entries found
-                        </span>
-                        <button
-                          type="button"
-                          onClick={handleSyncToSdbipTable}
-                          disabled={isSyncing}
-                          className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold text-[11px] px-3 py-1.5 rounded-lg border border-indigo-400/30 flex items-center gap-1.5 transition shadow-sm"
-                        >
-                          <Database className="w-3.5 h-3.5" />
-                          <span>{isSyncing ? 'Syncing...' : 'Push & Sync to SDBIP Table'}</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="overflow-x-auto border border-slate-800/80 rounded-lg">
-                      <table className="w-full text-left border-collapse text-[11px] font-sans min-w-[1200px]">
-                        <thead>
-                          <tr className="bg-slate-900 border-b border-slate-800 text-slate-400 uppercase tracking-wider text-[9px] font-black">
-                            <th className="p-3">Ref No</th>
-                            <th className="p-3">National KPA & Flags</th>
-                            <th className="p-3">Strategic Objective</th>
-                            <th className="p-3">KPI & Description</th>
-                            <th className="p-3 text-emerald-400">Responsible Owner</th>
-                            <th className="p-3">UOM & mSCOA</th>
-                            <th className="p-3">Baseline & Targets</th>
-                            <th className="p-3">Quarters (Q1 - Q4)</th>
-                            <th className="p-3 text-indigo-300">Submitter</th>
-                            <th className="p-3 text-amber-300">Approver</th>
-                            <th className="p-3">POE Requirement</th>
-                            <th className="p-3">System Mapping</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-850">
-                          {extractionResult.items?.map((item: any, rIdx: number) => {
-                            const kpaFlags = [
-                              item.BSD === 'X' || item.BSD === true ? 'BSD' : '',
-                              item.LED === 'X' || item.LED === true ? 'LED' : '',
-                              item.MFVM === 'X' || item.MFVM === true ? 'MFVM' : '',
-                              item.GGPP === 'X' || item.GGPP === true ? 'GGPP' : '',
-                              item.MIDT === 'X' || item.MIDT === true ? 'MIDT' : '',
-                              item.SR === 'X' || item.SR === true ? 'SR' : ''
-                            ].filter(Boolean).join(', ');
-
-                            const displayRef = (item.Ref_Number && !item.Ref_Number.startsWith('KPI-'))
-                              ? item.Ref_Number 
-                              : (item.refNum && !item.refNum.startsWith('KPI-'))
-                                ? item.refNum
-                                : (rIdx < 92 ? `M_${String(rIdx + 1).padStart(2, '0')}` : `P_${String(rIdx - 91).padStart(2, '0')}`);
-
-                            const displayOwner = item.Responsible_Owner || item.responsibleUnit || item.Responsible_Person || item.Responsible_Official || item.Responsible_Manager || "N/A";
-
-                            return (
-                              <tr key={rIdx} className="hover:bg-slate-900/40 text-slate-300 transition-colors">
-                                <td className="p-3 font-mono font-bold text-indigo-400 whitespace-nowrap">
-                                  {displayRef}
-                                </td>
-                                <td className="p-3 max-w-[160px]">
-                                  <p className="font-medium text-white truncate" title={item.National_KPA}>{item.National_KPA || "N/A"}</p>
-                                  {kpaFlags && (
-                                    <span className="text-[9px] font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-800/50 px-1.5 py-0.5 rounded mt-0.5 inline-block">
-                                      {kpaFlags}
-                                    </span>
-                                  )}
-                                </td>
-                                <td className="p-3 max-w-[180px] truncate" title={item.SDBIP_Strategic_Objective}>
-                                  {item.SDBIP_Strategic_Objective || "N/A"}
-                                </td>
-                                <td className="p-3 max-w-[220px]">
-                                  <p className="font-bold text-indigo-300 text-[11px]">{item.KPI || "N/A"}</p>
-                                  {item.Description && item.Description !== item.KPI && (
-                                    <p className="text-slate-400 text-[10px] mt-0.5 line-clamp-2" title={item.Description}>{item.Description}</p>
-                                  )}
-                                </td>
-                                <td className="p-3 font-bold text-emerald-300 max-w-[150px] truncate" title={displayOwner}>
-                                  {displayOwner}
-                                </td>
-                                <td className="p-3 text-slate-400 whitespace-nowrap">
-                                  <p className="font-semibold text-slate-300">{item.Unit_of_Measure || "Number"}</p>
-                                  <p className="text-[10px] text-slate-500 font-mono mt-0.5">{item.mSCOA_Tracking || "mSCOA Item"}</p>
-                                </td>
-                                <td className="p-3 whitespace-nowrap">
-                                  <p className="text-slate-300"><span className="text-slate-500 text-[10px]">Base:</span> {item.Baseline || "0"}</p>
-                                  <p className="font-bold text-amber-300"><span className="text-slate-500 text-[10px]">Target:</span> {item.Annual_Target || item.Target || "N/A"}</p>
-                                  <p className="text-emerald-400 text-[10px]"><span className="text-slate-500">Budget:</span> {item.Budget_Allocation || "R 0"}</p>
-                                </td>
-                                <td className="p-3 text-[10px] whitespace-nowrap space-y-0.5">
-                                  <p><span className="text-slate-500">Q1:</span> {item.Q1_Target || '-'}</p>
-                                  <p><span className="text-slate-500">Q2:</span> {item.Q2_Target || '-'}</p>
-                                  {item.Mid_Term_Target && <p><span className="text-slate-500">Mid:</span> {item.Mid_Term_Target}</p>}
-                                  <p><span className="text-slate-500">Q3:</span> {item.Q3_Target || '-'}</p>
-                                  <p><span className="text-slate-500">Q4:</span> {item.Q4_Target || '-'}</p>
-                                </td>
-                                <td className="p-3 text-indigo-300 font-semibold max-w-[130px] truncate" title={item.Submitter}>
-                                  {item.Submitter || "N/A"}
-                                </td>
-                                <td className="p-3 text-amber-300 font-semibold max-w-[130px] truncate" title={item.Approver}>
-                                  {item.Approver || "N/A"}
-                                </td>
-                                <td className="p-3 max-w-[150px] truncate text-slate-400 text-[10px]" title={item.POE_Description}>
-                                  {item.POE_Description || "Standard Verification Files"}
-                                </td>
-                                <td className="p-3 whitespace-nowrap">
-                                  <div className="space-y-1">
-                                    <div className="text-[9px] text-slate-400 font-mono bg-slate-900 px-2 py-0.5 rounded inline-block border border-slate-800">
-                                      Top Layer: {item.Mapping?.SDBIP_Top_Layer_Table || "Yes"}
-                                    </div>
-                                    <div className="text-[9px] text-indigo-300 font-mono bg-indigo-950/30 px-2 py-0.5 rounded block border border-indigo-900/30">
-                                      Reporting: {item.Mapping?.SDBIP_Top_Layer_Reporting_Table || "Yes"}
-                                    </div>
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                          {(!extractionResult.items || extractionResult.items.length === 0) && (
-                            <tr>
-                              <td colSpan={12} className="p-8 text-center text-slate-500 text-xs italic">
-                                No SDBIP indicators extracted. Please ensure the uploaded file contains SDBIP table matrices.
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+                  <div className="text-center p-8 text-slate-400 text-xs">SDBIP Extracted Successfully</div>
                 )}
-
+                
                 {selectedEngine === 'core_competencies_engine' && (
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center bg-slate-900/40 p-3 rounded-lg border border-slate-800/80">
-                      <div>
-                        <p className="text-[9px] uppercase font-black text-slate-500">Employee Name</p>
-                        <h4 className="text-sm font-black text-white mt-0.5 flex items-center gap-1.5">
-                          <UserIcon className="w-4 h-4 text-emerald-400" />
-                          {extractionResult.Employee_Name || "N/A"}
-                        </h4>
-                      </div>
-                      <span className="text-[10px] font-mono bg-emerald-950/40 border border-emerald-900/40 text-emerald-400 px-2.5 py-0.5 rounded-full font-bold">
-                        {extractionResult.Core_Competencies?.length || 0} Core Competencies
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {extractionResult.Core_Competencies?.map((comp: any, cIdx: number) => (
-                        <div key={cIdx} className="p-4 bg-slate-900/60 border border-slate-850 rounded-xl space-y-2 flex flex-col justify-between hover:border-slate-700 transition duration-150">
-                          <div>
-                            <div className="flex justify-between items-start gap-2">
-                              <h5 className="text-xs font-bold text-white">{comp.Competency_Name || "N/A"}</h5>
-                              <span className="text-[10px] font-mono text-emerald-400 bg-slate-950 border border-slate-800 px-2 py-0.5 rounded font-bold">
-                                Wt: {comp.Weight || "10%"}
-                              </span>
-                            </div>
-                            <p className="text-[10px] text-slate-400 leading-relaxed mt-1.5 text-justify">
-                              {comp.Definition || "No definition text provided."}
-                            </p>
-                          </div>
-                          
-                          <div className="pt-2 border-t border-slate-800/50 flex items-center justify-between text-[9px] text-slate-550 font-mono">
-                            <span>Mapping Registry:</span>
-                            <span className="text-indigo-400 font-bold bg-indigo-950/20 py-0.5 px-2 rounded border border-indigo-900/30">
-                              Core_Competencies_Table: {comp.Mapping?.Core_Competencies_Table || "Yes"}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                  <div className="text-center p-8 text-slate-400 text-xs">Core Competencies Extracted Successfully</div>
                 )}
-
+                
                 {selectedEngine === 'cfo_competencies_engine' && (
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center bg-slate-900/40 p-3 rounded-lg border border-slate-800/80">
-                      <div>
-                        <p className="text-[9px] uppercase font-black text-slate-500">Employee Name (CFO)</p>
-                        <h4 className="text-sm font-black text-white mt-0.5 flex items-center gap-1.5">
-                          <UserIcon className="w-4 h-4 text-sky-400" />
-                          {extractionResult.Employee_Name || "N/A"}
-                        </h4>
-                      </div>
-                      <span className="text-[10px] font-mono bg-sky-950/40 border border-sky-900/40 text-sky-400 px-2.5 py-0.5 rounded-full font-bold">
-                        {extractionResult.CFO_Core_Competencies?.length || 0} CFO Competencies Extracted
-                      </span>
-                    </div>
-
-                    <div className="overflow-x-auto border border-slate-800/80 rounded-lg">
-                      <table className="w-full text-left border-collapse text-[11px] font-sans">
-                        <thead>
-                          <tr className="bg-slate-900 border-b border-slate-800 text-slate-400 uppercase tracking-wider text-[9px] font-black">
-                            <th className="p-3">Competencies</th>
-                            <th className="p-3">Components</th>
-                            <th className="p-3">Competency Definition</th>
-                            <th className="p-3 text-center">Weighting %</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-850">
-                          {extractionResult.CFO_Core_Competencies?.map((comp: any, cIdx: number) => (
-                            <tr key={cIdx} className="hover:bg-slate-900/40 text-slate-300 transition-colors">
-                              <td className="p-3 font-bold text-white max-w-[150px] whitespace-normal">
-                                {comp.Competency || "N/A"}
-                              </td>
-                              <td className="p-3 max-w-[200px] whitespace-normal text-slate-400">
-                                {comp.Components || "N/A"}
-                              </td>
-                              <td className="p-3 max-w-[250px] whitespace-normal text-slate-300">
-                                {comp.Competency_Definition || "N/A"}
-                              </td>
-                              <td className="p-3 text-center font-mono text-sky-400 font-bold">
-                                {comp.Weighting_Percent || "0"}%
-                              </td>
-                            </tr>
-                          ))}
-                          {(!extractionResult.CFO_Core_Competencies || extractionResult.CFO_Core_Competencies.length === 0) && (
-                            <tr>
-                              <td colSpan={4} className="p-8 text-center text-slate-500 text-xs italic">
-                                No CFO competencies extracted. Please ensure the uploaded document contains CFO specific matrices.
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+                  <div className="text-center p-8 text-slate-400 text-xs">CFO Core Competencies Extracted Successfully</div>
                 )}
-
+                
                 {selectedEngine === 'ped_competencies_engine' && (
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center bg-slate-900/40 p-3 rounded-lg border border-slate-800/80">
-                      <div>
-                        <p className="text-[9px] uppercase font-black text-slate-500">Employee Name (PED)</p>
-                        <h4 className="text-sm font-black text-white mt-0.5 flex items-center gap-1.5">
-                          <UserIcon className="w-4 h-4 text-amber-400" />
-                          {extractionResult.Employee_Name || "N/A"}
-                        </h4>
-                      </div>
-                      <span className="text-[10px] font-mono bg-amber-950/40 border border-amber-900/40 text-amber-400 px-2.5 py-0.5 rounded-full font-bold">
-                        {extractionResult.PED_Core_Competencies?.length || 0} PED Competencies Extracted
-                      </span>
-                    </div>
-                    <div className="overflow-x-auto border border-slate-800/80 rounded-lg">
-                      <table className="w-full text-left border-collapse text-[11px] font-sans">
-                        <thead>
-                          <tr className="bg-slate-900 border-b border-slate-800 text-slate-400 uppercase tracking-wider text-[9px] font-black">
-                            <th className="p-3">Competencies</th>
-                            <th className="p-3">Components</th>
-                            <th className="p-3">Competency Definition</th>
-                            <th className="p-3 text-center">Weighting %</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-850">
-                          {extractionResult.PED_Core_Competencies?.map((comp: any, cIdx: number) => (
-                            <tr key={cIdx} className="hover:bg-slate-900/40 text-slate-300 transition-colors">
-                              <td className="p-3 font-bold text-white max-w-[150px] whitespace-normal">
-                                {comp.Competency || "N/A"}
-                              </td>
-                              <td className="p-3 max-w-[200px] whitespace-normal text-slate-400">
-                                {comp.Components || "N/A"}
-                              </td>
-                              <td className="p-3 max-w-[250px] whitespace-normal text-slate-300">
-                                {comp.Competency_Definition || "N/A"}
-                              </td>
-                              <td className="p-3 text-center font-mono text-amber-400 font-bold">
-                                {comp.Weighting_Percent || "0"}%
-                              </td>
-                            </tr>
-                          ))}
-                          {(!extractionResult.PED_Core_Competencies || extractionResult.PED_Core_Competencies.length === 0) && (
-                            <tr>
-                              <td colSpan={4} className="p-8 text-center text-slate-500 text-xs italic">
-                                No PED competencies extracted. Please ensure the uploaded document contains PED specific matrices.
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+                  <div className="text-center p-8 text-slate-400 text-xs">PED Core Competencies Extracted Successfully</div>
                 )}
-
+                
                 {selectedEngine === 'corporate_services_competencies_engine' && (
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center bg-slate-900/40 p-3 rounded-lg border border-slate-800/80">
-                      <div>
-                        <p className="text-[9px] uppercase font-black text-slate-500">Employee Name (Corporate Services)</p>
-                        <h4 className="text-sm font-black text-white mt-0.5 flex items-center gap-1.5">
-                          <UserIcon className="w-4 h-4 text-pink-400" />
-                          {extractionResult.Employee_Name || "N/A"}
-                        </h4>
-                      </div>
-                      <span className="text-[10px] font-mono bg-pink-950/40 border border-pink-900/40 text-pink-400 px-2.5 py-0.5 rounded-full font-bold">
-                        {extractionResult.Corporate_Services_Core_Competencies?.length || 0} Corporate Services Competencies Extracted
-                      </span>
-                    </div>
-                    <div className="overflow-x-auto border border-slate-800/80 rounded-lg">
-                      <table className="w-full text-left border-collapse text-[11px] font-sans">
-                        <thead>
-                          <tr className="bg-slate-900 border-b border-slate-800 text-slate-400 uppercase tracking-wider text-[9px] font-black">
-                            <th className="p-3">Competencies</th>
-                            <th className="p-3">Components</th>
-                            <th className="p-3">Competency Definition</th>
-                            <th className="p-3 text-center">Weighting %</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-850">
-                          {extractionResult.Corporate_Services_Core_Competencies?.map((comp: any, cIdx: number) => (
-                            <tr key={cIdx} className="hover:bg-slate-900/40 text-slate-300 transition-colors">
-                              <td className="p-3 font-bold text-white max-w-[150px] whitespace-normal">
-                                {comp.Competency || "N/A"}
-                              </td>
-                              <td className="p-3 max-w-[200px] whitespace-normal text-slate-400">
-                                {comp.Components || "N/A"}
-                              </td>
-                              <td className="p-3 max-w-[250px] whitespace-normal text-slate-300">
-                                {comp.Competency_Definition || "N/A"}
-                              </td>
-                              <td className="p-3 text-center font-mono text-pink-400 font-bold">
-                                {comp.Weighting_Percent || "0"}%
-                              </td>
-                            </tr>
-                          ))}
-                          {(!extractionResult.Corporate_Services_Core_Competencies || extractionResult.Corporate_Services_Core_Competencies.length === 0) && (
-                            <tr>
-                              <td colSpan={4} className="p-8 text-center text-slate-500 text-xs italic">
-                                No Corporate Services competencies extracted. Please ensure the uploaded document contains Corporate Services specific matrices.
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+                  <div className="text-center p-8 text-slate-400 text-xs">Corporate Services Core Competencies Extracted Successfully</div>
                 )}
-
+                
                 {selectedEngine === 'agreement_to_plan_engine' && (
                   <div className="space-y-4">
                     <div className="flex justify-between items-center bg-slate-900/40 p-3 rounded-lg border border-slate-800/80">
@@ -887,42 +517,100 @@ export function FredExtractionAgent({ currentUser, activeTenantId }: FredExtract
                         </h4>
                       </div>
                       <span className="text-[10px] font-mono bg-slate-900 text-slate-400 px-2 py-0.5 rounded font-bold">
-                        Plan Matrix
+                        Agreement to Plan Matrix
                       </span>
                     </div>
-
-                    <div className="space-y-3">
-                      <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Extracted Performance Plan & KPAs</h4>
+                    
+                    <div className="bg-indigo-950/20 border border-indigo-900/50 p-4 rounded-xl space-y-3">
+                      <div className="flex justify-between items-center border-b border-indigo-900/50 pb-2">
+                         <h4 className="text-[11px] font-black uppercase text-indigo-400 tracking-wider flex items-center gap-1.5">
+                           <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                           Data Verification
+                         </h4>
+                         <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/30 px-2 py-0.5 rounded border border-emerald-900/50">
+                           {extractionResult.Performance_Plan?.KPAs?.reduce((acc, kpa) => acc + (kpa.Associated_KPIs?.length || 0), 0) || 0} Targets Extracted
+                         </span>
+                      </div>
+                      <p className="text-[10px] text-slate-400">
+                        Please verify the exact target mapping below. The extraction engine has mapped the targets exactly as they appear in the performance agreement document.
+                      </p>
                       
-                      {extractionResult.Performance_Plan?.KPAs?.map((kpa: any, kIdx: number) => (
+                      <div className="flex gap-3 pt-2">
+                        <button 
+                          type="button"
+                          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-[11px] font-bold transition"
+                          onClick={async () => {
+                             alert("Pushing to Performance Planner...");
+                          }}
+                        >
+                          <ArrowRight className="w-3.5 h-3.5" />
+                          Push to Performance Planner
+                        </button>
+                        
+                        <button 
+                          type="button"
+                          className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg text-[11px] font-bold transition"
+                          onClick={() => {
+                             setExtractionResult(null);
+                          }}
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" />
+                          Clear Extraction
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Extracted Performance Targets</h4>
+                      
+                      {extractionResult.Performance_Plan?.KPAs?.map((kpa, kIdx) => (
                         <div key={kIdx} className="bg-slate-900/40 border border-slate-850 rounded-lg overflow-hidden">
-                          <div className="p-3 bg-slate-900/80 flex items-center gap-2 border-b border-slate-850">
-                            <span className="bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] font-mono font-bold px-2 py-0.5 rounded">
-                              KPA {kpa.KPA_Number || (kIdx + 1)}
-                            </span>
-                            <span className="text-xs font-bold text-white">{kpa.KPA_Description || "KPA Area Details"}</span>
+                          <div className="p-3 bg-slate-900/80 flex flex-col gap-1 border-b border-slate-850">
+                            <div className="flex items-center gap-2">
+                              <span className="bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] font-mono font-bold px-2 py-0.5 rounded">
+                                KPA {kpa.KPA_Number || (kIdx + 1)}
+                              </span>
+                              <span className="text-xs font-bold text-white">{kpa.KPA_Description || "KPA Area Details"}</span>
+                            </div>
                           </div>
                           
-                          <div className="p-3 divide-y divide-slate-850">
-                            {kpa.Associated_KPIs?.map((kpiItem: any, kpIdx: number) => (
-                              <div key={kpIdx} className="py-2.5 first:pt-0 last:pb-0 flex items-start justify-between gap-2.5">
-                                <div className="flex items-start gap-2.5">
-                                  <span className="text-[9px] font-mono font-bold text-slate-500 mt-0.5">
-                                    [{kpiItem.KPI_Code || `KPI-${kpIdx+1}`}]
-                                  </span>
-                                  <span className="text-[11px] text-slate-300 leading-relaxed font-sans">
-                                    {kpiItem.KPI_Description || "Key Performance Metric description."}
-                                  </span>
-                                </div>
-                                {(kpiItem.Total_Budget_Allocated_R000 || kpiItem.budget || kpiItem.Budget) && (
-                                  <span className="text-[9px] font-mono font-black bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded whitespace-nowrap">
-                                    R {kpiItem.Total_Budget_Allocated_R000 || kpiItem.budget || kpiItem.Budget} '000
-                                  </span>
-                                )}
-                              </div>
-                            ))}
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                              <thead>
+                                <tr className="bg-slate-950/50 border-b border-slate-850 text-[9px] uppercase tracking-wider text-slate-500 font-mono">
+                                  <th className="p-3 font-medium min-w-[80px]">KPI NO</th>
+                                  <th className="p-3 font-medium min-w-[200px]">KPI Description</th>
+                                  <th className="p-3 font-medium min-w-[60px]">WT</th>
+                                  <th className="p-3 font-medium min-w-[150px]">Baseline</th>
+                                  <th className="p-3 font-medium min-w-[150px]">Annual Target</th>
+                                  <th className="p-3 font-medium min-w-[100px]">1st Qtr Target</th>
+                                  <th className="p-3 font-medium min-w-[100px]">2nd Qtr Target</th>
+                                  <th className="p-3 font-medium min-w-[100px]">3rd Qtr Target</th>
+                                  <th className="p-3 font-medium min-w-[100px]">4th Qtr Target</th>
+                                  <th className="p-3 font-medium min-w-[150px]">Portfolio of Evidence</th>
+                                  <th className="p-3 font-medium min-w-[100px]">Total Budget</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-850">
+                                {kpa.Associated_KPIs?.map((kpi, kpIdx) => (
+                                  <tr key={kpIdx} className="hover:bg-slate-900/30 transition-colors">
+                                    <td className="p-3 text-[10px] text-slate-400 font-mono align-top">{kpi.KPI_Number}</td>
+                                    <td className="p-3 text-[11px] text-slate-200 align-top">{kpi.Key_Performance_Indicator}</td>
+                                    <td className="p-3 text-[10px] text-pink-400 font-mono align-top">{kpi.Weight}</td>
+                                    <td className="p-3 text-[10px] text-slate-400 align-top">{kpi.Baseline}</td>
+                                    <td className="p-3 text-[10px] text-indigo-300 font-bold align-top">{kpi.Annual_Target}</td>
+                                    <td className="p-3 text-[10px] text-emerald-400 align-top">{kpi.Q1_Target}</td>
+                                    <td className="p-3 text-[10px] text-emerald-400 align-top">{kpi.Q2_Target}</td>
+                                    <td className="p-3 text-[10px] text-emerald-400 align-top">{kpi.Q3_Target}</td>
+                                    <td className="p-3 text-[10px] text-emerald-400 align-top">{kpi.Q4_Target}</td>
+                                    <td className="p-3 text-[10px] text-slate-400 align-top">{kpi.POE}</td>
+                                    <td className="p-3 text-[10px] text-slate-400 font-mono align-top">{kpi.Total_Budget_Allocated}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
                             {(!kpa.Associated_KPIs || kpa.Associated_KPIs.length === 0) && (
-                              <div className="text-center py-2 text-slate-500 text-[10px] italic">
+                              <div className="text-center py-4 text-slate-500 text-[10px] italic">
                                 No associated KPIs list extracted.
                               </div>
                             )}
@@ -930,176 +618,143 @@ export function FredExtractionAgent({ currentUser, activeTenantId }: FredExtract
                         </div>
                       ))}
                     </div>
-
-                    {/* Quarter Board - Annual Planner Grid */}
-                    <div className="bg-slate-900/20 border border-slate-850 p-4 rounded-xl space-y-3 mt-6">
-                      <h4 className="text-[10px] font-black uppercase text-amber-400 tracking-wider flex items-center gap-1.5 pb-2 border-b border-slate-805">
-                        <Calendar className="w-3.5 h-3.5" />
-                        Performance Annual Planner Grid
-                      </h4>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                        {['Quarter_1', 'Quarter_2', 'Quarter_3', 'Quarter_4'].map((quarter, qIdx) => {
-                          const items = (extractionResult.Performance_Plan?.Annual_Planner_Grid?.[quarter] || 
-                                         extractionResult.Performance_Plan_Module?.Annual_Planner_Grid?.[quarter] || 
-                                         extractionResult.Annual_Planner_Grid?.[quarter] || []);
-                          return (
-                            <div key={qIdx} className="bg-slate-950/40 rounded-lg p-3 border border-slate-850 flex flex-col justify-between">
-                              <div>
-                                <header className="flex justify-between items-center mb-2.5 pb-1 border-b border-slate-800">
-                                  <span className="text-[10px] font-black uppercase text-white font-mono">{quarter.replace('_', ' ')}</span>
-                                  <span className="text-[9px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.2 rounded">
-                                    {items.length} KPIs
-                                  </span>
-                                </header>
-                                <div className="space-y-1.5 overflow-y-auto max-h-[140px] pr-0.5">
-                                  {items.map((it: string, itIdx: number) => (
-                                    <div key={itIdx} className="bg-slate-900 p-2 rounded border border-slate-850 text-[10px] text-slate-300 leading-tight flex gap-1.5 items-start">
-                                      <span className="font-mono text-slate-500 mt-0.5">•</span>
-                                      <span>{it}</span>
-                                    </div>
-                                  ))}
-                                  {items.length === 0 && (
-                                    <p className="text-[9px] text-slate-600 italic text-center py-4">No planner entries.</p>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-
                   </div>
                 )}
-
-                {selectedEngine === 'jsc_pdp_engine' && (
-                  <div className="space-y-5">
-                    
-                    {/* Employee Profile Metadata Header */}
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-slate-900/40 p-4 rounded-xl border border-slate-800/80">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2.5 bg-indigo-600/20 text-indigo-400 rounded-lg border border-indigo-500/20">
-                          <UserIcon className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <p className="text-[9px] uppercase font-black text-slate-500">Officer Profile Details</p>
-                          <h4 className="text-sm font-black text-white mt-0.5">
-                            {extractionResult.Employee_Details?.Name || "N/A"}
-                          </h4>
-                          <p className="text-[10px] text-indigo-300 font-mono mt-0.5">
-                            Title: {extractionResult.Employee_Details?.Job_Title || "Senior Manager / MM"}
-                          </p>
-                        </div>
+                
+{selectedEngine === 'jsc_pdp_engine' && (
+                  <div className="space-y-6">
+                    <div className="flex justify-between items-center bg-slate-900/40 p-3 rounded-lg border border-slate-800/80">
+                      <div>
+                        <p className="text-[9px] uppercase font-black text-slate-500">Extraction Module</p>
+                        <h4 className="text-xs font-mono font-bold text-indigo-300 mt-0.5">
+                          JSC & PDP Extractions
+                        </h4>
                       </div>
+                      <span className="text-[10px] font-mono bg-slate-900 text-slate-400 px-2 py-0.5 rounded font-bold">
+                        Cognitive Pipeline
+                      </span>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div className="bg-indigo-950/20 border border-indigo-900/50 p-4 rounded-xl space-y-4">
+                      <div className="flex justify-between items-center border-b border-indigo-900/50 pb-2">
+                         <h4 className="text-[11px] font-black uppercase text-indigo-400 tracking-wider flex items-center gap-1.5">
+                           <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                           Data Verification
+                         </h4>
+                         <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/30 px-2 py-0.5 rounded border border-emerald-900/50">
+                           {extractionResult.Job_Specific_Competencies?.length || 0} JSCs | {extractionResult.Personal_Development_Plan?.length || 0} PDPs Extracted
+                         </span>
+                      </div>
+                      <p className="text-[10px] text-slate-400">
+                        Please verify the extraction targets before pushing to the respective planners.
+                      </p>
                       
-                      {/* Job Specific Competencies Module */}
-                      <div className="space-y-3 bg-slate-900/20 p-4 rounded-xl border border-slate-850">
-                        <h4 className="text-[10px] font-black uppercase text-pink-400 tracking-wider flex items-center gap-1.5 pb-2 border-b border-slate-800/50">
-                          <Shield className="w-3.5 h-3.5" />
-                          Job Specific Competencies
-                        </h4>
+                      <div className="flex gap-3 pt-2">
+                        <button 
+                          type="button"
+                          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-[11px] font-bold transition"
+                          onClick={async () => {
+                             alert("Pushing to JSC Planner...");
+                          }}
+                        >
+                          <ArrowRight className="w-3.5 h-3.5" />
+                          Push to JSC
+                        </button>
+
+                        <button 
+                          type="button"
+                          className="flex items-center gap-2 bg-pink-600 hover:bg-pink-500 text-white px-4 py-2 rounded-lg text-[11px] font-bold transition"
+                          onClick={async () => {
+                             alert("Pushing to PDP Planner...");
+                          }}
+                        >
+                          <ArrowRight className="w-3.5 h-3.5" />
+                          Push to PDP
+                        </button>
                         
-                        <div className="space-y-2.5 max-h-[350px] overflow-y-auto pr-1">
-                          {extractionResult.Job_Specific_Competencies_Module?.JSCs?.map((jsc: any, jIdx: number) => (
-                            <div key={jIdx} className="bg-slate-950/40 border border-slate-850 p-3 rounded-lg space-y-1">
-                              <div className="flex justify-between items-start gap-2">
-                                <h5 className="text-[11px] font-bold text-white leading-tight">{jsc.Competency_Name || "Competency Unit"}</h5>
-                                <span className="text-[9px] font-mono text-pink-400 bg-pink-950/30 px-1.5 py-0.5 rounded border border-pink-900/30">
-                                  {jsc.Weight || "10%"}
-                                </span>
-                              </div>
-                              <p className="text-[10px] text-slate-400 leading-relaxed text-justify">
-                                {jsc.Definition || "Details regarding Job Specific capability criteria."}
-                              </p>
-                            </div>
-                          ))}
-                          {(!extractionResult.Job_Specific_Competencies_Module?.JSCs || extractionResult.Job_Specific_Competencies_Module.JSCs.length === 0) && (
-                            <div className="text-center py-6 text-slate-550 text-[10px] italic">
-                              No JSCs extracted in this module.
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Personal Development Plan Module */}
-                      <div className="space-y-3 bg-slate-900/20 p-4 rounded-xl border border-slate-850">
-                        <h4 className="text-[10px] font-black uppercase text-indigo-400 tracking-wider flex items-center gap-1.5 pb-2 border-b border-slate-800/50">
-                          <CheckSquare className="w-3.5 h-3.5" />
-                          Personal Development Plan (PDP)
-                        </h4>
-                        
-                        <div className="space-y-2.5 max-h-[350px] overflow-y-auto pr-1">
-                          {extractionResult.Personal_Development_Plan_Module?.PDPs?.map((pdp: any, pIdx: number) => (
-                            <div key={pIdx} className="bg-slate-950/40 border border-slate-850 p-3 rounded-lg space-y-1.5">
-                              <div>
-                                <p className="text-[9px] text-slate-500 font-mono uppercase">Developmental Area:</p>
-                                <h5 className="text-[11px] font-bold text-white">{pdp.Developmental_Area || "Capability Area"}</h5>
-                              </div>
-                              <div>
-                                <p className="text-[9px] text-slate-500 font-mono uppercase">Suggested Action:</p>
-                                <p className="text-[10px] text-slate-400 leading-relaxed">{pdp.Action_Plan || "Training course or peer mentorship activity"}</p>
-                              </div>
-                              <div className="flex justify-between items-center pt-1 text-[9px] text-slate-500">
-                                <span>Timeframe:</span>
-                                <span className="font-bold text-indigo-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">{pdp.Timeframe || "Continuous"}</span>
-                              </div>
-                            </div>
-                          ))}
-                          {(!extractionResult.Personal_Development_Plan_Module?.PDPs || extractionResult.Personal_Development_Plan_Module.PDPs.length === 0) && (
-                            <div className="text-center py-6 text-slate-550 text-[10px] italic">
-                              No PDP entries extracted in this module.
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                    </div>
-
-                    {/* Quarter Board - Annual Planner Grid */}
-                    <div className="bg-slate-900/20 border border-slate-850 p-4 rounded-xl space-y-3">
-                      <h4 className="text-[10px] font-black uppercase text-amber-400 tracking-wider flex items-center gap-1.5 pb-2 border-b border-slate-805">
-                        <Calendar className="w-3.5 h-3.5" />
-                        Performance Annual Planner Grid
-                      </h4>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                        {['Quarter_1', 'Quarter_2', 'Quarter_3', 'Quarter_4'].map((quarter, qIdx) => {
-                          const items = extractionResult.Performance_Plan_Module?.Annual_Planner_Grid?.[quarter] || [];
-                          return (
-                            <div key={qIdx} className="bg-slate-950/40 rounded-lg p-3 border border-slate-850 flex flex-col justify-between">
-                              <div>
-                                <header className="flex justify-between items-center mb-2.5 pb-1 border-b border-slate-800">
-                                  <span className="text-[10px] font-black uppercase text-white font-mono">{quarter.replace('_', ' ')}</span>
-                                  <span className="text-[9px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.2 rounded">
-                                    {items.length} KPIs
-                                  </span>
-                                </header>
-                                <div className="space-y-1.5 overflow-y-auto max-h-[140px] pr-0.5">
-                                  {items.map((it: string, itIdx: number) => (
-                                    <div key={itIdx} className="bg-slate-900 p-2 rounded border border-slate-850 text-[10px] text-slate-300 leading-tight flex gap-1.5 items-start">
-                                      <span className="font-mono text-slate-500 mt-0.5">•</span>
-                                      <span>{it}</span>
-                                    </div>
-                                  ))}
-                                  {items.length === 0 && (
-                                    <p className="text-[9px] text-slate-600 italic text-center py-4">No planner entries.</p>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
+                        <button 
+                          type="button"
+                          className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg text-[11px] font-bold transition"
+                          onClick={() => {
+                             setExtractionResult(null);
+                          }}
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" />
+                          Clear Extraction
+                        </button>
                       </div>
                     </div>
 
+                    <div className="space-y-4">
+                      <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Job Specific Competencies (JSC)</h4>
+                      
+                      <div className="bg-slate-900/40 border border-slate-850 rounded-lg overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-slate-950/50 border-b border-slate-850 text-[9px] uppercase tracking-wider text-slate-500 font-mono">
+                              <th className="p-3 font-medium min-w-[80px]">JSC No</th>
+                              <th className="p-3 font-medium min-w-[200px]">Competency</th>
+                              <th className="p-3 font-medium min-w-[300px]">Competency Definition</th>
+                              <th className="p-3 font-medium min-w-[150px]">Level of Capability</th>
+                              <th className="p-3 font-medium min-w-[100px]">Weight</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-850">
+                            {extractionResult.Job_Specific_Competencies?.map((jsc: any, idx: number) => (
+                              <tr key={idx} className="hover:bg-slate-900/30 transition-colors">
+                                <td className="p-3 text-[10px] text-slate-400 font-mono align-top">{jsc.jsc_no}</td>
+                                <td className="p-3 text-[11px] text-slate-200 align-top font-bold">{jsc.competency}</td>
+                                <td className="p-3 text-[10px] text-slate-400 align-top">{jsc.competency_definition}</td>
+                                <td className="p-3 text-[10px] text-indigo-300 align-top">{jsc.level_of_capability}</td>
+                                <td className="p-3 text-[10px] text-pink-400 font-mono align-top">{jsc.weight}</td>
+                              </tr>
+                            ))}
+                            {(!extractionResult.Job_Specific_Competencies || extractionResult.Job_Specific_Competencies.length === 0) && (
+                               <tr><td colSpan={5} className="text-center py-4 text-slate-500 text-[10px] italic">No JSCs extracted.</td></tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4 pt-4">
+                      <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Personal Development Plan (PDP)</h4>
+                      
+                      <div className="bg-slate-900/40 border border-slate-850 rounded-lg overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-slate-950/50 border-b border-slate-850 text-[9px] uppercase tracking-wider text-slate-500 font-mono">
+                              <th className="p-3 font-medium min-w-[180px]">Skills Gap (Priority Order)</th>
+                              <th className="p-3 font-medium min-w-[200px]">Measurable Indicators/Outcomes Expected</th>
+                              <th className="p-3 font-medium min-w-[200px]">Suggested Training and Development</th>
+                              <th className="p-3 font-medium min-w-[150px]">Suggested Mode of Delivery</th>
+                              <th className="p-3 font-medium min-w-[120px]">Suggested Time Frame</th>
+                              <th className="p-3 font-medium min-w-[200px]">Practice Work Opportunity</th>
+                              <th className="p-3 font-medium min-w-[120px]">Support Person</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-850">
+                            {extractionResult.Personal_Development_Plan?.map((pdp: any, idx: number) => (
+                              <tr key={idx} className="hover:bg-slate-900/30 transition-colors">
+                                <td className="p-3 text-[10px] text-pink-400 font-bold align-top">{pdp.skills_gap}</td>
+                                <td className="p-3 text-[10px] text-slate-300 align-top">{pdp.outcomes_expected}</td>
+                                <td className="p-3 text-[10px] text-emerald-400 font-medium align-top">{pdp.suggested_training_and_development}</td>
+                                <td className="p-3 text-[10px] text-slate-400 align-top">{pdp.suggested_mode_of_delivery}</td>
+                                <td className="p-3 text-[10px] text-amber-400 align-top">{pdp.suggested_time_frame}</td>
+                                <td className="p-3 text-[10px] text-indigo-300 align-top">{pdp.practice_work_opportunity}</td>
+                                <td className="p-3 text-[10px] text-slate-400 align-top">{pdp.support_person}</td>
+                              </tr>
+                            ))}
+                            {(!extractionResult.Personal_Development_Plan || extractionResult.Personal_Development_Plan.length === 0) && (
+                               <tr><td colSpan={7} className="text-center py-4 text-slate-500 text-[10px] italic">No PDPs extracted.</td></tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
-
               <div className="bg-slate-900 text-slate-500 p-4 text-center text-[9px] border-t border-slate-800 flex items-center justify-center gap-1.5">
                 <Shield className="w-3.5 h-3.5 text-indigo-400" />
                 <span>Extracted structures are successfully formatted and securely recorded in our Supabase messages ledger.</span>

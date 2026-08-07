@@ -2634,7 +2634,7 @@ export function DraftingSuiteTeam({
                 <div className="text-justify">{renderFormattedContent(kpaText)}</div>
                 {renderSectionExtraPreview('kpaText')}
 
-                {isPPlanAdopted && (
+                {isPPlanAdopted && !isZulunePMS && (
                   <div className="mt-6 border-t border-slate-300 pt-6">
                     <h4 className="font-bold text-xs text-slate-800 mb-2 font-sans flex items-center justify-between">
                       <span>Adopted Performance Plan KPIs</span>

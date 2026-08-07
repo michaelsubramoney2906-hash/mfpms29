@@ -812,15 +812,14 @@ Do NOT truncate the list, do NOT use "etc", do NOT stop early. Exhaustively extr
 
 CRITICAL MAPPING & IDENTIFICATION RULES:
 1. Extract ALL Key Performance Areas (KPAs) with their respective numbers/names and descriptions exactly as written in the document.
-2. For every KPI under each KPA, extract its exact code (ID) or reference number as written in the document (e.g., "M_01", "M_02", "P_01", "P_02", "KPI 1", "Ref 10", "1.1", or any text/number reference).
+2. For every KPI under each KPA, extract its exact code (ID) or reference number as written in the document.
 3. STRICT CODE & REFERENCE HANDLING:
-   - Extract ALL KPIs regardless of reference number format. If a reference code or number exists in the document (e.g. "M_01", "P_01", "KPI 1", "1.2", "Ref 5"), capture it exactly as written in "KPI_Code". DO NOT skip, omit, or filter out KPIs simply because they do not have "M_" or "P_" prefixes.
+   - Extract ALL KPIs regardless of reference number format. If a reference code or number exists in the document, capture it exactly as written in "KPI_Number". DO NOT skip, omit, or filter out KPIs.
    - If a KPI has NO code/ID/ref in the document (empty or unassigned), assign a sequential code starting with "U_01", "U_02", etc.
-4. For every extracted KPI, extract its exact description, unit of measurement, target, baseline, weighting/weight, and associated budget "Total Budget allocated R'000" column/value from the document. Map this value into the 'Total_Budget_Allocated_R000' field. Map the baseline value into the 'Baseline' field and the weighting/weight value into the 'Weight' field. If no budget is specified, leave it as an empty string. If no weighting is specified, default to a standard proportional weighting like "10". If no baseline is specified, default to "Standard operational compliance".
-5. In the 'Annual_Planner_Grid' object, carefully analyze the document to understand if a KPI needs to be reported for each quarter (Quarter_1, Quarter_2, Quarter_3, Quarter_4). Include a KPI code in a quarter's array ONLY if there is an active target, milestone, or reporting requirement specified in the document for that KPI in that quarter. If a KPI is NOT scheduled to be reported or evaluated in a particular quarter (e.g. it is blank, has no target, or says not applicable), DO NOT include its code in that quarter's array. The system will use this to automatically lock and disable that quarter for that specific KPI during reporting. If the document has no explicit schedule, distribute them evenly so that every extracted KPI code appears at least once.
+4. For every extracted KPI, extract its exact properties from the document: Key Performance Indicator (description), Weight, Baseline, Annual Target, 1st Quarter planned target, 2nd Quarter planned target, 3rd Quarter planned target, 4th Quarter planned target, POE (Portfolio of Evidence), and Total Budget allocated. If any value is missing or blank, leave it as an empty string.
 
 Format your response exactly according to the following JSON schema:
-{"Document_Reference": "","Performance_Plan": {"KPAs": [{"KPA_Number": "","KPA_Description": "","Associated_KPIs": [{"KPI_Code": "","KPI_Description": "","Total_Budget_Allocated_R000": "","Baseline": "","Weight": ""}]}], "Annual_Planner_Grid": {"Quarter_1": [],"Quarter_2": [],"Quarter_3": [],"Quarter_4": []}}}`;
+{"Document_Reference": "","Performance_Plan": {"KPAs": [{"KPA_Number": "","KPA_Description": "","Associated_KPIs": [{"KPI_Number": "","Key_Performance_Indicator": "","Weight": "","Baseline": "","Annual_Target": "","Q1_Target": "","Q2_Target": "","Q3_Target": "","Q4_Target": "","POE": "","Total_Budget_Allocated": ""}]}]}}`;
 
         responseSchema = {
           type: Type.OBJECT,
@@ -841,104 +840,94 @@ Format your response exactly according to the following JSON schema:
                         items: {
                           type: Type.OBJECT,
                           properties: {
-                            KPI_Code: { type: Type.STRING },
-                            KPI_Description: { type: Type.STRING },
-                            Total_Budget_Allocated_R000: { type: Type.STRING },
+                            KPI_Number: { type: Type.STRING },
+                            Key_Performance_Indicator: { type: Type.STRING },
+                            Weight: { type: Type.STRING },
                             Baseline: { type: Type.STRING },
-                            Weight: { type: Type.STRING }
+                            Annual_Target: { type: Type.STRING },
+                            Q1_Target: { type: Type.STRING },
+                            Q2_Target: { type: Type.STRING },
+                            Q3_Target: { type: Type.STRING },
+                            Q4_Target: { type: Type.STRING },
+                            POE: { type: Type.STRING },
+                            Total_Budget_Allocated: { type: Type.STRING }
                           },
-                          required: ["KPI_Code", "KPI_Description", "Total_Budget_Allocated_R000", "Baseline", "Weight"]
+                          required: ["KPI_Number", "Key_Performance_Indicator", "Weight", "Baseline", "Annual_Target", "Q1_Target", "Q2_Target", "Q3_Target", "Q4_Target", "POE", "Total_Budget_Allocated"]
                         }
                       }
                     },
                     required: ["KPA_Number", "KPA_Description", "Associated_KPIs"]
                   }
-                },
-                Annual_Planner_Grid: {
-                  type: Type.OBJECT,
-                  properties: {
-                    Quarter_1: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    Quarter_2: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    Quarter_3: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    Quarter_4: { type: Type.ARRAY, items: { type: Type.STRING } }
-                  },
-                  required: ["Quarter_1", "Quarter_2", "Quarter_3", "Quarter_4"]
                 }
               },
-              required: ["KPAs", "Annual_Planner_Grid"]
+              required: ["KPAs"]
             }
           },
           required: ["Document_Reference", "Performance_Plan"]
         };
       } else if (engineType === "jsc_pdp_engine") {
-        extractionPrompt = `You are a deterministic data mapping engine. Extract Job Specific Competencies (JSC), Personal Development Plan (PDP), and KPAs/KPIs. Populate the exact JSON structure provided below. Do not add or change any keys:
-{"Employee_Details": {"Name": "","Job_Title": ""},"Job_Specific_Competencies_Module": {"JSCs": []},"Personal_Development_Plan_Module": {"PDPs": []},"Performance_Plan_Module": {"Annual_Planner_Grid": {"Quarter_1": [],"Quarter_2": [],"Quarter_3": [],"Quarter_4": []}}}`;
+        extractionPrompt = `You are a highly precise document parser and strict data extraction engine.
+You MUST analyze the entire provided document exhaustively and extract ALL Job Specific Competencies (JSC) and Personal Development Plan (PDP) entries exactly as they are written.
+
+CRITICAL EXTRACTION RULES FOR JSC:
+1. Extract ALL Job Specific Competencies from the table in the performance agreement.
+2. Even if there is no JSC number specified, extract all other information and map it.
+3. Map exactly:
+   - "jsc" maps to "jsc_no"
+   - "competency" maps to "competency"
+   - "competency definition" maps to "competency_definition"
+   - "level of capability" maps to "level_of_capability"
+   - "weighting" maps to "weight"
+
+CRITICAL EXTRACTION RULES FOR PDP:
+1. Extract ALL Personal Development Plan entries.
+2. Map exactly:
+   - "skills performance gap" maps to "skills_gap"
+   - "outcomes expected" maps to "outcomes_expected"
+   - "suggested training and/or development activity" maps to "suggested_training_and_development"
+   - "suggested mode of delivery" maps to "suggested_mode_of_delivery"
+   - "suggested time frame" maps to "suggested_time_frame"
+   - "work opportunity created to practice skills/development area" maps to "practice_work_opportunity"
+   - "support person" maps to "support_person"
+
+Format your response exactly according to the following JSON schema:
+{"Job_Specific_Competencies": [{"jsc_no": "", "competency": "", "competency_definition": "", "level_of_capability": "", "weight": ""}], "Personal_Development_Plan": [{"skills_gap": "", "outcomes_expected": "", "suggested_training_and_development": "", "suggested_mode_of_delivery": "", "suggested_time_frame": "", "practice_work_opportunity": "", "support_person": ""}]}`;
 
         responseSchema = {
           type: Type.OBJECT,
           properties: {
-            Employee_Details: {
-              type: Type.OBJECT,
-              properties: {
-                Name: { type: Type.STRING },
-                Job_Title: { type: Type.STRING }
-              },
-              required: ["Name", "Job_Title"]
+            Job_Specific_Competencies: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  jsc_no: { type: Type.STRING },
+                  competency: { type: Type.STRING },
+                  competency_definition: { type: Type.STRING },
+                  level_of_capability: { type: Type.STRING },
+                  weight: { type: Type.STRING }
+                },
+                required: ["jsc_no", "competency", "competency_definition", "level_of_capability", "weight"]
+              }
             },
-            Job_Specific_Competencies_Module: {
-              type: Type.OBJECT,
-              properties: {
-                JSCs: {
-                  type: Type.ARRAY,
-                  items: {
-                    type: Type.OBJECT,
-                    properties: {
-                      Competency_Name: { type: Type.STRING },
-                      Weight: { type: Type.STRING },
-                      Definition: { type: Type.STRING }
-                    },
-                    required: ["Competency_Name", "Weight", "Definition"]
-                  }
-                }
-              },
-              required: ["JSCs"]
-            },
-            Personal_Development_Plan_Module: {
-              type: Type.OBJECT,
-              properties: {
-                PDPs: {
-                  type: Type.ARRAY,
-                  items: {
-                    type: Type.OBJECT,
-                    properties: {
-                      Developmental_Area: { type: Type.STRING },
-                      Action_Plan: { type: Type.STRING },
-                      Timeframe: { type: Type.STRING }
-                    },
-                    required: ["Developmental_Area", "Action_Plan", "Timeframe"]
-                  }
-                }
-              },
-              required: ["PDPs"]
-            },
-            Performance_Plan_Module: {
-              type: Type.OBJECT,
-              properties: {
-                Annual_Planner_Grid: {
-                  type: Type.OBJECT,
-                  properties: {
-                    Quarter_1: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    Quarter_2: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    Quarter_3: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    Quarter_4: { type: Type.ARRAY, items: { type: Type.STRING } }
-                  },
-                  required: ["Quarter_1", "Quarter_2", "Quarter_3", "Quarter_4"]
-                }
-              },
-              required: ["Annual_Planner_Grid"]
+            Personal_Development_Plan: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  skills_gap: { type: Type.STRING },
+                  outcomes_expected: { type: Type.STRING },
+                  suggested_training_and_development: { type: Type.STRING },
+                  suggested_mode_of_delivery: { type: Type.STRING },
+                  suggested_time_frame: { type: Type.STRING },
+                  practice_work_opportunity: { type: Type.STRING },
+                  support_person: { type: Type.STRING }
+                },
+                required: ["skills_gap", "outcomes_expected", "suggested_training_and_development", "suggested_mode_of_delivery", "suggested_time_frame", "practice_work_opportunity", "support_person"]
+              }
             }
           },
-          required: ["Employee_Details", "Job_Specific_Competencies_Module", "Personal_Development_Plan_Module", "Performance_Plan_Module"]
+          required: ["Job_Specific_Competencies", "Personal_Development_Plan"]
         };
       } else if (engineType === "cfo_competencies_engine") {
         extractionPrompt = `You are a highly precise document parser and strict data extraction engine.
