@@ -584,7 +584,7 @@ async function startServer() {
     
     // Fallback list of models in case of high demand (503/429) or endpoint availability
     const fallbackModels = [
-      "gemini-2.5-flash",
+      "gemini-1.5-flash",
       "gemini-2.5-pro",
       "gemini-1.5-flash",
       "gemini-1.5-pro"
@@ -614,7 +614,7 @@ async function startServer() {
         
         if (isTransient && attempt < maxRetries) {
           // Rotate model to a fallback to bypass model-specific capacity constraints
-          let nextModel = "gemini-2.5-flash";
+          let nextModel = "gemini-1.5-flash";
           if (fallbackModels.includes(params.model)) {
             const currentIdx = fallbackModels.indexOf(params.model);
             const nextIdx = (currentIdx + 1) % fallbackModels.length;
@@ -650,7 +650,7 @@ async function startServer() {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       
       const response = await generateContentWithRetry(ai, {
-        model: "gemini-2.5-flash",
+        model: "gemini-1.5-flash",
         contents: messages,
         config: {
           maxOutputTokens: 8192,
@@ -818,7 +818,8 @@ CRITICAL MAPPING & IDENTIFICATION RULES:
 1. Extract ALL Key Performance Areas (KPAs) with their respective numbers/names and descriptions exactly as written in the document.
 2. For every KPI under each KPA, extract its exact code (ID) or reference number as written in the document. It MUST match exactly.
 3. For every extracted KPI, extract its exact properties from the document: National_KPA, Key Performance Indicator (description), Weight, Baseline, Annual Target, 1st Quarter planned target, 2nd Quarter planned target, 3rd Quarter planned target, 4th Quarter planned target, POE (Portfolio of Evidence), and Total Budget allocated.
-4. Calculate a 'Data_Match_Percentage' between 0 and 100, representing your confidence that the extracted data exactly matches the provided document.
+4. BASELINE HANDLING RULE: If there is no baseline found for a specific KPI in the document, extract the baseline as an empty string (""). Do NOT fabricate or insert any data, placeholder, or default value (such as "0", "N/A", or "None") in place of that. Extract the information as is.
+5. Calculate a 'Data_Match_Percentage' between 0 and 100, representing your confidence that the extracted data exactly matches the provided document.
 
 Format your response exactly according to the following JSON schema:
 {"Document_Reference": "","Data_Match_Percentage": 100,"Performance_Plan": {"KPAs": [{"KPA_Number": "","KPA_Description": "","Associated_KPIs": [{"National_KPA": "","KPI_Number": "","Key_Performance_Indicator": "","Weight": "","Baseline": "","Annual_Target": "","Q1_Target": "","Q2_Target": "","Q3_Target": "","Q4_Target": "","POE": "","Total_Budget_Allocated": ""}]}]}}`;
@@ -1137,7 +1138,7 @@ Format your response exactly according to the following JSON schema:
 
       try {
         const result = await generateContentWithRetry(ai, {
-          model: "gemini-2.5-flash",
+          model: "gemini-1.5-flash",
           contents: [{ role: "user", parts }],
           config: {
             responseMimeType: "application/json",
@@ -1151,7 +1152,7 @@ Format your response exactly according to the following JSON schema:
       } catch (gemErr) {
         console.log("[Fred Extraction] Initial generateContent failed, retrying...");
         const fallbackResult = await generateContentWithRetry(ai, {
-          model: "gemini-2.5-flash",
+          model: "gemini-1.5-flash",
           contents: [{ role: "user", parts }],
           config: {
             responseMimeType: "application/json",
@@ -5755,7 +5756,7 @@ Format your response exactly according to the following JSON schema:
 
       const ai = new GoogleGenAI({ apiKey });
       const response = await generateContentWithRetry(ai, {
-        model: "gemini-2.5-flash",
+        model: "gemini-1.5-flash",
         contents: [
           {
             role: "user",
@@ -6880,7 +6881,7 @@ User Request: ${prompt}`;
       }
       
       const response = await genai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-1.5-flash",
         contents,
         config: {
           temperature: 0.7,
