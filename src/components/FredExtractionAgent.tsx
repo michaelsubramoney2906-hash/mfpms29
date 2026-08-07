@@ -456,13 +456,26 @@ export function FredExtractionAgent({ currentUser, activeTenantId }: FredExtract
         {/* Right Pane: Workspace Results */}
         <div className="lg:col-span-8 flex flex-col space-y-4">
           {isExtracting && (
-            <div className="bg-slate-950 p-6 rounded-xl border border-slate-800 shadow-md text-center py-24 space-y-4">
+            <div className="bg-slate-950 p-6 rounded-xl border border-slate-800 shadow-md text-center py-24 space-y-6">
               <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mx-auto" />
-              <div className="max-w-md mx-auto space-y-1">
+              <div className="max-w-md mx-auto space-y-2">
                 <h4 className="text-white text-xs font-bold uppercase tracking-wider">Cognitive Extraction in Progress</h4>
                 <p className="text-slate-500 text-[10px] leading-relaxed">
                   Fred is currently analyzing the document. This process requires complex schema mapping and semantic interpretation.
                 </p>
+                
+                <div className="pt-4">
+                  <div className="flex justify-between items-center mb-1.5">
+                    <span className="text-[10px] font-mono font-bold text-indigo-400">Processing Document</span>
+                    <span className="text-[10px] font-mono font-bold text-indigo-300">{Math.round(progress)}%</span>
+                  </div>
+                  <div className="w-full bg-slate-900 rounded-full h-2 border border-slate-800">
+                    <div 
+                      className="bg-indigo-500 h-1.5 rounded-full transition-all duration-300 ease-out"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -527,12 +540,17 @@ export function FredExtractionAgent({ currentUser, activeTenantId }: FredExtract
                            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                            Data Verification
                          </h4>
-                         <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/30 px-2 py-0.5 rounded border border-emerald-900/50">
-                           {extractionResult.Performance_Plan?.KPAs?.reduce((acc, kpa) => acc + (kpa.Associated_KPIs?.length || 0), 0) || 0} Targets Extracted
-                         </span>
+                         <div className="flex gap-2">
+                           <span className="text-[10px] font-mono text-indigo-400 bg-indigo-950/30 px-2 py-0.5 rounded border border-indigo-900/50">
+                             Match: {extractionResult.Data_Match_Percentage || 100}%
+                           </span>
+                           <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/30 px-2 py-0.5 rounded border border-emerald-900/50">
+                             {extractionResult.Performance_Plan?.KPAs?.reduce((acc: any, kpa: any) => acc + (kpa.Associated_KPIs?.length || 0), 0) || 0} Targets Extracted
+                           </span>
+                         </div>
                       </div>
                       <p className="text-[10px] text-slate-400">
-                        Please verify the exact target mapping below. The extraction engine has mapped the targets exactly as they appear in the performance agreement document.
+                        Please verify the exact target mapping below. The extraction engine has mapped the targets exactly as they appear in the performance agreement document, ensuring correct KPI Number mapping and sequential ordering.
                       </p>
                       
                       <div className="flex gap-3 pt-2">
@@ -578,6 +596,7 @@ export function FredExtractionAgent({ currentUser, activeTenantId }: FredExtract
                             <table className="w-full text-left border-collapse">
                               <thead>
                                 <tr className="bg-slate-950/50 border-b border-slate-850 text-[9px] uppercase tracking-wider text-slate-500 font-mono">
+                                  <th className="p-3 font-medium min-w-[80px]">Nat. KPA</th>
                                   <th className="p-3 font-medium min-w-[80px]">KPI NO</th>
                                   <th className="p-3 font-medium min-w-[200px]">KPI Description</th>
                                   <th className="p-3 font-medium min-w-[60px]">WT</th>
@@ -592,8 +611,9 @@ export function FredExtractionAgent({ currentUser, activeTenantId }: FredExtract
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-850">
-                                {kpa.Associated_KPIs?.map((kpi, kpIdx) => (
+                                {kpa.Associated_KPIs?.map((kpi: any, kpIdx: number) => (
                                   <tr key={kpIdx} className="hover:bg-slate-900/30 transition-colors">
+                                    <td className="p-3 text-[10px] text-indigo-400 font-bold font-mono align-top">{kpi.National_KPA || "-"}</td>
                                     <td className="p-3 text-[10px] text-slate-400 font-mono align-top">{kpi.KPI_Number}</td>
                                     <td className="p-3 text-[11px] text-slate-200 align-top">{kpi.Key_Performance_Indicator}</td>
                                     <td className="p-3 text-[10px] text-pink-400 font-mono align-top">{kpi.Weight}</td>
