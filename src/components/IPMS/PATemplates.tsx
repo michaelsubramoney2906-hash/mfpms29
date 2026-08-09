@@ -3843,7 +3843,7 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
                                   <td className="p-1 border-r text-center text-slate-600 break-all" style={{ borderColor: borderColor }}>{item.q2Target || 'N/A'}</td>
                                   <td className="p-1 border-r text-center text-slate-600 break-all" style={{ borderColor: borderColor }}>{item.q3Target || 'N/A'}</td>
                                   <td className="p-1 border-r text-center text-slate-600 break-all" style={{ borderColor: borderColor }}>{item.q4Target || 'N/A'}</td>
-                                  <td className="p-1 border-r text-slate-600 leading-normal whitespace-pre-line break-words" style={{ borderColor: borderColor }}>{item.poe || 'N/A'}</td>
+                                  <td className="p-1 border-r text-slate-600 leading-normal whitespace-pre-line break-words" style={{ borderColor: borderColor }}>{item.annualRequiredPoe || item.poe || 'N/A'}</td>
                                   <td className="p-1 text-center bg-emerald-50/10 font-bold text-emerald-800 break-all" style={{ borderColor: borderColor }}>{item.budget || 'R0'}</td>
                                 </tr>
                               ))}
@@ -4502,7 +4502,7 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
                                         <td className="p-1 border-r text-center text-slate-600 break-all" style={{ borderColor: borderColor }}>{item.q2Target || 'N/A'}</td>
                                         <td className="p-1 border-r text-center text-slate-600 break-all" style={{ borderColor: borderColor }}>{item.q3Target || 'N/A'}</td>
                                         <td className="p-1 border-r text-center text-slate-600 break-all" style={{ borderColor: borderColor }}>{item.q4Target || 'N/A'}</td>
-                                        <td className="p-1 border-r text-slate-600 leading-normal whitespace-pre-line break-words" style={{ borderColor: borderColor }}>{item.poe || 'N/A'}</td>
+                                        <td className="p-1 border-r text-slate-600 leading-normal whitespace-pre-line break-words" style={{ borderColor: borderColor }}>{item.annualRequiredPoe || item.poe || 'N/A'}</td>
                                         <td className="p-1 text-center bg-emerald-50/10 font-bold text-emerald-800 break-all" style={{ borderColor: borderColor }}>{item.budget || 'R0'}</td>
                                       </tr>
                                     ))}

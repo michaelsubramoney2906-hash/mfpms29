@@ -781,7 +781,7 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
       q3PoeDocs: q3Docs,
       q4PoeDocs: q4Docs,
       // Combined POE with newlines
-      poe: `Q1: ${newKpi.q1Poe}\nQ2: ${newKpi.q2Poe}\nQ3: ${newKpi.q3Poe}\nQ4: ${newKpi.q4Poe}`,
+      poe: annualRequiredPoe.trim() || `Q1: ${newKpi.q1Poe}\nQ2: ${newKpi.q2Poe}\nQ3: ${newKpi.q3Poe}\nQ4: ${newKpi.q4Poe}`,
       weighting: weighting.trim(),
       myScore: inheritedScore,
       kpa: kpa || (matchIndex >= 0 ? existingPlanItems[matchIndex].kpa : ''),
@@ -1280,6 +1280,12 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
 
                         {/* POE Quarter Indicators */}
                         <div className="pt-2 border-t border-white/5 space-y-2">
+                          {(k.annualRequiredPoe || k.annualPoe) && (
+                            <div className="bg-indigo-950/40 p-2 rounded-lg border border-indigo-500/20 text-[10.5px] font-sans">
+                              <span className="font-extrabold text-[9px] text-indigo-400 uppercase tracking-wide block">Annual POE Description:</span>
+                              <span className="text-slate-200 leading-normal">{k.annualRequiredPoe || k.annualPoe}</span>
+                            </div>
+                          )}
                           <span className="text-[10px] font-black text-slate-350 uppercase block tracking-wider">Quarterly Portfolios of Evidence (POE):</span>
                           <div className="grid grid-cols-1 gap-2 text-[10px] font-sans">
                             <div className="bg-emerald-950/40 p-2 rounded-lg border border-emerald-500/10 flex flex-col gap-1 text-[10.5px]">

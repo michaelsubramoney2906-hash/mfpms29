@@ -1816,7 +1816,7 @@ export function DraftingSuiteFirefighters({ currentUser, activeTenantId }: PADra
                             <td className="border border-black p-1 text-center font-bold bg-indigo-50/40">{item.midtermTarget}</td>
                             <td className="border border-black p-1 text-center">{item.q3Target}</td>
                             <td className="border border-black p-1 text-center">{item.q4Target}</td>
-                            <td className="border border-black p-1 text-slate-700">{item.poe || 'N/A'}</td>
+                            <td className="border border-black p-1 text-slate-700">{item.annualRequiredPoe || item.poe || 'N/A'}</td>
                             <td className="border border-black p-1 text-center font-bold">{item.weighting}%</td>
                           </tr>
                         ))}

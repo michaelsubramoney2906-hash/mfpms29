@@ -560,7 +560,8 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
                   q2Poe: item.q2Poe || matchedKpi.q2Poe || '',
                   q3Poe: item.q3Poe || matchedKpi.q3Poe || '',
                   q4Poe: item.q4Poe || matchedKpi.q4Poe || '',
-                  poe: item.poe || [item.q1Poe, item.q2Poe, item.q3Poe, item.q4Poe].filter(Boolean).join('\n') || [matchedKpi.q1Poe, matchedKpi.q2Poe, matchedKpi.q3Poe, matchedKpi.q4Poe].filter(Boolean).join('\n') || '',
+                  annualRequiredPoe: matchedKpi.annualRequiredPoe || item.annualRequiredPoe || '',
+                  poe: matchedKpi.annualRequiredPoe || item.annualRequiredPoe || item.poe || [item.q1Poe, item.q2Poe, item.q3Poe, item.q4Poe].filter(Boolean).join('\n') || [matchedKpi.q1Poe, matchedKpi.q2Poe, matchedKpi.q3Poe, matchedKpi.q4Poe].filter(Boolean).join('\n') || '',
                 };
               }
               return item;
@@ -587,7 +588,8 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
                  q2Poe: fk.q2Poe || '',
                  q3Poe: fk.q3Poe || '',
                  q4Poe: fk.q4Poe || '',
-                 poe: [fk.q1Poe, fk.q2Poe, fk.q3Poe, fk.q4Poe].filter(Boolean).join('\n') || '',
+                 annualRequiredPoe: fk.annualRequiredPoe || '',
+                 poe: fk.annualRequiredPoe || [fk.q1Poe, fk.q2Poe, fk.q3Poe, fk.q4Poe].filter(Boolean).join('\n') || '',
                  weighting: '',
                  myScore: '',
                  evaluation: '',
@@ -1372,7 +1374,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
       item.q4Target || '',
       item.q4Actual || '',
       item.q4Comment || '',
-      item.poe || '',
+      item.annualRequiredPoe || item.poe || '',
       item.weighting || ''
     ]);
 
@@ -1504,7 +1506,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
         <td style="border: 1px solid #cbd5e1; padding: 3px; font-size: 7.5px; word-break: break-all; word-wrap: break-word; white-space: normal; vertical-align: top;">${item.q4Target || 'N/A'}</td>
         <td style="border: 1px solid #cbd5e1; padding: 3px; font-size: 7.5px; word-break: break-all; word-wrap: break-word; white-space: normal; vertical-align: top;">${item.q4Actual || 'N/A'}</td>
         <td style="border: 1px solid #cbd5e1; padding: 3px; font-size: 7.5px; word-break: break-all; word-wrap: break-word; white-space: normal; vertical-align: top;">${item.q4Comment || 'N/A'}</td>
-        <td style="border: 1px solid #cbd5e1; padding: 3px; font-size: 7.5px; word-break: break-all; word-wrap: break-word; white-space: normal; vertical-align: top;">${item.poe || 'N/A'}</td>
+        <td style="border: 1px solid #cbd5e1; padding: 3px; font-size: 7.5px; word-break: break-all; word-wrap: break-word; white-space: normal; vertical-align: top;">${item.annualRequiredPoe || item.poe || 'N/A'}</td>
         <td style="border: 1px solid #cbd5e1; padding: 3px; font-weight: bold; font-family: monospace; font-size: 7.5px; text-align: center; vertical-align: top;">${item.weighting || 'N/A'}%</td>
       `;
 
@@ -1679,7 +1681,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
         <td style="border: 1px solid #e2e8f0; padding: 6px; font-size: 8px;">${item.q4Target || 'N/A'}</td>
         <td style="border: 1px solid #e2e8f0; padding: 6px; font-size: 8px;">${item.q4Actual || 'N/A'}</td>
         <td style="border: 1px solid #e2e8f0; padding: 6px; font-size: 8px;">${item.q4Comment || 'N/A'}</td>
-        <td style="border: 1px solid #e2e8f0; padding: 6px; font-size: 8px;">${item.poe || 'N/A'}</td>
+        <td style="border: 1px solid #e2e8f0; padding: 6px; font-size: 8px;">${item.annualRequiredPoe || item.poe || 'N/A'}</td>
         <td style="border: 1px solid #e2e8f0; padding: 6px; font-weight: bold; font-family: monospace; font-size: 8px;">${item.weighting || 'N/A'}%</td>
       `;
 
@@ -3335,8 +3337,11 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
                       <td className="p-1.5 border-r border-slate-205 min-w-[200px]">
                         <textarea
                           rows={2}
-                          value={item.poe || ''}
-                          onChange={(e) => handleRowChange(item.id, 'poe', e.target.value)}
+                          value={item.annualRequiredPoe || item.poe || ''}
+                          onChange={(e) => {
+                            handleRowChange(item.id, 'poe', e.target.value);
+                            handleRowChange(item.id, 'annualRequiredPoe', e.target.value);
+                          }}
                           onInput={(e) => {
                             e.currentTarget.style.height = 'auto';
                             e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
