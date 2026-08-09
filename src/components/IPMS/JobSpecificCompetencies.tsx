@@ -250,6 +250,10 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId }: JobSpec
         setLoading(true);
         const res = await fetch(`/api/tenant/${activeTenantId}/job-competencies?userId=${encodeURIComponent(selectedUserEmail)}`);
         if (!res.ok) throw new Error("Failed to load server state");
+        const contentType = res.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          throw new Error("Server returned non-JSON response");
+        }
         const data = await res.json();
         if (active && data) {
           if (Array.isArray(data.competencies)) {

@@ -116,7 +116,13 @@ export function FredExtractionAgent({ currentUser, activeTenantId }: FredExtract
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ items: mappedItems })
       });
-      const data = await res.json();
+      const raw = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(raw);
+      } catch (e) {
+        data = { error: `Server returned non-JSON response (${res.status} ${res.statusText})` };
+      }
       if (res.ok && data.success) {
         setSuccessMsg(`Successfully synchronized ${mappedItems.length} extracted SDBIP items to the SDBIP Top Layer & Reporting tables in Supabase!`);
       } else {

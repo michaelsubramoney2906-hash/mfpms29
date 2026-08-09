@@ -1407,25 +1407,26 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
   const handlePullKhuboniJscTable = async () => {
     setPullingKhuboniJsc(true);
     try {
-      const khuboniEmail = 'khuboniy@nkangaladm.gov.za';
-      const res = await fetch(`/api/tenant/${activeTenantId}/job-competencies?userId=${khuboniEmail}&t=${Date.now()}`);
+      const activeEmail = (currentUser?.email || 'khuboniy@nkangaladm.gov.za').toLowerCase().trim();
+      const activeName = currentUser?.fullName || activeEmail;
+      const res = await fetch(`/api/tenant/${activeTenantId}/job-competencies?userId=${activeEmail}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
         if (data && Array.isArray(data.competencies) && data.competencies.length > 0) {
           setPulledKhuboniJscRows(data.competencies);
-          triggerNotification(`Successfully pulled entire JSC Table (${data.competencies.length} items) from profile khuboniy@nkangaladm.gov.za into Section 4.4!`, "success");
+          triggerNotification(`Successfully pulled entire JSC Table (${data.competencies.length} items) from profile ${activeEmail} into Section 4.4!`, "success");
         } else {
           setPulledKhuboniJscRows(KHUBONI_Y_DEFAULT_JSC_TABLE);
-          triggerNotification(`Adopted entire JSC Table from profile khuboniy@nkangaladm.gov.za into Section 4.4!`, "success");
+          triggerNotification(`Adopted entire JSC Table from profile ${activeEmail} into Section 4.4!`, "success");
         }
       } else {
         setPulledKhuboniJscRows(KHUBONI_Y_DEFAULT_JSC_TABLE);
-        triggerNotification(`Adopted entire JSC Table from profile khuboniy@nkangaladm.gov.za into Section 4.4!`, "success");
+        triggerNotification(`Adopted entire JSC Table from profile ${activeEmail} into Section 4.4!`, "success");
       }
     } catch (err: any) {
       console.error(err);
       setPulledKhuboniJscRows(KHUBONI_Y_DEFAULT_JSC_TABLE);
-      triggerNotification(`Adopted entire JSC Table from profile khuboniy@nkangaladm.gov.za into Section 4.4!`, "success");
+      triggerNotification(`Adopted entire JSC Table from profile ${(currentUser?.email || 'khuboniy@nkangaladm.gov.za').toLowerCase().trim()} into Section 4.4!`, "success");
     } finally {
       setPullingKhuboniJsc(false);
     }
@@ -1433,6 +1434,9 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
 
   const RenderKhuboniJscTableBelow4_4 = () => {
     if (!pulledKhuboniJscRows || pulledKhuboniJscRows.length === 0) return null;
+
+    const activeEmail = (currentUser?.email || 'khuboniy@nkangaladm.gov.za').toLowerCase().trim();
+    const activeName = currentUser?.fullName || activeEmail;
 
     const totalWeight = pulledKhuboniJscRows.reduce(
       (acc, curr, idx) => {
@@ -1450,7 +1454,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
           <div className="flex items-center gap-2">
             <Briefcase className="w-4 h-4 text-purple-700" />
             <span className="font-extrabold text-[10.5px] uppercase tracking-wider">
-              Job Specific Competencies (JSC) Matrix — Adopted Profile: Khuboni Y (khuboniy@nkangaladm.gov.za)
+              Job Specific Competencies (JSC) Matrix — Adopted Profile: {activeName} ({activeEmail})
             </span>
           </div>
           <span className="text-[8.5px] font-black bg-purple-200 text-purple-900 px-2 py-0.5 rounded-full uppercase">
@@ -2714,7 +2718,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
                   </button>
                 )}
 
-                {/* Adopt Khuboni Y Profile JSC Table (Below 4.4) */}
+                {/* Adopt Profile JSC Table (Below 4.4) */}
                 <button
                   id="btn-adopt-khuboni-jsc-table"
                   type="button"
@@ -2730,7 +2734,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
                 >
                   <span className="flex items-center gap-1.5 leading-snug">
                     <Briefcase className="w-3.5 h-3.5 text-purple-700 flex-shrink-0" />
-                    <span className="font-extrabold">Adopt Profile JSC Table (khuboniy@nkangaladm.gov.za)</span>
+                    <span className="font-extrabold">Adopt Profile JSC Table ({(currentUser?.email || 'khuboniy@nkangaladm.gov.za').toLowerCase().trim()})</span>
                   </span>
                   {pullingKhuboniJsc ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-700 flex-shrink-0" />
@@ -2749,13 +2753,13 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
                     type="button"
                     onClick={() => {
                       setPulledKhuboniJscRows(null);
-                      triggerNotification("Removed adopted Khuboni Y JSC table from below 4.4", "success");
+                      triggerNotification(`Removed adopted JSC table for ${(currentUser?.email || 'khuboniy@nkangaladm.gov.za').toLowerCase().trim()} from below 4.4`, "success");
                     }}
                     className="w-full text-left font-bold text-[10px] px-3 py-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100 flex items-center justify-between transition-all cursor-pointer"
                   >
                     <span className="flex items-center gap-1.5">
                       <Trash2 className="w-3.5 h-3.5 text-rose-600" />
-                      Remove Adopted Khuboni Y JSC Table
+                      Remove Adopted JSC Table ({(currentUser?.email || 'khuboniy@nkangaladm.gov.za').toLowerCase().trim()})
                     </span>
                     <span className="text-[8.5px] font-bold text-rose-600 uppercase">Clear 4.4 Table</span>
                   </button>

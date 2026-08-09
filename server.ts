@@ -584,10 +584,8 @@ async function startServer() {
     
     // Fallback list of models in case of high demand (503/429) or endpoint availability
     const fallbackModels = [
-      "gemini-1.5-flash",
-      "gemini-2.5-pro",
-      "gemini-1.5-flash",
-      "gemini-1.5-pro"
+      "gemini-3.6-flash",
+      "gemini-flash-latest"
     ];
     
     while (attempt < maxRetries) {
@@ -614,7 +612,7 @@ async function startServer() {
         
         if (isTransient && attempt < maxRetries) {
           // Rotate model to a fallback to bypass model-specific capacity constraints
-          let nextModel = "gemini-1.5-flash";
+          let nextModel = "gemini-3.6-flash";
           if (fallbackModels.includes(params.model)) {
             const currentIdx = fallbackModels.indexOf(params.model);
             const nextIdx = (currentIdx + 1) % fallbackModels.length;
@@ -650,7 +648,7 @@ async function startServer() {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       
       const response = await generateContentWithRetry(ai, {
-        model: "gemini-1.5-flash",
+        model: "gemini-3.6-flash",
         contents: messages,
         config: {
           maxOutputTokens: 8192,
@@ -805,30 +803,51 @@ For EVERY SDBIP item, exhaustively extract and map the following exact propertie
           required: ["Employee_Name", "Core_Competencies"]
         };
       } else if (engineType === "agreement_to_plan_engine") {
-        extractionPrompt = `You are a highly precise document parser and strict data extraction engine.
-You MUST analyze the entire provided document exhaustively and extract ALL Key Performance Areas (KPAs) and Key Performance Indicators (KPIs) exactly as they are written in the document, keeping their ORIGINAL ORDER intact.
+        extractionPrompt = `You are a highly precise document parser and strict verbatim data extraction engine.
+You MUST analyze the entire provided performance agreement document exhaustively and extract ALL Key Performance Areas (KPAs) and Key Performance Indicators (KPIs) EXACTLY AS THEY ARE WRITTEN in the document without changing, altering, calculating, or fabricating ANY of the fields under any circumstances.
 
-IMPORTANT: You MUST find and extract EVERY SINGLE KPI and EVERY SINGLE KPA from the document without exception. 
-- You MUST maintain the EXACT order of KPAs and KPIs as they appear in the performance agreement.
-- Do NOT omit any KPI regardless of whether it has a reference code or not.
-- Ensure the KPI number is EXACTLY the same from the performance agreement to the performance plan. Do not change it.
-- Extract the National KPA for each KPI. Map it to one of: BSD, LED, MFVM, GGPP, MIDT, SR based on the context or explicit mention.
+CRITICAL DOCUMENT TABLE COLUMN DETECTION & ZERO-CALCULATION RULE FOR BASELINE:
+1. Examine the column headers of the Performance Agreement tables in the document.
+2. Determine if there is an EXPLICIT, DEDICATED column header specifically named "Baseline" (or "Baseline 2025/2026").
+3. Set "Has_Explicit_Baseline_Column_In_Document" to true ONLY if a dedicated "Baseline" column heading exists in the table header. Set it to false if there is NO "Baseline" column header in the table.
+4. ABSOLUTE ZERO-CALCULATION & ZERO-INFERENCE MANDATE:
+   - YOU ARE STRICTLY FORBIDDEN FROM INFERRING, CALCULATING, COUNTING, OR ESTIMATING BASELINE VALUES FROM THE KPI DESCRIPTION, TARGET METRICS, FREQUENCIES, OR AUDIT GOALS.
+   - EXAMPLES OF FORBIDDEN INFERENCES/CALCULATIONS:
+     * If KPI description says "compiled per quarter", DO NOT output Baseline = "4".
+     * If KPI description says "annual assessment/evaluation", DO NOT output Baseline = "1" or "1 (annual assessment)".
+     * If Annual Target is "100%", DO NOT output Baseline = "100%".
+     * If Annual Target is "1 (Clean Audit)", DO NOT infer Baseline = "1 (Unqualified with matters)".
+   - Baseline MUST ONLY be extracted if the exact text is printed verbatim in the Baseline column cell of the document.
+   - IF THE CELL IN THE DOCUMENT IS BLANK, HYPHENATED ("-"), NOT WRITTEN, OR IF Has_Explicit_Baseline_Column_In_Document IS FALSE, YOU MUST OUTPUT Baseline AS AN EMPTY STRING ("").
 
-CRITICAL MAPPING & IDENTIFICATION RULES:
-1. Extract ALL Key Performance Areas (KPAs) with their respective numbers/names and descriptions exactly as written in the document.
-2. For every KPI under each KPA, extract its exact code (ID) or reference number as written in the document. It MUST match exactly.
-3. For every extracted KPI, extract its exact properties from the document: National_KPA, Key Performance Indicator (description), Weight, Baseline, Annual Target, 1st Quarter planned target, 2nd Quarter planned target, 3rd Quarter planned target, 4th Quarter planned target, POE (Portfolio of Evidence), and Total Budget allocated.
-4. BASELINE HANDLING RULE: If there is no baseline found for a specific KPI in the document, extract the baseline as an empty string (""). Do NOT fabricate or insert any data, placeholder, or default value (such as "0", "N/A", or "None") in place of that. Extract the information as is.
-5. Calculate a 'Data_Match_Percentage' between 0 and 100, representing your confidence that the extracted data exactly matches the provided document.
+STRICT ZERO-FABRICATION & VERBATIM EXTRACTION RULES:
+- National_KPA: Extract and map based strictly on the document content to one of: BSD, LED, MFVM, GGPP, MIDT, or SR.
+- KPI_Number: Extract the exact KPI number / reference code as written in the performance agreement. Do NOT change, alter, renumber, or fabricate.
+- Key_Performance_Indicator: Extract the exact description verbatim as written in the document.
+- Weight: Extract the Weight EXACTLY as written in the document table for that KPI (e.g. "15%", "15", "10.00"). Do NOT recalculate or fabricate weight. If no weight is found, extract an empty string ("").
+- Baseline: ABSOLUTELY NO CALCULATIONS OR INFERENCES. Must be an empty string ("") unless printed verbatim in an explicit Baseline column.
+- Annual_Target: Extract the full year target metric verbatim as written on the document.
+- Q1_Target (1st Quarter Planned Target): Q1 target metric verbatim as written.
+- Q2_Target (2nd Quarter Planned Target): Q2 target metric verbatim as written.
+- Q3_Target (3rd Quarter Planned Target): Q3 target metric verbatim as written.
+- Q4_Target (4th Quarter Planned Target): Q4 target metric verbatim as written.
+- POE (Portfolio of Evidence): Expected evidence or verification items verbatim as written.
+- Total_Budget_Allocated: Total budget figure associated with the KPI verbatim as written.
+
+ABSOLUTE MANDATE: Everything must be extracted verbatim as found on the document! Do NOT calculate or fabricate baselines, targets, or weights under any circumstances. Maintain the exact sequential order of KPAs and KPIs.
 
 Format your response exactly according to the following JSON schema:
-{"Document_Reference": "","Data_Match_Percentage": 100,"Performance_Plan": {"KPAs": [{"KPA_Number": "","KPA_Description": "","Associated_KPIs": [{"National_KPA": "","KPI_Number": "","Key_Performance_Indicator": "","Weight": "","Baseline": "","Annual_Target": "","Q1_Target": "","Q2_Target": "","Q3_Target": "","Q4_Target": "","POE": "","Total_Budget_Allocated": ""}]}]}}`;
+{"Document_Reference": "","Data_Match_Percentage": 100,"Has_Explicit_Baseline_Column_In_Document": false,"Performance_Plan": {"KPAs": [{"KPA_Number": "","KPA_Description": "","Associated_KPIs": [{"National_KPA": "","KPI_Number": "","Key_Performance_Indicator": "","Weight": "","Baseline": "","Annual_Target": "","Q1_Target": "","Q2_Target": "","Q3_Target": "","Q4_Target": "","POE": "","Total_Budget_Allocated": ""}]}]}}`;
 
         responseSchema = {
           type: Type.OBJECT,
           properties: {
             Document_Reference: { type: Type.STRING },
             Data_Match_Percentage: { type: Type.NUMBER },
+            Has_Explicit_Baseline_Column_In_Document: {
+              type: Type.BOOLEAN,
+              description: "Set to true ONLY if the table header in the document explicitly contains a 'Baseline' column header. Set to false if there is NO Baseline column in the document table."
+            },
             Performance_Plan: {
               type: Type.OBJECT,
               properties: {
@@ -848,7 +867,10 @@ Format your response exactly according to the following JSON schema:
                             KPI_Number: { type: Type.STRING },
                             Key_Performance_Indicator: { type: Type.STRING },
                             Weight: { type: Type.STRING },
-                            Baseline: { type: Type.STRING },
+                            Baseline: {
+                              type: Type.STRING,
+                              description: "Verbatim text from an explicit Baseline column in the document table ONLY. Must be an empty string (\"\") if Has_Explicit_Baseline_Column_In_Document is false."
+                            },
                             Annual_Target: { type: Type.STRING },
                             Q1_Target: { type: Type.STRING },
                             Q2_Target: { type: Type.STRING },
@@ -857,7 +879,7 @@ Format your response exactly according to the following JSON schema:
                             POE: { type: Type.STRING },
                             Total_Budget_Allocated: { type: Type.STRING }
                           },
-                          required: ["National_KPA", "KPI_Number", "Key_Performance_Indicator", "Weight", "Baseline", "Annual_Target", "Q1_Target", "Q2_Target", "Q3_Target", "Q4_Target", "POE", "Total_Budget_Allocated"]
+                          required: ["National_KPA", "KPI_Number", "Key_Performance_Indicator", "Weight", "Annual_Target", "Q1_Target", "Q2_Target", "Q3_Target", "Q4_Target", "POE", "Total_Budget_Allocated"]
                         }
                       }
                     },
@@ -868,7 +890,7 @@ Format your response exactly according to the following JSON schema:
               required: ["KPAs"]
             }
           },
-          required: ["Document_Reference", "Data_Match_Percentage", "Performance_Plan"]
+          required: ["Document_Reference", "Data_Match_Percentage", "Has_Explicit_Baseline_Column_In_Document", "Performance_Plan"]
         };
       } else if (engineType === "jsc_pdp_engine") {
         extractionPrompt = `You are a highly precise document parser and strict data extraction engine.
@@ -1138,7 +1160,7 @@ Format your response exactly according to the following JSON schema:
 
       try {
         const result = await generateContentWithRetry(ai, {
-          model: "gemini-1.5-flash",
+          model: "gemini-3.6-flash",
           contents: [{ role: "user", parts }],
           config: {
             responseMimeType: "application/json",
@@ -1152,7 +1174,7 @@ Format your response exactly according to the following JSON schema:
       } catch (gemErr) {
         console.log("[Fred Extraction] Initial generateContent failed, retrying...");
         const fallbackResult = await generateContentWithRetry(ai, {
-          model: "gemini-1.5-flash",
+          model: "gemini-3.6-flash",
           contents: [{ role: "user", parts }],
           config: {
             responseMimeType: "application/json",
@@ -1170,6 +1192,29 @@ Format your response exactly according to the following JSON schema:
         if (engineType === "sdbip_engine") {
           console.log("[Fred Extraction] Enforcing full SDBIP KPI list (M_01 to M_92 and P_01 to P_18) via catalog post-processor.");
           extractedData.items = ensureAllSdbipKpis(extractedData.items || []);
+        } else if (engineType === "agreement_to_plan_engine") {
+          const hasExplicitBaselineCol = extractedData.Has_Explicit_Baseline_Column_In_Document === true;
+          console.log(`[Agreement to Plan Engine] Document has explicit Baseline column: ${hasExplicitBaselineCol}`);
+
+          if (extractedData.Performance_Plan && Array.isArray(extractedData.Performance_Plan.KPAs)) {
+            extractedData.Performance_Plan.KPAs.forEach((kpa: any) => {
+              if (kpa && Array.isArray(kpa.Associated_KPIs)) {
+                kpa.Associated_KPIs.forEach((kpi: any) => {
+                  if (!hasExplicitBaselineCol) {
+                    kpi.Baseline = "";
+                  } else {
+                    const bVal = String(kpi.Baseline || '').trim();
+                    const annVal = String(kpi.Annual_Target || '').trim();
+                    const q1Val = String(kpi.Q1_Target || '').trim();
+                    if (bVal && (bVal === annVal || bVal === q1Val)) {
+                      console.log(`[Agreement to Plan Engine] Blanking out calculated baseline for KPI ${kpi.KPI_Number}`);
+                      kpi.Baseline = "";
+                    }
+                  }
+                });
+              }
+            });
+          }
         }
       } catch (parseErr: any) {
         console.error("Failed to parse Gemini response as JSON.");
@@ -1272,7 +1317,7 @@ Format your response exactly according to the following JSON schema:
                   compliance: matchedExisting.compliance || 'compliant',
                   uom: item.Unit_of_Measure || matchedExisting.uom || 'Number',
                   mscoaTracking: item.mSCOA_Tracking || matchedExisting.mscoaTracking || 'mSCOA Item Code',
-                  baseline: item.Baseline || matchedExisting.baseline || '0',
+                  baseline: item.Baseline ?? matchedExisting.baseline ?? '',
                   annualTarget: item.Annual_Target || item.Target || matchedExisting.annualTarget || '',
                   budgetAllocation: item.Budget_Allocation || matchedExisting.budgetAllocation || 'R 0',
                   q1: item.Q1_Target || matchedExisting.q1 || '',
@@ -5756,7 +5801,7 @@ Format your response exactly according to the following JSON schema:
 
       const ai = new GoogleGenAI({ apiKey });
       const response = await generateContentWithRetry(ai, {
-        model: "gemini-1.5-flash",
+        model: "gemini-3.6-flash",
         contents: [
           {
             role: "user",
@@ -6881,7 +6926,7 @@ User Request: ${prompt}`;
       }
       
       const response = await genai.models.generateContent({
-        model: "gemini-1.5-flash",
+        model: "gemini-3.6-flash",
         contents,
         config: {
           temperature: 0.7,
