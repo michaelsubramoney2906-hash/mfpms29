@@ -466,7 +466,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
         const [usersRes, kpaRes, kpisRes, res] = await Promise.all([
           fetch(`/api/tenant/${activeTenantId}/users?minimal=true&t=${Date.now()}`),
           fetch(`/api/tenant/${activeTenantId}/kpas?t=${Date.now()}`),
-          fetch(`/api/tenant/${activeTenantId}/kpis?t=${Date.now()}`),
+          fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(targetEmail)}&t=${Date.now()}`),
           fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(targetEmail)}&t=${Date.now()}`)
         ]);
 
@@ -747,23 +747,6 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
       setHasSavedOnce(true);
       if (showFeedback) {
         alert("Performance Plan in its entirety has been successfully saved to DB and pushed into the Employee Self-Evaluation module!");
-      }
-      
-      // Replication logic for PMS Team
-      const email = currentUser?.email?.toLowerCase().trim();
-      const isZulune = email === 'zulune@nkangaladm.gov.za';
-      const isNsibande = email === 'nsibandenp@nkangaladm.gov.za';
-      if ((isZulune || isNsibande) && (!selectedUserEmail || selectedUserEmail === email)) {
-        const otherEmail = isZulune ? 'nsibandenp@nkangaladm.gov.za' : 'zulune@nkangaladm.gov.za';
-        try {
-          await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(otherEmail)}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ metadata: metaToSave, items: customItems })
-          });
-        } catch (repErr) {
-          console.error("Failed to replicate PMS Team plan:", repErr);
-        }
       }
     } catch (err: any) {
       console.error("Save Performance Plan Database Error:", err);

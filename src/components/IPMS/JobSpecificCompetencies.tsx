@@ -314,23 +314,6 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId }: JobSpec
       });
       if (!res.ok) throw new Error("Unsuccessful status response save");
       setSyncStatus('saved');
-      
-      // Replication logic for PMS Team
-      const email = selectedUserEmail.toLowerCase().trim();
-      const isZulune = email === 'zulune@nkangaladm.gov.za';
-      const isNsibande = email === 'nsibandenp@nkangaladm.gov.za';
-      if (isZulune || isNsibande) {
-        const otherEmail = isZulune ? 'nsibandenp@nkangaladm.gov.za' : 'zulune@nkangaladm.gov.za';
-        try {
-          await fetch(`/api/tenant/${activeTenantId}/job-competencies?userId=${encodeURIComponent(otherEmail)}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-        } catch (e) {
-          console.error("Failed to replicate job competencies:", e);
-        }
-      }
     } catch (err: any) {
       console.error("Error saving competencies to Supabase database:", err);
       setSyncStatus('error');

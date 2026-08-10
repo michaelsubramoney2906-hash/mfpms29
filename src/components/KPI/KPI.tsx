@@ -112,19 +112,19 @@ export function KPI({ currentUser, activeTenantId }: KPIProps) {
       .catch(err => console.error("Error loading strategic objectives:", err));
 
     // Load KPIs
-    fetch(`/api/tenant/${activeTenantId}/kpis`)
+    fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(currentUser.email)}`)
       .then(res => res.ok ? res.json() : { kpis: [] })
       .then(data => {
         setKpis(data.kpis || []);
       })
       .catch(err => console.error("Error loading KPIs:", err))
       .finally(() => setLoading(false));
-  }, [activeTenantId]);
+  }, [activeTenantId, currentUser.email]);
 
   // Save changes
   const saveKpisList = async (list: KpiUnit[]) => {
     try {
-      const res = await fetch(`/api/tenant/${activeTenantId}/kpis`, {
+      const res = await fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(currentUser.email)}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

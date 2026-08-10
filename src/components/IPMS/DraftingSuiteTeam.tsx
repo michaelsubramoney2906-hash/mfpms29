@@ -555,26 +555,6 @@ export function DraftingSuiteTeam({
       if (res.ok) {
         setSaveStatus('success');
         setTimeout(() => setSaveStatus('idle'), 3000);
-        
-        // Auto-replicate for PMS Team
-        const email = currentUser?.email?.toLowerCase().trim();
-        const isZulune = email === 'zulune@nkangaladm.gov.za';
-        const isNsibande = email === 'nsibandenp@nkangaladm.gov.za';
-        if (isZulune || isNsibande) {
-          const targetUser = isZulune ? 'nsibandenp@nkangaladm.gov.za' : 'zulune@nkangaladm.gov.za';
-          try {
-            await fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=${targetUser}&documentId=${docId}`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                html: stateObj,
-                htmlDocumentId: docId
-              })
-            });
-          } catch (e) {
-            console.error("Failed to auto-replicate draft:", e);
-          }
-        }
       } else {
         throw new Error("Failed to save draft document");
       }

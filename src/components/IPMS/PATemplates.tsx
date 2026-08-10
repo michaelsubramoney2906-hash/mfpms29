@@ -1155,7 +1155,7 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
   const handlePullAllCompetencies = async () => {
     setPullingCompetencies(true);
     try {
-      const res = await fetch(`/api/tenant/${activeTenantId}/core-competencies?t=${Date.now()}`);
+      const res = await fetch(`/api/tenant/${activeTenantId}/core-competencies?userId=${currentUser.email}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
         if (data && Array.isArray(data.items)) {
@@ -1179,7 +1179,7 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
   const handlePullCfoCompetencies = async () => {
     setPullingCfoCompetencies(true);
     try {
-      const res = await fetch(`/api/tenant/${activeTenantId}/core-competencies?t=${Date.now()}`);
+      const res = await fetch(`/api/tenant/${activeTenantId}/core-competencies?userId=${currentUser.email}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
         if (data && Array.isArray(data.cfoItems)) {
@@ -1203,7 +1203,7 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
   const handlePullPedCompetencies = async () => {
     setPullingPedCompetencies(true);
     try {
-      const res = await fetch(`/api/tenant/${activeTenantId}/core-competencies?t=${Date.now()}`);
+      const res = await fetch(`/api/tenant/${activeTenantId}/core-competencies?userId=${currentUser.email}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
         const pedRowsToUse = (data && Array.isArray(data.pedItems) && data.pedItems.length > 0)

@@ -4991,11 +4991,7 @@ Format your response exactly according to the following JSON schema:
     return clean;
   }
 
-  const SYNCED_EMAILS: string[] = [
-    'zulune@nkangaladm.gov.za',
-    'nsibandenp@nkangaladm.gov.za',
-    'nsibandenp@nkangladm.gov.za'
-  ];
+  const SYNCED_EMAILS: string[] = [];
 
   // 17.3 Fetch Job Specific Competencies for a tenant
   app.get("/api/tenant/:tenantId/job-competencies", async (req, res) => {
@@ -5005,28 +5001,6 @@ Format your response exactly according to the following JSON schema:
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
       const documentId = `job_competencies_${tenantId}_${userId}`;
-
-      // Replicate data for the PMS Team members (zulune and nsibandenp)
-      if (SYNCED_EMAILS.includes(userId)) {
-        const id1 = `job_competencies_${tenantId}_zulune@nkangaladm.gov.za`;
-        const id2 = `job_competencies_${tenantId}_nsibandenp@nkangaladm.gov.za`;
-        
-        const { data: res1 } = await supabase.from('messages').select('content').eq('id', id1).maybeSingle();
-        const { data: res2 } = await supabase.from('messages').select('content').eq('id', id2).maybeSingle();
-        let bestContent = null;
-        if (res1 && res1.content) {
-          bestContent = res1.content; // Always use Zulune as master for synced users
-        } else if (res2 && res2.content) {
-          bestContent = res2.content;
-        }
-        
-        if (bestContent) {
-          try {
-            const parsed = JSON.parse(bestContent);
-            return res.json(parsed);
-          } catch (e) {}
-        }
-      }
 
       const { data, error } = await supabase
         .from('messages')
@@ -5063,7 +5037,7 @@ Format your response exactly according to the following JSON schema:
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
       
-      const targetUsers = SYNCED_EMAILS.includes(userId) ? SYNCED_EMAILS : [userId];
+      const targetUsers = [userId];
       for (const u of targetUsers) {
         const uDocId = `job_competencies_${tenantId}_${u}`;
         const { error } = await supabase
@@ -5095,17 +5069,6 @@ Format your response exactly according to the following JSON schema:
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
       const documentId = `core_competencies_${tenantId}_${userId}`;
-      
-      if (SYNCED_EMAILS.includes(userId)) {
-        const id1 = `core_competencies_${tenantId}_zulune@nkangaladm.gov.za`;
-        const id2 = `core_competencies_${tenantId}_nsibandenp@nkangaladm.gov.za`;
-        const { data: res1 } = await supabase.from('messages').select('content').eq('id', id1).maybeSingle();
-        const { data: res2 } = await supabase.from('messages').select('content').eq('id', id2).maybeSingle();
-        let bestContent = null;
-        if (res1 && res1.content) bestContent = res1.content;
-        else if (res2 && res2.content) bestContent = res2.content;
-        if (bestContent) return res.json(JSON.parse(bestContent));
-      }
 
       const { data, error } = await supabase
         .from('messages')
@@ -5138,7 +5101,7 @@ Format your response exactly according to the following JSON schema:
     try {
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
-      const targetUsers = SYNCED_EMAILS.includes(userId) ? SYNCED_EMAILS : [userId];
+      const targetUsers = [userId];
       for (const u of targetUsers) {
         const uDocId = `core_competencies_${tenantId}_${u}`;
         const { error } = await supabase
@@ -5170,17 +5133,6 @@ Format your response exactly according to the following JSON schema:
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
       const documentId = `pdp_${tenantId}_${userId}`;
-      
-      if (SYNCED_EMAILS.includes(userId)) {
-        const id1 = `pdp_${tenantId}_zulune@nkangaladm.gov.za`;
-        const id2 = `pdp_${tenantId}_nsibandenp@nkangaladm.gov.za`;
-        const { data: res1 } = await supabase.from('messages').select('content').eq('id', id1).maybeSingle();
-        const { data: res2 } = await supabase.from('messages').select('content').eq('id', id2).maybeSingle();
-        let bestContent = null;
-        if (res1 && res1.content) bestContent = res1.content;
-        else if (res2 && res2.content) bestContent = res2.content;
-        if (bestContent) return res.json(JSON.parse(bestContent));
-      }
 
       const { data, error } = await supabase
         .from('messages')
@@ -5213,7 +5165,7 @@ Format your response exactly according to the following JSON schema:
     try {
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
-      const targetUsers = SYNCED_EMAILS.includes(userId) ? SYNCED_EMAILS : [userId];
+      const targetUsers = [userId];
       for (const u of targetUsers) {
         const uDocId = `pdp_${tenantId}_${u}`;
         const { error } = await supabase
@@ -5252,21 +5204,6 @@ Format your response exactly according to the following JSON schema:
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
       const documentId = `pplan_${tenantId}_${userId}`;
-      
-      if (SYNCED_EMAILS.includes(userId)) {
-        const id1 = `pplan_${tenantId}_zulune@nkangaladm.gov.za`;
-        const id2 = `pplan_${tenantId}_nsibandenp@nkangaladm.gov.za`;
-        const { data: res1 } = await supabase.from('messages').select('content').eq('id', id1).maybeSingle();
-        const { data: res2 } = await supabase.from('messages').select('content').eq('id', id2).maybeSingle();
-        let bestContent = null;
-        if (res1 && res1.content) bestContent = res1.content;
-        else if (res2 && res2.content) bestContent = res2.content;
-        if (bestContent) {
-          try {
-            return res.json(JSON.parse(bestContent));
-          } catch (e) {}
-        }
-      }
 
       const cached = pplanCache.get(documentId);
       if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
@@ -5535,7 +5472,7 @@ Format your response exactly according to the following JSON schema:
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
       
-      const targetUsers = SYNCED_EMAILS.includes(userId) ? SYNCED_EMAILS : [userId];
+      const targetUsers = [userId];
       for (const u of targetUsers) {
         const uDocId = `pplan_${tenantId}_${u}`;
         const { error } = await supabase
@@ -5597,9 +5534,7 @@ Format your response exactly according to the following JSON schema:
             q4: pplanItem.annualTarget || '-',
             weight: pplanItem.weighting || '10',
             responsibleUnit: 'Assigned User Ward',
-            evaluationUser: SYNCED_EMAILS.includes(userId) 
-              ? 'Noluthando Zulu / Nompumelelo P. Nsibande'
-              : (decodeURIComponent(userId) || 'Employee'),
+            evaluationUser: decodeURIComponent(userId) || 'Employee',
             reviewManager: 'Line Supervisor',
             poeStatus: pplanItem.poeStatus || (existing ? existing.poeStatus : "Not Uploaded"),
             q1PoeDocs: pplanItem.q1PoeDocs || (existing ? existing.q1PoeDocs : []),
@@ -6002,27 +5937,6 @@ Format your response exactly according to the following JSON schema:
     try {
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
-      
-      // Replicate data for the PMS Team members (zulune and nsibandenp)
-      if (SYNCED_EMAILS.includes(userId)) {
-        const id1 = `draft_doc_pms_team_${tenantId}_zulune@nkangaladm.gov.za`;
-        const id2 = `draft_doc_pms_team_${tenantId}_nsibandenp@nkangaladm.gov.za`;
-        
-        const { data: res1 } = await supabase.from('messages').select('content').eq('id', id1).maybeSingle();
-        const { data: res2 } = await supabase.from('messages').select('content').eq('id', id2).maybeSingle();
-        let bestContent = null;
-        if (res1 && res1.content) {
-          bestContent = res1.content; // Always use Zulune as master for synced users
-        } else if (res2 && res2.content) {
-          bestContent = res2.content;
-        }
-        
-        if (bestContent) {
-          try {
-            return res.json(JSON.parse(bestContent));
-          } catch (e) {}
-        }
-      }
 
       let documentId = reqDocumentId || `draft_doc_${tenantId}`;
       if (userId && userId !== 'default') {
@@ -6084,7 +5998,7 @@ Format your response exactly according to the following JSON schema:
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
       
-      const targetUsers = SYNCED_EMAILS.includes(userId) ? SYNCED_EMAILS : [userId];
+      const targetUsers = [userId];
       for (const u of targetUsers) {
         let documentId = htmlDocumentId || `draft_doc_${tenantId}`;
         if (u && u !== 'default') {

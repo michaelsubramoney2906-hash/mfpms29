@@ -1196,7 +1196,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
   const handlePullAllCompetencies = async () => {
     setPullingCompetencies(true);
     try {
-      const res = await fetch(`/api/tenant/${activeTenantId}/core-competencies?t=${Date.now()}`);
+      const res = await fetch(`/api/tenant/${activeTenantId}/core-competencies?userId=${currentUser.email}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
         if (data && Array.isArray(data.items)) {

@@ -430,7 +430,7 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
       }
 
       // 1. Fetch KPI register
-      const kpiRes = await fetch(`/api/tenant/${activeTenantId}/kpis?t=${Date.now()}`);
+      const kpiRes = await fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(currentUser.email)}&t=${Date.now()}`);
       if (kpiRes.ok) {
         const data = await kpiRes.json();
         if (data && Array.isArray(data.kpis)) {
@@ -551,7 +551,7 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
 
     // 3. Save to database
     try {
-      await fetch(`/api/tenant/${activeTenantId}/kpis`, {
+      await fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(currentUser.email)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ kpis: updatedKpis })
@@ -811,7 +811,7 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
 
     try {
       // Post updated KPIs to database
-      await fetch(`/api/tenant/${activeTenantId}/kpis`, {
+      await fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(currentUser.email)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ kpis: updatedKpis })
@@ -944,7 +944,7 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
       setPplanData(updatedPlanData);
 
       try {
-        await fetch(`/api/tenant/${activeTenantId}/kpis`, {
+        await fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(currentUser.email)}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ kpis: remainingKpis })
@@ -1762,7 +1762,7 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
                      (updatedKpis[kpiIdx] as any)[`${browseModalQuarter.toLowerCase()}PoeDocs`] = browseModalPoeDocs;
                      setKpis(updatedKpis);
                      try {
-                        await fetch(`/api/tenant/${activeTenantId}/kpis`, {
+                        await fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(currentUser.email)}`, {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ kpis: updatedKpis })
