@@ -113,6 +113,8 @@ interface PATemplate {
   pulledCompetencyRows?: any[] | null;
   pulledCfoCompetencyRows?: any[] | null;
   pulledPedCompetencyRows?: any[] | null;
+  pulledCorpCompetencyRows?: any[] | null;
+  pulledKhuboniJscRows?: any[] | null;
   employeeSignature?: string | null;
   employeeName?: string | null;
   employeePosition?: string | null;
@@ -1865,7 +1867,8 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
   const fetchTemplates = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/tenant/${activeTenantId}/pa-templates`);
+      const activeEmail = (currentUser?.email || '').toLowerCase().trim();
+      const res = await fetch(`/api/tenant/${activeTenantId}/pa-templates?userId=${encodeURIComponent(activeEmail)}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
         let loadedTemplates: PATemplate[] = Array.isArray(data.templates) ? data.templates : [];
@@ -1987,6 +1990,7 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
         pulledCompetencyRows,
         pulledCfoCompetencyRows,
         pulledPedCompetencyRows,
+        pulledKhuboniJscRows,
         employeeSignature,
         employeeName,
         employeePosition,
@@ -2005,10 +2009,21 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
       const otherTemplates = templates.filter(t => t.id !== activeTpl.id);
       const updatedList = [activeTpl, ...otherTemplates];
 
-      const res = await fetch(`/api/tenant/${activeTenantId}/pa-templates`, {
+      const activeEmail = (currentUser?.email || '').toLowerCase().trim();
+      const res = await fetch(`/api/tenant/${activeTenantId}/pa-templates?userId=${encodeURIComponent(activeEmail)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ templates: updatedList })
+      });
+
+      // Also persist draft doc for this user profile so it's 100% saved across tabs
+      await fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=${encodeURIComponent(activeEmail)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          html: activeTpl,
+          htmlDocumentId: `draft_doc_${activeTenantId}_${activeEmail}`
+        })
       });
 
       if (res.ok) {
@@ -2121,6 +2136,7 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
     setPulledCompetencyRows(tpl.pulledCompetencyRows !== undefined ? tpl.pulledCompetencyRows : null);
     setPulledCfoCompetencyRows(tpl.pulledCfoCompetencyRows !== undefined ? tpl.pulledCfoCompetencyRows : null);
     setPulledPedCompetencyRows(tpl.pulledPedCompetencyRows !== undefined ? tpl.pulledPedCompetencyRows : null);
+    setPulledKhuboniJscRows(tpl.pulledKhuboniJscRows !== undefined ? tpl.pulledKhuboniJscRows : null);
 
     // Signatures Loading
     setEmployeeSignature(tpl.employeeSignature !== undefined ? tpl.employeeSignature : null);

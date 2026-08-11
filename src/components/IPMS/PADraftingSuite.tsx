@@ -114,6 +114,7 @@ interface PATemplate {
   pulledCfoCompetencyRows?: any[] | null;
   pulledPedCompetencyRows?: any[] | null;
   pulledCorpCompetencyRows?: any[] | null;
+  pulledKhuboniJscRows?: any[] | null;
   employeeSignature?: string | null;
   employeeName?: string | null;
   employeePosition?: string | null;
@@ -2063,6 +2064,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
         pulledCfoCompetencyRows,
         pulledPedCompetencyRows,
         pulledCorpCompetencyRows,
+        pulledKhuboniJscRows,
         employeeSignature,
         employeeName,
         employeePosition,
@@ -2084,6 +2086,13 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
           html: activeTpl,
           htmlDocumentId: `draft_doc_${activeTenantId}_${currentUser.email}`
         })
+      });
+
+      // Also persist to pa-templates for this user so template config tab matches drafting doc
+      await fetch(`/api/tenant/${activeTenantId}/pa-templates?userId=${currentUser.email}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ templates: [activeTpl] })
       });
 
       if (res.ok) {
@@ -2197,6 +2206,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
     setPulledCfoCompetencyRows(tpl.pulledCfoCompetencyRows !== undefined ? tpl.pulledCfoCompetencyRows : null);
     setPulledPedCompetencyRows(tpl.pulledPedCompetencyRows !== undefined ? tpl.pulledPedCompetencyRows : null);
     setPulledCorpCompetencyRows(tpl.pulledCorpCompetencyRows !== undefined ? tpl.pulledCorpCompetencyRows : null);
+    setPulledKhuboniJscRows(tpl.pulledKhuboniJscRows !== undefined ? tpl.pulledKhuboniJscRows : null);
 
     // Signatures Loading
     setEmployeeSignature(tpl.employeeSignature !== undefined ? tpl.employeeSignature : null);

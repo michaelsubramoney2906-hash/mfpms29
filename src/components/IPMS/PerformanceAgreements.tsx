@@ -251,6 +251,7 @@ interface PlanKPIItem {
   q2Poe?: string;
   q3Poe?: string;
   q4Poe?: string;
+  annualRequiredPoe?: string;
 
   q1PoeDocs?: PoeDocument[];
   q2PoeDocs?: PoeDocument[];
@@ -313,6 +314,15 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
   const [activeTab, setActiveTab] = useState<'brief' | 'templates' | 'drafting_suite' | 'lead_fire_fighter' | 'drafting_suite_firefighters' | 'drafting_suite_corporate_services' | 'drafting_suite_pms_team'>('brief');
   const [users, setUsers] = useState<any[]>([]);
   const [selectedUserEmail, setSelectedUserEmail] = useState<string>('');
+
+  const effectiveUser = React.useMemo(() => {
+    if (selectedUserEmail) {
+      const found = users.find(u => u.email?.toLowerCase() === selectedUserEmail.toLowerCase());
+      if (found) return found;
+      return { ...currentUser, email: selectedUserEmail, fullName: selectedUserEmail };
+    }
+    return currentUser;
+  }, [selectedUserEmail, users, currentUser]);
 
   // Check if current user is a lead fire fighter
   const isLeadFireFighter = React.useMemo(() => {
@@ -1961,10 +1971,10 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
         </div>
 
         {activeTab === 'drafting_suite' ? (
-          <PADraftingSuite currentUser={currentUser as any} activeTenantId={activeTenantId} />
+          <PADraftingSuite currentUser={effectiveUser as any} activeTenantId={activeTenantId} />
         ) : activeTab === 'drafting_suite_corporate_services' ? (
           <DraftingSuiteTeam 
-            currentUser={currentUser as any} 
+            currentUser={effectiveUser as any} 
             activeTenantId={activeTenantId} 
             teamTitle="Corporate Services Team"
             documentIdSuffix="corporate_services"
@@ -1972,19 +1982,19 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
           />
         ) : activeTab === 'drafting_suite_pms_team' ? (
           <DraftingSuiteTeam 
-            currentUser={currentUser as any} 
+            currentUser={effectiveUser as any} 
             activeTenantId={activeTenantId} 
             teamTitle="PMS Team"
             documentIdSuffix="pms_team"
             defaultRows={DEFAULT_PMS_TEAM_ROWS}
           />
         ) : activeTab === 'drafting_suite_firefighters' && isFirefighterTabVisible ? (
-          <DraftingSuiteFirefighters currentUser={currentUser as any} activeTenantId={activeTenantId} />
+          <DraftingSuiteFirefighters currentUser={effectiveUser as any} activeTenantId={activeTenantId} />
         ) : activeTab === 'lead_fire_fighter' ? (
-          <LeadFireFighterPADraftingSuite currentUser={currentUser as any} activeTenantId={activeTenantId} />
+          <LeadFireFighterPADraftingSuite currentUser={effectiveUser as any} activeTenantId={activeTenantId} />
         ) : activeTab === 'templates' ? (
           <div className="flex-1 overflow-y-auto">
-            <PATemplates currentUser={currentUser as any} activeTenantId={activeTenantId} />
+            <PATemplates currentUser={effectiveUser as any} activeTenantId={activeTenantId} />
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto p-6 bg-slate-100">
@@ -2391,16 +2401,6 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
                 <span>Clear Grid</span>
               </button>
 
-              <button
-                type="button"
-                onClick={handlePullFredExtraction}
-                disabled={isPullingFred}
-                className="bg-indigo-600 border border-indigo-500 text-white hover:bg-indigo-500 disabled:opacity-50 font-bold px-4 py-1.5 rounded-lg text-[11px] uppercase tracking-wide flex items-center gap-1.5 transition cursor-pointer shadow-sm"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${isPullingFred ? 'animate-spin' : ''}`} />
-                <span>{isPullingFred ? 'Pulling Fred...' : 'Pull Fred Extraction'}</span>
-              </button>
-
               <button 
                 type="button"
                 onClick={addRow}
@@ -2412,13 +2412,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
             </div>
           </div>
 
-          {/* Mapping Rule Banner */}
-          <div className="bg-slate-100 border-b border-slate-200 px-6 py-2.5 flex flex-wrap items-center justify-between text-[10.5px] text-slate-600 gap-2 select-text">
-            <div className="flex items-center gap-2">
-              <span className="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded font-bold uppercase text-[9px] tracking-wider shrink-0">Fred Extraction Rule</span>
-              <span>All extracted <strong className="text-slate-800">M_</strong> and <strong className="text-slate-800">P_</strong> series KPIs are mapped exactly as extracted according to the document's information without sequential re-mapping. Only unassigned or empty KPIs are prefixed with <strong className="text-slate-800">U_</strong> and sequentially re-mapped starting from <strong className="text-slate-800">U_01</strong>.</span>
-            </div>
-          </div>
+          {/* Interactive spreadsheet style scroll window */}
 
           {/* Interactive spreadsheet style scroll window */}
           <div className="flex-1 overflow-auto bg-slate-50 select-text">

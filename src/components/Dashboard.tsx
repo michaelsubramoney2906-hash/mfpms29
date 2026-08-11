@@ -841,15 +841,14 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
              <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
                 <PriorSystemArchive currentUser={fullUserProfile} activeTenantId={activeTenantId} />
              </div>
-          ) : activeSubModule.id === 'fbi' ? (
-             <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
-                <FredBusinessIntelligence currentUser={fullUserProfile} activeTenantId={activeTenantId} />
-             </div>
-          ) : activeSubModule.id === 'fea' ? (
-             <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
-                <FredExtractionAgent currentUser={fullUserProfile} activeTenantId={activeTenantId} />
-             </div>
-          ) : activeSubModule.id === 'mfa' ? (
+          ) : activeSubModule.id === 'fbi' || activeSubModule.id === 'fea' ? (
+              <div className="flex-1 min-h-0 bg-slate-900 rounded-2xl overflow-hidden shadow-2xl relative z-10 p-12 text-center flex flex-col items-center justify-center text-slate-300">
+                 <div className="bg-rose-500/10 border border-rose-500/30 p-8 rounded-2xl max-w-md">
+                   <h3 className="text-xl font-bold text-rose-400 mb-2">Fred AI Extraction Disabled</h3>
+                   <p className="text-sm text-slate-400">The Fred AI Extraction Agent and Fred Business Intelligence have been disabled to ensure 100% manual control over KPI data without automated background alterations.</p>
+                 </div>
+              </div>
+           ) : activeSubModule.id === 'mfa' ? (
              <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
                 <MzansiFlowAcademy currentUser={fullUserProfile} activeTenantId={activeTenantId} />
              </div>

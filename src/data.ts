@@ -363,8 +363,6 @@ export const modules: Module[] = [
     subModules: [
       { id: 'ce', name: 'Calendar & Events', icon: Calendar },
       { id: 'ear', name: 'External Audit Room', icon: Search },
-      { id: 'fbi', name: 'Fred Business Intelligence', icon: Activity },
-      { id: 'fea', name: 'Fred Extraction Agent', icon: Archive },
       { id: 'ia', name: 'Internal Audit', icon: ShieldAlert },
       { id: 'psa', name: 'Prior System Archive', icon: Database },
       { id: 'mfa', name: 'Mzansi Flow Academy', icon: GraduationCap },
