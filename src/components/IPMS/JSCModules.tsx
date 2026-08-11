@@ -410,16 +410,50 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId }: JSCMod
 export function JSCManagerApprovalSection({ currentUser, activeTenantId, defaultEmployeeEmail }: JSCModuleProps) {
   const [rows, setRows] = useState<CompetencyRow[]>(DEFAULT_COMPETENCY_ROWS);
   const [selectedQuarter, setSelectedQuarter] = useState<'q1' | 'q2' | 'q3' | 'q4'>('q1');
-  const [selectedUserEmail, setSelectedUserEmail] = useState<string>(defaultEmployeeEmail || currentUser.email || '');
+  const [selectedUserEmail, setSelectedUserEmail] = useState<string>(defaultEmployeeEmail || '');
+  const [subordinates, setSubordinates] = useState<Array<{ email: string; name: string }>>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
 
   useEffect(() => {
     let active = true;
+    const fetchTeam = async () => {
+      try {
+        const res = await fetch(`/api/tenant/${activeTenantId}/team-plans`);
+        if (res.ok) {
+          const data = await res.json();
+          if (active && data && Array.isArray(data.teamPlans)) {
+            const list = data.teamPlans.map((tp: any) => ({
+              email: (tp.userId || '').toLowerCase().trim(),
+              name: tp.plan?.metadata?.name || tp.plan?.metadata?.email || tp.userId
+            })).filter((item: any) => Boolean(item.email));
+            
+            setSubordinates(list);
+
+            if (!defaultEmployeeEmail && list.length > 0) {
+              const sub = list.find((s: any) => s.email !== currentUser.email?.toLowerCase().trim()) || list[0];
+              if (sub) {
+                setSelectedUserEmail(sub.email);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to fetch team plans for manager review:", err);
+      }
+    };
+    if (activeTenantId) fetchTeam();
+    return () => { active = false; };
+  }, [activeTenantId, defaultEmployeeEmail, currentUser.email]);
+
+  useEffect(() => {
+    let active = true;
     const fetchCompetencies = async () => {
+      const emailToFetch = selectedUserEmail || defaultEmployeeEmail || currentUser.email || '';
+      if (!emailToFetch) return;
       try {
         setLoading(true);
-        const res = await fetch(`/api/tenant/${activeTenantId}/job-competencies?userId=${encodeURIComponent(selectedUserEmail)}`);
+        const res = await fetch(`/api/tenant/${activeTenantId}/job-competencies?userId=${encodeURIComponent(emailToFetch)}`);
         if (!res.ok) throw new Error("Failed to load server state");
         const data = await res.json();
         if (active && data) {
@@ -435,14 +469,15 @@ export function JSCManagerApprovalSection({ currentUser, activeTenantId, default
         if (active) setLoading(false);
       }
     };
-    if (selectedUserEmail) fetchCompetencies();
+    fetchCompetencies();
     return () => { active = false; };
-  }, [activeTenantId, selectedUserEmail]);
+  }, [activeTenantId, selectedUserEmail, currentUser.email, defaultEmployeeEmail]);
 
   const handleSaveToDatabase = async (updatedRows: CompetencyRow[]) => {
+    const emailToSave = selectedUserEmail || currentUser.email || '';
     try {
       setSaving(true);
-      await fetch(`/api/tenant/${activeTenantId}/job-competencies?userId=${encodeURIComponent(selectedUserEmail)}`, {
+      await fetch(`/api/tenant/${activeTenantId}/job-competencies?userId=${encodeURIComponent(emailToSave)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ competencies: updatedRows })
@@ -455,6 +490,7 @@ export function JSCManagerApprovalSection({ currentUser, activeTenantId, default
   };
 
   const handleManagerApprove = async () => {
+    const emailToSave = selectedUserEmail || currentUser.email || '';
     const unrated = rows.some(r => {
       const mScore = r[selectedQuarter]?.managerScore;
       return !mScore || mScore < 1 || mScore > 5;
@@ -485,10 +521,15 @@ export function JSCManagerApprovalSection({ currentUser, activeTenantId, default
         body: JSON.stringify({
           notification: {
             id: `notif_jsc_approved_${Date.now()}`,
-            userEmail: selectedUserEmail,
+            userEmail: emailToSave,
+            recipientEmail: emailToSave,
+            recipientName: emailToSave.split('@')[0],
+            senderEmail: currentUser.email,
+            senderName: currentUser.name || currentUser.email,
             type: 'jsc_approval',
+            actionType: 'approval',
             title: `Job Specific Competencies Approved (${selectedQuarter.toUpperCase()})`,
-            message: `Your Line Manager (${currentUser.name || currentUser.email}) has approved your Job Specific Competencies review for ${selectedQuarter.toUpperCase()}.`,
+            message: `Your Line Manager (${currentUser.name || currentUser.email}) has reviewed and approved your Job Specific Competencies evaluation for ${selectedQuarter.toUpperCase()}.`,
             read: false,
             createdAt: new Date().toISOString()
           }
@@ -498,26 +539,39 @@ export function JSCManagerApprovalSection({ currentUser, activeTenantId, default
       console.error("Failed notification sending:", e);
     }
 
-    alert(`Successfully submitted and approved ${selectedQuarter.toUpperCase()} Job Specific Competencies appraisal for ${selectedUserEmail}!`);
+    alert(`Successfully submitted and approved ${selectedQuarter.toUpperCase()} Job Specific Competencies appraisal for ${emailToSave}!`);
   };
 
   return (
     <div className="flex flex-col space-y-4 animate-fadeIn">
       {/* Top Controls */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4 shrink-0">
-        <div className="flex-1 space-y-1">
+      <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm flex flex-col lg:flex-row items-center justify-between gap-4 shrink-0">
+        <div className="flex-1 space-y-2">
           <div className="flex items-center gap-2">
             <div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
-            <h3 className="text-xs font-black text-gray-800 uppercase tracking-wider">Line Manager JSC Appraisal</h3>
+            <h3 className="text-xs font-black text-gray-800 uppercase tracking-wider">Line Manager JSC Subordinate Appraisal</h3>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-[10px] text-gray-400 font-medium">Select employee email to review:</span>
+            <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Subordinate / Employee to Review:</span>
+            {subordinates.length > 0 && (
+              <select
+                value={selectedUserEmail}
+                onChange={(e) => setSelectedUserEmail(e.target.value.toLowerCase().trim())}
+                className="bg-gray-50 border border-gray-300 rounded-lg px-3 py-1 text-xs font-bold text-slate-800 focus:outline-none focus:border-emerald-500 font-mono"
+              >
+                {subordinates.map((sub, idx) => (
+                  <option key={idx} value={sub.email}>
+                    {sub.name ? `${sub.name} (${sub.email})` : sub.email}
+                  </option>
+                ))}
+              </select>
+            )}
             <input
               type="email"
-              placeholder="Enter employee email..."
+              placeholder="Or enter employee email..."
               value={selectedUserEmail}
               onChange={(e) => setSelectedUserEmail(e.target.value.toLowerCase().trim())}
-              className="bg-gray-50 border border-gray-300 rounded-lg px-3 py-1 text-[11px] font-semibold text-slate-800 focus:outline-none focus:border-blue-500 w-56 font-mono"
+              className="bg-gray-50 border border-gray-300 rounded-lg px-3 py-1 text-[11px] font-semibold text-slate-800 focus:outline-none focus:border-emerald-500 w-52 font-mono"
             />
           </div>
         </div>
@@ -528,7 +582,7 @@ export function JSCManagerApprovalSection({ currentUser, activeTenantId, default
               <button
                 key={q}
                 onClick={() => setSelectedQuarter(q)}
-                className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase transition duration-150 ${selectedQuarter === q ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
+                className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase transition duration-150 ${selectedQuarter === q ? 'bg-white text-emerald-700 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
               >
                 {q}
               </button>
@@ -680,16 +734,50 @@ export function JSCManagerApprovalSection({ currentUser, activeTenantId, default
 export function JSCInternalAuditorReviewSection({ currentUser, activeTenantId, defaultEmployeeEmail }: JSCModuleProps) {
   const [rows, setRows] = useState<CompetencyRow[]>(DEFAULT_COMPETENCY_ROWS);
   const [selectedQuarter, setSelectedQuarter] = useState<'q1' | 'q2' | 'q3' | 'q4'>('q1');
-  const [selectedUserEmail, setSelectedUserEmail] = useState<string>(defaultEmployeeEmail || currentUser.email || '');
+  const [selectedUserEmail, setSelectedUserEmail] = useState<string>(defaultEmployeeEmail || '');
+  const [subordinates, setSubordinates] = useState<Array<{ email: string; name: string }>>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
 
   useEffect(() => {
     let active = true;
+    const fetchTeam = async () => {
+      try {
+        const res = await fetch(`/api/tenant/${activeTenantId}/team-plans`);
+        if (res.ok) {
+          const data = await res.json();
+          if (active && data && Array.isArray(data.teamPlans)) {
+            const list = data.teamPlans.map((tp: any) => ({
+              email: (tp.userId || '').toLowerCase().trim(),
+              name: tp.plan?.metadata?.name || tp.plan?.metadata?.email || tp.userId
+            })).filter((item: any) => Boolean(item.email));
+            
+            setSubordinates(list);
+
+            if (!defaultEmployeeEmail && list.length > 0) {
+              const sub = list.find((s: any) => s.email !== currentUser.email?.toLowerCase().trim()) || list[0];
+              if (sub) {
+                setSelectedUserEmail(sub.email);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to fetch team plans for internal auditor review:", err);
+      }
+    };
+    if (activeTenantId) fetchTeam();
+    return () => { active = false; };
+  }, [activeTenantId, defaultEmployeeEmail, currentUser.email]);
+
+  useEffect(() => {
+    let active = true;
     const fetchCompetencies = async () => {
+      const emailToFetch = selectedUserEmail || defaultEmployeeEmail || currentUser.email || '';
+      if (!emailToFetch) return;
       try {
         setLoading(true);
-        const res = await fetch(`/api/tenant/${activeTenantId}/job-competencies?userId=${encodeURIComponent(selectedUserEmail)}`);
+        const res = await fetch(`/api/tenant/${activeTenantId}/job-competencies?userId=${encodeURIComponent(emailToFetch)}`);
         if (!res.ok) throw new Error("Failed to load server state");
         const data = await res.json();
         if (active && data) {
@@ -705,14 +793,15 @@ export function JSCInternalAuditorReviewSection({ currentUser, activeTenantId, d
         if (active) setLoading(false);
       }
     };
-    if (selectedUserEmail) fetchCompetencies();
+    fetchCompetencies();
     return () => { active = false; };
-  }, [activeTenantId, selectedUserEmail]);
+  }, [activeTenantId, selectedUserEmail, currentUser.email, defaultEmployeeEmail]);
 
   const handleSaveToDatabase = async (updatedRows: CompetencyRow[]) => {
+    const emailToSave = selectedUserEmail || currentUser.email || '';
     try {
       setSaving(true);
-      await fetch(`/api/tenant/${activeTenantId}/job-competencies?userId=${encodeURIComponent(selectedUserEmail)}`, {
+      await fetch(`/api/tenant/${activeTenantId}/job-competencies?userId=${encodeURIComponent(emailToSave)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ competencies: updatedRows })
@@ -725,6 +814,7 @@ export function JSCInternalAuditorReviewSection({ currentUser, activeTenantId, d
   };
 
   const handleAuditorSubmit = async () => {
+    const emailToSave = selectedUserEmail || currentUser.email || '';
     const unrated = rows.some(r => {
       const aScore = r[selectedQuarter]?.internalAuditorScore;
       return !aScore || aScore < 1 || aScore > 5;
@@ -755,8 +845,13 @@ export function JSCInternalAuditorReviewSection({ currentUser, activeTenantId, d
         body: JSON.stringify({
           notification: {
             id: `notif_jsc_audited_${Date.now()}`,
-            userEmail: selectedUserEmail,
+            userEmail: emailToSave,
+            recipientEmail: emailToSave,
+            recipientName: emailToSave.split('@')[0],
+            senderEmail: currentUser.email,
+            senderName: currentUser.name || currentUser.email,
             type: 'jsc_audit_completed',
+            actionType: 'audit',
             title: `Core Competencies Audited by Internal Audit (${selectedQuarter.toUpperCase()})`,
             message: `Internal Auditor (${currentUser.name || currentUser.email}) has completed review on your Core Competencies self score & comments for ${selectedQuarter.toUpperCase()}.`,
             read: false,
@@ -768,26 +863,39 @@ export function JSCInternalAuditorReviewSection({ currentUser, activeTenantId, d
       console.error("Failed notification sending:", e);
     }
 
-    alert(`Successfully submitted Internal Audit review on Core Competencies self scores for ${selectedUserEmail} (${selectedQuarter.toUpperCase()})!`);
+    alert(`Successfully submitted Internal Audit review on Core Competencies self scores for ${emailToSave} (${selectedQuarter.toUpperCase()})!`);
   };
 
   return (
     <div className="flex flex-col space-y-4 animate-fadeIn">
       {/* Top Controls */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4 shrink-0">
-        <div className="flex-1 space-y-1">
+      <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm flex flex-col lg:flex-row items-center justify-between gap-4 shrink-0">
+        <div className="flex-1 space-y-2">
           <div className="flex items-center gap-2">
             <div className="w-2.5 h-2.5 rounded-full bg-indigo-600"></div>
             <h3 className="text-xs font-black text-gray-800 uppercase tracking-wider">Internal Auditor Review on Core Competencies Self Scores</h3>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-[10px] text-gray-400 font-medium">Target Employee Email:</span>
+            <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Employee to Audit:</span>
+            {subordinates.length > 0 && (
+              <select
+                value={selectedUserEmail}
+                onChange={(e) => setSelectedUserEmail(e.target.value.toLowerCase().trim())}
+                className="bg-gray-50 border border-gray-300 rounded-lg px-3 py-1 text-xs font-bold text-slate-800 focus:outline-none focus:border-indigo-500 font-mono"
+              >
+                {subordinates.map((sub, idx) => (
+                  <option key={idx} value={sub.email}>
+                    {sub.name ? `${sub.name} (${sub.email})` : sub.email}
+                  </option>
+                ))}
+              </select>
+            )}
             <input
               type="email"
-              placeholder="Enter employee email..."
+              placeholder="Or enter employee email..."
               value={selectedUserEmail}
               onChange={(e) => setSelectedUserEmail(e.target.value.toLowerCase().trim())}
-              className="bg-gray-50 border border-gray-300 rounded-lg px-3 py-1 text-[11px] font-semibold text-slate-800 focus:outline-none focus:border-indigo-500 w-56 font-mono"
+              className="bg-gray-50 border border-gray-300 rounded-lg px-3 py-1 text-[11px] font-semibold text-slate-800 focus:outline-none focus:border-indigo-500 w-52 font-mono"
             />
           </div>
         </div>
@@ -946,16 +1054,50 @@ export function JSCInternalAuditorReviewSection({ currentUser, activeTenantId, d
 export function JSCDpmcReviewSection({ currentUser, activeTenantId, defaultEmployeeEmail }: JSCModuleProps) {
   const [rows, setRows] = useState<CompetencyRow[]>(DEFAULT_COMPETENCY_ROWS);
   const [selectedQuarter, setSelectedQuarter] = useState<'q1' | 'q2' | 'q3' | 'q4'>('q1');
-  const [selectedUserEmail, setSelectedUserEmail] = useState<string>(defaultEmployeeEmail || currentUser.email || '');
+  const [selectedUserEmail, setSelectedUserEmail] = useState<string>(defaultEmployeeEmail || '');
+  const [subordinates, setSubordinates] = useState<Array<{ email: string; name: string }>>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
 
   useEffect(() => {
     let active = true;
+    const fetchTeam = async () => {
+      try {
+        const res = await fetch(`/api/tenant/${activeTenantId}/team-plans`);
+        if (res.ok) {
+          const data = await res.json();
+          if (active && data && Array.isArray(data.teamPlans)) {
+            const list = data.teamPlans.map((tp: any) => ({
+              email: (tp.userId || '').toLowerCase().trim(),
+              name: tp.plan?.metadata?.name || tp.plan?.metadata?.email || tp.userId
+            })).filter((item: any) => Boolean(item.email));
+            
+            setSubordinates(list);
+
+            if (!defaultEmployeeEmail && list.length > 0) {
+              const sub = list.find((s: any) => s.email !== currentUser.email?.toLowerCase().trim()) || list[0];
+              if (sub) {
+                setSelectedUserEmail(sub.email);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to fetch team plans for DPMC review:", err);
+      }
+    };
+    if (activeTenantId) fetchTeam();
+    return () => { active = false; };
+  }, [activeTenantId, defaultEmployeeEmail, currentUser.email]);
+
+  useEffect(() => {
+    let active = true;
     const fetchCompetencies = async () => {
+      const emailToFetch = selectedUserEmail || defaultEmployeeEmail || currentUser.email || '';
+      if (!emailToFetch) return;
       try {
         setLoading(true);
-        const res = await fetch(`/api/tenant/${activeTenantId}/job-competencies?userId=${encodeURIComponent(selectedUserEmail)}`);
+        const res = await fetch(`/api/tenant/${activeTenantId}/job-competencies?userId=${encodeURIComponent(emailToFetch)}`);
         if (!res.ok) throw new Error("Failed to load server state");
         const data = await res.json();
         if (active && data) {
@@ -971,14 +1113,15 @@ export function JSCDpmcReviewSection({ currentUser, activeTenantId, defaultEmplo
         if (active) setLoading(false);
       }
     };
-    if (selectedUserEmail) fetchCompetencies();
+    fetchCompetencies();
     return () => { active = false; };
-  }, [activeTenantId, selectedUserEmail]);
+  }, [activeTenantId, selectedUserEmail, currentUser.email, defaultEmployeeEmail]);
 
   const handleSaveToDatabase = async (updatedRows: CompetencyRow[]) => {
+    const emailToSave = selectedUserEmail || currentUser.email || '';
     try {
       setSaving(true);
-      await fetch(`/api/tenant/${activeTenantId}/job-competencies?userId=${encodeURIComponent(selectedUserEmail)}`, {
+      await fetch(`/api/tenant/${activeTenantId}/job-competencies?userId=${encodeURIComponent(emailToSave)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ competencies: updatedRows })
@@ -991,6 +1134,7 @@ export function JSCDpmcReviewSection({ currentUser, activeTenantId, defaultEmplo
   };
 
   const handleDpmcSubmit = async () => {
+    const emailToSave = selectedUserEmail || currentUser.email || '';
     const unrated = rows.some(r => {
       const dScore = r[selectedQuarter]?.dpmcScore;
       return !dScore || dScore < 1 || dScore > 5;
@@ -1021,8 +1165,13 @@ export function JSCDpmcReviewSection({ currentUser, activeTenantId, defaultEmplo
         body: JSON.stringify({
           notification: {
             id: `notif_jsc_moderated_${Date.now()}`,
-            userEmail: selectedUserEmail,
+            userEmail: emailToSave,
+            recipientEmail: emailToSave,
+            recipientName: emailToSave.split('@')[0],
+            senderEmail: currentUser.email,
+            senderName: currentUser.name || currentUser.email,
             type: 'jsc_dpmc_completed',
+            actionType: 'moderation',
             title: `Core Competencies Moderated by DPMC Committee (${selectedQuarter.toUpperCase()})`,
             message: `Department Performance Moderation Committee (DPMC) has finalized review of the Internal Auditor's assessment for ${selectedQuarter.toUpperCase()}.`,
             read: false,
@@ -1034,26 +1183,39 @@ export function JSCDpmcReviewSection({ currentUser, activeTenantId, defaultEmplo
       console.error("Failed notification sending:", e);
     }
 
-    alert(`Successfully submitted DPMC Committee Moderation on Core Competencies for ${selectedUserEmail} (${selectedQuarter.toUpperCase()})!`);
+    alert(`Successfully submitted DPMC Committee Moderation on Core Competencies for ${emailToSave} (${selectedQuarter.toUpperCase()})!`);
   };
 
   return (
     <div className="flex flex-col space-y-4 animate-fadeIn">
       {/* Top Controls */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4 shrink-0">
-        <div className="flex-1 space-y-1">
+      <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm flex flex-col lg:flex-row items-center justify-between gap-4 shrink-0">
+        <div className="flex-1 space-y-2">
           <div className="flex items-center gap-2">
             <div className="w-2.5 h-2.5 rounded-full bg-purple-600"></div>
             <h3 className="text-xs font-black text-gray-800 uppercase tracking-wider">DPMC Committee Moderation Review of Internal Auditor Scores</h3>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-[10px] text-gray-400 font-medium">Target Employee Email:</span>
+            <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Employee to Moderate:</span>
+            {subordinates.length > 0 && (
+              <select
+                value={selectedUserEmail}
+                onChange={(e) => setSelectedUserEmail(e.target.value.toLowerCase().trim())}
+                className="bg-gray-50 border border-gray-300 rounded-lg px-3 py-1 text-xs font-bold text-slate-800 focus:outline-none focus:border-purple-500 font-mono"
+              >
+                {subordinates.map((sub, idx) => (
+                  <option key={idx} value={sub.email}>
+                    {sub.name ? `${sub.name} (${sub.email})` : sub.email}
+                  </option>
+                ))}
+              </select>
+            )}
             <input
               type="email"
-              placeholder="Enter employee email..."
+              placeholder="Or enter employee email..."
               value={selectedUserEmail}
               onChange={(e) => setSelectedUserEmail(e.target.value.toLowerCase().trim())}
-              className="bg-gray-50 border border-gray-300 rounded-lg px-3 py-1 text-[11px] font-semibold text-slate-800 focus:outline-none focus:border-purple-500 w-56 font-mono"
+              className="bg-gray-50 border border-gray-300 rounded-lg px-3 py-1 text-[11px] font-semibold text-slate-800 focus:outline-none focus:border-purple-500 w-52 font-mono"
             />
           </div>
         </div>
