@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BadgePlus, Plus, Trash2, Save, AlertTriangle, ShieldCheck, HelpCircle } from 'lucide-react';
+import { JSCAllInOneCompetenciesTable } from './JSCModules';
 
 interface CoreCompetenciesProps {
   currentUser?: {
@@ -31,7 +32,7 @@ export function CoreCompetencies({ currentUser, activeTenantId }: CoreCompetenci
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
   const [syncStatus, setSyncStatus] = useState<'cached' | 'saved' | 'saving' | 'error'>('cached');
-  const [activeTab, setActiveTab] = useState<'standard' | 'cfo' | 'ped' | 'corp'>('standard');
+  const [activeTab, setActiveTab] = useState<'standard' | 'cfo' | 'ped' | 'corp' | 'grid'>('standard');
   const [isPullingFred, setIsPullingFred] = useState<boolean>(false);
   const [isPullingFredPed, setIsPullingFredPed] = useState<boolean>(false);
   const [isPullingFredCore, setIsPullingFredCore] = useState<boolean>(false);
@@ -658,6 +659,17 @@ export function CoreCompetencies({ currentUser, activeTenantId }: CoreCompetenci
               <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase transition-colors ${activeTab === 'corp' ? 'bg-pink-800 text-pink-100' : 'bg-slate-200 text-slate-700'}`}>CORP</span>
               Corporate Services
             </button>
+          <button
+              onClick={() => setActiveTab('grid')}
+              className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${
+                activeTab === 'grid'
+                  ? 'bg-purple-700 text-white shadow-sm font-black'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+              }`}
+            >
+              <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase transition-colors ${activeTab === 'grid' ? 'bg-purple-900 text-purple-100' : 'bg-slate-200 text-slate-700'}`}>GRID</span>
+              Quarterly Reviews Grid (Self, Auditor & DPMC)
+            </button>
         </div>
 
         {activeTab === 'cfo' && (
@@ -715,17 +727,25 @@ export function CoreCompetencies({ currentUser, activeTenantId }: CoreCompetenci
       )}
 
       <div className="flex-1 p-8 overflow-y-auto">
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
-          <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
-            <h2 className="text-lg font-black text-slate-800">
-              {activeTab === 'standard' 
-                ? 'Competency Levels & Scaling Criteria' 
-                : activeTab === 'cfo' 
-                  ? 'CFO Specific Competency Weighting Grid' 
-                  : 'PED Specific Competency Weighting Grid'
-              }
-            </h2>
-          </div>
+        {activeTab === 'grid' ? (
+          <JSCAllInOneCompetenciesTable
+            currentUser={{ email: currentUser?.email || 'user@system.local' }}
+            activeTenantId={activeTenantId || 'default'}
+          />
+        ) : (
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+              <h2 className="text-lg font-black text-slate-800">
+                {activeTab === 'standard' 
+                  ? 'Competency Levels & Scaling Criteria' 
+                  : activeTab === 'cfo' 
+                    ? 'CFO Specific Competency Weighting Grid' 
+                    : activeTab === 'ped'
+                      ? 'PED Specific Competency Weighting Grid'
+                      : 'Corporate Services Competency Grid'
+                }
+              </h2>
+            </div>
           
           <div className="overflow-x-auto w-full">
             {activeTab === 'standard' ? (
@@ -1116,6 +1136,7 @@ export function CoreCompetencies({ currentUser, activeTenantId }: CoreCompetenci
             </div>
           )}
         </div>
+        )}
       </div>
     </div>
   );

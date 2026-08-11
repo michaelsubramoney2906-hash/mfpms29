@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { IPMSWorkflowInbox } from './IPMSWorkflowInbox';
 import { OfficeDocumentViewer } from './OfficeDocumentViewer';
+import { JSCInternalAuditorReviewSection } from './JSCModules';
 
 interface Props {
   currentUser: any;
@@ -33,6 +34,7 @@ interface Props {
 }
 
 export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) {
+  const [auditSubTab, setAuditSubTab] = useState<'kpi' | 'competencies'>('kpi');
   const [loading, setLoading] = useState(true);
   const [teamPlans, setTeamPlans] = useState<any[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
@@ -911,8 +913,42 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
         </div>
       </div>
 
+      {/* Audit Sub-Tab Navigation Bar */}
+      <div className="bg-slate-200/80 px-6 py-2 border-b border-slate-300 flex items-center justify-between gap-4 shrink-0">
+        <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-300">
+          <button
+            type="button"
+            onClick={() => setAuditSubTab('kpi')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase transition cursor-pointer ${
+              auditSubTab === 'kpi'
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            📊 Performance Indicators Audit
+          </button>
+          <button
+            type="button"
+            onClick={() => setAuditSubTab('competencies')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase transition cursor-pointer ${
+              auditSubTab === 'competencies'
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            🛡️ Core Competencies Audit Review
+          </button>
+        </div>
+      </div>
+
       <div className="flex-1 overflow-y-auto p-4 bg-slate-100">
-        {(!plan.items || plan.items.length === 0) ? (
+        {auditSubTab === 'competencies' ? (
+          <JSCInternalAuditorReviewSection
+            currentUser={currentUser}
+            activeTenantId={activeTenantId}
+            defaultEmployeeEmail={selectedPlan?.userId || ''}
+          />
+        ) : (!plan.items || plan.items.length === 0) ? (
           <div className="bg-white p-8 rounded-2xl border border-gray-200 text-center">
             <p className="text-slate-500 text-sm font-bold uppercase">No KPIs found in this plan</p>
           </div>
