@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { IPMSWorkflowInbox } from './IPMSWorkflowInbox';
 import { OfficeDocumentViewer } from './OfficeDocumentViewer';
+import { JSCManagerApprovalSection } from './JSCModules';
 
 interface Props {
   currentUser: any;
@@ -27,6 +28,7 @@ const safeJson = async (res: Response) => {
 };
 
 export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
+  const [mgrTab, setMgrTab] = useState<'kpi' | 'jsc'>('kpi');
   const [loading, setLoading] = useState(true);
   const [teamPlans, setTeamPlans] = useState<any[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
@@ -1037,7 +1039,42 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
           </button>
         </div>
 
+        {/* Tab Switcher for Manager Review Module */}
+        <div className="bg-white border-b border-slate-200 px-6 py-2.5 flex items-center gap-2 overflow-x-auto shrink-0 shadow-xs">
+          <button
+            type="button"
+            onClick={() => setMgrTab('kpi')}
+            className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition cursor-pointer ${
+              mgrTab === 'kpi' 
+                ? 'bg-slate-900 text-white shadow-sm' 
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+            }`}
+          >
+            <UserCheck className="w-4 h-4" />
+            <span>1. KPI Team Reviews</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setMgrTab('jsc')}
+            className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition cursor-pointer ${
+              mgrTab === 'jsc' 
+                ? 'bg-emerald-600 text-white shadow-sm' 
+                : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+            }`}
+          >
+            <CheckCircle className="w-4 h-4" />
+            <span>2. JSC Manager Approvals</span>
+          </button>
+        </div>
+
         <div className="flex-1 overflow-y-auto p-6 bg-slate-100 space-y-8">
+          {mgrTab === 'jsc' ? (
+            <div className="max-w-5xl mx-auto">
+              <JSCManagerApprovalSection currentUser={currentUser} activeTenantId={activeTenantId} />
+            </div>
+          ) : (
+            <>
           {/* IPMS Manager Workflow Inbox */}
           <div className="max-w-5xl mx-auto">
             <IPMSWorkflowInbox
@@ -1204,10 +1241,12 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
               </div>
             )}
           </div>
-        </div>
+        </>
+        )}
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   // DETAIL VIEW: Reviewing a specific employee's plan
   const { plan } = selectedPlan;

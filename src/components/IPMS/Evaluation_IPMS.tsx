@@ -2,10 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { 
   FileSignature, Send, User, Target, ClipboardList,
   Upload, X, File, FileSpreadsheet, Image, FileText, Check, AlertCircle, Info, CalendarCheck, HelpCircle, Presentation,
-  Bell, AlertTriangle, CheckCircle, Eye, Download, CheckSquare, Square, Trash2
+  Bell, AlertTriangle, CheckCircle, Eye, Download, CheckSquare, Square, Trash2, FileBadge, UserCheck, FileBarChart
 } from 'lucide-react';
 import { IPMSWorkflowInbox } from './IPMSWorkflowInbox';
 import { OfficeDocumentViewer } from './OfficeDocumentViewer';
+import { 
+  JSCSelfEvaluationSection, 
+  JSCManagerApprovalSection, 
+  JSCAnalyticalReportingSection 
+} from './JSCModules';
 
 export interface PoeDocument {
   id: string;
@@ -376,6 +381,7 @@ interface Props {
 }
 
 export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
+  const [evalPhase, setEvalPhase] = useState<'kpi_self' | 'jsc_self' | 'jsc_manager' | 'jsc_reporting'>('kpi_self');
   const [loading, setLoading] = useState(true);
   const [pplanData, setPplanData] = useState<{ metadata: any, items: any[] }>({ metadata: {}, items: [] });
   const [saving, setSaving] = useState(false);
@@ -1000,6 +1006,61 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
         </div>
       </div>
 
+      {/* Phase Navigation Bar for Evaluation Module */}
+      <div className="bg-white border-b border-slate-200 px-6 py-2.5 flex items-center gap-2 overflow-x-auto shrink-0 shadow-xs">
+        <button
+          type="button"
+          onClick={() => setEvalPhase('kpi_self')}
+          className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition cursor-pointer ${
+            evalPhase === 'kpi_self' 
+              ? 'bg-slate-900 text-white shadow-sm' 
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+          }`}
+        >
+          <Target className="w-4 h-4" />
+          <span>1. KPI Self Evaluation</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setEvalPhase('jsc_self')}
+          className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition cursor-pointer ${
+            evalPhase === 'jsc_self' 
+              ? 'bg-orange-600 text-white shadow-sm' 
+              : 'bg-orange-50 text-orange-700 hover:bg-orange-100'
+          }`}
+        >
+          <FileBadge className="w-4 h-4" />
+          <span>2. JSC Self Evaluation</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setEvalPhase('jsc_manager')}
+          className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition cursor-pointer ${
+            evalPhase === 'jsc_manager' 
+              ? 'bg-emerald-600 text-white shadow-sm' 
+              : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+          }`}
+        >
+          <UserCheck className="w-4 h-4" />
+          <span>3. JSC Manager Approval</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setEvalPhase('jsc_reporting')}
+          className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition cursor-pointer ${
+            evalPhase === 'jsc_reporting' 
+              ? 'bg-indigo-600 text-white shadow-sm' 
+              : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+          }`}
+        >
+          <FileBarChart className="w-4 h-4" />
+          <span>4. JSC Analytical Reporting</span>
+        </button>
+      </div>
+
       <div className="flex-1 overflow-y-auto p-6 bg-slate-100 space-y-6">
         {/* Toast confirmation banner */}
         {toastMessage && (
@@ -1019,6 +1080,21 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
             </button>
           </div>
         )}
+
+        {evalPhase === 'jsc_self' ? (
+          <div className="max-w-5xl mx-auto">
+            <JSCSelfEvaluationSection currentUser={currentUser} activeTenantId={activeTenantId} />
+          </div>
+        ) : evalPhase === 'jsc_manager' ? (
+          <div className="max-w-5xl mx-auto">
+            <JSCManagerApprovalSection currentUser={currentUser} activeTenantId={activeTenantId} />
+          </div>
+        ) : evalPhase === 'jsc_reporting' ? (
+          <div className="max-w-5xl mx-auto">
+            <JSCAnalyticalReportingSection currentUser={currentUser} activeTenantId={activeTenantId} />
+          </div>
+        ) : (
+          <>
 
         {/* Employee Performance & Review Inbox */}
         <div className="max-w-5xl mx-auto">
@@ -1440,6 +1516,18 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                           </div>
 
                           <div className="space-y-1.5">
+                            <label className="text-[9px] font-black text-emerald-800 uppercase tracking-wider">1st Qtr Actual Expense</label>
+                            <input
+                              type="text"
+                              value={kpi.q1ActualExpense || ''}
+                              onChange={(e) => updateItem(kpi.id, 'q1ActualExpense', e.target.value)}
+                              disabled={kpiIsReadOnly || kpi.q1Locked}
+                              placeholder="e.g. R 45,000"
+                              className="w-full px-3 py-2 bg-emerald-50/30 border border-emerald-200 focus:border-emerald-600 rounded-lg text-xs font-bold text-emerald-900 shadow-xs outline-none disabled:bg-slate-50 disabled:text-slate-400"
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
                             <div className="flex items-center justify-between">
                               <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider">1st Qtr Variance (Auto: Target - Actual)</label>
                               {(() => {
@@ -1536,6 +1624,18 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                           </div>
 
                           <div className="space-y-1.5">
+                            <label className="text-[9px] font-black text-emerald-800 uppercase tracking-wider">2nd Qtr Actual Expense</label>
+                            <input
+                              type="text"
+                              value={kpi.q2ActualExpense || ''}
+                              onChange={(e) => updateItem(kpi.id, 'q2ActualExpense', e.target.value)}
+                              disabled={kpiIsReadOnly || kpi.q2Locked}
+                              placeholder="e.g. R 45,000"
+                              className="w-full px-3 py-2 bg-emerald-50/30 border border-emerald-200 focus:border-emerald-600 rounded-lg text-xs font-bold text-emerald-900 shadow-xs outline-none disabled:bg-slate-50 disabled:text-slate-400"
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
                             <div className="flex items-center justify-between">
                               <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider">2nd Qtr Variance (Auto: Target - Actual)</label>
                               {(() => {
@@ -1621,6 +1721,18 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                               disabled={kpiIsReadOnly}
                               placeholder="Describe actual results achieved for midterm review..."
                               className="w-full px-3 py-2 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-semibold text-stone-900 shadow-xs outline-none"
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="text-[9px] font-black text-emerald-800 uppercase tracking-wider font-sans">Midterm Actual Expense</label>
+                            <input
+                              type="text"
+                              value={kpi.midtermActualExpense || ''}
+                              onChange={(e) => updateItem(kpi.id, 'midtermActualExpense', e.target.value)}
+                              disabled={kpiIsReadOnly}
+                              placeholder="e.g. R 45,000"
+                              className="w-full px-3 py-2 bg-emerald-50/30 border border-emerald-200 focus:border-emerald-600 rounded-lg text-xs font-bold text-emerald-900 shadow-xs outline-none"
                             />
                           </div>
 
@@ -1720,6 +1832,18 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                           </div>
 
                           <div className="space-y-1.5">
+                            <label className="text-[9px] font-black text-emerald-800 uppercase tracking-wider">3rd Qtr Actual Expense</label>
+                            <input
+                              type="text"
+                              value={kpi.q3ActualExpense || ''}
+                              onChange={(e) => updateItem(kpi.id, 'q3ActualExpense', e.target.value)}
+                              disabled={kpiIsReadOnly || kpi.q3Locked}
+                              placeholder="e.g. R 45,000"
+                              className="w-full px-3 py-2 bg-emerald-50/30 border border-emerald-200 focus:border-emerald-600 rounded-lg text-xs font-bold text-emerald-900 shadow-xs outline-none disabled:bg-slate-50 disabled:text-slate-400"
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
                             <div className="flex items-center justify-between">
                               <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider">3rd Qtr Variance (Auto: Target - Actual)</label>
                               {(() => {
@@ -1811,6 +1935,18 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                               disabled={kpiIsReadOnly || kpi.q4Locked}
                               placeholder="Describe actual results achieved in Q4..."
                               className="w-full px-3 py-2 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-semibold text-stone-900 shadow-xs outline-none disabled:bg-slate-50 disabled:text-slate-400"
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="text-[9px] font-black text-emerald-800 uppercase tracking-wider">4th Qtr Actual Expense</label>
+                            <input
+                              type="text"
+                              value={kpi.q4ActualExpense || ''}
+                              onChange={(e) => updateItem(kpi.id, 'q4ActualExpense', e.target.value)}
+                              disabled={kpiIsReadOnly || kpi.q4Locked}
+                              placeholder="e.g. R 45,000"
+                              className="w-full px-3 py-2 bg-emerald-50/30 border border-emerald-200 focus:border-emerald-600 rounded-lg text-xs font-bold text-emerald-900 shadow-xs outline-none disabled:bg-slate-50 disabled:text-slate-400"
                             />
                           </div>
 
@@ -1977,6 +2113,8 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
               );
             })}
           </div>
+        )}
+        </>
         )}
       </div>
 

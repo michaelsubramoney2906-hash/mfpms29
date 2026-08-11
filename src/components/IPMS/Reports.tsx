@@ -4,6 +4,7 @@ import {
   Share2, ShieldCheck, UserCheck, CornerDownRight, Printer, FileText, Layers
 } from 'lucide-react';
 import type { User } from '../../types';
+import { JSCAnalyticalReportingSection } from './JSCModules';
 
 interface ReportsProps {
   currentUser: User;
@@ -49,7 +50,7 @@ export function Reports({ currentUser, activeTenantId }: ReportsProps) {
 
   const [sharedReports, setSharedReports] = useState<SharedReport[]>([]);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'catalogue' | 'dispatcher'>('catalogue');
+  const [activeTab, setActiveTab] = useState<'catalogue' | 'dispatcher' | 'jsc_reporting'>('catalogue');
   const [isLoadingShared, setIsLoadingShared] = useState(false);
 
   // Dynamic selector states
@@ -732,13 +733,22 @@ export function Reports({ currentUser, activeTenantId }: ReportsProps) {
             <Share2 className="w-3.5 h-3.5" />
             Governance Dispatches
           </button>
+          <button 
+            onClick={() => setActiveTab('jsc_reporting')}
+            className={`px-4 py-2 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${activeTab === 'jsc_reporting' ? 'bg-orange-600 text-white font-extrabold' : 'text-slate-400 hover:text-white'}`}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            JSC Analytical Reporting
+          </button>
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-6 bg-slate-100/50 print:p-0 print:bg-white">
         <div className="max-w-7xl mx-auto space-y-6 print:max-w-full print:space-y-4">
 
-          {activeTab === 'catalogue' ? (
+          {activeTab === 'jsc_reporting' ? (
+            <JSCAnalyticalReportingSection currentUser={currentUser} activeTenantId={activeTenantId} />
+          ) : activeTab === 'catalogue' ? (
             <div className="space-y-6 print:space-y-4">
               
               {/* Dynamic Interactive Report Selection Console */}
