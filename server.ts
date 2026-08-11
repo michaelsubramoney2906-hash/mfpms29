@@ -4393,7 +4393,7 @@ async function startServer() {
     }
   });
 
-  app.get("/api/tenant/:tenantId/team-pplans", async (req, res) => {
+  app.get(["/api/tenant/:tenantId/team-pplans", "/api/tenant/:tenantId/team-plans"], async (req, res) => {
     const { tenantId: routeTenantId } = req.params;
     try {
       const supabase = getSupabase();

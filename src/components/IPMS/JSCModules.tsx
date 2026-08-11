@@ -198,13 +198,18 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId }: JSCMod
         return `${r.jscNo || 'JSC'}: Score ${score}/5`;
       }).join(' | ');
 
+      const targetManager = currentUser.managerEmail || 'khuboniy@nkangaladm.gov.za';
       await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           notification: {
             id: `notif_jsc_${Date.now()}`,
-            userEmail: currentUser.managerEmail || 'manager@system.local',
+            userEmail: targetManager,
+            recipientEmail: targetManager,
+            recipientName: targetManager.split('@')[0],
+            senderEmail: currentUser.email,
+            senderName: currentUser.name || currentUser.email,
             type: 'jsc_submission',
             title: `Job Specific Competency Self Evaluation Submitted (${selectedQuarter.toUpperCase()})`,
             message: `${currentUser.name || currentUser.email} has submitted JSC self evaluations for ${selectedQuarter.toUpperCase()}.\nSummary: ${summaryMsg}`,

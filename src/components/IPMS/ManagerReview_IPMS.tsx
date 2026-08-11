@@ -1071,7 +1071,11 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
         <div className="flex-1 overflow-y-auto p-6 bg-slate-100 space-y-8">
           {mgrTab === 'jsc' ? (
             <div className="max-w-5xl mx-auto">
-              <JSCManagerApprovalSection currentUser={currentUser} activeTenantId={activeTenantId} />
+              <JSCManagerApprovalSection 
+                currentUser={currentUser} 
+                activeTenantId={activeTenantId} 
+                defaultEmployeeEmail={selectedPlan?.userId} 
+              />
             </div>
           ) : (
             <>
