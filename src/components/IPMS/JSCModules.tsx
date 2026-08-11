@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   ArrowRight, CheckCircle, BarChart2, Check, RefreshCw, Send,
   User, Shield, FileBadge, Info, Layers, AlertCircle, ShieldAlert,
-  Search, Eye, Edit3, MessageSquare, Award
+  Search, Eye, Edit3, MessageSquare, Award, RotateCcw
 } from 'lucide-react';
 
 export interface CompetencyQuarterData {
@@ -168,6 +168,24 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId }: JSCMod
     }
   };
 
+  const handleRedoEvaluation = async () => {
+    const updated = rows.map(r => {
+      const qData = r[selectedQuarter] || { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', internalAuditorScore: 0, internalAuditorComments: '', dpmcScore: 0, dpmcComments: '', status: 'draft' };
+      return {
+        ...r,
+        [selectedQuarter]: {
+          ...qData,
+          status: 'draft' as const
+        }
+      };
+    });
+
+    setRows(updated);
+    await handleSaveToDatabase(updated);
+
+    alert(`Job Specific Competencies evaluation for ${selectedQuarter.toUpperCase()} unlocked for redo! You can now update your self scores and comments, then click "Resubmit to Manager".`);
+  };
+
   const handlePushToManager = async () => {
     const unrated = rows.some(r => {
       const score = r[selectedQuarter]?.selfScore;
@@ -222,7 +240,7 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId }: JSCMod
       console.error("Failed notification sending:", e);
     }
 
-    alert(`Successfully pushed ${selectedQuarter.toUpperCase()} Job Specific Competencies self evaluation to Line Manager for approval!`);
+    alert(`Successfully submitted / resubmitted ${selectedQuarter.toUpperCase()} Job Specific Competencies self evaluation to Line Manager for approval!`);
   };
 
   return (
@@ -252,14 +270,27 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId }: JSCMod
             ))}
           </div>
 
-          <button
-            onClick={handlePushToManager}
-            disabled={saving || loading}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-black px-4 py-2 rounded-xl text-[10px] flex items-center gap-1.5 transition uppercase tracking-wide cursor-pointer shadow-sm border border-blue-700 disabled:opacity-50"
-          >
-            <ArrowRight className="w-3.5 h-3.5" />
-            <span>Push to Manager for Approval</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleRedoEvaluation}
+              disabled={saving || loading}
+              className="bg-amber-500 hover:bg-amber-600 text-white font-black px-3.5 py-2 rounded-xl text-[10px] flex items-center gap-1.5 transition uppercase tracking-wide cursor-pointer shadow-sm border border-amber-600 disabled:opacity-50"
+              title="Unlock evaluation for edits and redo"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Redo Evaluation</span>
+            </button>
+
+            <button
+              onClick={handlePushToManager}
+              disabled={saving || loading}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-black px-3.5 py-2 rounded-xl text-[10px] flex items-center gap-1.5 transition uppercase tracking-wide cursor-pointer shadow-sm border border-blue-700 disabled:opacity-50"
+              title="Submit or resubmit evaluation to Line Manager for approval"
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>Resubmit to Manager</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -421,30 +452,63 @@ export function JSCManagerApprovalSection({ currentUser, activeTenantId, default
   const [saving, setSaving] = useState<boolean>(false);
 
   useEffect(() => {
+    if (defaultEmployeeEmail) {
+      setSelectedUserEmail(defaultEmployeeEmail.toLowerCase().trim());
+    }
+  }, [defaultEmployeeEmail]);
+
+  useEffect(() => {
     let active = true;
     const fetchTeam = async () => {
       try {
-        const res = await fetch(`/api/tenant/${activeTenantId}/team-plans`);
-        if (res.ok) {
-          const data = await res.json();
-          if (active && data && Array.isArray(data.teamPlans)) {
-            const list = data.teamPlans.map((tp: any) => ({
-              email: (tp.userId || '').toLowerCase().trim(),
-              name: tp.plan?.metadata?.name || tp.plan?.metadata?.email || tp.userId
-            })).filter((item: any) => Boolean(item.email));
-            
-            setSubordinates(list);
+        const [teamRes, usersRes] = await Promise.all([
+          fetch(`/api/tenant/${activeTenantId}/team-plans`),
+          fetch(`/api/tenant/${activeTenantId}/users`)
+        ]);
 
-            if (!defaultEmployeeEmail && list.length > 0) {
-              const sub = list.find((s: any) => s.email !== currentUser.email?.toLowerCase().trim()) || list[0];
-              if (sub) {
-                setSelectedUserEmail(sub.email);
+        const emailMap = new Map<string, string>();
+
+        if (usersRes.ok) {
+          const usersData = await usersRes.json();
+          if (Array.isArray(usersData)) {
+            usersData.forEach((u: any) => {
+              const em = (u.email || '').toLowerCase().trim();
+              if (em && !em.endsWith('@mzansiflow.co.za') && !em.endsWith('@massivedynamixdistributors.com')) {
+                emailMap.set(em, u.fullName || u.full_name || u.name || em);
               }
+            });
+          }
+        }
+
+        if (teamRes.ok) {
+          const data = await teamRes.json();
+          if (data && Array.isArray(data.teamPlans)) {
+            data.teamPlans.forEach((tp: any) => {
+              const em = (tp.userId || '').toLowerCase().trim();
+              if (em && !em.endsWith('@mzansiflow.co.za') && !em.endsWith('@massivedynamixdistributors.com')) {
+                if (!emailMap.has(em) || emailMap.get(em) === em) {
+                  emailMap.set(em, tp.plan?.metadata?.name || tp.plan?.metadata?.email || em);
+                }
+              }
+            });
+          }
+        }
+
+        const list = Array.from(emailMap.entries()).map(([email, name]) => ({ email, name }));
+        if (active) {
+          setSubordinates(list);
+
+          if (defaultEmployeeEmail) {
+            setSelectedUserEmail(defaultEmployeeEmail.toLowerCase().trim());
+          } else if (list.length > 0 && !selectedUserEmail) {
+            const sub = list.find((s: any) => s.email !== currentUser.email?.toLowerCase().trim()) || list[0];
+            if (sub) {
+              setSelectedUserEmail(sub.email);
             }
           }
         }
       } catch (err) {
-        console.warn("Failed to fetch team plans for manager review:", err);
+        console.warn("Failed to fetch team for manager review:", err);
       }
     };
     if (activeTenantId) fetchTeam();
@@ -492,6 +556,55 @@ export function JSCManagerApprovalSection({ currentUser, activeTenantId, default
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleReturnForRedo = async () => {
+    const emailToSave = selectedUserEmail || currentUser.email || '';
+    if (!emailToSave) {
+      alert("Please select an employee first.");
+      return;
+    }
+
+    const updated = rows.map(r => {
+      const qData = r[selectedQuarter] || { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', internalAuditorScore: 0, internalAuditorComments: '', dpmcScore: 0, dpmcComments: '', status: 'draft' };
+      return {
+        ...r,
+        [selectedQuarter]: {
+          ...qData,
+          status: 'draft' as const
+        }
+      };
+    });
+
+    setRows(updated);
+    await handleSaveToDatabase(updated);
+
+    try {
+      await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          notification: {
+            id: `notif_jsc_redo_${Date.now()}`,
+            userEmail: emailToSave,
+            recipientEmail: emailToSave,
+            recipientName: emailToSave.split('@')[0],
+            senderEmail: currentUser.email,
+            senderName: currentUser.name || currentUser.email,
+            type: 'jsc_redo_request',
+            actionType: 'redo_request',
+            title: `Job Specific Competency Returned for Redo (${selectedQuarter.toUpperCase()})`,
+            message: `Your Line Manager (${currentUser.name || currentUser.email}) has returned your Job Specific Competency evaluation for ${selectedQuarter.toUpperCase()} for redo and resubmission.`,
+            read: false,
+            createdAt: new Date().toISOString()
+          }
+        })
+      });
+    } catch (e) {
+      console.error("Failed notification sending:", e);
+    }
+
+    alert(`Successfully returned ${selectedQuarter.toUpperCase()} Job Specific Competencies evaluation to ${emailToSave} for redo and resubmission!`);
   };
 
   const handleManagerApprove = async () => {
@@ -594,14 +707,27 @@ export function JSCManagerApprovalSection({ currentUser, activeTenantId, default
             ))}
           </div>
 
-          <button
-            onClick={handleManagerApprove}
-            disabled={saving || loading}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-4 py-2 rounded-xl text-[10px] flex items-center gap-1.5 transition uppercase tracking-wide cursor-pointer shadow-sm border border-emerald-700 disabled:opacity-50"
-          >
-            <CheckCircle className="w-3.5 h-3.5" />
-            <span>Submit Manager Review</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleReturnForRedo}
+              disabled={saving || loading}
+              className="bg-amber-500 hover:bg-amber-600 text-white font-black px-3.5 py-2 rounded-xl text-[10px] flex items-center gap-1.5 transition uppercase tracking-wide cursor-pointer shadow-sm border border-amber-600 disabled:opacity-50"
+              title="Return evaluation to employee for redo and revision"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Return for Redo</span>
+            </button>
+
+            <button
+              onClick={handleManagerApprove}
+              disabled={saving || loading}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-3.5 py-2 rounded-xl text-[10px] flex items-center gap-1.5 transition uppercase tracking-wide cursor-pointer shadow-sm border border-emerald-700 disabled:opacity-50"
+              title="Submit manager appraisal and approve"
+            >
+              <CheckCircle className="w-3.5 h-3.5" />
+              <span>Submit Manager Review</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -745,30 +871,63 @@ export function JSCInternalAuditorReviewSection({ currentUser, activeTenantId, d
   const [saving, setSaving] = useState<boolean>(false);
 
   useEffect(() => {
+    if (defaultEmployeeEmail) {
+      setSelectedUserEmail(defaultEmployeeEmail.toLowerCase().trim());
+    }
+  }, [defaultEmployeeEmail]);
+
+  useEffect(() => {
     let active = true;
     const fetchTeam = async () => {
       try {
-        const res = await fetch(`/api/tenant/${activeTenantId}/team-plans`);
-        if (res.ok) {
-          const data = await res.json();
-          if (active && data && Array.isArray(data.teamPlans)) {
-            const list = data.teamPlans.map((tp: any) => ({
-              email: (tp.userId || '').toLowerCase().trim(),
-              name: tp.plan?.metadata?.name || tp.plan?.metadata?.email || tp.userId
-            })).filter((item: any) => Boolean(item.email));
-            
-            setSubordinates(list);
+        const [teamRes, usersRes] = await Promise.all([
+          fetch(`/api/tenant/${activeTenantId}/team-plans`),
+          fetch(`/api/tenant/${activeTenantId}/users`)
+        ]);
 
-            if (!defaultEmployeeEmail && list.length > 0) {
-              const sub = list.find((s: any) => s.email !== currentUser.email?.toLowerCase().trim()) || list[0];
-              if (sub) {
-                setSelectedUserEmail(sub.email);
+        const emailMap = new Map<string, string>();
+
+        if (usersRes.ok) {
+          const usersData = await usersRes.json();
+          if (Array.isArray(usersData)) {
+            usersData.forEach((u: any) => {
+              const em = (u.email || '').toLowerCase().trim();
+              if (em && !em.endsWith('@mzansiflow.co.za') && !em.endsWith('@massivedynamixdistributors.com')) {
+                emailMap.set(em, u.fullName || u.full_name || u.name || em);
               }
+            });
+          }
+        }
+
+        if (teamRes.ok) {
+          const data = await teamRes.json();
+          if (data && Array.isArray(data.teamPlans)) {
+            data.teamPlans.forEach((tp: any) => {
+              const em = (tp.userId || '').toLowerCase().trim();
+              if (em && !em.endsWith('@mzansiflow.co.za') && !em.endsWith('@massivedynamixdistributors.com')) {
+                if (!emailMap.has(em) || emailMap.get(em) === em) {
+                  emailMap.set(em, tp.plan?.metadata?.name || tp.plan?.metadata?.email || em);
+                }
+              }
+            });
+          }
+        }
+
+        const list = Array.from(emailMap.entries()).map(([email, name]) => ({ email, name }));
+        if (active) {
+          setSubordinates(list);
+
+          if (defaultEmployeeEmail) {
+            setSelectedUserEmail(defaultEmployeeEmail.toLowerCase().trim());
+          } else if (list.length > 0 && !selectedUserEmail) {
+            const sub = list.find((s: any) => s.email !== currentUser.email?.toLowerCase().trim()) || list[0];
+            if (sub) {
+              setSelectedUserEmail(sub.email);
             }
           }
         }
       } catch (err) {
-        console.warn("Failed to fetch team plans for internal auditor review:", err);
+        console.warn("Failed to fetch team for internal auditor review:", err);
       }
     };
     if (activeTenantId) fetchTeam();
@@ -1065,30 +1224,63 @@ export function JSCDpmcReviewSection({ currentUser, activeTenantId, defaultEmplo
   const [saving, setSaving] = useState<boolean>(false);
 
   useEffect(() => {
+    if (defaultEmployeeEmail) {
+      setSelectedUserEmail(defaultEmployeeEmail.toLowerCase().trim());
+    }
+  }, [defaultEmployeeEmail]);
+
+  useEffect(() => {
     let active = true;
     const fetchTeam = async () => {
       try {
-        const res = await fetch(`/api/tenant/${activeTenantId}/team-plans`);
-        if (res.ok) {
-          const data = await res.json();
-          if (active && data && Array.isArray(data.teamPlans)) {
-            const list = data.teamPlans.map((tp: any) => ({
-              email: (tp.userId || '').toLowerCase().trim(),
-              name: tp.plan?.metadata?.name || tp.plan?.metadata?.email || tp.userId
-            })).filter((item: any) => Boolean(item.email));
-            
-            setSubordinates(list);
+        const [teamRes, usersRes] = await Promise.all([
+          fetch(`/api/tenant/${activeTenantId}/team-plans`),
+          fetch(`/api/tenant/${activeTenantId}/users`)
+        ]);
 
-            if (!defaultEmployeeEmail && list.length > 0) {
-              const sub = list.find((s: any) => s.email !== currentUser.email?.toLowerCase().trim()) || list[0];
-              if (sub) {
-                setSelectedUserEmail(sub.email);
+        const emailMap = new Map<string, string>();
+
+        if (usersRes.ok) {
+          const usersData = await usersRes.json();
+          if (Array.isArray(usersData)) {
+            usersData.forEach((u: any) => {
+              const em = (u.email || '').toLowerCase().trim();
+              if (em && !em.endsWith('@mzansiflow.co.za') && !em.endsWith('@massivedynamixdistributors.com')) {
+                emailMap.set(em, u.fullName || u.full_name || u.name || em);
               }
+            });
+          }
+        }
+
+        if (teamRes.ok) {
+          const data = await teamRes.json();
+          if (data && Array.isArray(data.teamPlans)) {
+            data.teamPlans.forEach((tp: any) => {
+              const em = (tp.userId || '').toLowerCase().trim();
+              if (em && !em.endsWith('@mzansiflow.co.za') && !em.endsWith('@massivedynamixdistributors.com')) {
+                if (!emailMap.has(em) || emailMap.get(em) === em) {
+                  emailMap.set(em, tp.plan?.metadata?.name || tp.plan?.metadata?.email || em);
+                }
+              }
+            });
+          }
+        }
+
+        const list = Array.from(emailMap.entries()).map(([email, name]) => ({ email, name }));
+        if (active) {
+          setSubordinates(list);
+
+          if (defaultEmployeeEmail) {
+            setSelectedUserEmail(defaultEmployeeEmail.toLowerCase().trim());
+          } else if (list.length > 0 && !selectedUserEmail) {
+            const sub = list.find((s: any) => s.email !== currentUser.email?.toLowerCase().trim()) || list[0];
+            if (sub) {
+              setSelectedUserEmail(sub.email);
             }
           }
         }
       } catch (err) {
-        console.warn("Failed to fetch team plans for DPMC review:", err);
+        console.warn("Failed to fetch team for DPMC review:", err);
       }
     };
     if (activeTenantId) fetchTeam();
