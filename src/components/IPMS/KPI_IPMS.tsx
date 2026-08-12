@@ -261,12 +261,11 @@ export function QuarterPoeSelector({
             Drag &amp; drop multiple files or <span className="text-emerald-700 underline">browse</span>
           </p>
           <p className="text-[7.5px] text-slate-500 mt-0.5 mb-0 leading-tight">
-            PowerPoint (.pptx), Word (.docx), PDF, Excel (.xlsx), Images (PNG/JPG) • 200MB limit per KPI
+            All file formats supported (Word, Excel, PDF, PowerPoint, Images, Zip, Audio/Video, Emails, etc.) • 200MB limit per KPI
           </p>
           <input
             type="file"
             multiple
-            accept=".pdf,.doc,.docx,.ppt,.pptx,.pps,.xls,.xlsx,.csv,image/*,.png,.jpg,.jpeg,.gif,.webp,.svg,.txt,.zip"
             className="hidden"
             onChange={(e) => {
               handleFilesSelected(e.target.files);

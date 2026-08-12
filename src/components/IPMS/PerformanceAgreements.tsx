@@ -105,7 +105,6 @@ export function CompactPoeUploader({
               multiple
               className="hidden"
               onChange={handleFileChange}
-              accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
             />
           </label>
         )}
@@ -3480,7 +3479,6 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
                                 <input
                                   type="file"
                                   className="hidden"
-                                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
                                   onChange={(e) => {
                                     const file = e.target.files?.[0];
                                     if (file) {
