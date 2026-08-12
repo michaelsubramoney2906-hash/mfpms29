@@ -7,11 +7,18 @@ interface HierarchyNode {
   email: string;
   role: string;
   children?: HierarchyNode[];
+  kpiCompletion?: number;
+  recentScore?: string;
+  isBonusEligible?: boolean;
 }
 
 interface TeamHierarchyChartProps {
   data: HierarchyNode;
+  teamPlans?: any[];
+  selectedQuarter?: string;
+  onQuarterChange?: (q: string) => void;
   onSelectUser?: (email: string) => void;
+  onViewUserReport?: (email: string) => void;
 }
 
 const getLevelStyles = (depth: number) => {
@@ -78,7 +85,14 @@ const getInitials = (name: string) => {
   return parts[0].substring(0, 2).toUpperCase();
 };
 
-export const TeamHierarchyChart: React.FC<TeamHierarchyChartProps> = ({ data, onSelectUser }) => {
+export const TeamHierarchyChart: React.FC<TeamHierarchyChartProps> = ({ 
+  data, 
+  teamPlans = [],
+  selectedQuarter = 'all',
+  onQuarterChange,
+  onSelectUser,
+  onViewUserReport
+}) => {
   const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
   const [zoomScale, setZoomScale] = useState<number>(1.0);
   const [isExpandedPanel, setIsExpandedPanel] = useState<boolean>(false);
@@ -125,8 +139,8 @@ export const TeamHierarchyChart: React.FC<TeamHierarchyChartProps> = ({ data, on
       return collapsedNodes.has(emailKey) ? null : d.children;
     });
 
-    // Vertical spacing 70px, Horizontal level separation 240px
-    const treeLayout = d3.tree<HierarchyNode>().nodeSize([72, 240]);
+    // Vertical spacing 85px, Horizontal level separation 260px
+    const treeLayout = d3.tree<HierarchyNode>().nodeSize([85, 260]);
     treeLayout(root);
 
     // Compute bounding boxes to perfectly center the tree in the SVG coordinates
@@ -341,43 +355,86 @@ export const TeamHierarchyChart: React.FC<TeamHierarchyChartProps> = ({ data, on
                 const hasChildren = user.children && user.children.length > 0;
                 const isCollapsed = collapsedNodes.has(user.email.toLowerCase());
 
+                // Find matching user plan metrics
+                const userEmail = (user.email || '').toLowerCase().trim();
+                const userPlanObj = teamPlans.find(p => (p.userId || '').toLowerCase().trim() === userEmail);
+                const items: any[] = userPlanObj?.plan?.items || [];
+
+                let metExceededCount = 0;
+                items.forEach(i => {
+                  let s = 0;
+                  if (selectedQuarter === 'Q1') {
+                    s = parseFloat(i.q1Score || i.q1_score || '0');
+                  } else if (selectedQuarter === 'Q2') {
+                    s = parseFloat(i.q2Score || i.q2_score || '0');
+                  } else if (selectedQuarter === 'Q3') {
+                    s = parseFloat(i.q3Score || i.q3_score || '0');
+                  } else if (selectedQuarter === 'Q4') {
+                    s = parseFloat(i.q4Score || i.q4_score || '0');
+                  } else {
+                    const validScores = ['dpmcScore', 'internalAuditorScore', 'managerScore', 'q1Score', 'q2Score', 'q3Score', 'q4Score', 'score', 'evalScore']
+                      .map(k => parseFloat(i[k] || '0'))
+                      .filter(sc => !isNaN(sc) && sc > 0);
+                    s = validScores.length > 0 ? validScores.reduce((a, b) => a + b, 0) / validScores.length : 0;
+                  }
+                  if (s >= 3) metExceededCount++;
+                });
+
+                const totalKpis = items.length;
+                const qualRate = totalKpis > 0 ? Math.round((metExceededCount / totalKpis) * 100) : 0;
+                const isBonusEligible = totalKpis > 0 && qualRate >= 65;
+
                 return (
                   <g key={`node-${idx}`} className="transition-all duration-300">
                     
                     {/* SVG card container using standard foreignObject */}
                     <foreignObject
                       x={y}
-                      y={x - 27} // Center-aligned vertically (54px height / 2)
-                      width={190}
-                      height={54}
+                      y={x - 34} // Center-aligned vertically (68px height / 2)
+                      width={210}
+                      height={68}
                       className="overflow-visible"
                     >
                       <div 
                         onClick={() => onSelectUser && onSelectUser(user.email)}
-                        className={`w-full h-full rounded-xl border-2 p-1.5 flex items-center gap-2 cursor-pointer shadow-sm hover:shadow-md transition-all duration-200 text-left group select-none relative ${styles.bg}`}
+                        className={`w-full h-full rounded-xl border-2 p-1.5 flex flex-col justify-between cursor-pointer shadow-sm hover:shadow-md transition-all duration-200 text-left group select-none relative ${styles.bg}`}
                       >
-                        {/* Circle Avatar badge */}
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs shrink-0 shadow-inner ${styles.avatarBg}`}>
-                          {getInitials(user.name)}
+                        <div className="flex items-center gap-2">
+                          {/* Circle Avatar badge */}
+                          <div className={`w-7 h-7 rounded-full flex items-center justify-center font-black text-[10px] shrink-0 shadow-inner ${styles.avatarBg}`}>
+                            {getInitials(user.name)}
+                          </div>
+
+                          {/* Title and details */}
+                          <div className="flex-1 min-w-0 pr-1">
+                            <div className={`text-[10px] font-black truncate leading-tight group-hover:underline ${styles.text}`}>
+                              {user.name}
+                            </div>
+                            <div className={`text-[8px] font-bold uppercase tracking-tight truncate mt-0.5 ${styles.roleText}`}>
+                              {user.role}
+                            </div>
+                          </div>
                         </div>
 
-                        {/* Title and details */}
-                        <div className="flex-1 min-w-0 pr-1">
-                          <div className={`text-[10px] font-black truncate leading-tight group-hover:underline ${styles.text}`}>
-                            {user.name}
-                          </div>
-                          <div className={`text-[8.5px] font-bold uppercase tracking-tight truncate mt-0.5 ${styles.roleText}`}>
-                            {user.role}
-                          </div>
-                          <div className="text-[7.5px] text-slate-500 font-mono truncate">
-                            {user.email}
-                          </div>
+                        {/* Real-time KPI & Bonus Badge Strip */}
+                        <div className="flex items-center justify-between border-t border-slate-200/60 pt-1 mt-1 text-[8px] font-bold">
+                          <span className={isBonusEligible ? "text-emerald-700 font-extrabold flex items-center gap-0.5" : "text-amber-700 flex items-center gap-0.5"}>
+                            <span className={isBonusEligible ? "w-1.5 h-1.5 rounded-full bg-emerald-500" : "w-1.5 h-1.5 rounded-full bg-amber-500"} />
+                            {isBonusEligible ? '★ Bonus Qualified' : `${qualRate}% Met (<65%)`}
+                          </span>
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (onViewUserReport) onViewUserReport(user.email);
+                            }}
+                            className="px-1.5 py-0.5 bg-slate-900 text-white hover:bg-slate-800 rounded text-[7.5px] font-black uppercase tracking-wider cursor-pointer"
+                            title="View Full Performance Report"
+                          >
+                            Report
+                          </button>
                         </div>
 
-                        {/* Level tag in lower-right */}
-                        <span className="absolute bottom-0.5 right-1.5 text-[6.5px] font-black uppercase text-slate-400 tracking-wider">
-                          {styles.levelLabel}
-                        </span>
                       </div>
                     </foreignObject>
 
@@ -390,7 +447,7 @@ export const TeamHierarchyChart: React.FC<TeamHierarchyChartProps> = ({ data, on
                           e.preventDefault();
                           toggleCollapse(user.email);
                         }}
-                        transform={`translate(${y + 190}, ${x})`}
+                        transform={`translate(${y + 210}, ${x})`}
                       >
                         <circle
                           r={8}

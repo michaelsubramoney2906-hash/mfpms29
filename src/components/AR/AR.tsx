@@ -68,6 +68,21 @@ export function AR({ currentUser, activeTenantId }: ARProps) {
         </div>
       </div>
 
+      {/* Statutory Prior Financial Year Look-Back Banner */}
+      <div className="bg-amber-500/10 border-b border-amber-500/30 px-6 py-2.5 flex items-center justify-between text-xs text-amber-900 font-bold shrink-0">
+        <div className="flex items-center gap-2">
+          <span className="bg-amber-600 text-white text-[10px] font-black uppercase px-2 py-0.5 rounded tracking-wider shadow-sm">
+            2025–2026 Prior Year Scope
+          </span>
+          <span>
+            Statutory Rule (MFMA Sec 121): The Annual Report is compiled in the current year evaluating the <strong>2025–2026 Prior Financial Year</strong> performance.
+          </span>
+        </div>
+        <span className="text-[10px] text-amber-700 uppercase font-black tracking-widest hidden md:inline">
+          Archival Target Period
+        </span>
+      </div>
+
       {/* Main Content Area */}
       <div className="flex-1 overflow-hidden relative">
         {activeTab === 'brief' && <BriefTab />}

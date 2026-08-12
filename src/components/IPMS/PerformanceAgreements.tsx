@@ -269,6 +269,7 @@ interface PlanKPIItem {
   q4Locked?: boolean;
 
   poe: string;
+  poeDocs?: PoeDocument[];
   poeFileBase64?: string;
   poeFileName?: string;
   weighting: string;
@@ -3479,20 +3480,51 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
                                 <input
                                   type="file"
                                   className="hidden"
-                                  onChange={(e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) {
+                                  multiple
+                                  onChange={async (e) => {
+                                    const selectedFiles = e.target.files ? Array.from(e.target.files) : [];
+                                    e.target.value = '';
+                                    if (selectedFiles.length === 0) return;
+
+                                    const newDocs: PoeDocument[] = [];
+                                    for (const file of selectedFiles) {
                                       if (file.size > 200 * 1024 * 1024) {
                                         alert(`Selected file "${file.name}" (${(file.size / (1024 * 1024)).toFixed(1)}MB) exceeds the 200MB limit per KPI.`);
-                                        return;
+                                        continue;
                                       }
-                                      const reader = new FileReader();
-                                      reader.onload = () => {
-                                        const base64 = reader.result as string;
-                                        handleRowChange(item.id, 'poeFileBase64', base64);
-                                        handleRowChange(item.id, 'poeFileName', file.name);
-                                      };
-                                      reader.readAsDataURL(file);
+                                      try {
+                                        const doc = await new Promise<PoeDocument>((resolve, reject) => {
+                                          const reader = new FileReader();
+                                          reader.onload = () => {
+                                            resolve({
+                                              id: `poe_doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                                              name: file.name,
+                                              mimeType: file.type || 'application/octet-stream',
+                                              size: file.size,
+                                              dataUrl: reader.result as string,
+                                              uploadedAt: new Date().toISOString(),
+                                              uploadedBy: 'System'
+                                            });
+                                          };
+                                          reader.onerror = reject;
+                                          reader.readAsDataURL(file);
+                                        });
+                                        newDocs.push(doc);
+                                      } catch (err) {
+                                        console.error("Failed to read file", file.name, err);
+                                      }
+                                    }
+
+                                    if (newDocs.length > 0) {
+                                      const existingDocs: PoeDocument[] = item.poeDocs || [];
+                                      const updatedDocs = [...existingDocs, ...newDocs];
+                                      handleRowChange(item.id, 'poeDocs', updatedDocs);
+                                      handleRowChange(item.id, 'poeFileBase64', updatedDocs[0].dataUrl);
+                                      handleRowChange(
+                                        item.id,
+                                        'poeFileName',
+                                        updatedDocs.length === 1 ? updatedDocs[0].name : `${updatedDocs.length} file(s) attached`
+                                      );
                                     }
                                   }}
                                 />

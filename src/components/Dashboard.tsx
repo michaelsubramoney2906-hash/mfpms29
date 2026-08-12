@@ -59,6 +59,9 @@ import { MzansiFlowAcademy } from './MzansiFlowAcademy';
 import { RiskManagement } from './RiskManagement';
 import { FredExtractionAgent } from './FredExtractionAgent';
 import { GuidedIPMSWorkflow, GUIDE_STEPS } from './IPMS/GuidedIPMSWorkflow';
+import { FinancialYearModal } from './FinancialYearModal';
+import { FinancialYearSwitcher } from './FinancialYearSwitcher';
+import { useFinancialYear } from '../context/FinancialYearContext';
 import { Lock } from 'lucide-react';
 
 const fetchWithRetry = async (url: string, options?: RequestInit, retries = 3, delay = 1000): Promise<Response> => {
@@ -85,6 +88,7 @@ interface DashboardProps {
 }
 
 export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
+  const { financialYear, isPriorYear, getEffectiveYearForModule } = useFinancialYear();
   const [activeModule, setActiveModule] = useState<Module>(modules[0]);
   const [activeSubModule, setActiveSubModule] = useState<any>(null);
   const [unlockedModules, setUnlockedModules] = useState<string[]>([]);
@@ -367,6 +371,8 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                           jobFunction.includes('manager') ||
                           jobFunction.includes('director') ||
                           jobFunction.includes('head of') ||
+                          jobFunction.includes('supervisor') ||
+                          jobFunction.includes('lead') ||
                           jobFunction.includes('divisional manager') || email.includes('khuboni');
 
     const isPMSTeam = email === 'zulune@nkangaladm.gov.za' || 
@@ -378,6 +384,13 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
     const isStdUser = !isPMSTeam && !isAuditorUser && !isManagerUser && profileToUse?.role !== 'admin';
 
     return mod.subModules.filter(sub => {
+      // 0. Team Dashboard is strictly reserved for managers and line management
+      if (sub.id === 'ipms-team-dashboard') {
+        if (isStdUser) {
+          return false;
+        }
+      }
+
       // 1. Standard users cannot go past self evaluation
       if (isStdUser) {
         if (sub.id === 'ipms-manager-review' || sub.id === 'ipms-internal-audit' || sub.id === 'ipms-dpmc') {
@@ -553,7 +566,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
           </div>
           <button 
             onClick={onLogout}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-white rounded-xl font-bold transition-colors text-[11px] uppercase tracking-wider shadow-sm"
+            className="flex items-center gap-2 px-4 py-2 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-white rounded-xl font-bold transition-colors text-[11px] uppercase tracking-wider shadow-sm cursor-pointer"
             title="Sign Out of Mzansi Flow"
           >
             <LogOut className="w-3.5 h-3.5 text-stone-300" />
@@ -561,6 +574,9 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
           </button>
         </div>
       </header>
+
+      {/* Mandatory Financial Year Selection Lightbox Modal */}
+      <FinancialYearModal />
 
       {/* Main Content Area */}
       <main className="relative flex-1 flex flex-col">
@@ -591,7 +607,11 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
               )}
             </div>
             
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-4">
+              <div className="bg-slate-900/80 border border-slate-700/60 p-1 rounded-2xl shadow-sm">
+                <FinancialYearSwitcher />
+              </div>
+
               {activeModule.id === 'opms-admin' && (
                 <div className="hidden lg:flex flex-col items-end">
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Current Municipality</span>
@@ -611,7 +631,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                 </div>
               )}
               <div className="hidden lg:block">
-                 <div className="bg-white/10 px-3 py-1 rounded text-[10px] font-bold text-green-400 border border-green-400/30 uppercase tracking-tighter shadow-sm flex items-center gap-1.5 mt-1">
+                 <div className="bg-white/10 px-3 py-1 rounded text-[10px] font-bold text-green-400 border border-green-400/30 uppercase tracking-tighter shadow-sm flex items-center gap-1.5">
                     <ShieldCheck className="w-3.5 h-3.5" />
                     Active Tenant: {currentTenant.name}
                  </div>

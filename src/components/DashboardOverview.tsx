@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, Users, FileText, CheckCircle, TrendingUp, AlertTriangle, Shield, Clock, Database, Layers, BarChart3 } from 'lucide-react';
 import type { User } from '../types';
+import { FinancialYearSwitcher } from './FinancialYearSwitcher';
 
 interface DashboardOverviewProps {
   currentUser: User;
@@ -88,7 +89,10 @@ export function DashboardOverview({ currentUser, activeTenantId }: DashboardOver
           </h2>
           <p className="text-cyan-100/60 text-sm mt-1 font-mono tracking-wider text-[11px] uppercase">Real-time dynamic performance metrics & system observablity</p>
         </div>
-        <div className="flex gap-4">
+        <div className="flex items-center gap-4">
+           <div className="bg-slate-900/90 border border-slate-800 p-1.5 rounded-2xl shadow-sm">
+             <FinancialYearSwitcher />
+           </div>
            <div className="bg-slate-900 border border-slate-800 px-4 py-2 rounded-lg text-center">
              <div className="text-[9px] text-slate-400 font-black uppercase tracking-widest mb-1">Compliance Score</div>
              <div className="text-emerald-400 text-xl font-black">94.2%</div>

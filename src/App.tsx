@@ -8,6 +8,7 @@ import { LandingPage } from './components/LandingPage';
 import { Dashboard } from './components/Dashboard';
 import { NEDAPortal } from './components/NEDAPortal';
 import { SecurityShield } from './components/SecurityShield';
+import { FinancialYearProvider } from './context/FinancialYearContext';
 import type { User } from './types';
 
 export default function App() {
@@ -231,40 +232,42 @@ export default function App() {
   const isImpersonating = !!sessionStorage.getItem('originalAdminUser');
 
   return (
-    <div className="flex flex-col min-h-screen">
-      {isImpersonating && (
-        <div className="bg-amber-500 text-black px-8 py-2.5 flex items-center justify-between text-xs font-bold uppercase tracking-wider z-[999] shadow-md border-b border-amber-600 shrink-0">
-          <div className="flex items-center gap-2">
-            <span className="animate-pulse flex h-2.5 w-2.5 rounded-full bg-red-600"></span>
-            <span>Currently viewing/logged in as: <span className="font-black text-amber-950">{user?.fullName} ({user?.email})</span></span>
+    <FinancialYearProvider>
+      <div className="flex flex-col min-h-screen">
+        {isImpersonating && (
+          <div className="bg-amber-500 text-black px-8 py-2.5 flex items-center justify-between text-xs font-bold uppercase tracking-wider z-[999] shadow-md border-b border-amber-600 shrink-0">
+            <div className="flex items-center gap-2">
+              <span className="animate-pulse flex h-2.5 w-2.5 rounded-full bg-red-600"></span>
+              <span>Currently viewing/logged in as: <span className="font-black text-amber-950">{user?.fullName} ({user?.email})</span></span>
+            </div>
+            <button 
+              onClick={() => handleImpersonate(null)}
+              className="bg-amber-950 text-white hover:bg-amber-900 transition-colors px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-widest shadow-sm cursor-pointer"
+            >
+              Exit Impersonation
+            </button>
           </div>
-          <button 
-            onClick={() => handleImpersonate(null)}
-            className="bg-amber-950 text-white hover:bg-amber-900 transition-colors px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-widest shadow-sm cursor-pointer"
-          >
-            Exit Impersonation
-          </button>
+        )}
+        <div className="flex-1 flex flex-col min-h-0">
+          <SecurityShield user={user}>
+            {user.portalMode === 'neda' ? (
+              <NEDAPortal 
+                key={`${user.email}_neda`}
+                user={user} 
+                onLogout={handleLogout} 
+                onImpersonate={handleImpersonate} 
+              />
+            ) : (
+              <Dashboard 
+                key={user.email} 
+                user={user} 
+                onLogout={handleLogout} 
+                onImpersonate={handleImpersonate} 
+              />
+            )}
+          </SecurityShield>
         </div>
-      )}
-      <div className="flex-1 flex flex-col min-h-0">
-        <SecurityShield user={user}>
-          {user.portalMode === 'neda' ? (
-            <NEDAPortal 
-              key={`${user.email}_neda`}
-              user={user} 
-              onLogout={handleLogout} 
-              onImpersonate={handleImpersonate} 
-            />
-          ) : (
-            <Dashboard 
-              key={user.email} 
-              user={user} 
-              onLogout={handleLogout} 
-              onImpersonate={handleImpersonate} 
-            />
-          )}
-        </SecurityShield>
       </div>
-    </div>
+    </FinancialYearProvider>
   );
 }

@@ -103,8 +103,11 @@ export function QuarterPoeSelector({
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  const handleFilesSelected = async (fileList: FileList | null) => {
-    if (!fileList || disabled) return;
+  const handleFilesSelected = async (fileListParam: FileList | File[] | null) => {
+    if (!fileListParam || disabled) return;
+
+    const fileList = Array.from(fileListParam);
+    if (fileList.length === 0) return;
 
     if (fileList.length > 20) {
       alert(`File Upload Limits Notice:\n\n• You can upload at most 20 files at a time. Please select fewer files.`);
@@ -119,45 +122,44 @@ export function QuarterPoeSelector({
     const currentTotalSize = files.reduce((sum, f) => sum + (f.size || 0), 0);
     let runningTotalSize = currentTotalSize;
 
-    const newDocs: PoeDocument[] = [];
     const errors: string[] = [];
 
-    for (let i = 0; i < fileList.length; i++) {
-      const file = fileList[i];
-
+    const promises = fileList.map((file) => {
       if (file.size > MAX_FILE_SIZE) {
         errors.push(`"${file.name}" (${(file.size / (1024 * 1024)).toFixed(1)} MB) exceeds the 200MB maximum file size limit.`);
-        continue;
+        return Promise.resolve(null);
       }
 
       if (runningTotalSize + file.size > MAX_FILE_SIZE) {
         errors.push(`Adding "${file.name}" would cause total PoE files for this KPI section to exceed 200MB.`);
-        continue;
+        return Promise.resolve(null);
       }
 
-      try {
-        const doc = await new Promise<PoeDocument>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => {
-            resolve({
-              id: `poe_doc_${quarterName}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-              name: file.name,
-              mimeType: file.type || 'application/octet-stream',
-              size: file.size,
-              dataUrl: reader.result as string,
-              uploadedAt: new Date().toISOString(),
-              uploadedBy: currentUser?.email || 'System'
-            });
-          };
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-        runningTotalSize += file.size;
-        newDocs.push(doc);
-      } catch (err) {
-        errors.push(`Failed to read "${file.name}".`);
-      }
-    }
+      runningTotalSize += file.size;
+
+      return new Promise<PoeDocument | null>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          resolve({
+            id: `poe_doc_${quarterName}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            name: file.name,
+            mimeType: file.type || 'application/octet-stream',
+            size: file.size,
+            dataUrl: reader.result as string,
+            uploadedAt: new Date().toISOString(),
+            uploadedBy: currentUser?.email || 'System'
+          });
+        };
+        reader.onerror = () => {
+          errors.push(`Failed to read "${file.name}".`);
+          resolve(null);
+        };
+        reader.readAsDataURL(file);
+      });
+    });
+
+    const results = await Promise.all(promises);
+    const newDocs = results.filter((doc): doc is PoeDocument => doc !== null);
 
     if (errors.length > 0) {
       alert(`File Upload Limits Notice:\n\n` + errors.map(e => `• ${e}`).join('\n'));
@@ -302,8 +304,11 @@ export function QuarterPoeSelector({
               multiple
               className="hidden"
               onChange={(e) => {
-                handleFilesSelected(e.target.files);
+                const selected = e.target.files ? Array.from(e.target.files) : null;
                 e.target.value = '';
+                if (selected && selected.length > 0) {
+                  handleFilesSelected(selected);
+                }
               }}
             />
           )}
