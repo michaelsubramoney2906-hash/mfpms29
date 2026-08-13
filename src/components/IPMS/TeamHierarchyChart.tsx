@@ -193,37 +193,39 @@ export const TeamHierarchyChart: React.FC<TeamHierarchyChartProps> = ({
   const { nodes, links, svgWidth, svgHeight, offsetX, offsetY } = layout;
 
   return (
-    <div className="w-full bg-white rounded-2xl border border-slate-200 shadow-sm p-5 mb-6 flex flex-col min-h-0">
+    <div className={isExpandedPanel ? "fixed inset-0 z-[99999] bg-slate-900/95 backdrop-blur-md p-4 md:p-6 flex flex-col w-screen h-screen overflow-hidden shadow-2xl text-slate-100 top-0 left-0" : "w-full bg-white rounded-2xl border border-slate-200 shadow-sm p-5 mb-6 flex flex-col min-h-0"}>
       
       {/* TOOLBAR */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4 mb-4">
+      <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 mb-4 shrink-0 ${isExpandedPanel ? 'border-slate-800 bg-slate-900/80 p-3.5 rounded-xl' : 'border-slate-100'}`}>
         <div>
-          <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
-            <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <h3 className={`text-sm font-black flex items-center gap-2 ${isExpandedPanel ? 'text-white' : 'text-slate-800'}`}>
+            <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
-            Interactive Organogram & Reporting Line
+            Interactive Organogram & Reporting Line {isExpandedPanel && <span className="text-rose-400 text-xs font-black ml-2">(FULLSCREEN MODE)</span>}
           </h3>
-          <p className="text-[11px] text-slate-500 font-medium mt-1">
-            Click on cards to view performance profiles. Use <span className="text-emerald-600 font-bold font-mono">+/-</span> badges to expand reporting branches.
+          <p className={`text-[11px] font-medium mt-1 ${isExpandedPanel ? 'text-slate-300' : 'text-slate-500'}`}>
+            Click on cards to view performance profiles. Use <span className="text-emerald-400 font-bold font-mono">+/-</span> badges to expand reporting branches.
           </p>
         </div>
 
         {/* CONTROLS */}
         <div className="flex flex-wrap items-center gap-2">
           {/* Collapse/Expand States */}
-          <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg p-1">
+          <div className={`flex items-center gap-1 border rounded-lg p-1 ${isExpandedPanel ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
             <button
+              type="button"
               onClick={expandAll}
-              className="text-[10px] font-black text-slate-600 hover:bg-white hover:text-slate-900 transition-all rounded px-2 py-1 uppercase tracking-wider"
+              className="text-[10px] font-black hover:text-emerald-400 transition-all rounded px-2 py-1 uppercase tracking-wider cursor-pointer"
               title="Expand all nodes"
             >
               Expand All
             </button>
-            <span className="text-slate-300">|</span>
+            <span className="opacity-30">|</span>
             <button
+              type="button"
               onClick={collapseAll}
-              className="text-[10px] font-black text-slate-600 hover:bg-white hover:text-slate-900 transition-all rounded px-2 py-1 uppercase tracking-wider"
+              className="text-[10px] font-black hover:text-emerald-400 transition-all rounded px-2 py-1 uppercase tracking-wider cursor-pointer"
               title="Collapse all reporting lines"
             >
               Collapse All
@@ -231,10 +233,11 @@ export const TeamHierarchyChart: React.FC<TeamHierarchyChartProps> = ({
           </div>
 
           {/* Zoom Level */}
-          <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg p-1 text-slate-600">
+          <div className={`flex items-center gap-1 border rounded-lg p-1 ${isExpandedPanel ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
             <button
+              type="button"
               onClick={handleZoomOut}
-              className="p-1 hover:bg-white hover:text-slate-900 rounded transition-colors"
+              className="p-1 hover:text-emerald-400 rounded transition-colors cursor-pointer"
               title="Zoom Out"
             >
               <ZoomOut className="w-3.5 h-3.5" />
@@ -243,16 +246,18 @@ export const TeamHierarchyChart: React.FC<TeamHierarchyChartProps> = ({
               {Math.round(zoomScale * 100)}%
             </span>
             <button
+              type="button"
               onClick={handleZoomIn}
-              className="p-1 hover:bg-white hover:text-slate-900 rounded transition-colors"
+              className="p-1 hover:text-emerald-400 rounded transition-colors cursor-pointer"
               title="Zoom In"
             >
               <ZoomIn className="w-3.5 h-3.5" />
             </button>
-            <span className="text-slate-300">|</span>
+            <span className="opacity-30">|</span>
             <button
+              type="button"
               onClick={handleZoomReset}
-              className="p-1 hover:bg-white hover:text-slate-900 rounded transition-colors"
+              className="p-1 hover:text-emerald-400 rounded transition-colors cursor-pointer"
               title="Reset Zoom"
             >
               <RotateCcw className="w-3.5 h-3.5" />
@@ -261,19 +266,24 @@ export const TeamHierarchyChart: React.FC<TeamHierarchyChartProps> = ({
 
           {/* Sizing Toggle */}
           <button
+            type="button"
             onClick={() => setIsExpandedPanel(!isExpandedPanel)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-black text-slate-600 bg-slate-50 hover:bg-slate-100 hover:text-slate-950 border border-slate-200 rounded-lg transition-all uppercase tracking-wider"
-            title="Toggle expanded fullscreen height"
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-black rounded-lg transition-all uppercase tracking-wider cursor-pointer shadow-md ${
+              isExpandedPanel
+                ? 'bg-rose-600 text-white hover:bg-rose-700 border border-rose-500'
+                : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200'
+            }`}
+            title={isExpandedPanel ? "Exit Fullscreen Mode" : "Expand into Fullscreen"}
           >
             {isExpandedPanel ? (
               <>
-                <Minimize2 className="w-3.5 h-3.5 text-rose-500" />
-                Standard Pane
+                <Minimize2 className="w-3.5 h-3.5 text-white" />
+                Exit Full Screen
               </>
             ) : (
               <>
                 <Maximize2 className="w-3.5 h-3.5 text-indigo-500" />
-                Expand Pane
+                Full Screen Organogram
               </>
             )}
           </button>
@@ -281,32 +291,36 @@ export const TeamHierarchyChart: React.FC<TeamHierarchyChartProps> = ({
       </div>
 
       {/* COLOR LEGEND */}
-      <div className="flex flex-wrap items-center gap-4 bg-slate-50/55 rounded-xl border border-slate-100 p-2.5 mb-4 text-[10px] font-bold uppercase tracking-wider text-slate-500">
-        <span className="text-slate-400 font-extrabold flex items-center gap-1">
-          <List className="w-3 h-3 text-slate-500" /> Key:
+      <div className={`flex flex-wrap items-center gap-4 rounded-xl border p-2.5 mb-4 text-[10px] font-bold uppercase tracking-wider shrink-0 ${
+        isExpandedPanel 
+          ? 'bg-slate-800/90 border-slate-700 text-slate-300' 
+          : 'bg-slate-50/55 border-slate-100 text-slate-500'
+      }`}>
+        <span className="opacity-60 font-extrabold flex items-center gap-1">
+          <List className="w-3 h-3" /> Key:
         </span>
-        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-indigo-50 border border-indigo-200 text-indigo-800">
+        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-indigo-500/20 border border-indigo-400/30 text-indigo-300">
           <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" /> Executive
         </span>
-        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-teal-50 border border-teal-200 text-teal-800">
+        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-teal-500/20 border border-teal-400/30 text-teal-300">
           <span className="w-1.5 h-1.5 rounded-full bg-teal-500" /> Management
         </span>
-        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-rose-50 border border-rose-200 text-rose-800">
+        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-rose-500/20 border border-rose-400/30 text-rose-300">
           <span className="w-1.5 h-1.5 rounded-full bg-rose-500" /> Team Lead
         </span>
-        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-sky-50 border border-sky-200 text-sky-800">
+        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-sky-500/20 border border-sky-400/30 text-sky-300">
           <span className="w-1.5 h-1.5 rounded-full bg-sky-500" /> Sr. Officer
         </span>
-        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800">
+        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-400/30 text-amber-300">
           <span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> Staff
         </span>
       </div>
 
       {/* CANVAS ELEMENT */}
       <div 
-        className={`w-full bg-slate-50/60 rounded-2xl border border-slate-200 shadow-inner overflow-auto cursor-grab active:cursor-grabbing relative ${
-          isExpandedPanel ? 'h-[620px]' : 'h-[360px]'
-        } transition-all duration-300`}
+        className={`w-full rounded-2xl border shadow-inner overflow-auto cursor-grab active:cursor-grabbing relative transition-all duration-300 ${
+          isExpandedPanel ? 'flex-1 h-full min-h-0 bg-slate-800/80 border-slate-700' : 'h-[360px] bg-slate-50/60 border-slate-200'
+        }`}
       >
         <svg 
           style={{

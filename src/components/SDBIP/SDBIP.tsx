@@ -3839,9 +3839,9 @@ Timestamp: ${new Date().toLocaleString()}
             {renderWorkflowSection()}
 
             {/* Conditional Wrapper for Fullscreen Expansion */}
-            <div className={isTableExpanded ? "fixed inset-0 z-50 bg-slate-100 flex flex-col p-6 overflow-hidden select-none text-slate-700" : ""}>
+            <div className={isTableExpanded ? "fixed inset-0 z-[99999] bg-slate-900/95 backdrop-blur-md flex flex-col p-4 md:p-6 overflow-hidden text-slate-700 w-screen h-screen top-0 left-0" : ""}>
               {isTableExpanded && (
-                <div className="flex items-center justify-between gap-4 mb-4 bg-white p-4 rounded-xl border border-slate-200 shadow-xs shrink-0 select-none">
+                <div className="flex items-center justify-between gap-4 mb-4 bg-white p-4 rounded-xl border border-slate-200 shadow-lg shrink-0 select-none">
                   <div className="flex items-center gap-3">
                     <Database className="w-5 h-5 text-indigo-600 animate-pulse" />
                     <div>
@@ -3860,12 +3860,14 @@ Timestamp: ${new Date().toLocaleString()}
                       <span>{isPulling ? 'Pulling Data...' : 'Pull SDBIP Top Layer Data'}</span>
                     </button>
                     <button 
+                      type="button"
                       onClick={() => setIsTableExpanded(false)}
-                      className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition shadow-xs"
+                      className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 cursor-pointer transition shadow-md border border-rose-500"
                     >
-                      <Minimize2 className="w-4 h-4" /> Contract Table (Exit Fullscreen)
+                      <Minimize2 className="w-4 h-4 text-white" /> Contract Table (Exit Fullscreen)
                     </button>
                     <button 
+                      type="button"
                       onClick={exportToCSV}
                       className="px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition"
                     >

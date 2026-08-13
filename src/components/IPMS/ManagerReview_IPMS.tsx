@@ -1763,11 +1763,36 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
                     {/* Employee Self-Evaluation (Read-Only) */}
                     <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
                       <label className="text-[10px] uppercase font-bold text-slate-500 block border-b border-slate-200 pb-1">
-                        Employee Self-Evaluation
+                        Employee Self-Evaluation & Annual Metrics
                       </label>
                       <div className="text-[11px] text-slate-600 whitespace-pre-wrap select-text leading-relaxed">
-                        {kpi.evaluation ? kpi.evaluation : <span className="italic">No self-evaluation provided.</span>}
+                        {kpi.evaluation ? kpi.evaluation : <span className="italic">No self-evaluation summary provided.</span>}
                       </div>
+
+                      {/* Annual Metrics Grid */}
+                      <div className="grid grid-cols-2 gap-2 text-[10px] bg-white p-2.5 rounded-lg border border-slate-200 mt-2">
+                        <div>
+                          <span className="font-extrabold text-slate-500 uppercase text-[8.5px] block">Annual Target:</span>
+                          <span className="font-extrabold text-slate-900">{kpi.annualTarget || 'N/A'}</span>
+                        </div>
+                        <div>
+                          <span className="font-extrabold text-sky-700 uppercase text-[8.5px] block">Annual Actual:</span>
+                          <span className="font-extrabold text-sky-950">{kpi.annualActual || 'N/A'}</span>
+                        </div>
+                        <div>
+                          <span className="font-extrabold text-emerald-700 uppercase text-[8.5px] block">Annual Actual Exp:</span>
+                          <span className="font-extrabold text-emerald-950">{kpi.annualActualExpense || kpi.annualActualExp || 'N/A'}</span>
+                        </div>
+                        <div>
+                          <span className="font-extrabold text-amber-700 uppercase text-[8.5px] block">Annual Variance:</span>
+                          <span className="font-extrabold text-rose-700">{kpi.annualVariance || calculateVariance(kpi.annualTarget, kpi.annualActual || kpi.q4Actual)}</span>
+                        </div>
+                        <div className="col-span-2 border-t border-slate-100 pt-1">
+                          <span className="font-extrabold text-slate-600 uppercase text-[8.5px] block">Annual Corrective Measure:</span>
+                          <span className="font-medium text-slate-800 italic">{kpi.annualCorrective || 'No annual corrective measure logged'}</span>
+                        </div>
+                      </div>
+
                       <div className="mt-2 text-[10px] font-bold text-slate-700">
                         Employee Score: <span className="text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200">{kpi.myScore || 'N/A'}</span>
                       </div>

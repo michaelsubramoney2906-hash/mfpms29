@@ -1016,6 +1016,31 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
                         <div>Self Score: <strong className="text-slate-800 font-black">{activeKPI.myScore || 'N/A'}</strong></div>
                         <div>Mgr Score: <strong className="text-indigo-800 font-black">{activeKPI.managerScore || 'N/A'}</strong></div>
                       </div>
+
+                      {/* Annual Metrics Breakdown for Internal Audit */}
+                      <div className="bg-white p-2.5 rounded-lg border border-slate-200 text-[10px] space-y-1.5 normal-case">
+                        <span className="font-extrabold text-slate-700 uppercase text-[8px] tracking-wider block border-b border-slate-100 pb-0.5">Annual Performance Metrics:</span>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>Target: <strong className="text-slate-900 font-bold">{activeKPI.annualTarget || 'N/A'}</strong></div>
+                          <div>Actual: <strong className="text-sky-900 font-black">{activeKPI.annualActual || 'N/A'}</strong></div>
+                          <div>Expense: <strong className="text-emerald-900 font-black">{activeKPI.annualActualExpense || activeKPI.annualActualExp || 'N/A'}</strong></div>
+                          <div>Variance: <strong className="text-rose-700 font-black">{activeKPI.annualVariance || calculateVariance(activeKPI.annualTarget, activeKPI.annualActual || activeKPI.q4Actual)}</strong></div>
+                        </div>
+                        {activeKPI.annualCorrective && (
+                          <div className="border-t border-slate-100 pt-1">
+                            <span className="text-slate-500 font-bold">Corrective Action: </span>
+                            <span className="text-slate-800 italic">{activeKPI.annualCorrective}</span>
+                          </div>
+                        )}
+                      </div>
+                      {(activeKPI.review || activeKPI.managerComment) && (
+                        <div className="bg-indigo-50/70 p-2.5 rounded-xl border border-indigo-100 text-[10.5px] text-indigo-950 mt-1">
+                          <span className="text-indigo-700 font-extrabold uppercase text-[8px] tracking-wider block mb-0.5">Manager Review Notes & Feedback:</span>
+                          <p className="italic font-medium leading-relaxed m-0 whitespace-pre-wrap select-text">
+                            "{activeKPI.review || activeKPI.managerComment}"
+                          </p>
+                        </div>
+                      )}
                     </div>
 
                     {/* Quarter Tabs Selector */}
@@ -1336,10 +1361,10 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
                         <th rowSpan={2} className="p-2 border border-black min-w-[200px] whitespace-normal align-top">KPI</th>
                         <th rowSpan={2} className="p-2 border border-black w-24 align-top text-center">Baseline</th>
                         <th rowSpan={2} className="p-2 border border-black w-24 align-top text-center">Annual Target</th>
-                        <th rowSpan={2} className="p-2 border border-black w-24 align-top text-center">Annual Actual Performance</th>
-                        <th rowSpan={2} className="p-2 border border-black min-w-[150px] whitespace-normal align-top">Achievement</th>
-                        <th rowSpan={2} className="p-2 border border-black min-w-[150px] whitespace-normal align-top">Variance Reason</th>
-                        <th rowSpan={2} className="p-2 border border-black min-w-[150px] whitespace-normal align-top">Corrective Measure</th>
+                        <th rowSpan={2} className="p-2 border border-black min-w-[140px] align-top text-center bg-sky-50">Annual Actual</th>
+                        <th rowSpan={2} className="p-2 border border-black min-w-[130px] align-top text-center bg-emerald-50">Annual Actual Exp</th>
+                        <th rowSpan={2} className="p-2 border border-black min-w-[120px] whitespace-normal align-top text-center bg-amber-50">Annual Variance</th>
+                        <th rowSpan={2} className="p-2 border border-black min-w-[160px] whitespace-normal align-top bg-amber-50">Annual Corrective</th>
                         <th rowSpan={2} className="p-2 border border-black min-w-[150px] whitespace-normal align-top">Portfolio of Evidence</th>
                         <th className="p-2 border border-black text-center underline">Weighting</th>
                         <th rowSpan={2} className="p-2 border border-black text-center align-top w-16">My Score</th>
@@ -1364,11 +1389,11 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
                         <tr key={kpi.id} id={`kpi-row-${kpi.id}`} className="bg-white transition-all duration-300">
                           <td className="p-2 border border-black whitespace-normal align-top">{kpi.kpi}</td>
                           <td className="p-2 border border-black align-top text-center">{kpi.baseline || '-'}</td>
-                          <td className="p-2 border border-black align-top text-center">{kpi.annualTarget || '-'}</td>
-                          <td className="p-2 border border-black align-top text-center">{kpi.q4Target || '-'}</td>
-                          <td className="p-2 border border-black whitespace-normal align-top text-slate-600 italic break-words">{kpi.evaluation || '-'}</td>
-                          <td className="p-2 border border-black whitespace-normal align-top"></td>
-                          <td className="p-2 border border-black whitespace-normal align-top"></td>
+                          <td className="p-2 border border-black align-top text-center font-bold">{kpi.annualTarget || '-'}</td>
+                          <td className="p-2 border border-black align-top text-center font-bold text-sky-900 bg-sky-50/30">{kpi.annualActual || kpi.evaluation || '-'}</td>
+                          <td className="p-2 border border-black align-top text-center font-bold text-emerald-900 bg-emerald-50/30">{kpi.annualActualExpense || kpi.annualActualExp || '-'}</td>
+                          <td className="p-2 border border-black align-top text-center font-bold text-rose-700 bg-amber-50/30">{kpi.annualVariance || calculateVariance(kpi.annualTarget, kpi.annualActual || kpi.q4Actual) || '-'}</td>
+                          <td className="p-2 border border-black whitespace-normal align-top text-slate-800 text-[10px] font-medium bg-amber-50/30">{kpi.annualCorrective || kpi.q4Corrective || '-'}</td>
                           <td className="p-2 border border-black whitespace-normal align-top text-slate-500 break-words font-mono text-[9px]">{kpi.poe || '-'}</td>
                           <td className="p-2 border border-black align-top text-center">{kpi.weighting || 0}</td>
                           <td className="p-2 border border-black align-top text-center">{kpi.myScore || '-'}</td>

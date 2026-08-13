@@ -250,6 +250,13 @@ interface PlanKPIItem {
   q4Score?: string;
   q4Corrective?: string;
 
+  // Annual Summary Metrics
+  annualActual?: string;
+  annualActualExpense?: string;
+  annualActualExp?: string;
+  annualVariance?: string;
+  annualCorrective?: string;
+
   // Quarterly POEs
   q1Poe?: string;
   q2Poe?: string;
@@ -1327,7 +1334,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
     const publicHeaders = [
       "Strategic Objective", "KPI No", "KPI Description",
       "BSD (X)", "LED (X)", "MFVM (X)", "GGPP (X)", "MIDT (X)", "SR (X)",
-      "KPA", "Baseline Year", "Baseline", "Budget", "Annual Target", "Q1 Target", "Q1 Actual", "1st Qtr Actual Expense", "Q1 Comment", "Q2 Target", "Q2 Actual", "2nd Qtr Actual Expense", "Q2 Comment", "Midterm Review", "Midterm Actual", "Midterm Actual Expense", "Midterm Comment", "Q3 Target", "Q3 Actual", "3rd Qtr Actual Expense", "Q3 Comment", "Q4 Target", "Q4 Actual", "4th Qtr Actual Expense", "Q4 Comment", "POE",
+      "KPA", "Baseline Year", "Baseline", "Budget", "Annual Target", "Q1 Target", "Q1 Actual", "1st Qtr Actual Expense", "Q1 Comment", "Q2 Target", "Q2 Actual", "2nd Qtr Actual Expense", "Q2 Comment", "Midterm Review", "Midterm Actual", "Midterm Actual Expense", "Midterm Comment", "Q3 Target", "Q3 Actual", "3rd Qtr Actual Expense", "Q3 Comment", "Q4 Target", "Q4 Actual", "4th Qtr Actual Expense", "Q4 Comment", "Annual Actual", "Annual Actual Exp", "Annual Variance", "Annual Corrective", "POE",
       "Weighting (%)"
     ];
 
@@ -1376,7 +1383,11 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
       item.q4Target || '',
       item.q4Actual || '',
       item.q4ActualExpense || '',
-      item.q4Comment || '',
+      item.q4Comment || item.q4Corrective || '',
+      item.annualActual || '',
+      item.annualActualExpense || item.annualActualExp || '',
+      item.annualVariance || calculateVariance(item.annualTarget, item.annualActual || item.q4Actual),
+      item.annualCorrective || '',
       item.annualRequiredPoe || item.poe || '',
       item.weighting || ''
     ]);
@@ -1436,7 +1447,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
     const tableHeaders = [
       "Strategic Objective", "KPI No", "KPI Description", 
       "BSD", "LED", "MFVM", "GGPP", "MIDT", "SR", 
-      "KPA", "Baseline", "Budget", "Annual Target", "Q1 Target", "Q1 Actual", "1st Qtr Actual Expense", "Q1 Comment", "Q2 Target", "Q2 Actual", "2nd Qtr Actual Expense", "Q2 Comment", "Midterm Review", "Midterm Actual", "Midterm Actual Expense", "Midterm Comment", "Q3 Target", "Q3 Actual", "3rd Qtr Actual Expense", "Q3 Comment", "Q4 Target", "Q4 Actual", "4th Qtr Actual Expense", "Q4 Comment", "POE", "Weight %"
+      "KPA", "Baseline", "Budget", "Annual Target", "Q1 Target", "Q1 Actual", "1st Qtr Actual Expense", "Q1 Comment", "Q2 Target", "Q2 Actual", "2nd Qtr Actual Expense", "Q2 Comment", "Midterm Review", "Midterm Actual", "Midterm Actual Expense", "Midterm Comment", "Q3 Target", "Q3 Actual", "3rd Qtr Actual Expense", "Q3 Comment", "Q4 Target", "Q4 Actual", "4th Qtr Actual Expense", "Q4 Comment", "Annual Actual", "Annual Actual Exp", "Annual Variance", "Annual Corrective", "POE", "Weight %"
     ];
 
     if (isRestricted) {
@@ -1518,7 +1529,11 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
         <td style="border: 1px solid #cbd5e1; padding: 3px; font-size: 7.5px; word-break: break-all; word-wrap: break-word; white-space: normal; vertical-align: top;">${item.q4Target || 'N/A'}</td>
         <td style="border: 1px solid #cbd5e1; padding: 3px; font-size: 7.5px; word-break: break-all; word-wrap: break-word; white-space: normal; vertical-align: top;">${item.q4Actual || 'N/A'}</td>
         <td style="border: 1px solid #cbd5e1; padding: 3px; font-size: 7.5px; word-break: break-all; word-wrap: break-word; white-space: normal; vertical-align: top;">${item.q4ActualExpense || 'N/A'}</td>
-        <td style="border: 1px solid #cbd5e1; padding: 3px; font-size: 7.5px; word-break: break-all; word-wrap: break-word; white-space: normal; vertical-align: top;">${item.q4Comment || 'N/A'}</td>
+        <td style="border: 1px solid #cbd5e1; padding: 3px; font-size: 7.5px; word-break: break-all; word-wrap: break-word; white-space: normal; vertical-align: top;">${item.q4Comment || item.q4Corrective || 'N/A'}</td>
+        <td style="border: 1px solid #cbd5e1; padding: 3px; font-size: 7.5px; word-break: break-all; word-wrap: break-word; white-space: normal; vertical-align: top;">${item.annualActual || 'N/A'}</td>
+        <td style="border: 1px solid #cbd5e1; padding: 3px; font-size: 7.5px; word-break: break-all; word-wrap: break-word; white-space: normal; vertical-align: top;">${item.annualActualExpense || item.annualActualExp || 'N/A'}</td>
+        <td style="border: 1px solid #cbd5e1; padding: 3px; font-size: 7.5px; word-break: break-all; word-wrap: break-word; white-space: normal; vertical-align: top;">${item.annualVariance || calculateVariance(item.annualTarget, item.annualActual || item.q4Actual)}</td>
+        <td style="border: 1px solid #cbd5e1; padding: 3px; font-size: 7.5px; word-break: break-all; word-wrap: break-word; white-space: normal; vertical-align: top;">${item.annualCorrective || 'N/A'}</td>
         <td style="border: 1px solid #cbd5e1; padding: 3px; font-size: 7.5px; word-break: break-all; word-wrap: break-word; white-space: normal; vertical-align: top;">${item.annualRequiredPoe || item.poe || 'N/A'}</td>
         <td style="border: 1px solid #cbd5e1; padding: 3px; font-weight: bold; font-family: monospace; font-size: 7.5px; text-align: center; vertical-align: top;">${item.weighting || 'N/A'}%</td>
       `;
@@ -1655,7 +1670,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
     const tableHeaders = [
       "Strategic Objective", "KPI No", "KPI Description", 
       "BSD", "LED", "MFVM", "GGPP", "MIDT", "SR", 
-      "KPA", "Baseline", "Budget", "Annual Target", "Q1 Goal", "Q1 Actual", "Q1 Comment", "Q2 Goal", "Q2 Actual", "Q2 Comment", "Midterm Review", "Midterm Actual", "Midterm Comment", "Q3 Goal", "Q3 Actual", "Q3 Comment", "Q4 Goal", "Q4 Actual", "Q4 Comment", "POE", "Weight"
+      "KPA", "Baseline", "Budget", "Annual Target", "Q1 Goal", "Q1 Actual", "Q1 Comment", "Q2 Goal", "Q2 Actual", "Q2 Comment", "Midterm Review", "Midterm Actual", "Midterm Comment", "Q3 Goal", "Q3 Actual", "Q3 Comment", "Q4 Goal", "Q4 Actual", "Q4 Comment", "Annual Actual", "Annual Actual Exp", "Annual Variance", "Annual Corrective", "POE", "Weight"
     ];
 
     if (isRestricted) {
@@ -1693,7 +1708,11 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
         <td style="border: 1px solid #e2e8f0; padding: 6px; font-size: 8px;">${item.q3Comment || 'N/A'}</td>
         <td style="border: 1px solid #e2e8f0; padding: 6px; font-size: 8px;">${item.q4Target || 'N/A'}</td>
         <td style="border: 1px solid #e2e8f0; padding: 6px; font-size: 8px;">${item.q4Actual || 'N/A'}</td>
-        <td style="border: 1px solid #e2e8f0; padding: 6px; font-size: 8px;">${item.q4Comment || 'N/A'}</td>
+        <td style="border: 1px solid #e2e8f0; padding: 6px; font-size: 8px;">${item.q4Comment || item.q4Corrective || 'N/A'}</td>
+        <td style="border: 1px solid #e2e8f0; padding: 6px; font-size: 8px;">${item.annualActual || 'N/A'}</td>
+        <td style="border: 1px solid #e2e8f0; padding: 6px; font-size: 8px;">${item.annualActualExpense || item.annualActualExp || 'N/A'}</td>
+        <td style="border: 1px solid #e2e8f0; padding: 6px; font-size: 8px;">${item.annualVariance || calculateVariance(item.annualTarget, item.annualActual || item.q4Actual)}</td>
+        <td style="border: 1px solid #e2e8f0; padding: 6px; font-size: 8px;">${item.annualCorrective || 'N/A'}</td>
         <td style="border: 1px solid #e2e8f0; padding: 6px; font-size: 8px;">${item.annualRequiredPoe || item.poe || 'N/A'}</td>
         <td style="border: 1px solid #e2e8f0; padding: 6px; font-weight: bold; font-family: monospace; font-size: 8px;">${item.weighting || 'N/A'}%</td>
       `;
@@ -2362,15 +2381,15 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
         </div>
 
         {/* BOTTOM SECTION: Interactive Spreadsheet Grid */}
-        <div className={`w-full bg-white border border-slate-200 shadow-xs flex flex-col transition-all duration-300 ${isExpanded ? 'fixed inset-4 z-[100] mt-0 h-auto rounded-xl' : 'mt-2 h-[75vh] min-h-[600px] shrink-0 rounded-3xl overflow-hidden'}`}>
+        <div className={`w-full bg-white border border-slate-200 shadow-xs flex flex-col transition-all duration-300 ${isExpanded ? 'fixed inset-0 z-[99999] w-screen h-screen mt-0 rounded-none bg-white p-4 md:p-6 overflow-hidden flex flex-col shadow-2xl top-0 left-0' : 'mt-2 h-[75vh] min-h-[600px] shrink-0 rounded-3xl overflow-hidden'}`}>
 
           
           {/* Top Panel Controls */}
-          <div className="px-6 py-4.5 bg-slate-900 flex flex-wrap items-center justify-between border-b border-slate-950 gap-4">
+          <div className="px-6 py-4.5 bg-slate-900 flex flex-wrap items-center justify-between border-b border-slate-950 gap-4 shrink-0 rounded-t-xl">
             <div className="select-text">
               <h2 className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-1.5">
                 <Compass className="w-4 h-4 text-green-400" />
-                Annual Performance Planner Grid
+                Annual Performance Planner Grid {isExpanded && <span className="text-rose-400 font-extrabold text-[10px] ml-2">(FULLSCREEN MODE)</span>}
               </h2>
               <p className="text-[10px] text-slate-400 mt-0.5">
                 Assign KPA Units captured from KPA capturing tool to automatically complete strategic and National KPA targets.
@@ -2406,10 +2425,14 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
               <button
                 type="button"
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="bg-slate-800 border border-slate-700 text-slate-200 hover:text-white hover:bg-slate-700 font-bold px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-wide flex items-center gap-1.5 transition cursor-pointer font-mono"
+                className={`font-black px-3.5 py-1.5 rounded-lg text-[10px] uppercase tracking-wide flex items-center gap-1.5 transition cursor-pointer font-mono shadow-sm ${
+                  isExpanded 
+                    ? 'bg-rose-600 border border-rose-500 text-white hover:bg-rose-700' 
+                    : 'bg-slate-800 border border-slate-700 text-slate-200 hover:text-white hover:bg-slate-700'
+                }`}
               >
-                {isExpanded ? <Minimize2 className="w-3.5 h-3.5 text-rose-400" /> : <Maximize2 className="w-3.5 h-3.5 text-green-450" />}
-                <span>{isExpanded ? 'Contract Table' : 'Expand Table'}</span>
+                {isExpanded ? <Minimize2 className="w-3.5 h-3.5 text-white" /> : <Maximize2 className="w-3.5 h-3.5 text-green-450" />}
+                <span>{isExpanded ? 'Exit Full Screen' : 'Expand Table'}</span>
               </button>
 
               <button
@@ -2460,7 +2483,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
                   <th rowSpan={2} className="p-3 min-w-[120px] w-auto border-r border-slate-800 align-middle text-emerald-300 bg-emerald-950/20">Budget</th>
                   
                   {/* Financial Year Header above Targets */}
-                  <th colSpan={26} className="p-2 text-center border-r border-slate-800 bg-slate-950/45 text-[10px] tracking-widest text-emerald-400 font-extrabold min-w-[3400px]">
+                  <th colSpan={30} className="p-2 text-center border-r border-slate-800 bg-slate-950/45 text-[10px] tracking-widest text-emerald-400 font-extrabold min-w-[3800px]">
                     MUNICIPAL FINANCIAL YEAR (1 JULY - 30 JUNE)
                   </th>
                   
@@ -2506,13 +2529,17 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
                   <th className="p-2 border-r border-slate-800 bg-slate-950/20 text-center text-[8px] tracking-tight min-w-[140px] text-emerald-300 bg-emerald-950/30">4th Qtr Actual Expense<br/><span className="text-[7px] text-emerald-400 font-extrabold">R (ZAR)</span></th>
                   <th className="p-2 border-r border-slate-800 bg-slate-950/20 text-center text-[8px] tracking-tight min-w-[120px]">4th Qtr Variance</th>
                   <th className="p-2 border-r border-slate-800 bg-slate-950/20 text-center text-[8px] tracking-tight min-w-[180px]">4th Qtr Corrective</th>
+                  <th className="p-2 border-r border-slate-800 bg-slate-950/20 text-center text-[8px] tracking-tight min-w-[150px] bg-sky-950/40 text-sky-300">Annual Actual<br/><span className="text-[7px] text-sky-400 font-normal">Total Achieved</span></th>
+                  <th className="p-2 border-r border-slate-800 bg-slate-950/20 text-center text-[8px] tracking-tight min-w-[140px] text-emerald-300 bg-emerald-950/30">Annual Actual Exp<br/><span className="text-[7px] text-emerald-400 font-extrabold">R (ZAR)</span></th>
+                  <th className="p-2 border-r border-slate-800 bg-slate-950/20 text-center text-[8px] tracking-tight min-w-[120px] bg-amber-950/30 text-amber-300">Annual Variance</th>
+                  <th className="p-2 border-r border-slate-800 bg-slate-950/20 text-center text-[8px] tracking-tight min-w-[180px] bg-amber-950/30 text-amber-300">Annual Corrective</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 font-semibold text-slate-850">
                 {items.length === 0 ? (
                   <tr>
                     <td 
-                      colSpan={isRestrictedVisible ? 39 : 34} 
+                      colSpan={isRestrictedVisible ? 40 : 38} 
                       className="p-8 text-center text-slate-400 font-bold uppercase tracking-widest bg-white"
                     >
                       No KPI targets configured. Click "Add Record" to start planning.
@@ -3413,6 +3440,72 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
                             <span className="text-slate-400 italic">No corrective action logged in self-evaluation</span>
                           )}
                         </div>
+                      </td>
+
+                      {/* Annual Actual Column */}
+                      <td className="p-1 border-r border-slate-205 min-w-[150px] bg-sky-50/20">
+                        <textarea
+                          rows={1}
+                          value={item.annualActual || ''}
+                          onChange={(e) => handleRowChange(item.id, 'annualActual', e.target.value)}
+                          onInput={(e) => {
+                            e.currentTarget.style.height = 'auto';
+                            e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
+                          }}
+                          placeholder="Annual Actual..."
+                          className="w-full font-extrabold bg-transparent p-1 focus:bg-white hover:bg-white border-0 border-b border-dashed border-sky-300 outline-none text-center text-sky-900 text-[10px]"
+                          style={{ minHeight: '20px', overflow: 'hidden' }}
+                        />
+                      </td>
+
+                      {/* Annual Actual Exp Column */}
+                      <td className="p-1 border-r border-slate-205 min-w-[140px] bg-emerald-50/20">
+                        <textarea
+                          rows={1}
+                          value={item.annualActualExpense || item.annualActualExp || ''}
+                          onChange={(e) => {
+                            handleRowChange(item.id, 'annualActualExpense', e.target.value);
+                            handleRowChange(item.id, 'annualActualExp', e.target.value);
+                          }}
+                          onInput={(e) => {
+                            e.currentTarget.style.height = 'auto';
+                            e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
+                          }}
+                          placeholder="Annual Expense (R)..."
+                          className="w-full font-bold bg-transparent p-1 focus:bg-white hover:bg-white border-0 border-b border-dashed border-emerald-300 outline-none text-center text-emerald-800 text-[10px]"
+                          style={{ minHeight: '20px', overflow: 'hidden' }}
+                        />
+                      </td>
+
+                      {/* Annual Variance Column */}
+                      <td className="p-1 border-r border-slate-205 min-w-[120px] bg-amber-50/15">
+                        <div className="flex flex-col items-center justify-center h-full gap-1 p-1">
+                          {(() => {
+                            const variance = calculateVariance(item.annualTarget, item.annualActual || item.q4Actual);
+                            const hasVariance = variance !== '0';
+                            return (
+                              <span className={`text-[10px] font-black px-2 py-1 rounded ${hasVariance ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'}`}>
+                                {variance}
+                              </span>
+                            );
+                          })()}
+                        </div>
+                      </td>
+
+                      {/* Annual Corrective Column */}
+                      <td className="p-1 border-r border-slate-205 min-w-[180px] bg-amber-50/15">
+                        <textarea
+                          rows={2}
+                          value={item.annualCorrective || ''}
+                          onChange={(e) => handleRowChange(item.id, 'annualCorrective', e.target.value)}
+                          onInput={(e) => {
+                            e.currentTarget.style.height = 'auto';
+                            e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
+                          }}
+                          placeholder="Annual Corrective Action..."
+                          className="w-full text-[9.5px] font-medium bg-transparent p-1 focus:bg-white hover:bg-white border border-slate-200 rounded outline-none text-emerald-900"
+                          style={{ minHeight: '35px', overflow: 'hidden' }}
+                        />
                       </td>
 
                       {/* Portfolio of Evidence */}

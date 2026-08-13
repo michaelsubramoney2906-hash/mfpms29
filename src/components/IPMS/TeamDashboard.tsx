@@ -282,7 +282,7 @@ export function TeamDashboard({ currentUser, activeTenantId }: TeamDashboardProp
     if (!currentUser) return false;
     const role = (currentUser.role || '').toLowerCase();
     const systemRole = (currentUser.systemRole || '').toLowerCase();
-    const jobFunction = (currentUser.jobFunction || currentUser.job_function || '').toLowerCase();
+    const jobFunction = (currentUser.jobFunction || (currentUser as any).job_function || '').toLowerCase();
     const email = (currentUser.email || '').toLowerCase();
 
     return (
@@ -589,7 +589,7 @@ export function TeamDashboard({ currentUser, activeTenantId }: TeamDashboardProp
                       data={hierarchyTree} 
                       teamPlans={rawTeamPlans}
                       selectedQuarter={selectedQuarter}
-                      onQuarterChange={setSelectedQuarter}
+                      onQuarterChange={(q: string) => setSelectedQuarter(q as any)}
                       onSelectUser={(email) => openDossierForEmail(email)}
                       onViewUserReport={(email) => openDossierForEmail(email)}
                     />

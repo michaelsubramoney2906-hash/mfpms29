@@ -41,6 +41,8 @@ export const DepartmentReportView: React.FC<DepartmentReportViewProps> = ({
   const [selectedDepartment, setSelectedDepartment] = useState<string>(
     isExecutive ? 'All' : userDept
   );
+  const [selectedQuarter, setSelectedQuarter] = useState<string>('Q1');
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Filter dataset to manager's department if not executive
   const scopedUsers = useMemo(() => {

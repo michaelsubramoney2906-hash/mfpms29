@@ -821,19 +821,40 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate }: U
     e.preventDefault();
     setIsLoading(true);
     try {
-      const targetTenant = formData.systemRole === 'Global Administrator' 
-        ? 'global' 
-        : (currentUser.role === 'admin' ? formData.selectedTenant : activeTenantId);
-        
+      const emailLower = (formData.email || '').toLowerCase().trim();
+      const isMzansiFlow = emailLower.endsWith('@mzansiflow.co.za') || emailLower.endsWith('@massivedynamixdistributors.com');
+
+      const payload = {
+        ...formData,
+        directorate: formData.directorate || (isMzansiFlow ? 'MzansiFlow Corporate' : ''),
+        department: formData.department || (isMzansiFlow ? 'MzansiFlow Workspace' : ''),
+        jobFunction: formData.jobFunction || (isMzansiFlow ? 'MzansiFlow Specialist' : ''),
+        idNumber: formData.idNumber || (isMzansiFlow ? 'N/A' : ''),
+        birthday: formData.birthday || (isMzansiFlow ? '2000-01-01' : ''),
+        gender: formData.gender || (isMzansiFlow ? 'Other' : ''),
+        cellPhone: formData.cellPhone || (isMzansiFlow ? 'N/A' : ''),
+        residentialAddress: formData.residentialAddress || (isMzansiFlow ? 'MzansiFlow HQ' : ''),
+        level: formData.level || '0',
+        systemRole: isMzansiFlow ? (formData.systemRole === 'Standard User' ? 'Global Administrator' : formData.systemRole) : formData.systemRole,
+        selectedTenant: (isMzansiFlow || formData.systemRole === 'Global Administrator') 
+          ? 'global' 
+          : (currentUser.role === 'admin' ? formData.selectedTenant : activeTenantId)
+      };
+
+      const targetTenant = payload.selectedTenant;
+
       const res = await fetch(`/api/tenant/${targetTenant}/users`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(payload)
       });
       if (res.ok) {
         setActiveTab('list');
         fetchUsers();
-        setFormData({ ...formData, fullName: '', email: '', idNumber: '', birthday: '', cellPhone: '', residentialAddress: '', level: '1' });
+        setFormData({ ...formData, fullName: '', email: '', idNumber: '', birthday: '', cellPhone: '', residentialAddress: '', level: '1', directorate: '', department: '' });
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || 'Failed to register user profile.');
       }
     } catch (e) {
       console.error(e);
@@ -1158,225 +1179,261 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate }: U
         )}
 
         {/* Tab 2: Manual Entry */}
-        {activeTab === 'manual' && (
-          <form onSubmit={submitManualUser} className="max-w-4xl space-y-8">
-            <div>
-              <h2 className="text-xl font-bold text-gray-900 mb-1">Create Personnel Profile</h2>
-              <p className="text-sm text-gray-500">Manually issue a system seat for a new employee.</p>
-            </div>
+        {activeTab === 'manual' && (() => {
+          const isMzansiFlowUser = (formData.email || '').toLowerCase().trim().endsWith('@mzansiflow.co.za') || 
+                                   (formData.email || '').toLowerCase().trim().endsWith('@massivedynamixdistributors.com');
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Picture Upload Mock */}
-              <div className="md:col-span-2 flex items-center gap-6 p-6 border border-dashed border-gray-200 rounded-2xl bg-gray-50/50">
-                <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center shrink-0 border border-gray-300">
-                  <Upload className="w-6 h-6 text-gray-400" />
+          return (
+            <form onSubmit={submitManualUser} className="max-w-4xl space-y-8">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 mb-1">Create Personnel Profile</h2>
+                <p className="text-sm text-gray-500">Manually issue a system seat for a new employee.</p>
+              </div>
+
+              {isMzansiFlowUser && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center gap-3 text-emerald-800 text-xs font-medium animate-fadeIn">
+                  <Globe className="w-5 h-5 text-emerald-600 shrink-0" />
+                  <div>
+                    <strong className="font-bold uppercase tracking-wider block text-xs text-emerald-950 mb-0.5">
+                      MzansiFlow Corporate Personnel Detected
+                    </strong>
+                    <span>
+                      All <strong>@mzansiflow.co.za</strong> personnel work for MzansiFlow directly. Municipal assignment, Directorate, Department, RSA ID, and Directory Level requirements are automatically bypassed.
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Picture Upload Mock */}
+                <div className="md:col-span-2 flex items-center gap-6 p-6 border border-dashed border-gray-200 rounded-2xl bg-gray-50/50">
+                  <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center shrink-0 border border-gray-300">
+                    <Upload className="w-6 h-6 text-gray-400" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-sm text-gray-900">Profile Picture</h4>
+                    <p className="text-xs text-gray-500 mt-1 mb-3">Upload a clean, professional headshot.</p>
+                    <label className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-xs font-bold shadow-sm cursor-pointer hover:bg-gray-50">
+                      Choose File
+                      <input type="file" className="hidden" />
+                    </label>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">Full Name</label>
+                  <input required type="text" value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 focus:bg-white outline-none transition-colors" placeholder="e.g. Sipho Ndlovu" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-sm text-gray-900">Profile Picture</h4>
-                  <p className="text-xs text-gray-500 mt-1 mb-3">Upload a clean, professional headshot.</p>
-                  <label className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-xs font-bold shadow-sm cursor-pointer hover:bg-gray-50">
-                    Choose File
-                    <input type="file" className="hidden" />
-                  </label>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">Email Address</label>
+                  <input required type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 focus:bg-white outline-none transition-colors" placeholder="ruannars@mzansiflow.co.za" />
                 </div>
-              </div>
+                
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                    RSA ID Number {isMzansiFlowUser && <span className="text-emerald-600 font-normal lowercase ml-1">(Optional)</span>}
+                  </label>
+                  <input required={!isMzansiFlowUser} type="text" value={formData.idNumber} onChange={handleIdChange} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 focus:bg-white outline-none transition-colors" placeholder={isMzansiFlowUser ? 'N/A (Corporate User)' : 'X X X X X X X X X X X X X'} maxLength={13} />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                    Birthday {isMzansiFlowUser && <span className="text-emerald-600 font-normal lowercase ml-1">(Optional)</span>}
+                  </label>
+                  <input required={!isMzansiFlowUser} type="date" value={formData.birthday} onChange={e => setFormData({...formData, birthday: e.target.value})} readOnly={!isMzansiFlowUser && !!formData.idNumber} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none text-gray-700" />
+                </div>
 
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">Full Name</label>
-                <input required type="text" value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 focus:bg-white outline-none transition-colors" placeholder="e.g. Sipho Ndlovu" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">Email Address</label>
-                <input required type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 focus:bg-white outline-none transition-colors" placeholder="sipho@municipality.gov.za" />
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                    Gender {isMzansiFlowUser && <span className="text-emerald-600 font-normal lowercase ml-1">(Optional)</span>}
+                  </label>
+                  <select required={!isMzansiFlowUser} value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 outline-none">
+                    <option value="">{isMzansiFlowUser ? 'Not Specified' : 'Select...'}</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                    Cell Phone Number {isMzansiFlowUser && <span className="text-emerald-600 font-normal lowercase ml-1">(Optional)</span>}
+                  </label>
+                  <input required={!isMzansiFlowUser} type="tel" value={formData.cellPhone} onChange={e => setFormData({...formData, cellPhone: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 focus:bg-white outline-none transition-colors" placeholder={isMzansiFlowUser ? 'Optional' : '+27...'} />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                    Residential Address {isMzansiFlowUser && <span className="text-emerald-600 font-normal lowercase ml-1">(Optional)</span>}
+                  </label>
+                  <textarea required={!isMzansiFlowUser} value={formData.residentialAddress} onChange={e => setFormData({...formData, residentialAddress: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 focus:bg-white outline-none transition-colors" rows={3} placeholder={isMzansiFlowUser ? 'Optional for MzansiFlow accounts' : ''}></textarea>
+                </div>
+
+                <div className="md:col-span-2 border-t border-gray-100 my-2 pt-6"><h3 className="font-bold text-gray-900">Organizational Assignment</h3></div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                    Job Function {isMzansiFlowUser && <span className="text-emerald-600 font-normal lowercase ml-1">(Optional)</span>}
+                  </label>
+                  <input required={!isMzansiFlowUser} type="text" value={formData.jobFunction} onChange={e => setFormData({...formData, jobFunction: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 focus:bg-white outline-none transition-colors" placeholder={isMzansiFlowUser ? 'e.g. Technical Specialist' : 'e.g. PMU Manager'} />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">Report To</label>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2 bg-gray-50 px-4 py-3 rounded-xl border border-gray-200 focus-within:border-green-600 focus-within:bg-white">
+                      <Search className="w-3.5 h-3.5 text-gray-400" />
+                      <input 
+                        type="text" 
+                        placeholder="Search Azure AD for report to..." 
+                        value={formData.reportTo}
+                        onChange={e => {
+                          setReportToSearchQuery(e.target.value);
+                          setFormData({...formData, reportTo: e.target.value});
+                        }}
+                        className="flex-1 bg-transparent border-none outline-none text-sm text-gray-800"
+                      />
+                    </div>
+                    {reportToSearchQuery && reportToSearchResults.length > 0 && (
+                      <div className="bg-white p-3 rounded-2xl border border-gray-100 shadow-xl space-y-1 z-10">
+                        <div className="max-h-28 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+                          {reportToSearchResults.map(aUser => (
+                            <button
+                              key={aUser.id}
+                              type="button"
+                              onClick={() => {
+                                setFormData({...formData, reportTo: aUser.fullName});
+                                setReportToSearchQuery('');
+                                setReportToSearchResults([]);
+                              }}
+                              className="w-full text-left px-3 py-2 bg-white hover:bg-green-50 hover:text-green-700 rounded-xl border border-gray-100 transition-colors text-xs font-medium"
+                            >
+                              {aUser.fullName} ({aUser.email})
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                    Directorate {isMzansiFlowUser && <span className="text-emerald-600 font-normal lowercase ml-1">(Bypassed for MzansiFlow)</span>}
+                  </label>
+                  <select 
+                    required={!isMzansiFlowUser} 
+                    value={formData.directorate} 
+                    onChange={e => setFormData({...formData, directorate: e.target.value})} 
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 outline-none"
+                  >
+                    <option value="">{isMzansiFlowUser ? 'None (MzansiFlow Corporate)' : 'Select Directorate...'}</option>
+                    {DIRECTORATES.map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                    Department {isMzansiFlowUser && <span className="text-emerald-600 font-normal lowercase ml-1">(Bypassed for MzansiFlow)</span>}
+                  </label>
+                  <input required={!isMzansiFlowUser} type="text" value={formData.department} onChange={e => setFormData({...formData, department: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 focus:bg-white outline-none transition-colors" placeholder={isMzansiFlowUser ? 'MzansiFlow Workspace' : 'Department name'} />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">Direct Manager</label>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2 bg-gray-50 px-4 py-3 rounded-xl border border-gray-200 focus-within:border-green-600 focus-within:bg-white">
+                      <Search className="w-3.5 h-3.5 text-gray-400" />
+                      <input 
+                        type="text" 
+                        placeholder="Search Azure AD for manager..." 
+                        value={formData.manager}
+                        onChange={e => {
+                          setManagerSearchQuery(e.target.value);
+                          setFormData({...formData, manager: e.target.value});
+                        }}
+                        className="flex-1 bg-transparent border-none outline-none text-sm text-gray-800"
+                      />
+                    </div>
+                    {managerSearchQuery && managerSearchResults.length > 0 && (
+                      <div className="bg-white p-3 rounded-2xl border border-gray-100 shadow-xl space-y-1 z-10">
+                        <div className="max-h-28 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+                          {managerSearchResults.map(aUser => (
+                            <button
+                              key={aUser.id}
+                              type="button"
+                              onClick={() => {
+                                setFormData({...formData, manager: aUser.fullName});
+                                setManagerSearchQuery('');
+                                setManagerSearchResults([]);
+                              }}
+                              className="w-full text-left px-3 py-2 bg-white hover:bg-green-50 hover:text-green-700 rounded-xl border border-gray-100 transition-colors text-xs font-medium"
+                            >
+                              {aUser.fullName} ({aUser.email})
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">Directory Level</label>
+                  <select 
+                    value={formData.level || '0'} 
+                    onChange={e => setFormData({...formData, level: e.target.value})} 
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 outline-none"
+                  >
+                    <option value="0">0 (Corporate / HQ)</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                    <option value="7">7</option>
+                    <option value="8">8</option>
+                    <option value="9">9</option>
+                    <option value="10">10</option>
+                    <option value="11">11</option>
+                  </select>
+                </div>
+
+                <div className="md:col-span-2 border-t border-gray-100 my-2 pt-6"><h3 className="font-bold text-gray-900">System Security</h3></div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">System Role</label>
+                  <select value={formData.systemRole} onChange={e => setFormData({...formData, systemRole: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 outline-none">
+                    <option>Standard User</option>
+                    <option>Auditor</option>
+                    <option>Systems Administrator</option>
+                    {(currentUser.role === 'admin' || isMzansiFlowUser) && <option>Global Administrator</option>}
+                  </select>
+                </div>
+
+                <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">Assigned Municipality</label>
+                    <select 
+                      value={isMzansiFlowUser ? 'global' : formData.selectedTenant} 
+                      onChange={e => setFormData({...formData, selectedTenant: e.target.value})}
+                      disabled={isMzansiFlowUser || currentUser.role !== 'admin' || formData.systemRole === 'Global Administrator'} 
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 outline-none disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                    >
+                      {isMzansiFlowUser || formData.systemRole === 'Global Administrator' ? (
+                        <option value="global">System-Wide Access (MzansiFlow Global Workspace)</option>
+                      ) : (
+                        municipalities.map(t => <option key={t.id} value={t.id}>{t.name}</option>)
+                      )}
+                    </select>
+                    {isMzansiFlowUser && <p className="text-[10px] text-emerald-600 mt-1 uppercase font-bold">MzansiFlow corporate users do not belong to a specific municipality.</p>}
+                    {!isMzansiFlowUser && currentUser.role !== 'admin' && <p className="text-[10px] text-gray-400 mt-1 uppercase font-bold">Locked to your designated tenant.</p>}
+                    {!isMzansiFlowUser && formData.systemRole === 'Global Administrator' && <p className="text-[10px] text-green-600 mt-1 uppercase font-bold">Global Administrators bypass municipal assignment.</p>}
+                </div>
+
               </div>
               
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">RSA ID Number</label>
-                <input required type="text" value={formData.idNumber} onChange={handleIdChange} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 focus:bg-white outline-none transition-colors" placeholder="X X X X X X X X X X X X X" maxLength={13} />
+              <div className="pt-4 flex justify-end">
+                <button disabled={isLoading} className="px-8 py-3.5 bg-green-600 text-white font-bold rounded-xl hover:bg-green-500 transition-colors uppercase tracking-widest text-xs disabled:opacity-50">
+                  {isLoading ? 'Processing...' : 'Register Profile'}
+                </button>
               </div>
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">Birthday (Auto-Extracted)</label>
-                <input required type="date" value={formData.birthday} readOnly className="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-xl outline-none text-gray-500 cursor-not-allowed" />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">Gender</label>
-                <select required value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 outline-none">
-                  <option value="">Select...</option>
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">Cell Phone Number</label>
-                <input required type="tel" value={formData.cellPhone} onChange={e => setFormData({...formData, cellPhone: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 focus:bg-white outline-none transition-colors" placeholder="+27..." />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">Residential Address</label>
-                <textarea required value={formData.residentialAddress} onChange={e => setFormData({...formData, residentialAddress: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 focus:bg-white outline-none transition-colors" rows={3}></textarea>
-              </div>
-
-              <div className="md:col-span-2 border-t border-gray-100 my-2 pt-6"><h3 className="font-bold text-gray-900">Organizational Assignment</h3></div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">Job Function</label>
-                <input required type="text" value={formData.jobFunction} onChange={e => setFormData({...formData, jobFunction: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 focus:bg-white outline-none transition-colors" />
-              </div>
-              <div className="space-y-2">
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">Report To</label>
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2 bg-gray-50 px-4 py-3 rounded-xl border border-gray-200 focus-within:border-green-600 focus-within:bg-white">
-                    <Search className="w-3.5 h-3.5 text-gray-400" />
-                    <input 
-                      type="text" 
-                      placeholder="Search Azure AD for report to..." 
-                      value={formData.reportTo}
-                      onChange={e => {
-                        setReportToSearchQuery(e.target.value);
-                        setFormData({...formData, reportTo: e.target.value});
-                      }}
-                      className="flex-1 bg-transparent border-none outline-none text-sm text-gray-800"
-                    />
-                  </div>
-                  {reportToSearchQuery && reportToSearchResults.length > 0 && (
-                    <div className="bg-white p-3 rounded-2xl border border-gray-100 shadow-xl space-y-1 z-10">
-                      <div className="max-h-28 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
-                        {reportToSearchResults.map(aUser => (
-                          <button
-                            key={aUser.id}
-                            type="button"
-                            onClick={() => {
-                              setFormData({...formData, reportTo: aUser.fullName});
-                              setReportToSearchQuery('');
-                              setReportToSearchResults([]);
-                            }}
-                            className="w-full text-left px-3 py-2 bg-white hover:bg-green-50 hover:text-green-700 rounded-xl border border-gray-100 transition-colors text-xs font-medium"
-                          >
-                            {aUser.fullName} ({aUser.email})
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">Directorate</label>
-                <select 
-                  required 
-                  value={formData.directorate} 
-                  onChange={e => setFormData({...formData, directorate: e.target.value})} 
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 outline-none"
-                >
-                  <option value="">Select Directorate...</option>
-                  {DIRECTORATES.map(d => <option key={d} value={d}>{d}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">Department</label>
-                <input required type="text" value={formData.department} onChange={e => setFormData({...formData, department: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 focus:bg-white outline-none transition-colors" />
-              </div>
-              <div className="space-y-2">
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">Direct Manager</label>
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2 bg-gray-50 px-4 py-3 rounded-xl border border-gray-200 focus-within:border-green-600 focus-within:bg-white">
-                    <Search className="w-3.5 h-3.5 text-gray-400" />
-                    <input 
-                      type="text" 
-                      placeholder="Search Azure AD for manager..." 
-                      value={formData.manager}
-                      onChange={e => {
-                        setManagerSearchQuery(e.target.value);
-                        setFormData({...formData, manager: e.target.value});
-                      }}
-                      className="flex-1 bg-transparent border-none outline-none text-sm text-gray-800"
-                    />
-                  </div>
-                  {managerSearchQuery && managerSearchResults.length > 0 && (
-                    <div className="bg-white p-3 rounded-2xl border border-gray-100 shadow-xl space-y-1 z-10">
-                      <div className="max-h-28 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
-                        {managerSearchResults.map(aUser => (
-                          <button
-                            key={aUser.id}
-                            type="button"
-                            onClick={() => {
-                              setFormData({...formData, manager: aUser.fullName});
-                              setManagerSearchQuery('');
-                              setManagerSearchResults([]);
-                            }}
-                            className="w-full text-left px-3 py-2 bg-white hover:bg-green-50 hover:text-green-700 rounded-xl border border-gray-100 transition-colors text-xs font-medium"
-                          >
-                            {aUser.fullName} ({aUser.email})
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">Directory Level</label>
-                <select 
-                  value={formData.level || '1'} 
-                  onChange={e => setFormData({...formData, level: e.target.value})} 
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 outline-none"
-                >
-                  <option value="0">0</option>
-                  <option value="1">1</option>
-                  <option value="2">2</option>
-                  <option value="3">3</option>
-                  <option value="4">4</option>
-                  <option value="5">5</option>
-                  <option value="6">6</option>
-                  <option value="7">7</option>
-                  <option value="8">8</option>
-                  <option value="9">9</option>
-                  <option value="10">10</option>
-                  <option value="11">11</option>
-                </select>
-              </div>
-
-              <div className="md:col-span-2 border-t border-gray-100 my-2 pt-6"><h3 className="font-bold text-gray-900">System Security</h3></div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">System Role</label>
-                <select value={formData.systemRole} onChange={e => setFormData({...formData, systemRole: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 outline-none">
-                  <option>Standard User</option>
-                  <option>Auditor</option>
-                  <option>Systems Administrator</option>
-                  {currentUser.role === 'admin' && <option>Global Administrator</option>}
-                </select>
-              </div>
-
-              <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">Assigned Municipality</label>
-                  <select 
-                    value={formData.selectedTenant} 
-                    onChange={e => setFormData({...formData, selectedTenant: e.target.value})}
-                    disabled={currentUser.role !== 'admin' || formData.systemRole === 'Global Administrator'} 
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 outline-none disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
-                  >
-                    {formData.systemRole === 'Global Administrator' ? (
-                      <option value="global">System-Wide Access (Global)</option>
-                    ) : (
-                      municipalities.map(t => <option key={t.id} value={t.id}>{t.name}</option>)
-                    )}
-                  </select>
-                  {currentUser.role !== 'admin' && <p className="text-[10px] text-gray-400 mt-1 uppercase font-bold">Locked to your designated tenant.</p>}
-                  {formData.systemRole === 'Global Administrator' && <p className="text-[10px] text-green-600 mt-1 uppercase font-bold">Global Administrators bypass municipal assignment.</p>}
-              </div>
-
-            </div>
-            
-            <div className="pt-4 flex justify-end">
-              <button disabled={isLoading} className="px-8 py-3.5 bg-green-600 text-white font-bold rounded-xl hover:bg-green-500 transition-colors uppercase tracking-widest text-xs disabled:opacity-50">
-                {isLoading ? 'Processing...' : 'Register Profile'}
-              </button>
-            </div>
-          </form>
-        )}
+            </form>
+          );
+        })()}
 
         {/* Tab 3: Azure AD Integration */}
         {activeTab === 'azure' && (

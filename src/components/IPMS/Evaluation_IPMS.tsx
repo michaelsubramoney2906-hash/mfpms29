@@ -1459,6 +1459,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                       { id: 'midtermjs', label: 'Midterm' },
                       { id: 'q3', label: 'Q3' },
                       { id: 'q4', label: 'Q4' },
+                      { id: 'annual', label: 'Annual Totals' },
                       { id: 'overall', label: 'Self Evaluation Assessment & Scores' },
                     ].map(t => (
                       <button
@@ -1989,6 +1990,67 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                           </div>
                         </div>
 
+                        {/* Annual Summary Metrics inside Q4 View */}
+                        <div className="bg-sky-50/60 p-3.5 rounded-xl border border-sky-200/80 space-y-3">
+                          <span className="text-[10px] font-black uppercase text-sky-900 tracking-wider block border-b border-sky-200 pb-1">
+                            Annual Cumulative Performance Metrics
+                          </span>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-black text-sky-900 uppercase tracking-wider">Annual Actual Reached</label>
+                              <input
+                                type="text"
+                                value={kpi.annualActual || ''}
+                                onChange={(e) => updateItem(kpi.id, 'annualActual', e.target.value)}
+                                disabled={kpiIsReadOnly}
+                                placeholder="Describe total annual actual results achieved..."
+                                className="w-full px-2.5 py-1.5 bg-white border border-sky-200 focus:border-sky-600 rounded-lg text-xs font-bold text-sky-950 shadow-xs outline-none"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-black text-emerald-800 uppercase tracking-wider">Annual Actual Expense</label>
+                              <input
+                                type="text"
+                                value={kpi.annualActualExpense || kpi.annualActualExp || ''}
+                                onChange={(e) => {
+                                  updateItem(kpi.id, 'annualActualExpense', e.target.value);
+                                  updateItem(kpi.id, 'annualActualExp', e.target.value);
+                                }}
+                                disabled={kpiIsReadOnly}
+                                placeholder="e.g. R 180,000"
+                                className="w-full px-2.5 py-1.5 bg-white border border-emerald-200 focus:border-emerald-600 rounded-lg text-xs font-bold text-emerald-950 shadow-xs outline-none"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between">
+                                <label className="text-[9px] font-black text-amber-800 uppercase tracking-wider">Annual Variance</label>
+                                <span className="text-[9px] font-black text-rose-700 bg-rose-50 px-1 rounded">
+                                  {calculateVariance(kpi.annualTarget, kpi.annualActual || kpi.q4Actual)}
+                                </span>
+                              </div>
+                              <textarea
+                                rows={1}
+                                value={kpi.annualVariance || ''}
+                                onChange={(e) => updateItem(kpi.id, 'annualVariance', e.target.value)}
+                                disabled={kpiIsReadOnly}
+                                placeholder="Annual variance explanation..."
+                                className="w-full px-2.5 py-1 bg-white border border-sky-200 rounded-lg text-xs font-medium text-slate-800 outline-none"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-black text-amber-800 uppercase tracking-wider">Annual Corrective Action</label>
+                              <textarea
+                                rows={1}
+                                value={kpi.annualCorrective || ''}
+                                onChange={(e) => updateItem(kpi.id, 'annualCorrective', e.target.value)}
+                                disabled={kpiIsReadOnly}
+                                placeholder="Annual corrective measure..."
+                                className="w-full px-2.5 py-1 bg-white border border-sky-200 rounded-lg text-xs font-medium text-slate-800 outline-none"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
                         <div className="pt-2 border-t border-slate-200">
                           <QuarterPoeSelector
                             label="4th Qtr Portfolio of Evidence"
@@ -2004,6 +2066,83 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                             poeStatus={kpi.q4PoeStatus}
                             poeFeedback={kpi.q4PoeFeedback}
                           />
+                        </div>
+                      </div>
+                    )}
+
+                    {currentTab === 'annual' && (
+                      <div className="space-y-4">
+                        <div className="bg-sky-50 border border-sky-200 text-sky-900 rounded-xl p-3 text-xs flex items-center justify-between font-bold">
+                          <div className="flex items-center gap-2">
+                            <span className="text-base">📅</span>
+                            <span>Annual Cumulative Performance & Execution Totals</span>
+                          </div>
+                          <span className="text-[10px] text-sky-800 font-black uppercase bg-white px-2.5 py-1 rounded-lg border border-sky-200 shadow-xs">
+                            Annual Target: {kpi.annualTarget || 'Not Specified'}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-1.5">
+                            <label className="text-[9px] font-black text-sky-900 uppercase tracking-wider">Annual Actual Reached</label>
+                            <input
+                              type="text"
+                              value={kpi.annualActual || ''}
+                              onChange={(e) => updateItem(kpi.id, 'annualActual', e.target.value)}
+                              disabled={kpiIsReadOnly}
+                              placeholder="Describe total annual actual results achieved..."
+                              className="w-full px-3 py-2 bg-white border border-slate-250 focus:border-sky-600 rounded-lg text-xs font-semibold text-stone-900 shadow-xs outline-none"
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="text-[9px] font-black text-emerald-800 uppercase tracking-wider">Annual Actual Expense</label>
+                            <input
+                              type="text"
+                              value={kpi.annualActualExpense || kpi.annualActualExp || ''}
+                              onChange={(e) => {
+                                updateItem(kpi.id, 'annualActualExpense', e.target.value);
+                                updateItem(kpi.id, 'annualActualExp', e.target.value);
+                              }}
+                              disabled={kpiIsReadOnly}
+                              placeholder="e.g. R 180,000"
+                              className="w-full px-3 py-2 bg-emerald-50/30 border border-emerald-200 focus:border-emerald-600 rounded-lg text-xs font-bold text-emerald-900 shadow-xs outline-none"
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <label className="text-[9px] font-black text-amber-800 uppercase tracking-wider">Annual Variance (Auto: Annual Target - Annual Actual)</label>
+                              {(() => {
+                                const varVal = calculateVariance(kpi.annualTarget, kpi.annualActual || kpi.q4Actual);
+                                return (
+                                  <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${varVal !== '0' ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'}`}>
+                                    {varVal}
+                                  </span>
+                                );
+                              })()}
+                            </div>
+                            <textarea
+                              rows={2}
+                              value={kpi.annualVariance || ''}
+                              onChange={(e) => updateItem(kpi.id, 'annualVariance', e.target.value)}
+                              disabled={kpiIsReadOnly}
+                              placeholder="Provide annual variance explanation commentary..."
+                              className="w-full px-3 py-1.5 bg-white border border-slate-250 focus:border-sky-600 rounded-lg text-xs font-medium text-stone-900 outline-none"
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="text-[9px] font-black text-amber-800 uppercase tracking-wider">Annual Corrective Action / Measure</label>
+                            <textarea
+                              rows={2}
+                              value={kpi.annualCorrective || ''}
+                              onChange={(e) => updateItem(kpi.id, 'annualCorrective', e.target.value)}
+                              disabled={kpiIsReadOnly}
+                              placeholder="Provide annual corrective action details..."
+                              className="w-full px-3 py-1.5 bg-white border border-slate-250 focus:border-sky-600 rounded-lg text-xs font-medium text-stone-900 outline-none"
+                            />
+                          </div>
                         </div>
                       </div>
                     )}
