@@ -23,16 +23,20 @@ export default function App() {
 
 
   const handleSetUser = (u: User | null) => {
-    if (u && !u.loginTime) {
-      u.loginTime = new Date().toISOString();
+    if (u) {
+      if (!u.loginTime) {
+        u.loginTime = new Date().toISOString();
+      }
+      localStorage.setItem('currentUser', JSON.stringify(u));
+    } else {
+      localStorage.removeItem('currentUser');
+      sessionStorage.removeItem('originalAdminUser');
     }
     setUser(u);
   };
 
   useEffect(() => {
     if (!user) return;
-
-    let currentRef = user.loginKickoffRef;
 
     const checkKickoff = async () => {
       try {
@@ -42,14 +46,15 @@ export default function App() {
           if (contentType && contentType.toLowerCase().includes("application/json")) {
             try {
               const data = await res.json();
-              if (data && data.kickoffTime) {
-                if (!currentRef) {
-                  // Initialize the reference kickoff time with the active kickoff value at login time
-                  currentRef = data.kickoffTime;
-                  setUser(prev => prev ? { ...prev, loginKickoffRef: data.kickoffTime } : null);
-                } else if (data.kickoffTime !== currentRef) {
-                  console.log("Automatically kicking off user session - new server kickoff event detected.");
-                  setUser(null);
+              // Only kick off if there is an explicit admin kickoff timestamp that occurred strictly AFTER the user's loginTime
+              if (data && data.kickoffTime && user.loginTime) {
+                const kickoffTs = new Date(data.kickoffTime).getTime();
+                const userLoginTs = new Date(user.loginTime).getTime();
+                
+                // Allow a 10-second buffer to prevent race conditions during initial login
+                if (!isNaN(kickoffTs) && !isNaN(userLoginTs) && kickoffTs > (userLoginTs + 10000)) {
+                  console.log("Automatically kicking off user session - admin kickoff event detected post-login.");
+                  handleSetUser(null);
                 }
               }
             } catch (jsonErr) {

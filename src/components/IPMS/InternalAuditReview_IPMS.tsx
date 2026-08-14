@@ -27,6 +27,7 @@ import {
 import { IPMSWorkflowInbox } from './IPMSWorkflowInbox';
 import { OfficeDocumentViewer } from './OfficeDocumentViewer';
 import { JSCInternalAuditorReviewSection } from './JSCModules';
+import { calculateVariance } from './Evaluation_IPMS';
 
 interface Props {
   currentUser: any;

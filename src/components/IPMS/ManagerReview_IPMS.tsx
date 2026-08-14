@@ -9,6 +9,7 @@ import {
 import { IPMSWorkflowInbox } from './IPMSWorkflowInbox';
 import { OfficeDocumentViewer } from './OfficeDocumentViewer';
 import { JSCManagerApprovalSection } from './JSCModules';
+import { calculateVariance } from './Evaluation_IPMS';
 
 interface Props {
   currentUser: any;
