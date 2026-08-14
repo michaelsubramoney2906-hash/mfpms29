@@ -1,21 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Layers, Search, Plus, Trash2, Download, Save, RefreshCw, AlertTriangle, 
-  CheckCircle, FileText, Info, Upload, Check, Cloud, Star, MapPin, Building, X, Eye, AlertCircle
+  CheckCircle, FileText, Info, Upload, Check, Cloud, Star, MapPin, Building, X, Eye, 
+  AlertCircle, CheckCircle2, ShieldCheck, Maximize2, Minimize2, Paperclip, Filter, User as UserIcon
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { cn } from '../Branding';
 import { OfficeDocumentViewer } from '../IPMS/OfficeDocumentViewer';
 
-interface PoeDocument {
+export interface PoeDocument {
   id: string;
   name: string;
   mimeType: string;
+  size?: number;
   dataUrl?: string;
   uploadedAt: string;
   uploadedBy: string;
 }
 
-interface SDBIP23Row {
+export interface SDBIP23Row {
   id: string;
   refNum: string;
   strategicObj: string;
@@ -25,117 +28,359 @@ interface SDBIP23Row {
   ggpp: string;
   midt: string;
   sr: string;
-  kpas: string;
-  operationalActivity: string;
-  kpi: string;
-  compliance: string; // 'compliant' | 'non-compliant'
-  uom: string; // Unit of Measure
-  mscoaTracking: string;
+  kpa: string;
+  kpas?: string; // Compatibility alias
+  mscoaCode?: string;
+  mscoaTracking?: string;
   baseline: string;
-  annualTarget: string;
   budgetAllocation: string;
-  q1: string;
-  q2: string;
-  q3: string;
-  q4: string;
-  weight?: string;
-  poe?: string;
-  responsibleUnit: string;
-  evaluationUser: string; // Evaluation is always the user
-  reviewManager: string;  // Review is always the user's line manager
-  poeStatus: 'Not Uploaded' | 'In Cloud (Profile Backup / POE / PA KPI\'s & KPA\'s)';
-  poeDocName?: string;
+  budget?: string;
+  
+  // Performance Plan Columns
+  kpi: string;
+  operationalActivity?: string;
+  compliance?: string;
+  uom?: string;
+  
+  // Municipal Financial Year (1 July - 30 June)
+  annualTarget: string;
+  q1Target: string;
+  q1Actual?: string;
+  q1ActualExpense?: string;
+  q1Score?: string;
+  q1Comment?: string;
+  q1Corrective?: string;
+  q1?: string; // Compatibility alias
+  
+  q2Target: string;
+  q2Actual?: string;
+  q2ActualExpense?: string;
+  q2Score?: string;
+  q2Comment?: string;
+  q2Corrective?: string;
+  q2?: string;
+  
+  midtermTarget?: string;
+  midtermActual?: string;
+  midtermActualExpense?: string;
+  midtermScore?: string;
+  midtermComment?: string;
+  midtermCorrective?: string;
+  
+  q3Target: string;
+  q3Actual?: string;
+  q3ActualExpense?: string;
+  q3Score?: string;
+  q3Comment?: string;
+  q3Corrective?: string;
+  q3?: string;
+  
+  q4Target: string;
+  q4Actual?: string;
+  q4ActualExpense?: string;
+  q4Score?: string;
+  q4Comment?: string;
+  q4Corrective?: string;
+  q4?: string;
+  
+  // Annual Summary Metrics
+  annualActual?: string;
+  annualActualExpense?: string;
+  annualActualExp?: string;
+  annualVariance?: string;
+  annualCorrective?: string;
+  
+  // POE
+  poe: string;
+  poeDocs?: PoeDocument[];
+  poeFileBase64?: string;
+  poeFileName?: string;
+  poeStatus?: string;
+  
   q1PoeDocs?: PoeDocument[];
   q2PoeDocs?: PoeDocument[];
+  midtermPoeDocs?: PoeDocument[];
   q3PoeDocs?: PoeDocument[];
   q4PoeDocs?: PoeDocument[];
+  
+  weight: string;
+  weighting?: string;
+  myScore?: string;
+  evaluation?: string;
+  review?: string;
+  
+  responsibleUnit: string;
+  evaluationUser: string;
+  reviewManager: string;
+  userName?: string;
 }
 
 interface SDBIP23Props {
   currentUser: {
     email: string;
-    role: string;
+    role?: string;
+    fullName?: string;
+    jobFunction?: string;
+    department?: string;
+    manager?: string;
   };
   activeTenantId: string;
   onClose?: () => void;
 }
 
-const DEFAULT_SDBIP23_ROWS: SDBIP23Row[] = [];
+export const calculateVariance = (target?: string, actual?: string): string => {
+  if (!target || !actual) return '0';
+  const cleanNum = (val: string) => {
+    const standardFormat = val.replace(/,/g, '').replace(/\s/g, '');
+    const match = standardFormat.match(/-?\d+(\.\d+)?/);
+    if (match) {
+      const parsed = parseFloat(match[0]);
+      return isNaN(parsed) ? null : parsed;
+    }
+    return null;
+  };
+  const tNum = cleanNum(target);
+  const aNum = cleanNum(actual);
+  if (tNum !== null && aNum !== null) {
+    const diff = tNum - aNum;
+    return Number(diff.toFixed(2)).toString();
+  }
+  return '0';
+};
+
+interface CompactPoeUploaderProps {
+  label: string;
+  files: PoeDocument[];
+  onUpload: (newDocs: PoeDocument[]) => void;
+  onRemove: (id: string) => void;
+  disabled?: boolean;
+}
+
+export function CompactPoeUploader({
+  label,
+  files,
+  onUpload,
+  onRemove,
+  disabled
+}: CompactPoeUploaderProps) {
+  const fileInputId = `compact_poe_${label.replace(/\s+/g, '_')}_${Math.random().toString(36).substr(2, 9)}`;
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const fileList = e.target.files;
+    const newDocs: PoeDocument[] = [];
+    for (let i = 0; i < fileList.length; i++) {
+      const file = fileList[i];
+      if (file.size > 200 * 1024 * 1024) {
+        alert(`File "${file.name}" exceeds 200MB limit.`);
+        continue;
+      }
+      try {
+        const doc = await new Promise<PoeDocument>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            resolve({
+              id: `poe_doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              name: file.name,
+              mimeType: file.type || 'application/octet-stream',
+              size: file.size,
+              dataUrl: reader.result as string,
+              uploadedAt: new Date().toISOString(),
+              uploadedBy: 'System'
+            });
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        newDocs.push(doc);
+      } catch (err) {
+        console.error("File reading failed:", err);
+      }
+    }
+    if (newDocs.length > 0) {
+      onUpload(newDocs);
+    }
+    e.target.value = '';
+  };
+
+  return (
+    <div className="mt-1.5 pt-1.5 border-t border-slate-200/60 w-full text-left">
+      <div className="flex items-center justify-between gap-1 mb-1">
+        <span className="text-[8px] font-extrabold text-slate-500 uppercase tracking-tight">{label}:</span>
+        {!disabled && (
+          <label htmlFor={fileInputId} className="flex items-center gap-0.5 text-[8px] font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer bg-indigo-50 hover:bg-indigo-100 px-1 py-0.5 rounded transition">
+            <Upload className="w-2 h-2" />
+            <span>Upload</span>
+            <input
+              id={fileInputId}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={handleFileChange}
+            />
+          </label>
+        )}
+      </div>
+      {files && files.length > 0 ? (
+        <div className="flex flex-col gap-1 max-h-[60px] overflow-y-auto">
+          {files.map((file) => (
+            <div key={file.id} className="flex items-center justify-between gap-1 bg-slate-50 border border-slate-200 rounded px-1 py-0.5 text-[8px]">
+              <a
+                href={file.dataUrl}
+                download={file.name}
+                className="font-medium text-blue-600 hover:underline truncate max-w-[90px] flex items-center gap-0.5"
+                title={file.name}
+              >
+                <Paperclip className="w-2 h-2 shrink-0 text-slate-400" />
+                <span className="truncate">{file.name}</span>
+              </a>
+              {!disabled && (
+                <button
+                  type="button"
+                  onClick={() => onRemove(file.id)}
+                  className="text-red-500 hover:text-red-700 font-bold shrink-0 cursor-pointer"
+                >
+                  <Trash2 className="w-2 h-2" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <span className="text-[8px] text-slate-400 italic">No POE files</span>
+      )}
+    </div>
+  );
+}
+
+const STRATEGIC_OBJECTIVES = [
+  "To ensure reliable bulk water and electricity infrastructure",
+  "To promote local agrarian, manufacturing, and tourism hospitality economy",
+  "To achieve unqualified AG audit with zero recurring findings",
+  "To enable deep responsive community consultation across all wards",
+  "To improve professional competency and human capital retention",
+  "To enforce optimal sustainable land use management aligned with SPLUMA",
+  "To implement standard mSCOA compliance and cash-backed budgeting"
+];
+
+const MSCOA_CODES = [
+  "Funding",
+  "Functions",
+  "Municipal Standard Classification/Responsibility",
+  "Project",
+  "Costing",
+  "Regional Indicator",
+  "Item"
+];
 
 export function SDBIP23({ currentUser, activeTenantId, onClose }: SDBIP23Props) {
-  const [isUnlocked, setIsUnlocked] = useState<boolean>(true);
-  const [passwordInput, setPasswordInput] = useState<string>('');
-  const [accessDenied, setAccessDenied] = useState<boolean>(false);
-  const [previewDoc, setPreviewDoc] = useState<PoeDocument | null>(null);
-  
   const [rows, setRows] = useState<SDBIP23Row[]>([]);
   const [userList, setUserList] = useState<any[]>([]);
+  const [availableKpas, setAvailableKpas] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [isExpanded, setIsExpanded] = useState<boolean>(false);
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const itemsPerPage = 50;
-  
-  const [overridePassword, setOverridePassword] = useState('8655M9sznnes01*');
+  const [selectedUserFilter, setSelectedUserFilter] = useState<string>('ALL');
+  const [selectedKpaFilter, setSelectedKpaFilter] = useState<string>('ALL');
+  const [selectedDeptFilter, setSelectedDeptFilter] = useState<string>('ALL');
+  const [showClearConfirm, setShowClearConfirm] = useState<boolean>(false);
+  const [previewDoc, setPreviewDoc] = useState<PoeDocument | null>(null);
 
-  useEffect(() => {
-    fetch('/api/config/manager-password')
-      .then(res => res.ok ? res.json() : ({} as any))
-      .then((data: any) => {
-        if (data && data.managerOverridePassword) {
-          setOverridePassword(data.managerOverridePassword);
+  // Dynamic Options lists for Strategic Objectives and mSCOA Codes
+  const uniqueStrategicObjectives = useMemo(() => Array.from(new Set([
+    ...STRATEGIC_OBJECTIVES,
+    ...availableKpas.map(k => k.parentObjective).filter(Boolean),
+    ...rows.map(r => r.strategicObj).filter(Boolean)
+  ])), [availableKpas, rows]);
+
+  const uniqueMscoaCodes = useMemo(() => Array.from(new Set([
+    ...MSCOA_CODES,
+    ...availableKpas.map(k => k.mscoaCode).filter(Boolean),
+    ...rows.map(r => r.mscoaCode).filter(Boolean)
+  ])), [availableKpas, rows]);
+
+  const uniqueFunctionalKpas = useMemo(() => {
+    const set = new Set<string>();
+    availableKpas.forEach(k => {
+      if (k.name) set.add(k.name);
+      if (k.kpaName) set.add(k.kpaName);
+    });
+    rows.forEach(r => {
+      if (r.kpa) set.add(r.kpa);
+      if (r.kpas) set.add(r.kpas);
+    });
+    return Array.from(set).filter(Boolean);
+  }, [availableKpas, rows]);
+
+  const uniqueDepartments = useMemo(() => {
+    const set = new Set<string>();
+    userList.forEach(u => {
+      if (u.department) set.add(u.department);
+    });
+    rows.forEach(r => {
+      if (r.responsibleUnit) set.add(r.responsibleUnit);
+    });
+    return Array.from(set).filter(Boolean);
+  }, [userList, rows]);
+
+  // Load available Functional Area KPAs for this tenant
+  const loadKpas = async () => {
+    try {
+      const res = await fetch(`/api/tenant/${activeTenantId}/kpas?t=${Date.now()}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.kpas)) {
+          setAvailableKpas(data.kpas);
         }
-      })
-      .catch(console.error);
-  }, []);
+      }
+    } catch (e) {
+      console.warn("Could not fetch tenant functional area KPAs:", e);
+    }
+  };
 
-  // Modal State for adding new SDBIP row
-  const [showAddModal, setShowAddModal] = useState<boolean>(false);
-  const [poeModal, setPoeModal] = useState<{
-    rowId: string;
-    quarter: 'q1' | 'q2' | 'q3' | 'q4';
-  } | null>(null);
-  const [newRowData, setNewRowData] = useState<Omit<SDBIP23Row, 'id' | 'evaluationUser' | 'reviewManager' | 'poeStatus'>>({
-    refNum: '',
-    strategicObj: '',
-    bsd: 'N',
-    led: 'N',
-    mfvm: 'N',
-    ggpp: 'N',
-    midt: 'N',
-    sr: 'N',
-    kpas: 'KPA 1: Basic Service Delivery and Infrastructure Development',
-    operationalActivity: '',
-    kpi: '',
-    compliance: 'compliant',
-    uom: '',
-    mscoaTracking: '',
-    baseline: '',
-    annualTarget: '',
-    budgetAllocation: '',
-    q1: '',
-    q2: '',
-    q3: '',
-    q4: '',
-    weight: '',
-    poe: '',
-    responsibleUnit: ''
-  });
+  // Helper to save rows directly to Supabase
+  const saveRowsToDatabase = async (nextList: SDBIP23Row[]) => {
+    try {
+      setIsSaving(true);
+      const res = await fetch(`/api/tenant/${activeTenantId}/sdbip23`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: nextList })
+      });
+      if (!res.ok) {
+        throw new Error(`Server responded with status: ${res.status}`);
+      }
+      setSuccessToast("SDBIP 2nd & 3rd layer registers saved to Supabase cloud storage!");
+      setTimeout(() => setSuccessToast(null), 3000);
+    } catch (err: any) {
+      console.error("Save SDBIP error:", err);
+      alert(`Error saving SDBIP table: ${err.message}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
+  // Comprehensive synchronization of everyone's KPIs & KPAs
   const syncEveryoneKpisAndKpas = async (silent: boolean = false, currentRows?: SDBIP23Row[]) => {
     try {
       if (!silent) setIsSyncing(true);
       
       // 1. Fetch all users in the tenant
-      const uRes = await fetch(`/api/tenant/${activeTenantId}/users`);
-      if (!uRes.ok) throw new Error("Failed to fetch tenant users list");
-      const usersData = await uRes.json();
-      setUserList(usersData);
+      const uRes = await fetch(`/api/tenant/${activeTenantId}/users?t=${Date.now()}`);
+      let usersData: any[] = [];
+      if (uRes.ok) {
+        usersData = await uRes.json();
+        setUserList(usersData);
+      }
 
-      // 2. Fetch all team performance plans
-      const pplansRes = await fetch(`/api/tenant/${activeTenantId}/team-pplans`);
+      // 2. Fetch all functional area KPAs
+      await loadKpas();
+
+      // 3. Fetch all team performance plans
+      const pplansRes = await fetch(`/api/tenant/${activeTenantId}/team-pplans?t=${Date.now()}`);
       let teamPlans: any[] = [];
       if (pplansRes.ok) {
         const teamPlansJson = await pplansRes.json();
@@ -144,10 +389,10 @@ export function SDBIP23({ currentUser, activeTenantId, onClose }: SDBIP23Props) 
         }
       }
 
-      // 3. Fetch each user's captured KPIs (individual profiles) in parallel
+      // 4. Fetch each user's captured KPIs (individual profiles) in parallel
       const kpisPromises = usersData.map(async (user: any) => {
         try {
-          const kRes = await fetch(`/api/tenant/${activeTenantId}/kpis?userId=${user.email}`);
+          const kRes = await fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(user.email)}&t=${Date.now()}`);
           if (kRes.ok) {
             const kJson = await kRes.json();
             return { email: user.email, kpis: Array.isArray(kJson.kpis) ? kJson.kpis : [] };
@@ -159,57 +404,119 @@ export function SDBIP23({ currentUser, activeTenantId, onClose }: SDBIP23Props) 
       });
       const allUserKpis = await Promise.all(kpisPromises);
 
-      // 4. Merge everything!
+      // 5. Merge everything!
       const targetBaseRows = currentRows || rows;
-      const mergedRows = [...targetBaseRows];
+      const mergedRows: SDBIP23Row[] = [...targetBaseRows];
 
       // Helper to add or update a row in mergedRows
       const upsertSdbipRow = (kpi: any, userEmail: string, source: string) => {
         const kNo = (kpi.kpiNo || kpi.refNum || kpi.id || '').trim();
         if (!kNo) return;
 
-        // Find match in current SDBIP rows (match on refNum)
+        // Match on refNum and evaluationUser to avoid accidental cross-user collision
         const matchIdx = mergedRows.findIndex(
-          r => r.refNum && r.refNum.toLowerCase().trim() === kNo.toLowerCase()
+          r => r.refNum && r.refNum.toLowerCase().trim() === kNo.toLowerCase().trim() &&
+               (r.evaluationUser.toLowerCase().trim() === userEmail.toLowerCase().trim() || !r.evaluationUser)
         );
 
-        const matchedProfile = usersData.find((u: any) => u.email.toLowerCase() === userEmail.toLowerCase());
-        const userDept = matchedProfile?.department || '';
+        const matchedProfile = usersData.find((u: any) => u.email?.toLowerCase() === userEmail?.toLowerCase());
+        const userDept = matchedProfile?.department || matchedProfile?.jobFunction || '';
         const userManager = matchedProfile?.manager || 'Line Manager';
+        const userFullName = matchedProfile?.fullName || userEmail;
+
+        const resolvedKpa = (kpi.kpa || kpi.kpas || (matchIdx >= 0 ? mergedRows[matchIdx].kpa : '') || 'General Functional Area KPA').trim();
 
         const newRow: SDBIP23Row = {
-          id: matchIdx >= 0 ? mergedRows[matchIdx].id : `sdbip23_${Date.now()}_sync_${Math.floor(Math.random() * 1000000)}`,
+          id: matchIdx >= 0 ? mergedRows[matchIdx].id : `sdbip23_${Date.now()}_${Math.floor(Math.random() * 1000000)}`,
           refNum: kNo,
           strategicObj: kpi.strategicGoal || kpi.strategicObj || (matchIdx >= 0 ? mergedRows[matchIdx].strategicObj : 'Strategic Core Priority'),
-          bsd: kpi.bsd ? 'Y' : 'N',
-          led: kpi.led ? 'Y' : 'N',
-          mfvm: kpi.mfvm ? 'Y' : 'N',
-          ggpp: kpi.ggpp ? 'Y' : 'N',
-          midt: kpi.midt ? 'Y' : 'N',
-          sr: kpi.sr ? 'Y' : 'N',
-          kpas: kpi.kpa || kpi.kpas || (matchIdx >= 0 ? mergedRows[matchIdx].kpas : 'KPA 1: Basic Service Delivery and Infrastructure Development'),
-          operationalActivity: kpi.operationalActivity || (matchIdx >= 0 ? mergedRows[matchIdx].operationalActivity : `Captured KPI from ${source}`),
-          kpi: kpi.kpi || (matchIdx >= 0 ? mergedRows[matchIdx].kpi : ''),
+          bsd: kpi.bsd === true || kpi.bsd === 'Y' ? 'Y' : 'N',
+          led: kpi.led === true || kpi.led === 'Y' ? 'Y' : 'N',
+          mfvm: kpi.mfvm === true || kpi.mfvm === 'Y' ? 'Y' : 'N',
+          ggpp: kpi.ggpp === true || kpi.ggpp === 'Y' ? 'Y' : 'N',
+          midt: kpi.midt === true || kpi.midt === 'Y' ? 'Y' : 'N',
+          sr: kpi.sr === true || kpi.sr === 'Y' ? 'Y' : 'N',
+          kpa: resolvedKpa,
+          kpas: resolvedKpa,
+          mscoaCode: kpi.mscoaCode || kpi.mscoaTracking || (matchIdx >= 0 ? mergedRows[matchIdx].mscoaCode : ''),
+          mscoaTracking: kpi.mscoaCode || kpi.mscoaTracking || (matchIdx >= 0 ? mergedRows[matchIdx].mscoaTracking : ''),
+          baseline: kpi.baseline || (matchIdx >= 0 ? mergedRows[matchIdx].baseline : ''),
+          budgetAllocation: kpi.budget || kpi.budgetAllocation || (matchIdx >= 0 ? mergedRows[matchIdx].budgetAllocation : ''),
+          budget: kpi.budget || kpi.budgetAllocation || (matchIdx >= 0 ? mergedRows[matchIdx].budget : ''),
+          
+          kpi: kpi.kpi || kpi.description || (matchIdx >= 0 ? mergedRows[matchIdx].kpi : ''),
+          operationalActivity: kpi.operationalActivity || (matchIdx >= 0 ? mergedRows[matchIdx].operationalActivity : `Aligned from ${source}`),
           compliance: kpi.compliance || 'compliant',
-          uom: kpi.uom || '',
-          mscoaTracking: kpi.mscoaTracking || kpi.mscoaCode || '',
-          baseline: kpi.baseline || '',
-          annualTarget: kpi.annualTarget || '',
-          budgetAllocation: kpi.budget || kpi.budgetAllocation || '',
-          q1: kpi.q1Target || kpi.q1 || '',
-          q2: kpi.q2Target || kpi.q2 || '',
-          q3: kpi.q3Target || kpi.q3 || '',
-          q4: kpi.q4Target || kpi.q4 || '',
-          weight: kpi.weighting || kpi.weight || '',
-          poe: kpi.poe || '',
-          responsibleUnit: userDept,
-          evaluationUser: userEmail,
-          reviewManager: userManager,
-          poeStatus: matchIdx >= 0 ? mergedRows[matchIdx].poeStatus : 'In Cloud (Profile Backup / POE / PA KPI\'s & KPA\'s)',
+          uom: kpi.uom || (matchIdx >= 0 ? mergedRows[matchIdx].uom : ''),
+          
+          annualTarget: kpi.annualTarget || (matchIdx >= 0 ? mergedRows[matchIdx].annualTarget : ''),
+          q1Target: kpi.q1Target || kpi.q1 || (matchIdx >= 0 ? mergedRows[matchIdx].q1Target : ''),
+          q1Actual: kpi.q1Actual || (matchIdx >= 0 ? mergedRows[matchIdx].q1Actual : ''),
+          q1ActualExpense: kpi.q1ActualExpense || (matchIdx >= 0 ? mergedRows[matchIdx].q1ActualExpense : ''),
+          q1Score: kpi.q1Score || (matchIdx >= 0 ? mergedRows[matchIdx].q1Score : ''),
+          q1Comment: kpi.q1Comment || (matchIdx >= 0 ? mergedRows[matchIdx].q1Comment : ''),
+          q1Corrective: kpi.q1Corrective || (matchIdx >= 0 ? mergedRows[matchIdx].q1Corrective : ''),
+          q1: kpi.q1Target || kpi.q1 || (matchIdx >= 0 ? mergedRows[matchIdx].q1 : ''),
+          
+          q2Target: kpi.q2Target || kpi.q2 || (matchIdx >= 0 ? mergedRows[matchIdx].q2Target : ''),
+          q2Actual: kpi.q2Actual || (matchIdx >= 0 ? mergedRows[matchIdx].q2Actual : ''),
+          q2ActualExpense: kpi.q2ActualExpense || (matchIdx >= 0 ? mergedRows[matchIdx].q2ActualExpense : ''),
+          q2Score: kpi.q2Score || (matchIdx >= 0 ? mergedRows[matchIdx].q2Score : ''),
+          q2Comment: kpi.q2Comment || (matchIdx >= 0 ? mergedRows[matchIdx].q2Comment : ''),
+          q2Corrective: kpi.q2Corrective || (matchIdx >= 0 ? mergedRows[matchIdx].q2Corrective : ''),
+          q2: kpi.q2Target || kpi.q2 || (matchIdx >= 0 ? mergedRows[matchIdx].q2 : ''),
+          
+          midtermTarget: kpi.midtermTarget || (matchIdx >= 0 ? mergedRows[matchIdx].midtermTarget : ''),
+          midtermActual: kpi.midtermActual || (matchIdx >= 0 ? mergedRows[matchIdx].midtermActual : ''),
+          midtermActualExpense: kpi.midtermActualExpense || (matchIdx >= 0 ? mergedRows[matchIdx].midtermActualExpense : ''),
+          midtermScore: kpi.midtermScore || (matchIdx >= 0 ? mergedRows[matchIdx].midtermScore : ''),
+          midtermComment: kpi.midtermComment || (matchIdx >= 0 ? mergedRows[matchIdx].midtermComment : ''),
+          midtermCorrective: kpi.midtermCorrective || (matchIdx >= 0 ? mergedRows[matchIdx].midtermCorrective : ''),
+          
+          q3Target: kpi.q3Target || kpi.q3 || (matchIdx >= 0 ? mergedRows[matchIdx].q3Target : ''),
+          q3Actual: kpi.q3Actual || (matchIdx >= 0 ? mergedRows[matchIdx].q3Actual : ''),
+          q3ActualExpense: kpi.q3ActualExpense || (matchIdx >= 0 ? mergedRows[matchIdx].q3ActualExpense : ''),
+          q3Score: kpi.q3Score || (matchIdx >= 0 ? mergedRows[matchIdx].q3Score : ''),
+          q3Comment: kpi.q3Comment || (matchIdx >= 0 ? mergedRows[matchIdx].q3Comment : ''),
+          q3Corrective: kpi.q3Corrective || (matchIdx >= 0 ? mergedRows[matchIdx].q3Corrective : ''),
+          q3: kpi.q3Target || kpi.q3 || (matchIdx >= 0 ? mergedRows[matchIdx].q3 : ''),
+          
+          q4Target: kpi.q4Target || kpi.q4 || (matchIdx >= 0 ? mergedRows[matchIdx].q4Target : ''),
+          q4Actual: kpi.q4Actual || (matchIdx >= 0 ? mergedRows[matchIdx].q4Actual : ''),
+          q4ActualExpense: kpi.q4ActualExpense || (matchIdx >= 0 ? mergedRows[matchIdx].q4ActualExpense : ''),
+          q4Score: kpi.q4Score || (matchIdx >= 0 ? mergedRows[matchIdx].q4Score : ''),
+          q4Comment: kpi.q4Comment || (matchIdx >= 0 ? mergedRows[matchIdx].q4Comment : ''),
+          q4Corrective: kpi.q4Corrective || (matchIdx >= 0 ? mergedRows[matchIdx].q4Corrective : ''),
+          q4: kpi.q4Target || kpi.q4 || (matchIdx >= 0 ? mergedRows[matchIdx].q4 : ''),
+          
+          annualActual: kpi.annualActual || (matchIdx >= 0 ? mergedRows[matchIdx].annualActual : ''),
+          annualActualExpense: kpi.annualActualExpense || kpi.annualActualExp || (matchIdx >= 0 ? mergedRows[matchIdx].annualActualExpense : ''),
+          annualActualExp: kpi.annualActualExpense || kpi.annualActualExp || (matchIdx >= 0 ? mergedRows[matchIdx].annualActualExp : ''),
+          annualVariance: kpi.annualVariance || (matchIdx >= 0 ? mergedRows[matchIdx].annualVariance : ''),
+          annualCorrective: kpi.annualCorrective || (matchIdx >= 0 ? mergedRows[matchIdx].annualCorrective : ''),
+          
+          poe: kpi.poe || kpi.annualRequiredPoe || (matchIdx >= 0 ? mergedRows[matchIdx].poe : ''),
+          poeDocs: kpi.poeDocs || (matchIdx >= 0 ? mergedRows[matchIdx].poeDocs : []),
+          poeFileBase64: kpi.poeFileBase64 || (matchIdx >= 0 ? mergedRows[matchIdx].poeFileBase64 : undefined),
+          poeFileName: kpi.poeFileName || (matchIdx >= 0 ? mergedRows[matchIdx].poeFileName : undefined),
+          poeStatus: 'In Cloud Storage',
+          
           q1PoeDocs: kpi.q1PoeDocs || (matchIdx >= 0 ? mergedRows[matchIdx].q1PoeDocs : []),
           q2PoeDocs: kpi.q2PoeDocs || (matchIdx >= 0 ? mergedRows[matchIdx].q2PoeDocs : []),
+          midtermPoeDocs: kpi.midtermPoeDocs || (matchIdx >= 0 ? mergedRows[matchIdx].midtermPoeDocs : []),
           q3PoeDocs: kpi.q3PoeDocs || (matchIdx >= 0 ? mergedRows[matchIdx].q3PoeDocs : []),
-          q4PoeDocs: kpi.q4PoeDocs || (matchIdx >= 0 ? mergedRows[matchIdx].q4PoeDocs : [])
+          q4PoeDocs: kpi.q4PoeDocs || (matchIdx >= 0 ? mergedRows[matchIdx].q4PoeDocs : []),
+          
+          weight: kpi.weighting || kpi.weight || (matchIdx >= 0 ? mergedRows[matchIdx].weight : '10'),
+          weighting: kpi.weighting || kpi.weight || (matchIdx >= 0 ? mergedRows[matchIdx].weighting : '10'),
+          myScore: kpi.myScore || (matchIdx >= 0 ? mergedRows[matchIdx].myScore : ''),
+          evaluation: kpi.evaluation || (matchIdx >= 0 ? mergedRows[matchIdx].evaluation : ''),
+          review: kpi.review || (matchIdx >= 0 ? mergedRows[matchIdx].review : ''),
+          
+          responsibleUnit: userDept || (matchIdx >= 0 ? mergedRows[matchIdx].responsibleUnit : ''),
+          evaluationUser: userEmail,
+          reviewManager: userManager,
+          userName: userFullName
         };
 
         if (matchIdx >= 0) {
@@ -241,7 +548,7 @@ export function SDBIP23({ currentUser, activeTenantId, onClose }: SDBIP23Props) 
       await saveRowsToDatabase(mergedRows);
       
       if (!silent) {
-        setSuccessToast("Successfully synchronized everyone's KPIs & KPAs from Profiles and Performance Plans!");
+        setSuccessToast("Successfully synchronized everyone's KPIs & Functional Area KPAs into SDBIP 2nd & 3rd layer table!");
         setTimeout(() => setSuccessToast(null), 4000);
       }
       return mergedRows;
@@ -256,1422 +563,1529 @@ export function SDBIP23({ currentUser, activeTenantId, onClose }: SDBIP23Props) 
     }
   };
 
-  // Load from server & fetch system users to determine manager
+  // Initial load
   useEffect(() => {
-    async function loadData() {
+    const initialize = async () => {
+      setIsLoading(true);
       try {
-        setIsLoading(true);
-        // Load users to capture manager from user management
-        const uRes = await fetch(`/api/tenant/${activeTenantId}/users`);
-        let usersData: any[] = [];
-        if (uRes.ok) {
-          usersData = await uRes.json();
-          setUserList(usersData);
-        }
-
-        const res = await fetch(`/api/tenant/${activeTenantId}/sdbip23`);
-        if (!res.ok) throw new Error("Could not load SDBIP 2nd & 3rd layer dataset");
-        const json = await res.json();
+        await loadKpas();
         
-        // Find current user's manager if exists in user management list
-        const matchedProfile = usersData.find(u => u.email === currentUser.email);
-        const autoManager = matchedProfile?.manager || 'Line Manager';
-
-        let dedupedItems: SDBIP23Row[] = [];
-        if (json && json.items && json.items.length > 0) {
-          const seenIds = new Set<string>();
-          let hasDuplicates = false;
-          
-          dedupedItems = json.items.map((item: any, idx: number) => {
-            let uniqueId = item.id;
-            if (!uniqueId || seenIds.has(uniqueId)) {
-              uniqueId = `sdbip23_${Date.now()}_healed_${idx}_${Math.floor(Math.random() * 1000000)}`;
-              hasDuplicates = true;
-            }
-            seenIds.add(uniqueId);
-            return {
-              ...item,
-              id: uniqueId
-            };
-          });
-
-          if (hasDuplicates) {
-            console.log("Detected duplicate SDBIP23 row IDs. Healing and persisting corrected records to database.");
-            await saveRowsToDatabase(dedupedItems);
+        // Fetch existing SDBIP rows
+        const res = await fetch(`/api/tenant/${activeTenantId}/sdbip23?t=${Date.now()}`);
+        let loadedItems: SDBIP23Row[] = [];
+        if (res.ok) {
+          const data = await res.json();
+          if (data && Array.isArray(data.items)) {
+            loadedItems = data.items;
           }
         }
 
-        let baseItems = dedupedItems.length > 0 ? dedupedItems : DEFAULT_SDBIP23_ROWS.map(r => ({
-          ...r,
-          evaluationUser: currentUser.email,
-          reviewManager: autoManager
-        }));
+        // Fetch users
+        const uRes = await fetch(`/api/tenant/${activeTenantId}/users?t=${Date.now()}`);
+        if (uRes.ok) {
+          const uData = await uRes.json();
+          setUserList(uData);
+        }
 
-        // AUTO SYNC ALL KPIS FROM GLOBAL `kpis` MESSAGES AND PPLANS IF AVAILABLE
-        await syncEveryoneKpisAndKpas(true, baseItems);
-
-      } catch (err) {
-        console.error("SDBIP23 initialization failed:", err);
-        setRows(DEFAULT_SDBIP23_ROWS);
+        if (loadedItems.length === 0) {
+          // If empty, auto-sync from everyone's performance plans and individual KPIs
+          await syncEveryoneKpisAndKpas(true, []);
+        } else {
+          setRows(loadedItems);
+        }
+      } catch (e) {
+        console.error("Failed to initialize SDBIP23:", e);
       } finally {
         setIsLoading(false);
       }
-    }
-    loadData();
-  }, [activeTenantId, currentUser.email]);
-
-  const saveRowsToDatabase = async (nextList: SDBIP23Row[]) => {
-    try {
-      setIsSaving(true);
-      const res = await fetch(`/api/tenant/${activeTenantId}/sdbip23`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ items: nextList })
-      });
-      if (!res.ok) throw new Error("Could not save to Supabase");
-      setSuccessToast("SDBIP 2nd & 3rd Layers saved successfully!");
-      setTimeout(() => setSuccessToast(null), 3500);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const deleteRowHandler = (id: string) => {
-    if (!confirm("Are you sure you want to delete this row from the 2nd & 3rd layers dataset?")) return;
-    const next = rows.filter(r => r.id !== id);
-    setRows(next);
-    saveRowsToDatabase(next);
-  };
-
-  // Upload placeholder to profile backup called POE sub folder PA KPI's
-  const handlePoeUpload = (id: string) => {
-    const docName = prompt("Select file name / POE reference document to upload:", `audit_proof_ref_${id.slice(-4)}.pdf`);
-    if (!docName) return;
-
-    const next = rows.map(r => {
-      if (r.id === id) {
-        return {
-          ...r,
-          poeStatus: 'In Cloud (Profile Backup / POE / PA KPI\'s & KPA\'s)' as const,
-          poeDocName: docName
-        };
-      }
-      return r;
-    });
-
-    setRows(next);
-    saveRowsToDatabase(next);
-    alert(`Document "${docName}" successfully attached. System backed up on Mzansi Flow Cloud node under user directory Profile/Backup/POE/PA_KPIs_KPAs/.`);
-  };
-
-  const [dragActive, setDragActive] = useState<boolean>(false);
-
-  const handlePoeFilesSelected = async (files: FileList) => {
-    if (!poeModal) return;
-    const selectedPoeRow = rows.find(r => r.id === poeModal.rowId);
-    const selectedQuarter = poeModal.quarter;
-    if (!selectedPoeRow || !selectedQuarter) return;
-
-    const newDocs: PoeDocument[] = [];
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const doc = await new Promise<PoeDocument>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          resolve({
-            id: `poe_doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            name: file.name,
-            mimeType: file.type || 'application/octet-stream',
-            dataUrl: reader.result as string,
-            uploadedAt: new Date().toISOString(),
-            uploadedBy: currentUser.email
-          });
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-      newDocs.push(doc);
-    }
-
-    const updatedRows = rows.map(r => {
-      if (r.id === selectedPoeRow.id) {
-        const currentDocs = (r[`${selectedQuarter}PoeDocs` as keyof SDBIP23Row] as PoeDocument[]) || [];
-        return {
-          ...r,
-          [`${selectedQuarter}PoeDocs`]: [...currentDocs, ...newDocs]
-        };
-      }
-      return r;
-    });
-
-    setRows(updatedRows);
-    saveRowsToDatabase(updatedRows);
-  };
-
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handlePoeFilesSelected(e.dataTransfer.files);
-    }
-  };
-
-  const deletePoeDoc = (docId: string) => {
-    if (!poeModal) return;
-    const selectedPoeRow = rows.find(r => r.id === poeModal.rowId);
-    const selectedQuarter = poeModal.quarter;
-    if (!selectedPoeRow || !selectedQuarter) return;
-
-    const updatedRows = rows.map(r => {
-      if (r.id === selectedPoeRow.id) {
-        const currentDocs = (r[`${selectedQuarter}PoeDocs` as keyof SDBIP23Row] as PoeDocument[]) || [];
-        return {
-          ...r,
-          [`${selectedQuarter}PoeDocs`]: currentDocs.filter(d => d.id !== docId)
-        };
-      }
-      return r;
-    });
-
-    setRows(updatedRows);
-    saveRowsToDatabase(updatedRows);
-  };
-
-  const handleGenerate25MockDocs = () => {
-    if (!poeModal) return;
-    const selectedPoeRow = rows.find(r => r.id === poeModal.rowId);
-    const selectedQuarter = poeModal.quarter;
-    if (!selectedPoeRow || !selectedQuarter) return;
-
-    const mockDocs: PoeDocument[] = [];
-    const names = [
-      "ward_sanitation_grid_diagram.png", "mscoa_reconciled_allocation_ledger.pdf",
-      "community_water_survey_signed_sheet.png", "ward15_chief_audit_approval_doc.pdf",
-      "sdbip_site_photo_installation_hub.png", "executive_committee_minutes_resolution.pdf",
-      "procurement_order_approval_voucher.png", "national_treasury_grap_standard_check.pdf",
-      "local_water_level_sensor_telemetry.png", "service_provider_sla_signed_schedule.pdf",
-      "municipal_manager_kpi_weight_verification.png", "ward_survey_reconciled_results.png",
-      "infrastructure_asset_registry_entry.png", "quarter_performance_review_presentation.pdf",
-      "engineering_purifier_pressure_log.png", "audit_committee_compliance_report.pdf",
-      "expenditure_journal_transfers_scoa.png", "water_safety_chemical_analysis_audit.png",
-      "ward15_stakeholder_briefing_session.pdf", "council_resolution_308_annexure.pdf",
-      "civil_works_foundation_signoff.png", "invoice_cleared_under_aged_creditors.pdf",
-      "project_progress_photo_grid_north.png", "site_management_handover_certificate.pdf",
-      "grap17_asset_capital_journal.png"
-    ];
-
-    for (let i = 0; i < 25; i++) {
-      const docName = names[i] || `poe_verification_sheet_page_${i + 1}.png`;
-      const isPdf = docName.endsWith('.pdf');
-      const colors = ['#0f766e', '#1d4ed8', '#701a75', '#0369a1', '#b45309', '#be123c', '#4d7c0f', '#3730a3', '#1e293b'];
-      const bg = colors[i % colors.length];
-      const stamp = isPdf ? 'COMPLIANT_PDF' : 'EVALUATION_IMG';
-      
-      const svg = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="300" height="200" viewBox="0 0 300 200">
-          <rect width="100%" height="100%" fill="${bg}"/>
-          <rect x="15" y="15" width="270" height="170" fill="none" stroke="#ffffff" stroke-width="2" stroke-dasharray="6,6" opacity="0.3"/>
-          <text x="30" y="45" font-family="monospace" font-size="11" fill="#cbd5e1" font-weight="bold">NKANGALA SDBIP POE ENGINE</text>
-          <text x="30" y="70" font-family="sans-serif" font-size="14" fill="#ffffff" font-weight="900">${docName}</text>
-          <text x="30" y="100" font-family="monospace" font-size="10" fill="#a7f3d0">Tenant: ${activeTenantId.toUpperCase()}</text>
-          <text x="30" y="120" font-family="monospace" font-size="10" fill="#fef08a">Ref: ${selectedPoeRow.refNum}</text>
-          <text x="30" y="140" font-family="sans-serif" font-size="9" fill="#94a3b8">Uploaded by: ${currentUser.email}</text>
-          <rect x="30" y="155" width="120" height="20" rx="3" fill="#10b981"/>
-          <text x="40" y="168" font-family="sans-serif" font-size="9" fill="#ffffff" font-weight="black">${stamp}</text>
-          <circle cx="250" cy="150" r="25" fill="#ffffff" opacity="0.15"/>
-          <text x="242" y="155" font-family="sans-serif" font-size="15" fill="#ffffff" font-weight="bold">✓</text>
-        </svg>
-      `;
-      const base64Svg = `data:image/svg+xml;base64,${btoa(svg.trim())}`;
-
-      mockDocs.push({
-        id: `poe_mock_${selectedPoeRow.id}_${selectedQuarter}_${i}`,
-        name: docName,
-        mimeType: isPdf ? 'application/pdf' : 'image/png',
-        dataUrl: base64Svg,
-        uploadedAt: new Date(Date.now() - (25 - i) * 10 * 60 * 1000).toISOString(),
-        uploadedBy: currentUser.email
-      });
-    }
-
-    const updatedRows = rows.map(r => {
-      if (r.id === selectedPoeRow.id) {
-        return {
-          ...r,
-          [`${selectedQuarter}PoeDocs`]: mockDocs
-        };
-      }
-      return r;
-    });
-
-    setRows(updatedRows);
-    saveRowsToDatabase(updatedRows);
-    alert(`Successfully generated 25 realistic POE document images for ${selectedQuarter.toUpperCase()} of indicator ${selectedPoeRow.refNum}!`);
-  };
-
-  const updateRowState = (id: string, field: keyof SDBIP23Row, value: any) => {
-    setRows(prev => prev.map(r => r.id === id ? { ...r, [field]: value } : r));
-  };
-
-  const adoptLayerFromPA = async (layerName: '2nd' | '3rd') => {
-    try {
-       const res = await fetch(`/api/tenant/${activeTenantId}/performance-agreements/extraction/${layerName}`);
-       if (!res.ok) throw new Error("Failed to fetch extraction data");
-       const json = await res.json();
-       if (json && json.items && json.items.length > 0) {
-          // Keep existing rows but append
-          const mappedItems = json.items.map((i: any, idx: number) => ({
-             ...i,
-             id: `sdbip23_${Date.now()}_adopt_${idx}_${Math.floor(Math.random() * 1000000)}`,
-             poeStatus: 'Not Uploaded',
-             evaluationUser: currentUser.email,
-             reviewManager: 'Line Manager'
-          }));
-          const newRows = [...rows, ...mappedItems];
-          setRows(newRows);
-          saveRowsToDatabase(newRows);
-          alert(`Successfully adopted ${json.items.length} KPIs from the ${layerName} Layer PA extraction.`);
-       } else {
-          alert(`No extraction data found for ${layerName} Layer yet. Upload a PA and target this layer first.`);
-       }
-    } catch(e) {
-       console.error(e);
-       alert("Error adopting from PA.");
-    }
-  };
-
-  const handleAddNewRow = (e: React.FormEvent) => {
-    e.preventDefault();
-    const matchedProfile = userList.find(u => u.email === currentUser.email);
-    const autoManager = matchedProfile?.manager || 'Line Manager';
-
-    const newInstance: SDBIP23Row = {
-      ...newRowData,
-      id: `sdbip23_${Date.now()}`,
-      evaluationUser: currentUser.email,
-      reviewManager: autoManager,
-      poeStatus: 'Not Uploaded'
     };
 
-    const next = [...rows, newInstance];
-    setRows(next);
-    saveRowsToDatabase(next);
-    setShowAddModal(false);
-    
-    // Clear state
-    setNewRowData({
-      refNum: '',
-      strategicObj: '',
-      bsd: 'N',
+    initialize();
+  }, [activeTenantId]);
+
+  // Update a single field in row state
+  const updateRowField = (rowId: string, field: keyof SDBIP23Row, value: any) => {
+    setRows(prev => prev.map(row => {
+      if (row.id !== rowId) return row;
+      const updated = { ...row, [field]: value };
+      
+      // Keep aliases in sync
+      if (field === 'kpa') updated.kpas = value;
+      if (field === 'kpas') updated.kpa = value;
+      if (field === 'mscoaCode') updated.mscoaTracking = value;
+      if (field === 'mscoaTracking') updated.mscoaCode = value;
+      if (field === 'weight') updated.weighting = value;
+      if (field === 'weighting') updated.weight = value;
+      if (field === 'budgetAllocation') updated.budget = value;
+      if (field === 'budget') updated.budgetAllocation = value;
+      if (field === 'q1Target') updated.q1 = value;
+      if (field === 'q1') updated.q1Target = value;
+      if (field === 'q2Target') updated.q2 = value;
+      if (field === 'q2') updated.q2Target = value;
+      if (field === 'q3Target') updated.q3 = value;
+      if (field === 'q3') updated.q3Target = value;
+      if (field === 'q4Target') updated.q4 = value;
+      if (field === 'q4') updated.q4Target = value;
+      
+      return updated;
+    }));
+  };
+
+  // Add new row to SDBIP table
+  const handleAddNewRow = () => {
+    const newId = `sdbip23_${Date.now()}_${Math.floor(Math.random() * 1000000)}`;
+    const newRow: SDBIP23Row = {
+      id: newId,
+      refNum: `S23-${Date.now().toString().slice(-4)}`,
+      strategicObj: uniqueStrategicObjectives[0] || 'To ensure reliable bulk water and electricity infrastructure',
+      bsd: 'Y',
       led: 'N',
       mfvm: 'N',
       ggpp: 'N',
       midt: 'N',
       sr: 'N',
-      kpas: 'KPA 1: Basic Service Delivery and Infrastructure Development',
-      operationalActivity: '',
-      kpi: '',
+      kpa: uniqueFunctionalKpas[0] || 'Infrastructure and Technical Services',
+      kpas: uniqueFunctionalKpas[0] || 'Infrastructure and Technical Services',
+      mscoaCode: uniqueMscoaCodes[0] || 'Funding',
+      mscoaTracking: uniqueMscoaCodes[0] || 'Funding',
+      baseline: '0',
+      budgetAllocation: 'R 0.00',
+      budget: 'R 0.00',
+      kpi: 'New Performance Indicator Description',
+      operationalActivity: 'Operational execution directive',
       compliance: 'compliant',
-      uom: '',
-      mscoaTracking: '',
-      baseline: '',
-      annualTarget: '',
-      budgetAllocation: '',
-      q1: '',
-      q2: '',
-      q3: '',
-      q4: '',
-      responsibleUnit: ''
-    });
+      uom: 'Number of quarterly milestones completed',
+      annualTarget: '100%',
+      q1Target: '25%',
+      q1Actual: '',
+      q1ActualExpense: '',
+      q1Score: '3',
+      q1Comment: '',
+      q1Corrective: '',
+      q1: '25%',
+      q2Target: '50%',
+      q2Actual: '',
+      q2ActualExpense: '',
+      q2Score: '3',
+      q2Comment: '',
+      q2Corrective: '',
+      q2: '50%',
+      midtermTarget: '50%',
+      midtermActual: '',
+      midtermActualExpense: '',
+      midtermScore: '3',
+      midtermComment: '',
+      midtermCorrective: '',
+      q3Target: '75%',
+      q3Actual: '',
+      q3ActualExpense: '',
+      q3Score: '3',
+      q3Comment: '',
+      q3Corrective: '',
+      q3: '75%',
+      q4Target: '100%',
+      q4Actual: '',
+      q4ActualExpense: '',
+      q4Score: '3',
+      q4Comment: '',
+      q4Corrective: '',
+      q4: '100%',
+      annualActual: '',
+      annualActualExpense: '',
+      annualActualExp: '',
+      annualVariance: '',
+      annualCorrective: '',
+      poe: 'Quarterly verified inspection sign-offs and invoices',
+      poeDocs: [],
+      poeStatus: 'In Cloud Storage',
+      q1PoeDocs: [],
+      q2PoeDocs: [],
+      midtermPoeDocs: [],
+      q3PoeDocs: [],
+      q4PoeDocs: [],
+      weight: '15',
+      weighting: '15',
+      myScore: '3',
+      evaluation: '',
+      review: '',
+      responsibleUnit: currentUser.department || 'Administration',
+      evaluationUser: currentUser.email,
+      reviewManager: currentUser.manager || 'Line Manager',
+      userName: currentUser.fullName || currentUser.email
+    };
+
+    const nextList = [newRow, ...rows];
+    setRows(nextList);
+    saveRowsToDatabase(nextList);
   };
 
-  const filteredRows = rows.filter(r => {
-    const q = searchQuery.toLowerCase();
-    return (
-      (r.refNum || '').toLowerCase().includes(q) ||
-      (r.strategicObj || '').toLowerCase().includes(q) ||
-      (r.operationalActivity || '').toLowerCase().includes(q) ||
-      (r.kpi || '').toLowerCase().includes(q) ||
-      (r.responsibleUnit || '').toLowerCase().includes(q) ||
-      (r.evaluationUser || '').toLowerCase().includes(q) ||
-      (r.reviewManager || '').toLowerCase().includes(q)
-    );
-  });
-
-  const totalPages = Math.ceil(filteredRows.length / itemsPerPage);
-  const paginatedRows = filteredRows.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-  // Auto-save backup functionality
-  useEffect(() => {
-    if (!isUnlocked || rows.length === 0) return;
-    const interval = setInterval(() => {
-      // Background auto-save without showing toast
-      fetch(`/api/tenant/${activeTenantId}/sdbip23`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: rows })
-      }).catch(console.error);
-    }, 3 * 60 * 1000); // 3 minutes
-    return () => clearInterval(interval);
-  }, [rows, activeTenantId, isUnlocked]);
-
-  const handlePasswordSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const role = (currentUser.role || '').toLowerCase();
-    const isAllowedRole = role.includes('manager') || role.includes('internal auditor') || role.includes('admin');
-    
-    if (isAllowedRole && passwordInput === overridePassword) {
-      setIsUnlocked(true);
-      setAccessDenied(false);
-    } else {
-      setAccessDenied(true);
+  // Delete row
+  const handleDeleteRow = (rowId: string) => {
+    if (confirm("Are you sure you want to remove this indicator from the SDBIP 2nd & 3rd layer table?")) {
+      const nextList = rows.filter(r => r.id !== rowId);
+      setRows(nextList);
+      saveRowsToDatabase(nextList);
     }
   };
 
-  const exportCSV = () => {
-    const headers = [
-      "REF NUMBER", "STRATEGIC OBJECTIVES", "BSD", "LED", "MFVM",
-      "GGPP", "MIDT", "SR", "KPA'S MAP", "OPERATIONAL ACTIVITY", "KPI'S DETAIL",
-      "COMPLIANCE", "UNIT OF MEASURE", "MSCOA TRACKING", "BASELINE",
-      "ANNUAL TARGET", "BUDGET ALLOCATION", "1ST QUARTER", "2ND QUARTER",
-      "3RD QUARTER", "4TH QUARTER", "RESPONSIBLE UNIT", "EVALUATION", "REVIEW", "POE BACKUP"
-    ];
-
-    const dataRows = rows.map(r => [
-      r.refNum, r.strategicObj, r.bsd, r.led, r.mfvm,
-      r.ggpp, r.midt, r.sr, r.kpas, r.operationalActivity, r.kpi,
-      r.compliance, r.uom, r.mscoaTracking, r.baseline,
-      r.annualTarget, r.budgetAllocation, r.q1, r.q2,
-      r.q3, r.q4, r.responsibleUnit, r.evaluationUser, r.reviewManager, r.poeStatus
-    ]);
-
-    const content = [headers, ...dataRows].map(e => e.map(val => `"${(val || '').replace(/"/g, '""')}"`).join(",")).join("\n");
-    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `sdbip_2nd_3rd_layer_${activeTenantId}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  // Clear entire grid
+  const handleConfirmClearGrid = () => {
+    setRows([]);
+    saveRowsToDatabase([]);
+    setShowClearConfirm(false);
   };
 
-  if (!isUnlocked) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full bg-slate-900 border border-slate-700/50 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
-        {onClose && (
-          <button onClick={onClose} className="absolute top-6 right-6 text-slate-400 hover:text-white transition-colors z-20 bg-slate-800/50 p-2 rounded-full">
-            <X className="w-6 h-6" />
-          </button>
-        )}
-        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5"></div>
-        <div className="bg-slate-800 p-8 rounded-2xl border border-slate-600 shadow-xl w-full max-w-sm z-10 text-center relative">
-          <AlertTriangle className="w-12 h-12 text-rose-500 mx-auto mb-4" />
-          <h2 className="text-xl font-black uppercase text-white mb-2">Restricted Area</h2>
-          <p className="text-xs text-slate-400 mb-6">SDBIP 2nd & 3rd layers are locked. Access limited to Internal Auditors, Managers, and Global Administrators.</p>
-          
-          <form onSubmit={handlePasswordSubmit} className="flex flex-col gap-3">
-            <input 
-              type="password"
-              placeholder="Enter Access Code"
-              value={passwordInput}
-              onChange={(e) => { setAccessDenied(false); setPasswordInput(e.target.value); }}
-              className="w-full bg-slate-900 text-white border border-slate-600 rounded-lg py-2.5 px-4 text-center focus:outline-none focus:border-rose-500 transition tracking-widest font-mono"
-            />
-            {accessDenied && (
-              <span className="text-rose-500 text-xs font-bold uppercase animate-pulse">Access Denied!</span>
-            )}
-            <button 
-              type="submit"
-              className="w-full bg-rose-600 hover:bg-rose-500 text-white font-black py-2.5 rounded-lg border border-rose-500 uppercase tracking-widest transition"
-            >
-              Unlock Terminal
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
+  // Filtered rows
+  const filteredRows = useMemo(() => {
+    return rows.filter(row => {
+      // User filter
+      if (selectedUserFilter !== 'ALL' && row.evaluationUser?.toLowerCase() !== selectedUserFilter.toLowerCase()) {
+        return false;
+      }
+      // Functional KPA filter
+      if (selectedKpaFilter !== 'ALL' && (row.kpa !== selectedKpaFilter && row.kpas !== selectedKpaFilter)) {
+        return false;
+      }
+      // Department filter
+      if (selectedDeptFilter !== 'ALL' && row.responsibleUnit?.toLowerCase() !== selectedDeptFilter.toLowerCase()) {
+        return false;
+      }
+      // Search query
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const textToSearch = [
+          row.refNum,
+          row.kpi,
+          row.strategicObj,
+          row.kpa,
+          row.kpas,
+          row.mscoaCode,
+          row.evaluationUser,
+          row.userName,
+          row.responsibleUnit,
+          row.annualTarget,
+          row.poe
+        ].filter(Boolean).join(' ').toLowerCase();
+        if (!textToSearch.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [rows, selectedUserFilter, selectedKpaFilter, selectedDeptFilter, searchQuery]);
+
+  // Total cumulative weight
+  const totalWeight = useMemo(() => {
+    return filteredRows.reduce((sum, r) => sum + (parseFloat(r.weight || r.weighting || '0') || 0), 0);
+  }, [filteredRows]);
+
+  // Export to Excel / CSV
+  const handleExportExcel = () => {
+    const exportData = filteredRows.map((row, idx) => ({
+      'No.': idx + 1,
+      'REF NUMBER': row.refNum,
+      'STRATEGIC OBJECTIVE': row.strategicObj,
+      'KPI DESCRIPTION': row.kpi,
+      'BSD': row.bsd,
+      'LED': row.led,
+      'MFVM': row.mfvm,
+      'GGPP': row.ggpp,
+      'MIDT': row.midt,
+      'SR': row.sr,
+      'FUNCTIONAL AREA KPA': row.kpa || row.kpas,
+      'mSCOA CODE': row.mscoaCode || row.mscoaTracking,
+      'BASELINE': row.baseline,
+      'BUDGET (R)': row.budgetAllocation || row.budget,
+      'ANNUAL TARGET': row.annualTarget,
+      '1ST QTR TARGET': row.q1Target || row.q1,
+      '1ST QTR ACTUAL': row.q1Actual,
+      '1ST QTR EXPENSE (R)': row.q1ActualExpense,
+      '1ST QTR VARIANCE': calculateVariance(row.q1Target || row.q1, row.q1Actual),
+      '1ST QTR CORRECTIVE': row.q1Corrective,
+      '2ND QTR TARGET': row.q2Target || row.q2,
+      '2ND QTR ACTUAL': row.q2Actual,
+      '2ND QTR EXPENSE (R)': row.q2ActualExpense,
+      '2ND QTR VARIANCE': calculateVariance(row.q2Target || row.q2, row.q2Actual),
+      '2ND QTR CORRECTIVE': row.q2Corrective,
+      'MIDTERM TARGET': row.midtermTarget,
+      'MIDTERM ACTUAL': row.midtermActual,
+      'MIDTERM EXPENSE (R)': row.midtermActualExpense,
+      'MIDTERM VARIANCE': calculateVariance(row.midtermTarget, row.midtermActual),
+      'MIDTERM CORRECTIVE': row.midtermCorrective,
+      '3RD QTR TARGET': row.q3Target || row.q3,
+      '3RD QTR ACTUAL': row.q3Actual,
+      '3RD QTR EXPENSE (R)': row.q3ActualExpense,
+      '3RD QTR VARIANCE': calculateVariance(row.q3Target || row.q3, row.q3Actual),
+      '3RD QTR CORRECTIVE': row.q3Corrective,
+      '4TH QTR TARGET': row.q4Target || row.q4,
+      '4TH QTR ACTUAL': row.q4Actual,
+      '4TH QTR EXPENSE (R)': row.q4ActualExpense,
+      '4TH QTR VARIANCE': calculateVariance(row.q4Target || row.q4, row.q4Actual),
+      '4TH QTR CORRECTIVE': row.q4Corrective,
+      'ANNUAL ACTUAL': row.annualActual,
+      'ANNUAL ACTUAL EXP': row.annualActualExpense || row.annualActualExp,
+      'ANNUAL VARIANCE': calculateVariance(row.annualTarget, row.annualActual),
+      'ANNUAL CORRECTIVE': row.annualCorrective,
+      'PORTFOLIO OF EVIDENCE (POE)': row.poe,
+      '% WEIGHT': row.weight || row.weighting,
+      'EVALUATION SCORE': row.myScore,
+      'EVALUATION COMMENT': row.evaluation,
+      'REVIEW COMMENT': row.review,
+      'ASSIGNED USER': row.evaluationUser,
+      'RESPONSIBLE UNIT': row.responsibleUnit,
+      'LINE MANAGER': row.reviewManager
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "SDBIP_2nd_3rd_Layer");
+    XLSX.writeFile(wb, `SDBIP_2nd_3rd_Layer_Master_${activeTenantId}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
 
   return (
-    <div id="sdbip-23-workspace" className="flex flex-col h-full bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-xl relative text-slate-900">
+    <div id="sdbip23-master-container" className="flex flex-col h-full bg-slate-100 rounded-3xl overflow-hidden shadow-2xl border border-slate-300 font-sans select-text">
       
-      {/* Dynamic Sync & Action title Ribbon */}
-      <div id="sdbip-23-control-title-bar" className="flex flex-col lg:flex-row items-center justify-between gap-4 p-6 bg-slate-50 border-b border-slate-200 z-10 w-full shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-green-500/10 text-green-700 flex items-center justify-center border border-green-500/20">
-            <Layers className="w-5 h-5" />
+      {/* Toast Notification */}
+      {successToast && (
+        <div className="fixed bottom-6 right-6 z-50 bg-emerald-700 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border border-emerald-500/50 animate-fade-in text-xs font-bold">
+          <CheckCircle className="w-5 h-5 text-emerald-300 shrink-0" />
+          <span>{successToast}</span>
+        </div>
+      )}
+
+      {/* Header Toolbar */}
+      <div className="p-5 bg-white border-b border-slate-200 flex flex-col xl:flex-row xl:items-center justify-between gap-4 shrink-0 shadow-xs">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 text-[10px] font-black uppercase tracking-wider border border-emerald-300">
+              IPMS SDBIP MASTER
+            </span>
+            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest font-mono">
+              TENANT: {activeTenantId}
+            </span>
           </div>
-          <div>
-            <h2 className="text-lg font-black text-slate-900 tracking-tight uppercase">SDBIP 2nd & 3rd Layers</h2>
-            <p className="text-xs text-slate-500">Granular Departmental Indicators & Operational Alignment Database</p>
-          </div>
+          <h1 className="text-base font-black text-slate-900 uppercase tracking-tight flex items-center gap-2 mt-1">
+            <Layers className="w-5 h-5 text-emerald-600 shrink-0" />
+            SDBIP 2nd & 3rd Layer (Departmental & Operational Alignment Database)
+          </h1>
+          <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+            Exact statutory replica of Performance Plans containing every single user's KPIs and strategically linked Functional Area KPAs.
+          </p>
         </div>
 
-        {/* Tools Menu */}
-        <div className="flex flex-wrap items-center gap-3">
-          {successToast && (
-            <span id="toast-notif" className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border border-emerald-500/30 flex items-center gap-1">
-              <CheckCircle className="w-3.5 h-3.5" /> {successToast}
-            </span>
-          )}
-
-          <button 
-            onClick={() => adoptLayerFromPA('2nd')}
-            className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 font-bold border border-blue-500/30 text-white text-xs transition flex items-center gap-1.5 cursor-pointer"
-          >
-            Adopt 2nd Layer (PA)
-          </button>
-          
-          <button 
-            onClick={() => adoptLayerFromPA('3rd')}
-            className="px-4 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 font-bold border border-purple-500/30 text-white text-xs transition flex items-center gap-1.5 cursor-pointer"
-          >
-            Adopt 3rd Layer (PA)
-          </button>
-
-          <button 
+        {/* Action Buttons */}
+        <div className="flex flex-wrap items-center gap-2 select-none">
+          <button
+            type="button"
             onClick={() => syncEveryoneKpisAndKpas(false)}
             disabled={isSyncing}
-            className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 font-bold border border-indigo-500/30 text-white text-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            className="px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50"
+            title="Sync everyone's KPIs, Performance Plans, and strategically linked Functional Area KPAs"
           >
-            {isSyncing ? (
-              <>
-                <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Syncing...
-              </>
-            ) : (
-              <>
-                <RefreshCw className="w-3.5 h-3.5" /> Sync Everyone's KPIs/KPAs
-              </>
-            )}
+            <RefreshCw className={cn("w-3.5 h-3.5", isSyncing && "animate-spin")} />
+            <span>{isSyncing ? "Syncing All Profiles..." : "Sync Everyone's KPIs & KPAs"}</span>
           </button>
 
-          <button 
-            id="sdbip23-export-csv-btn"
-            onClick={exportCSV}
-            className="px-4 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 font-bold border border-slate-200 text-slate-700 text-xs transition flex items-center gap-1.5 cursor-pointer"
+          <button
+            type="button"
+            onClick={handleAddNewRow}
+            className="px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-slate-900 hover:bg-black text-white shadow-sm flex items-center gap-1.5 transition cursor-pointer"
           >
-            <Download className="w-3.5 h-3.5" /> CSV Database
+            <Plus className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Add Metric Row</span>
           </button>
 
-          {isSaving ? (
-            <button disabled className="px-4 py-1.5 rounded-lg bg-emerald-700/50 text-emerald-200 text-xs font-bold border border-emerald-600/30 flex items-center gap-2 cursor-wait">
-              <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Saving...
-            </button>
-          ) : (
-            <button 
-              id="sdbip23-save-btn"
-              onClick={() => saveRowsToDatabase(rows)}
-              className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-md"
+          <button
+            type="button"
+            onClick={() => saveRowsToDatabase(rows)}
+            disabled={isSaving}
+            className="px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-blue-600 hover:bg-blue-700 text-white shadow-sm flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50"
+          >
+            <Save className="w-3.5 h-3.5" />
+            <span>{isSaving ? "Saving..." : "Save Grid"}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleExportExcel}
+            className="px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 flex items-center gap-1.5 transition cursor-pointer"
+          >
+            <Download className="w-3.5 h-3.5 text-slate-500" />
+            <span>Export Excel</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowClearConfirm(true)}
+            className="px-3 py-2 rounded-xl text-xs font-bold bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 flex items-center gap-1.5 transition cursor-pointer"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Clear</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 border border-slate-200 transition cursor-pointer"
+            title={isExpanded ? "Collapse View" : "Full Screen Table"}
+          >
+            {isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+          </button>
+
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 border border-slate-200 transition cursor-pointer"
             >
-              <Save className="w-3.5 h-3.5" /> Save Changes
+              <X className="w-4 h-4" />
             </button>
           )}
-
-          <button 
-            onClick={() => setShowAddModal(true)}
-            className="px-4 py-1.5 rounded-lg bg-green-600 hover:bg-green-500 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5" /> Add Row
-          </button>
         </div>
       </div>
 
-      {/* Database Search Filter Option */}
-      <div id="sdbip23-search-rack" className="p-4 bg-white border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
-        <div className="relative w-full md:w-80">
-          <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-          <input 
+      {/* Filter & Search Bar */}
+      <div className="p-4 bg-slate-50 border-b border-slate-200 grid grid-cols-1 md:grid-cols-4 gap-3 text-xs shrink-0">
+        
+        {/* Search */}
+        <div className="relative">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <input
             type="text"
-            placeholder="Search by user, KPI, code, strategic objective..."
+            placeholder="Search by KPI, Ref, Functional KPA, Objective, or User..."
             value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 pl-9 pr-4 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-green-500"
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-white border border-slate-300 rounded-xl py-2 pl-9 pr-3 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-emerald-500"
           />
         </div>
-        <div className="flex items-center gap-4 text-[11px] text-slate-500">
-          <div className="flex items-center gap-1">
-            <button 
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-              className="px-2 py-1 rounded border border-slate-200 bg-slate-50 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Prev
-            </button>
-            <span className="px-2 font-medium">Page {currentPage} of {totalPages || 1}</span>
-            <button 
-              disabled={currentPage === totalPages || totalPages === 0}
-              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-              className="px-2 py-1 rounded border border-slate-200 bg-slate-50 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Next
-            </button>
-          </div>
-          <div>
-            Showing <b className="text-slate-900">{paginatedRows.length}</b> of <b className="text-slate-900">{filteredRows.length}</b> records
-          </div>
+
+        {/* Filter User */}
+        <div className="flex items-center gap-1.5 bg-white border border-slate-300 rounded-xl px-2.5 py-1">
+          <UserIcon className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+          <select
+            value={selectedUserFilter}
+            onChange={(e) => setSelectedUserFilter(e.target.value)}
+            className="w-full bg-transparent text-xs text-slate-700 font-semibold focus:outline-none cursor-pointer"
+          >
+            <option value="ALL">All Users ({userList.length})</option>
+            {userList.map(u => (
+              <option key={u.email} value={u.email}>
+                {u.fullName || u.email} {u.department ? `(${u.department})` : ''}
+              </option>
+            ))}
+          </select>
         </div>
+
+        {/* Filter Functional Area KPA */}
+        <div className="flex items-center gap-1.5 bg-white border border-slate-300 rounded-xl px-2.5 py-1">
+          <Filter className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+          <select
+            value={selectedKpaFilter}
+            onChange={(e) => setSelectedKpaFilter(e.target.value)}
+            className="w-full bg-transparent text-xs text-slate-700 font-semibold focus:outline-none cursor-pointer"
+          >
+            <option value="ALL">All Functional Area KPAs ({uniqueFunctionalKpas.length})</option>
+            {uniqueFunctionalKpas.map(k => (
+              <option key={k} value={k}>{k}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Filter Department */}
+        <div className="flex items-center gap-1.5 bg-white border border-slate-300 rounded-xl px-2.5 py-1">
+          <Building className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+          <select
+            value={selectedDeptFilter}
+            onChange={(e) => setSelectedDeptFilter(e.target.value)}
+            className="w-full bg-transparent text-xs text-slate-700 font-semibold focus:outline-none cursor-pointer"
+          >
+            <option value="ALL">All Departments ({uniqueDepartments.length})</option>
+            {uniqueDepartments.map(d => (
+              <option key={d} value={d}>{d}</option>
+            ))}
+          </select>
+        </div>
+
       </div>
 
-      {/* Main Table viewport */}
-      <div className="flex-1 overflow-x-auto overflow-y-auto">
+      {/* Main Table Viewport */}
+      <div className="flex-1 overflow-x-auto overflow-y-auto bg-white">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-32 space-y-4">
-            <RefreshCw className="w-10 h-10 text-green-600 animate-spin" />
-            <p className="text-sm text-slate-500 font-medium">Reconciling SDBIP 2nd & 3rd layer registers with Supabase...</p>
+            <RefreshCw className="w-10 h-10 text-emerald-600 animate-spin" />
+            <p className="text-sm text-slate-600 font-bold">Synchronizing SDBIP 2nd & 3rd layer database with Supabase...</p>
           </div>
         ) : (
-          <table className="w-full text-left text-xs border-collapse font-sans min-w-[3900px]">
-            <thead>
-              <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 select-none uppercase tracking-wider text-[10px] h-14">
-                <th className="p-4 sticky left-0 bg-slate-100 font-black z-10 w-44 border-r border-slate-200 shadow-[2px_0_5px_rgba(0,0,0,0.05)]">REF NUMBER</th>
-                <th className="p-4 min-w-[420px]">STRATEGIC OBJECTIVES</th>
-                <th className="p-4 text-center w-14 font-black bg-cyan-50/50">BSD</th>
-                <th className="p-4 text-center w-14 font-black bg-amber-50/50">LED</th>
-                <th className="p-4 text-center w-14 font-black bg-green-50/50">MFVM</th>
-                <th className="p-4 text-center w-14 font-black bg-violet-50/50">GGPP</th>
-                <th className="p-4 text-center w-14 font-black bg-pink-50/50">MIDT</th>
-                <th className="p-4 text-center w-14 font-black bg-rose-50/50">SR</th>
-                <th className="p-4 min-w-[300px]">KPA'S MAP</th>
-                <th className="p-4 min-w-[420px]">OPERATIONAL ACTIVITY</th>
-                <th className="p-4 min-w-[420px]">KPI'S DETAIL</th>
-                <th className="p-4 min-w-[100px] text-center text-rose-600 font-black bg-rose-50/20">WEIGHT</th>
-                <th className="p-4 text-center w-32">COMPLIANCE</th>
-                <th className="p-4 min-w-[260px]">UNIT OF MEASURE</th>
-                <th className="p-4 min-w-[260px]">MSCOA TRACKING</th>
-                <th className="p-4 min-w-[260px]">BASELINE</th>
-                <th className="p-4 min-w-[260px]">ANNUAL TARGET</th>
-                <th className="p-4 min-w-[180px]">BUDGET ALLOCATION</th>
-                <th className="p-4 min-w-[180px] bg-slate-50/80">1ST QUARTER</th>
-                <th className="p-4 min-w-[180px] bg-slate-50/80">2ND QUARTER</th>
-                <th className="p-4 min-w-[180px] bg-slate-50/80">3RD QUARTER</th>
-                <th className="p-4 min-w-[180px] bg-slate-50/80">4TH QUARTER</th>
-                <th className="p-4 min-w-[260px]">POE DEFINITION</th>
-                <th className="p-4 min-w-[260px]">RESPONSIBLE UNIT</th>
-                <th className="p-4 min-w-[360px] bg-slate-200 font-extrabold text-slate-800">EVALUATION, REVIEW, POE BACKUP</th>
-                <th className="p-4 text-center w-24">ACTIONS</th>
-                <th className="p-4 min-w-[150px] bg-teal-50 font-black text-teal-800 whitespace-nowrap">USERNAME</th>
+          <table className="w-full border-collapse text-left text-[11px] font-sans min-w-[4800px] border border-slate-300">
+            
+            {/* Double-Tier Exact Header Replica */}
+            <thead className="sticky top-0 z-20 bg-slate-100 text-slate-800 shadow-sm border-b-2 border-slate-300 select-none">
+              
+              {/* Top Tier */}
+              <tr className="border-b border-slate-300 text-[10px] uppercase font-black tracking-wider">
+                <th rowSpan={2} className="p-3 w-12 text-center sticky left-0 bg-slate-200 border-r border-slate-300 z-30 shadow-[2px_0_5px_rgba(0,0,0,0.05)]">
+                  No.
+                </th>
+                <th rowSpan={2} className="p-3 min-w-[320px] border-r border-slate-300">
+                  Strategic Objective
+                </th>
+                <th rowSpan={2} className="p-3 w-28 text-center border-r border-slate-300 font-mono">
+                  KPI No
+                </th>
+                <th rowSpan={2} className="p-3 min-w-[340px] border-r border-slate-300">
+                  KPI Description
+                </th>
+                
+                {/* National KPA Flags */}
+                <th rowSpan={2} className="p-2 w-10 text-center border-r border-slate-300 bg-cyan-50" title="Basic Service Delivery">BSD</th>
+                <th rowSpan={2} className="p-2 w-10 text-center border-r border-slate-300 bg-amber-50" title="Local Economic Development">LED</th>
+                <th rowSpan={2} className="p-2 w-10 text-center border-r border-slate-300 bg-emerald-50" title="Municipal Financial Viability & Management">MFVM</th>
+                <th rowSpan={2} className="p-2 w-10 text-center border-r border-slate-300 bg-violet-50" title="Good Governance & Public Participation">GGPP</th>
+                <th rowSpan={2} className="p-2 w-10 text-center border-r border-slate-300 bg-pink-50" title="Municipal Institutional Development & Transformation">MIDT</th>
+                <th rowSpan={2} className="p-2 w-10 text-center border-r border-slate-300 bg-rose-50" title="Social Responsibility">SR</th>
+
+                {/* Strategically Linked Functional Area KPA */}
+                <th rowSpan={2} className="p-3 min-w-[280px] border-r border-slate-300 bg-emerald-50/50 text-emerald-950">
+                  Functional Area KPA
+                </th>
+                
+                {/* mSCOA */}
+                <th rowSpan={2} className="p-3 min-w-[180px] border-r border-slate-300 bg-indigo-50/40 text-indigo-950">
+                  mSCOA Code
+                </th>
+
+                {/* Baseline & Budget */}
+                <th rowSpan={2} className="p-3 min-w-[160px] border-r border-slate-300">
+                  Baseline
+                </th>
+                <th rowSpan={2} className="p-3 min-w-[150px] border-r border-slate-300 font-mono text-right">
+                  Budget (R)
+                </th>
+
+                {/* MUNICIPAL FINANCIAL YEAR SPAN (28 Subcolumns) */}
+                <th colSpan={28} className="p-2.5 text-center bg-slate-800 text-white font-extrabold tracking-widest border-r border-slate-300">
+                  MUNICIPAL FINANCIAL YEAR (1 JULY - 30 JUNE)
+                </th>
+
+                {/* POE, Weight, Reviews, User */}
+                <th rowSpan={2} className="p-3 min-w-[280px] border-r border-slate-300 bg-slate-50">
+                  Portfolio of Evidence (POE)
+                </th>
+                <th rowSpan={2} className="p-3 w-16 text-center border-r border-slate-300 bg-rose-50 font-black text-rose-800">
+                  % Wt
+                </th>
+                <th rowSpan={2} className="p-3 min-w-[220px] border-r border-slate-300 bg-emerald-50">
+                  Evaluation
+                </th>
+                <th rowSpan={2} className="p-3 min-w-[220px] border-r border-slate-300 bg-blue-50">
+                  Review
+                </th>
+                <th rowSpan={2} className="p-3 min-w-[220px] border-r border-slate-300 bg-amber-50/40">
+                  Assigned User / Unit
+                </th>
+                <th rowSpan={2} className="p-3 w-14 text-center">
+                  Actions
+                </th>
+              </tr>
+
+              {/* Bottom Tier for Municipal Financial Year */}
+              <tr className="border-b border-slate-300 text-[9px] uppercase font-bold tracking-tight bg-slate-200/90 text-slate-700">
+                <th className="p-2 min-w-[140px] border-r border-slate-300">Annual Target</th>
+                
+                {/* Q1 */}
+                <th className="p-2 min-w-[130px] border-r border-slate-300 bg-slate-100">1st Qtr Target</th>
+                <th className="p-2 min-w-[200px] border-r border-slate-300 bg-emerald-50/60">1st Qtr Actual</th>
+                <th className="p-2 min-w-[110px] border-r border-slate-300 bg-emerald-50/60 text-right">1st Qtr Actual Expense</th>
+                <th className="p-2 min-w-[80px] text-center border-r border-slate-300 bg-emerald-50/60">1st Qtr Variance</th>
+                <th className="p-2 min-w-[140px] border-r border-slate-300 bg-emerald-50/60">1st Qtr Corrective</th>
+
+                {/* Q2 */}
+                <th className="p-2 min-w-[130px] border-r border-slate-300 bg-slate-100">2nd Qtr Target</th>
+                <th className="p-2 min-w-[200px] border-r border-slate-300 bg-blue-50/60">2nd Qtr Actual</th>
+                <th className="p-2 min-w-[110px] border-r border-slate-300 bg-blue-50/60 text-right">2nd Qtr Actual Expense</th>
+                <th className="p-2 min-w-[80px] text-center border-r border-slate-300 bg-blue-50/60">2nd Qtr Variance</th>
+                <th className="p-2 min-w-[140px] border-r border-slate-300 bg-blue-50/60">2nd Qtr Corrective</th>
+
+                {/* Midterm */}
+                <th className="p-2 min-w-[130px] border-r border-slate-300 bg-amber-50">Midterm Review</th>
+                <th className="p-2 min-w-[200px] border-r border-slate-300 bg-amber-50/70">Midterm Actual</th>
+                <th className="p-2 min-w-[110px] border-r border-slate-300 bg-amber-50/70 text-right">Midterm Actual Expense</th>
+                <th className="p-2 min-w-[80px] text-center border-r border-slate-300 bg-amber-50/70">Midterm Variance</th>
+                <th className="p-2 min-w-[140px] border-r border-slate-300 bg-amber-50/70">Midterm Corrective</th>
+
+                {/* Q3 */}
+                <th className="p-2 min-w-[130px] border-r border-slate-300 bg-slate-100">3rd Qtr Target</th>
+                <th className="p-2 min-w-[200px] border-r border-slate-300 bg-purple-50/60">3rd Qtr Actual</th>
+                <th className="p-2 min-w-[110px] border-r border-slate-300 bg-purple-50/60 text-right">3rd Qtr Actual Expense</th>
+                <th className="p-2 min-w-[80px] text-center border-r border-slate-300 bg-purple-50/60">3rd Qtr Variance</th>
+                <th className="p-2 min-w-[140px] border-r border-slate-300 bg-purple-50/60">3rd Qtr Corrective</th>
+
+                {/* Q4 */}
+                <th className="p-2 min-w-[130px] border-r border-slate-300 bg-slate-100">4th Qtr Target</th>
+                <th className="p-2 min-w-[200px] border-r border-slate-300 bg-rose-50/60">4th Qtr Actual</th>
+                <th className="p-2 min-w-[110px] border-r border-slate-300 bg-rose-50/60 text-right">4th Qtr Actual Expense</th>
+                <th className="p-2 min-w-[80px] text-center border-r border-slate-300 bg-rose-50/60">4th Qtr Variance</th>
+                <th className="p-2 min-w-[140px] border-r border-slate-300 bg-rose-50/60">4th Qtr Corrective</th>
+
+                {/* Annual Metrics */}
+                <th className="p-2 min-w-[140px] border-r border-slate-300 bg-slate-200">Annual Actual</th>
+                <th className="p-2 min-w-[110px] border-r border-slate-300 bg-slate-200 text-right">Annual Actual Exp</th>
+                <th className="p-2 min-w-[80px] text-center border-r border-slate-300 bg-slate-200">Annual Variance</th>
+                <th className="p-2 min-w-[140px] border-r border-slate-300 bg-slate-200">Annual Corrective</th>
               </tr>
             </thead>
+
+            {/* Table Body */}
             <tbody>
-              {paginatedRows.map((row) => (
-                <tr key={row.id} className="border-b border-slate-200 hover:bg-slate-50/80 text-slate-700 transition-colors">
-                  {/* Sticky Reference ID */}
-                  <td className="p-4 sticky left-0 bg-white border-r border-slate-200 group-hover:bg-slate-50 shadow-[2px_0_5px_rgba(0,0,0,0.02)]">
-                    <textarea 
-                      value={row.refNum} 
-                      onChange={(e) => updateRowState(row.id, 'refNum', e.target.value)}
-                      onBlur={() => saveRowsToDatabase(rows)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-green-700 font-mono font-black focus:outline-none focus:ring-2 focus:ring-green-500 hover:bg-slate-100/50 transition-colors resize-none leading-normal text-xs"
-                      rows={2}
-                    />
-                  </td>
-                  <td className="p-4">
-                    <textarea
-                      value={row.strategicObj}
-                      onChange={(e) => updateRowState(row.id, 'strategicObj', e.target.value)}
-                      onBlur={() => saveRowsToDatabase(rows)}
-                      className="w-full bg-slate-50/40 hover:bg-slate-55 focus:bg-white border border-slate-200 focus:border-green-500 rounded-lg p-2.5 text-slate-800 font-medium text-[11px] leading-relaxed focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all resize-y"
-                      rows={4}
-                    />
-                  </td>
-                  
-                  {/* Objectives Checkboxes Icons */}
-                  <td className="p-4 text-center font-bold">
-                    <span className={cn("px-2 py-1 rounded text-[10px] font-extrabold shadow-sm border", row.bsd === 'Y' ? "bg-cyan-100 text-cyan-700 border-cyan-200" : "bg-slate-50 text-slate-400 border-slate-200")}>{row.bsd}</span>
-                  </td>
-                  <td className="p-4 text-center font-bold">
-                    <span className={cn("px-2 py-1 rounded text-[10px] font-extrabold shadow-sm border", row.led === 'Y' ? "bg-amber-100 text-amber-700 border-amber-200" : "bg-slate-50 text-slate-400 border-slate-200")}>{row.led}</span>
-                  </td>
-                  <td className="p-4 text-center font-bold">
-                    <span className={cn("px-2 py-1 rounded text-[10px] font-extrabold shadow-sm border", row.mfvm === 'Y' ? "bg-green-100 text-green-700 border-green-200" : "bg-slate-50 text-slate-400 border-slate-200")}>{row.mfvm}</span>
-                  </td>
-                  <td className="p-4 text-center font-bold">
-                    <span className={cn("px-2 py-1 rounded text-[10px] font-extrabold shadow-sm border", row.ggpp === 'Y' ? "bg-violet-100 text-violet-700 border-violet-200" : "bg-slate-50 text-slate-400 border-slate-200")}>{row.ggpp}</span>
-                  </td>
-                  <td className="p-4 text-center font-bold">
-                    <span className={cn("px-2 py-1 rounded text-[10px] font-extrabold shadow-sm border", row.midt === 'Y' ? "bg-pink-100 text-pink-700 border-pink-200" : "bg-slate-50 text-slate-400 border-slate-200")}>{row.midt}</span>
-                  </td>
-                  <td className="p-4 text-center font-bold">
-                    <span className={cn("px-2 py-1 rounded text-[10px] font-extrabold shadow-sm border", row.sr === 'Y' ? "bg-rose-100 text-rose-700 border-rose-200" : "bg-slate-50 text-slate-400 border-slate-200")}>{row.sr}</span>
-                  </td>
-
-                  <td className="p-4">
-                    <textarea
-                      value={row.kpas}
-                      onChange={(e) => updateRowState(row.id, 'kpas', e.target.value)}
-                      onBlur={() => saveRowsToDatabase(rows)}
-                      className="w-full bg-slate-50/40 hover:bg-slate-55 focus:bg-white border border-slate-200 focus:border-green-500 rounded-lg p-2.5 text-slate-600 font-semibold text-[11px] leading-relaxed focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all resize-y"
-                      rows={4}
-                    />
-                  </td>
-                  
-                  <td className="p-4">
-                    <textarea
-                      value={row.operationalActivity}
-                      onChange={(e) => updateRowState(row.id, 'operationalActivity', e.target.value)}
-                      onBlur={() => saveRowsToDatabase(rows)}
-                      className="w-full bg-slate-50/40 hover:bg-slate-55 focus:bg-white border border-slate-200 focus:border-green-500 rounded-lg p-2.5 text-slate-800 font-medium text-[11px] leading-relaxed focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all resize-y"
-                      rows={4}
-                    />
-                  </td>
-                  <td className="p-4">
-                    <textarea 
-                      value={row.kpi} 
-                      onChange={(e) => updateRowState(row.id, 'kpi', e.target.value)}
-                      onBlur={() => saveRowsToDatabase(rows)}
-                      className="w-full bg-slate-50/40 hover:bg-slate-55 focus:bg-white border border-slate-200 focus:border-green-500 rounded-lg p-2.5 text-slate-800 font-medium text-[11px] leading-relaxed focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all resize-y"
-                      rows={4}
-                    />
-                  </td>
-                  <td className="p-4 text-center">
-                    <input 
-                      value={row.weight || ''} 
-                      onChange={(e) => updateRowState(row.id, 'weight', e.target.value)}
-                      onBlur={() => saveRowsToDatabase(rows)}
-                      className="w-full bg-slate-50 border border-slate-200 hover:bg-slate-100/50 rounded-lg py-2.5 px-3 text-rose-600 font-bold text-center focus:outline-none focus:ring-2 focus:ring-rose-500/20 transition-all"
-                    />
-                  </td>
-                  
-                  <td className="p-4 text-center">
-                    <span className={cn(
-                      "px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider block shadow-sm border text-center font-bold",
-                      row.compliance === 'compliant' ? "bg-green-100 text-green-700 border-green-200" : "bg-rose-100 text-rose-700 border-rose-200"
-                    )}>
-                      {row.compliance}
-                    </span>
-                  </td>
-
-                  <td className="p-4">
-                    <textarea
-                      value={row.uom}
-                      onChange={(e) => updateRowState(row.id, 'uom', e.target.value)}
-                      onBlur={() => saveRowsToDatabase(rows)}
-                      className="w-full bg-slate-50/40 hover:bg-slate-55 focus:bg-white border border-slate-200 focus:border-green-500 rounded-lg p-2.5 text-slate-700 font-mono text-[11px] leading-relaxed focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all resize-y"
-                      rows={3}
-                    />
-                  </td>
-                  <td className="p-4">
-                    <textarea
-                      value={row.mscoaTracking}
-                      onChange={(e) => updateRowState(row.id, 'mscoaTracking', e.target.value)}
-                      onBlur={() => saveRowsToDatabase(rows)}
-                      className="w-full bg-slate-50/40 hover:bg-slate-55 focus:bg-white border border-slate-200 focus:border-green-500 rounded-lg p-2.5 text-indigo-700 font-mono text-[11px] leading-relaxed focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all resize-y"
-                      rows={3}
-                    />
-                  </td>
-                  <td className="p-4">
-                    <textarea
-                      value={row.baseline} 
-                      onChange={(e) => updateRowState(row.id, 'baseline', e.target.value)}
-                      onBlur={() => saveRowsToDatabase(rows)}
-                      className="w-full bg-slate-50/40 hover:bg-slate-55 focus:bg-white border border-slate-200 focus:border-green-500 rounded-lg p-2.5 text-slate-500 text-[11px] leading-relaxed focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all resize-y"
-                      rows={3}
-                    />
-                  </td>
-                  <td className="p-4">
-                    <textarea
-                      value={row.annualTarget} 
-                      onChange={(e) => updateRowState(row.id, 'annualTarget', e.target.value)}
-                      onBlur={() => saveRowsToDatabase(rows)}
-                      className="w-full bg-slate-50/40 hover:bg-slate-55 focus:bg-white border border-slate-200 focus:border-green-500 rounded-lg p-2.5 text-slate-900 font-bold text-[11px] leading-relaxed focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all resize-y"
-                      rows={3}
-                    />
-                  </td>
-                  <td className="p-4">
-                    <input 
-                      value={row.budgetAllocation} 
-                      onChange={(e) => updateRowState(row.id, 'budgetAllocation', e.target.value)}
-                      onBlur={() => saveRowsToDatabase(rows)}
-                      className="w-full bg-slate-50 border border-slate-200 hover:bg-slate-100/50 rounded-lg py-2.5 px-3 text-green-700 font-bold font-mono focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all text-center text-xs"
-                    />
-                  </td>
-                  <td className="p-4">
-                    <textarea 
-                      value={row.q1} 
-                      onChange={(e) => updateRowState(row.id, 'q1', e.target.value)}
-                      onBlur={() => saveRowsToDatabase(rows)}
-                      className="w-full bg-slate-50/40 hover:bg-slate-55 focus:bg-white border border-slate-200 focus:border-green-500 rounded-lg p-2.5 text-slate-700 text-[11px] leading-relaxed focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all resize-y"
-                      rows={3}
-                    />
-                    <div className="mt-2 text-center">
-                      <button
-                        type="button"
-                        onClick={() => setPoeModal({ rowId: row.id, quarter: 'q1' })}
-                        className={cn(
-                          "w-full py-1.5 px-2 rounded-lg border text-[10px] font-black transition-all flex items-center justify-between cursor-pointer",
-                          (row.q1PoeDocs?.length || 0) > 0
-                            ? "bg-green-50 hover:bg-green-100 text-green-700 border-green-200 shadow-sm"
-                            : "bg-slate-50 hover:bg-slate-100 text-slate-500 border-slate-200"
-                        )}
-                      >
-                        <span className="flex items-center gap-1">
-                          <Upload className="w-3.5 h-3.5 text-slate-400" />
-                          <span>Q1 POE</span>
-                        </span>
-                        <span className="px-1.5 py-0.5 rounded bg-white text-slate-700 border border-slate-200 font-extrabold text-[9px] min-w-[20px] text-center">
-                          {row.q1PoeDocs?.length || 0}
-                        </span>
-                      </button>
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <textarea 
-                      value={row.q2} 
-                      onChange={(e) => updateRowState(row.id, 'q2', e.target.value)}
-                      onBlur={() => saveRowsToDatabase(rows)}
-                      className="w-full bg-slate-50/40 hover:bg-slate-55 focus:bg-white border border-slate-200 focus:border-green-500 rounded-lg p-2.5 text-slate-700 text-[11px] leading-relaxed focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all resize-y"
-                      rows={3}
-                    />
-                    <div className="mt-2 text-center">
-                      <button
-                        type="button"
-                        onClick={() => setPoeModal({ rowId: row.id, quarter: 'q2' })}
-                        className={cn(
-                          "w-full py-1.5 px-2 rounded-lg border text-[10px] font-black transition-all flex items-center justify-between cursor-pointer",
-                          (row.q2PoeDocs?.length || 0) > 0
-                            ? "bg-green-50 hover:bg-green-100 text-green-700 border-green-200 shadow-sm"
-                            : "bg-slate-50 hover:bg-slate-100 text-slate-500 border-slate-200"
-                        )}
-                      >
-                        <span className="flex items-center gap-1">
-                          <Upload className="w-3.5 h-3.5 text-slate-400" />
-                          <span>Q2 POE</span>
-                        </span>
-                        <span className="px-1.5 py-0.5 rounded bg-white text-slate-700 border border-slate-200 font-extrabold text-[9px] min-w-[20px] text-center">
-                          {row.q2PoeDocs?.length || 0}
-                        </span>
-                      </button>
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <textarea 
-                      value={row.q3} 
-                      onChange={(e) => updateRowState(row.id, 'q3', e.target.value)}
-                      onBlur={() => saveRowsToDatabase(rows)}
-                      className="w-full bg-slate-50/40 hover:bg-slate-55 focus:bg-white border border-slate-200 focus:border-green-500 rounded-lg p-2.5 text-slate-700 text-[11px] leading-relaxed focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all resize-y"
-                      rows={3}
-                    />
-                    <div className="mt-2 text-center">
-                      <button
-                        type="button"
-                        onClick={() => setPoeModal({ rowId: row.id, quarter: 'q3' })}
-                        className={cn(
-                          "w-full py-1.5 px-2 rounded-lg border text-[10px] font-black transition-all flex items-center justify-between cursor-pointer",
-                          (row.q3PoeDocs?.length || 0) > 0
-                            ? "bg-green-50 hover:bg-green-100 text-green-700 border-green-200 shadow-sm"
-                            : "bg-slate-50 hover:bg-slate-100 text-slate-500 border-slate-200"
-                        )}
-                      >
-                        <span className="flex items-center gap-1">
-                          <Upload className="w-3.5 h-3.5 text-slate-400" />
-                          <span>Q3 POE</span>
-                        </span>
-                        <span className="px-1.5 py-0.5 rounded bg-white text-slate-700 border border-slate-200 font-extrabold text-[9px] min-w-[20px] text-center">
-                          {row.q3PoeDocs?.length || 0}
-                        </span>
-                      </button>
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <textarea 
-                      value={row.q4} 
-                      onChange={(e) => updateRowState(row.id, 'q4', e.target.value)}
-                      onBlur={() => saveRowsToDatabase(rows)}
-                      className="w-full bg-slate-50/40 hover:bg-slate-55 focus:bg-white border border-slate-200 focus:border-green-500 rounded-lg p-2.5 text-slate-700 text-[11px] leading-relaxed focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all resize-y"
-                      rows={3}
-                    />
-                    <div className="mt-2 text-center">
-                      <button
-                        type="button"
-                        onClick={() => setPoeModal({ rowId: row.id, quarter: 'q4' })}
-                        className={cn(
-                          "w-full py-1.5 px-2 rounded-lg border text-[10px] font-black transition-all flex items-center justify-between cursor-pointer",
-                          (row.q4PoeDocs?.length || 0) > 0
-                            ? "bg-green-50 hover:bg-green-100 text-green-700 border-green-200 shadow-sm"
-                            : "bg-slate-50 hover:bg-slate-100 text-slate-500 border-slate-200"
-                        )}
-                      >
-                        <span className="flex items-center gap-1">
-                          <Upload className="w-3.5 h-3.5 text-slate-400" />
-                          <span>Q4 POE</span>
-                        </span>
-                        <span className="px-1.5 py-0.5 rounded bg-white text-slate-700 border border-slate-200 font-extrabold text-[9px] min-w-[20px] text-center">
-                          {row.q4PoeDocs?.length || 0}
-                        </span>
-                      </button>
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <textarea 
-                      value={row.poe || ''} 
-                      onChange={(e) => updateRowState(row.id, 'poe', e.target.value)}
-                      onBlur={() => saveRowsToDatabase(rows)}
-                      className="w-full bg-slate-50/40 hover:bg-slate-55 focus:bg-white border border-slate-200 focus:border-green-500 rounded-lg p-2.5 text-slate-600 text-[11px] leading-relaxed focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all resize-y"
-                      rows={3}
-                    />
-                  </td>
-                  <td className="p-4">
-                    <textarea
-                      value={row.responsibleUnit}
-                      onChange={(e) => updateRowState(row.id, 'responsibleUnit', e.target.value)}
-                      onBlur={() => saveRowsToDatabase(rows)}
-                      className="w-full bg-slate-50/40 hover:bg-slate-55 focus:bg-white border border-slate-200 focus:border-green-500 rounded-lg p-2.5 text-slate-600 font-semibold text-[11px] leading-relaxed focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all resize-y"
-                      rows={3}
-                    />
-                  </td>
-
-                  {/* EVALUATION, REVIEW, POE BACKUP */}
-                  <td className="p-4 bg-slate-50 border-l border-r border-slate-200">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-1.5" title="Assessed User">
-                        <span className="text-[10px] text-slate-500 uppercase font-black w-14 inline-block">Assessed:</span>
-                        <span className="text-slate-800 font-mono bg-white border border-slate-200 px-2 py-1 rounded text-[10px] font-semibold">
-                          {row.evaluationUser}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1.5" title="Line Manager">
-                        <span className="text-[10px] text-slate-500 uppercase font-black w-14 inline-block">Reviewed:</span>
-                        <span className="text-amber-800 font-mono bg-amber-50 border border-amber-200 px-2 py-1 rounded text-[10px] font-semibold">
-                          {row.reviewManager}
-                        </span>
-                      </div>
-                      
-                      {/* POE Upload status triggers */}
-                      <div className="pt-2 flex items-center justify-between gap-3 border-t border-slate-200">
-                        {row.poeStatus === 'Not Uploaded' ? (
-                          <div className="flex items-center gap-1.5">
-                            <span className="w-2.5 h-2.5 rounded-full bg-slate-300 inline-block animate-pulse" />
-                            <span className="text-[10px] text-slate-500 font-bold italic">No Document</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1 bg-green-100 border border-green-200 px-2.5 py-1 rounded-lg text-[10px] font-bold text-green-700">
-                            <Cloud className="w-3.5 h-3.5" />
-                            <span>In Cloud Backup (Profile / POE / PA KPI's & KPA's)</span>
-                          </div>
-                        )}
-                        
-                        <button 
-                          onClick={() => handlePoeUpload(row.id)}
-                          className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-bold border border-slate-300 transition-all flex items-center gap-1 cursor-pointer"
-                        >
-                          <Upload className="w-3.5 h-3.5" /> 
-                          {row.poeStatus === 'Not Uploaded' ? 'Upload POE' : 'Re-upload'}
-                        </button>
-                      </div>
-
-                      {row.poeDocName && (
-                        <div className="text-[9px] text-green-600 font-mono italic truncate max-w-xs mt-1 bg-green-50/50 border border-green-100 p-1.5 rounded-md">
-                          Ref: {row.poeDocName}
-                        </div>
-                      )}
-                    </div>
-                  </td>
-
-                  {/* Actions Column */}
-                  <td className="p-4 text-center bg-slate-50/50">
-                    <button
-                      onClick={() => deleteRowHandler(row.id)}
-                      className="p-2 rounded-lg bg-rose-100 text-rose-600 hover:bg-rose-500 hover:text-white transition-all cursor-pointer shadow-sm border border-rose-200"
-                      title="Delete SDBIP 23 Measure"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </td>
-                  <td className="p-4 bg-teal-50/30 border-l border-teal-100 font-bold text-teal-800 text-[11px] truncate" title={row.evaluationUser}>
-                    {row.evaluationUser}
+              {filteredRows.length === 0 ? (
+                <tr>
+                  <td colSpan={44} className="p-16 text-center text-slate-400 bg-slate-50/50">
+                    <Layers className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                    <p className="text-sm font-bold text-slate-700">No matching SDBIP indicators found</p>
+                    <p className="text-xs text-slate-400 mt-1">Click "Sync Everyone's KPIs & KPAs" to auto-import all profiles and performance plans.</p>
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredRows.map((row, index) => {
+                  const q1Var = calculateVariance(row.q1Target || row.q1, row.q1Actual);
+                  const q2Var = calculateVariance(row.q2Target || row.q2, row.q2Actual);
+                  const midtermVar = calculateVariance(row.midtermTarget, row.midtermActual);
+                  const q3Var = calculateVariance(row.q3Target || row.q3, row.q3Actual);
+                  const q4Var = calculateVariance(row.q4Target || row.q4, row.q4Actual);
+                  const annualVar = calculateVariance(row.annualTarget, row.annualActual);
+
+                  return (
+                    <tr key={row.id} className="border-b border-slate-200 hover:bg-slate-50/80 transition-colors">
+                      
+                      {/* Sticky No. */}
+                      <td className="p-2.5 text-center sticky left-0 bg-white border-r border-slate-200 font-mono font-bold text-slate-500 shadow-[2px_0_5px_rgba(0,0,0,0.02)]">
+                        {index + 1}
+                      </td>
+
+                      {/* Strategic Objective */}
+                      <td className="p-2 border-r border-slate-200">
+                        <select
+                          value={row.strategicObj || ''}
+                          onChange={(e) => updateRowField(row.id, 'strategicObj', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          className="w-full bg-slate-50 border border-slate-200 rounded p-1 text-[10px] font-semibold text-slate-700 mb-1 focus:outline-none"
+                        >
+                          <option value="">-- Select Strategic Objective --</option>
+                          {uniqueStrategicObjectives.map((obj) => (
+                            <option key={obj} value={obj}>{obj}</option>
+                          ))}
+                        </select>
+                        <textarea
+                          rows={2}
+                          value={row.strategicObj || ''}
+                          onChange={(e) => updateRowField(row.id, 'strategicObj', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          placeholder="Strategic objective text..."
+                          className="w-full bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent hover:border-slate-200 focus:border-emerald-500 rounded p-1 text-[10px] text-slate-700 leading-snug resize-y outline-none"
+                        />
+                      </td>
+
+                      {/* KPI No */}
+                      <td className="p-2 border-r border-slate-200">
+                        <input
+                          type="text"
+                          value={row.refNum || ''}
+                          onChange={(e) => updateRowField(row.id, 'refNum', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          className="w-full bg-slate-50 border border-slate-200 rounded p-1 text-center font-mono font-bold text-emerald-800 text-[10px] focus:outline-none focus:border-emerald-500"
+                        />
+                      </td>
+
+                      {/* KPI Description */}
+                      <td className="p-2 border-r border-slate-200">
+                        <textarea
+                          rows={3}
+                          value={row.kpi || ''}
+                          onChange={(e) => updateRowField(row.id, 'kpi', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          placeholder="KPI description details..."
+                          className="w-full bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent hover:border-slate-200 focus:border-emerald-500 rounded p-1.5 text-[11px] text-slate-900 font-medium leading-relaxed resize-y outline-none"
+                        />
+                      </td>
+
+                      {/* National KPA Toggles */}
+                      <td className="p-1 border-r border-slate-200 text-center bg-cyan-50/30">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const next = row.bsd === 'Y' ? 'N' : 'Y';
+                            updateRowField(row.id, 'bsd', next);
+                            saveRowsToDatabase(rows.map(r => r.id === row.id ? { ...r, bsd: next } : r));
+                          }}
+                          className={cn(
+                            "w-6 h-6 rounded font-black text-[10px] transition cursor-pointer",
+                            row.bsd === 'Y' ? "bg-cyan-600 text-white shadow-xs" : "bg-slate-100 text-slate-400 hover:bg-slate-200"
+                          )}
+                        >
+                          {row.bsd === 'Y' ? 'X' : '·'}
+                        </button>
+                      </td>
+                      <td className="p-1 border-r border-slate-200 text-center bg-amber-50/30">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const next = row.led === 'Y' ? 'N' : 'Y';
+                            updateRowField(row.id, 'led', next);
+                            saveRowsToDatabase(rows.map(r => r.id === row.id ? { ...r, led: next } : r));
+                          }}
+                          className={cn(
+                            "w-6 h-6 rounded font-black text-[10px] transition cursor-pointer",
+                            row.led === 'Y' ? "bg-amber-600 text-white shadow-xs" : "bg-slate-100 text-slate-400 hover:bg-slate-200"
+                          )}
+                        >
+                          {row.led === 'Y' ? 'X' : '·'}
+                        </button>
+                      </td>
+                      <td className="p-1 border-r border-slate-200 text-center bg-emerald-50/30">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const next = row.mfvm === 'Y' ? 'N' : 'Y';
+                            updateRowField(row.id, 'mfvm', next);
+                            saveRowsToDatabase(rows.map(r => r.id === row.id ? { ...r, mfvm: next } : r));
+                          }}
+                          className={cn(
+                            "w-6 h-6 rounded font-black text-[10px] transition cursor-pointer",
+                            row.mfvm === 'Y' ? "bg-emerald-600 text-white shadow-xs" : "bg-slate-100 text-slate-400 hover:bg-slate-200"
+                          )}
+                        >
+                          {row.mfvm === 'Y' ? 'X' : '·'}
+                        </button>
+                      </td>
+                      <td className="p-1 border-r border-slate-200 text-center bg-violet-50/30">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const next = row.ggpp === 'Y' ? 'N' : 'Y';
+                            updateRowField(row.id, 'ggpp', next);
+                            saveRowsToDatabase(rows.map(r => r.id === row.id ? { ...r, ggpp: next } : r));
+                          }}
+                          className={cn(
+                            "w-6 h-6 rounded font-black text-[10px] transition cursor-pointer",
+                            row.ggpp === 'Y' ? "bg-violet-600 text-white shadow-xs" : "bg-slate-100 text-slate-400 hover:bg-slate-200"
+                          )}
+                        >
+                          {row.ggpp === 'Y' ? 'X' : '·'}
+                        </button>
+                      </td>
+                      <td className="p-1 border-r border-slate-200 text-center bg-pink-50/30">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const next = row.midt === 'Y' ? 'N' : 'Y';
+                            updateRowField(row.id, 'midt', next);
+                            saveRowsToDatabase(rows.map(r => r.id === row.id ? { ...r, midt: next } : r));
+                          }}
+                          className={cn(
+                            "w-6 h-6 rounded font-black text-[10px] transition cursor-pointer",
+                            row.midt === 'Y' ? "bg-pink-600 text-white shadow-xs" : "bg-slate-100 text-slate-400 hover:bg-slate-200"
+                          )}
+                        >
+                          {row.midt === 'Y' ? 'X' : '·'}
+                        </button>
+                      </td>
+                      <td className="p-1 border-r border-slate-200 text-center bg-rose-50/30">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const next = row.sr === 'Y' ? 'N' : 'Y';
+                            updateRowField(row.id, 'sr', next);
+                            saveRowsToDatabase(rows.map(r => r.id === row.id ? { ...r, sr: next } : r));
+                          }}
+                          className={cn(
+                            "w-6 h-6 rounded font-black text-[10px] transition cursor-pointer",
+                            row.sr === 'Y' ? "bg-rose-600 text-white shadow-xs" : "bg-slate-100 text-slate-400 hover:bg-slate-200"
+                          )}
+                        >
+                          {row.sr === 'Y' ? 'X' : '·'}
+                        </button>
+                      </td>
+
+                      {/* Strategically Linked Functional Area KPA */}
+                      <td className="p-2 border-r border-slate-200 bg-emerald-50/20">
+                        <select
+                          value={row.kpa || row.kpas || ''}
+                          onChange={(e) => updateRowField(row.id, 'kpa', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          className="w-full bg-white border border-emerald-300 rounded p-1 text-[10px] font-bold text-emerald-900 mb-1 focus:outline-none"
+                        >
+                          <option value="">-- Choose Functional Area KPA --</option>
+                          {uniqueFunctionalKpas.map((fk) => (
+                            <option key={fk} value={fk}>{fk}</option>
+                          ))}
+                        </select>
+                        <textarea
+                          rows={2}
+                          value={row.kpa || row.kpas || ''}
+                          onChange={(e) => updateRowField(row.id, 'kpa', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          placeholder="Captured functional area KPA..."
+                          className="w-full bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-emerald-200 focus:border-emerald-500 rounded p-1 text-[10px] text-emerald-950 font-bold leading-snug resize-y outline-none"
+                        />
+                      </td>
+
+                      {/* mSCOA Code */}
+                      <td className="p-2 border-r border-slate-200 bg-indigo-50/20">
+                        <select
+                          value={row.mscoaCode || row.mscoaTracking || ''}
+                          onChange={(e) => updateRowField(row.id, 'mscoaCode', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          className="w-full bg-white border border-indigo-200 rounded p-1 text-[10px] font-semibold text-indigo-900 mb-1 focus:outline-none"
+                        >
+                          <option value="">-- Select mSCOA --</option>
+                          {uniqueMscoaCodes.map((c) => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </select>
+                        <input
+                          type="text"
+                          value={row.mscoaCode || row.mscoaTracking || ''}
+                          onChange={(e) => updateRowField(row.id, 'mscoaCode', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          placeholder="mSCOA code..."
+                          className="w-full bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-indigo-200 focus:border-indigo-500 rounded p-1 text-[10px] text-indigo-900 font-mono outline-none"
+                        />
+                      </td>
+
+                      {/* Baseline */}
+                      <td className="p-2 border-r border-slate-200">
+                        <textarea
+                          rows={2}
+                          value={row.baseline || ''}
+                          onChange={(e) => updateRowField(row.id, 'baseline', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          placeholder="Baseline metric..."
+                          className="w-full bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent hover:border-slate-200 focus:border-emerald-500 rounded p-1 text-[10px] text-slate-600 resize-y outline-none"
+                        />
+                      </td>
+
+                      {/* Budget */}
+                      <td className="p-2 border-r border-slate-200">
+                        <input
+                          type="text"
+                          value={row.budgetAllocation || row.budget || ''}
+                          onChange={(e) => updateRowField(row.id, 'budgetAllocation', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          placeholder="R 0.00"
+                          className="w-full bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent hover:border-slate-200 focus:border-emerald-500 rounded p-1 text-right font-mono font-bold text-emerald-700 text-[10px] outline-none"
+                        />
+                      </td>
+
+                      {/* Annual Target */}
+                      <td className="p-2 border-r border-slate-200 bg-slate-50/50">
+                        <textarea
+                          rows={2}
+                          value={row.annualTarget || ''}
+                          onChange={(e) => updateRowField(row.id, 'annualTarget', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          placeholder="Annual target..."
+                          className="w-full bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-slate-200 focus:border-emerald-500 rounded p-1 text-[10px] text-slate-900 font-bold resize-y outline-none"
+                        />
+                      </td>
+
+                      {/* 1st Qtr Target */}
+                      <td className="p-2 border-r border-slate-200 bg-slate-50/40">
+                        <textarea
+                          rows={2}
+                          value={row.q1Target || row.q1 || ''}
+                          onChange={(e) => updateRowField(row.id, 'q1Target', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          placeholder="Q1 target..."
+                          className="w-full bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-slate-200 focus:border-emerald-500 rounded p-1 text-[10px] text-slate-800 resize-y outline-none"
+                        />
+                      </td>
+
+                      {/* 1st Qtr Actual */}
+                      <td className="p-2 border-r border-slate-200 bg-emerald-50/20">
+                        <div className="flex items-center gap-1 mb-1">
+                          <span className="text-[8px] font-extrabold text-emerald-800 uppercase">Score (1-5):</span>
+                          <input
+                            type="number"
+                            min="1"
+                            max="5"
+                            value={row.q1Score || ''}
+                            onChange={(e) => updateRowField(row.id, 'q1Score', e.target.value)}
+                            onBlur={() => saveRowsToDatabase(rows)}
+                            className="w-10 bg-white border border-emerald-300 rounded text-center text-[10px] font-bold text-emerald-900 p-0.5"
+                          />
+                          <span className={cn(
+                            "ml-auto text-[8px] px-1.5 py-0.5 rounded font-black",
+                            parseFloat(q1Var) <= 0 ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"
+                          )}>
+                            Var: {q1Var}
+                          </span>
+                        </div>
+                        <textarea
+                          rows={2}
+                          value={row.q1Actual || ''}
+                          onChange={(e) => updateRowField(row.id, 'q1Actual', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          placeholder="Q1 Actual performance..."
+                          className="w-full bg-white border border-emerald-200 focus:border-emerald-500 rounded p-1 text-[10px] text-slate-800 resize-y outline-none mb-1"
+                        />
+                        <input
+                          type="text"
+                          value={row.q1Comment || ''}
+                          onChange={(e) => updateRowField(row.id, 'q1Comment', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          placeholder="Q1 variance comment..."
+                          className="w-full bg-white/70 border border-slate-200 rounded p-0.5 text-[9px] text-slate-600 outline-none"
+                        />
+                        <CompactPoeUploader
+                          label="Q1 POE"
+                          files={row.q1PoeDocs || []}
+                          onUpload={(docs) => {
+                            const next = [...(row.q1PoeDocs || []), ...docs];
+                            updateRowField(row.id, 'q1PoeDocs', next);
+                            saveRowsToDatabase(rows.map(r => r.id === row.id ? { ...r, q1PoeDocs: next } : r));
+                          }}
+                          onRemove={(docId) => {
+                            const next = (row.q1PoeDocs || []).filter(d => d.id !== docId);
+                            updateRowField(row.id, 'q1PoeDocs', next);
+                            saveRowsToDatabase(rows.map(r => r.id === row.id ? { ...r, q1PoeDocs: next } : r));
+                          }}
+                        />
+                      </td>
+
+                      {/* 1st Qtr Expense */}
+                      <td className="p-2 border-r border-slate-200 bg-emerald-50/20">
+                        <input
+                          type="text"
+                          value={row.q1ActualExpense || ''}
+                          onChange={(e) => updateRowField(row.id, 'q1ActualExpense', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          placeholder="R 0.00"
+                          className="w-full bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-slate-200 focus:border-emerald-500 rounded p-1 text-right font-mono text-[10px] text-slate-800 outline-none"
+                        />
+                      </td>
+
+                      {/* 1st Qtr Variance */}
+                      <td className="p-2 border-r border-slate-200 bg-emerald-50/20 text-center font-mono font-bold text-[10px]">
+                        <span className={cn(
+                          "px-1.5 py-0.5 rounded text-[9px] font-extrabold",
+                          parseFloat(q1Var) <= 0 ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"
+                        )}>
+                          {q1Var}
+                        </span>
+                      </td>
+
+                      {/* 1st Qtr Corrective */}
+                      <td className="p-2 border-r border-slate-200 bg-emerald-50/20">
+                        <textarea
+                          rows={2}
+                          value={row.q1Corrective || ''}
+                          onChange={(e) => updateRowField(row.id, 'q1Corrective', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          placeholder="Q1 corrective action..."
+                          className="w-full bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-slate-200 focus:border-emerald-500 rounded p-1 text-[10px] text-slate-700 resize-y outline-none"
+                        />
+                      </td>
+
+                      {/* 2nd Qtr Target */}
+                      <td className="p-2 border-r border-slate-200 bg-slate-50/40">
+                        <textarea
+                          rows={2}
+                          value={row.q2Target || row.q2 || ''}
+                          onChange={(e) => updateRowField(row.id, 'q2Target', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          placeholder="Q2 target..."
+                          className="w-full bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-slate-200 focus:border-emerald-500 rounded p-1 text-[10px] text-slate-800 resize-y outline-none"
+                        />
+                      </td>
+
+                      {/* 2nd Qtr Actual */}
+                      <td className="p-2 border-r border-slate-200 bg-blue-50/20">
+                        <div className="flex items-center gap-1 mb-1">
+                          <span className="text-[8px] font-extrabold text-blue-800 uppercase">Score (1-5):</span>
+                          <input
+                            type="number"
+                            min="1"
+                            max="5"
+                            value={row.q2Score || ''}
+                            onChange={(e) => updateRowField(row.id, 'q2Score', e.target.value)}
+                            onBlur={() => saveRowsToDatabase(rows)}
+                            className="w-10 bg-white border border-blue-300 rounded text-center text-[10px] font-bold text-blue-900 p-0.5"
+                          />
+                          <span className={cn(
+                            "ml-auto text-[8px] px-1.5 py-0.5 rounded font-black",
+                            parseFloat(q2Var) <= 0 ? "bg-blue-100 text-blue-800" : "bg-rose-100 text-rose-800"
+                          )}>
+                            Var: {q2Var}
+                          </span>
+                        </div>
+                        <textarea
+                          rows={2}
+                          value={row.q2Actual || ''}
+                          onChange={(e) => updateRowField(row.id, 'q2Actual', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          placeholder="Q2 Actual performance..."
+                          className="w-full bg-white border border-blue-200 focus:border-blue-500 rounded p-1 text-[10px] text-slate-800 resize-y outline-none mb-1"
+                        />
+                        <input
+                          type="text"
+                          value={row.q2Comment || ''}
+                          onChange={(e) => updateRowField(row.id, 'q2Comment', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          placeholder="Q2 variance comment..."
+                          className="w-full bg-white/70 border border-slate-200 rounded p-0.5 text-[9px] text-slate-600 outline-none"
+                        />
+                        <CompactPoeUploader
+                          label="Q2 POE"
+                          files={row.q2PoeDocs || []}
+                          onUpload={(docs) => {
+                            const next = [...(row.q2PoeDocs || []), ...docs];
+                            updateRowField(row.id, 'q2PoeDocs', next);
+                            saveRowsToDatabase(rows.map(r => r.id === row.id ? { ...r, q2PoeDocs: next } : r));
+                          }}
+                          onRemove={(docId) => {
+                            const next = (row.q2PoeDocs || []).filter(d => d.id !== docId);
+                            updateRowField(row.id, 'q2PoeDocs', next);
+                            saveRowsToDatabase(rows.map(r => r.id === row.id ? { ...r, q2PoeDocs: next } : r));
+                          }}
+                        />
+                      </td>
+
+                      {/* 2nd Qtr Expense */}
+                      <td className="p-2 border-r border-slate-200 bg-blue-50/20">
+                        <input
+                          type="text"
+                          value={row.q2ActualExpense || ''}
+                          onChange={(e) => updateRowField(row.id, 'q2ActualExpense', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          placeholder="R 0.00"
+                          className="w-full bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-slate-200 focus:border-emerald-500 rounded p-1 text-right font-mono text-[10px] text-slate-800 outline-none"
+                        />
+                      </td>
+
+                      {/* 2nd Qtr Variance */}
+                      <td className="p-2 border-r border-slate-200 bg-blue-50/20 text-center font-mono font-bold text-[10px]">
+                        <span className={cn(
+                          "px-1.5 py-0.5 rounded text-[9px] font-extrabold",
+                          parseFloat(q2Var) <= 0 ? "bg-blue-100 text-blue-800" : "bg-rose-100 text-rose-800"
+                        )}>
+                          {q2Var}
+                        </span>
+                      </td>
+
+                      {/* 2nd Qtr Corrective */}
+                      <td className="p-2 border-r border-slate-200 bg-blue-50/20">
+                        <textarea
+                          rows={2}
+                          value={row.q2Corrective || ''}
+                          onChange={(e) => updateRowField(row.id, 'q2Corrective', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          placeholder="Q2 corrective action..."
+                          className="w-full bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-slate-200 focus:border-emerald-500 rounded p-1 text-[10px] text-slate-700 resize-y outline-none"
+                        />
+                      </td>
+
+                      {/* Midterm Target */}
+                      <td className="p-2 border-r border-slate-200 bg-amber-50/30">
+                        <textarea
+                          rows={2}
+                          value={row.midtermTarget || ''}
+                          onChange={(e) => updateRowField(row.id, 'midtermTarget', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          placeholder="Midterm target..."
+                          className="w-full bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-amber-200 focus:border-amber-500 rounded p-1 text-[10px] text-slate-800 resize-y outline-none"
+                        />
+                      </td>
+
+                      {/* Midterm Actual */}
+                      <td className="p-2 border-r border-slate-200 bg-amber-50/40">
+                        <div className="flex items-center gap-1 mb-1">
+                          <span className="text-[8px] font-extrabold text-amber-800 uppercase">Score (1-5):</span>
+                          <input
+                            type="number"
+                            min="1"
+                            max="5"
+                            value={row.midtermScore || ''}
+                            onChange={(e) => updateRowField(row.id, 'midtermScore', e.target.value)}
+                            onBlur={() => saveRowsToDatabase(rows)}
+                            className="w-10 bg-white border border-amber-300 rounded text-center text-[10px] font-bold text-amber-900 p-0.5"
+                          />
+                          <span className={cn(
+                            "ml-auto text-[8px] px-1.5 py-0.5 rounded font-black",
+                            parseFloat(midtermVar) <= 0 ? "bg-amber-200 text-amber-900" : "bg-rose-100 text-rose-800"
+                          )}>
+                            Var: {midtermVar}
+                          </span>
+                        </div>
+                        <textarea
+                          rows={2}
+                          value={row.midtermActual || ''}
+                          onChange={(e) => updateRowField(row.id, 'midtermActual', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          placeholder="Midterm Actual review..."
+                          className="w-full bg-white border border-amber-200 focus:border-amber-500 rounded p-1 text-[10px] text-slate-800 resize-y outline-none mb-1"
+                        />
+                        <input
+                          type="text"
+                          value={row.midtermComment || ''}
+                          onChange={(e) => updateRowField(row.id, 'midtermComment', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          placeholder="Midterm review comment..."
+                          className="w-full bg-white/70 border border-slate-200 rounded p-0.5 text-[9px] text-slate-600 outline-none"
+                        />
+                        <CompactPoeUploader
+                          label="Midterm POE"
+                          files={row.midtermPoeDocs || []}
+                          onUpload={(docs) => {
+                            const next = [...(row.midtermPoeDocs || []), ...docs];
+                            updateRowField(row.id, 'midtermPoeDocs', next);
+                            saveRowsToDatabase(rows.map(r => r.id === row.id ? { ...r, midtermPoeDocs: next } : r));
+                          }}
+                          onRemove={(docId) => {
+                            const next = (row.midtermPoeDocs || []).filter(d => d.id !== docId);
+                            updateRowField(row.id, 'midtermPoeDocs', next);
+                            saveRowsToDatabase(rows.map(r => r.id === row.id ? { ...r, midtermPoeDocs: next } : r));
+                          }}
+                        />
+                      </td>
+
+                      {/* Midterm Expense */}
+                      <td className="p-2 border-r border-slate-200 bg-amber-50/30">
+                        <input
+                          type="text"
+                          value={row.midtermActualExpense || ''}
+                          onChange={(e) => updateRowField(row.id, 'midtermActualExpense', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          placeholder="R 0.00"
+                          className="w-full bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-slate-200 focus:border-emerald-500 rounded p-1 text-right font-mono text-[10px] text-slate-800 outline-none"
+                        />
+                      </td>
+
+                      {/* Midterm Variance */}
+                      <td className="p-2 border-r border-slate-200 bg-amber-50/30 text-center font-mono font-bold text-[10px]">
+                        <span className={cn(
+                          "px-1.5 py-0.5 rounded text-[9px] font-extrabold",
+                          parseFloat(midtermVar) <= 0 ? "bg-amber-100 text-amber-800" : "bg-rose-100 text-rose-800"
+                        )}>
+                          {midtermVar}
+                        </span>
+                      </td>
+
+                      {/* Midterm Corrective */}
+                      <td className="p-2 border-r border-slate-200 bg-amber-50/30">
+                        <textarea
+                          rows={2}
+                          value={row.midtermCorrective || ''}
+                          onChange={(e) => updateRowField(row.id, 'midtermCorrective', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          placeholder="Midterm corrective action..."
+                          className="w-full bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-slate-200 focus:border-emerald-500 rounded p-1 text-[10px] text-slate-700 resize-y outline-none"
+                        />
+                      </td>
+
+                      {/* 3rd Qtr Target */}
+                      <td className="p-2 border-r border-slate-200 bg-slate-50/40">
+                        <textarea
+                          rows={2}
+                          value={row.q3Target || row.q3 || ''}
+                          onChange={(e) => updateRowField(row.id, 'q3Target', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          placeholder="Q3 target..."
+                          className="w-full bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-slate-200 focus:border-emerald-500 rounded p-1 text-[10px] text-slate-800 resize-y outline-none"
+                        />
+                      </td>
+
+                      {/* 3rd Qtr Actual */}
+                      <td className="p-2 border-r border-slate-200 bg-purple-50/20">
+                        <div className="flex items-center gap-1 mb-1">
+                          <span className="text-[8px] font-extrabold text-purple-800 uppercase">Score (1-5):</span>
+                          <input
+                            type="number"
+                            min="1"
+                            max="5"
+                            value={row.q3Score || ''}
+                            onChange={(e) => updateRowField(row.id, 'q3Score', e.target.value)}
+                            onBlur={() => saveRowsToDatabase(rows)}
+                            className="w-10 bg-white border border-purple-300 rounded text-center text-[10px] font-bold text-purple-900 p-0.5"
+                          />
+                          <span className={cn(
+                            "ml-auto text-[8px] px-1.5 py-0.5 rounded font-black",
+                            parseFloat(q3Var) <= 0 ? "bg-purple-100 text-purple-800" : "bg-rose-100 text-rose-800"
+                          )}>
+                            Var: {q3Var}
+                          </span>
+                        </div>
+                        <textarea
+                          rows={2}
+                          value={row.q3Actual || ''}
+                          onChange={(e) => updateRowField(row.id, 'q3Actual', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          placeholder="Q3 Actual performance..."
+                          className="w-full bg-white border border-purple-200 focus:border-purple-500 rounded p-1 text-[10px] text-slate-800 resize-y outline-none mb-1"
+                        />
+                        <input
+                          type="text"
+                          value={row.q3Comment || ''}
+                          onChange={(e) => updateRowField(row.id, 'q3Comment', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          placeholder="Q3 variance comment..."
+                          className="w-full bg-white/70 border border-slate-200 rounded p-0.5 text-[9px] text-slate-600 outline-none"
+                        />
+                        <CompactPoeUploader
+                          label="Q3 POE"
+                          files={row.q3PoeDocs || []}
+                          onUpload={(docs) => {
+                            const next = [...(row.q3PoeDocs || []), ...docs];
+                            updateRowField(row.id, 'q3PoeDocs', next);
+                            saveRowsToDatabase(rows.map(r => r.id === row.id ? { ...r, q3PoeDocs: next } : r));
+                          }}
+                          onRemove={(docId) => {
+                            const next = (row.q3PoeDocs || []).filter(d => d.id !== docId);
+                            updateRowField(row.id, 'q3PoeDocs', next);
+                            saveRowsToDatabase(rows.map(r => r.id === row.id ? { ...r, q3PoeDocs: next } : r));
+                          }}
+                        />
+                      </td>
+
+                      {/* 3rd Qtr Expense */}
+                      <td className="p-2 border-r border-slate-200 bg-purple-50/20">
+                        <input
+                          type="text"
+                          value={row.q3ActualExpense || ''}
+                          onChange={(e) => updateRowField(row.id, 'q3ActualExpense', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          placeholder="R 0.00"
+                          className="w-full bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-slate-200 focus:border-emerald-500 rounded p-1 text-right font-mono text-[10px] text-slate-800 outline-none"
+                        />
+                      </td>
+
+                      {/* 3rd Qtr Variance */}
+                      <td className="p-2 border-r border-slate-200 bg-purple-50/20 text-center font-mono font-bold text-[10px]">
+                        <span className={cn(
+                          "px-1.5 py-0.5 rounded text-[9px] font-extrabold",
+                          parseFloat(q3Var) <= 0 ? "bg-purple-100 text-purple-800" : "bg-rose-100 text-rose-800"
+                        )}>
+                          {q3Var}
+                        </span>
+                      </td>
+
+                      {/* 3rd Qtr Corrective */}
+                      <td className="p-2 border-r border-slate-200 bg-purple-50/20">
+                        <textarea
+                          rows={2}
+                          value={row.q3Corrective || ''}
+                          onChange={(e) => updateRowField(row.id, 'q3Corrective', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          placeholder="Q3 corrective action..."
+                          className="w-full bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-slate-200 focus:border-emerald-500 rounded p-1 text-[10px] text-slate-700 resize-y outline-none"
+                        />
+                      </td>
+
+                      {/* 4th Qtr Target */}
+                      <td className="p-2 border-r border-slate-200 bg-slate-50/40">
+                        <textarea
+                          rows={2}
+                          value={row.q4Target || row.q4 || ''}
+                          onChange={(e) => updateRowField(row.id, 'q4Target', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          placeholder="Q4 target..."
+                          className="w-full bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-slate-200 focus:border-emerald-500 rounded p-1 text-[10px] text-slate-800 resize-y outline-none"
+                        />
+                      </td>
+
+                      {/* 4th Qtr Actual */}
+                      <td className="p-2 border-r border-slate-200 bg-rose-50/20">
+                        <div className="flex items-center gap-1 mb-1">
+                          <span className="text-[8px] font-extrabold text-rose-800 uppercase">Score (1-5):</span>
+                          <input
+                            type="number"
+                            min="1"
+                            max="5"
+                            value={row.q4Score || ''}
+                            onChange={(e) => updateRowField(row.id, 'q4Score', e.target.value)}
+                            onBlur={() => saveRowsToDatabase(rows)}
+                            className="w-10 bg-white border border-rose-300 rounded text-center text-[10px] font-bold text-rose-900 p-0.5"
+                          />
+                          <span className={cn(
+                            "ml-auto text-[8px] px-1.5 py-0.5 rounded font-black",
+                            parseFloat(q4Var) <= 0 ? "bg-rose-100 text-rose-800" : "bg-rose-200 text-rose-900"
+                          )}>
+                            Var: {q4Var}
+                          </span>
+                        </div>
+                        <textarea
+                          rows={2}
+                          value={row.q4Actual || ''}
+                          onChange={(e) => updateRowField(row.id, 'q4Actual', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          placeholder="Q4 Actual performance..."
+                          className="w-full bg-white border border-rose-200 focus:border-rose-500 rounded p-1 text-[10px] text-slate-800 resize-y outline-none mb-1"
+                        />
+                        <input
+                          type="text"
+                          value={row.q4Comment || ''}
+                          onChange={(e) => updateRowField(row.id, 'q4Comment', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          placeholder="Q4 variance comment..."
+                          className="w-full bg-white/70 border border-slate-200 rounded p-0.5 text-[9px] text-slate-600 outline-none"
+                        />
+                        <CompactPoeUploader
+                          label="Q4 POE"
+                          files={row.q4PoeDocs || []}
+                          onUpload={(docs) => {
+                            const next = [...(row.q4PoeDocs || []), ...docs];
+                            updateRowField(row.id, 'q4PoeDocs', next);
+                            saveRowsToDatabase(rows.map(r => r.id === row.id ? { ...r, q4PoeDocs: next } : r));
+                          }}
+                          onRemove={(docId) => {
+                            const next = (row.q4PoeDocs || []).filter(d => d.id !== docId);
+                            updateRowField(row.id, 'q4PoeDocs', next);
+                            saveRowsToDatabase(rows.map(r => r.id === row.id ? { ...r, q4PoeDocs: next } : r));
+                          }}
+                        />
+                      </td>
+
+                      {/* 4th Qtr Expense */}
+                      <td className="p-2 border-r border-slate-200 bg-rose-50/20">
+                        <input
+                          type="text"
+                          value={row.q4ActualExpense || ''}
+                          onChange={(e) => updateRowField(row.id, 'q4ActualExpense', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          placeholder="R 0.00"
+                          className="w-full bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-slate-200 focus:border-emerald-500 rounded p-1 text-right font-mono text-[10px] text-slate-800 outline-none"
+                        />
+                      </td>
+
+                      {/* 4th Qtr Variance */}
+                      <td className="p-2 border-r border-slate-200 bg-rose-50/20 text-center font-mono font-bold text-[10px]">
+                        <span className={cn(
+                          "px-1.5 py-0.5 rounded text-[9px] font-extrabold",
+                          parseFloat(q4Var) <= 0 ? "bg-rose-100 text-rose-800" : "bg-rose-200 text-rose-900"
+                        )}>
+                          {q4Var}
+                        </span>
+                      </td>
+
+                      {/* 4th Qtr Corrective */}
+                      <td className="p-2 border-r border-slate-200 bg-rose-50/20">
+                        <textarea
+                          rows={2}
+                          value={row.q4Corrective || ''}
+                          onChange={(e) => updateRowField(row.id, 'q4Corrective', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          placeholder="Q4 corrective action..."
+                          className="w-full bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-slate-200 focus:border-emerald-500 rounded p-1 text-[10px] text-slate-700 resize-y outline-none"
+                        />
+                      </td>
+
+                      {/* Annual Actual */}
+                      <td className="p-2 border-r border-slate-200 bg-slate-100/70">
+                        <textarea
+                          rows={2}
+                          value={row.annualActual || ''}
+                          onChange={(e) => updateRowField(row.id, 'annualActual', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          placeholder="Total Annual Actual..."
+                          className="w-full bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-slate-300 focus:border-emerald-500 rounded p-1 text-[10px] text-slate-900 font-bold resize-y outline-none"
+                        />
+                      </td>
+
+                      {/* Annual Actual Exp */}
+                      <td className="p-2 border-r border-slate-200 bg-slate-100/70">
+                        <input
+                          type="text"
+                          value={row.annualActualExpense || row.annualActualExp || ''}
+                          onChange={(e) => updateRowField(row.id, 'annualActualExpense', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          placeholder="R 0.00"
+                          className="w-full bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-slate-300 focus:border-emerald-500 rounded p-1 text-right font-mono text-[10px] text-slate-900 font-bold outline-none"
+                        />
+                      </td>
+
+                      {/* Annual Variance */}
+                      <td className="p-2 border-r border-slate-200 bg-slate-100/70 text-center font-mono font-bold text-[10px]">
+                        <span className={cn(
+                          "px-1.5 py-0.5 rounded text-[9px] font-black",
+                          parseFloat(annualVar) <= 0 ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"
+                        )}>
+                          {annualVar}
+                        </span>
+                      </td>
+
+                      {/* Annual Corrective */}
+                      <td className="p-2 border-r border-slate-200 bg-slate-100/70">
+                        <textarea
+                          rows={2}
+                          value={row.annualCorrective || ''}
+                          onChange={(e) => updateRowField(row.id, 'annualCorrective', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          placeholder="Annual corrective recommendations..."
+                          className="w-full bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-slate-300 focus:border-emerald-500 rounded p-1 text-[10px] text-slate-700 resize-y outline-none"
+                        />
+                      </td>
+
+                      {/* Portfolio of Evidence (POE) */}
+                      <td className="p-2 border-r border-slate-200 bg-slate-50/50">
+                        <textarea
+                          rows={2}
+                          value={row.poe || ''}
+                          onChange={(e) => updateRowField(row.id, 'poe', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          placeholder="General POE requirements..."
+                          className="w-full bg-white border border-slate-200 focus:border-emerald-500 rounded p-1 text-[10px] text-slate-700 leading-snug resize-y outline-none mb-1"
+                        />
+                        <CompactPoeUploader
+                          label="Master POE"
+                          files={row.poeDocs || []}
+                          onUpload={(docs) => {
+                            const next = [...(row.poeDocs || []), ...docs];
+                            updateRowField(row.id, 'poeDocs', next);
+                            saveRowsToDatabase(rows.map(r => r.id === row.id ? { ...r, poeDocs: next } : r));
+                          }}
+                          onRemove={(docId) => {
+                            const next = (row.poeDocs || []).filter(d => d.id !== docId);
+                            updateRowField(row.id, 'poeDocs', next);
+                            saveRowsToDatabase(rows.map(r => r.id === row.id ? { ...r, poeDocs: next } : r));
+                          }}
+                        />
+                      </td>
+
+                      {/* % Weight */}
+                      <td className="p-2 border-r border-slate-200 bg-rose-50/20 text-center">
+                        <input
+                          type="number"
+                          value={row.weight || row.weighting || ''}
+                          onChange={(e) => updateRowField(row.id, 'weight', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          className="w-full bg-white border border-rose-300 rounded p-1 text-center font-bold text-rose-700 text-xs focus:outline-none"
+                        />
+                      </td>
+
+                      {/* Evaluation */}
+                      <td className="p-2 border-r border-slate-200 bg-emerald-50/20">
+                        <div className="flex items-center gap-1 mb-1">
+                          <span className="text-[9px] font-bold text-emerald-800">Self Score:</span>
+                          <input
+                            type="number"
+                            min="1"
+                            max="5"
+                            value={row.myScore || ''}
+                            onChange={(e) => updateRowField(row.id, 'myScore', e.target.value)}
+                            onBlur={() => saveRowsToDatabase(rows)}
+                            className="w-10 bg-white border border-emerald-300 rounded text-center text-[10px] font-bold text-emerald-900 p-0.5"
+                          />
+                        </div>
+                        <textarea
+                          rows={2}
+                          value={row.evaluation || ''}
+                          onChange={(e) => updateRowField(row.id, 'evaluation', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          placeholder="Self assessment comment..."
+                          className="w-full bg-white border border-emerald-200 focus:border-emerald-500 rounded p-1 text-[10px] text-slate-800 resize-y outline-none"
+                        />
+                      </td>
+
+                      {/* Review */}
+                      <td className="p-2 border-r border-slate-200 bg-blue-50/20">
+                        <textarea
+                          rows={3}
+                          value={row.review || ''}
+                          onChange={(e) => updateRowField(row.id, 'review', e.target.value)}
+                          onBlur={() => saveRowsToDatabase(rows)}
+                          placeholder="Supervisor / Auditor review..."
+                          className="w-full bg-white border border-blue-200 focus:border-blue-500 rounded p-1 text-[10px] text-slate-800 resize-y outline-none"
+                        />
+                      </td>
+
+                      {/* Assigned User / Unit */}
+                      <td className="p-2.5 border-r border-slate-200 bg-amber-50/30 text-[10px] space-y-1">
+                        <div className="flex items-center gap-1 font-bold text-slate-800 truncate" title={row.evaluationUser}>
+                          <UserIcon className="w-3 h-3 text-amber-600 shrink-0" />
+                          <span className="truncate">{row.userName || row.evaluationUser}</span>
+                        </div>
+                        <div className="text-[9px] text-slate-500 font-mono truncate" title={row.responsibleUnit}>
+                          Unit: <span className="font-semibold text-slate-700">{row.responsibleUnit || 'Unassigned'}</span>
+                        </div>
+                        <div className="text-[9px] text-slate-500 font-mono truncate" title={row.reviewManager}>
+                          Mgr: <span className="font-semibold text-slate-700">{row.reviewManager || 'Line Manager'}</span>
+                        </div>
+                      </td>
+
+                      {/* Actions */}
+                      <td className="p-2 text-center">
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteRow(row.id)}
+                          className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-100 rounded-lg transition cursor-pointer"
+                          title="Delete SDBIP Indicator"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
+
           </table>
         )}
       </div>
 
-      {/* Add Row Modal Popup */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-200 mb-6">
-              <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
-                <Plus className="w-5 h-5 text-green-600" /> New SDBIP 2nd & 3rd Layer Indicator Configuration
-              </h3>
-              <button 
-                onClick={() => setShowAddModal(false)}
-                className="text-slate-500 hover:text-slate-900 text-xs font-bold"
+      {/* Footer Statistics & Status Bar */}
+      <div className="p-3.5 bg-slate-900 text-white flex flex-col sm:flex-row justify-between items-center gap-3 shrink-0 text-xs font-mono select-none">
+        <div className="flex flex-wrap items-center gap-4 text-slate-300">
+          <span>Total Indicators: <b className="text-white bg-slate-800 px-2 py-0.5 rounded">{filteredRows.length} KPIs</b></span>
+          <span>Cumulative Weighting: <b className="text-emerald-400 bg-slate-800 px-2 py-0.5 rounded">{totalWeight.toFixed(1)}%</b></span>
+          <span>Active Filter: <b className="text-amber-300 bg-slate-800 px-2 py-0.5 rounded">{selectedUserFilter !== 'ALL' ? selectedUserFilter : 'All Users'}</b></span>
+        </div>
+
+        <div className="flex items-center gap-2 text-[11px] text-slate-400">
+          <span>Supabase Cloud Synchronized</span>
+          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+        </div>
+      </div>
+
+      {/* Clear Grid Confirmation Modal */}
+      {showClearConfirm && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 max-w-md w-full shadow-2xl">
+            <div className="flex items-center gap-3 text-rose-600 mb-3">
+              <div className="p-2 bg-rose-100 rounded-xl">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-black uppercase text-slate-900">Clear SDBIP Grid</h3>
+                <p className="text-xs text-slate-500 font-medium">This will clear all currently displayed SDBIP rows.</p>
+              </div>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed mb-6 font-medium">
+              Are you sure you want to clear the entire SDBIP 2nd & 3rd layer table? You can re-populate it at any time by clicking "Sync Everyone's KPIs & KPAs".
+            </p>
+            <div className="flex justify-end gap-2 text-xs font-black">
+              <button
+                type="button"
+                onClick={() => setShowClearConfirm(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl cursor-pointer"
               >
-                Close
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmClearGrid}
+                className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl shadow cursor-pointer"
+              >
+                Yes, Clear Grid
               </button>
             </div>
-
-            <form onSubmit={handleAddNewRow} className="space-y-4 text-xs font-semibold">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-slate-500 mb-1">REF NUMBER</label>
-                  <input 
-                    required 
-                    type="text" 
-                    placeholder="e.g. S23-BSD-205"
-                    value={newRowData.refNum}
-                    onChange={(e) => setNewRowData(prev => ({ ...prev, refNum: e.target.value }))}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none"
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-slate-500 mb-1">STRATEGIC OBJECTIVE</label>
-                  <input 
-                    required 
-                    type="text" 
-                    placeholder="e.g. Foster compliance audit controls across municipal hubs"
-                    value={newRowData.strategicObj}
-                    onChange={(e) => setNewRowData(prev => ({ ...prev, strategicObj: e.target.value }))}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* BSD, LED Check boxes */}
-              <div>
-                <label className="block text-slate-500 mb-2">KPI OBJECTIVES SELECTORS (Y or N)</label>
-                <div className="grid grid-cols-6 gap-2">
-                  {[
-                    { key: 'bsd', label: 'BSD (Basic Service Delivery)' },
-                    { key: 'led', label: 'LED (Local Economic Development)' },
-                    { key: 'mfvm', label: 'MFVM (Municipal Financial Viability)' },
-                    { key: 'ggpp', label: 'GGPP (Good Governance & Public Participation)' },
-                    { key: 'midt', label: 'MIDT (Municipal Institutional Development)' },
-                    { key: 'sr', label: 'SR (Social Responsibility)' }
-                  ].map(f => (
-                    <div key={f.key} className="bg-slate-50 border border-slate-200 p-2.5 rounded-xl flex items-center justify-between">
-                      <span className="text-[10px] text-slate-500">{f.label.split(' ')[0]}</span>
-                      <select
-                        value={(newRowData as any)[f.key]}
-                        onChange={(e) => setNewRowData(prev => ({ ...prev, [f.key]: e.target.value }))}
-                        className="bg-transparent text-green-700 font-bold focus:outline-none"
-                      >
-                        <option value="N" className="bg-white text-slate-700">N</option>
-                        <option value="Y" className="bg-white text-green-700">Y</option>
-                      </select>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-slate-500 mb-1">KPA CLASSIFICATION MAP</label>
-                  <select
-                    value={newRowData.kpas}
-                    onChange={(e) => setNewRowData(prev => ({ ...prev, kpas: e.target.value }))}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none"
-                  >
-                    <option value="KPA 1: Basic Service Delivery and Infrastructure Development">KPA 1: Basic Service Delivery</option>
-                    <option value="KPA 2: Municipal Institutional Development and Transformation">KPA 2: Inst. Development</option>
-                    <option value="KPA 3: Local Economic Development (LED)">KPA 3: Local Economic Dev (LED)</option>
-                    <option value="KPA 4: Municipal Financial Viability and Management">KPA 4: Financial Viability</option>
-                    <option value="KPA 5: Good Governance and Public Participation">KPA 5: Good Governance</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-slate-500 mb-1">UNIT OF MEASURE (UOM)</label>
-                  <input 
-                    required 
-                    type="text" 
-                    placeholder="e.g. % of invoices paid"
-                    value={newRowData.uom}
-                    onChange={(e) => setNewRowData(prev => ({ ...prev, uom: e.target.value }))}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-slate-500 mb-1">OPERATIONAL ACTIVITY</label>
-                  <textarea 
-                    required 
-                    rows={2}
-                    placeholder="Identify exact daily/quarterly work directives..."
-                    value={newRowData.operationalActivity}
-                    onChange={(e) => setNewRowData(prev => ({ ...prev, operationalActivity: e.target.value }))}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-500 mb-1">KPI'S DETAIL</label>
-                  <textarea 
-                    required 
-                    rows={2}
-                    placeholder="Specific performance metric verification targets..."
-                    value={newRowData.kpi}
-                    onChange={(e) => setNewRowData(prev => ({ ...prev, kpi: e.target.value }))}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div>
-                  <label className="block text-slate-500 mb-1">MSCOA TRACKING</label>
-                  <input 
-                    required 
-                    type="text" 
-                    placeholder="MSCOA-L281-EXP"
-                    value={newRowData.mscoaTracking}
-                    onChange={(e) => setNewRowData(prev => ({ ...prev, mscoaTracking: e.target.value }))}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-500 mb-1">BASELINE</label>
-                  <input 
-                    required 
-                    type="text" 
-                    placeholder="0 items"
-                    value={newRowData.baseline}
-                    onChange={(e) => setNewRowData(prev => ({ ...prev, baseline: e.target.value }))}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-500 mb-1">ANNUAL TARGET</label>
-                  <input 
-                    required 
-                    type="text" 
-                    placeholder="100% compliant"
-                    value={newRowData.annualTarget}
-                    onChange={(e) => setNewRowData(prev => ({ ...prev, annualTarget: e.target.value }))}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-500 mb-1">BUDGET ALLOCATION</label>
-                  <input 
-                    required 
-                    type="text" 
-                    placeholder="R 500,000.00"
-                    value={newRowData.budgetAllocation}
-                    onChange={(e) => setNewRowData(prev => ({ ...prev, budgetAllocation: e.target.value }))}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div>
-                  <label className="block text-slate-500 mb-1">1ST QUARTER</label>
-                  <input 
-                    type="text" 
-                    value={newRowData.q1}
-                    onChange={(e) => setNewRowData(prev => ({ ...prev, q1: e.target.value }))}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-500 mb-1">2ND QUARTER</label>
-                  <input 
-                    type="text" 
-                    value={newRowData.q2}
-                    onChange={(e) => setNewRowData(prev => ({ ...prev, q2: e.target.value }))}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-500 mb-1">3RD QUARTER</label>
-                  <input 
-                    type="text" 
-                    value={newRowData.q3}
-                    onChange={(e) => setNewRowData(prev => ({ ...prev, q3: e.target.value }))}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-500 mb-1">4TH QUARTER</label>
-                  <input 
-                    type="text" 
-                    value={newRowData.q4}
-                    onChange={(e) => setNewRowData(prev => ({ ...prev, q4: e.target.value }))}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none font-mono"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-slate-500 mb-1">RESPONSIBLE UNIT</label>
-                  <input 
-                    required 
-                    type="text" 
-                    placeholder="e.g. Budget and Reporting Division"
-                    value={newRowData.responsibleUnit}
-                    onChange={(e) => setNewRowData(prev => ({ ...prev, responsibleUnit: e.target.value }))}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-500 mb-1">COMPLIANCE STATUS</label>
-                  <select
-                    value={newRowData.compliance}
-                    onChange={(e) => setNewRowData(prev => ({ ...prev, compliance: e.target.value }))}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none"
-                  >
-                    <option value="compliant">Compliant</option>
-                    <option value="non-compliant">Non-compliant</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-slate-200 flex justify-end gap-3 font-black">
-                <button 
-                  type="button" 
-                  onClick={() => setShowAddModal(false)}
-                  className="px-5 py-2 hover:bg-slate-100 rounded-xl text-slate-500 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit" 
-                  className="px-6 py-2 bg-green-600 hover:bg-green-500 text-white rounded-xl shadow-lg cursor-pointer"
-                >
-                  Add Row Entry
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}
 
-      {/* Quarterly POE Management Modal Overlay */}
-      {poeModal && (
-        (() => {
-          const selectedPoeRow = rows.find(r => r.id === poeModal.rowId);
-          const selectedQuarter = poeModal.quarter;
-          if (!selectedPoeRow || !selectedQuarter) return null;
-          const poeDocsList = (selectedPoeRow[`${selectedQuarter}PoeDocs` as keyof SDBIP23Row] as PoeDocument[]) || [];
-          
-          return (
-            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
-              <div className="bg-white border border-slate-200 rounded-3xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col">
-                
-                {/* Modal Header */}
-                <div className="flex items-center justify-between pb-4 border-b border-slate-200 mb-4 shrink-0">
-                  <div className="flex items-center gap-2">
-                    <Layers className="w-5 h-5 text-indigo-600 animate-pulse" />
-                    <div>
-                      <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight">
-                        Manage Q{selectedQuarter.slice(-1)} Performance Evidence (POE) Uploads
-                      </h3>
-                      <p className="text-[10px] text-slate-500 font-medium">
-                        KPI Ref: <b className="text-slate-800 font-bold">{selectedPoeRow.refNum}</b> | Quarter: <span className="uppercase text-indigo-600 font-extrabold">{selectedQuarter}</span>
-                      </p>
-                    </div>
-                  </div>
-                  <button 
-                    onClick={() => setPoeModal(null)}
-                    className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition"
-                  >
-                    Close
-                  </button>
-                </div>
-
-                {/* SDBIP Meta detail indicator */}
-                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-4 text-xs space-y-1.5 leading-relaxed">
-                  <p><span className="text-slate-500 font-black uppercase">Strategic Objective:</span> <span className="text-slate-800 font-medium">{selectedPoeRow.strategicObj}</span></p>
-                  <p><span className="text-slate-500 font-black uppercase">KPI Target:</span> <span className="text-slate-900 font-bold">{selectedPoeRow.kpi}</span></p>
-                  <p><span className="text-slate-500 font-black uppercase">Unit of Measure (UOM):</span> <span className="text-slate-700 font-mono italic">{selectedPoeRow.uom}</span></p>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[350px]">
-                  {/* Upload Region & Bulk Generator */}
-                  <div className="lg:col-span-5 flex flex-col gap-4">
-                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-700">Attach Evidence Files</h4>
-
-                    {/* Drag and Drop Container */}
-                    <div 
-                      onDragEnter={handleDrag}
-                      onDragOver={handleDrag}
-                      onDragLeave={handleDrag}
-                      onDrop={handleDrop}
-                      className={cn(
-                        "flex-1 border-2 border-dashed rounded-2xl p-6 flex flex-col items-center justify-center text-center transition-all min-h-[160px]",
-                        dragActive ? "border-indigo-500 bg-indigo-50/50 scale-[0.98]" : "border-slate-300 bg-slate-50 hover:bg-slate-100/50",
-                        "cursor-pointer"
-                      )}
-                      onClick={() => document.getElementById('poe-multiple-file-input')?.click()}
-                    >
-                      <Upload className={cn("w-10 h-10 mb-2 transition", dragActive ? "text-indigo-600 scale-110" : "text-slate-400")} />
-                      <p className="text-xs font-bold text-slate-700">Drag & Drop Documents Here</p>
-                      <p className="text-[10px] text-slate-400 mt-1">Accepts images & general documents</p>
-                      <button 
-                        type="button"
-                        className="mt-3 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-[10px] font-black uppercase"
-                      >
-                        Choose Files Manual
-                      </button>
-                      <input 
-                        id="poe-multiple-file-input"
-                        type="file" 
-                        multiple
-                        className="hidden" 
-                        onChange={(e) => {
-                          if (e.target.files) {
-                            handlePoeFilesSelected(e.target.files);
-                          }
-                        }}
-                      />
-                    </div>
-
-                    {/* Bulk Generation Aid */}
-                    <div className="bg-amber-50 border border-amber-200/60 p-4 rounded-2xl space-y-2">
-                      <h5 className="text-[11px] font-black text-amber-800 uppercase flex items-center gap-1">
-                        <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" /> Bulk Audit Demonstration Helper
-                      </h5>
-                      <p className="text-[10px] text-amber-700 leading-relaxed font-semibold">
-                        Need around 25 documents/images uploaded per user to satisfy strict Nkangala Municipal Audit requirement testing? Click below to instantly auto-generate 25 realistic, numbered POE document templates synced directly to Supabase cloud database!
-                      </p>
-                      <button
-                        type="button"
-                        onClick={handleGenerate25MockDocs}
-                        className="w-full py-2 px-3 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow transition"
-                      >
-                        ⚡ Generate 25 Verified Audit POE Docs
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Documents List & Visualizer */}
-                  <div className="lg:col-span-7 flex flex-col">
-                    <div className="flex items-center justify-between mb-2 shrink-0">
-                      <h4 className="text-xs font-black uppercase tracking-wider text-slate-700">
-                        Evidence Repository ({poeDocsList.length} / 25 Files Registered)
-                      </h4>
-                      {poeDocsList.length >= 25 && (
-                        <span className="px-2.5 py-1 bg-green-100 text-green-700 border border-green-200 font-extrabold uppercase rounded-full text-[9px] animate-bounce">
-                          ✓ Audit Ready (25+ Docs)
-                        </span>
-                      )}
-                    </div>
-
-                    {poeDocsList.length === 0 ? (
-                      <div className="flex-1 rounded-2xl bg-slate-50 border border-slate-200 p-8 flex flex-col items-center justify-center text-center text-slate-400">
-                        <FileText className="w-12 h-12 mb-2 text-slate-300" />
-                        <p className="text-xs font-bold">No evidence files matched to this quarter yet</p>
-                        <p className="text-[10px] mt-1">Upload at least 25 document items to meet compliance</p>
-                      </div>
-                    ) : (
-                      <div className="flex-1 overflow-y-auto max-h-[350px] border border-slate-200 rounded-2xl p-3 bg-slate-50/50 space-y-2">
-                        {poeDocsList.map((doc, idx) => (
-                          <div 
-                            key={doc.id} 
-                            className="bg-white border border-slate-200 p-2.5 rounded-xl flex items-center justify-between gap-3 shadow-sm hover:border-slate-300 transition-all text-xs"
-                          >
-                            <div className="flex items-center gap-2.5 truncate">
-                              <span className="w-6 h-6 rounded bg-slate-100 text-slate-600 flex items-center justify-center font-bold font-mono text-[10px]">
-                                {idx + 1}
-                              </span>
-                              
-                              {/* Small Thumbnail Preview if active */}
-                              {doc.dataUrl && (
-                                <img 
-                                  src={doc.dataUrl} 
-                                  alt={doc.name} 
-                                  referrerPolicy="no-referrer"
-                                  className="w-10 h-10 object-cover rounded border border-slate-200 bg-slate-100 shrink-0" 
-                                />
-                              )}
-                              
-                              <div className="truncate">
-                                <p className="font-bold text-slate-800 truncate" title={doc.name}>{doc.name}</p>
-                                <p className="text-[9px] text-slate-450 font-medium">
-                                  {new Date(doc.uploadedAt).toLocaleTimeString()} · by {doc.uploadedBy}
-                                </p>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={(e) => { e.preventDefault(); setPreviewDoc(doc); }}
-                                className="p-1 px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded text-[9px] font-extrabold uppercase transition"
-                                title="View Document"
-                              >
-                                View
-                              </button>
-                              {doc.dataUrl && (
-                                <a 
-                                  href={doc.dataUrl} 
-                                  download={doc.name}
-                                  className="p-1 px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded text-[9px] font-extrabold uppercase transition"
-                                >
-                                  Download
-                                </a>
-                              )}
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (confirm(`Remove "${doc.name}" from Q${selectedQuarter.slice(-1)} POE docs?`)) {
-                                    deletePoeDoc(doc.id);
-                                  }
-                                }}
-                                className="p-1 text-rose-600 hover:bg-rose-50 rounded"
-                                title="Delete POE file item"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Info status ticker */}
-                <div className="pt-4 mt-4 border-t border-slate-200 flex justify-between items-center text-[10px] text-slate-550 shrink-0">
-                  <span>Logged in User: <b>{currentUser.email}</b></span>
-                  <button 
-                    type="button"
-                    onClick={() => setPoeModal(null)}
-                    className="px-5 py-2 bg-slate-900 border border-slate-900 hover:bg-black text-white font-extrabold uppercase rounded-xl tracking-wider transition cursor-pointer text-xs"
-                  >
-                    Confirm & Sync
-                  </button>
-                </div>
-
-              </div>
-            </div>
-          );
-        })()
-      )}
-
-      {/* Preview Modal */}
+      {/* Office Document Previewer */}
       {previewDoc && (
         <OfficeDocumentViewer doc={previewDoc} onClose={() => setPreviewDoc(null)} />
       )}
 
-      {/* Compliance footer citation */}
-      <div id="sdbip23-legal-footer" className="p-4 bg-slate-50 border-t border-slate-200 text-[9px] text-slate-500 flex flex-col md:flex-row justify-between items-center gap-2 shrink-0 select-none">
-        <span className="flex items-center gap-1"><Info className="w-3.5 h-3.5 text-slate-400 shrink-0 select-none" /> Secure cloud-synced database containing 2nd-tier operational indicators and 3rd-tier target alignments.</span>
-        <span className="uppercase text-slate-500 font-bold">Mzansi Flow SDBIP Database Engine</span>
-      </div>
     </div>
   );
 }
