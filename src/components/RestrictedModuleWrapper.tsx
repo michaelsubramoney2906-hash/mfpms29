@@ -35,7 +35,7 @@ const SUBMODULE_TO_PARENT_MAP: Record<string, string> = {
   'ca': 'mf-connect', 'chat': 'mf-connect', 'hds': 'mf-connect',
 
   // More
-  'ce': 'more', 'ear': 'more', 'fbi': 'more', 'fea': 'more',
+  'extraction-engine': 'more', 'ce': 'more', 'ear': 'more', 'fbi': 'more', 'fea': 'more',
   'ia': 'more', 'psa': 'more', 'mfa': 'more', 'slat': 'more'
 };
 

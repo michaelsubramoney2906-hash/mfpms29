@@ -4,7 +4,8 @@ import {
   Briefcase, Target, Building, AlertTriangle, Layers,
   Users, Landmark, Search, ShieldAlert, Users2, Mic, Settings,
   MessageCircle, HelpCircle, Calendar, Database, Box, GraduationCap,
-  Shield, Key, Ticket, List, MessageSquare, FileBarChart, UserCheck, LayoutGrid, BadgePlus, Mail
+  Shield, Key, Ticket, List, MessageSquare, FileBarChart, UserCheck, LayoutGrid, BadgePlus, Mail,
+  Cpu
 } from 'lucide-react';
 import type { Module, Tenant } from './types';
 
@@ -361,6 +362,7 @@ export const modules: Module[] = [
     name: 'More',
     icon: Box,
     subModules: [
+      { id: 'extraction-engine', name: 'Extraction & Data Mapping Engine', icon: Cpu },
       { id: 'ce', name: 'Calendar & Events', icon: Calendar },
       { id: 'ear', name: 'External Audit Room', icon: Search },
       { id: 'ia', name: 'Internal Audit', icon: ShieldAlert },
