@@ -3948,16 +3948,18 @@ Return ONLY a valid JSON array of objects matching the schema:
     }
   });
 
-  // 14. Fetch SDBIP for a tenant
-  app.get("/api/tenant/:tenantId/sdbip", async (req, res) => {
+  // 14. Fetch SDBIP for a tenant (including 2nd & 3rd layer SDBIP23)
+  app.get(["/api/tenant/:tenantId/sdbip", "/api/tenant/:tenantId/sdbip23"], async (req, res) => {
     const { tenantId } = req.params;
     try {
       const supabase = getSupabase();
-      let documentIds = [`sdbip_${tenantId}`];
+      let documentIds = [`sdbip23_${tenantId}`, `sdbip_${tenantId}`];
       if (tenantId === 'tenant-229' || tenantId === 'nkangala_auto' || tenantId === 'nkangala' || tenantId === 'default') {
-        documentIds = ['sdbip_tenant-229', 'sdbip_nkangala_auto', 'sdbip_global'];
+        documentIds = ['sdbip23_tenant-229', 'sdbip_tenant-229', 'sdbip23_nkangala_auto', 'sdbip_nkangala_auto', 'sdbip23_global', 'sdbip_global'];
       } else if (tenantId !== 'global') {
+        documentIds.push(`sdbip23_${tenantId}`);
         documentIds.push(`sdbip_${tenantId}`);
+        documentIds.push('sdbip23_global');
         documentIds.push('sdbip_global');
       }
 
@@ -3988,19 +3990,19 @@ Return ONLY a valid JSON array of objects matching the schema:
     }
   });
 
-  // 15. Save SDBIP for a tenant
-  app.post("/api/tenant/:tenantId/sdbip", async (req, res) => {
+  // 15. Save SDBIP for a tenant (including 2nd & 3rd layer SDBIP23)
+  app.post(["/api/tenant/:tenantId/sdbip", "/api/tenant/:tenantId/sdbip23"], async (req, res) => {
     const { tenantId } = req.params;
     const { items } = req.body;
     try {
       const supabase = getSupabase();
-      let targetDocIds = [`sdbip_${tenantId}`];
+      let targetDocIds = [`sdbip23_${tenantId}`, `sdbip_${tenantId}`];
       if (tenantId === 'tenant-229' || tenantId === 'nkangala_auto' || tenantId === 'global') {
-        targetDocIds = ['sdbip_tenant-229', 'sdbip_nkangala_auto', 'sdbip_global'];
+        targetDocIds = ['sdbip23_tenant-229', 'sdbip_tenant-229', 'sdbip23_nkangala_auto', 'sdbip_nkangala_auto', 'sdbip23_global', 'sdbip_global'];
       }
 
       for (const docId of targetDocIds) {
-        const tId = docId.replace('sdbip_', '');
+        const tId = docId.replace('sdbip23_', '').replace('sdbip_', '');
         await supabase
           .from('messages')
           .upsert({ 
@@ -4009,8 +4011,8 @@ Return ONLY a valid JSON array of objects matching the schema:
             sender_id: 'sdbip_editor_tool',
             sender_email: 'sdbip@system.local',
             sender_name: 'SDBIP Editor',
-            content: JSON.stringify(items),
-            message_type: 'sdbip_list',
+            content: JSON.stringify({ items: items }),
+            message_type: docId.startsWith('sdbip23_') ? 'sdbip23_list' : 'sdbip_list',
             created_at: new Date().toISOString()
           });
       }
