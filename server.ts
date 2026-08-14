@@ -4140,7 +4140,15 @@ async function startServer() {
     if (!email) return '';
     let clean = String(email).toLowerCase().trim();
     // Normalise domain typos
-    if (clean.includes('@nkangladm.gov.za') || clean.includes('@nkanagaladm.gov.za') || clean.includes('@nkangaladm.gov.za')) {
+    if (
+      clean.includes('@nkangladm.gov.za') || 
+      clean.includes('@nkanagaladm.gov.za') || 
+      clean.includes('@nkangaladm.gov.za') ||
+      clean.includes('@nkangaladmgov.za') ||
+      clean.includes('@nkangaldm.gov.za') ||
+      clean.includes('@nkangaladm.co.za') ||
+      clean.includes('@nkangala.gov.za')
+    ) {
       const parts = clean.split('@');
       clean = `${parts[0]}@nkangaladm.gov.za`;
     }
@@ -4355,7 +4363,8 @@ async function startServer() {
 
   app.get("/api/tenant/:tenantId/pplan", async (req, res) => {
     const { tenantId: routeTenantId } = req.params;
-    const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
+    const rawUserId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
+    const userId = normalizeNkangalaEmail(rawUserId) || rawUserId;
     try {
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
@@ -4622,7 +4631,8 @@ async function startServer() {
 
   app.post("/api/tenant/:tenantId/pplan", async (req, res) => {
     const { tenantId: routeTenantId } = req.params;
-    const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
+    const rawUserId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
+    const userId = normalizeNkangalaEmail(rawUserId) || rawUserId;
     const { metadata, items } = req.body;
     try {
       const supabase = getSupabase();

@@ -518,8 +518,16 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
         const docs = [...(item.q1PoeDocs || []), ...(item.q2PoeDocs || []), ...(item.q3PoeDocs || []), ...(item.q4PoeDocs || []), ...(item.annualPoeDocs || []), ...(item.midtermPoeDocs || [])];
         const firstDoc = docs[0];
 
+        const qScores = [item.q1Score, item.q2Score, item.midtermScore, item.q3Score, item.q4Score]
+          .map(s => parseFloat(s))
+          .filter(s => !isNaN(s) && s > 0);
+        const resolvedMyScore = (item.myScore && item.myScore !== 'N/A' && item.myScore !== '')
+          ? item.myScore
+          : (qScores.length > 0 ? (qScores.reduce((a, b) => a + b, 0) / qScores.length).toFixed(1) : '');
+
         let updatedItem = {
           ...item,
+          myScore: resolvedMyScore,
           poe: aggregatePoe || item.poe,
           poeFileBase64: firstDoc ? firstDoc.dataUrl : item.poeFileBase64,
           poeFileName: firstDoc ? firstDoc.name : item.poeFileName
@@ -873,8 +881,16 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
         const docs = [...(item.q1PoeDocs || []), ...(item.q2PoeDocs || []), ...(item.q3PoeDocs || []), ...(item.q4PoeDocs || []), ...(item.annualPoeDocs || []), ...(item.midtermPoeDocs || [])];
         const firstDoc = docs[0];
 
+        const qScores = [item.q1Score, item.q2Score, item.midtermScore, item.q3Score, item.q4Score]
+          .map(s => parseFloat(s))
+          .filter(s => !isNaN(s) && s > 0);
+        const resolvedMyScore = (item.myScore && item.myScore !== 'N/A' && item.myScore !== '')
+          ? item.myScore
+          : (qScores.length > 0 ? (qScores.reduce((a, b) => a + b, 0) / qScores.length).toFixed(1) : '');
+
         return {
           ...item,
+          myScore: resolvedMyScore,
           reviewStatus: submitForReview ? 'Submitted for Approval' : (item.reviewStatus || 'Draft'),
           poe: aggregatePoe || item.poe,
           poeFileBase64: firstDoc ? firstDoc.dataUrl : item.poeFileBase64,

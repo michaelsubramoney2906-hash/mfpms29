@@ -1014,8 +1014,8 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
                         {activeKPI.kpi}
                       </p>
                       <div className="grid grid-cols-2 gap-2 text-[10px] border-t border-slate-200 pt-2 text-slate-500 font-bold uppercase">
-                        <div>Self Score: <strong className="text-slate-800 font-black">{activeKPI.myScore || 'N/A'}</strong></div>
-                        <div>Mgr Score: <strong className="text-indigo-800 font-black">{activeKPI.managerScore || 'N/A'}</strong></div>
+                        <div>Self Score: <strong className="text-slate-800 font-black">{activeKPI.myScore || activeKPI.score || activeKPI.selfScore || 'N/A'}</strong></div>
+                        <div>Mgr Score: <strong className="text-indigo-800 font-black">{activeKPI.managerScore || activeKPI.myScore || 'N/A'}</strong></div>
                       </div>
 
                       {/* Annual Metrics Breakdown for Internal Audit */}
@@ -1397,8 +1397,8 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
                           <td className="p-2 border border-black whitespace-normal align-top text-slate-800 text-[10px] font-medium bg-amber-50/30">{kpi.annualCorrective || kpi.q4Corrective || '-'}</td>
                           <td className="p-2 border border-black whitespace-normal align-top text-slate-500 break-words font-mono text-[9px]">{kpi.poe || '-'}</td>
                           <td className="p-2 border border-black align-top text-center">{kpi.weighting || 0}</td>
-                          <td className="p-2 border border-black align-top text-center">{kpi.myScore || '-'}</td>
-                          <td className="p-2 border border-black align-top text-center">{kpi.managerScore || '-'}</td>
+                          <td className="p-2 border border-black align-top text-center font-bold text-slate-800">{kpi.myScore || kpi.score || kpi.selfScore || '-'}</td>
+                          <td className="p-2 border border-black align-top text-center font-bold text-indigo-900">{kpi.managerScore || kpi.myScore || '-'}</td>
                           <td className="p-2 border border-black whitespace-normal align-top text-slate-600 italic break-words">{kpi.review || '-'}</td>
                           <td className="p-1 border border-black align-top text-center bg-blue-50">
                             <input

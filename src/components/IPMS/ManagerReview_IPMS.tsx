@@ -53,6 +53,21 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
     );
   };
 
+  const getSelfScore = (kpi: any) => {
+    if (kpi?.myScore && kpi.myScore !== 'N/A' && kpi.myScore !== '') return String(kpi.myScore);
+    if (kpi?.score && kpi.score !== 'N/A' && kpi.score !== '') return String(kpi.score);
+    if (kpi?.selfScore && kpi.selfScore !== 'N/A' && kpi.selfScore !== '') return String(kpi.selfScore);
+    if (kpi?.evalScore && kpi.evalScore !== 'N/A' && kpi.evalScore !== '') return String(kpi.evalScore);
+    const qScores = [kpi?.q1Score, kpi?.q2Score, kpi?.midtermScore, kpi?.q3Score, kpi?.q4Score]
+      .map(s => parseFloat(s))
+      .filter(s => !isNaN(s) && s > 0);
+    if (qScores.length > 0) {
+      const avg = qScores.reduce((a, b) => a + b, 0) / qScores.length;
+      return avg.toFixed(1);
+    }
+    return 'N/A';
+  };
+
   const toggleSelectAllKpisForReview = () => {
     const items = selectedPlan?.plan?.items || [];
     if (selectedKpiIdsForReview.length === items.length) {
@@ -305,6 +320,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
           'nsibandenp@nkangaladm.gov.za',
           'nsibandenp@nkangaldm.gov.za',
           'lukhelema@nkangaladm.gov.za',
+          'lukhelema@nkangaladmgov.za',
           'sakisd@nkangaladm.gov.za'
         ];
 
@@ -586,6 +602,16 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
       const payload = { ...selectedPlan.plan };
       payload.metadata.reviewStatus = 'Reviewed';
 
+      payload.items = (payload.items || []).map((item: any) => {
+        const selfScore = getSelfScore(item);
+        const mScore = item.managerScore || (selfScore !== 'N/A' ? selfScore : '3.0');
+        return {
+          ...item,
+          myScore: item.myScore || (selfScore !== 'N/A' ? selfScore : ''),
+          managerScore: mScore
+        };
+      });
+
       // Record in audit history
       if (!payload.metadata) payload.metadata = {};
       if (!payload.metadata.history) payload.metadata.history = [];
@@ -717,7 +743,14 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
 
       payload.items = allItems.map((item: any) => {
         if (!isTargeted || targetIds.includes(item.id)) {
-          return { ...item, reviewStatus: 'Approved' };
+          const selfScore = getSelfScore(item);
+          const mScore = item.managerScore || (selfScore !== 'N/A' ? selfScore : '3.0');
+          return {
+            ...item,
+            myScore: item.myScore || (selfScore !== 'N/A' ? selfScore : ''),
+            managerScore: mScore,
+            reviewStatus: 'Approved'
+          };
         }
         return item;
       });
@@ -883,7 +916,15 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
 
       payload.items = allItems.map((item: any) => {
         if (!isTargeted || targetIds.includes(item.id)) {
-          return { ...item, reviewStatus: 'Dispatched to Audit', internalAuditStatus: 'Dispatched to Audit' };
+          const selfScore = getSelfScore(item);
+          const mScore = item.managerScore || (selfScore !== 'N/A' ? selfScore : '3.0');
+          return {
+            ...item,
+            myScore: item.myScore || (selfScore !== 'N/A' ? selfScore : ''),
+            managerScore: mScore,
+            reviewStatus: 'Dispatched to Audit',
+            internalAuditStatus: 'Dispatched to Audit'
+          };
         }
         return item;
       });
