@@ -61,11 +61,11 @@ export function KPAIPMS({ currentUser, activeTenantId }: KPAIPMSProps) {
   const [notification, setNotification] = useState<string | null>(null);
 
   // States for interactive KPA table
-  const [tableHeaders, setTableHeaders] = useState<string[]>(['KPA No', 'National KPA', 'Functional Area KPA', 'Weighting']);
+  const [tableHeaders, setTableHeaders] = useState<string[]>(['KPA No', 'Functional Area KPA', 'National KPA Alignment (Optional)', 'Weighting']);
   const [tableRows, setTableRows] = useState<string[][]>([
-    ['1', 'Good Governance & Institutional Transformation', 'Clean Ward Committees & Public Participation', '25%'],
-    ['2', 'Municipal Financial viability and management', 'AG Unqualified Audit & mSCOA Integration', '35%'],
-    ['3', 'Basic Service Delivery', 'Infrastructure Operations & Core Grid Stability', '40%']
+    ['1', 'Clean Ward Committees & Public Participation Support', 'Good Governance and public participation', '25%'],
+    ['2', 'AG Unqualified Audit & mSCOA Financial Governance', 'Municipal Financial viability and management', '35%'],
+    ['3', 'Water & Electricity Infrastructure Operations & Core Grid Stability', 'Basic Service Delivery', '40%']
   ]);
 
   const handleKpaDistributeEvenly = () => {
@@ -258,16 +258,24 @@ export function KPAIPMS({ currentUser, activeTenantId }: KPAIPMSProps) {
         <div>
           <h2 className="text-2xl font-black bg-gradient-to-r from-emerald-400 to-green-500 bg-clip-text text-transparent uppercase tracking-tight flex items-center gap-2">
             <Flag className="w-6 h-6 text-emerald-400" />
-            IPMS KPA Capturing Suite
+            IPMS Functional Area KPA Capturing Suite
           </h2>
           <p className="text-gray-450 text-xs mt-1">
-            Build and align Municipal Key Performance Areas (KPAs) exactly to National KPAs, parent Strategic Objectives, and mSCOA guidelines.
+            Capture Municipal Key Performance Areas (KPAs) directly into operational <strong>Functional Area KPAs</strong> (e.g., Water Infrastructure, Waste Management, Financial Governance) rather than generic National KPA abbreviations (BSD, LED, GGPP, etc.).
           </p>
         </div>
         <div className="flex items-center gap-2 bg-slate-900/60 px-4 py-2 rounded-xl border border-white/5 text-[11px] font-mono">
           <Server className="w-4 h-4 text-green-400 animate-pulse" />
           <span>Status: Supabase Connected</span>
         </div>
+      </div>
+
+      {/* Mandatory Statutory Notice */}
+      <div className="bg-emerald-950/40 border border-emerald-500/30 p-3.5 rounded-xl flex items-center gap-3 text-emerald-200 text-xs shadow-sm">
+        <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
+        <span>
+          <strong>IPMS Capturing Standard:</strong> All municipal indicators and units are categorized into <strong>Functional Area KPAs</strong>. National KPA alignment is recorded as an optional strategic tag.
+        </span>
       </div>
 
       {notification && (
@@ -284,38 +292,46 @@ export function KPAIPMS({ currentUser, activeTenantId }: KPAIPMSProps) {
         <div className="lg:col-span-6 flex flex-col gap-6">
           
           <div className="bg-white text-slate-900 rounded-2xl border-2 border-slate-900 shadow-2xl p-8 flex flex-col gap-6">
-            <div className="text-slate-950 font-sans italic font-extrabold text-2xl uppercase tracking-wider border-b border-slate-150 pb-4">
-              FUNCTIONAL ENTRY TERMINAL
+            <div className="border-b border-slate-150 pb-4 flex items-center justify-between">
+              <div className="text-slate-950 font-sans italic font-extrabold text-2xl uppercase tracking-wider">
+                FUNCTIONAL AREA KPA TERMINAL
+              </div>
+              <span className="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-2 py-1 rounded font-mono uppercase">
+                Functional Area Core
+              </span>
             </div>
 
             <form onSubmit={handleCommit} className="space-y-5">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 
-                {/* Field 1: Title */}
+                {/* Field 1: Functional Area KPA Title (Primary) */}
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 font-mono uppercase tracking-wider">
-                    1. FUNCTIONAL AREA (KPA) TITLE (OPTIONAL)
+                  <label className="text-[10px] font-black text-emerald-800 font-mono uppercase tracking-wider flex items-center gap-1">
+                    <span>1. FUNCTIONAL AREA KPA</span>
+                    <span className="text-rose-600 font-black">*</span>
                   </label>
                   <input
                     type="text"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    placeholder="e.g. Water Infrastructure (Optional)..."
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-900 placeholder-slate-400 outline-none focus:border-slate-800 focus:bg-white transition"
+                    placeholder="e.g. Water and Sanitation Infrastructure..."
+                    required
+                    className="w-full px-4 py-2.5 bg-emerald-50/50 border-2 border-emerald-400 focus:border-emerald-700 rounded-xl font-bold text-slate-900 placeholder-slate-400 outline-none focus:bg-white transition"
                   />
+                  <span className="text-[9px] text-slate-500 italic">Captures the specific municipal functional work area</span>
                 </div>
 
-                {/* Field 2: National KPA */}
+                {/* Field 2: National KPA Alignment (Secondary / Optional) */}
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[10px] font-bold text-slate-500 font-mono uppercase tracking-wider">
-                    2. NATIONAL KPA (OPTIONAL)
+                    2. NATIONAL KPA ALIGNMENT (OPTIONAL)
                   </label>
                   <select
                     value={nationalKpa}
                     onChange={(e) => setNationalKpa(e.target.value)}
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-930 outline-none focus:border-slate-800 focus:bg-white transition cursor-pointer text-xs"
                   >
-                    <option value="">Select National KPA... (Optional)</option>
+                    <option value="">Select National KPA Alignment... (Optional)</option>
                     {NATIONAL_KPAS.map((kpa) => (
                       <option key={kpa} value={kpa}>{kpa}</option>
                     ))}
@@ -330,6 +346,7 @@ export function KPAIPMS({ currentUser, activeTenantId }: KPAIPMSProps) {
                       className="mt-2 w-full px-3 py-2 bg-emerald-50 border-2 border-dashed border-emerald-500 rounded-xl outline-none focus:border-emerald-600 focus:bg-white text-xs font-bold text-slate-800 animate-fadeIn"
                     />
                   )}
+                  <span className="text-[9px] text-slate-400 italic">Optional high-level national classification</span>
                 </div>
 
               </div>
@@ -667,9 +684,12 @@ export function KPAIPMS({ currentUser, activeTenantId }: KPAIPMSProps) {
         {/* RIGHT COLUMN: Performance Plan alignment guide & existing KPAs overview */}
         <div className="lg:col-span-6 flex flex-col gap-6">
           <div className="bg-slate-950/60 p-6 rounded-2xl border border-white/10 shadow-xl backdrop-blur-md flex flex-col gap-4">
-            <h3 className="text-emerald-400 font-extrabold text-sm uppercase tracking-wider flex items-center gap-2">
-              <LayoutTemplate className="w-5 h-5 text-emerald-400" />
-              Active KPA List ({kpas.length} Units)
+            <h3 className="text-emerald-400 font-extrabold text-sm uppercase tracking-wider flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <LayoutTemplate className="w-5 h-5 text-emerald-400" />
+                Active Functional Area KPAs ({kpas.length} Units)
+              </span>
+              <span className="text-[9px] text-gray-500 font-mono">SUPABASE PIPELINE</span>
             </h3>
             
             {loading ? (
@@ -677,8 +697,8 @@ export function KPAIPMS({ currentUser, activeTenantId }: KPAIPMSProps) {
             ) : kpas.length === 0 ? (
               <div className="p-8 border border-dashed border-white/10 rounded-xl text-center bg-black/20 text-slate-400">
                 <Flag className="w-8 h-8 mx-auto text-slate-500 mb-2 opacity-40" />
-                <p className="text-xs uppercase font-bold tracking-wider">No custom KPA units captured yet.</p>
-                <p className="text-[10px] text-gray-500 mt-1">Submit via the terminal on the left to add a custom aligned KPA.</p>
+                <p className="text-xs uppercase font-bold tracking-wider">No Functional Area KPA units captured yet.</p>
+                <p className="text-[10px] text-gray-500 mt-1">Submit via the terminal on the left to add a municipal Functional Area KPA.</p>
               </div>
             ) : (
               <div className="space-y-3.5 max-h-[350px] overflow-auto pr-2 custom-scrollbar">
@@ -689,23 +709,34 @@ export function KPAIPMS({ currentUser, activeTenantId }: KPAIPMSProps) {
                   >
                     <div className="flex justify-between items-start gap-4">
                       <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="bg-emerald-500/20 text-emerald-300 text-[9px] font-black uppercase px-2 py-0.5 rounded border border-emerald-500/30">
+                            Functional Area KPA
+                          </span>
+                        </div>
                         <h4 className="text-sm font-black text-white">{k.title}</h4>
                         <div className="flex flex-wrap gap-1.5 mt-2">
-                          <span className="bg-emerald-950/65 text-emerald-300 text-[9px] px-2 py-0.5 rounded border border-emerald-500/20 font-semibold font-mono">
-                            {k.nationalKpa}
-                          </span>
-                          <span className="bg-blue-950/65 text-blue-300 text-[9px] px-2 py-0.5 rounded border border-blue-500/20 font-semibold font-mono">
-                            mSCOA: {k.mscoaCode}
-                          </span>
+                          {k.nationalKpa && (
+                            <span className="bg-slate-800 text-slate-300 text-[9px] px-2 py-0.5 rounded border border-white/10 font-semibold font-mono">
+                              National: {k.nationalKpa}
+                            </span>
+                          )}
+                          {k.mscoaCode && (
+                            <span className="bg-blue-950/65 text-blue-300 text-[9px] px-2 py-0.5 rounded border border-blue-500/20 font-semibold font-mono">
+                              mSCOA: {k.mscoaCode}
+                            </span>
+                          )}
                           {k.weighting && (
                             <span className="bg-slate-800 text-amber-350 text-[9px] px-2 py-0.5 rounded border border-amber-500/25 font-bold font-mono">
                               Weight: {k.weighting}
                             </span>
                           )}
                         </div>
-                        <p className="text-[11px] text-slate-400 mt-2 font-medium">
-                          <span className="text-slate-500 font-bold uppercase tracking-tight text-[10px]">Strategic Objective:</span> {k.parentObjective}
-                        </p>
+                        {k.parentObjective && (
+                          <p className="text-[11px] text-slate-400 mt-2 font-medium">
+                            <span className="text-slate-500 font-bold uppercase tracking-tight text-[10px]">Strategic Objective:</span> {k.parentObjective}
+                          </p>
+                        )}
                       </div>
                       <button
                         onClick={() => handleDelete(k.id)}
@@ -724,9 +755,9 @@ export function KPAIPMS({ currentUser, activeTenantId }: KPAIPMSProps) {
           <div className="bg-emerald-950/20 p-5 rounded-2xl border border-emerald-500/20 text-slate-300 text-xs leading-relaxed">
             <div className="flex items-center gap-2 text-emerald-400 font-bold uppercase tracking-wider text-xs mb-2">
               <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
-              INTEGRATION INSTRUCTION
+              STATUTORY IPMS DIRECTIVE
             </div>
-            These Key Performance Areas represent compliant municipal sectors. When capturing indicators within the **Performance Plan** or the **KPI's** module, selecting any of these KPAs will instantly apply the parent Strategic Anchor Objective and set the matching National KPA checkboxes automatically.
+            In municipal IPMS, Key Performance Areas represent practical, operational <strong>Functional Area KPAs</strong> (e.g. Water Infrastructure, Revenue Enhancement, Waste Management). When indicators are added in the **Performance Plan** or the **KPIs** module, each KPI is bound to its designated Functional Area KPA rather than a generic national acronym.
           </div>
         </div>
 

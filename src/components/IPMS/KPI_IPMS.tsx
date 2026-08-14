@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Activity, Trash2, Plus, Info, CheckCircle2, Database, HelpCircle, Save, Sparkles, 
   FileText, ClipboardList, TrendingUp, Upload, X, File, FileSpreadsheet, Image, Paperclip, Search, Presentation,
-  Eye, Download, AlertCircle
+  Eye, Download, AlertCircle, Flag
 } from 'lucide-react';
 import type { User } from '../../types';
 import { OfficeDocumentViewer } from './OfficeDocumentViewer';
@@ -1051,6 +1051,51 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
               </div>
             </div>
 
+            {/* Functional Area KPA Selector */}
+            <div className="flex flex-col gap-1 bg-emerald-50/60 p-3 rounded-xl border border-emerald-200">
+              <div className="flex justify-between items-center">
+                <label className="text-[9.5px] font-black text-emerald-900 uppercase tracking-wider flex items-center gap-1">
+                  <Flag className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Functional Area KPA</span>
+                  <span className="text-rose-600 font-bold">*</span>
+                </label>
+                <span className="text-[9px] font-bold font-mono text-emerald-700 uppercase">
+                  Municipal Functional KPA
+                </span>
+              </div>
+
+              <select
+                value={availableKpas.some(k => k.title === kpa) ? kpa : (kpa ? "__CUSTOM__" : "")}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val !== "__CUSTOM__") {
+                    setKpa(val);
+                  } else {
+                    setKpa("");
+                  }
+                }}
+                className="w-full px-3 py-2 bg-white border border-emerald-300 focus:border-emerald-700 rounded-lg font-bold text-xs text-slate-900 outline-none transition cursor-pointer"
+              >
+                <option value="">-- Select Functional Area KPA --</option>
+                {availableKpas.map((k) => (
+                  <option key={k.id || k.title} value={k.title}>
+                    {k.title}
+                  </option>
+                ))}
+                <option value="__CUSTOM__">✍️ [Type Custom Functional Area KPA...]</option>
+              </select>
+
+              {(!availableKpas.some(k => k.title === kpa) || kpa === "") && (
+                <input
+                  type="text"
+                  placeholder="Type Functional Area KPA (e.g. Water and Sanitation Infrastructure, Financial Governance)..."
+                  value={kpa}
+                  onChange={(e) => setKpa(e.target.value)}
+                  className="w-full mt-1.5 px-3 py-2 bg-white border-2 border-dashed border-emerald-400 focus:border-emerald-600 rounded-lg text-xs font-bold text-slate-900 outline-none"
+                />
+              )}
+            </div>
+
             {/* Row 2: KPI Description */}
             <div className="flex flex-col gap-1">
               <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">KPI Description</label>
@@ -1265,8 +1310,11 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
                         <h4 className="text-slate-200 text-xs font-bold leading-relaxed">{k.kpi}</h4>
                         
                         {k.kpa && (
-                          <div className="text-[10px] text-slate-400 font-mono">
-                            <span className="text-slate-500">KPA:</span> <span className="text-emerald-300 ml-1">{k.kpa}</span>
+                          <div className="text-[10.5px] text-slate-300 font-sans flex items-center gap-1.5 flex-wrap">
+                            <span className="bg-emerald-500/20 text-emerald-300 text-[9px] font-black uppercase px-2 py-0.5 rounded border border-emerald-500/30">
+                              Functional Area KPA
+                            </span>
+                            <span className="text-emerald-200 font-bold">{k.kpa}</span>
                           </div>
                         )}
                         

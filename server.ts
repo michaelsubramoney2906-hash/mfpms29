@@ -652,28 +652,19 @@ async function startServer() {
         return res.status(400).json({ error: "Missing document text or file payload for extraction." });
       }
 
-      const validKpaCodes = new Set(['bsd', 'led', 'mfvm', 'ggpp', 'midt', 'sr']);
-      const resolveKpaFallback = (text: string): string => {
-        const norm = (text || '').toLowerCase();
-        if (norm.includes('basic') || norm.includes('water') || norm.includes('electricity') || norm.includes('road') || norm.includes('sanitation') || norm.includes('bsd')) return 'bsd';
-        if (norm.includes('economic') || norm.includes('epwp') || norm.includes('job') || norm.includes('smme') || norm.includes('led')) return 'led';
-        if (norm.includes('financ') || norm.includes('budget') || norm.includes('revenue') || norm.includes('audit') || norm.includes('mfvm') || norm.includes('mfma')) return 'mfvm';
-        if (norm.includes('govern') || norm.includes('public') || norm.includes('council') || norm.includes('ward') || norm.includes('ggpp')) return 'ggpp';
-        if (norm.includes('institution') || norm.includes('hr') || norm.includes('skill') || norm.includes('wsp') || norm.includes('train') || norm.includes('midt')) return 'midt';
-        if (norm.includes('spatial') || norm.includes('spluma') || norm.includes('town') || norm.includes('land') || norm.includes('sr')) return 'sr';
-        return 'ggpp';
-      };
-
-      // Server heuristic fallback function
+      // Server heuristic fallback function for extracting verbatim Functional KPA
       const extractHeuristicItems = (raw: string): any[] => {
         const lines = (raw || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
         const results: any[] = [];
-        let currentKpa = 'ggpp';
+        let currentFunctionalKpa = 'General Municipal Administration & Governance';
 
         for (let i = 0; i < lines.length; i++) {
           const line = lines[i];
-          if (line.toLowerCase().includes('kpa') || line.toLowerCase().includes('key performance area')) {
-            currentKpa = resolveKpaFallback(line);
+          if (line.toLowerCase().includes('kpa') || line.toLowerCase().includes('key performance area') || line.toLowerCase().includes('functional area')) {
+            const cleanBanner = line.replace(/^[-*#\s]+/, '').replace(/^KPA\s*\d+\s*[:.\-–]\s*/i, '').trim();
+            if (cleanBanner.length > 2) {
+              currentFunctionalKpa = cleanBanner;
+            }
             continue;
           }
 
@@ -692,7 +683,8 @@ async function startServer() {
                 "4th qtr target": cells[8] || '100%',
                 "poe": cells[9] || 'Reports & Evidence',
                 "budget": cells[10] || 'R0',
-                "kpa": currentKpa
+                "functional kpa": currentFunctionalKpa,
+                "kpa": currentFunctionalKpa
               });
               continue;
             }
@@ -712,54 +704,58 @@ async function startServer() {
               "4th qtr target": "100%",
               "poe": "Quarterly reports & POE files",
               "budget": "R0",
-              "kpa": resolveKpaFallback(line) || currentKpa
+              "functional kpa": currentFunctionalKpa,
+              "kpa": currentFunctionalKpa
             });
           }
         }
         return results;
       };
 
-      const extractionPrompt = `You are a highly efficient extraction and data-mapping engine for municipal Performance Agreement documents.
-Your sole responsibility is to extract data from uploaded Performance Agreement documents and map them instantly to the exact required schema.
+      const extractionPrompt = `You are a high-precision extraction and data-mapping engine for municipal Performance Agreement and Scorecard documents (Annexure A).
 
-STRICT FIELD MAPPING RULES:
-Extract every Key Performance Indicator (KPI) / output row from the scorecard and rename the fields EXACTLY to these target keys:
-- "kpi no": KPI Reference/Number (e.g. "1.1", "MFVM_01", "BSD-02", "KPI 1", "M_01")
-- "kpi description": Full verbatim Key Performance Indicator / Output / Measure description
+CRITICAL DIRECTIVES:
+1. VERBATIM EXACT WORD EXTRACTION:
+   - Extract EVERY SINGLE WORD in each Key Performance Indicator (KPI Description) EXACTLY AS IS.
+   - Extract EVERY SINGLE WORD in each Key Performance Area (Functional KPA) EXACTLY AS IS.
+   - Under NO CIRCUMSTANCE should you truncate, summarize, abbreviate, condense, omit words, or rephrase any text. Retain all legal citations, acts (e.g. MFMA, MSA), project names, technical descriptors, percentages, and metrics word-for-word.
+
+2. MANDATORY KPI-TO-FUNCTIONAL KPA TYING:
+   - EVERY SINGLE KPI extracted MUST be explicitly tied to a Functional KPA.
+   - If a table, section header, banner, or worksheet defines a Functional KPA (e.g. "Basic Service Delivery and Infrastructure Development", "Water and Sanitation Management", "Local Economic Development & Tourism", "Municipal Financial Viability and Management", "Human Resources & Institutional Development", "Good Governance and Public Participation", "Spatial Planning and Rationale"), assign that exact, complete Functional KPA name to every single KPI row under that section.
+   - If no section banner exists, extract or infer the verbatim departmental Functional KPA from the context and ensure every single KPI row has a populated "functional kpa". Never leave "functional kpa" blank or generic.
+   - Do NOT reduce or compress the Functional KPA to abbreviated codes like bsd, led, mfvm, midt, sr. Output the full, verbatim Functional KPA string as stated in the document.
+
+STRICT TARGET JSON SCHEMA:
+Extract each scorecard row and map the fields strictly to these keys:
+- "kpi no": Verbatim KPI Reference/Number (e.g. "1.1", "MFVM_01", "BSD-02", "KPI 1", "M_01")
+- "kpi description": Full verbatim Key Performance Indicator / Output / Measure description (EVERY SINGLE WORD PRESERVED)
 - "%wt": Clean numeric weight value (e.g. "20", "15", "25", "10" without "%")
-- "baseline": Baseline value or previous year performance (e.g. "450 connections", "94% in 2022/23", "Clean Audit", "New")
-- "annual target": Planned Annual Target (e.g. "600 connections", "98%", "Unqualified audit opinion")
+- "baseline": Full verbatim Baseline value or previous year actual performance
+- "annual target": Full verbatim Planned Annual Target
 - "1st qtr target": 1st quarter planned target
 - "2nd qtr target": 2nd quarter planned target
 - "3rd qtr target": 3rd quarter planned target
 - "4th qtr target": 4th quarter planned target
-- "poe": Portfolio of Evidence / Means of Verification
-- "budget": Total budget allocated (e.g. "R 12,800,000", "R0", "Operational Budget")
-
-KPA CLASSIFICATION RULES:
-For every row or KPI extracted, look at the contextual heading or section text. You must accurately map and inject a "kpa" field for each record. The value must strictly be one of these abbreviated codes:
-- "bsd" (Basic Service Delivery & Infrastructure)
-- "led" (Local Economic Development)
-- "mfvm" (Municipal Financial Viability and Management)
-- "ggpp" (Good Governance and Public Participation)
-- "midt" (Municipal Institutional Development and Transformation)
-- "sr" (Spatial Rationale and Local Planning)
+- "poe": Full verbatim Portfolio of Evidence / Means of Verification
+- "budget": Verbatim Total budget allocated (e.g. "R 12,800,000", "R0", "Operational Budget")
+- "functional kpa": Full verbatim Functional Key Performance Area to which this KPI is tied
 
 Return ONLY a valid JSON array of objects matching the schema:
 [
   {
     "kpi no": "MFVM_01",
-    "kpi description": "Percentage of municipal operating budget spent in compliance with MFMA and SDBIP",
+    "kpi description": "Percentage of municipal operating budget spent in compliance with the Municipal Finance Management Act (MFMA) and approved Service Delivery and Budget Implementation Plan (SDBIP)",
     "%wt": "20",
-    "baseline": "94%",
-    "annual target": "98%",
-    "1st qtr target": "25%",
-    "2nd qtr target": "50%",
-    "3rd qtr target": "75%",
-    "4th qtr target": "98%",
-    "poe": "Quarterly Section 71 Financial Reports & General Ledger statements",
+    "baseline": "94% compliant in 2023/24",
+    "annual target": "98% compliance achieved across all municipal votes",
+    "1st qtr target": "25% budget spent in compliance with MFMA",
+    "2nd qtr target": "50% budget spent in compliance with MFMA",
+    "3rd qtr target": "75% budget spent in compliance with MFMA",
+    "4th qtr target": "98% budget spent in compliance with MFMA",
+    "poe": "Quarterly Section 71 Financial Reports, General Ledger audit trails, and signed Bank Reconciliation Statements",
     "budget": "R 4,500,000",
-    "kpa": "mfvm"
+    "functional kpa": "Municipal Financial Viability and Management"
   }
 ]`;
 
@@ -835,10 +831,7 @@ Return ONLY a valid JSON array of objects matching the schema:
         const rawWeight = String(it['%wt'] || it.weighting || it.weight || '0').replace('%', '').trim();
         const cleanWeightVal = isNaN(parseFloat(rawWeight)) ? '0' : String(parseFloat(rawWeight));
 
-        let kpaCode = String(it.kpa || '').toLowerCase().trim();
-        if (!validKpaCodes.has(kpaCode)) {
-          kpaCode = resolveKpaFallback(`${kpaCode} ${kpiDesc}`);
-        }
+        const rawFunctionalKpa = String(it['functional kpa'] || it.functionalKpa || it.kpa || it['functional area'] || it.departmentalKpa || 'Functional Performance Area').trim();
 
         return {
           "kpi no": String(it['kpi no'] || it.kpiNo || it.refNo || `KPI-${index + 1}`).trim(),
@@ -852,7 +845,8 @@ Return ONLY a valid JSON array of objects matching the schema:
           "4th qtr target": String(it['4th qtr target'] || it.q4Target || it.quarter4 || '').trim(),
           "poe": String(it.poe || it.evidence || it.meansOfVerification || '').trim(),
           "budget": String(it.budget || it.totalBudgetAllocated || 'R0').trim(),
-          "kpa": kpaCode
+          "functional kpa": rawFunctionalKpa,
+          "kpa": rawFunctionalKpa
         };
       });
 

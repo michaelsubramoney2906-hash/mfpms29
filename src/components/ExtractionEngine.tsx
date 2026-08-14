@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { User } from '../types';
 import { 
   FileText, Upload, CheckCircle2, AlertCircle, Sparkles, Download, 
@@ -24,26 +24,26 @@ interface ExtractionEngineProps {
   onNavigateToIPMS?: (subModuleId?: string) => void;
 }
 
-const SAMPLE_PERFORMANCE_PLAN_TEXT = `Annexure A - Performance Plan
-2025/2026 Financial Year
+const SAMPLE_PERFORMANCE_PLAN_TEXT = `Annexure A - Annual Performance Plan & Scorecard
+Financial Year 2025/2026 - Directorate: Infrastructure, Finance & Corporate Services
 
 KPA 1: Basic Service Delivery and Infrastructure Development
 KPI No. | Key Performance Indicators | Weight | Baseline | Annual Target | 1st Quarter Planned Target | 2nd Quarter Planned Target | 3rd Quarter Planned Target | 4th Quarter Planned Target | POE | Total Budget Allocated
-BSD-01 | Number of new water connections completed in informal settlements | 20 | 450 connections | 600 connections | 150 connections | 150 connections | 150 connections | 150 connections | Engineering completion certificates and GIS coordinates | R 12,500,000
-BSD-02 | Percentage of municipal roads resealed and rehabilitated | 15 | 82% | 95% | 20% | 45% | 70% | 95% | Monthly contractor progress reports & site inspection logs | R 8,200,000
+BSD-01 | Number of new water connections completed in informal settlements in accordance with the Water Services Act and Municipal SDBIP | 20 | 450 connections completed in 2023/24 | 600 new connections fully commissioned | 150 connections completed | 150 connections completed | 150 connections completed | 150 connections completed | Engineering completion certificates, GIS spatial coordinates, and signed beneficiary job cards | R 12,500,000
+BSD-02 | Percentage of municipal asphalt and gravel roads resealed, regravelled, and rehabilitated within the municipal jurisdiction | 15 | 82% road network maintained | 95% of identified road network rehabilitated | 20% road network rehabilitated | 45% road network rehabilitated | 70% road network rehabilitated | 95% road network rehabilitated | Monthly civil contractor progress reports, site inspection verification logs, and Council oversight certificates | R 8,200,000
 
 KPA 4: Municipal Financial Viability and Management
 KPI No. | Key Performance Indicators | Weight | Baseline | Annual Target | 1st Quarter Planned Target | 2nd Quarter Planned Target | 3rd Quarter Planned Target | 4th Quarter Planned Target | POE | Total Budget Allocated
-MFVM-01 | Percentage of municipal operational budget spent in compliance with MFMA | 25 | 94% | 98% | 25% | 50% | 75% | 98% | Quarterly Section 71 budget statements & bank reconciliations | Operational Budget
-MFVM-02 | Revenue collection rate on billed property rates and service charges | 15 | 88% | 93% | 90% | 91% | 92% | 93% | Debtor age analysis & monthly collection reports | R 450,000
+MFVM-01 | Percentage of municipal operating budget spent in compliance with the Municipal Finance Management Act (MFMA No. 56 of 2003) and SDBIP | 25 | 94% compliant expenditure in 2023/24 | 98% operating budget spent in full MFMA compliance | 25% expenditure compliance | 50% expenditure compliance | 75% expenditure compliance | 98% expenditure compliance | Quarterly Section 71 budget statements, General Ledger audit trails, and signed Bank Reconciliation Statements | Operational Budget
+MFVM-02 | Revenue collection rate on billed property rates, electricity, refuse, and potable water service charges | 15 | 88% overall revenue collected | 93% sustained revenue collection achieved | 90% revenue collection | 91% revenue collection | 92% revenue collection | 93% revenue collection | Debtor age analysis schedules, billing master summaries, and monthly cash receipt reports | R 450,000
 
 KPA 5: Good Governance and Public Participation
 KPI No. | Key Performance Indicators | Weight | Baseline | Annual Target | 1st Quarter Planned Target | 2nd Quarter Planned Target | 3rd Quarter Planned Target | 4th Quarter Planned Target | POE | Total Budget Allocated
-GGPP-01 | Number of quarterly ward committee meetings convened across all wards | 15 | 36 meetings | 48 meetings | 12 meetings | 12 meetings | 12 meetings | 12 meetings | Signed attendance registers and approved minutes | R 320,000
+GGPP-01 | Number of quarterly ward committee public participation meetings convened across all municipal wards | 15 | 36 meetings convened in 2023/24 | 48 ward committee meetings successfully convened | 12 ward meetings convened | 12 ward meetings convened | 12 ward meetings convened | 12 ward meetings convened | Signed attendance registers, public notice distribution records, and approved Ward Committee minutes | R 320,000
 
 KPA 2: Municipal Institutional Development and Transformation
 KPI No. | Key Performance Indicators | Weight | Baseline | Annual Target | 1st Quarter Planned Target | 2nd Quarter Planned Target | 3rd Quarter Planned Target | 4th Quarter Planned Target | POE | Total Budget Allocated
-MIDT-01 | Percentage of Workplace Skills Plan (WSP) training initiatives executed | 10 | 85% | 95% | 20% | 45% | 75% | 95% | Training attendance registers & SETA submissions | R 1,800,000`;
+MIDT-01 | Percentage of Workplace Skills Plan (WSP) municipal employee training and capacity building initiatives executed | 10 | 85% training executed in 2023/24 | 95% planned WSP skills training programs executed | 20% training programs executed | 45% training programs executed | 75% training programs executed | 95% training programs executed | Signed training attendance registers, accredited training certificates, and annual LGSETA compliance submissions | R 1,800,000`;
 
 export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS }: ExtractionEngineProps) {
   const [extractedItems, setExtractedItems] = useState<ExtractedMappedKPI[]>([]);
@@ -65,12 +65,24 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
     .filter(it => it._selected !== false)
     .reduce((sum, item) => sum + (parseFloat(item["%wt"]) || 0), 0);
 
-  // KPA Counts
-  const kpaCounts = extractedItems.reduce((acc, it) => {
-    const code = it.kpa;
-    acc[code] = (acc[code] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
+  // Unique Functional KPAs extracted
+  const uniqueFunctionalKpas = useMemo(() => {
+    const set = new Set<string>();
+    extractedItems.forEach(it => {
+      const kpaVal = it["functional kpa"] || it["kpa"];
+      if (kpaVal && kpaVal.trim()) set.add(kpaVal.trim());
+    });
+    return Array.from(set);
+  }, [extractedItems]);
+
+  // Functional KPA Counts
+  const kpaCounts = useMemo(() => {
+    return extractedItems.reduce((acc, it) => {
+      const code = it["functional kpa"] || it["kpa"] || 'Functional Performance Area';
+      acc[code] = (acc[code] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+  }, [extractedItems]);
 
   // Handle results commit
   const handleExtractedResult = (items: ExtractedMappedKPI[], name: string) => {
@@ -89,7 +101,7 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
     setActiveTab('results');
     setStatusMessage({
       type: 'success',
-      text: `Successfully extracted and mapped ${items.length} KPI records from "${name}" strictly to the IPMS Performance Plan schema.`
+      text: `Successfully extracted and mapped ${items.length} KPI records from "${name}" with verbatim Functional KPA areas.`
     });
   };
 
@@ -99,7 +111,7 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
     if (!file) return;
 
     setIsProcessing(true);
-    setStatusMessage({ type: 'info', text: `Analyzing and mapping "${file.name}"...` });
+    setStatusMessage({ type: 'info', text: `Analyzing and extracting "${file.name}"...` });
 
     try {
       const fileName = file.name.toLowerCase();
@@ -120,22 +132,26 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
         const text = await file.text();
         const parsed = JSON.parse(text);
         const rawArray = Array.isArray(parsed) ? parsed : (parsed.items || []);
-        const items: ExtractedMappedKPI[] = rawArray.map((it: any, idx: number) => ({
-          _id: `json-${Date.now()}-${idx + 1}`,
-          _selected: true,
-          "kpi no": String(it["kpi no"] || it.kpiNo || `KPI-${idx + 1}`),
-          "kpi description": String(it["kpi description"] || it.kpi || it.description || `Indicator ${idx + 1}`),
-          "%wt": String(it["%wt"] || it.weighting || it.weight || '0').replace('%', ''),
-          "baseline": String(it.baseline || ''),
-          "annual target": String(it["annual target"] || it.annualTarget || ''),
-          "1st qtr target": String(it["1st qtr target"] || it.q1Target || ''),
-          "2nd qtr target": String(it["2nd qtr target"] || it.q2Target || ''),
-          "3rd qtr target": String(it["3rd qtr target"] || it.q3Target || ''),
-          "4th qtr target": String(it["4th qtr target"] || it.q4Target || ''),
-          "poe": String(it.poe || ''),
-          "budget": String(it.budget || 'R0'),
-          "kpa": resolveKpaCode(it.kpa || '')
-        }));
+        const items: ExtractedMappedKPI[] = rawArray.map((it: any, idx: number) => {
+          const functionalKpa = String(it["functional kpa"] || it.functionalKpa || it.kpa || 'Functional Performance Area').trim();
+          return {
+            _id: `json-${Date.now()}-${idx + 1}`,
+            _selected: true,
+            "kpi no": String(it["kpi no"] || it.kpiNo || `KPI-${idx + 1}`).trim(),
+            "kpi description": String(it["kpi description"] || it.kpi || it.description || `Indicator ${idx + 1}`).trim(),
+            "%wt": String(it["%wt"] || it.weighting || it.weight || '0').replace('%', '').trim(),
+            "baseline": String(it.baseline || '').trim(),
+            "annual target": String(it["annual target"] || it.annualTarget || '').trim(),
+            "1st qtr target": String(it["1st qtr target"] || it.q1Target || '').trim(),
+            "2nd qtr target": String(it["2nd qtr target"] || it.q2Target || '').trim(),
+            "3rd qtr target": String(it["3rd qtr target"] || it.q3Target || '').trim(),
+            "4th qtr target": String(it["4th qtr target"] || it.q4Target || '').trim(),
+            "poe": String(it.poe || '').trim(),
+            "budget": String(it.budget || 'R0').trim(),
+            "functional kpa": functionalKpa,
+            "kpa": functionalKpa
+          };
+        });
         handleExtractedResult(items, file.name);
       } else {
         const text = await file.text();
@@ -247,8 +263,8 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
 
       // Transform mapped schema strictly into IPMS PlanKPIItem format
       const ipmsPlanItems = selected.map((it, idx) => {
-        const kpaCode = it.kpa;
-        const kpaInfo = KPA_METADATA[kpaCode] || KPA_METADATA.ggpp;
+        const functionalKpa = it["functional kpa"] || it["kpa"] || 'Functional Performance Area';
+        const norm = functionalKpa.toLowerCase();
 
         return {
           id: `extracted-sync-${Date.now()}-${idx + 1}`,
@@ -263,15 +279,15 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
           q4Target: it["4th qtr target"],
           poe: it["poe"],
           budget: it["budget"],
-          kpa: kpaInfo.fullTitle,
+          kpa: functionalKpa,
           mscoaCode: 'Functions',
           strategicGoal: 'To ensure sustainable service delivery and clean audit compliance',
-          bsd: kpaCode === 'bsd',
-          led: kpaCode === 'led',
-          mfvm: kpaCode === 'mfvm',
-          ggpp: kpaCode === 'ggpp',
-          midt: kpaCode === 'midt',
-          sr: kpaCode === 'sr',
+          bsd: norm.includes('service') || norm.includes('infrastructure') || norm.includes('water') || norm.includes('bsd'),
+          led: norm.includes('economic') || norm.includes('led'),
+          mfvm: norm.includes('financial') || norm.includes('budget') || norm.includes('mfvm'),
+          ggpp: norm.includes('governance') || norm.includes('public') || norm.includes('ggpp'),
+          midt: norm.includes('institutional') || norm.includes('hr') || norm.includes('midt'),
+          sr: norm.includes('spatial') || norm.includes('planning') || norm.includes('sr'),
           myScore: '3.0'
         };
       });
@@ -339,7 +355,7 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
       "4th qtr target": it["4th qtr target"],
       "poe": it["poe"],
       "budget": it["budget"],
-      "kpa": it["kpa"]
+      "functional kpa": it["functional kpa"] || it["kpa"]
     }));
 
     const blob = new Blob([JSON.stringify(cleanOutput, null, 2)], { type: 'application/json' });
@@ -355,6 +371,7 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
   const handleExportExcel = () => {
     const rows = extractedItems.map(it => ({
       'KPI No': it['kpi no'],
+      'Functional KPA': it['functional kpa'] || it['kpa'],
       'KPI Description': it['kpi description'],
       '% Weight': it['%wt'],
       'Baseline': it['baseline'],
@@ -364,8 +381,7 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
       '3rd Qtr Target': it['3rd qtr target'],
       '4th Qtr Target': it['4th qtr target'],
       'POE': it['poe'],
-      'Total Budget': it['budget'],
-      'KPA Code': it['kpa']
+      'Total Budget': it['budget']
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(rows);
@@ -388,7 +404,7 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
       "4th qtr target": it["4th qtr target"],
       "poe": it["poe"],
       "budget": it["budget"],
-      "kpa": it["kpa"]
+      "functional kpa": it["functional kpa"] || it["kpa"]
     }));
 
     navigator.clipboard.writeText(JSON.stringify(cleanOutput, null, 2));
@@ -396,10 +412,11 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
     setTimeout(() => setCopiedJson(false), 2000);
   };
 
-  // Filter items by KPA
+  // Filter items by Functional KPA
   const filteredItems = extractedItems.filter(it => {
     if (kpaFilter === 'all') return true;
-    return it.kpa === kpaFilter;
+    const itemKpa = it["functional kpa"] || it["kpa"] || '';
+    return itemKpa === kpaFilter;
   });
 
   return (
@@ -419,14 +436,14 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
                 <h1 className="text-2xl font-black text-white tracking-tight">Extraction &amp; Data-Mapping Engine</h1>
                 <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full tracking-wider flex items-center gap-1">
                   <Zap className="w-3 h-3 text-emerald-400" />
-                  Instant Schema Mapping
+                  Verbatim Word-for-Word Precision
                 </span>
                 <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full tracking-wider">
-                  Annexure A Ready
+                  100% Functional KPA Bound
                 </span>
               </div>
               <p className="text-slate-400 text-sm mt-1 max-w-3xl leading-relaxed">
-                Extracts tabular scorecard data from PDF, Word (.docx), Excel (.xlsx/.csv), and pasted tables, mapping all fields strictly to the <strong className="text-amber-300">IPMS Performance Plan Schema</strong> with automated KPA classification: <code className="text-indigo-300 font-mono text-xs font-bold">[bsd, led, mfvm, ggpp, midt, sr]</code>.
+                Extracts scorecard data from PDF, Word (.docx), Excel (.xlsx/.csv), and pasted tables. Every single word in each <strong className="text-amber-300">KPI description</strong> and <strong className="text-indigo-300">Functional KPA</strong> is preserved exactly as is, and every KPI row is strictly tied to its respective Functional Key Performance Area.
               </p>
             </div>
           </div>
@@ -448,10 +465,10 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
         <div className="mt-5 pt-4 border-t border-slate-800/80">
           <div className="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Strict Target Schema Keys (1-to-1 Mapped):</span>
+            <span>Strict Target Schema Keys (Mapped 1-to-1):</span>
           </div>
           <div className="flex flex-wrap gap-1.5 font-mono text-[11px]">
-            {['kpi no', 'kpi description', '%wt', 'baseline', 'annual target', '1st qtr target', '2nd qtr target', '3rd qtr target', '4th qtr target', 'poe', 'budget', 'kpa [bsd, led, mfvm, ggpp, midt, sr]'].map((keyName) => (
+            {['kpi no', 'kpi description', '%wt', 'baseline', 'annual target', '1st qtr target', '2nd qtr target', '3rd qtr target', '4th qtr target', 'poe', 'budget', 'functional kpa'].map((keyName) => (
               <span key={keyName} className="bg-slate-800/90 text-indigo-200 border border-indigo-700/40 px-2.5 py-1 rounded-md">
                 "{keyName}"
               </span>
@@ -665,11 +682,11 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
           {/* CONTROL & SUMMARY BAR */}
           <div className="bg-slate-800/80 border border-slate-700/70 rounded-2xl p-4 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
             
-            {/* KPA Filter Pills */}
+            {/* Functional KPA Filter Pills */}
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 mr-1">
                 <Filter className="w-3.5 h-3.5" />
-                <span>Pillar:</span>
+                <span>Functional KPA:</span>
               </span>
               <button
                 onClick={() => setKpaFilter('all')}
@@ -682,20 +699,19 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
                 All ({extractedItems.length})
               </button>
 
-              {(['bsd', 'led', 'mfvm', 'ggpp', 'midt', 'sr'] as KpaCode[]).map(code => {
-                const count = kpaCounts[code] || 0;
-                const meta = KPA_METADATA[code];
+              {uniqueFunctionalKpas.map(fKpa => {
+                const count = kpaCounts[fKpa] || 0;
                 return (
                   <button
-                    key={code}
-                    onClick={() => setKpaFilter(code)}
+                    key={fKpa}
+                    onClick={() => setKpaFilter(fKpa)}
                     className={`px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                      kpaFilter === code
+                      kpaFilter === fKpa
                         ? 'bg-slate-700 text-white ring-2 ring-indigo-500'
                         : 'bg-slate-900 text-slate-400 hover:text-slate-200'
                     }`}
                   >
-                    <span>{meta.name}</span>
+                    <span className="truncate max-w-[180px]">{fKpa}</span>
                     <span className="bg-slate-800 text-[10px] px-1.5 py-0.2 rounded-full font-mono">{count}</span>
                   </button>
                 );
@@ -748,6 +764,11 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
           {/* KPI TABLE */}
           <div className="bg-slate-900/90 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
             <div className="overflow-x-auto max-h-[600px]">
+              <datalist id="functional-kpa-list">
+                {uniqueFunctionalKpas.map(f => (
+                  <option key={f} value={f} />
+                ))}
+              </datalist>
               <table className="w-full text-left text-xs border-collapse">
                 <thead className="bg-slate-950 text-slate-400 uppercase text-[10px] font-black tracking-wider sticky top-0 z-20 border-b border-slate-800">
                   <tr>
@@ -761,7 +782,7 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
                       </button>
                     </th>
                     <th className="p-3 w-28">kpi no</th>
-                    <th className="p-3 w-24">kpa</th>
+                    <th className="p-3 min-w-[200px]">functional kpa</th>
                     <th className="p-3 min-w-[280px]">kpi description</th>
                     <th className="p-3 w-16 text-center">%wt</th>
                     <th className="p-3 min-w-[140px]">baseline</th>
@@ -778,7 +799,7 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
                 <tbody className="divide-y divide-slate-800/60 font-sans">
                   {filteredItems.map((item, originalIndex) => {
                     const idx = extractedItems.findIndex(it => it === item);
-                    const kpaMeta = KPA_METADATA[item.kpa] || KPA_METADATA.ggpp;
+                    const kpaVal = item["functional kpa"] || item["kpa"] || 'Functional Performance Area';
 
                     return (
                       <tr 
@@ -808,20 +829,19 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
                           />
                         </td>
 
-                        {/* kpa code */}
+                        {/* functional kpa */}
                         <td className="p-2">
-                          <select
-                            value={item.kpa}
-                            onChange={(e) => handleUpdateItem(idx, "kpa", e.target.value as KpaCode)}
-                            className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-xs font-black uppercase text-slate-200 focus:outline-none focus:border-indigo-500"
-                          >
-                            <option value="bsd">bsd (Basic Services)</option>
-                            <option value="led">led (Economic Dev)</option>
-                            <option value="mfvm">mfvm (Financial)</option>
-                            <option value="ggpp">ggpp (Governance)</option>
-                            <option value="midt">midt (Institutional)</option>
-                            <option value="sr">sr (Spatial)</option>
-                          </select>
+                          <input
+                            type="text"
+                            list="functional-kpa-list"
+                            value={kpaVal}
+                            onChange={(e) => {
+                              handleUpdateItem(idx, "functional kpa", e.target.value);
+                              handleUpdateItem(idx, "kpa", e.target.value);
+                            }}
+                            placeholder="Functional KPA..."
+                            className="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-2.5 py-1 text-xs font-semibold text-emerald-300 focus:outline-none focus:border-indigo-500"
+                          />
                         </td>
 
                         {/* kpi description */}
@@ -950,7 +970,7 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-base font-bold text-white">Exact Schema Output JSON</h3>
-              <p className="text-xs text-slate-400">Strictly adheres to target keys and KPA abbreviations.</p>
+              <p className="text-xs text-slate-400">Strictly adheres to target keys and extracted functional KPA areas.</p>
             </div>
             <button
               onClick={handleCopyJson}
@@ -975,7 +995,7 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
                 "4th qtr target": it["4th qtr target"],
                 "poe": it["poe"],
                 "budget": it["budget"],
-                "kpa": it["kpa"]
+                "functional kpa": it["functional kpa"] || it["kpa"]
               })),
               null,
               2

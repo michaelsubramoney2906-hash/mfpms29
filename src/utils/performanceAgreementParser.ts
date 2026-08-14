@@ -28,7 +28,8 @@ export interface ExtractedMappedKPI {
   "4th qtr target": string;
   "poe": string;
   "budget": string;
-  "kpa": KpaCode;
+  "functional kpa": string;
+  "kpa": string;
 
   // Internal UI metadata
   _id?: string;
@@ -138,22 +139,26 @@ export async function callServerAiExtraction(params: {
 
   const data = await response.json();
   if (data.success && Array.isArray(data.items)) {
-    return data.items.map((it: any, idx: number) => ({
-      _id: `ext-${Date.now()}-${idx + 1}`,
-      _selected: true,
-      "kpi no": String(it['kpi no'] || `KPI-${idx + 1}`).trim(),
-      "kpi description": String(it['kpi description'] || `Indicator ${idx + 1}`).trim(),
-      "%wt": normalizeWeight(it['%wt']),
-      "baseline": String(it.baseline || '').trim(),
-      "annual target": String(it['annual target'] || '').trim(),
-      "1st qtr target": String(it['1st qtr target'] || '').trim(),
-      "2nd qtr target": String(it['2nd qtr target'] || '').trim(),
-      "3rd qtr target": String(it['3rd qtr target'] || '').trim(),
-      "4th qtr target": String(it['4th qtr target'] || '').trim(),
-      "poe": String(it.poe || '').trim(),
-      "budget": String(it.budget || 'R0').trim(),
-      "kpa": resolveKpaCode(it.kpa || '')
-    }));
+    return data.items.map((it: any, idx: number) => {
+      const functionalKpa = String(it['functional kpa'] || it.functionalKpa || it.kpa || 'Functional Performance Area').trim();
+      return {
+        _id: `ext-${Date.now()}-${idx + 1}`,
+        _selected: true,
+        "kpi no": String(it['kpi no'] || `KPI-${idx + 1}`).trim(),
+        "kpi description": String(it['kpi description'] || `Indicator ${idx + 1}`).trim(),
+        "%wt": normalizeWeight(it['%wt']),
+        "baseline": String(it.baseline || '').trim(),
+        "annual target": String(it['annual target'] || '').trim(),
+        "1st qtr target": String(it['1st qtr target'] || '').trim(),
+        "2nd qtr target": String(it['2nd qtr target'] || '').trim(),
+        "3rd qtr target": String(it['3rd qtr target'] || '').trim(),
+        "4th qtr target": String(it['4th qtr target'] || '').trim(),
+        "poe": String(it.poe || '').trim(),
+        "budget": String(it.budget || 'R0').trim(),
+        "functional kpa": functionalKpa,
+        "kpa": functionalKpa
+      };
+    });
   }
 
   return [];
@@ -515,7 +520,7 @@ function parseMatrixToMappedKPIs(matrix: string[][], contextHint?: string): Extr
 
   // 1. Locate header row
   let headerRowIndex = -1;
-  let currentKpa: KpaCode = resolveKpaCode(contextHint || '');
+  let currentFunctionalKpa = (contextHint || 'Functional Performance Area').trim();
 
   for (let r = 0; r < Math.min(matrix.length, 10); r++) {
     const rowStr = matrix[r].join(' ').toLowerCase();
@@ -548,7 +553,7 @@ function parseMatrixToMappedKPIs(matrix: string[][], contextHint?: string): Extr
   const colQ4 = header.findIndex(h => h.includes('4th quarter') || h.includes('4th qtr') || h.includes('q4') || h.includes('quarter 4') || h.includes('quarter 04'));
   const colPoe = header.findIndex(h => h.includes('poe') || h.includes('portfolio of evidence') || h.includes('means of verification') || h.includes('evidence'));
   const colBudget = header.findIndex(h => h.includes('total budget') || h.includes('budget') || h.includes('allocation') || h.includes('financial'));
-  const colKpa = header.findIndex(h => h.includes('kpa') || h.includes('key performance area') || h.includes('pillar') || h.includes('strategic objective'));
+  const colFunctionalKpa = header.findIndex(h => h.includes('functional kpa') || h.includes('functional area') || h.includes('kpa') || h.includes('key performance area') || h.includes('pillar') || h.includes('strategic objective') || h.includes('departmental kpa'));
 
   const items: ExtractedMappedKPI[] = [];
 
@@ -558,12 +563,25 @@ function parseMatrixToMappedKPIs(matrix: string[][], contextHint?: string): Extr
     if (!rowText) continue;
 
     // Check if this row is a KPA Section Banner (e.g., "KPA 1: Basic Service Delivery...")
-    if (rowText.toLowerCase().includes('kpa') || rowText.toLowerCase().includes('key performance area') || rowText.toLowerCase().includes('basic service') || rowText.toLowerCase().includes('financial viability')) {
-      currentKpa = resolveKpaCode(rowText);
+    if (
+      rowText.toLowerCase().includes('kpa') || 
+      rowText.toLowerCase().includes('key performance area') || 
+      rowText.toLowerCase().includes('functional area') || 
+      rowText.toLowerCase().includes('basic service') || 
+      rowText.toLowerCase().includes('financial viability') ||
+      rowText.toLowerCase().includes('local economic') ||
+      rowText.toLowerCase().includes('good governance') ||
+      rowText.toLowerCase().includes('institutional development')
+    ) {
+      // Retain full verbatim banner title
+      const cleanBanner = rowText.replace(/^[-*#\s]+/, '').trim();
+      if (cleanBanner.length > 2) {
+        currentFunctionalKpa = cleanBanner;
+      }
       continue;
     }
 
-    // Extract cell values
+    // Extract cell values with complete verbatim text
     const kpiNoVal = colKpiNo !== -1 ? row[colKpiNo] : '';
     const kpiDescVal = colKpiDesc !== -1 ? row[colKpiDesc] : (colKpiNo !== -1 && row[1] ? row[1] : row[0]);
     const weightVal = colWeight !== -1 ? row[colWeight] : '';
@@ -575,12 +593,12 @@ function parseMatrixToMappedKPIs(matrix: string[][], contextHint?: string): Extr
     const q4Val = colQ4 !== -1 ? row[colQ4] : '';
     const poeVal = colPoe !== -1 ? row[colPoe] : '';
     const budgetVal = colBudget !== -1 ? row[colBudget] : '';
-    const rowKpaVal = colKpa !== -1 ? row[colKpa] : '';
+    const rowKpaVal = colFunctionalKpa !== -1 ? row[colFunctionalKpa] : '';
 
     if (!kpiDescVal && !kpiNoVal && !annualTargetVal) continue;
 
-    // Determine row KPA
-    const effectiveKpa: KpaCode = rowKpaVal ? resolveKpaCode(rowKpaVal) : (currentKpa || resolveKpaCode(kpiDescVal));
+    // Determine row Functional KPA - strictly tied to section banner or column
+    const effectiveFunctionalKpa = String(rowKpaVal || currentFunctionalKpa || 'General Municipal Administration & Governance').trim();
 
     items.push({
       _id: `kpi-mapped-${Date.now()}-${items.length + 1}`,
@@ -596,7 +614,8 @@ function parseMatrixToMappedKPIs(matrix: string[][], contextHint?: string): Extr
       "4th qtr target": String(q4Val || '').trim(),
       "poe": String(poeVal || '').trim(),
       "budget": String(budgetVal || 'R0').trim(),
-      "kpa": effectiveKpa
+      "functional kpa": effectiveFunctionalKpa,
+      "kpa": effectiveFunctionalKpa
     });
   }
 
@@ -604,24 +623,31 @@ function parseMatrixToMappedKPIs(matrix: string[][], contextHint?: string): Extr
 }
 
 /**
- * Line-by-line text parser for unstructured text
+ * Line-by-line text parser for unstructured text with verbatim extraction
  */
 function parseRawTextLines(text: string): ExtractedMappedKPI[] {
   const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   const items: ExtractedMappedKPI[] = [];
-  let currentKpa: KpaCode = 'ggpp';
+  let currentFunctionalKpa = 'General Municipal Administration & Governance';
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    if (line.toLowerCase().includes('kpa') || line.toLowerCase().includes('key performance area')) {
-      currentKpa = resolveKpaCode(line);
+    if (
+      line.toLowerCase().includes('kpa') || 
+      line.toLowerCase().includes('key performance area') || 
+      line.toLowerCase().includes('functional area')
+    ) {
+      const cleanBanner = line.replace(/^[-*#\s]+/, '').trim();
+      if (cleanBanner.length > 2) {
+        currentFunctionalKpa = cleanBanner;
+      }
       continue;
     }
 
     const match = line.match(/^(\d+(\.\d+)*|[A-Z]{2,5}[-_]\d+|\bKPI\s*\d+)\s*[:.\-–]\s*(.+)$/i);
     if (match) {
-      const kpiNo = match[1];
-      const kpiDesc = match[3];
+      const kpiNo = match[1].trim();
+      const kpiDesc = match[3].trim();
       items.push({
         _id: `raw-${Date.now()}-${items.length + 1}`,
         _selected: true,
@@ -636,7 +662,8 @@ function parseRawTextLines(text: string): ExtractedMappedKPI[] {
         "4th qtr target": "100%",
         "poe": "Quarterly reports & POE files",
         "budget": "R0",
-        "kpa": resolveKpaCode(line) || currentKpa
+        "functional kpa": currentFunctionalKpa,
+        "kpa": currentFunctionalKpa
       });
     }
   }
