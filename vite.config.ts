@@ -21,9 +21,10 @@ export default defineConfig(() => {
         output: {
           manualChunks(id) {
             if (id.includes('node_modules')) {
+              if (id.includes('react') || id.includes('react-dom') || id.includes('motion')) return 'vendor-react';
               if (id.includes('lucide-react')) return 'vendor-icons';
               if (id.includes('recharts') || id.includes('d3')) return 'vendor-charts';
-              if (id.includes('jspdf') || id.includes('pdfmake') || id.includes('xlsx') || id.includes('mammoth') || id.includes('html2canvas')) return 'vendor-docs';
+              if (id.includes('jspdf') || id.includes('pdfmake') || id.includes('xlsx') || id.includes('mammoth') || id.includes('html2canvas') || id.includes('pdfjs-dist') || id.includes('html-docx-js-typescript')) return 'vendor-docs';
               if (id.includes('@supabase') || id.includes('socket.io') || id.includes('@google/genai')) return 'vendor-services';
             }
           }
