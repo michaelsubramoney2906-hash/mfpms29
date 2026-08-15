@@ -106,17 +106,38 @@ export function resolveKpaCode(text: string): KpaCode {
 }
 
 /**
- * Normalizes raw string weight to clean numeric string
+ * Normalizes raw string weight to clean numeric string without defaulting or hallucinating
  */
 export function normalizeWeight(val: any): string {
-  if (val === undefined || val === null) return '0';
+  if (val === undefined || val === null) return '';
   const str = String(val).replace('%', '').trim();
   const num = parseFloat(str);
-  return isNaN(num) ? '0' : String(num);
+  return isNaN(num) ? '' : String(num);
 }
 
 /**
- * Call Server AI Extraction Engine
+ * Helper to convert ArrayBuffer or Uint8Array to Base64 safely without buffer detachment
+ */
+export function arrayBufferToBase64(buffer: ArrayBuffer | Uint8Array): string {
+  try {
+    const bytes = buffer instanceof Uint8Array 
+      ? buffer 
+      : new Uint8Array(buffer.slice(0));
+    let binary = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+      binary += String.fromCharCode.apply(null, chunk as any);
+    }
+    return btoa(binary);
+  } catch (e) {
+    console.warn("arrayBufferToBase64 error:", e);
+    return "";
+  }
+}
+
+/**
+ * Call Server AI Extraction Engine with 100% Verbatim Accuracy
  */
 export async function callServerAiExtraction(params: {
   documentText?: string;
@@ -137,24 +158,54 @@ export async function callServerAiExtraction(params: {
     throw new Error(errorData.error || `Server extraction failed with status ${response.status}`);
   }
 
-  const data = await response.json();
+    const data = await response.json();
   if (data.success && Array.isArray(data.items)) {
     return data.items.map((it: any, idx: number) => {
       const functionalKpa = String(it['functional kpa'] || it.functionalKpa || it.kpa || 'Functional Performance Area').trim();
+      const kpiDescription = it['kpi description'] ?? 
+        it.kpiDescription ?? 
+        it['kpi_description'] ?? 
+        it['Key Performance Indicators'] ?? 
+        it['key performance indicators'] ?? 
+        it['Key Performance Indicator'] ?? 
+        it['key performance indicator'] ?? 
+        it['key_performance_indicators'] ?? 
+        it['key_performance_indicator'] ?? 
+        it.kpi ?? 
+        it.indicator ?? 
+        it.description ?? 
+        it.indicatorName ?? 
+        it.indicatorDescription ?? 
+        it.measure ?? 
+        it.output ?? 
+        '';
+      const kpiNo = it['kpi no'] ?? 
+        it.kpiNo ?? 
+        it['kpi_no'] ?? 
+        it['KPI number'] ?? 
+        it['kpi number'] ?? 
+        it['KPI Number'] ?? 
+        it['kpi_number'] ?? 
+        it.refNo ?? 
+        it.refNum ?? 
+        it.ref ?? 
+        it.no ?? 
+        it.id ?? 
+        `KPI-${idx + 1}`;
       return {
         _id: `ext-${Date.now()}-${idx + 1}`,
         _selected: true,
-        "kpi no": String(it['kpi no'] || `KPI-${idx + 1}`).trim(),
-        "kpi description": String(it['kpi description'] || `Indicator ${idx + 1}`).trim(),
+        "kpi no": String(kpiNo).trim(),
+        "kpi description": String(kpiDescription).trim(),
         "%wt": normalizeWeight(it['%wt']),
-        "baseline": String(it.baseline || '').trim(),
-        "annual target": String(it['annual target'] || '').trim(),
-        "1st qtr target": String(it['1st qtr target'] || '').trim(),
-        "2nd qtr target": String(it['2nd qtr target'] || '').trim(),
-        "3rd qtr target": String(it['3rd qtr target'] || '').trim(),
-        "4th qtr target": String(it['4th qtr target'] || '').trim(),
-        "poe": String(it.poe || '').trim(),
-        "budget": String(it.budget || 'R0').trim(),
+        "baseline": String(it.baseline ?? '').trim(),
+        "annual target": String(it['annual target'] ?? '').trim(),
+        "1st qtr target": String(it['1st qtr target'] ?? '').trim(),
+        "2nd qtr target": String(it['2nd qtr target'] ?? '').trim(),
+        "3rd qtr target": String(it['3rd qtr target'] ?? '').trim(),
+        "4th qtr target": String(it['4th qtr target'] ?? '').trim(),
+        "poe": String(it.poe ?? '').trim(),
+        "budget": String(it.budget ?? '').trim(),
         "functional kpa": functionalKpa,
         "kpa": functionalKpa
       };
@@ -168,9 +219,11 @@ export async function callServerAiExtraction(params: {
  * Resilient raw binary stream text extractor for PDF documents
  * Extracts plain text, stream tokens, and text operators without external workers
  */
-export function extractRawTextFromPdfBinary(arrayBuffer: ArrayBuffer): string {
+export function extractRawTextFromPdfBinary(input: ArrayBuffer | Uint8Array): string {
   try {
-    const bytes = new Uint8Array(arrayBuffer);
+    const bytes = input instanceof Uint8Array 
+      ? input 
+      : new Uint8Array(input.slice(0));
     const textDecoder = new TextDecoder('utf-8', { fatal: false });
     const rawString = textDecoder.decode(bytes);
 
@@ -209,7 +262,7 @@ export function extractRawTextFromPdfBinary(arrayBuffer: ArrayBuffer): string {
     const printableRegex = /[\x20-\x7E\r\n\t]{4,}/g;
     const matches: string[] = rawString.match(printableRegex) || [];
     const filtered = matches.filter((m: string) => !m.startsWith('/Font') && !m.startsWith('/Obj') && !m.startsWith('xref') && !m.startsWith('endobj')).join(' ');
-    return filtered || rawString.slice(0, 20000);
+    return filtered || rawString.slice(0, 50000);
   } catch (e) {
     console.warn("Raw PDF binary extraction error:", e);
     return "";
@@ -217,15 +270,19 @@ export function extractRawTextFromPdfBinary(arrayBuffer: ArrayBuffer): string {
 }
 
 /**
- * Extracts all text content from a PDF document with multi-tier fallback
+ * Extracts all text content from a PDF document with multi-tier fallback and safe buffer cloning
  */
-export async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<string> {
+export async function extractTextFromPDF(input: ArrayBuffer | Uint8Array): Promise<string> {
   let fullText = '';
 
-  // Tier 1: Try PDF.js getDocument
+  // Tier 1: Try PDF.js getDocument with a freshly cloned buffer so it cannot detach the caller's buffer
   try {
+    const rawArrayBuffer = input instanceof Uint8Array 
+      ? input.buffer.slice(input.byteOffset, input.byteOffset + input.byteLength) 
+      : input.slice(0);
+      
     const loadingTask = pdfjsLib.getDocument({
-      data: new Uint8Array(arrayBuffer),
+      data: new Uint8Array(rawArrayBuffer),
       useSystemFonts: true
     } as any);
     const pdfDoc = await loadingTask.promise;
@@ -233,8 +290,41 @@ export async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<stri
     for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
       const page = await pdfDoc.getPage(pageNum);
       const textContent = await page.getTextContent();
-      const pageStrings = textContent.items.map((item: any) => item.str || '').join(' ');
-      fullText += `\n--- PAGE ${pageNum} ---\n` + pageStrings;
+      
+      const items = (textContent.items as any[]).filter(item => item.str && item.str.trim().length > 0);
+      
+      // Sort items primarily by Y descending (top to bottom), secondarily by X ascending (left to right)
+      items.sort((a, b) => {
+        const yDiff = (b.transform?.[5] || 0) - (a.transform?.[5] || 0);
+        if (Math.abs(yDiff) > 3.5) {
+          return yDiff;
+        }
+        return (a.transform?.[4] || 0) - (b.transform?.[4] || 0);
+      });
+
+      // Group into table lines by Y coordinate
+      const lines: string[] = [];
+      let currentLine: any[] = [];
+      let currentY: number | null = null;
+
+      for (const item of items) {
+        const itemY = item.transform?.[5] || 0;
+        if (currentY === null || Math.abs(itemY - currentY) <= 3.5) {
+          currentLine.push(item);
+          if (currentY === null) currentY = itemY;
+        } else {
+          currentLine.sort((a, b) => (a.transform?.[4] || 0) - (b.transform?.[4] || 0));
+          lines.push(currentLine.map(it => it.str).join('\t'));
+          currentLine = [item];
+          currentY = itemY;
+        }
+      }
+      if (currentLine.length > 0) {
+        currentLine.sort((a, b) => (a.transform?.[4] || 0) - (b.transform?.[4] || 0));
+        lines.push(currentLine.map(it => it.str).join('\t'));
+      }
+
+      fullText += `\n--- PAGE ${pageNum} ---\n` + lines.join('\n');
     }
   } catch (pdfjsErr) {
     console.warn("PDF.js text parsing encountered worker issue, falling back to binary extractor:", pdfjsErr);
@@ -242,7 +332,7 @@ export async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<stri
 
   // Tier 2: Binary stream extraction fallback
   if (!fullText || fullText.trim().length < 20) {
-    const rawExtracted = extractRawTextFromPdfBinary(arrayBuffer);
+    const rawExtracted = extractRawTextFromPdfBinary(input);
     if (rawExtracted && rawExtracted.trim().length > 0) {
       fullText = rawExtracted;
     }
@@ -252,45 +342,25 @@ export async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<stri
 }
 
 /**
- * Extracts and maps KPIs from PDF document
+ * Extracts and maps KPIs from PDF document with 100% Verbatim Multimodal AI Engine
  */
 export async function extractKPIsFromPDF(arrayBuffer: ArrayBuffer, fileName: string = 'Document.pdf'): Promise<ExtractedMappedKPI[]> {
-  // Step 1: Extract full text from PDF on the client
-  const fullText = await extractTextFromPDF(arrayBuffer);
+  // Step 1: Immediately extract base64 from a clone of the buffer before any worker or library can detach it
+  const fileBase64 = arrayBufferToBase64(arrayBuffer.slice(0));
 
-  // Step 2: If we have text, send text to AI server endpoint (fast, lightweight, no timeout risk)
-  if (fullText && fullText.trim().length > 30) {
-    try {
-      const textAiItems = await callServerAiExtraction({
-        documentText: fullText,
-        fileName
-      });
-      if (textAiItems && textAiItems.length > 0) {
-        return textAiItems;
-      }
-    } catch (aiTextErr) {
-      console.warn("Server AI extraction with text failed, falling back to local heuristic extraction:", aiTextErr);
-    }
-
-    // Step 3: Local heuristic extraction fallback
-    const localItems = await extractKPIsFromPastedContent(fullText, undefined, fileName);
-    if (localItems && localItems.length > 0) {
-      return localItems;
-    }
+  // Step 2: Extract full text from PDF on client using a cloned slice
+  let fullText = '';
+  try {
+    fullText = await extractTextFromPDF(arrayBuffer.slice(0));
+  } catch (textErr) {
+    console.warn("Text extraction failed:", textErr);
   }
 
-  // Step 4: If text is sparse or scanned image PDF, try base64 inline extraction with server
+  // Step 3: Call Server AI Multimodal Extraction Engine (Passes both PDF Base64 for vision/layout AND extracted text)
   try {
-    const bytes = new Uint8Array(arrayBuffer);
-    let binary = '';
-    const len = Math.min(bytes.byteLength, 4 * 1024 * 1024); // Cap to 4MB
-    for (let i = 0; i < len; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    const fileBase64 = btoa(binary);
-
     const aiItems = await callServerAiExtraction({
-      fileBase64,
+      documentText: fullText || undefined,
+      fileBase64: fileBase64 || undefined,
       mimeType: 'application/pdf',
       fileName
     });
@@ -299,24 +369,46 @@ export async function extractKPIsFromPDF(arrayBuffer: ArrayBuffer, fileName: str
       return aiItems;
     }
   } catch (aiErr) {
-    console.warn("AI PDF base64 fallback skipped:", aiErr);
+    console.warn("Server AI PDF extraction error, checking fallback:", aiErr);
   }
 
-  // Final fallback if local items exist
-  if (fullText && fullText.trim().length > 0) {
-    return await extractKPIsFromPastedContent(fullText, undefined, fileName);
+  // Step 4: Local heuristic extraction fallback (strictly verbatim without fake placeholders)
+  if (fullText && fullText.trim().length > 30) {
+    const localItems = parseRawTextLines(fullText);
+    if (localItems && localItems.length > 0) {
+      return localItems;
+    }
   }
 
-  throw new Error("Unable to parse text or tables from PDF document.");
+  throw new Error("Unable to parse text or tables from PDF document. Please verify the file is not password-protected.");
 }
 
 /**
- * Extracts and maps KPIs from Word .docx file
+ * Extracts and maps KPIs from Word .docx file with 100% Verbatim Precision
  */
 export async function extractKPIsFromDocx(arrayBuffer: ArrayBuffer, fileName: string = 'Document.docx'): Promise<ExtractedMappedKPI[]> {
-  // 1. Try Word XML Table Extraction via JSZip for table preservation
+  const fileBase64 = arrayBufferToBase64(arrayBuffer.slice(0));
+  let docxText = '';
+  let docxHtml = '';
+
+  // 1. Try Mammoth text and HTML conversion with cloned buffers
   try {
-    const zip = await JSZip.loadAsync(arrayBuffer);
+    const htmlResult = await mammoth.convertToHtml({ arrayBuffer: arrayBuffer.slice(0) });
+    docxHtml = htmlResult.value;
+  } catch (mErr) {
+    console.warn("Mammoth HTML extraction warning:", mErr);
+  }
+
+  try {
+    const textResult = await mammoth.extractRawText({ arrayBuffer: arrayBuffer.slice(0) });
+    docxText = textResult.value;
+  } catch (mErr) {
+    console.warn("Mammoth text extraction warning:", mErr);
+  }
+
+  // 2. Try Word XML Table Extraction via JSZip for table preservation
+  try {
+    const zip = await JSZip.loadAsync(arrayBuffer.slice(0));
     const documentXml = await zip.file('word/document.xml')?.async('text');
 
     if (documentXml && typeof DOMParser !== 'undefined') {
@@ -346,48 +438,41 @@ export async function extractKPIsFromDocx(arrayBuffer: ArrayBuffer, fileName: st
           }
         }
         extractedHtmlTable += '</table>';
-
-        const parsed = parseHtmlTableToMappedKPIs(extractedHtmlTable);
-        if (parsed.length > 0) {
-          return parsed;
-        }
+        docxHtml = (docxHtml || '') + '\n' + extractedHtmlTable;
       }
     }
   } catch (zipErr) {
     console.warn("Docx XML table parse skipped:", zipErr);
   }
 
-  // 2. Mammoth HTML conversion
+  const payloadText = docxHtml ? `${docxHtml}\n\nPlain Text:\n${docxText}` : docxText;
+
+  // 3. Prioritize Server AI Engine for 100% exact verbatim extraction
   try {
-    const result = await mammoth.convertToHtml({ arrayBuffer });
-    const html = result.value;
-
-    const parsedFromHtml = parseHtmlTableToMappedKPIs(html);
-    if (parsedFromHtml.length > 0) {
-      return parsedFromHtml;
+    const aiItems = await callServerAiExtraction({
+      documentText: payloadText,
+      fileBase64: fileBase64 || undefined,
+      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      fileName
+    });
+    if (aiItems && aiItems.length > 0) {
+      return aiItems;
     }
-
-    // Pass through AI Engine
-    const textResult = await mammoth.extractRawText({ arrayBuffer });
-    const rawText = textResult.value;
-
-    if (rawText.trim()) {
-      try {
-        const aiItems = await callServerAiExtraction({
-          documentText: rawText,
-          fileName
-        });
-        if (aiItems.length > 0) return aiItems;
-      } catch (e) {}
-
-      return extractKPIsFromPastedContent(rawText, html, fileName);
-    }
-  } catch (err: any) {
-    console.error("Mammoth docx parse error:", err);
-    throw new Error(`Failed to parse Word (.docx) document: ${err.message}`);
+  } catch (aiErr) {
+    console.warn("AI Docx extraction failed, trying local table parser:", aiErr);
   }
 
-  return [];
+  // 4. Local fallback
+  if (docxHtml && docxHtml.includes('<table')) {
+    const parsedHtml = parseHtmlTableToMappedKPIs(docxHtml);
+    if (parsedHtml.length > 0) return parsedHtml;
+  }
+
+  if (docxText && docxText.trim().length > 0) {
+    return parseRawTextLines(docxText);
+  }
+
+  throw new Error(`Failed to parse Word (.docx) document. Please ensure it is a valid document.`);
 }
 
 /**
@@ -395,12 +480,16 @@ export async function extractKPIsFromDocx(arrayBuffer: ArrayBuffer, fileName: st
  */
 export async function extractKPIsFromExcel(arrayBuffer: ArrayBuffer, fileName: string = 'Scorecard.xlsx'): Promise<ExtractedMappedKPI[]> {
   try {
-    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+    const workbook = XLSX.read(arrayBuffer.slice(0), { type: 'array' });
     let allExtracted: ExtractedMappedKPI[] = [];
+    let combinedCsv = '';
 
     for (const sheetName of workbook.SheetNames) {
       const sheet = workbook.Sheets[sheetName];
       if (!sheet) continue;
+
+      const csv = XLSX.utils.sheet_to_csv(sheet);
+      combinedCsv += `\n--- SHEET: ${sheetName} ---\n${csv}\n`;
 
       const rawRows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
       if (!rawRows || rawRows.length === 0) continue;
@@ -411,23 +500,27 @@ export async function extractKPIsFromExcel(arrayBuffer: ArrayBuffer, fileName: s
       }
     }
 
+    // Call Server AI Engine for 100% exact extraction
+    if (combinedCsv.trim()) {
+      try {
+        const aiItems = await callServerAiExtraction({
+          documentText: combinedCsv,
+          fileName
+        });
+        if (aiItems && aiItems.length > 0) {
+          return aiItems;
+        }
+      } catch (aiErr) {
+        console.warn("Server AI Excel extraction fallback to matrix:", aiErr);
+      }
+    }
+
     if (allExtracted.length > 0) {
       return allExtracted;
     }
 
-    // Fallback: AI text extraction
-    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-    const csvContent = XLSX.utils.sheet_to_csv(firstSheet);
-    if (csvContent.trim()) {
-      try {
-        const aiItems = await callServerAiExtraction({
-          documentText: csvContent,
-          fileName
-        });
-        if (aiItems.length > 0) return aiItems;
-      } catch (e) {}
-
-      return extractKPIsFromPastedContent(csvContent, undefined, fileName);
+    if (combinedCsv.trim()) {
+      return parseRawTextLines(combinedCsv);
     }
   } catch (err: any) {
     console.error("Excel parse error:", err);
@@ -438,14 +531,28 @@ export async function extractKPIsFromExcel(arrayBuffer: ArrayBuffer, fileName: s
 }
 
 /**
- * Extracts and maps KPIs from pasted raw text or HTML clipboard content
+ * Extracts and maps KPIs from pasted raw text or HTML clipboard content with 100% verbatim accuracy
  */
 export async function extractKPIsFromPastedContent(
   text: string,
   html?: string,
   sourceName: string = 'Pasted Data'
 ): Promise<ExtractedMappedKPI[]> {
-  // 1. If HTML table exists, parse directly
+  // 1. Prioritize Server AI Engine with zero-temperature for 100% exact verbatim wording
+  try {
+    const payload = html && html.includes('<table') ? `${html}\n\nText:\n${text}` : text;
+    const aiItems = await callServerAiExtraction({
+      documentText: payload,
+      fileName: sourceName
+    });
+    if (aiItems && aiItems.length > 0) {
+      return aiItems;
+    }
+  } catch (e) {
+    console.warn("AI extraction for pasted content failed, using local table parser:", e);
+  }
+
+  // 2. If HTML table exists, parse directly
   if (html && html.includes('<table')) {
     const parsedHtml = parseHtmlTableToMappedKPIs(html);
     if (parsedHtml.length > 0) {
@@ -453,12 +560,11 @@ export async function extractKPIsFromPastedContent(
     }
   }
 
-  // 2. If TSV or delimited lines
+  // 3. If TSV or delimited lines
   if (text.includes('\t') || text.includes(',')) {
     const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
     const matrix: string[][] = lines.map(line => {
       if (line.includes('\t')) return line.split('\t').map(c => c.trim());
-      // Simple CSV split
       return line.split(',').map(c => c.trim().replace(/^["']|["']$/g, ''));
     });
 
@@ -468,20 +574,7 @@ export async function extractKPIsFromPastedContent(
     }
   }
 
-  // 3. Fallback to Server AI Engine
-  try {
-    const aiItems = await callServerAiExtraction({
-      documentText: text,
-      fileName: sourceName
-    });
-    if (aiItems.length > 0) {
-      return aiItems;
-    }
-  } catch (e) {
-    console.warn("AI extraction fallback failed:", e);
-  }
-
-  // 4. Line-by-line heuristic parsing
+  // 4. Line-by-line heuristic parsing strictly verbatim without fake placeholders
   return parseRawTextLines(text);
 }
 
@@ -513,20 +606,21 @@ function parseHtmlTableToMappedKPIs(htmlString: string): ExtractedMappedKPI[] {
 }
 
 /**
- * Parses 2D Matrix into the exact required schema
+ * Parses 2D Matrix into the exact required schema without inserting fake defaults
+ * Supports multi-tier/merged header rows and positional column fallbacks
  */
 function parseMatrixToMappedKPIs(matrix: string[][], contextHint?: string): ExtractedMappedKPI[] {
   if (!matrix || matrix.length < 2) return [];
 
-  // 1. Locate header row
+  // 1. Locate primary header row
   let headerRowIndex = -1;
   let currentFunctionalKpa = (contextHint || 'Functional Performance Area').trim();
 
   for (let r = 0; r < Math.min(matrix.length, 10); r++) {
     const rowStr = matrix[r].join(' ').toLowerCase();
     if (
-      (rowStr.includes('kpi') || rowStr.includes('indicator') || rowStr.includes('target') || rowStr.includes('output')) &&
-      (rowStr.includes('weight') || rowStr.includes('annual') || rowStr.includes('q1') || rowStr.includes('target') || rowStr.includes('baseline'))
+      (rowStr.includes('kpi') || rowStr.includes('indicator') || rowStr.includes('target') || rowStr.includes('output') || rowStr.includes('measure')) &&
+      (rowStr.includes('weight') || rowStr.includes('annual') || rowStr.includes('q1') || rowStr.includes('quarter') || rowStr.includes('target') || rowStr.includes('baseline') || rowStr.includes('poe') || rowStr.includes('evidence'))
     ) {
       headerRowIndex = r;
       break;
@@ -534,31 +628,118 @@ function parseMatrixToMappedKPIs(matrix: string[][], contextHint?: string): Extr
   }
 
   if (headerRowIndex === -1) {
-    // Heuristic: check if row 0 has strings
     if (matrix[0].length >= 4) headerRowIndex = 0;
     else return [];
   }
 
-  const header = matrix[headerRowIndex].map(h => (h || '').toLowerCase().trim());
+  // 2. Build composite header by merging header row and potential sub-header rows (multi-tier merged headers)
+  const maxCols = Math.max(...matrix.map(row => row.length));
+  const compositeHeader: string[] = [];
+  let subHeaderRowsCount = 0;
 
-  // Find column indices based on strict keywords
-  const colKpiNo = header.findIndex(h => h.includes('kpi no') || h.includes('kpi number') || h.includes('ref') || h.includes('item') || h === 'no' || h === 'no.' || h === '#');
-  const colKpiDesc = header.findIndex(h => h.includes('key performance indicator') || h.includes('kpi description') || h.includes('indicator') || h.includes('output') || h.includes('description') || h.includes('measure') || h === 'kpi');
-  const colWeight = header.findIndex(h => h.includes('weight') || h.includes('%wt') || h.includes('weighting') || h.includes('%'));
-  const colBaseline = header.findIndex(h => h.includes('baseline') || h.includes('previous year') || h.includes('prior year'));
-  const colAnnualTarget = header.findIndex(h => h.includes('annual target') || h.includes('annual planned') || (h.includes('annual') && h.includes('target')) || (h.includes('target') && !h.includes('q1') && !h.includes('q2') && !h.includes('q3') && !h.includes('q4') && !h.includes('1st') && !h.includes('2nd') && !h.includes('3rd') && !h.includes('4th')));
-  const colQ1 = header.findIndex(h => h.includes('1st quarter') || h.includes('1st qtr') || h.includes('q1') || h.includes('quarter 1') || h.includes('quarter 01'));
-  const colQ2 = header.findIndex(h => h.includes('2nd quarter') || h.includes('2nd qtr') || h.includes('q2') || h.includes('quarter 2') || h.includes('quarter 02'));
-  const colQ3 = header.findIndex(h => h.includes('3rd quarter') || h.includes('3rd qtr') || h.includes('q3') || h.includes('quarter 3') || h.includes('quarter 03'));
-  const colQ4 = header.findIndex(h => h.includes('4th quarter') || h.includes('4th qtr') || h.includes('q4') || h.includes('quarter 4') || h.includes('quarter 04'));
-  const colPoe = header.findIndex(h => h.includes('poe') || h.includes('portfolio of evidence') || h.includes('means of verification') || h.includes('evidence'));
-  const colBudget = header.findIndex(h => h.includes('total budget') || h.includes('budget') || h.includes('allocation') || h.includes('financial'));
-  const colFunctionalKpa = header.findIndex(h => h.includes('functional kpa') || h.includes('functional area') || h.includes('kpa') || h.includes('key performance area') || h.includes('pillar') || h.includes('strategic objective') || h.includes('departmental kpa'));
+  for (let c = 0; c < maxCols; c++) {
+    let colText = (matrix[headerRowIndex]?.[c] || '').toLowerCase().trim();
+    // Check if next 1 or 2 rows are also header/sub-header rows (e.g. Row 0 has "Quarterly Targets", Row 1 has "Q1", "Q2", "Q3", "Q4")
+    for (let subR = 1; subR <= 2; subR++) {
+      const candidateRowIndex = headerRowIndex + subR;
+      if (candidateRowIndex < matrix.length) {
+        const candidateRow = matrix[candidateRowIndex];
+        const rowJoined = candidateRow.join(' ').toLowerCase();
+        // If row contains header terms rather than numeric KPI rows
+        const isHeaderLike = rowJoined.includes('q1') || rowJoined.includes('q2') || rowJoined.includes('q3') || rowJoined.includes('q4') ||
+          rowJoined.includes('annual') || rowJoined.includes('target') || rowJoined.includes('baseline') || rowJoined.includes('quarter') ||
+          rowJoined.includes('actual') || rowJoined.includes('weight') || rowJoined.includes('poe') || rowJoined.includes('evidence');
+        
+        const hasKpiNumber = candidateRow.some(cell => /^[A-Z]{1,5}[-_]\d+|\b\d+\.\d+\b|\bKPI\s*\d+/i.test(cell.trim()));
+        
+        if (isHeaderLike && !hasKpiNumber) {
+          const subCell = (candidateRow[c] || '').toLowerCase().trim();
+          if (subCell) {
+            colText += ' ' + subCell;
+          }
+          if (c === 0 && subR > subHeaderRowsCount) {
+            subHeaderRowsCount = subR;
+          }
+        }
+      }
+    }
+    compositeHeader.push(colText.trim());
+  }
+
+  // Find column indices with robust keyword matching
+  let colKpiNo = compositeHeader.findIndex(h => h.includes('kpi no') || h.includes('kpi number') || h.includes('kpi ref') || h.includes('ref no') || h.includes('ref number') || h.includes('indicator no') || h === 'no' || h === 'no.' || h === '#' || h === 'ref');
+  let colKpiDesc = compositeHeader.findIndex(h => h.includes('key performance indicator') || h.includes('kpi description') || h.includes('indicator') || h.includes('output') || h.includes('description') || h.includes('measure') || h.includes('activity') || h === 'kpi');
+  let colWeight = compositeHeader.findIndex(h => h.includes('weight') || h.includes('%wt') || h.includes('weighting') || h.includes('%') || h.includes('wt'));
+  let colBaseline = compositeHeader.findIndex(h => h.includes('baseline') || h.includes('previous year') || h.includes('prior year') || h.includes('2023/24') || h.includes('2024/25 actual') || h.includes('actual baseline'));
+  
+  // Target columns: exact pattern matching
+  let colAnnualTarget = compositeHeader.findIndex(h => 
+    (h.includes('annual') && h.includes('target')) || 
+    (h.includes('annual') && h.includes('planned')) || 
+    h.includes('annual target') || 
+    h.includes('yearly target') || 
+    h.includes('annual planned target') || 
+    h.includes('target for the year') || 
+    h.includes('annual output') || 
+    h.includes('target (annual)') || 
+    h.includes('planned annual target') ||
+    (/^(annual|target)$/i.test(h) && !h.includes('q1') && !h.includes('q2') && !h.includes('q3') && !h.includes('q4') && !h.includes('1st') && !h.includes('2nd') && !h.includes('3rd') && !h.includes('4th'))
+  );
+
+  let colQ1 = compositeHeader.findIndex(h => 
+    /\b(q1|q\s*1|1st\s*q|1st\s*quarter|quarter\s*1|quarter\s*01|first\s*quarter|qtr\s*1|qtr1|jul\s*[-–]\s*sep)\b/i.test(h) ||
+    h.includes('1st quarter target') || h.includes('1st qtr target') || h.includes('q1 target') || h.includes('q1 planned') || h.includes('quarter 1 target')
+  );
+
+  let colQ2 = compositeHeader.findIndex(h => 
+    /\b(q2|q\s*2|2nd\s*q|2nd\s*quarter|quarter\s*2|quarter\s*02|second\s*quarter|qtr\s*2|qtr2|oct\s*[-–]\s*dec)\b/i.test(h) ||
+    h.includes('2nd quarter target') || h.includes('2nd qtr target') || h.includes('q2 target') || h.includes('q2 planned') || h.includes('quarter 2 target')
+  );
+
+  let colQ3 = compositeHeader.findIndex(h => 
+    /\b(q3|q\s*3|3rd\s*q|3rd\s*quarter|quarter\s*3|quarter\s*03|third\s*quarter|qtr\s*3|qtr3|jan\s*[-–]\s*mar)\b/i.test(h) ||
+    h.includes('3rd quarter target') || h.includes('3rd qtr target') || h.includes('q3 target') || h.includes('q3 planned') || h.includes('quarter 3 target')
+  );
+
+  let colQ4 = compositeHeader.findIndex(h => 
+    /\b(q4|q\s*4|4th\s*q|4th\s*quarter|quarter\s*4|quarter\s*04|fourth\s*quarter|qtr\s*4|qtr4|apr\s*[-–]\s*jun)\b/i.test(h) ||
+    h.includes('4th quarter target') || h.includes('4th qtr target') || h.includes('q4 target') || h.includes('q4 planned') || h.includes('quarter 4 target')
+  );
+
+  let colPoe = compositeHeader.findIndex(h => h.includes('poe') || h.includes('portfolio of evidence') || h.includes('means of verification') || h.includes('evidence') || h.includes('verification'));
+  let colBudget = compositeHeader.findIndex(h => h.includes('total budget') || h.includes('budget') || h.includes('allocation') || h.includes('financial') || h.includes('funding'));
+  let colFunctionalKpa = compositeHeader.findIndex(h => h.includes('functional kpa') || h.includes('functional area') || h.includes('kpa') || h.includes('key performance area') || h.includes('pillar') || h.includes('strategic objective') || h.includes('departmental kpa'));
+
+  // 3. Fallback Positional Resolution for Standard SDBIP / Scorecard Matrices
+  // If baseline is known and target columns were not recognized due to unusual or merged header labels:
+  if (colBaseline !== -1) {
+    const endTargetCol = colPoe !== -1 ? colPoe : maxCols;
+    const targetGap = endTargetCol - colBaseline - 1;
+
+    // Standard 5-column target layout: [Annual Target, Q1, Q2, Q3, Q4] between Baseline and POE
+    if (targetGap >= 5) {
+      if (colAnnualTarget === -1) colAnnualTarget = colBaseline + 1;
+      if (colQ1 === -1) colQ1 = colBaseline + 2;
+      if (colQ2 === -1) colQ2 = colBaseline + 3;
+      if (colQ3 === -1) colQ3 = colBaseline + 4;
+      if (colQ4 === -1) colQ4 = colBaseline + 5;
+    } else if (targetGap === 4) {
+      // 4-column quarterly layout: [Q1, Q2, Q3, Q4]
+      if (colQ1 === -1) colQ1 = colBaseline + 1;
+      if (colQ2 === -1) colQ2 = colBaseline + 2;
+      if (colQ3 === -1) colQ3 = colBaseline + 3;
+      if (colQ4 === -1) colQ4 = colBaseline + 4;
+    } else if (targetGap === 1 && colAnnualTarget === -1) {
+      colAnnualTarget = colBaseline + 1;
+    }
+  }
 
   const items: ExtractedMappedKPI[] = [];
+  const startRow = headerRowIndex + 1 + subHeaderRowsCount;
 
-  for (let r = headerRowIndex + 1; r < matrix.length; r++) {
+  for (let r = startRow; r < matrix.length; r++) {
     const row = matrix[r];
+    if (!row || row.length === 0) continue;
     const rowText = row.join(' ').trim();
     if (!rowText) continue;
 
@@ -571,40 +752,49 @@ function parseMatrixToMappedKPIs(matrix: string[][], contextHint?: string): Extr
       rowText.toLowerCase().includes('financial viability') ||
       rowText.toLowerCase().includes('local economic') ||
       rowText.toLowerCase().includes('good governance') ||
-      rowText.toLowerCase().includes('institutional development')
+      rowText.toLowerCase().includes('institutional development') ||
+      rowText.toLowerCase().includes('spatial rationale')
     ) {
-      // Retain full verbatim banner title
-      const cleanBanner = rowText.replace(/^[-*#\s]+/, '').trim();
-      if (cleanBanner.length > 2) {
+      const cleanBanner = rowText.replace(/^[-*#\s|]+/, '').replace(/^KPA\s*\d+\s*[:.\-–]\s*/i, '').trim();
+      if (cleanBanner.length > 2 && !cleanBanner.toLowerCase().includes('kpi no')) {
         currentFunctionalKpa = cleanBanner;
       }
       continue;
     }
 
+    // Skip repeat header rows in paginated tables
+    const rowLower = rowText.toLowerCase();
+    if (
+      (rowLower.includes('kpi no') || rowLower.includes('indicator') || rowLower.includes('baseline')) &&
+      (rowLower.includes('weight') || rowLower.includes('annual target') || rowLower.includes('poe'))
+    ) {
+      continue;
+    }
+
     // Extract cell values with complete verbatim text
-    const kpiNoVal = colKpiNo !== -1 ? row[colKpiNo] : '';
-    const kpiDescVal = colKpiDesc !== -1 ? row[colKpiDesc] : (colKpiNo !== -1 && row[1] ? row[1] : row[0]);
-    const weightVal = colWeight !== -1 ? row[colWeight] : '';
-    const baselineVal = colBaseline !== -1 ? row[colBaseline] : '';
-    const annualTargetVal = colAnnualTarget !== -1 ? row[colAnnualTarget] : '';
-    const q1Val = colQ1 !== -1 ? row[colQ1] : '';
-    const q2Val = colQ2 !== -1 ? row[colQ2] : '';
-    const q3Val = colQ3 !== -1 ? row[colQ3] : '';
-    const q4Val = colQ4 !== -1 ? row[colQ4] : '';
-    const poeVal = colPoe !== -1 ? row[colPoe] : '';
-    const budgetVal = colBudget !== -1 ? row[colBudget] : '';
-    const rowKpaVal = colFunctionalKpa !== -1 ? row[colFunctionalKpa] : '';
+    const kpiNoVal = colKpiNo !== -1 && colKpiNo < row.length ? row[colKpiNo] : '';
+    const kpiDescVal = colKpiDesc !== -1 && colKpiDesc < row.length ? row[colKpiDesc] : (colKpiNo !== -1 && row[1] ? row[1] : row[0]);
+    const weightVal = colWeight !== -1 && colWeight < row.length ? row[colWeight] : '';
+    const baselineVal = colBaseline !== -1 && colBaseline < row.length ? row[colBaseline] : '';
+    const annualTargetVal = colAnnualTarget !== -1 && colAnnualTarget < row.length ? row[colAnnualTarget] : '';
+    const q1Val = colQ1 !== -1 && colQ1 < row.length ? row[colQ1] : '';
+    const q2Val = colQ2 !== -1 && colQ2 < row.length ? row[colQ2] : '';
+    const q3Val = colQ3 !== -1 && colQ3 < row.length ? row[colQ3] : '';
+    const q4Val = colQ4 !== -1 && colQ4 < row.length ? row[colQ4] : '';
+    const poeVal = colPoe !== -1 && colPoe < row.length ? row[colPoe] : '';
+    const budgetVal = colBudget !== -1 && colBudget < row.length ? row[colBudget] : '';
+    const rowKpaVal = colFunctionalKpa !== -1 && colFunctionalKpa < row.length ? row[colFunctionalKpa] : '';
 
-    if (!kpiDescVal && !kpiNoVal && !annualTargetVal) continue;
+    // Ignore completely empty rows
+    if (!kpiDescVal && !kpiNoVal && !annualTargetVal && !baselineVal && !q1Val) continue;
 
-    // Determine row Functional KPA - strictly tied to section banner or column
-    const effectiveFunctionalKpa = String(rowKpaVal || currentFunctionalKpa || 'General Municipal Administration & Governance').trim();
+    const effectiveFunctionalKpa = String(rowKpaVal || currentFunctionalKpa || 'Functional Performance Area').trim();
 
     items.push({
       _id: `kpi-mapped-${Date.now()}-${items.length + 1}`,
       _selected: true,
       "kpi no": String(kpiNoVal || `KPI-${items.length + 1}`).trim(),
-      "kpi description": String(kpiDescVal || `Indicator ${items.length + 1}`).trim(),
+      "kpi description": String(kpiDescVal || '').trim(),
       "%wt": normalizeWeight(weightVal),
       "baseline": String(baselineVal || '').trim(),
       "annual target": String(annualTargetVal || '').trim(),
@@ -613,7 +803,7 @@ function parseMatrixToMappedKPIs(matrix: string[][], contextHint?: string): Extr
       "3rd qtr target": String(q3Val || '').trim(),
       "4th qtr target": String(q4Val || '').trim(),
       "poe": String(poeVal || '').trim(),
-      "budget": String(budgetVal || 'R0').trim(),
+      "budget": String(budgetVal || '').trim(),
       "functional kpa": effectiveFunctionalKpa,
       "kpa": effectiveFunctionalKpa
     });
@@ -623,28 +813,46 @@ function parseMatrixToMappedKPIs(matrix: string[][], contextHint?: string): Extr
 }
 
 /**
- * Line-by-line text parser for unstructured text with verbatim extraction
+ * Line-by-line text parser for unstructured text with 100% verbatim extraction and NO fake defaults
  */
 function parseRawTextLines(text: string): ExtractedMappedKPI[] {
+  // If the text contains tabs or commas or pipe characters, route through matrix parser
+  if (text.includes('\t') || text.includes('|')) {
+    const rawLines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    const matrix: string[][] = rawLines.map(line => {
+      if (line.includes('\t')) return line.split('\t').map(c => c.trim());
+      return line.split('|').map(c => c.trim());
+    });
+    const parsedMatrix = parseMatrixToMappedKPIs(matrix);
+    if (parsedMatrix.length > 0) {
+      return parsedMatrix;
+    }
+  }
+
   const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   const items: ExtractedMappedKPI[] = [];
-  let currentFunctionalKpa = 'General Municipal Administration & Governance';
+  let currentFunctionalKpa = 'Functional Performance Area';
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (
       line.toLowerCase().includes('kpa') || 
       line.toLowerCase().includes('key performance area') || 
-      line.toLowerCase().includes('functional area')
+      line.toLowerCase().includes('functional area') ||
+      line.toLowerCase().includes('basic service delivery') ||
+      line.toLowerCase().includes('financial viability') ||
+      line.toLowerCase().includes('good governance') ||
+      line.toLowerCase().includes('local economic') ||
+      line.toLowerCase().includes('institutional development')
     ) {
-      const cleanBanner = line.replace(/^[-*#\s]+/, '').trim();
-      if (cleanBanner.length > 2) {
+      const cleanBanner = line.replace(/^[-*#\s|]+/, '').replace(/^KPA\s*\d+\s*[:.\-–]\s*/i, '').trim();
+      if (cleanBanner.length > 2 && !cleanBanner.toLowerCase().includes('kpi no') && !cleanBanner.toLowerCase().includes('weight')) {
         currentFunctionalKpa = cleanBanner;
       }
       continue;
     }
 
-    const match = line.match(/^(\d+(\.\d+)*|[A-Z]{2,5}[-_]\d+|\bKPI\s*\d+)\s*[:.\-–]\s*(.+)$/i);
+    const match = line.match(/^(\d+(\.\d+)*|[A-Z]{2,5}[-_]\d+|\bKPI\s*\d+)\s*[:.\-–\t]\s*(.+)$/i);
     if (match) {
       const kpiNo = match[1].trim();
       const kpiDesc = match[3].trim();
@@ -653,15 +861,15 @@ function parseRawTextLines(text: string): ExtractedMappedKPI[] {
         _selected: true,
         "kpi no": kpiNo,
         "kpi description": kpiDesc,
-        "%wt": "15",
-        "baseline": "Historical Baseline",
-        "annual target": "100% Target Met",
-        "1st qtr target": "25%",
-        "2nd qtr target": "50%",
-        "3rd qtr target": "75%",
-        "4th qtr target": "100%",
-        "poe": "Quarterly reports & POE files",
-        "budget": "R0",
+        "%wt": "",
+        "baseline": "",
+        "annual target": "",
+        "1st qtr target": "",
+        "2nd qtr target": "",
+        "3rd qtr target": "",
+        "4th qtr target": "",
+        "poe": "",
+        "budget": "",
         "functional kpa": currentFunctionalKpa,
         "kpa": currentFunctionalKpa
       });

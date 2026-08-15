@@ -4,7 +4,8 @@ import {
   FileText, Upload, CheckCircle2, AlertCircle, Sparkles, Download, 
   Copy, Check, ArrowRight, Table, Code2, RefreshCw, Trash2, 
   Layers, ShieldCheck, Filter, Edit3, Eye, FileSpreadsheet,
-  FileCode, Cpu, HelpCircle, CheckSquare, Square, Zap, Info, Play
+  FileCode, Cpu, HelpCircle, CheckSquare, Square, Zap, Info, Play,
+  Save, Plus, Database
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { 
@@ -54,11 +55,49 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
   const [copiedJson, setCopiedJson] = useState<boolean>(false);
   const [isSyncingToIPMS, setIsSyncingToIPMS] = useState<boolean>(false);
+  const [isSavingDataset, setIsSavingDataset] = useState<boolean>(false);
+  const [isLoadingSaved, setIsLoadingSaved] = useState<boolean>(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
+  const [lastSavedTime, setLastSavedTime] = useState<string | null>(null);
   const [syncSuccess, setSyncSuccess] = useState<boolean>(false);
   const [kpaFilter, setKpaFilter] = useState<string>('all');
   const [targetEmployeeEmail, setTargetEmployeeEmail] = useState<string>(currentUser?.email || '');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Load previously saved scorecard dataset from Supabase if available
+  const handleLoadSavedScorecard = async () => {
+    setIsLoadingSaved(true);
+    setStatusMessage({ type: 'info', text: 'Loading saved scorecard dataset from Supabase...' });
+    try {
+      const targetEmail = targetEmployeeEmail || currentUser.email;
+      const res = await fetch(`/api/tenant/${activeTenantId}/fred-extraction/performance_agreement?userId=${encodeURIComponent(targetEmail)}`);
+      if (!res.ok) {
+        throw new Error('No previously saved scorecard found on Supabase.');
+      }
+      const data = await res.json();
+      if (data && data.items && Array.isArray(data.items) && data.items.length > 0) {
+        setExtractedItems(data.items);
+        setSourceFileName(data.fileName || 'Saved Scorecard');
+        setHasUnsavedChanges(false);
+        if (data.savedAt) {
+          setLastSavedTime(new Date(data.savedAt).toLocaleTimeString());
+        }
+        setActiveTab('results');
+        setStatusMessage({
+          type: 'success',
+          text: `Loaded ${data.items.length} saved KPIs from Supabase database.`
+        });
+      } else {
+        setStatusMessage({ type: 'info', text: 'No saved scorecard dataset found. Extract a document or paste a table.' });
+      }
+    } catch (err: any) {
+      console.warn("Load saved scorecard:", err);
+      setStatusMessage({ type: 'error', text: err.message || 'Failed to load saved scorecard.' });
+    } finally {
+      setIsLoadingSaved(false);
+    }
+  };
 
   // Calculate weights
   const totalWeight = extractedItems
@@ -131,23 +170,44 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
       } else if (fileName.endsWith('.json')) {
         const text = await file.text();
         const parsed = JSON.parse(text);
-        const rawArray = Array.isArray(parsed) ? parsed : (parsed.items || []);
+        const rawArray = Array.isArray(parsed) ? parsed : (parsed.items || parsed.kpis || []);
         const items: ExtractedMappedKPI[] = rawArray.map((it: any, idx: number) => {
-          const functionalKpa = String(it["functional kpa"] || it.functionalKpa || it.kpa || 'Functional Performance Area').trim();
+          const functionalKpa = String(it["functional kpa"] || it.functionalKpa || it.kpa || it["functional area"] || it.departmentalKpa || 'Functional Performance Area').trim();
+          const annualTarget = it["annual target"] ?? it.annual_target ?? it.annualTarget ?? it.target ?? it["annual planned target"] ?? it.plannedAnnualTarget ?? it["yearly target"] ?? '';
+          const q1 = it["1st qtr target"] ?? it.q1 ?? it.q1Target ?? it["1st_qtr_target"] ?? it["q1 target"] ?? it.quarter1 ?? it["1st quarter target"] ?? '';
+          const q2 = it["2nd qtr target"] ?? it.q2 ?? it.q2Target ?? it["2nd_qtr_target"] ?? it["q2 target"] ?? it.quarter2 ?? it["2nd quarter target"] ?? '';
+          const q3 = it["3rd qtr target"] ?? it.q3 ?? it.q3Target ?? it["3rd_qtr_target"] ?? it["q3 target"] ?? it.quarter3 ?? it["3rd quarter target"] ?? '';
+          const q4 = it["4th qtr target"] ?? it.q4 ?? it.q4Target ?? it["4th_qtr_target"] ?? it["q4 target"] ?? it.quarter4 ?? it["4th quarter target"] ?? '';
+
+          const kpiDesc = it["kpi description"] ?? 
+            it.kpiDescription ?? 
+            it["kpi_description"] ?? 
+            it["Key Performance Indicators"] ?? 
+            it["key performance indicators"] ?? 
+            it["Key Performance Indicator"] ?? 
+            it["key performance indicator"] ?? 
+            it.kpi ?? 
+            it.indicator ?? 
+            it.description ?? 
+            it.indicatorName ?? 
+            it.measure ?? 
+            it.output ?? 
+            '';
+
           return {
             _id: `json-${Date.now()}-${idx + 1}`,
             _selected: true,
-            "kpi no": String(it["kpi no"] || it.kpiNo || `KPI-${idx + 1}`).trim(),
-            "kpi description": String(it["kpi description"] || it.kpi || it.description || `Indicator ${idx + 1}`).trim(),
+            "kpi no": String(it["kpi no"] || it.kpiNo || it.refNo || `KPI-${idx + 1}`).trim(),
+            "kpi description": String(kpiDesc).trim(),
             "%wt": String(it["%wt"] || it.weighting || it.weight || '0').replace('%', '').trim(),
-            "baseline": String(it.baseline || '').trim(),
-            "annual target": String(it["annual target"] || it.annualTarget || '').trim(),
-            "1st qtr target": String(it["1st qtr target"] || it.q1Target || '').trim(),
-            "2nd qtr target": String(it["2nd qtr target"] || it.q2Target || '').trim(),
-            "3rd qtr target": String(it["3rd qtr target"] || it.q3Target || '').trim(),
-            "4th qtr target": String(it["4th qtr target"] || it.q4Target || '').trim(),
-            "poe": String(it.poe || '').trim(),
-            "budget": String(it.budget || 'R0').trim(),
+            "baseline": String(it.baseline ?? '').trim(),
+            "annual target": String(annualTarget).trim(),
+            "1st qtr target": String(q1).trim(),
+            "2nd qtr target": String(q2).trim(),
+            "3rd qtr target": String(q3).trim(),
+            "4th qtr target": String(q4).trim(),
+            "poe": String(it.poe || it.evidence || it.meansOfVerification || '').trim(),
+            "budget": String(it.budget || it.totalBudgetAllocated || '').trim(),
             "functional kpa": functionalKpa,
             "kpa": functionalKpa
           };
@@ -217,6 +277,7 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
 
   // 5. Update KPI Field in State
   const handleUpdateItem = (index: number, field: keyof ExtractedMappedKPI, value: any) => {
+    setHasUnsavedChanges(true);
     setExtractedItems(prev => {
       const updated = [...prev];
       updated[index] = {
@@ -225,6 +286,75 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
       };
       return updated;
     });
+  };
+
+  // Add new KPI Row
+  const handleAddRow = () => {
+    const newIdx = extractedItems.length + 1;
+    const defaultKpa = uniqueFunctionalKpas[0] || 'KPA 1: Basic Service Delivery and Infrastructure Development';
+    const newRow: ExtractedMappedKPI = {
+      _id: `manual-kpi-${Date.now()}-${newIdx}`,
+      _selected: true,
+      "kpi no": `KPI-${String(newIdx).padStart(2, '0')}`,
+      "kpi description": '',
+      "%wt": '10',
+      "baseline": '',
+      "annual target": '',
+      "1st qtr target": '',
+      "2nd qtr target": '',
+      "3rd qtr target": '',
+      "4th qtr target": '',
+      "poe": '',
+      "budget": '',
+      "functional kpa": defaultKpa,
+      "kpa": defaultKpa
+    };
+    setExtractedItems(prev => [...prev, newRow]);
+    setHasUnsavedChanges(true);
+  };
+
+  // Save current dataset to Supabase backend
+  const handleSaveDataset = async () => {
+    if (extractedItems.length === 0) {
+      setStatusMessage({ type: 'error', text: 'No KPI records to save.' });
+      return;
+    }
+    setIsSavingDataset(true);
+    setStatusMessage({ type: 'info', text: 'Saving extracted scorecard and edits to Supabase...' });
+    try {
+      const targetEmail = targetEmployeeEmail || currentUser.email;
+      const res = await fetch(`/api/tenant/${activeTenantId}/fred-extraction/performance_agreement?userId=${encodeURIComponent(targetEmail)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: extractedItems,
+          fileName: sourceFileName || 'Performance Agreement Scorecard',
+          metadata: {
+            totalWeight,
+            kpiCount: extractedItems.length,
+            savedBy: currentUser.email
+          }
+        })
+      });
+
+      if (!res.ok) {
+        throw new Error(`Failed to save scorecard: Status ${res.status}`);
+      }
+
+      const data = await res.json();
+      setHasUnsavedChanges(false);
+      const timeStr = new Date().toLocaleTimeString();
+      setLastSavedTime(timeStr);
+      setStatusMessage({
+        type: 'success',
+        text: `Successfully saved ${extractedItems.length} KPI records (including all quarterly targets and baselines) to Supabase at ${timeStr}.`
+      });
+    } catch (err: any) {
+      console.error("Save dataset error:", err);
+      setStatusMessage({ type: 'error', text: `Save failed: ${err.message}` });
+    } finally {
+      setIsSavingDataset(false);
+    }
   };
 
   // Toggle selection
@@ -244,6 +374,7 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
 
   // Remove item
   const handleRemoveItem = (index: number) => {
+    setHasUnsavedChanges(true);
     setExtractedItems(prev => prev.filter((_, idx) => idx !== index));
   };
 
@@ -261,7 +392,7 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
     try {
       const targetEmail = targetEmployeeEmail || currentUser.email;
 
-      // Transform mapped schema strictly into IPMS PlanKPIItem format
+      // Transform mapped schema strictly into IPMS PlanKPIItem format with verbatim edited values
       const ipmsPlanItems = selected.map((it, idx) => {
         const functionalKpa = it["functional kpa"] || it["kpa"] || 'Functional Performance Area';
         const norm = functionalKpa.toLowerCase();
@@ -320,6 +451,27 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
         throw new Error(`Failed to sync to IPMS: Status ${res.status}`);
       }
 
+      // Also persist the scorecard dataset snapshot to Supabase
+      try {
+        await fetch(`/api/tenant/${activeTenantId}/fred-extraction/performance_agreement?userId=${encodeURIComponent(targetEmail)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items: extractedItems,
+            fileName: sourceFileName || 'Performance Agreement Scorecard',
+            metadata: {
+              syncedToIPMS: true,
+              syncedCount: selected.length,
+              syncedAt: new Date().toISOString()
+            }
+          })
+        });
+      } catch(e) {
+        console.warn("Auto-save extraction snapshot error:", e);
+      }
+
+      setHasUnsavedChanges(false);
+      setLastSavedTime(new Date().toLocaleTimeString());
       setSyncSuccess(true);
       setStatusMessage({
         type: 'success',
@@ -501,9 +653,9 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
         </div>
       )}
 
-      {/* NAVIGATION TABS */}
-      <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-        <div className="flex items-center gap-2">
+      {/* NAVIGATION TABS & PERSISTENCE CONTROLS */}
+      <div className="flex flex-wrap items-center justify-between border-b border-slate-800 pb-3 gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             id="tab_upload_file"
             onClick={() => setActiveTab('upload')}
@@ -543,6 +695,9 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
               >
                 <FileSpreadsheet className="w-4 h-4" />
                 <span>Mapped Grid ({extractedItems.length})</span>
+                {hasUnsavedChanges && (
+                  <span className="w-2 h-2 rounded-full bg-amber-400" title="Unsaved edits" />
+                )}
               </button>
 
               <button
@@ -561,27 +716,55 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
           )}
         </div>
 
-        {extractedItems.length > 0 && (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleExportExcel}
-              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold flex items-center gap-1.5 transition"
-              title="Download Excel"
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Excel</span>
-            </button>
+        <div className="flex items-center gap-2">
+          <button
+            id="btn_load_saved_scorecard"
+            onClick={handleLoadSavedScorecard}
+            disabled={isLoadingSaved}
+            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold flex items-center gap-1.5 transition disabled:opacity-50"
+            title="Load previously saved scorecard dataset from Supabase"
+          >
+            <Database className="w-3.5 h-3.5 text-cyan-400" />
+            <span>{isLoadingSaved ? 'Loading...' : 'Load Saved Dataset'}</span>
+          </button>
 
-            <button
-              onClick={handleExportJson}
-              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold flex items-center gap-1.5 transition"
-              title="Download JSON"
-            >
-              <FileCode className="w-3.5 h-3.5 text-indigo-400" />
-              <span>JSON</span>
-            </button>
-          </div>
-        )}
+          {extractedItems.length > 0 && (
+            <>
+              <button
+                id="btn_save_dataset_header"
+                onClick={handleSaveDataset}
+                disabled={isSavingDataset}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
+                  hasUnsavedChanges 
+                    ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-md shadow-amber-600/30 animate-pulse'
+                    : 'bg-indigo-700/80 hover:bg-indigo-600 text-white'
+                }`}
+                title="Save scorecard dataset & all edits to Supabase"
+              >
+                {isSavingDataset ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                <span>{hasUnsavedChanges ? 'Save Edits' : 'Saved'}</span>
+              </button>
+
+              <button
+                onClick={handleExportExcel}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold flex items-center gap-1.5 transition"
+                title="Download Excel"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Excel</span>
+              </button>
+
+              <button
+                onClick={handleExportJson}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold flex items-center gap-1.5 transition"
+                title="Download JSON"
+              >
+                <FileCode className="w-3.5 h-3.5 text-indigo-400" />
+                <span>JSON</span>
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* 1. UPLOAD TAB */}
@@ -718,7 +901,7 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
               })}
             </div>
 
-            {/* WEIGHT STATUS & SYNC BUTTON */}
+            {/* WEIGHT STATUS, SAVE & SYNC BUTTONS */}
             <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto justify-end">
               <div className={`px-3 py-1.5 rounded-xl border text-xs font-black flex items-center gap-1.5 ${
                 Math.round(totalWeight) === 100
@@ -734,13 +917,32 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
                 )}
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  id="btn_save_extraction_edits"
+                  onClick={handleSaveDataset}
+                  disabled={isSavingDataset}
+                  className={`px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition cursor-pointer shadow-lg ${
+                    hasUnsavedChanges 
+                      ? 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white shadow-amber-600/30 animate-pulse'
+                      : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/30'
+                  }`}
+                  title="Save edited KPI data directly to database"
+                >
+                  {isSavingDataset ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
+                  <span>{hasUnsavedChanges ? 'Save Changes *' : 'Save Changes'}</span>
+                </button>
+
                 <input
                   type="email"
                   value={targetEmployeeEmail}
                   onChange={(e) => setTargetEmployeeEmail(e.target.value)}
                   placeholder="Target user email..."
-                  className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-200 w-48 focus:outline-none focus:border-indigo-500"
+                  className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-200 w-44 focus:outline-none focus:border-indigo-500"
                   title="Target employee email for Performance Plan sync"
                 />
 
@@ -760,6 +962,34 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
               </div>
             </div>
           </div>
+
+          {/* Unsaved changes notification banner */}
+          {hasUnsavedChanges && (
+            <div className="bg-amber-950/70 border border-amber-600/50 rounded-xl px-4 py-2.5 flex items-center justify-between text-xs text-amber-200 animate-fadeIn">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>
+                  <strong>Unsaved changes detected:</strong> You have edited KPI descriptions, baselines, weights, or targets. Click <strong>"Save Changes"</strong> to save to database or <strong>"Push to IPMS Performance Plan"</strong> to sync.
+                </span>
+              </div>
+              <button
+                onClick={handleSaveDataset}
+                disabled={isSavingDataset}
+                className="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 shadow"
+              >
+                <Save className="w-3.5 h-3.5" />
+                <span>Save Now</span>
+              </button>
+            </div>
+          )}
+
+          {/* Last saved info */}
+          {lastSavedTime && !hasUnsavedChanges && (
+            <div className="text-[11px] text-emerald-400/90 flex items-center gap-1.5 px-2">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+              <span>All changes saved to database at {lastSavedTime}.</span>
+            </div>
+          )}
 
           {/* KPI TABLE */}
           <div className="bg-slate-900/90 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
@@ -959,6 +1189,40 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
                   })}
                 </tbody>
               </table>
+            </div>
+
+            {/* Table Footer Controls */}
+            <div className="bg-slate-950/90 border-t border-slate-800 p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-3">
+                <button
+                  id="btn_add_kpi_row"
+                  onClick={handleAddRow}
+                  className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 hover:text-indigo-200 border border-slate-700 rounded-xl font-bold flex items-center gap-1.5 transition"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add KPI Row</span>
+                </button>
+
+                <button
+                  id="btn_save_scorecard_bottom"
+                  onClick={handleSaveDataset}
+                  disabled={isSavingDataset}
+                  className={`px-4 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition ${
+                    hasUnsavedChanges
+                      ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-md shadow-amber-600/30'
+                      : 'bg-indigo-600/80 hover:bg-indigo-600 text-white'
+                  }`}
+                >
+                  {isSavingDataset ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  <span>{hasUnsavedChanges ? 'Save Changes *' : 'Save Dataset'}</span>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-4 text-slate-400 text-[11px]">
+                <span>Total KPIs: <strong className="text-white">{extractedItems.length}</strong></span>
+                <span>Selected: <strong className="text-indigo-400">{extractedItems.filter(it => it._selected !== false).length}</strong></span>
+                <span>Cumulative Weight: <strong className={Math.round(totalWeight) === 100 ? "text-emerald-400 font-mono" : "text-amber-400 font-mono"}>{totalWeight.toFixed(1)}%</strong></span>
+              </div>
             </div>
           </div>
         </div>
