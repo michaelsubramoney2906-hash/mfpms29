@@ -29,6 +29,7 @@ import { PerformanceAgreements } from './IPMS/PerformanceAgreements';
 import { PATemplates } from './IPMS/PATemplates';
 import { DashboardOverview } from './DashboardOverview';
 import { SDBIP23 } from './SDBIP/SDBIP23';
+import { Organogram } from './IPMS/Organogram';
 import { KPAIPMS } from './IPMS/KPA_IPMS';
 import { KPIIPMS } from './IPMS/KPI_IPMS';
 import { TeamDashboard } from './IPMS/TeamDashboard';
@@ -797,6 +798,10 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
           ) : activeSubModule.id === 'ipms-team-dashboard' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
                  <TeamDashboard currentUser={fullUserProfile} activeTenantId={activeTenantId} />
+              </div>
+          ) : activeSubModule.id === 'organogram' || activeSubModule.id === 'ipms-organogram' ? (
+              <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
+                 <Organogram currentUser={fullUserProfile} activeTenantId={activeTenantId} onClose={() => setActiveSubModule(null)} />
               </div>
           ) : activeSubModule.id === 'ipms-kpa' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">

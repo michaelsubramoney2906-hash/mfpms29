@@ -5,7 +5,7 @@ import {
   Users, Landmark, Search, ShieldAlert, Users2, Mic, Settings,
   MessageCircle, HelpCircle, Calendar, Database, Box, GraduationCap,
   Shield, Key, Ticket, List, MessageSquare, FileBarChart, UserCheck, LayoutGrid, BadgePlus, Mail,
-  Cpu
+  Cpu, GitFork
 } from 'lucide-react';
 import type { Module, Tenant } from './types';
 
@@ -302,6 +302,7 @@ export const modules: Module[] = [
       { id: 'rep', name: 'Reports', icon: FileBarChart },
       { id: 'rm', name: 'Risk Management', icon: AlertTriangle },
       { id: 'sdbip-tl', name: 'SDBIP Top Layer', icon: Layers },
+      { id: 'sdbip-23', name: '2nd & 3rd Layer SDBIP', icon: Database },
       { id: 'so', name: 'Strategic Objectives', icon: Target },
       { id: 'opms-submitter', name: 'Submitter', icon: FileText },
       { id: 'opms-reviewer', name: 'Reviewer', icon: Search },
@@ -329,6 +330,7 @@ export const modules: Module[] = [
     icon: Target,
     subModules: [
       { id: 'ipms-team-dashboard', name: 'Team Dashboard', icon: Users },
+      { id: 'organogram', name: 'Organogram', icon: GitFork },
       { id: 'ipms-inbox', name: 'Inbox', icon: Mail },
       { id: 'ipms-kpa', name: 'IPMS KPA', icon: Flag },
       { id: 'jsc', name: 'Job Specific Competencies', icon: FileBadge },

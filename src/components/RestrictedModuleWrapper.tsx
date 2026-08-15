@@ -29,7 +29,7 @@ const SUBMODULE_TO_PARENT_MAP: Record<string, string> = {
   'jsc': 'ipms', 'pdp': 'ipms', 'pplan': 'ipms', 'ipms-kpi': 'ipms',
   'pa': 'ipms', 'ipms-kpa': 'ipms', 'sdbip-23': 'ipms', 'ipms-evaluation': 'ipms',
   'ipms-manager-review': 'ipms', 'ipms-internal-audit': 'ipms', 'ipms-dpmc': 'ipms',
-  'ipms-reports': 'ipms', 'pa-templates': 'ipms',
+  'ipms-reports': 'ipms', 'pa-templates': 'ipms', 'organogram': 'ipms', 'ipms-organogram': 'ipms',
 
   // MF Connect
   'ca': 'mf-connect', 'chat': 'mf-connect', 'hds': 'mf-connect',

@@ -4351,6 +4351,71 @@ Return ONLY a valid JSON array of objects matching the schema:
     }
   });
 
+  // 17.5 Fetch Organogram for a tenant (Supabase Persistent)
+  app.get("/api/tenant/:tenantId/organogram", async (req, res) => {
+    const { tenantId } = req.params;
+    try {
+      const supabase = getSupabase();
+      const documentId = `organogram_${tenantId}`;
+      const { data, error } = await supabase
+        .from('messages')
+        .select('content')
+        .eq('id', documentId)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Supabase load organogram error:", error.message);
+      }
+
+      if (data && data.content) {
+        try {
+          const parsed = JSON.parse(data.content);
+          return res.json(parsed);
+        } catch (parseErr) {
+          console.error("Error parsing organogram JSON:", parseErr);
+        }
+      }
+
+      // If no custom organogram exists in Supabase yet, return empty object so frontend can auto-build from users
+      return res.json({ nodes: [], departments: [], lastUpdated: null });
+    } catch (err: any) {
+      console.error("Organogram load exception:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // 17.6 Save Organogram for a tenant (Supabase Persistent)
+  app.post("/api/tenant/:tenantId/organogram", async (req, res) => {
+    const { tenantId } = req.params;
+    const { nodes, departments } = req.body;
+    try {
+      const supabase = getSupabase();
+      const documentId = `organogram_${tenantId}`;
+      const { error } = await supabase
+        .from('messages')
+        .upsert({ 
+          id: documentId,
+          tenant_id: tenantId,
+          sender_id: 'organogram_editor',
+          sender_email: 'organogram@system.local',
+          sender_name: 'Organogram Management Suite',
+          content: JSON.stringify({ 
+            nodes: nodes || [], 
+            departments: departments || [],
+            lastUpdated: new Date().toISOString()
+          }),
+          message_type: 'organogram_structure',
+          created_at: new Date().toISOString()
+        });
+      
+      if (error) throw error;
+      res.json({ success: true, message: 'Organogram successfully saved to Supabase.' });
+    } catch (err: any) {
+      console.error("Organogram save exception:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Helper to resolve the correct tenant ID for user-centric resources
   const tenantIdCacheMap = new Map<string, { tenantId: string; timestamp: number }>();
 
