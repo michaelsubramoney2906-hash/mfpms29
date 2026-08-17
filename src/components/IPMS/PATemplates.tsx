@@ -123,6 +123,7 @@ interface PATemplate {
   supervisorName?: string | null;
   supervisorPosition?: string | null;
   supervisorDate?: string | null;
+  khuboniJscNotes?: string;
   sigDay?: string;
   sigMonth?: string;
   sigYear?: string;
@@ -1543,6 +1544,39 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
     }));
   };
 
+  const handlePdpTablePaste = (e: React.ClipboardEvent<HTMLInputElement>, startRowIdx: number, startColIdx: number) => {
+    const pasteData = e.clipboardData.getData('text');
+    if (!pasteData) return;
+    if (pasteData.includes('\t') || pasteData.includes('\n')) {
+      e.preventDefault();
+      const rows = pasteData.trim().split(/\r?\n/).map(row => row.split('\t'));
+      setPdpCustomTable(prev => {
+        let newHeaders = [...prev.headers];
+        let newRows = prev.rows.map(r => [...r]);
+        
+        rows.forEach((pRow, rOffset) => {
+          const targetRowIdx = startRowIdx + rOffset;
+          while (newRows.length <= targetRowIdx) {
+            newRows.push(new Array(newHeaders.length).fill(''));
+          }
+          pRow.forEach((cellVal, cOffset) => {
+            const targetColIdx = startColIdx + cOffset;
+            while (newHeaders.length <= targetColIdx) {
+              newHeaders.push(`Column ${newHeaders.length + 1}`);
+              newRows.forEach(r => r.push(''));
+            }
+            newRows[targetRowIdx][targetColIdx] = cellVal.trim();
+          });
+        });
+        return {
+          ...prev,
+          headers: newHeaders,
+          rows: newRows
+        };
+      });
+    }
+  };
+
   const RenderPdpTable = () => {
     if (!pulledPdpItems || pulledPdpItems.length === 0) return null;
 
@@ -1665,6 +1699,7 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
                           type="text"
                           value={cell}
                           onChange={(e) => updatePdpCustomTableCell(rowIdx, colIdx, e.target.value)}
+                          onPaste={(e) => handlePdpTablePaste(e, rowIdx, colIdx)}
                           className="w-full bg-transparent text-[8.5px] text-slate-800 outline-none focus:bg-purple-50/40 focus:px-1 focus:rounded font-normal leading-tight print:bg-transparent print:p-0"
                           placeholder="Enter details..."
                         />
@@ -1767,6 +1802,8 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
         pulledCompetencyRows,
         pulledCfoCompetencyRows,
         pulledPedCompetencyRows,
+        khuboniJscNotes,
+        pdpCustomTable,
         includeJSC: true,
         userSignatures: `${targetTitle.toUpperCase()}: ${normalizedEmail}\nEXECUTIVE MAYOR`,
         pushedBy: (currentUser?.email || '').toLowerCase().trim(),
@@ -1861,7 +1898,16 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
     pulledPplanItems: null,
     pulledFilteredPplanItems: null,
     pulledPdpItems: null,
-    pulledCompetencyRows: null
+    pulledCompetencyRows: null,
+    khuboniJscNotes: "4.4 The personal development plan (PDP) will address any developmental needs identified during the competency assessment process.",
+    pdpCustomTable: {
+      title: 'Additional Custom Framework Matrix (PDP Development Plan)',
+      headers: ['Target Area / Development Focus', 'Resource & Budget Requirement', 'Q1 Deliverable', 'Q2 Deliverable', 'Responsible Mentor / Supervisor'],
+      rows: [
+        ['Municipal Finance GRAP Module', 'NSG Learning Portal & Coaching', 'Complete Core Assessment', 'Final POE Submission', 'Chief Financial Officer'],
+        ['Strategic IPMS Alignment & Auditing', 'Internal Performance System', 'Review Scorecards & Baselines', 'Moderation Sign-off', 'Municipal Manager']
+      ]
+    }
   });
 
   const fetchTemplates = async () => {
@@ -1991,6 +2037,7 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
         pulledCfoCompetencyRows,
         pulledPedCompetencyRows,
         pulledKhuboniJscRows,
+        khuboniJscNotes,
         employeeSignature,
         employeeName,
         employeePosition,
@@ -2097,6 +2144,11 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
     setText4_4(tpl.text4_4 || '');
     setText4_5(tpl.text4_5 || '');
     setFrameworkBelowJsc(tpl.frameworkBelowJsc);
+    if (tpl.khuboniJscNotes !== undefined) {
+      setKhuboniJscNotes(tpl.khuboniJscNotes);
+    } else if (tpl.frameworkBelowJsc !== undefined) {
+      setKhuboniJscNotes(tpl.frameworkBelowJsc);
+    }
     setConditions(tpl.conditions);
     setKpaText(tpl.kpaText);
     setFeedback(tpl.feedback);
@@ -2156,7 +2208,7 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
   useEffect(() => {
     fetchTemplates();
     fetchUserManagementUsers();
-  }, [activeTenantId]);
+  }, [activeTenantId, currentUser?.email]);
 
   return (
     <div id="pa-templates-workspace" className="p-0 text-slate-800 bg-slate-100 flex flex-col">

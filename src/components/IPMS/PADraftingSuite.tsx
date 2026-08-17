@@ -123,6 +123,7 @@ interface PATemplate {
   supervisorName?: string | null;
   supervisorPosition?: string | null;
   supervisorDate?: string | null;
+  khuboniJscNotes?: string;
   sigDay?: string;
   sigMonth?: string;
   sigYear?: string;
@@ -1610,6 +1611,39 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
     }));
   };
 
+  const handlePdpTablePaste = (e: React.ClipboardEvent<HTMLInputElement>, startRowIdx: number, startColIdx: number) => {
+    const pasteData = e.clipboardData.getData('text');
+    if (!pasteData) return;
+    if (pasteData.includes('\t') || pasteData.includes('\n')) {
+      e.preventDefault();
+      const rows = pasteData.trim().split(/\r?\n/).map(row => row.split('\t'));
+      setPdpCustomTable(prev => {
+        let newHeaders = [...prev.headers];
+        let newRows = prev.rows.map(r => [...r]);
+        
+        rows.forEach((pRow, rOffset) => {
+          const targetRowIdx = startRowIdx + rOffset;
+          while (newRows.length <= targetRowIdx) {
+            newRows.push(new Array(newHeaders.length).fill(''));
+          }
+          pRow.forEach((cellVal, cOffset) => {
+            const targetColIdx = startColIdx + cOffset;
+            while (newHeaders.length <= targetColIdx) {
+              newHeaders.push(`Column ${newHeaders.length + 1}`);
+              newRows.forEach(r => r.push(''));
+            }
+            newRows[targetRowIdx][targetColIdx] = cellVal.trim();
+          });
+        });
+        return {
+          ...prev,
+          headers: newHeaders,
+          rows: newRows
+        };
+      });
+    }
+  };
+
   const RenderPdpTable = () => {
     if (!pulledPdpItems || pulledPdpItems.length === 0) return null;
 
@@ -1732,6 +1766,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
                           type="text"
                           value={cell}
                           onChange={(e) => updatePdpCustomTableCell(rowIdx, colIdx, e.target.value)}
+                          onPaste={(e) => handlePdpTablePaste(e, rowIdx, colIdx)}
                           className="w-full bg-transparent text-[8.5px] text-slate-800 outline-none focus:bg-purple-50/40 focus:px-1 focus:rounded font-normal leading-tight print:bg-transparent print:p-0"
                           placeholder="Enter details..."
                         />
@@ -1837,6 +1872,8 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
         pulledCfoCompetencyRows,
         pulledPedCompetencyRows,
         pulledCorpCompetencyRows,
+        khuboniJscNotes,
+        pdpCustomTable,
         employeeSignature: null,
         employeeName: null,
         employeeDate: null,
@@ -1940,13 +1977,23 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
     pulledCompetencyRows: null,
     pulledCfoCompetencyRows: null,
     pulledPedCompetencyRows: null,
-    pulledCorpCompetencyRows: null
+    pulledCorpCompetencyRows: null,
+    khuboniJscNotes: "4.4 The personal development plan (PDP) will address any developmental needs identified during the competency assessment process.",
+    pdpCustomTable: {
+      title: 'Additional Custom Framework Matrix (PDP Development Plan)',
+      headers: ['Target Area / Development Focus', 'Resource & Budget Requirement', 'Q1 Deliverable', 'Q2 Deliverable', 'Responsible Mentor / Supervisor'],
+      rows: [
+        ['Municipal Finance GRAP Module', 'NSG Learning Portal & Coaching', 'Complete Core Assessment', 'Final POE Submission', 'Chief Financial Officer'],
+        ['Strategic IPMS Alignment & Auditing', 'Internal Performance System', 'Review Scorecards & Baselines', 'Moderation Sign-off', 'Municipal Manager']
+      ]
+    }
   });
 
   const fetchTemplates = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=${currentUser.email}&t=${Date.now()}`);
+      const activeEmail = (currentUser?.email || '').toLowerCase().trim();
+      const res = await fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=${encodeURIComponent(activeEmail)}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
         const docState = data.html || data;
@@ -2065,6 +2112,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
         pulledPedCompetencyRows,
         pulledCorpCompetencyRows,
         pulledKhuboniJscRows,
+        khuboniJscNotes,
         employeeSignature,
         employeeName,
         employeePosition,
@@ -2079,17 +2127,18 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
         pdpCustomTable
       };
 
-      const res = await fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=${currentUser.email}`, {
+      const activeEmail = (currentUser?.email || '').toLowerCase().trim();
+      const res = await fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=${encodeURIComponent(activeEmail)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           html: activeTpl,
-          htmlDocumentId: `draft_doc_${activeTenantId}_${currentUser.email}`
+          htmlDocumentId: `draft_doc_${activeTenantId}_${activeEmail}`
         })
       });
 
       // Also persist to pa-templates for this user so template config tab matches drafting doc
-      await fetch(`/api/tenant/${activeTenantId}/pa-templates?userId=${currentUser.email}`, {
+      await fetch(`/api/tenant/${activeTenantId}/pa-templates?userId=${encodeURIComponent(activeEmail)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ templates: [activeTpl] })
@@ -2166,6 +2215,11 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
     setText4_4(tpl.text4_4 || '');
     setText4_5(tpl.text4_5 || '');
     setFrameworkBelowJsc(tpl.frameworkBelowJsc);
+    if (tpl.khuboniJscNotes !== undefined) {
+      setKhuboniJscNotes(tpl.khuboniJscNotes);
+    } else if (tpl.frameworkBelowJsc !== undefined) {
+      setKhuboniJscNotes(tpl.frameworkBelowJsc);
+    }
     setConditions(tpl.conditions);
     setKpaText(tpl.kpaText);
     setFeedback(tpl.feedback);
@@ -2226,7 +2280,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
   useEffect(() => {
     fetchTemplates();
     fetchUserManagementUsers();
-  }, [activeTenantId]);
+  }, [activeTenantId, currentUser?.email]);
 
   return (
     <div id="pa-templates-workspace" className="p-0 text-slate-800 bg-slate-100 flex flex-col">
