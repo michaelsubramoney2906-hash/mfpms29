@@ -1068,28 +1068,75 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
       return null;
     }
 
-    const isSec6 = (() => {
-      const sec = dynamicSections.find(s => s.id === sectionId);
-      return (sec && (sec.heading.trim().startsWith("6") || sec.heading.toLowerCase().includes("6.") || sec.heading.toLowerCase().includes("performance assessment") || sec.heading.toLowerCase().includes("evaluating performance") || sec.heading.toLowerCase().includes("performance management"))) || sectionId === 'framework';
-    })();
-    const isSec8 = (() => {
-      const sec = dynamicSections.find(s => s.id === sectionId);
-      return (sec && (sec.heading.trim().startsWith("8") || sec.heading.toLowerCase().includes("8.") || sec.heading.toLowerCase().includes("timetable") || sec.heading.toLowerCase().includes("schedule for performance review"))) || sectionId === 'timetable';
-    })();
+    const currentSec = dynamicSections.find(s => s.id === sectionId);
+    const isCurrentSec4 = sectionId === 'section4' || sectionId === 'framework' || (currentSec && (
+      currentSec.heading.trim().startsWith('4.') ||
+      currentSec.heading.trim().startsWith('4 ') ||
+      currentSec.heading.trim().startsWith('4-') ||
+      /^\s*4\b/.test(currentSec.heading)
+    ));
 
-    // Match exact section ID, or matched Section 6 / Section 8 master tables
-    const tables = customTables.filter(t => 
-      t.sectionId === sectionId ||
-      (isSec6 && (t.sectionId === 'framework' || t.sectionId.includes('perf-assessment') || t.title.toLowerCase().includes('performance assessment') || t.title.toLowerCase().includes('5-point rating'))) ||
-      (isSec8 && (t.sectionId === 'timetable' || t.sectionId.includes('review-timetable') || t.title.toLowerCase().includes('timetable') || t.title.toLowerCase().includes('schedule for performance review')))
+    const isCurrentSec6 = !isCurrentSec4 && (
+      sectionId === 'section6' ||
+      sectionId.includes('perf-assessment') ||
+      (currentSec && (
+        currentSec.heading.trim().startsWith('6.') ||
+        currentSec.heading.trim().startsWith('6 ') ||
+        currentSec.heading.trim().startsWith('6-') ||
+        /^\s*6\b/.test(currentSec.heading) ||
+        currentSec.heading.toLowerCase().includes('evaluating performance') ||
+        (currentSec.heading.toLowerCase().includes('performance assessment') && !currentSec.heading.toLowerCase().includes('framework') && !currentSec.heading.includes('4'))
+      ))
     );
+
+    const isCurrentSec8 = sectionId === 'timetable' || sectionId.includes('review-timetable') || (currentSec && (
+      currentSec.heading.trim().startsWith('8.') ||
+      currentSec.heading.trim().startsWith('8 ') ||
+      currentSec.heading.trim().startsWith('8-') ||
+      /^\s*8\b/.test(currentSec.heading) ||
+      currentSec.heading.toLowerCase().includes('timetable') ||
+      currentSec.heading.toLowerCase().includes('schedule for performance review')
+    ));
+
+    const isPerfAssessmentTable = (t: CustomTable) => 
+      t.sectionId.includes('perf-assessment') || 
+      t.title.toLowerCase().includes('performance assessment') || 
+      t.title.toLowerCase().includes('5-point rating');
+
+    const isTimetableTable = (t: CustomTable) =>
+      t.sectionId.includes('review-timetable') ||
+      t.title.toLowerCase().includes('timetable') ||
+      t.title.toLowerCase().includes('schedule for performance review');
+
+    let tables: CustomTable[] = [];
+    if (isCurrentSec6) {
+      tables = customTables.filter(t => isPerfAssessmentTable(t) || (t.sectionId === sectionId && !isTimetableTable(t)));
+    } else if (isCurrentSec8) {
+      tables = customTables.filter(t => isTimetableTable(t) || (t.sectionId === sectionId && !isPerfAssessmentTable(t)));
+    } else if (isCurrentSec4) {
+      tables = customTables.filter(t => t.sectionId === sectionId && !isPerfAssessmentTable(t) && !isTimetableTable(t));
+    } else {
+      tables = customTables.filter(t => t.sectionId === sectionId && !isPerfAssessmentTable(t) && !isTimetableTable(t));
+    }
+
     if (tables.length === 0) return null;
 
     return (
       <div className="space-y-4 mt-4 break-inside-avoid">
         {tables.map((table) => (
-          <div key={table.id} className="space-y-2">
-            {table.title && <h5 className="font-bold text-[10px] text-slate-700 uppercase tracking-tight">{table.title}</h5>}
+          <div key={table.id} className="space-y-2 relative group/customtable">
+            <div className="flex items-center justify-between">
+              {table.title && <h5 className="font-bold text-[10px] text-slate-700 uppercase tracking-tight">{table.title}</h5>}
+              <button
+                type="button"
+                onClick={() => handleDeleteCustomTable(table.id)}
+                title="Delete this table"
+                className="print:hidden text-slate-400 hover:text-rose-600 hover:bg-rose-50 p-1 rounded-md transition-all flex items-center gap-1 text-[9px] font-bold cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                <span className="text-rose-600 text-[9px]">Delete Table</span>
+              </button>
+            </div>
             <div className="border rounded overflow-hidden" style={{ borderColor }}>
               <table className="w-full text-left text-[9px] border-collapse bg-white">
                 <thead>
@@ -1381,6 +1428,238 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
     }
   };
 
+  const handleDeleteCustomTable = async (tableId: string) => {
+    const tableToDelete = customTables.find(t => t.id === tableId);
+    const updatedCustomTables = customTables.filter(t => t.id !== tableId);
+    setCustomTables(updatedCustomTables);
+
+    if (tableToDelete) {
+      if (
+        tableToDelete.sectionId.includes('perf-assessment') ||
+        tableToDelete.title.toLowerCase().includes('performance assessment') ||
+        tableToDelete.title.toLowerCase().includes('5-point rating')
+      ) {
+        setPulledPerfAssessmentCount(null);
+      }
+      if (
+        tableToDelete.sectionId.includes('review-timetable') ||
+        tableToDelete.title.toLowerCase().includes('timetable') ||
+        tableToDelete.title.toLowerCase().includes('schedule for performance review')
+      ) {
+        setPulledReviewTimetableCount(null);
+      }
+    }
+
+    triggerNotification("Table deleted successfully.", "success");
+
+    try {
+      const activeEmail = (currentUser?.email || '').toLowerCase().trim();
+      if (activeEmail) {
+        const activeTplPayload = {
+          headingCover,
+          headingRegulatoryInfo,
+          dynamicSections,
+          headingPurpose,
+          headingValidity,
+          headingReporting,
+          headingFramework,
+          headingKpaTable,
+          headingJscTable,
+          headingConditions,
+          headingAssessmentKpas,
+          headingFeedback,
+          headingTimetable,
+          headingPoorPerformance,
+          headingDispute,
+          headingAmendment,
+          headingEvaluation,
+          headingNationalKpas,
+          heading4_4,
+          heading4_5,
+          headingSignatures,
+          headingAnnexA,
+          headingAnnexB,
+          headingAnnexC,
+          coverPage,
+          regulatoryInfoText,
+          purpose,
+          validity,
+          reporting,
+          framework,
+          frameworkBelowKpa,
+          nationalKpasText,
+          text4_4,
+          text4_5,
+          frameworkBelowJsc,
+          conditions,
+          kpaText,
+          feedback,
+          timetableText,
+          timetableTextBelowTable,
+          poorPerformance,
+          dispute,
+          amendment,
+          evaluation,
+          annexureC,
+          municipalityName,
+          templateSubHeader,
+          muniFontFamily,
+          muniFontSize,
+          muniColor,
+          subHeaderFontSize,
+          subHeaderColor,
+          muniLogo,
+          customTables: updatedCustomTables,
+          textColor,
+          headingColor,
+          borderColor,
+          borderStyle,
+          borderWidth,
+          documentFontFamily,
+          documentTextAlign,
+          showPageNumbers,
+          footerText,
+          pulledPplanItems,
+          pulledFilteredPplanItems,
+          pulledPdpItems,
+          pulledCompetencyRows,
+          pulledCfoCompetencyRows,
+          pulledPedCompetencyRows,
+          pulledCorpCompetencyRows,
+          khuboniJscNotes,
+          pdpCustomTable,
+          updatedAt: new Date().toISOString()
+        };
+
+        await fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=${encodeURIComponent(activeEmail)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            html: activeTplPayload,
+            htmlDocumentId: `draft_doc_${activeTenantId}_${activeEmail}`
+          })
+        });
+
+        await fetch(`/api/tenant/${activeTenantId}/pa-templates?userId=${encodeURIComponent(activeEmail)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ templates: [{ id: selectedTemplateId || 'drafted_doc', name: templateName, ...activeTplPayload }] })
+        });
+      }
+    } catch (err) {
+      console.error("Auto-persist error after deleting custom table:", err);
+    }
+  };
+
+  const handleRemovePerformanceAssessment = async () => {
+    const updatedCustomTables = customTables.filter(t => 
+      !t.sectionId.includes('perf-assessment') &&
+      !t.title.toLowerCase().includes('performance assessment') &&
+      !t.title.toLowerCase().includes('5-point rating')
+    );
+    setCustomTables(updatedCustomTables);
+    setPulledPerfAssessmentCount(null);
+    triggerNotification("Removed adopted Performance Assessment Table from Section 6.", "success");
+
+    try {
+      const activeEmail = (currentUser?.email || '').toLowerCase().trim();
+      if (activeEmail) {
+        const activeTplPayload = {
+          headingCover,
+          headingRegulatoryInfo,
+          dynamicSections,
+          headingPurpose,
+          headingValidity,
+          headingReporting,
+          headingFramework,
+          headingKpaTable,
+          headingJscTable,
+          headingConditions,
+          headingAssessmentKpas,
+          headingFeedback,
+          headingTimetable,
+          headingPoorPerformance,
+          headingDispute,
+          headingAmendment,
+          headingEvaluation,
+          headingNationalKpas,
+          heading4_4,
+          heading4_5,
+          headingSignatures,
+          headingAnnexA,
+          headingAnnexB,
+          headingAnnexC,
+          coverPage,
+          regulatoryInfoText,
+          purpose,
+          validity,
+          reporting,
+          framework,
+          frameworkBelowKpa,
+          nationalKpasText,
+          text4_4,
+          text4_5,
+          frameworkBelowJsc,
+          conditions,
+          kpaText,
+          feedback,
+          timetableText,
+          timetableTextBelowTable,
+          poorPerformance,
+          dispute,
+          amendment,
+          evaluation,
+          annexureC,
+          municipalityName,
+          templateSubHeader,
+          muniFontFamily,
+          muniFontSize,
+          muniColor,
+          subHeaderFontSize,
+          subHeaderColor,
+          muniLogo,
+          customTables: updatedCustomTables,
+          textColor,
+          headingColor,
+          borderColor,
+          borderStyle,
+          borderWidth,
+          documentFontFamily,
+          documentTextAlign,
+          showPageNumbers,
+          footerText,
+          pulledPplanItems,
+          pulledFilteredPplanItems,
+          pulledPdpItems,
+          pulledCompetencyRows,
+          pulledCfoCompetencyRows,
+          pulledPedCompetencyRows,
+          pulledCorpCompetencyRows,
+          khuboniJscNotes,
+          pdpCustomTable,
+          updatedAt: new Date().toISOString()
+        };
+
+        await fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=${encodeURIComponent(activeEmail)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            html: activeTplPayload,
+            htmlDocumentId: `draft_doc_${activeTenantId}_${activeEmail}`
+          })
+        });
+
+        await fetch(`/api/tenant/${activeTenantId}/pa-templates?userId=${encodeURIComponent(activeEmail)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ templates: [{ id: selectedTemplateId || 'drafted_doc', name: templateName, ...activeTplPayload }] })
+        });
+      }
+    } catch (err) {
+      console.error("Auto-persist error after removing performance assessment:", err);
+    }
+  };
+
   const handleImportPerformanceAssessment = async (targetSectionId?: string) => {
     setPullingPerfAssessment(true);
     try {
@@ -1395,16 +1674,31 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
         
         const point61Intro = "The assessment of an Individual will be based on his/her performance in relation to the KPAs and JSCs and performance indicators, as set out in this Performance Agreement and attached Workplan.\n\n6.1 KPAs will be assessed by reviewing all KPIs in a 5-point rating scale tabled as follows:";
 
+        const isSec4 = (s: DynamicSection) => 
+          s.id === 'section4' || 
+          s.heading.trim().startsWith('4.') || 
+          s.heading.trim().startsWith('4 ') || 
+          s.heading.trim().startsWith('4-') ||
+          /^\s*4\b/.test(s.heading);
+
+        const isSec6 = (s: DynamicSection) => 
+          !isSec4(s) && (
+            s.id === 'section6' ||
+            s.id.includes('perf-assessment') ||
+            s.heading.trim().startsWith('6.') ||
+            s.heading.trim().startsWith('6 ') ||
+            s.heading.trim().startsWith('6-') ||
+            /^\s*6\b/.test(s.heading) ||
+            s.heading.toLowerCase().includes('evaluating performance') ||
+            (s.heading.toLowerCase().includes('performance assessment') && !s.heading.toLowerCase().includes('framework') && !s.heading.includes('4'))
+          );
+
         let targetSec = dynamicSections.find(s => 
-          (targetSectionId && s.id === targetSectionId) ||
-          s.heading.trim().startsWith('6') ||
-          s.heading.toLowerCase().includes('6.') ||
-          s.heading.toLowerCase().includes('performance assessment') ||
-          s.heading.toLowerCase().includes('evaluating performance') ||
-          s.heading.toLowerCase().includes('performance management')
+          (targetSectionId && s.id === targetSectionId && !isSec4(s)) ||
+          isSec6(s)
         );
 
-        let assignedSectionId = 'framework';
+        let assignedSectionId = 'section-6-perf-assessment';
         let updatedDynamicSections = dynamicSections;
 
         if (targetSec) {
@@ -1428,7 +1722,16 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
             content1: point61Intro,
             content2: ''
           };
-          updatedDynamicSections = [...dynamicSections, newSection];
+          const sec5Index = dynamicSections.findIndex(s => s.heading.trim().startsWith('5') || s.id === 'section5');
+          if (sec5Index !== -1) {
+            updatedDynamicSections = [
+              ...dynamicSections.slice(0, sec5Index + 1),
+              newSection,
+              ...dynamicSections.slice(sec5Index + 1)
+            ];
+          } else {
+            updatedDynamicSections = [...dynamicSections, newSection];
+          }
           setDynamicSections(updatedDynamicSections);
         }
 
@@ -1441,12 +1744,15 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
         };
 
         const updatedCustomTables = [
-          ...customTables.filter(t => t.sectionId !== assignedSectionId && t.sectionId !== 'framework' && !t.title.toLowerCase().includes('performance assessment')),
+          ...customTables.filter(t => 
+            !t.sectionId.includes('perf-assessment') && 
+            !t.title.toLowerCase().includes('performance assessment') && 
+            !t.title.toLowerCase().includes('5-point rating')
+          ),
           newTable
         ];
         setCustomTables(updatedCustomTables);
 
-        setKpaText(point61Intro);
         setPulledPerfAssessmentCount(data.rows.length);
         triggerNotification(`Successfully adopted Performance Assessment Table (${data.rows.length} rows) below Point 6.1!`, "success");
 
@@ -1491,7 +1797,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
               text4_5,
               frameworkBelowJsc,
               conditions,
-              kpaText: point61Intro,
+              kpaText,
               feedback,
               timetableText,
               timetableTextBelowTable,
@@ -1518,6 +1824,15 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
               documentTextAlign,
               showPageNumbers,
               footerText,
+              pulledPplanItems,
+              pulledFilteredPplanItems,
+              pulledPdpItems,
+              pulledCompetencyRows,
+              pulledCfoCompetencyRows,
+              pulledPedCompetencyRows,
+              pulledCorpCompetencyRows,
+              khuboniJscNotes,
+              pdpCustomTable,
               updatedAt: new Date().toISOString()
             };
 
@@ -3344,6 +3659,21 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
                   )}
                 </button>
 
+                {pulledPerfAssessmentCount !== null && (
+                  <button
+                    id="btn-remove-adopted-perf-assessment"
+                    type="button"
+                    onClick={handleRemovePerformanceAssessment}
+                    className="w-full text-left font-bold text-[10px] px-3 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100 flex items-center justify-between transition-all cursor-pointer"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                      Remove Adopted Performance Assessment Table
+                    </span>
+                    <span className="text-[8.5px] font-bold text-rose-600 uppercase">Clear Table</span>
+                  </button>
+                )}
+
                 {/* Adopt Master Review Timetable Table (Below Point 8) */}
                 <button
                   id="btn-adopt-review-timetable-table"
@@ -3868,7 +4198,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
                   />
                 </div>
 
-                {(section.heading.trim().startsWith('6') || section.heading.toLowerCase().includes('6.') || section.heading.toLowerCase().includes('performance assessment') || section.heading.toLowerCase().includes('evaluating performance')) && (
+                {(!section.heading.trim().startsWith('4') && !section.heading.includes('4.') && (section.heading.trim().startsWith('6') || section.heading.toLowerCase().includes('6.') || section.heading.toLowerCase().includes('evaluating performance') || (section.heading.toLowerCase().includes('performance assessment') && !section.heading.toLowerCase().includes('framework')))) && (
                   <div className="pt-2 space-y-2">
                     <button
                       type="button"
@@ -3894,6 +4224,20 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
                         <ArrowRight className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
                       )}
                     </button>
+
+                    {pulledPerfAssessmentCount !== null && (
+                      <button
+                        type="button"
+                        onClick={handleRemovePerformanceAssessment}
+                        className="w-full text-left font-bold text-[10px] px-3 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100 flex items-center justify-between transition-all cursor-pointer"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                          Remove Adopted Performance Assessment Table
+                        </span>
+                        <span className="text-[8.5px] font-bold text-rose-600 uppercase">Clear Table</span>
+                      </button>
+                    )}
 
                     <button
                       type="button"
