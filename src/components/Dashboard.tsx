@@ -27,6 +27,8 @@ import { CoreCompetencies } from './IPMS/CoreCompetencies';
 import { PersonalDevelopmentPlan } from './IPMS/PersonalDevelopmentPlan';
 import { PerformanceAgreements } from './IPMS/PerformanceAgreements';
 import { PATemplates } from './IPMS/PATemplates';
+import { PerformanceAssessment } from './IPMS/PerformanceAssessment';
+import { ReviewTimetable } from './IPMS/ReviewTimetable';
 import { DashboardOverview } from './DashboardOverview';
 import { SDBIP23 } from './SDBIP/SDBIP23';
 import { Organogram } from './IPMS/Organogram';
@@ -794,6 +796,14 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
           ) : activeSubModule.id === 'pa-templates' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
                  <PATemplates currentUser={fullUserProfile} activeTenantId={activeTenantId} />
+              </div>
+          ) : activeSubModule.id === 'performance-assessment' ? (
+              <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
+                 <PerformanceAssessment currentUser={fullUserProfile} activeTenantId={activeTenantId} />
+              </div>
+          ) : activeSubModule.id === 'review-timetable' ? (
+              <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
+                 <ReviewTimetable currentUser={fullUserProfile} activeTenantId={activeTenantId} />
               </div>
           ) : activeSubModule.id === 'ipms-team-dashboard' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">

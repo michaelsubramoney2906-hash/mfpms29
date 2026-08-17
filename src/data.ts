@@ -5,7 +5,7 @@ import {
   Users, Landmark, Search, ShieldAlert, Users2, Mic, Settings,
   MessageCircle, HelpCircle, Calendar, Database, Box, GraduationCap,
   Shield, Key, Ticket, List, MessageSquare, FileBarChart, UserCheck, LayoutGrid, BadgePlus, Mail,
-  Cpu, GitFork
+  Cpu, GitFork, ClipboardCheck, CalendarDays
 } from 'lucide-react';
 import type { Module, Tenant } from './types';
 
@@ -336,6 +336,8 @@ export const modules: Module[] = [
       { id: 'jsc', name: 'Job Specific Competencies', icon: FileBadge },
       { id: 'ccomp', name: 'Core Competencies', icon: BadgePlus },
       { id: 'ipms-kpi', name: 'IPMS KPI', icon: Activity },
+      { id: 'performance-assessment', name: 'Performance Assessment', icon: ClipboardCheck },
+      { id: 'review-timetable', name: 'Review Timetable', icon: CalendarDays },
       { id: 'pplan', name: 'Performance Plan', icon: LayoutTemplate },
       { id: 'pdp', name: 'Personal Development Plans', icon: GraduationCap },
       { id: 'pa', name: 'Performance Agreement', icon: FileText },

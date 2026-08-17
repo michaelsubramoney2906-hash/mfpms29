@@ -6,7 +6,8 @@ import {
   HelpCircle, ClipboardList, Briefcase, FileDown, CheckCircle,
   Check, Edit3, Sparkles, CheckCircle2, ShieldCheck, X, Eye, 
   Layers, Search, Users, Settings2, LayoutTemplate, Sliders,
-  ArrowRight, FileSpreadsheet, Lock, AlertTriangle, Settings, Table2
+  ArrowRight, FileSpreadsheet, Lock, AlertTriangle, Settings, Table2,
+  ClipboardCheck, CalendarDays
 } from 'lucide-react';
 
 interface PADraftingSuiteProps {
@@ -306,6 +307,10 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
   const [pullingPedCompetencies, setPullingPedCompetencies] = useState(false);
   const [pullingCorpCompetencies, setPullingCorpCompetencies] = useState(false);
   const [pullingKhuboniJsc, setPullingKhuboniJsc] = useState(false);
+  const [pullingPerfAssessment, setPullingPerfAssessment] = useState(false);
+  const [pullingReviewTimetable, setPullingReviewTimetable] = useState(false);
+  const [pulledPerfAssessmentCount, setPulledPerfAssessmentCount] = useState<number | null>(null);
+  const [pulledReviewTimetableCount, setPulledReviewTimetableCount] = useState<number | null>(null);
 
   // Targets for Pushing
   const [mmPushEmail, setMmPushEmail] = useState('mandlaml@nkangaladm.gov.za');
@@ -1063,7 +1068,21 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
       return null;
     }
 
-    const tables = customTables.filter(t => t.sectionId === sectionId);
+    const isSec6 = (() => {
+      const sec = dynamicSections.find(s => s.id === sectionId);
+      return (sec && (sec.heading.trim().startsWith("6") || sec.heading.toLowerCase().includes("6.") || sec.heading.toLowerCase().includes("performance assessment") || sec.heading.toLowerCase().includes("evaluating performance") || sec.heading.toLowerCase().includes("performance management"))) || sectionId === 'framework';
+    })();
+    const isSec8 = (() => {
+      const sec = dynamicSections.find(s => s.id === sectionId);
+      return (sec && (sec.heading.trim().startsWith("8") || sec.heading.toLowerCase().includes("8.") || sec.heading.toLowerCase().includes("timetable") || sec.heading.toLowerCase().includes("schedule for performance review"))) || sectionId === 'timetable';
+    })();
+
+    // Match exact section ID, or matched Section 6 / Section 8 master tables
+    const tables = customTables.filter(t => 
+      t.sectionId === sectionId ||
+      (isSec6 && (t.sectionId === 'framework' || t.sectionId.includes('perf-assessment') || t.title.toLowerCase().includes('performance assessment') || t.title.toLowerCase().includes('5-point rating'))) ||
+      (isSec8 && (t.sectionId === 'timetable' || t.sectionId.includes('review-timetable') || t.title.toLowerCase().includes('timetable') || t.title.toLowerCase().includes('schedule for performance review')))
+    );
     if (tables.length === 0) return null;
 
     return (
@@ -1359,6 +1378,331 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
       triggerNotification("Error pulling Core Competencies: " + err.message, "error");
     } finally {
       setPullingCompetencies(false);
+    }
+  };
+
+  const handleImportPerformanceAssessment = async (targetSectionId?: string) => {
+    setPullingPerfAssessment(true);
+    try {
+      const email = (currentUser?.email || '').toLowerCase().trim();
+      const res = await fetch(`/api/tenant/${activeTenantId}/performance-assessment-config?userId=${encodeURIComponent(email)}&t=${Date.now()}`);
+      if (!res.ok) {
+        throw new Error(`Failed to load Performance Assessment: ${res.statusText}`);
+      }
+      const data = await res.json();
+      if (data && Array.isArray(data.headers) && Array.isArray(data.rows) && data.rows.length > 0) {
+        const tableId = 'perf-assessment-table-' + Date.now();
+        
+        const point61Intro = "The assessment of an Individual will be based on his/her performance in relation to the KPAs and JSCs and performance indicators, as set out in this Performance Agreement and attached Workplan.\n\n6.1 KPAs will be assessed by reviewing all KPIs in a 5-point rating scale tabled as follows:";
+
+        let targetSec = dynamicSections.find(s => 
+          (targetSectionId && s.id === targetSectionId) ||
+          s.heading.trim().startsWith('6') ||
+          s.heading.toLowerCase().includes('6.') ||
+          s.heading.toLowerCase().includes('performance assessment') ||
+          s.heading.toLowerCase().includes('evaluating performance') ||
+          s.heading.toLowerCase().includes('performance management')
+        );
+
+        let assignedSectionId = 'framework';
+        let updatedDynamicSections = dynamicSections;
+
+        if (targetSec) {
+          assignedSectionId = targetSec.id;
+          updatedDynamicSections = dynamicSections.map(s => {
+            if (s.id === targetSec!.id) {
+              return {
+                ...s,
+                content1: point61Intro
+              };
+            }
+            return s;
+          });
+          setDynamicSections(updatedDynamicSections);
+        } else {
+          assignedSectionId = 'section-6-perf-assessment-' + Date.now();
+          const newSection: DynamicSection = {
+            id: assignedSectionId,
+            title: 'Section 6',
+            heading: '6. Performance Assessment',
+            content1: point61Intro,
+            content2: ''
+          };
+          updatedDynamicSections = [...dynamicSections, newSection];
+          setDynamicSections(updatedDynamicSections);
+        }
+
+        const newTable: CustomTable = {
+          id: tableId,
+          sectionId: assignedSectionId,
+          title: data.title || "Performance Assessment Framework (5-Point Rating Scale)",
+          headers: data.headers,
+          rows: data.rows
+        };
+
+        const updatedCustomTables = [
+          ...customTables.filter(t => t.sectionId !== assignedSectionId && t.sectionId !== 'framework' && !t.title.toLowerCase().includes('performance assessment')),
+          newTable
+        ];
+        setCustomTables(updatedCustomTables);
+
+        setKpaText(point61Intro);
+        setPulledPerfAssessmentCount(data.rows.length);
+        triggerNotification(`Successfully adopted Performance Assessment Table (${data.rows.length} rows) below Point 6.1!`, "success");
+
+        // Immediately auto-persist to Supabase for the current/impersonated user
+        try {
+          const activeEmail = (currentUser?.email || '').toLowerCase().trim();
+          if (activeEmail) {
+            const activeTplPayload = {
+              headingCover,
+              headingRegulatoryInfo,
+              dynamicSections: updatedDynamicSections,
+              headingPurpose,
+              headingValidity,
+              headingReporting,
+              headingFramework,
+              headingKpaTable,
+              headingJscTable,
+              headingConditions,
+              headingAssessmentKpas,
+              headingFeedback,
+              headingTimetable,
+              headingPoorPerformance,
+              headingDispute,
+              headingAmendment,
+              headingEvaluation,
+              headingNationalKpas,
+              heading4_4,
+              heading4_5,
+              headingSignatures,
+              headingAnnexA,
+              headingAnnexB,
+              headingAnnexC,
+              coverPage,
+              regulatoryInfoText,
+              purpose,
+              validity,
+              reporting,
+              framework,
+              frameworkBelowKpa,
+              nationalKpasText,
+              text4_4,
+              text4_5,
+              frameworkBelowJsc,
+              conditions,
+              kpaText: point61Intro,
+              feedback,
+              timetableText,
+              timetableTextBelowTable,
+              poorPerformance,
+              dispute,
+              amendment,
+              evaluation,
+              annexureC,
+              municipalityName,
+              templateSubHeader,
+              muniFontFamily,
+              muniFontSize,
+              muniColor,
+              subHeaderFontSize,
+              subHeaderColor,
+              muniLogo,
+              customTables: updatedCustomTables,
+              textColor,
+              headingColor,
+              borderColor,
+              borderStyle,
+              borderWidth,
+              documentFontFamily,
+              documentTextAlign,
+              showPageNumbers,
+              footerText,
+              updatedAt: new Date().toISOString()
+            };
+
+            await fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=${encodeURIComponent(activeEmail)}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                html: activeTplPayload,
+                htmlDocumentId: `draft_doc_${activeTenantId}_${activeEmail}`
+              })
+            });
+          }
+        } catch (saveErr) {
+          console.warn("Auto-save drafted document error on adopt:", saveErr);
+        }
+      } else {
+        triggerNotification("No Performance Assessment table found. Loaded defaults.", "success");
+      }
+    } catch (err: any) {
+      console.error(err);
+      triggerNotification("Error importing Performance Assessment: " + err.message, "error");
+    } finally {
+      setPullingPerfAssessment(false);
+    }
+  };
+
+  const handleImportReviewTimetable = async (targetSectionId?: string) => {
+    setPullingReviewTimetable(true);
+    try {
+      const email = (currentUser?.email || '').toLowerCase().trim();
+      const res = await fetch(`/api/tenant/${activeTenantId}/review-timetable-config?userId=${encodeURIComponent(email)}&t=${Date.now()}`);
+      if (!res.ok) {
+        throw new Error(`Failed to load Review Timetable: ${res.statusText}`);
+      }
+      const data = await res.json();
+      if (data && Array.isArray(data.headers) && Array.isArray(data.rows) && data.rows.length > 0) {
+        const tableId = 'review-timetable-' + Date.now();
+
+        const point8Intro = "The Individual must complete the Quarter Review before the due date. The due dates will be as follows:";
+
+        let targetSec = dynamicSections.find(s => 
+          (targetSectionId && s.id === targetSectionId) ||
+          s.heading.trim().startsWith('8') ||
+          s.heading.toLowerCase().includes('8.') ||
+          s.heading.toLowerCase().includes('timetable') ||
+          s.heading.toLowerCase().includes('schedule for performance review')
+        );
+
+        let assignedSectionId = 'timetable';
+        let updatedDynamicSections = dynamicSections;
+
+        if (targetSec) {
+          assignedSectionId = targetSec.id;
+          updatedDynamicSections = dynamicSections.map(s => {
+            if (s.id === targetSec!.id) {
+              return {
+                ...s,
+                content1: point8Intro
+              };
+            }
+            return s;
+          });
+          setDynamicSections(updatedDynamicSections);
+        } else {
+          assignedSectionId = 'section-8-review-timetable-' + Date.now();
+          const newSection: DynamicSection = {
+            id: assignedSectionId,
+            title: 'Section 8',
+            heading: '8. Schedule for Performance Reviews',
+            content1: point8Intro,
+            content2: ''
+          };
+          updatedDynamicSections = [...dynamicSections, newSection];
+          setDynamicSections(updatedDynamicSections);
+        }
+
+        const newTable: CustomTable = {
+          id: tableId,
+          sectionId: assignedSectionId,
+          title: data.title || "Schedule for Performance Reviews & Review Timetable",
+          headers: data.headers,
+          rows: data.rows
+        };
+
+        const updatedCustomTables = [
+          ...customTables.filter(t => t.sectionId !== assignedSectionId && t.sectionId !== 'timetable' && !t.title.toLowerCase().includes('review timetable')),
+          newTable
+        ];
+        setCustomTables(updatedCustomTables);
+
+        setTimetableText(point8Intro);
+        setPulledReviewTimetableCount(data.rows.length);
+        triggerNotification(`Successfully adopted Review Timetable (${data.rows.length} rows) below Point 8!`, "success");
+
+        // Immediately auto-persist to Supabase for the current/impersonated user
+        try {
+          const activeEmail = (currentUser?.email || '').toLowerCase().trim();
+          if (activeEmail) {
+            const activeTplPayload = {
+              headingCover,
+              headingRegulatoryInfo,
+              dynamicSections: updatedDynamicSections,
+              headingPurpose,
+              headingValidity,
+              headingReporting,
+              headingFramework,
+              headingKpaTable,
+              headingJscTable,
+              headingConditions,
+              headingAssessmentKpas,
+              headingFeedback,
+              headingTimetable,
+              headingPoorPerformance,
+              headingDispute,
+              headingAmendment,
+              headingEvaluation,
+              headingNationalKpas,
+              heading4_4,
+              heading4_5,
+              headingSignatures,
+              headingAnnexA,
+              headingAnnexB,
+              headingAnnexC,
+              coverPage,
+              regulatoryInfoText,
+              purpose,
+              validity,
+              reporting,
+              framework,
+              frameworkBelowKpa,
+              nationalKpasText,
+              text4_4,
+              text4_5,
+              frameworkBelowJsc,
+              conditions,
+              kpaText,
+              feedback,
+              timetableText: point8Intro,
+              timetableTextBelowTable,
+              poorPerformance,
+              dispute,
+              amendment,
+              evaluation,
+              annexureC,
+              municipalityName,
+              templateSubHeader,
+              muniFontFamily,
+              muniFontSize,
+              muniColor,
+              subHeaderFontSize,
+              subHeaderColor,
+              muniLogo,
+              customTables: updatedCustomTables,
+              textColor,
+              headingColor,
+              borderColor,
+              borderStyle,
+              borderWidth,
+              documentFontFamily,
+              documentTextAlign,
+              showPageNumbers,
+              footerText,
+              updatedAt: new Date().toISOString()
+            };
+
+            await fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=${encodeURIComponent(activeEmail)}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                html: activeTplPayload,
+                htmlDocumentId: `draft_doc_${activeTenantId}_${activeEmail}`
+              })
+            });
+          }
+        } catch (saveErr) {
+          console.warn("Auto-save drafted document error on adopt:", saveErr);
+        }
+      } else {
+        triggerNotification("No Review Timetable found. Loaded defaults.", "success");
+      }
+    } catch (err: any) {
+      console.error(err);
+      triggerNotification("Error importing Review Timetable: " + err.message, "error");
+    } finally {
+      setPullingReviewTimetable(false);
     }
   };
 
@@ -2972,6 +3316,60 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
                     )}
                   </>
                 )}
+
+                {/* Adopt Master Performance Assessment Table (Below Point 6.1) */}
+                <button
+                  id="btn-adopt-perf-assessment-table"
+                  type="button"
+                  disabled={pullingPerfAssessment}
+                  onClick={() => handleImportPerformanceAssessment()}
+                  className={`w-full text-left font-bold text-[10px] px-3 py-2 rounded-lg border flex items-center justify-between transition-all cursor-pointer ${
+                    pulledPerfAssessmentCount !== null 
+                      ? 'bg-emerald-50 border-emerald-300 text-emerald-800' 
+                      : 'bg-emerald-50/60 hover:bg-emerald-100/80 border-emerald-200 text-emerald-950'
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5 leading-snug">
+                    <ClipboardCheck className="w-3.5 h-3.5 text-emerald-700 flex-shrink-0" />
+                    <span>Adopt Performance Assessment Table (Below Point 6.1)</span>
+                  </span>
+                  {pullingPerfAssessment ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-700 flex-shrink-0" />
+                  ) : pulledPerfAssessmentCount !== null ? (
+                    <span className="text-[8px] bg-emerald-200 text-emerald-800 px-1.5 py-0.5 rounded-full font-black uppercase flex-shrink-0">
+                      {pulledPerfAssessmentCount} Rows Loaded
+                    </span>
+                  ) : (
+                    <ArrowRight className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+                  )}
+                </button>
+
+                {/* Adopt Master Review Timetable Table (Below Point 8) */}
+                <button
+                  id="btn-adopt-review-timetable-table"
+                  type="button"
+                  disabled={pullingReviewTimetable}
+                  onClick={() => handleImportReviewTimetable()}
+                  className={`w-full text-left font-bold text-[10px] px-3 py-2 rounded-lg border flex items-center justify-between transition-all cursor-pointer ${
+                    pulledReviewTimetableCount !== null 
+                      ? 'bg-indigo-50 border-indigo-300 text-indigo-800' 
+                      : 'bg-indigo-50/60 hover:bg-indigo-100/80 border-indigo-200 text-indigo-950'
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5 leading-snug">
+                    <CalendarDays className="w-3.5 h-3.5 text-indigo-700 flex-shrink-0" />
+                    <span>Adopt Review Timetable (Below Point 8)</span>
+                  </span>
+                  {pullingReviewTimetable ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-700 flex-shrink-0" />
+                  ) : pulledReviewTimetableCount !== null ? (
+                    <span className="text-[8px] bg-indigo-200 text-indigo-800 px-1.5 py-0.5 rounded-full font-black uppercase flex-shrink-0">
+                      {pulledReviewTimetableCount} Rows Loaded
+                    </span>
+                  ) : (
+                    <ArrowRight className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
+                  )}
+                </button>
               </div>
             </div>
 
@@ -3470,8 +3868,33 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
                   />
                 </div>
 
-                {(section.heading.trim().startsWith('6') || section.heading.toLowerCase().includes('6.')) && (
-                  <div className="pt-2">
+                {(section.heading.trim().startsWith('6') || section.heading.toLowerCase().includes('6.') || section.heading.toLowerCase().includes('performance assessment') || section.heading.toLowerCase().includes('evaluating performance')) && (
+                  <div className="pt-2 space-y-2">
+                    <button
+                      type="button"
+                      disabled={pullingPerfAssessment}
+                      onClick={() => handleImportPerformanceAssessment(section.id)}
+                      className={`w-full text-left font-bold text-[10px] px-3 py-2 rounded-lg border flex items-center justify-between transition-all cursor-pointer ${
+                        pulledPerfAssessmentCount !== null 
+                          ? 'bg-emerald-50 border-emerald-300 text-emerald-800' 
+                          : 'bg-emerald-50/70 hover:bg-emerald-100/90 border-emerald-200 text-emerald-950 shadow-sm'
+                      }`}
+                    >
+                      <span className="flex items-center gap-1.5 leading-snug">
+                        <ClipboardCheck className="w-3.5 h-3.5 text-emerald-700 flex-shrink-0" />
+                        <span>Adopt Performance Assessment Table (Below Point 6.1)</span>
+                      </span>
+                      {pullingPerfAssessment ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-700 flex-shrink-0" />
+                      ) : pulledPerfAssessmentCount !== null ? (
+                        <span className="text-[8px] bg-emerald-200 text-emerald-800 px-1.5 py-0.5 rounded-full font-black uppercase flex-shrink-0">
+                          {pulledPerfAssessmentCount} Rows Loaded
+                        </span>
+                      ) : (
+                        <ArrowRight className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                      )}
+                    </button>
+
                     <button
                       type="button"
                       disabled={pullingCompetencies}
@@ -3494,6 +3917,35 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
                         </span>
                       ) : (
                         <ArrowRight className="w-3.5 h-3.5 text-indigo-400" />
+                      )}
+                    </button>
+                  </div>
+                )}
+
+                {(section.heading.trim().startsWith('8') || section.heading.toLowerCase().includes('8.') || section.heading.toLowerCase().includes('timetable') || section.heading.toLowerCase().includes('schedule for performance review') || section.heading.toLowerCase().includes('review')) && (
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      disabled={pullingReviewTimetable}
+                      onClick={() => handleImportReviewTimetable(section.id)}
+                      className={`w-full text-left font-bold text-[10px] px-3 py-2 rounded-lg border flex items-center justify-between transition-all cursor-pointer ${
+                        pulledReviewTimetableCount !== null 
+                          ? 'bg-indigo-50 border-indigo-300 text-indigo-800' 
+                          : 'bg-indigo-50/70 hover:bg-indigo-100/90 border-indigo-200 text-indigo-950 shadow-sm'
+                      }`}
+                    >
+                      <span className="flex items-center gap-1.5 leading-snug">
+                        <CalendarDays className="w-3.5 h-3.5 text-indigo-700 flex-shrink-0" />
+                        <span>Adopt Review Timetable (Below Point 8)</span>
+                      </span>
+                      {pullingReviewTimetable ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-700 flex-shrink-0" />
+                      ) : pulledReviewTimetableCount !== null ? (
+                        <span className="text-[8px] bg-indigo-200 text-indigo-800 px-1.5 py-0.5 rounded-full font-black uppercase flex-shrink-0">
+                          {pulledReviewTimetableCount} Rows Loaded
+                        </span>
+                      ) : (
+                        <ArrowRight className="w-3.5 h-3.5 text-indigo-600 flex-shrink-0" />
                       )}
                     </button>
                   </div>

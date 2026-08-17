@@ -2010,9 +2010,10 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
         </div>
 
         {activeTab === 'drafting_suite' ? (
-          <PADraftingSuite currentUser={effectiveUser as any} activeTenantId={activeTenantId} />
+          <PADraftingSuite key={`pa_suite_${effectiveUser?.email || currentUser.email}_${activeTenantId}`} currentUser={effectiveUser as any} activeTenantId={activeTenantId} />
         ) : activeTab === 'drafting_suite_corporate_services' ? (
           <DraftingSuiteTeam 
+            key={`pa_corp_${effectiveUser?.email || currentUser.email}_${activeTenantId}`}
             currentUser={effectiveUser as any} 
             activeTenantId={activeTenantId} 
             teamTitle="Corporate Services Team"
@@ -2021,6 +2022,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
           />
         ) : activeTab === 'drafting_suite_pms_team' ? (
           <DraftingSuiteTeam 
+            key={`pa_pms_${effectiveUser?.email || currentUser.email}_${activeTenantId}`}
             currentUser={effectiveUser as any} 
             activeTenantId={activeTenantId} 
             teamTitle="PMS Team"
@@ -2028,12 +2030,12 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
             defaultRows={DEFAULT_PMS_TEAM_ROWS}
           />
         ) : activeTab === 'drafting_suite_firefighters' && isFirefighterTabVisible ? (
-          <DraftingSuiteFirefighters currentUser={effectiveUser as any} activeTenantId={activeTenantId} />
+          <DraftingSuiteFirefighters key={`pa_ff_${effectiveUser?.email || currentUser.email}_${activeTenantId}`} currentUser={effectiveUser as any} activeTenantId={activeTenantId} />
         ) : activeTab === 'lead_fire_fighter' ? (
-          <LeadFireFighterPADraftingSuite currentUser={effectiveUser as any} activeTenantId={activeTenantId} />
+          <LeadFireFighterPADraftingSuite key={`pa_lff_${effectiveUser?.email || currentUser.email}_${activeTenantId}`} currentUser={effectiveUser as any} activeTenantId={activeTenantId} />
         ) : activeTab === 'templates' ? (
           <div className="flex-1 overflow-y-auto">
-            <PATemplates currentUser={effectiveUser as any} activeTenantId={activeTenantId} />
+            <PATemplates key={`pa_tpl_${effectiveUser?.email || currentUser.email}_${activeTenantId}`} currentUser={effectiveUser as any} activeTenantId={activeTenantId} />
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto p-6 bg-slate-100">

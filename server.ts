@@ -4864,6 +4864,409 @@ CRITICAL ZERO-VARIANCE & TARGET EXTRACTION DIRECTIVES:
     }
   });
 
+  // 17.5 Performance Assessment Master Configuration
+  app.get("/api/tenant/:tenantId/performance-assessment-config", async (req, res) => {
+    const { tenantId: routeTenantId } = req.params;
+    const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
+    try {
+      const supabase = getSupabase();
+      const tenantId = await resolveTenantId(routeTenantId, userId);
+
+      // Default static 5-row Performance Assessment Framework table
+      const defaultConfig = {
+        title: "Performance Assessment Framework & Rating Scale",
+        subtitle: "Regulation 5-Point Rating Scale & Performance Evaluation Standards",
+        description: "The performance assessment of the Employee will be based on the following statutory 5-point rating scale criteria.",
+        notesAbove: "4.1 The Employee agrees to participate in the performance assessment and development system of the Municipality.\n4.2 The Employee undertakes to actively focus on consistent achievement of core performance standards, strategic KPAs, and prescribed competency levels.\n4.3 The performance assessment will be moderated and calculated in accordance with the following 5-point rating scale:",
+        headers: [
+          "Level",
+          "Terminology / Rating Band",
+          "Qualitative Description / Performance Criteria",
+          "Scorecard Range (%)",
+          "Remedial / Bonus Implication"
+        ],
+        rows: [
+          [
+            "5",
+            "Outstanding Performance",
+            "Performance far exceeds the standard expected of an employee at this level. The operational and strategic deliverables have demonstrated exceptional quality, innovation, and leadership throughout the financial year.",
+            "130% - 167%",
+            "Eligible for Maximum Performance Bonus consideration as per municipal framework regulations and policy."
+          ],
+          [
+            "4",
+            "Performance Significantly Above Expectations",
+            "Performance is significantly higher than the standard expected in the position with respect to quality, quantity, and timeliness of deliverables.",
+            "100% - 129%",
+            "Eligible for Merit Performance Bonus consideration in accordance with performance moderation rules."
+          ],
+          [
+            "3",
+            "Fully Effective",
+            "Performance fully meets the standard expected in all areas of the position. The employee has achieved 100% of agreed quarterly objectives and key performance indicators satisfactorily.",
+            "100%",
+            "Standard compliant delivery; maintains normal salary progression and good performance standing."
+          ],
+          [
+            "2",
+            "Performance Not Fully Effective",
+            "Performance is below the standard required for the job in key areas. Corrective action and structured personal development plan (PDP) intervention required.",
+            "60% - 99%",
+            "Mandatory PDP targeted training; remedial action timeline established; ineligible for performance bonus."
+          ],
+          [
+            "1",
+            "Unacceptable Performance",
+            "Performance does not meet the standard expected for the job. The employee has failed to demonstrate the minimum required output despite prior counseling and guidance.",
+            "< 60%",
+            "Formal capability / incapacity proceedings initiated in terms of applicable municipal regulations."
+          ]
+        ],
+        notesBelow: "4.4 The personal development plan (PDP) will address any developmental needs identified during the competency assessment process.\n4.5 Performance evaluation results are subject to institutional moderation by the Departmental Performance Management Committee (DPMC) and Internal Audit verification.",
+        updatedAt: new Date().toISOString(),
+        updatedBy: "System Default"
+      };
+
+      // Retrieve all saved performance assessment configurations from Supabase to find the newest master version
+      let latestDoc: any = null;
+      let latestTimestamp = 0;
+
+      const { data: allConfigs, error: queryErr } = await supabase
+        .from('messages')
+        .select('id, content, created_at')
+        .eq('message_type', 'performance_assessment_config');
+
+      if (!queryErr && allConfigs && allConfigs.length > 0) {
+        for (const item of allConfigs) {
+          if (!item.content) continue;
+          try {
+            const parsed = JSON.parse(item.content);
+            if (parsed && Array.isArray(parsed.headers) && Array.isArray(parsed.rows) && parsed.rows.length > 0) {
+              const timeVal = parsed.updatedAt ? new Date(parsed.updatedAt).getTime() : (item.created_at ? new Date(item.created_at).getTime() : 0);
+              if (timeVal >= latestTimestamp) {
+                latestTimestamp = timeVal;
+                latestDoc = parsed;
+              }
+            }
+          } catch (e) {}
+        }
+      }
+
+      // If specific keys are needed as fallback
+      if (!latestDoc) {
+        const candidateKeys = [
+          `perf_assessment_config_${tenantId}_${userId}`,
+          `perf_assessment_config_${tenantId}`,
+          `perf_assessment_config_global_master`,
+          `perf_assessment_config_tenant-229`,
+          `perf_assessment_config_demo-tenant`,
+          `perf_assessment_config_default`
+        ];
+
+        for (const k of candidateKeys) {
+          const { data } = await supabase
+            .from('messages')
+            .select('content')
+            .eq('id', k)
+            .maybeSingle();
+          if (data && data.content) {
+            try {
+              const p = JSON.parse(data.content);
+              if (p && Array.isArray(p.headers) && Array.isArray(p.rows) && p.rows.length > 0) {
+                latestDoc = p;
+                break;
+              }
+            } catch (e) {}
+          }
+        }
+      }
+
+      if (latestDoc) {
+        return res.json(latestDoc);
+      }
+
+      return res.json(defaultConfig);
+    } catch (err: any) {
+      console.error("performance-assessment-config load exception:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/tenant/:tenantId/performance-assessment-config", async (req, res) => {
+    const { tenantId: routeTenantId } = req.params;
+    const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
+    const configData = req.body;
+    try {
+      const supabase = getSupabase();
+      const tenantId = await resolveTenantId(routeTenantId, userId);
+      
+      const nowIso = new Date().toISOString();
+      const payload = {
+        ...configData,
+        updatedAt: nowIso,
+        updatedBy: userId || 'User'
+      };
+
+      // Broadcast and save to all master keys across the database so EVERY user & tenant sees it
+      const keysToSave = [
+        'perf_assessment_config_global_master',
+        `perf_assessment_config_${tenantId}`,
+        'perf_assessment_config_tenant-229',
+        'perf_assessment_config_demo-tenant',
+        'perf_assessment_config_nkangala_auto',
+        'perf_assessment_config_default'
+      ];
+
+      if (userId && userId !== 'default') {
+        keysToSave.push(`perf_assessment_config_${tenantId}_${userId}`);
+        keysToSave.push(`perf_assessment_config_${userId}`);
+      }
+
+      const upsertPromises = keysToSave.map(docId => 
+        supabase
+          .from('messages')
+          .upsert({
+            id: docId,
+            tenant_id: tenantId,
+            sender_id: 'perf_assessment_editor',
+            sender_email: userId || 'system@mzansiflow.local',
+            sender_name: 'Performance Assessment Editor',
+            content: JSON.stringify(payload),
+            message_type: 'performance_assessment_config',
+            created_at: nowIso
+          })
+      );
+
+      await Promise.allSettled(upsertPromises);
+
+      // Also synchronize all existing records with message_type 'performance_assessment_config'
+      try {
+        await supabase
+          .from('messages')
+          .update({
+            content: JSON.stringify(payload),
+            created_at: nowIso
+          })
+          .eq('message_type', 'performance_assessment_config');
+      } catch (syncErr) {
+        console.warn("Could not batch update other performance_assessment_config records:", syncErr);
+      }
+
+      res.json({ success: true, config: payload });
+    } catch (err: any) {
+      console.error("performance-assessment-config save exception:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // 17.6 Review Timetable Master Configuration
+  app.get("/api/tenant/:tenantId/review-timetable-config", async (req, res) => {
+    const { tenantId: routeTenantId } = req.params;
+    const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
+    try {
+      const supabase = getSupabase();
+      const tenantId = await resolveTenantId(routeTenantId, userId);
+
+      // Default static 6-row Review Timetable table
+      const defaultConfig = {
+        title: "Schedule for Performance Reviews & Timetable",
+        subtitle: "Statutory Performance Review Intervals & Compliance Discussions",
+        description: "The performance of the Employee in relation to their performance agreement shall be reviewed on the following dates with the understanding that reviews in the second and fourth quarter may be conducted in more detail.",
+        notesAbove: "8.1 The performance of each employee in relation to his / her performance agreement shall be reviewed according to the established institutional schedule below.\n8.2 The Employer shall keep a record of the mid-year review and annual assessment meetings.",
+        headers: [
+          "Review Interval / Milestone",
+          "Evaluation Period",
+          "Target Submission Date",
+          "Review Framework & Mechanism",
+          "Responsible Parties / Reviewers",
+          "Output & Compliance Documentation"
+        ],
+        rows: [
+          [
+            "First Quarter (Q1) Review",
+            "July - September",
+            "October (First Week)",
+            "Formal Progress Review & Portfolio of Evidence (POE) Submission",
+            "Supervisor & Incumbent",
+            "Q1 Performance Progress Report & Variance Remedial Plan"
+          ],
+          [
+            "Second Quarter (Q2) / Mid-Year",
+            "October - December",
+            "January (Third Week)",
+            "Comprehensive Mid-Year Assessment & S72 Formal Evaluation",
+            "Supervisor, Evaluation Panel & Municipal Manager",
+            "Section 72 Mid-Year Performance & Budget Adjustment Report"
+          ],
+          [
+            "Third Quarter (Q3) Review",
+            "January - March",
+            "April (First Week)",
+            "Formal Quarterly Milestone & Evidence Review",
+            "Supervisor & Incumbent",
+            "Q3 Performance Progress Assessment & KPI Status Report"
+          ],
+          [
+            "Fourth Quarter (Q4) / Annual Assessment",
+            "April - June",
+            "July (Fourth Week)",
+            "Comprehensive Annual Self-Assessment & Audit Reconciliation",
+            "Supervisor, MM & Executive Mayor",
+            "Annual Performance Report & Final Evidence Dossier"
+          ],
+          [
+            "DPMC & Internal Audit Moderation",
+            "July - August",
+            "August (Third Week)",
+            "Institutional Moderation, Evidence Verification & Audit Review",
+            "DPMC / Internal Audit Committee",
+            "Moderated Performance Scorecard & Quality Assurance Certificate"
+          ],
+          [
+            "Council Tabling & Bonus Determination",
+            "August - September",
+            "September / October (Council Sitting)",
+            "Final Tabling to Municipal Council & Public Disclosure",
+            "Municipal Council, Mayor & Accounting Officer",
+            "Adopted Council Resolution & Audited Annual Performance File"
+          ]
+        ],
+        notesBelow: "8.3 Performance feedback shall be based on the Employer's assessment of the Employee's performance.\n8.4 The Employer will be entitled to review and make reasonable changes to the provisions of Annexure \"A\" from time to time for operational reasons. The Employee will be fully consulted before any such change is made.",
+        updatedAt: new Date().toISOString(),
+        updatedBy: "System Default"
+      };
+
+      // Retrieve all saved review timetable configurations from Supabase to find the newest master version
+      let latestDoc: any = null;
+      let latestTimestamp = 0;
+
+      const { data: allConfigs, error: queryErr } = await supabase
+        .from('messages')
+        .select('id, content, created_at')
+        .eq('message_type', 'review_timetable_config');
+
+      if (!queryErr && allConfigs && allConfigs.length > 0) {
+        for (const item of allConfigs) {
+          if (!item.content) continue;
+          try {
+            const parsed = JSON.parse(item.content);
+            if (parsed && Array.isArray(parsed.headers) && Array.isArray(parsed.rows) && parsed.rows.length > 0) {
+              const timeVal = parsed.updatedAt ? new Date(parsed.updatedAt).getTime() : (item.created_at ? new Date(item.created_at).getTime() : 0);
+              if (timeVal >= latestTimestamp) {
+                latestTimestamp = timeVal;
+                latestDoc = parsed;
+              }
+            }
+          } catch (e) {}
+        }
+      }
+
+      if (!latestDoc) {
+        const candidateKeys = [
+          `review_timetable_config_${tenantId}_${userId}`,
+          `review_timetable_config_${tenantId}`,
+          `review_timetable_config_global_master`,
+          `review_timetable_config_tenant-229`,
+          `review_timetable_config_demo-tenant`,
+          `review_timetable_config_default`
+        ];
+
+        for (const k of candidateKeys) {
+          const { data } = await supabase
+            .from('messages')
+            .select('content')
+            .eq('id', k)
+            .maybeSingle();
+          if (data && data.content) {
+            try {
+              const p = JSON.parse(data.content);
+              if (p && Array.isArray(p.headers) && Array.isArray(p.rows) && p.rows.length > 0) {
+                latestDoc = p;
+                break;
+              }
+            } catch (e) {}
+          }
+        }
+      }
+
+      if (latestDoc) {
+        return res.json(latestDoc);
+      }
+
+      return res.json(defaultConfig);
+    } catch (err: any) {
+      console.error("review-timetable-config load exception:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/tenant/:tenantId/review-timetable-config", async (req, res) => {
+    const { tenantId: routeTenantId } = req.params;
+    const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
+    const configData = req.body;
+    try {
+      const supabase = getSupabase();
+      const tenantId = await resolveTenantId(routeTenantId, userId);
+      
+      const nowIso = new Date().toISOString();
+      const payload = {
+        ...configData,
+        updatedAt: nowIso,
+        updatedBy: userId || 'User'
+      };
+
+      // Broadcast and save to all master keys across the database so EVERY user & tenant sees it
+      const keysToSave = [
+        'review_timetable_config_global_master',
+        `review_timetable_config_${tenantId}`,
+        'review_timetable_config_tenant-229',
+        'review_timetable_config_demo-tenant',
+        'review_timetable_config_nkangala_auto',
+        'review_timetable_config_default'
+      ];
+
+      if (userId && userId !== 'default') {
+        keysToSave.push(`review_timetable_config_${tenantId}_${userId}`);
+        keysToSave.push(`review_timetable_config_${userId}`);
+      }
+
+      const upsertPromises = keysToSave.map(docId => 
+        supabase
+          .from('messages')
+          .upsert({
+            id: docId,
+            tenant_id: tenantId,
+            sender_id: 'review_timetable_editor',
+            sender_email: userId || 'system@mzansiflow.local',
+            sender_name: 'Review Timetable Editor',
+            content: JSON.stringify(payload),
+            message_type: 'review_timetable_config',
+            created_at: nowIso
+          })
+      );
+
+      await Promise.allSettled(upsertPromises);
+
+      // Also synchronize all existing records with message_type 'review_timetable_config'
+      try {
+        await supabase
+          .from('messages')
+          .update({
+            content: JSON.stringify(payload),
+            created_at: nowIso
+          })
+          .eq('message_type', 'review_timetable_config');
+      } catch (syncErr) {
+        console.warn("Could not batch update other review_timetable_config records:", syncErr);
+      }
+
+      res.json({ success: true, config: payload });
+    } catch (err: any) {
+      console.error("review-timetable-config save exception:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Performance Plan (PPLAN) Routes
   let pplanCache;
   if (typeof global.pplanCache === 'undefined') {
