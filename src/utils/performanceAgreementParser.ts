@@ -605,6 +605,37 @@ function parseHtmlTableToMappedKPIs(htmlString: string): ExtractedMappedKPI[] {
   return allItems;
 }
 
+// Helper to identify and skip contract clauses, rating scales, and legal text
+function isLegalOrIgnoredText(text: string): boolean {
+  const lower = text.toLowerCase();
+  return (
+    (lower.includes('page ') && lower.includes(' of ')) ||
+    lower.includes("employee’s signature") || lower.includes("employee's signature") ||
+    lower.includes("supervisor’ signature") || lower.includes("supervisor' signature") ||
+    lower.includes("pms official’s signature") || lower.includes("pms official's signature") ||
+    lower.includes("annexure b: personal development plan") ||
+    lower.includes("annexure c: disclosure of interest") ||
+    lower.includes("whereby it is agreed as follows") ||
+    lower.includes("1. purpose") || lower.includes("2. validity of the agreement") ||
+    lower.includes("3. reporting requirements") || lower.includes("4. performance assessment framework") ||
+    lower.includes("5. conditions of performance") || lower.includes("6. performance assessment") ||
+    lower.includes("7. feedback") || lower.includes("8. timetable and records") ||
+    lower.includes("9. management of poor performance") || lower.includes("10. dispute resolution") ||
+    lower.includes("11. amendment of agreement") || lower.includes("12. evaluation") ||
+    lower.includes("13. signatures of parties") ||
+    (lower.includes("outstanding performance") && lower.includes("75-100")) ||
+    (lower.includes("fully effective") && lower.includes("51-64")) ||
+    (lower.includes("not fully effective") && lower.includes("31-50")) ||
+    (lower.includes("unacceptable performance") && lower.includes("less than")) ||
+    lower.includes("performance significantly above") ||
+    lower.startsWith("level terminology description") ||
+    lower.startsWith("note: adherence to jsc") ||
+    lower.startsWith("note: weighting for one") ||
+    lower.startsWith("the municipal moderation committee consists of") ||
+    lower.startsWith("the departmental performance moderation")
+  );
+}
+
 /**
  * Parses 2D Matrix into the exact required schema without inserting fake defaults
  * Supports multi-tier/merged header rows and positional column fallbacks
@@ -619,8 +650,8 @@ function parseMatrixToMappedKPIs(matrix: string[][], contextHint?: string): Extr
   for (let r = 0; r < Math.min(matrix.length, 10); r++) {
     const rowStr = matrix[r].join(' ').toLowerCase();
     if (
-      (rowStr.includes('kpi') || rowStr.includes('indicator') || rowStr.includes('target') || rowStr.includes('output') || rowStr.includes('measure')) &&
-      (rowStr.includes('weight') || rowStr.includes('annual') || rowStr.includes('q1') || rowStr.includes('quarter') || rowStr.includes('target') || rowStr.includes('baseline') || rowStr.includes('poe') || rowStr.includes('evidence'))
+      (rowStr.includes('kpi') || rowStr.includes('indicator') || rowStr.includes('project') || rowStr.includes('target') || rowStr.includes('output') || rowStr.includes('measure')) &&
+      (rowStr.includes('weight') || rowStr.includes('annual') || rowStr.includes('q1') || rowStr.includes('quarter') || rowStr.includes('milestone') || rowStr.includes('target') || rowStr.includes('baseline') || rowStr.includes('poe') || rowStr.includes('evidence'))
     ) {
       headerRowIndex = r;
       break;
@@ -639,18 +670,17 @@ function parseMatrixToMappedKPIs(matrix: string[][], contextHint?: string): Extr
 
   for (let c = 0; c < maxCols; c++) {
     let colText = (matrix[headerRowIndex]?.[c] || '').toLowerCase().trim();
-    // Check if next 1 or 2 rows are also header/sub-header rows (e.g. Row 0 has "Quarterly Targets", Row 1 has "Q1", "Q2", "Q3", "Q4")
+    // Check if next 1 or 2 rows are also header/sub-header rows
     for (let subR = 1; subR <= 2; subR++) {
       const candidateRowIndex = headerRowIndex + subR;
       if (candidateRowIndex < matrix.length) {
         const candidateRow = matrix[candidateRowIndex];
         const rowJoined = candidateRow.join(' ').toLowerCase();
-        // If row contains header terms rather than numeric KPI rows
         const isHeaderLike = rowJoined.includes('q1') || rowJoined.includes('q2') || rowJoined.includes('q3') || rowJoined.includes('q4') ||
           rowJoined.includes('annual') || rowJoined.includes('target') || rowJoined.includes('baseline') || rowJoined.includes('quarter') ||
-          rowJoined.includes('actual') || rowJoined.includes('weight') || rowJoined.includes('poe') || rowJoined.includes('evidence');
+          rowJoined.includes('milestone') || rowJoined.includes('actual') || rowJoined.includes('weight') || rowJoined.includes('poe') || rowJoined.includes('evidence');
         
-        const hasKpiNumber = candidateRow.some(cell => /^[A-Z]{1,5}[-_]\d+|\b\d+\.\d+\b|\bKPI\s*\d+/i.test(cell.trim()));
+        const hasKpiNumber = candidateRow.some(cell => /^[M|P]_\d+|[A-Z]{1,5}[-_]\d+|\b\d+\.\d+\b|\bKPI\s*\d+/i.test(cell.trim()));
         
         if (isHeaderLike && !hasKpiNumber) {
           const subCell = (candidateRow[c] || '').toLowerCase().trim();
@@ -667,56 +697,57 @@ function parseMatrixToMappedKPIs(matrix: string[][], contextHint?: string): Extr
   }
 
   // Find column indices with robust keyword matching
-  let colKpiNo = compositeHeader.findIndex(h => h.includes('kpi no') || h.includes('kpi number') || h.includes('kpi ref') || h.includes('ref no') || h.includes('ref number') || h.includes('indicator no') || h === 'no' || h === 'no.' || h === '#' || h === 'ref');
-  let colKpiDesc = compositeHeader.findIndex(h => h.includes('key performance indicator') || h.includes('kpi description') || h.includes('indicator') || h.includes('output') || h.includes('description') || h.includes('measure') || h.includes('activity') || h === 'kpi');
+  let colKpiNo = compositeHeader.findIndex(h => h.includes('kpi ids') || h.includes('kpi id') || h.includes('kpi no') || h.includes('kpi number') || h.includes('project id') || h.includes('kpi ref') || h.includes('ref no') || h.includes('ref number') || h.includes('indicator no') || h === 'no' || h === 'no.' || h === '#' || h === 'ref');
+  let colKpiDesc = compositeHeader.findIndex(h => h.includes('project name') || h.includes('key performance indicator') || h.includes('kpi description') || h.includes('indicator') || h.includes('output') || h.includes('description') || h.includes('measure') || h.includes('activity') || h === 'kpi' || h === 'project');
+  let colLocation = compositeHeader.findIndex(h => h.includes('location') || h.includes('locatio') || h.includes('municipality') || h.includes('area'));
   let colWeight = compositeHeader.findIndex(h => h.includes('weight') || h.includes('%wt') || h.includes('weighting') || h.includes('%') || h.includes('wt'));
   let colBaseline = compositeHeader.findIndex(h => h.includes('baseline') || h.includes('previous year') || h.includes('prior year') || h.includes('2023/24') || h.includes('2024/25 actual') || h.includes('actual baseline'));
   
   // Target columns: exact pattern matching
   let colAnnualTarget = compositeHeader.findIndex(h => 
     (h.includes('annual') && h.includes('target')) || 
+    (h.includes('annual') && h.includes('milestone')) || 
     (h.includes('annual') && h.includes('planned')) || 
     h.includes('annual target') || 
     h.includes('yearly target') || 
     h.includes('annual planned target') || 
+    h.includes('annual milestone') ||
     h.includes('target for the year') || 
     h.includes('annual output') || 
     h.includes('target (annual)') || 
     h.includes('planned annual target') ||
-    (/^(annual|target)$/i.test(h) && !h.includes('q1') && !h.includes('q2') && !h.includes('q3') && !h.includes('q4') && !h.includes('1st') && !h.includes('2nd') && !h.includes('3rd') && !h.includes('4th'))
+    (/^(annual|annual milestone|target)$/i.test(h) && !h.includes('q1') && !h.includes('q2') && !h.includes('q3') && !h.includes('q4') && !h.includes('1st') && !h.includes('2nd') && !h.includes('3rd') && !h.includes('4th'))
   );
 
   let colQ1 = compositeHeader.findIndex(h => 
     /\b(q1|q\s*1|1st\s*q|1st\s*quarter|quarter\s*1|quarter\s*01|first\s*quarter|qtr\s*1|qtr1|jul\s*[-–]\s*sep)\b/i.test(h) ||
-    h.includes('1st quarter target') || h.includes('1st qtr target') || h.includes('q1 target') || h.includes('q1 planned') || h.includes('quarter 1 target')
+    h.includes('1st quarter target') || h.includes('1st quarter planned') || h.includes('1st qtr target') || h.includes('q1 target') || h.includes('q1 planned') || h.includes('quarter 1 target')
   );
 
   let colQ2 = compositeHeader.findIndex(h => 
     /\b(q2|q\s*2|2nd\s*q|2nd\s*quarter|quarter\s*2|quarter\s*02|second\s*quarter|qtr\s*2|qtr2|oct\s*[-–]\s*dec)\b/i.test(h) ||
-    h.includes('2nd quarter target') || h.includes('2nd qtr target') || h.includes('q2 target') || h.includes('q2 planned') || h.includes('quarter 2 target')
+    h.includes('2nd quarter target') || h.includes('2nd quarter planned') || h.includes('2nd qtr target') || h.includes('q2 target') || h.includes('q2 planned') || h.includes('quarter 2 target')
   );
 
   let colQ3 = compositeHeader.findIndex(h => 
     /\b(q3|q\s*3|3rd\s*q|3rd\s*quarter|quarter\s*3|quarter\s*03|third\s*quarter|qtr\s*3|qtr3|jan\s*[-–]\s*mar)\b/i.test(h) ||
-    h.includes('3rd quarter target') || h.includes('3rd qtr target') || h.includes('q3 target') || h.includes('q3 planned') || h.includes('quarter 3 target')
+    h.includes('3rd quarter target') || h.includes('3rd quarter planned') || h.includes('3rd qtr target') || h.includes('q3 target') || h.includes('q3 planned') || h.includes('quarter 3 target')
   );
 
   let colQ4 = compositeHeader.findIndex(h => 
     /\b(q4|q\s*4|4th\s*q|4th\s*quarter|quarter\s*4|quarter\s*04|fourth\s*quarter|qtr\s*4|qtr4|apr\s*[-–]\s*jun)\b/i.test(h) ||
-    h.includes('4th quarter target') || h.includes('4th qtr target') || h.includes('q4 target') || h.includes('q4 planned') || h.includes('quarter 4 target')
+    h.includes('4th quarter target') || h.includes('4th quarter planned') || h.includes('4th qtr target') || h.includes('q4 target') || h.includes('q4 planned') || h.includes('quarter 4 target')
   );
 
   let colPoe = compositeHeader.findIndex(h => h.includes('poe') || h.includes('portfolio of evidence') || h.includes('means of verification') || h.includes('evidence') || h.includes('verification'));
-  let colBudget = compositeHeader.findIndex(h => h.includes('total budget') || h.includes('budget') || h.includes('allocation') || h.includes('financial') || h.includes('funding'));
+  let colBudget = compositeHeader.findIndex(h => h.includes('total budget') || h.includes('total budget allocated') || h.includes('budget') || h.includes('allocation') || h.includes('financial') || h.includes('funding'));
   let colFunctionalKpa = compositeHeader.findIndex(h => h.includes('functional kpa') || h.includes('functional area') || h.includes('kpa') || h.includes('key performance area') || h.includes('pillar') || h.includes('strategic objective') || h.includes('departmental kpa'));
 
   // 3. Fallback Positional Resolution for Standard SDBIP / Scorecard Matrices
-  // If baseline is known and target columns were not recognized due to unusual or merged header labels:
   if (colBaseline !== -1) {
     const endTargetCol = colPoe !== -1 ? colPoe : maxCols;
     const targetGap = endTargetCol - colBaseline - 1;
 
-    // Standard 5-column target layout: [Annual Target, Q1, Q2, Q3, Q4] between Baseline and POE
     if (targetGap >= 5) {
       if (colAnnualTarget === -1) colAnnualTarget = colBaseline + 1;
       if (colQ1 === -1) colQ1 = colBaseline + 2;
@@ -724,7 +755,6 @@ function parseMatrixToMappedKPIs(matrix: string[][], contextHint?: string): Extr
       if (colQ3 === -1) colQ3 = colBaseline + 4;
       if (colQ4 === -1) colQ4 = colBaseline + 5;
     } else if (targetGap === 4) {
-      // 4-column quarterly layout: [Q1, Q2, Q3, Q4]
       if (colQ1 === -1) colQ1 = colBaseline + 1;
       if (colQ2 === -1) colQ2 = colBaseline + 2;
       if (colQ3 === -1) colQ3 = colBaseline + 3;
@@ -743,21 +773,32 @@ function parseMatrixToMappedKPIs(matrix: string[][], contextHint?: string): Extr
     const rowText = row.join(' ').trim();
     if (!rowText) continue;
 
-    // Check if this row is a KPA Section Banner (e.g., "KPA 1: Basic Service Delivery...")
+    if (isLegalOrIgnoredText(rowText)) {
+      continue;
+    }
+
+    // Check if this row is a KPA Section Banner or Projects Section Banner
     if (
-      rowText.toLowerCase().includes('kpa') || 
-      rowText.toLowerCase().includes('key performance area') || 
-      rowText.toLowerCase().includes('functional area') || 
-      rowText.toLowerCase().includes('basic service') || 
-      rowText.toLowerCase().includes('financial viability') ||
-      rowText.toLowerCase().includes('local economic') ||
+      rowText.toLowerCase().includes('kpa 1:') ||
+      rowText.toLowerCase().includes('kpa 2:') ||
+      rowText.toLowerCase().includes('kpa 3:') ||
+      rowText.toLowerCase().includes('kpa 4:') ||
+      rowText.toLowerCase().includes('kpa 5:') ||
+      rowText.toLowerCase().includes('institution development') ||
       rowText.toLowerCase().includes('good governance') ||
-      rowText.toLowerCase().includes('institutional development') ||
-      rowText.toLowerCase().includes('spatial rationale')
+      rowText.toLowerCase().includes('local economic') ||
+      rowText.toLowerCase().includes('financial viability') ||
+      rowText.toLowerCase().includes('basic service delivery') ||
+      rowText.toLowerCase().includes('projects: completed projects') ||
+      rowText.toLowerCase().includes('completed projects for priority issue')
     ) {
       const cleanBanner = rowText.replace(/^[-*#\s|]+/, '').replace(/^KPA\s*\d+\s*[:.\-–]\s*/i, '').trim();
-      if (cleanBanner.length > 2 && !cleanBanner.toLowerCase().includes('kpi no')) {
-        currentFunctionalKpa = cleanBanner;
+      if (cleanBanner.length > 2 && !cleanBanner.toLowerCase().includes('kpi no') && !cleanBanner.toLowerCase().includes('kpi ids')) {
+        if (rowText.toLowerCase().includes('projects:') || rowText.toLowerCase().includes('completed projects for priority issue')) {
+          currentFunctionalKpa = 'KPA 5: Basic Service Delivery and Infrastructure (' + cleanBanner.replace(/^completed projects for priority issue\s*\d*[:.\-–\s]*/i, '').trim() + ')';
+        } else {
+          currentFunctionalKpa = cleanBanner;
+        }
       }
       continue;
     }
@@ -765,15 +806,16 @@ function parseMatrixToMappedKPIs(matrix: string[][], contextHint?: string): Extr
     // Skip repeat header rows in paginated tables
     const rowLower = rowText.toLowerCase();
     if (
-      (rowLower.includes('kpi no') || rowLower.includes('indicator') || rowLower.includes('baseline')) &&
-      (rowLower.includes('weight') || rowLower.includes('annual target') || rowLower.includes('poe'))
+      (rowLower.includes('kpi no') || rowLower.includes('kpi ids') || rowLower.includes('indicator') || rowLower.includes('project name') || rowLower.includes('baseline')) &&
+      (rowLower.includes('weight') || rowLower.includes('annual target') || rowLower.includes('annual milestone') || rowLower.includes('poe'))
     ) {
       continue;
     }
 
     // Extract cell values with complete verbatim text
     const kpiNoVal = colKpiNo !== -1 && colKpiNo < row.length ? row[colKpiNo] : '';
-    const kpiDescVal = colKpiDesc !== -1 && colKpiDesc < row.length ? row[colKpiDesc] : (colKpiNo !== -1 && row[1] ? row[1] : row[0]);
+    let kpiDescVal = colKpiDesc !== -1 && colKpiDesc < row.length ? row[colKpiDesc] : (colKpiNo !== -1 && row[1] ? row[1] : row[0]);
+    const locationVal = colLocation !== -1 && colLocation < row.length ? row[colLocation] : '';
     const weightVal = colWeight !== -1 && colWeight < row.length ? row[colWeight] : '';
     const baselineVal = colBaseline !== -1 && colBaseline < row.length ? row[colBaseline] : '';
     const annualTargetVal = colAnnualTarget !== -1 && colAnnualTarget < row.length ? row[colAnnualTarget] : '';
@@ -787,6 +829,11 @@ function parseMatrixToMappedKPIs(matrix: string[][], contextHint?: string): Extr
 
     // Ignore completely empty rows
     if (!kpiDescVal && !kpiNoVal && !annualTargetVal && !baselineVal && !q1Val) continue;
+
+    // Append location if project table has location
+    if (locationVal && locationVal.trim() && !kpiDescVal.toLowerCase().includes(locationVal.toLowerCase())) {
+      kpiDescVal = `${kpiDescVal} (Location: ${locationVal.trim()})`;
+    }
 
     const effectiveFunctionalKpa = String(rowKpaVal || currentFunctionalKpa || 'Functional Performance Area').trim();
 
@@ -832,30 +879,54 @@ function parseRawTextLines(text: string): ExtractedMappedKPI[] {
   const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   const items: ExtractedMappedKPI[] = [];
   let currentFunctionalKpa = 'Functional Performance Area';
+  let insideScorecardOrProjects = false;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+
+    if (isLegalOrIgnoredText(line)) {
+      continue;
+    }
+
     if (
-      line.toLowerCase().includes('kpa') || 
-      line.toLowerCase().includes('key performance area') || 
-      line.toLowerCase().includes('functional area') ||
-      line.toLowerCase().includes('basic service delivery') ||
-      line.toLowerCase().includes('financial viability') ||
+      line.toLowerCase().includes('annexure a: performance plan') ||
+      line.toLowerCase().includes('projects: completed projects') ||
+      line.toLowerCase().includes('completed projects for priority issue')
+    ) {
+      insideScorecardOrProjects = true;
+    }
+
+    if (
+      line.toLowerCase().includes('kpa 1:') ||
+      line.toLowerCase().includes('kpa 2:') ||
+      line.toLowerCase().includes('kpa 3:') ||
+      line.toLowerCase().includes('kpa 4:') ||
+      line.toLowerCase().includes('kpa 5:') ||
+      line.toLowerCase().includes('institution development') ||
       line.toLowerCase().includes('good governance') ||
       line.toLowerCase().includes('local economic') ||
-      line.toLowerCase().includes('institutional development')
+      line.toLowerCase().includes('financial viability') ||
+      line.toLowerCase().includes('basic service delivery') ||
+      line.toLowerCase().includes('projects: completed projects') ||
+      line.toLowerCase().includes('completed projects for priority issue')
     ) {
       const cleanBanner = line.replace(/^[-*#\s|]+/, '').replace(/^KPA\s*\d+\s*[:.\-–]\s*/i, '').trim();
-      if (cleanBanner.length > 2 && !cleanBanner.toLowerCase().includes('kpi no') && !cleanBanner.toLowerCase().includes('weight')) {
-        currentFunctionalKpa = cleanBanner;
+      if (cleanBanner.length > 2 && !cleanBanner.toLowerCase().includes('kpi no') && !cleanBanner.toLowerCase().includes('kpi ids') && !cleanBanner.toLowerCase().includes('weight')) {
+        if (line.toLowerCase().includes('projects:') || line.toLowerCase().includes('completed projects for priority issue')) {
+          currentFunctionalKpa = 'KPA 5: Basic Service Delivery and Infrastructure (' + cleanBanner.replace(/^completed projects for priority issue\s*\d*[:.\-–\s]*/i, '').trim() + ')';
+        } else {
+          currentFunctionalKpa = cleanBanner;
+        }
+        insideScorecardOrProjects = true;
       }
       continue;
     }
 
-    const match = line.match(/^(\d+(\.\d+)*|[A-Z]{2,5}[-_]\d+|\bKPI\s*\d+)\s*[:.\-–\t]\s*(.+)$/i);
-    if (match) {
+    // Only match actual KPI codes (M_11, M_15, P_09, P_10, etc.)
+    const match = line.match(/^([M|P]_\d+|[A-Z]{2,5}[-_]\d+|\bKPI\s*\d+)\s*[:.\-–\t\s](.+)$/i);
+    if (match && (insideScorecardOrProjects || currentFunctionalKpa !== 'Functional Performance Area')) {
       const kpiNo = match[1].trim();
-      const kpiDesc = match[3].trim();
+      const kpiDesc = match[2].trim();
       items.push({
         _id: `raw-${Date.now()}-${items.length + 1}`,
         _selected: true,

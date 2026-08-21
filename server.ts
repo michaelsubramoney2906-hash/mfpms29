@@ -665,35 +665,93 @@ async function startServer() {
 
       // Verbatim heuristic fallback function without injecting fake / hallucinated defaults
       const extractHeuristicItems = (raw: string): any[] => {
-        const lines = (raw || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        const rawLines = (raw || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
         const results: any[] = [];
         let currentFunctionalKpa = 'Functional Performance Area';
+        let insideScorecardOrProjects = false;
 
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i];
+        // Skip patterns for contractual text, rating scales, footers, etc.
+        const isIgnoredLine = (line: string): boolean => {
+          const lower = line.toLowerCase();
+          return (
+            lower.includes('page ') && lower.includes(' of ') ||
+            lower.includes("employee’s signature") || lower.includes("employee's signature") ||
+            lower.includes("supervisor’ signature") || lower.includes("supervisor' signature") ||
+            lower.includes("pms official’s signature") || lower.includes("pms official's signature") ||
+            lower.includes("annexure b: personal development plan") ||
+            lower.includes("annexure c: disclosure of interest") ||
+            lower.includes("whereby it is agreed as follows") ||
+            lower.includes("1. purpose") || lower.includes("2. validity of the agreement") ||
+            lower.includes("3. reporting requirements") || lower.includes("4. performance assessment framework") ||
+            lower.includes("5. conditions of performance") || lower.includes("6. performance assessment") ||
+            lower.includes("7. feedback") || lower.includes("8. timetable and records") ||
+            lower.includes("9. management of poor performance") || lower.includes("10. dispute resolution") ||
+            lower.includes("11. amendment of agreement") || lower.includes("12. evaluation") ||
+            lower.includes("13. signatures of parties") ||
+            lower.includes("outstanding performance") && lower.includes("75-100") ||
+            lower.includes("fully effective") && lower.includes("51-64") ||
+            lower.includes("not fully effective") && lower.includes("31-50") ||
+            lower.includes("unacceptable performance") && lower.includes("less than") ||
+            lower.includes("performance significantly above") ||
+            lower.startsWith("level terminology description") ||
+            lower.startsWith("note: adherence to jsc") ||
+            lower.startsWith("note: weighting for one") ||
+            lower.startsWith("the municipal moderation committee consists of") ||
+            lower.startsWith("the departmental performance moderation")
+          );
+        };
+
+        for (let i = 0; i < rawLines.length; i++) {
+          const line = rawLines[i];
+
+          if (isIgnoredLine(line)) {
+            continue;
+          }
+
+          // Detect start of Annexure A or Projects tables
           if (
-            line.toLowerCase().includes('kpa') || 
-            line.toLowerCase().includes('key performance area') || 
-            line.toLowerCase().includes('functional area') ||
-            line.toLowerCase().includes('basic service delivery') ||
-            line.toLowerCase().includes('financial viability') ||
+            line.toLowerCase().includes('annexure a: performance plan') ||
+            line.toLowerCase().includes('performance plan –') ||
+            line.toLowerCase().includes('projects: completed projects') ||
+            line.toLowerCase().includes('completed projects for priority issue')
+          ) {
+            insideScorecardOrProjects = true;
+          }
+
+          // Detect Functional KPA banner
+          if (
+            line.toLowerCase().includes('kpa 1:') ||
+            line.toLowerCase().includes('kpa 2:') ||
+            line.toLowerCase().includes('kpa 3:') ||
+            line.toLowerCase().includes('kpa 4:') ||
+            line.toLowerCase().includes('kpa 5:') ||
+            line.toLowerCase().includes('institution development') ||
             line.toLowerCase().includes('good governance') ||
-            line.toLowerCase().includes('local economic') ||
-            line.toLowerCase().includes('institutional development')
+            line.toLowerCase().includes('local economic development') ||
+            line.toLowerCase().includes('financial viability') ||
+            line.toLowerCase().includes('basic service delivery') ||
+            line.toLowerCase().includes('projects: completed projects') ||
+            line.toLowerCase().includes('completed projects for priority issue')
           ) {
             const cleanBanner = line.replace(/^[-*#\s|]+/, '').replace(/^KPA\s*\d+\s*[:.\-–]\s*/i, '').trim();
-            if (cleanBanner.length > 2 && !cleanBanner.toLowerCase().includes('kpi no') && !cleanBanner.toLowerCase().includes('weight')) {
-              currentFunctionalKpa = cleanBanner;
+            if (cleanBanner.length > 2 && !cleanBanner.toLowerCase().includes('kpi number') && !cleanBanner.toLowerCase().includes('weight')) {
+              if (line.toLowerCase().includes('projects:') || line.toLowerCase().includes('completed projects for priority issue')) {
+                currentFunctionalKpa = 'KPA 5: Basic Service Delivery and Infrastructure (' + cleanBanner.replace(/^completed projects for priority issue\s*\d*[:.\-–\s]*/i, '').trim() + ')';
+              } else {
+                currentFunctionalKpa = cleanBanner;
+              }
+              insideScorecardOrProjects = true;
             }
             if (!line.includes('\t') && !line.includes('|')) {
               continue;
             }
           }
 
+          // If row is a tab or pipe separated table line
           if (line.includes('\t') || line.includes('|')) {
             const rawCells = (line.includes('\t') ? line.split('\t') : line.split('|')).map(c => c.trim()).filter(Boolean);
-            if (rawCells.length >= 2 && !rawCells[0].toLowerCase().includes('kpi no') && !rawCells[0].toLowerCase().includes('indicator') && !rawCells[0].toLowerCase().includes('key performance')) {
-              // Intelligently map depending on number of columns
+            if (rawCells.length >= 2 && !rawCells[0].toLowerCase().includes('kpi number') && !rawCells[0].toLowerCase().includes('kpi ids') && !rawCells[0].toLowerCase().includes('key performance indicators') && !rawCells[0].toLowerCase().includes('project name')) {
+              
               let kpiNo = rawCells[0] || `KPI-${results.length + 1}`;
               let kpiDesc = rawCells[1] || '';
               let weight = '';
@@ -768,11 +826,12 @@ async function startServer() {
             }
           }
 
-          const match = line.match(/^(\d+(\.\d+)*|[A-Z]{2,5}[-_]\d+|\bKPI\s*\d+)\s*[:.\-–\t]\s*(.+)$/i);
-          if (match) {
+          // If inside scorecard/projects and line matches specific KPI code pattern (e.g. M_11, M_15, P_09, P_10, etc.)
+          const codeMatch = line.match(/^([M|P]_\d+|[A-Z]{2,5}[-_]\d+|\bKPI\s*\d+)\s*[:.\-–\t\s](.+)$/i);
+          if (codeMatch && (insideScorecardOrProjects || currentFunctionalKpa !== 'Functional Performance Area')) {
             results.push({
-              "kpi no": match[1].trim(),
-              "kpi description": match[3].trim(),
+              "kpi no": codeMatch[1].trim(),
+              "kpi description": codeMatch[2].trim(),
               "%wt": "",
               "baseline": "",
               "annual target": "",
@@ -790,49 +849,42 @@ async function startServer() {
         return results;
       };
 
-      const systemInstruction = `You are an ultra-high precision, 100% deterministic cognitive extraction engine for South African municipal Performance Agreements, Annexure A Scorecards, and SDBIP matrices.
+      const systemInstruction = `You are an ultra-high precision, 100% deterministic cognitive extraction engine for South African municipal Performance Agreements, Performance Plans (Annexure A Scorecards), and Capital/Infrastructure Project Scorecards.
 
-CRITICAL ZERO-VARIANCE & TARGET EXTRACTION DIRECTIVES:
-1. STRICT VERBATIM 100% EXACT WORD EXTRACTION:
-   - In South African municipal Performance Agreements, the primary indicator column is labeled "Key Performance Indicators" (or "KPI Description" / "Measure" / "Output").
-   - You MUST extract EVERY SINGLE WORD, letter, punctuation, acronym, and legal reference in the "Key Performance Indicators" column EXACTLY as written in the original document into the "kpiDescription" property.
-   - For example:
-     If the document states: "Attain clean audit opinion by 31 December 2026." -> kpiDescription MUST BE "Attain clean audit opinion by 31 December 2026."
-     If the document states: "Compile and sign the annual performance agreement for the 2026/2027 financial year and submit to OPME & PMDS unit by 30 July 2026" -> kpiDescription MUST BE "Compile and sign the annual performance agreement for the 2026/2027 financial year and submit to OPME & PMDS unit by 30 July 2026"
-     If the document states: "Number of self-assessment reports compiled and submitted to Supervisor per quarter." -> kpiDescription MUST BE "Number of self-assessment reports compiled and submitted to Supervisor per quarter."
-     If the document states: "Submission of 2025/2026 Annual performance evaluation on E-PMS by 29 August 2026" -> kpiDescription MUST BE "Submission of 2025/2026 Annual performance evaluation on E-PMS by 29 August 2026"
-   - You are STRICTLY FORBIDDEN from substituting generic placeholders such as "Indicator 1", "Indicator 2", etc. The words in "Key Performance Indicators" in the performance agreement MUST be an exact 100% match to the extracted KPI Description.
-   - Extract EVERY SINGLE WORD, letter, number, acronym, and punctuation mark in each Key Performance Area (Functional KPA) EXACTLY as written in the original document.
-   - You are STRICTLY FORBIDDEN from summarizing, rewording, paraphrasing, truncating, abbreviating, or correcting grammar/spelling in any KPI or KPA text.
-   - Retain ALL statutory acts, legal citations (e.g. MFMA, MSA, SPLUMA, WSP), project titles, numbers, formulas, and percentages verbatim.
-   - Do NOT hallucinate, invent, or fill in default placeholders. If a cell/field is empty or absent in the document, return an empty string "".
+CRITICAL SCOPE & ZERO-VARIANCE EXTRACTION MANDATES:
 
-2. MANDATORY COMPLETE ANNUAL TARGET & QUARTERLY TARGETS EXTRACTION:
-   - Every Performance Agreement scorecard table contains targets: "annualTarget", "q1Target" (1st Qtr), "q2Target" (2nd Qtr), "q3Target" (3rd Qtr), and "q4Target" (4th Qtr).
-   - You MUST extract EVERY digit, number, percentage, milestone text, date, report title, or output into its corresponding target field (annualTarget, q1Target, q2Target, q3Target, q4Target) with 100% word-for-word and digit-for-digit precision.
-   - UNDER NO CIRCUMSTANCES should annual target or quarterly targets be omitted or left blank if they are present in the table or document!
+1. EXACT SECTIONS TO EXTRACT (SCORECARD KPIS & PROJECTS):
+   You MUST extract ALL indicators from TWO specific scorecard sections in the document:
+   
+   A) "ANNEXURE A: PERFORMANCE PLAN" (Institutional & Operational Performance Scorecard):
+      - Tables containing columns: KPI number (e.g. M_11, M_15, M_16, M_17, M_21, M_22, M_23, M_24, M_36, M_37, M_40, M_41, M48, M_53, M_54, M_64, M_66, M_69, M_70, M_71), Key Performance Indicators, Weight (%wt), Baseline, Annual Target, 1st Quarter Planned Target, 2nd Quarter Planned Target, 3rd Quarter Planned Target, 4th Quarter Planned Target, POE, Total Budget allocated.
+      - Extract all rows under each Functional KPA (KPA 1: INSTITUTION DEVELOPMENT & TRANSFORMATION, KPA 2: GOOD GOVERNANCE, KPA 3: Local Economic Development, KPA 4: Municipal Financial Viability and Management, KPA 5: Basic Service Delivery and Infrastructure).
 
-3. EXHAUSTIVE MULTI-PAGE EXTRACTION (NO EARLY TERMINATION / EXTRACT ALL KPIS):
-   - You MUST extract EVERY SINGLE KPI row across ALL pages, tables, and annexures of the document without skipping any item. If there are 10 KPIs, you must return all 10. If there are 92 KPIs, you must return all 92.
-   - Extract the exact KPI reference / number (e.g., "1", "2", "3", "BSD-01", "MFVM_02", "1.1", "KPI 12", "M_01", "P_04").
+   B) "PROJECTS: COMPLETED PROJECTS FOR PRIORITY ISSUE..." (Capital & Infrastructure Projects):
+      - Tables for Capital and Infrastructure projects (e.g. Water Projects, Roads and Storm Water Projects, Electricity Projects).
+      - Extract EVERY project item as a KPI record:
+        * kpiNo: The Project KPI ID / Code (e.g. P_09, P_10, P_11, P_12, P_13, P_14, P_15, P_16, P_17).
+        * kpiDescription: Verbatim 100% exact Project Name with location (e.g. "Loskop Regional Bulk Water Supply: WP1 by 30 June 2027", "Borehole Materials: Dr JS Moroka", "Rural Road Asset Management by 30 June 2027. (7302)", "High mast Lights Retrofitting by 30 June 2027. (185541)").
+        * weight: The project weight number (e.g. "5", "2.5", "5").
+        * baseline: Verbatim baseline / initial status if given.
+        * annualTarget: Verbatim Annual Milestone / Target (e.g. "Stage 3: Construction Stage (100%): Construction Progress").
+        * q1Target: Verbatim 1st Quarter Planned Target / Milestone.
+        * q2Target: Verbatim 2nd Quarter Planned Target / Milestone.
+        * q3Target: Verbatim 3rd Quarter Planned Target / Milestone.
+        * q4Target: Verbatim 4th Quarter Planned Target / Milestone.
+        * poe: Verbatim Portfolio of Evidence (e.g. "Signed Construction progress report. Completion certificate", "BSC resolutions, tender advert, BEC & BAC resolutions and signed appointment letter").
+        * budget: Verbatim Budget allocated (e.g. "R213 500 000", "R500 000", "R2 659 000", "R2 000").
+        * functionalKpa: "KPA 5: Basic Service Delivery and Infrastructure" (or specific Priority Issue title e.g. "KPA 5: Basic Service Delivery and Infrastructure (Water Projects)").
 
-4. FUNCTIONAL KPA ASSOCIATION:
-   - For every KPI, capture the exact verbatim Functional Key Performance Area heading under which it appears (e.g., "KPA 1: Good Governance and Public Participation", "Basic Service Delivery and Infrastructure Development", "Municipal Financial Viability and Management", "Local Economic Development").
-   - Never leave functionalKpa empty.
+2. WHAT STRICTLY MUST NOT BE EXTRACTED AS KPIS:
+   - DO NOT extract contractual legal clauses from Sections 1 to 13 (e.g., "1. PURPOSE", "2. VALIDITY", "3. REPORTING REQUIREMENTS", "4. PERFORMANCE ASSESSMENT FRAMEWORK", "5. CONDITIONS OF PERFORMANCE", "6. PERFORMANCE ASSESSMENT", "7. FEEDBACK", "8. TIMETABLE AND RECORDS", "9. MANAGEMENT OF POOR PERFORMANCE", "10. DISPUTE RESOLUTION", "11. AMENDMENT", "12. EVALUATION", "13. SIGNATURES").
+   - DO NOT extract the 5-point rating scale descriptors (Level 5 Outstanding, Level 4 Performance significantly above, Level 3 Fully effective, Level 2 Not fully effective, Level 1 Unacceptable).
+   - DO NOT extract Job Specific Competencies (JSC) definitions from Section 4.4 unless they appear in the scorecard.
+   - DO NOT extract blank forms from Annexure B (Personal Development Plan) or Annexure C (Disclosure of Interest).
+   - A standard municipal performance agreement scorecard typically has between 30 and 45 total KPIs (including project indicators). If your extracted list has 100+ items, you have erroneously extracted legal contract text!
 
-5. ACCURATE PROPERTY MAPPING:
-   - kpiNo: Exact KPI Identifier/Number
-   - kpiDescription: 100% verbatim KPI description
-   - weight: Weighting percentage number only (e.g. "4", "10", "15", "20")
-   - baseline: Verbatim baseline or previous year actual (e.g. "1 (Unqualified with findings)", "100%", "263")
-   - annualTarget: Verbatim planned annual target
-   - q1Target: Verbatim 1st quarter planned target (Q1)
-   - q2Target: Verbatim 2nd quarter planned target (Q2)
-   - q3Target: Verbatim 3rd quarter planned target (Q3)
-   - q4Target: Verbatim 4th quarter planned target (Q4)
-   - poe: Verbatim Portfolio of Evidence / Means of Verification
-   - budget: Verbatim budget allocation
-   - functionalKpa: Verbatim full Functional KPA title`;
+3. VERBATIM ACCURACY:
+   - Preserve 100% exact text, digits, percentages, and milestone wording with zero paraphrasing, zero truncation, and zero hallucinations.`;
 
       let extractedArray: any[] = [];
       const apiKey = process.env.GEMINI_API_KEY || process.env.GEMINI || process.env.gemini;
