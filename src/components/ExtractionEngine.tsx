@@ -76,17 +76,18 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
         throw new Error('No previously saved scorecard found on Supabase.');
       }
       const data = await res.json();
-      if (data && data.items && Array.isArray(data.items) && data.items.length > 0) {
-        setExtractedItems(data.items);
+      const loadedItems = (data && (data.data || data.items)) ? (data.data || data.items) : null;
+      if (loadedItems && Array.isArray(loadedItems) && loadedItems.length > 0) {
+        setExtractedItems(loadedItems);
         setSourceFileName(data.fileName || 'Saved Scorecard');
         setHasUnsavedChanges(false);
-        if (data.savedAt) {
-          setLastSavedTime(new Date(data.savedAt).toLocaleTimeString());
+        if (data.savedAt || data.extractedAt) {
+          setLastSavedTime(new Date(data.savedAt || data.extractedAt).toLocaleTimeString());
         }
         setActiveTab('results');
         setStatusMessage({
           type: 'success',
-          text: `Loaded ${data.items.length} saved KPIs from Supabase database.`
+          text: `Loaded ${loadedItems.length} saved KPIs from Supabase database.`
         });
       } else {
         setStatusMessage({ type: 'info', text: 'No saved scorecard dataset found. Extract a document or paste a table.' });
@@ -96,6 +97,41 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
       setStatusMessage({ type: 'error', text: err.message || 'Failed to load saved scorecard.' });
     } finally {
       setIsLoadingSaved(false);
+    }
+  };
+
+  // Completely clear and reset the Extraction Engine
+  const handleClearEngine = async (notify: boolean = true) => {
+    try {
+      const targetEmail = targetEmployeeEmail || currentUser.email;
+      await fetch(`/api/tenant/${activeTenantId}/fred-extraction/performance_agreement?userId=${encodeURIComponent(targetEmail)}`, {
+        method: 'DELETE'
+      });
+      if (currentUser?.email && currentUser.email.toLowerCase() !== targetEmail.toLowerCase()) {
+        await fetch(`/api/tenant/${activeTenantId}/fred-extraction/performance_agreement?userId=${encodeURIComponent(currentUser.email)}`, {
+          method: 'DELETE'
+        });
+      }
+    } catch (e) {
+      console.warn("Clear engine backend error:", e);
+    }
+
+    setExtractedItems([]);
+    setSourceFileName('');
+    setPasteText('');
+    setHasUnsavedChanges(false);
+    setLastSavedTime(null);
+    setKpaFilter('all');
+    setActiveTab('upload');
+    setCopiedJson(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    if (notify) {
+      setStatusMessage({
+        type: 'info',
+        text: 'Extraction & Data Mapping Engine has been cleared completely.'
+      });
     }
   };
 
@@ -451,31 +487,37 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
         throw new Error(`Failed to sync to IPMS: Status ${res.status}`);
       }
 
-      // Also persist the scorecard dataset snapshot to Supabase
+      // Automatically purge/clear the extraction snapshot from Supabase so it does not store mappings and clog up the engine
       try {
         await fetch(`/api/tenant/${activeTenantId}/fred-extraction/performance_agreement?userId=${encodeURIComponent(targetEmail)}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            items: extractedItems,
-            fileName: sourceFileName || 'Performance Agreement Scorecard',
-            metadata: {
-              syncedToIPMS: true,
-              syncedCount: selected.length,
-              syncedAt: new Date().toISOString()
-            }
-          })
+          method: 'DELETE'
         });
+        if (currentUser?.email && currentUser.email.toLowerCase() !== targetEmail.toLowerCase()) {
+          await fetch(`/api/tenant/${activeTenantId}/fred-extraction/performance_agreement?userId=${encodeURIComponent(currentUser.email)}`, {
+            method: 'DELETE'
+          });
+        }
       } catch(e) {
-        console.warn("Auto-save extraction snapshot error:", e);
+        console.warn("Auto-clear extraction snapshot warning:", e);
       }
 
+      // Clear the engine completely
+      setExtractedItems([]);
+      setSourceFileName('');
+      setPasteText('');
       setHasUnsavedChanges(false);
-      setLastSavedTime(new Date().toLocaleTimeString());
+      setLastSavedTime(null);
+      setKpaFilter('all');
+      setActiveTab('upload');
+      setCopiedJson(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+
       setSyncSuccess(true);
       setStatusMessage({
         type: 'success',
-        text: `Successfully synced ${selected.length} KPIs directly into the Annual Performance Planner Grid for ${targetEmail}!`
+        text: `Successfully pushed ${selected.length} KPIs directly into the Annual Performance Planner Grid for ${targetEmail}! The Extraction & Data Mapping Engine has been cleared completely.`
       });
 
       // Auto-navigate to IPMS module if handler is provided
@@ -601,6 +643,17 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            {extractedItems.length > 0 && (
+              <button
+                id="btn_clear_engine_header"
+                onClick={() => handleClearEngine(true)}
+                className="px-3.5 py-2.5 bg-rose-950/50 hover:bg-rose-900/70 text-rose-300 border border-rose-600/40 rounded-xl font-bold text-xs flex items-center gap-2 transition hover:shadow-lg cursor-pointer"
+                title="Clear all extracted items and reset engine state"
+              >
+                <Trash2 className="w-4 h-4 text-rose-400" />
+                <span>Clear Engine</span>
+              </button>
+            )}
             <button
               id="btn_load_sample_doc"
               onClick={handleLoadSample}
@@ -761,6 +814,16 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
               >
                 <FileCode className="w-3.5 h-3.5 text-indigo-400" />
                 <span>JSON</span>
+              </button>
+
+              <button
+                id="btn_clear_engine_toolbar"
+                onClick={() => handleClearEngine(true)}
+                className="px-3 py-1.5 bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-600/40 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+                title="Completely clear engine & wipe mappings"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                <span>Clear Engine</span>
               </button>
             </>
           )}
@@ -1215,6 +1278,16 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
                 >
                   {isSavingDataset ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                   <span>{hasUnsavedChanges ? 'Save Changes *' : 'Save Dataset'}</span>
+                </button>
+
+                <button
+                  id="btn_clear_scorecard_bottom"
+                  onClick={() => handleClearEngine(true)}
+                  className="px-3.5 py-1.5 bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 hover:text-rose-200 border border-rose-700/50 rounded-xl font-bold flex items-center gap-1.5 transition cursor-pointer"
+                  title="Clear all rows and reset engine"
+                >
+                  <Trash2 className="w-4 h-4 text-rose-400" />
+                  <span>Clear Engine</span>
                 </button>
               </div>
 
