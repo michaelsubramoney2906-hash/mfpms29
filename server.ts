@@ -401,37 +401,46 @@ async function startServer() {
   app.use(compression());
   const server = http.createServer(app);
   const io = new SocketIOServer(server, { cors: { origin: "*" }, maxHttpBufferSize: 2.5e8 });
-  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+  const PORT = 3000;
 
   app.use(express.json({ limit: '250mb' }));
   app.use(express.urlencoded({ limit: '250mb', extended: true }));
 
-  // Log active Supabase tables from OpenAPI Schema
-  try {
-    const url = process.env.SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_KEY;
-    if (url && key) {
-      const res = await fetch(`${url}/rest/v1/`, {
-        headers: {
-          apikey: key,
-          Authorization: `Bearer ${key}`
+  // Health check endpoints for Cloud Run / Nginx / Load Balancer probes
+  app.get("/api/health", (req, res) => {
+    res.status(200).json({ status: "ok", port: PORT, timestamp: new Date().toISOString() });
+  });
+  app.get("/healthz", (req, res) => {
+    res.status(200).send("ok");
+  });
+
+  // Non-blocking background log of active Supabase tables from OpenAPI Schema
+  (async () => {
+    try {
+      const url = process.env.SUPABASE_URL;
+      const key = process.env.SUPABASE_SERVICE_KEY;
+      if (url && key) {
+        const res = await fetch(`${url}/rest/v1/`, {
+          headers: {
+            apikey: key,
+            Authorization: `Bearer ${key}`
+          }
+        });
+        if (res.ok) {
+          const swagger = await res.json();
+          const paths = Object.keys(swagger.paths || {});
+          const definitions = Object.keys(swagger.definitions || {});
+          const fs = await import("fs");
+          fs.writeFileSync("supabase_schema.json", JSON.stringify({ paths, definitions }, null, 2));
+          console.log("---- Wrote Supabase schema to supabase_schema.json ----");
+        } else {
+          console.warn("Failed to query Supabase Swagger spec:", res.statusText);
         }
-      });
-      if (res.ok) {
-        const swagger = await res.json();
-        const paths = Object.keys(swagger.paths || {});
-        const definitions = Object.keys(swagger.definitions || {});
-        // Write this to a file so the agent/IDE can read it directly!
-        const fs = await import("fs");
-        fs.writeFileSync("supabase_schema.json", JSON.stringify({ paths, definitions }, null, 2));
-        console.log("---- Wrote Supabase schema to supabase_schema.json ----");
-      } else {
-         console.error("Failed to query Supabase Swagger spec:", res.statusText);
       }
+    } catch (err: any) {
+      console.warn("Failed to detect Supabase paths in background:", err.message);
     }
-  } catch (err: any) {
-    console.error("Failed to detect Supabase paths:", err.message);
-  }
+  })().catch(e => console.warn("Supabase schema probe background error:", e));
 
   // Debug Route to see what Supabase tables exist
   app.get("/api/config/manager-password", (req, res) => {
@@ -7041,6 +7050,14 @@ User Request: ${prompt}`;
     });
   }
 
+  // Global express error handler to prevent crashing or hung responses
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error("[Express Global Error Handler]:", err);
+    if (!res.headersSent) {
+      res.status(err.status || 500).json({ error: err.message || "Internal server error" });
+    }
+  });
+
   // Synchronize Nkangala District Municipality folder on startup and set kickoff timestamp
   try {
     const supabase = getSupabase();
@@ -7172,4 +7189,14 @@ User Request: ${prompt}`;
   });
 }
 
-startServer();
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("[Process] Unhandled Rejection at:", promise, "reason:", reason);
+});
+
+process.on("uncaughtException", (error) => {
+  console.error("[Process] Uncaught Exception:", error);
+});
+
+startServer().catch((err) => {
+  console.error("[Process] Fatal startServer error:", err);
+});
