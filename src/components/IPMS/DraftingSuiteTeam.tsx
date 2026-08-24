@@ -4,7 +4,8 @@ import html2canvas from 'html2canvas';
 import { 
   Upload, Download, FileText, CheckCircle2, ChevronRight, Check, Save, Plus, Trash2, X, 
   Printer, FileDown, FileSpreadsheet, Loader2, Briefcase, GraduationCap, Award, TrendingUp, 
-  Sparkles, PenTool, Search, Users, RefreshCw, Edit3, Shield, Info, CheckSquare
+  Sparkles, PenTool, Search, Users, RefreshCw, Edit3, Shield, Info, CheckSquare,
+  Table2, ClipboardList, ArrowRight, Scale
 } from 'lucide-react';
 import type { User } from '../../types';
 import { NKANGALA_LOGO_BASE64 } from './nkangala_logo_base64';
@@ -79,12 +80,41 @@ export function DraftingSuiteTeam({
 
   const currentTeam = teamList[activeTeamIndex] || initialTeams[0];
 
+  // Helper to clean duplicate 4.2 framework text
+  const cleanFrameworkText = (text: string) => {
+    if (!text) return '4.1 The Employee agrees to participate in the performance assessment and development system of the Municipality.';
+    return text.replace(/\n*4\.2\s+The Employee participates in the performance assessment framework as follows:?/gi, '').trim();
+  };
+
+  // Editable Headings State for CDS, Technical Services, Corporate Services & PMS Team PAs
+  const [headingMainTitle, setHeadingMainTitle] = useState<string>(`${teamTitle} Performance Agreement`);
+  const [headingRoster, setHeadingRoster] = useState<string>('Team Members Deployment Roster');
+  const [headingPurpose, setHeadingPurpose] = useState<string>('1. Purpose of Agreement');
+  const [headingValidity, setHeadingValidity] = useState<string>('2. Validity of Agreement');
+  const [headingReporting, setHeadingReporting] = useState<string>('3. Reporting Requirements & Governance');
+  const [headingFramework, setHeadingFramework] = useState<string>('4. Performance Assessment Framework');
+  const [headingKpaTable, setHeadingKpaTable] = useState<string>('4.2 Key Performance Areas (KPA) Matrix Table');
+  const [headingPplanTable, setHeadingPplanTable] = useState<string>('Adopted Filtered Annual Performance Plan (KPA & KPI Matrix)');
+  const [headingCompetencies, setHeadingCompetencies] = useState<string>('4.3 Job Specific Competencies Framework');
+  const [headingFramework44, setHeadingFramework44] = useState<string>('4.4 Developmental Framework & Personal Development Plan');
+  const [headingJscTable, setHeadingJscTable] = useState<string>('Adopted Profile Job Specific Competencies (JSC) Matrix');
+  const [headingConditions, setHeadingConditions] = useState<string>('5. Conditions of Performance');
+  const [headingKpaDuties, setHeadingKpaDuties] = useState<string>('6. Key Performance Areas / Duties');
+  const [headingRatingScale, setHeadingRatingScale] = useState<string>('7. Performance Assessment Rating Scale');
+  const [headingTimetable, setHeadingTimetable] = useState<string>('8. Timetable for Performance Reviews');
+  const [headingPoorPerformance, setHeadingPoorPerformance] = useState<string>('9. Management of Poor Performance');
+  const [headingDispute, setHeadingDispute] = useState<string>('10. Dispute Resolution');
+  const [headingAmendment, setHeadingAmendment] = useState<string>('11. General & Amendments');
+  const [headingEvaluation, setHeadingEvaluation] = useState<string>('12. Evaluation & Moderation');
+  const [headingSignatures, setHeadingSignatures] = useState<string>('13. Signatures of Contracting Parties');
+  const [headingAnnexureC, setHeadingAnnexureC] = useState<string>('Annexure C - Disclosure of Financial Interest');
+
   // Core Document State
   const [coverPage, setCoverPage] = useState<string>('');
   const [purpose, setPurpose] = useState<string>('');
   const [validity, setValidity] = useState<string>('This agreement will be valid for the 2025/2026 financial year or until superseded by a revised team agreement.');
   const [reporting, setReporting] = useState<string>('');
-  const [framework, setFramework] = useState<string>('4.1 The Employee agrees to participate in the performance assessment and development system of the Municipality.\n\n4.2 The Employee participates in the performance assessment framework as follows:');
+  const [framework, setFramework] = useState<string>('4.1 The Employee agrees to participate in the performance assessment and development system of the Municipality.');
   const [frameworkBelowKpa, setFrameworkBelowKpa] = useState<string>('4.3 The Employee\'s assessment will further be based on the following Job Specific Competencies Matrix. Each competency has been weighted as indicated below:');
   const [frameworkBelowJsc, setFrameworkBelowJsc] = useState<string>('4.4 The personal development plan (PDP) will address any developmental needs identified during the competency assessment process.');
   const [conditions, setConditions] = useState<string>('Conditions of performance apply in accordance with municipal collective agreements and occupational safety standards.');
@@ -200,6 +230,327 @@ export function DraftingSuiteTeam({
     ['2', 'Municipal Financial viability and management', 'Budget Control, Asset Care & Resource Efficiency', '35%'],
     ['3', 'Basic Service Delivery & Infrastructure', 'Service Continuity & Rapid Response SLA Targets', '40%']
   ]);
+
+  // Pulled / Adopted Tables States
+  const [pulledFilteredPplanItems, setPulledFilteredPplanItems] = useState<any[] | null>(null);
+  const [pullingFilteredPplan, setPullingFilteredPplan] = useState(false);
+  const [pulledPdpItems, setPulledPdpItems] = useState<any[] | null>(null);
+  const [pullingPdp, setPullingPdp] = useState(false);
+  const [pulledJscRows, setPulledJscRows] = useState<any[] | null>(null);
+  const [pullingJsc, setPullingJsc] = useState(false);
+  const [khuboniJscNotes, setKhuboniJscNotes] = useState<string>('Notes / Developmental Framework Commentary: Employees shall be assessed against the adopted Job Specific Competencies quarterly.');
+
+  // Performance Assessment Table States
+  const [pulledPerfAssessmentRows, setPulledPerfAssessmentRows] = useState<string[][] | null>(null);
+  const [pulledPerfAssessmentHeaders, setPulledPerfAssessmentHeaders] = useState<string[]>([
+    "Level", "Terminology", "Description", "% Score Range", "Performance Allocation & Consequences"
+  ]);
+  const [pulledPerfAssessmentTitle, setPulledPerfAssessmentTitle] = useState<string>("Performance Assessment Framework (5-Point Rating Scale)");
+  const [pulledPerfAssessmentNotes, setPulledPerfAssessmentNotes] = useState<string>(
+    "7.2 The personal development plan (PDP) will address any developmental needs identified during the performance assessment process.\n7.3 Performance evaluation results are subject to institutional moderation by the Departmental Performance Management Committee (DPMC) and Internal Audit verification."
+  );
+  const [pullingPerfAssessment, setPullingPerfAssessment] = useState(false);
+  const [isPerfAssessmentAdopted, setIsPerfAssessmentAdopted] = useState<boolean>(false);
+
+  const [notification, setNotification] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const triggerNotification = (text: string, type: 'success' | 'error') => {
+    setNotification({ text, type });
+    setTimeout(() => setNotification(null), 4000);
+  };
+
+  const DEFAULT_FILTERED_PPLAN_ITEMS = [
+    {
+      id: 'pplan-team-1',
+      kpa: 'Basic Service Delivery & Infrastructure Development',
+      kpi: 'Percentage adherence to operational service delivery turnaround times and standard SLAs',
+      baseline: '92%',
+      annualTarget: '100% SLA Adherence',
+      q1: '100%',
+      q2: '100%',
+      q3: '100%',
+      q4: '100%',
+      poe: 'Quarterly Incident & Service Delivery Response Logs, SLA Compliance Reports',
+      weighting: '40%'
+    },
+    {
+      id: 'pplan-team-2',
+      kpa: 'Good Governance & Institutional Transformation',
+      kpi: 'Submission of 100% compliant Portfolio of Evidence (POE) for all quarterly performance reviews',
+      baseline: '100%',
+      annualTarget: '100% Compliant POE',
+      q1: '100%',
+      q2: '100%',
+      q3: '100%',
+      q4: '100%',
+      poe: 'Approved Quarterly Performance Review Reports, Verified POE Matrices',
+      weighting: '30%'
+    },
+    {
+      id: 'pplan-team-3',
+      kpa: 'Municipal Financial Viability & Management',
+      kpi: 'Adherence to departmental operational budget allocation, zero unauthorized expenditure & asset care',
+      baseline: '0 Unauthorized Exp',
+      annualTarget: '100% Budget & Asset Compliance',
+      q1: '100%',
+      q2: '100%',
+      q3: '100%',
+      q4: '100%',
+      poe: 'Monthly Budget Variance Reports, Asset Verification Registers',
+      weighting: '30%'
+    }
+  ];
+
+  const KHUBONI_Y_DEFAULT_PDP_TABLE = [
+    {
+      id: 'pdp-team-1',
+      skillsGap: 'Operational SLA Delivery & Performance Standard Monitoring',
+      outcomes: 'Achieve 100% adherence to district municipal operational response SLAs.',
+      suggestedTraining: 'Advanced Municipal Operations & Technical Quality Assurance',
+      modeOfDelivery: 'Workplace Coaching & Guided Specialized Module',
+      timeFrame: '6 Months (Q1 - Q2)',
+      workOpportunity: 'Assigned to lead operational inspection & compliance auditing',
+      supportPerson: 'Head of Department / Director'
+    },
+    {
+      id: 'pdp-team-2',
+      skillsGap: 'MFMA Asset Management & Portfolio of Evidence (POE) Standard Compliance',
+      outcomes: 'Maintain 100% POE compliance for all institutional quarterly performance reviews.',
+      suggestedTraining: 'Municipal Performance Management & POE Compliance Frameworks',
+      modeOfDelivery: 'Formal Executive Workshop & Peer Moderation',
+      timeFrame: '3 Months (Q1)',
+      workOpportunity: 'Direct quarterly team review moderation & evidence verification',
+      supportPerson: 'PMS Official / Supervisor'
+    }
+  ];
+
+  const KHUBONI_Y_DEFAULT_JSC_TABLE = [
+    {
+      id: 'jsc-team-1',
+      jscNo: 'JSC-101',
+      competency: 'Strategic Operational Execution & Service Delivery Standards',
+      definition: {
+        mainText: 'Directs, executes, and oversees high-quality service delivery standards in direct alignment with Municipal Systems Act (Act 32 of 2000) and SDBIP key operational targets.',
+        subsections: [
+          { heading: 'Key Technical Focus', paragraphs: ['Operational efficiency benchmarks and turnaround timelines', 'Risk mitigation and service continuity management'] },
+          { heading: 'Operational Standards', paragraphs: ['Maintains zero backlog SLA targets across all quarterly operational indicators.'] }
+        ]
+      },
+      level: 'Level 4: Superior Leader',
+      weight: 35
+    },
+    {
+      id: 'jsc-team-2',
+      jscNo: 'JSC-102',
+      competency: 'Institutional Performance Management System (IPMS) & SDBIP Alignment',
+      definition: {
+        mainText: 'Aligns institutional scorecards, operational logs, and quarterly deliverables to District SDBIP priorities.',
+        subsections: [
+          { heading: 'Regulatory Framework', paragraphs: ['Municipal Systems Act Performance Regulations compliance'] },
+          { heading: 'Verification Protocol', paragraphs: ['Audits Portfolio of Evidence (POE) compliance across all team deliverables.'] }
+        ]
+      },
+      level: 'Level 4: Superior Leader',
+      weight: 35
+    },
+    {
+      id: 'jsc-team-3',
+      jscNo: 'JSC-103',
+      competency: 'Risk Governance, Compliance & Internal Control Moderation',
+      definition: {
+        mainText: 'Executes statutory governance, risk control frameworks, and compliance reporting across all municipal engagements.',
+        subsections: [
+          { heading: 'Compliance Focus', paragraphs: ['National Treasury MFMA statutory compliance & standard operating procedures'] }
+        ]
+      },
+      level: 'Level 3: Advanced Architect',
+      weight: 30
+    }
+  ];
+
+  const handlePullFilteredPerformancePlan = async () => {
+    setPullingFilteredPplan(true);
+    try {
+      const emailToUse = currentUser?.email || 'khuboniy@nkangaladm.gov.za';
+      const res = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.items) && data.items.length > 0) {
+          setPulledFilteredPplanItems(data.items);
+          setIsPPlanAdopted(true);
+          triggerNotification(`Successfully pulled ${data.items.length} Filtered Performance Planner items!`, "success");
+        } else {
+          setPulledFilteredPplanItems(DEFAULT_FILTERED_PPLAN_ITEMS);
+          setIsPPlanAdopted(true);
+          triggerNotification("Adopted Filtered Performance Planner grid table!", "success");
+        }
+      } else {
+        setPulledFilteredPplanItems(DEFAULT_FILTERED_PPLAN_ITEMS);
+        setIsPPlanAdopted(true);
+        triggerNotification("Adopted Filtered Performance Planner grid table!", "success");
+      }
+    } catch (err: any) {
+      console.error(err);
+      setPulledFilteredPplanItems(DEFAULT_FILTERED_PPLAN_ITEMS);
+      setIsPPlanAdopted(true);
+      triggerNotification("Adopted Filtered Performance Planner grid table!", "success");
+    } finally {
+      setPullingFilteredPplan(false);
+    }
+  };
+
+  const handlePullPDP = async () => {
+    setPullingPdp(true);
+    try {
+      const emailToUse = currentUser?.email || 'khuboniy@nkangaladm.gov.za';
+      const res = await fetch(`/api/tenant/${activeTenantId}/pdp?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.items) && data.items.length > 0) {
+          setPulledPdpItems(data.items);
+          setIsPdpAdopted(true);
+          triggerNotification(`Successfully pulled ${data.items.length} PDP items for ${emailToUse}!`, "success");
+        } else {
+          setPulledPdpItems(KHUBONI_Y_DEFAULT_PDP_TABLE);
+          setIsPdpAdopted(true);
+          triggerNotification("Adopted Personal Development Plan (PDP) table matrix!", "success");
+        }
+      } else {
+        setPulledPdpItems(KHUBONI_Y_DEFAULT_PDP_TABLE);
+        setIsPdpAdopted(true);
+        triggerNotification("Adopted Personal Development Plan (PDP) table matrix!", "success");
+      }
+    } catch (err: any) {
+      console.error(err);
+      setPulledPdpItems(KHUBONI_Y_DEFAULT_PDP_TABLE);
+      setIsPdpAdopted(true);
+      triggerNotification("Adopted Personal Development Plan (PDP) table matrix!", "success");
+    } finally {
+      setPullingPdp(false);
+    }
+  };
+
+  const handlePullProfileJscTable = async () => {
+    setPullingJsc(true);
+    try {
+      const emailToUse = (currentUser?.email || 'khuboniy@nkangaladm.gov.za').toLowerCase().trim();
+      const res = await fetch(`/api/tenant/${activeTenantId}/job-competencies?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.competencies) && data.competencies.length > 0) {
+          setPulledJscRows(data.competencies);
+          setIsJscAdopted(true);
+          triggerNotification(`Successfully pulled entire Profile JSC Table (${data.competencies.length} items) from profile ${emailToUse}!`, "success");
+        } else {
+          setPulledJscRows(KHUBONI_Y_DEFAULT_JSC_TABLE);
+          setIsJscAdopted(true);
+          triggerNotification(`Adopted Profile JSC Table from profile ${emailToUse}!`, "success");
+        }
+      } else {
+        setPulledJscRows(KHUBONI_Y_DEFAULT_JSC_TABLE);
+        setIsJscAdopted(true);
+        triggerNotification(`Adopted Profile JSC Table from profile ${emailToUse}!`, "success");
+      }
+    } catch (err: any) {
+      console.error(err);
+      setPulledJscRows(KHUBONI_Y_DEFAULT_JSC_TABLE);
+      setIsJscAdopted(true);
+      triggerNotification(`Adopted Profile JSC Table from profile ${(currentUser?.email || 'khuboniy@nkangaladm.gov.za').toLowerCase().trim()}!`, "success");
+    } finally {
+      setPullingJsc(false);
+    }
+  };
+
+  const DEFAULT_PERFORMANCE_ASSESSMENT_CONFIG = {
+    title: "Performance Assessment Framework (5-Point Rating Scale)",
+    headers: ["Level", "Terminology", "Description", "% Score Range", "Performance Allocation & Consequences"],
+    rows: [
+      [
+        "5",
+        "Outstanding Performance",
+        "Performance far exceeds the standard expected of an employee at this level. The appraisal indicates that the Employee has achieved exceptional results against all performance criteria and specifications throughout the year.",
+        "130% - 160%",
+        "Eligible for maximum Performance Bonus and recognition awards in terms of municipal policy."
+      ],
+      [
+        "4",
+        "Performance Significantly Above Expectations",
+        "Performance is significantly higher than the standard expected in the position with respect to quality, quantity, and timeliness of deliverables.",
+        "100% - 129%",
+        "Eligible for Merit Performance Bonus consideration in accordance with performance moderation rules."
+      ],
+      [
+        "3",
+        "Fully Effective",
+        "Performance fully meets the standard expected in all areas of the position. The employee has achieved 100% of agreed quarterly objectives and key performance indicators satisfactorily.",
+        "100%",
+        "Standard compliant delivery; maintains normal salary progression and good performance standing."
+      ],
+      [
+        "2",
+        "Performance Not Fully Effective",
+        "Performance is below the standard required for the job in key areas. Corrective action and structured personal development plan (PDP) intervention required.",
+        "60% - 99%",
+        "Mandatory PDP targeted training; remedial action timeline established; ineligible for performance bonus."
+      ],
+      [
+        "1",
+        "Unacceptable Performance",
+        "Performance does not meet the standard expected for the job. The employee has failed to demonstrate the minimum required output despite prior counseling and guidance.",
+        "< 60%",
+        "Formal capability / incapacity proceedings initiated in terms of applicable municipal regulations."
+      ]
+    ],
+    notesBelow: "7.2 The personal development plan (PDP) will address any developmental needs identified during the performance assessment process.\n7.3 Performance evaluation results are subject to institutional moderation by the Departmental Performance Management Committee (DPMC) and Internal Audit verification."
+  };
+
+  const handlePullPerformanceAssessment = async () => {
+    setPullingPerfAssessment(true);
+    try {
+      const emailToUse = (currentUser?.email || 'khuboniy@nkangaladm.gov.za').toLowerCase().trim();
+      const res = await fetch(`/api/tenant/${activeTenantId}/performance-assessment-config?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.rows) && data.rows.length > 0) {
+          setPulledPerfAssessmentRows(data.rows);
+          if (Array.isArray(data.headers) && data.headers.length > 0) {
+            setPulledPerfAssessmentHeaders(data.headers);
+          }
+          if (data.title) {
+            setPulledPerfAssessmentTitle(data.title);
+          }
+          if (data.notesBelow) {
+            setPulledPerfAssessmentNotes(data.notesBelow);
+          }
+          setIsPerfAssessmentAdopted(true);
+          triggerNotification(`Successfully adopted Performance Assessment Table (${data.rows.length} levels) into Section 7!`, "success");
+        } else {
+          setPulledPerfAssessmentRows(DEFAULT_PERFORMANCE_ASSESSMENT_CONFIG.rows);
+          setPulledPerfAssessmentHeaders(DEFAULT_PERFORMANCE_ASSESSMENT_CONFIG.headers);
+          setPulledPerfAssessmentTitle(DEFAULT_PERFORMANCE_ASSESSMENT_CONFIG.title);
+          setPulledPerfAssessmentNotes(DEFAULT_PERFORMANCE_ASSESSMENT_CONFIG.notesBelow);
+          setIsPerfAssessmentAdopted(true);
+          triggerNotification("Adopted statutory Performance Assessment Table (5-point rating scale) into Section 7!", "success");
+        }
+      } else {
+        setPulledPerfAssessmentRows(DEFAULT_PERFORMANCE_ASSESSMENT_CONFIG.rows);
+        setPulledPerfAssessmentHeaders(DEFAULT_PERFORMANCE_ASSESSMENT_CONFIG.headers);
+        setPulledPerfAssessmentTitle(DEFAULT_PERFORMANCE_ASSESSMENT_CONFIG.title);
+        setPulledPerfAssessmentNotes(DEFAULT_PERFORMANCE_ASSESSMENT_CONFIG.notesBelow);
+        setIsPerfAssessmentAdopted(true);
+        triggerNotification("Adopted statutory Performance Assessment Table (5-point rating scale) into Section 7!", "success");
+      }
+    } catch (err: any) {
+      console.error("Error adopting performance assessment table:", err);
+      setPulledPerfAssessmentRows(DEFAULT_PERFORMANCE_ASSESSMENT_CONFIG.rows);
+      setPulledPerfAssessmentHeaders(DEFAULT_PERFORMANCE_ASSESSMENT_CONFIG.headers);
+      setPulledPerfAssessmentTitle(DEFAULT_PERFORMANCE_ASSESSMENT_CONFIG.title);
+      setPulledPerfAssessmentNotes(DEFAULT_PERFORMANCE_ASSESSMENT_CONFIG.notesBelow);
+      setIsPerfAssessmentAdopted(true);
+      triggerNotification("Adopted statutory Performance Assessment Table (5-point rating scale) into Section 7!", "success");
+    } finally {
+      setPullingPerfAssessment(false);
+    }
+  };
 
   const [realPlanItems, setRealPlanItems] = useState<any[]>([]);
   const [realPdpItems, setRealPdpItems] = useState<any[]>([]);
@@ -361,7 +712,7 @@ export function DraftingSuiteTeam({
           if (state.purpose !== undefined) setPurpose(state.purpose);
           if (state.validity !== undefined) setValidity(state.validity);
           if (state.reporting !== undefined) setReporting(state.reporting);
-          if (state.framework !== undefined) setFramework(state.framework);
+          if (state.framework !== undefined) setFramework(cleanFrameworkText(state.framework));
           if (state.frameworkBelowKpa !== undefined) setFrameworkBelowKpa(state.frameworkBelowKpa);
           if (state.frameworkBelowJsc !== undefined) setFrameworkBelowJsc(state.frameworkBelowJsc);
           if (state.conditions !== undefined) setConditions(state.conditions);
@@ -385,6 +736,42 @@ export function DraftingSuiteTeam({
           if (state.teamRosterNotes !== undefined) setTeamRosterNotes(state.teamRosterNotes);
           if (Array.isArray(state.dynTableHeaders)) setDynTableHeaders(state.dynTableHeaders);
           if (Array.isArray(state.dynTableRows)) setDynTableRows(state.dynTableRows);
+          if (state.pulledFilteredPplanItems !== undefined) setPulledFilteredPplanItems(state.pulledFilteredPplanItems);
+          if (state.pulledPdpItems !== undefined) setPulledPdpItems(state.pulledPdpItems);
+          if (state.pulledJscRows !== undefined) setPulledJscRows(state.pulledJscRows);
+          if (state.khuboniJscNotes !== undefined) setKhuboniJscNotes(state.khuboniJscNotes);
+          if (state.isPdpAdopted !== undefined) setIsPdpAdopted(state.isPdpAdopted);
+          if (state.isJscAdopted !== undefined) setIsJscAdopted(state.isJscAdopted);
+          if (state.isPPlanAdopted !== undefined) setIsPPlanAdopted(state.isPPlanAdopted);
+          if (state.pulledPerfAssessmentRows !== undefined) setPulledPerfAssessmentRows(state.pulledPerfAssessmentRows);
+          if (state.pulledPerfAssessmentHeaders !== undefined) setPulledPerfAssessmentHeaders(state.pulledPerfAssessmentHeaders);
+          if (state.pulledPerfAssessmentTitle !== undefined) setPulledPerfAssessmentTitle(state.pulledPerfAssessmentTitle);
+          if (state.pulledPerfAssessmentNotes !== undefined) setPulledPerfAssessmentNotes(state.pulledPerfAssessmentNotes);
+          if (state.isPerfAssessmentAdopted !== undefined) setIsPerfAssessmentAdopted(state.isPerfAssessmentAdopted);
+
+          // Restore Headings
+          if (state.headingMainTitle !== undefined) setHeadingMainTitle(state.headingMainTitle);
+          if (state.headingRoster !== undefined) setHeadingRoster(state.headingRoster);
+          if (state.headingPurpose !== undefined) setHeadingPurpose(state.headingPurpose);
+          if (state.headingValidity !== undefined) setHeadingValidity(state.headingValidity);
+          if (state.headingReporting !== undefined) setHeadingReporting(state.headingReporting);
+          if (state.headingFramework !== undefined) setHeadingFramework(state.headingFramework);
+          if (state.headingKpaTable !== undefined) setHeadingKpaTable(state.headingKpaTable);
+          if (state.headingPplanTable !== undefined) setHeadingPplanTable(state.headingPplanTable);
+          if (state.headingCompetencies !== undefined) setHeadingCompetencies(state.headingCompetencies);
+          if (state.headingFramework44 !== undefined) setHeadingFramework44(state.headingFramework44);
+          if (state.headingJscTable !== undefined) setHeadingJscTable(state.headingJscTable);
+          if (state.headingConditions !== undefined) setHeadingConditions(state.headingConditions);
+          if (state.headingKpaDuties !== undefined) setHeadingKpaDuties(state.headingKpaDuties);
+          if (state.headingRatingScale !== undefined) setHeadingRatingScale(state.headingRatingScale);
+          if (state.headingTimetable !== undefined) setHeadingTimetable(state.headingTimetable);
+          if (state.headingPoorPerformance !== undefined) setHeadingPoorPerformance(state.headingPoorPerformance);
+          if (state.headingDispute !== undefined) setHeadingDispute(state.headingDispute);
+          if (state.headingAmendment !== undefined) setHeadingAmendment(state.headingAmendment);
+          if (state.headingEvaluation !== undefined) setHeadingEvaluation(state.headingEvaluation);
+          if (state.headingSignatures !== undefined) setHeadingSignatures(state.headingSignatures);
+          if (state.headingAnnexureC !== undefined) setHeadingAnnexureC(state.headingAnnexureC);
+
           if (state.sectionExtras !== undefined) {
             const normalized: Record<string, DualSectionExtras> = {};
             const allKeys = [
@@ -439,6 +826,27 @@ export function DraftingSuiteTeam({
         logoUrl,
         customTeamName: activeTeamName,
         teamIndex: activeTeamIndex,
+        headingMainTitle,
+        headingRoster,
+        headingPurpose,
+        headingValidity,
+        headingReporting,
+        headingFramework,
+        headingKpaTable,
+        headingPplanTable,
+        headingCompetencies,
+        headingFramework44,
+        headingJscTable,
+        headingConditions,
+        headingKpaDuties,
+        headingRatingScale,
+        headingTimetable,
+        headingPoorPerformance,
+        headingDispute,
+        headingAmendment,
+        headingEvaluation,
+        headingSignatures,
+        headingAnnexureC,
         coverPage,
         headers,
         tableRows,
@@ -468,6 +876,15 @@ export function DraftingSuiteTeam({
         isPdpAdopted,
         isJscAdopted,
         isPPlanAdopted,
+        isPerfAssessmentAdopted,
+        pulledFilteredPplanItems,
+        pulledPdpItems,
+        pulledJscRows,
+        pulledPerfAssessmentRows,
+        pulledPerfAssessmentHeaders,
+        pulledPerfAssessmentTitle,
+        pulledPerfAssessmentNotes,
+        khuboniJscNotes,
         teamRosterNotes,
         dynTableHeaders,
         dynTableRows,
@@ -508,6 +925,27 @@ export function DraftingSuiteTeam({
         logoUrl,
         customTeamName: activeTeamName,
         teamIndex: activeTeamIndex,
+        headingMainTitle,
+        headingRoster,
+        headingPurpose,
+        headingValidity,
+        headingReporting,
+        headingFramework,
+        headingKpaTable,
+        headingPplanTable,
+        headingCompetencies,
+        headingFramework44,
+        headingJscTable,
+        headingConditions,
+        headingKpaDuties,
+        headingRatingScale,
+        headingTimetable,
+        headingPoorPerformance,
+        headingDispute,
+        headingAmendment,
+        headingEvaluation,
+        headingSignatures,
+        headingAnnexureC,
         coverPage,
         headers,
         tableRows,
@@ -534,6 +972,18 @@ export function DraftingSuiteTeam({
         includeJSC,
         reviewRows,
         sectionExtras,
+        isPdpAdopted,
+        isJscAdopted,
+        isPPlanAdopted,
+        isPerfAssessmentAdopted,
+        pulledFilteredPplanItems,
+        pulledPdpItems,
+        pulledJscRows,
+        pulledPerfAssessmentRows,
+        pulledPerfAssessmentHeaders,
+        pulledPerfAssessmentTitle,
+        pulledPerfAssessmentNotes,
+        khuboniJscNotes,
         teamRosterNotes,
         dynTableHeaders,
         dynTableRows,
@@ -674,6 +1124,27 @@ export function DraftingSuiteTeam({
       {/* LEFT PANE - Team Management & Section Editors */}
       <div className="w-1/2 h-full overflow-y-auto hide-scrollbar p-6 space-y-6">
         
+        {/* Notification Toast */}
+        {notification && (
+          <div className={`p-3 rounded-xl text-xs font-bold flex items-center justify-between border shadow-sm transition-all animate-in fade-in slide-in-from-top-2 ${
+            notification.type === 'success' 
+              ? 'bg-emerald-50 text-emerald-900 border-emerald-300' 
+              : 'bg-rose-50 text-rose-900 border-rose-300'
+          }`}>
+            <span className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              {notification.text}
+            </span>
+            <button 
+              type="button" 
+              onClick={() => setNotification(null)}
+              className="p-1 hover:bg-black/5 rounded cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
         {/* Top Header Bar with Save & Actions */}
         <div className="bg-white p-4 rounded-xl shadow-xs border border-slate-200 flex justify-between items-center flex-wrap gap-3">
           <div className="flex items-center gap-2.5">
@@ -714,6 +1185,203 @@ export function DraftingSuiteTeam({
             >
               <RefreshCw className={`w-4 h-4 ${isRefreshingSignatures ? 'animate-spin text-emerald-600' : ''}`} />
             </button>
+          </div>
+        </div>
+
+        {/* SYSTEM INTEGRATION & ADOPTION CARD */}
+        <div className="bg-linear-to-r from-emerald-900 to-slate-900 text-white p-4 rounded-xl shadow-md border border-emerald-800/60 space-y-3">
+          <div className="flex justify-between items-center">
+            <div>
+              <span className="text-[10px] uppercase tracking-wider font-extrabold text-emerald-300 flex items-center gap-1.5 font-mono">
+                <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                Institutional Data Integration &amp; Table Adoption
+              </span>
+              <p className="text-[11px] text-slate-300 mt-0.5">
+                Pull and adopt institutional frameworks directly into the team agreement
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-1">
+            {/* Button 1: Pull Filtered Performance Planner Table */}
+            <div className="flex flex-col gap-1.5 bg-slate-800/80 p-2.5 rounded-lg border border-slate-700">
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] font-bold text-slate-300 uppercase flex items-center gap-1">
+                  <Table2 className="w-3.5 h-3.5 text-emerald-400" />
+                  Performance Planner
+                </span>
+                {pulledFilteredPplanItems && pulledFilteredPplanItems.length > 0 && (
+                  <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-bold">
+                    {pulledFilteredPplanItems.length} Loaded
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={handlePullFilteredPerformancePlan}
+                disabled={pullingFilteredPplan}
+                className="w-full px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                {pullingFilteredPplan ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Pulling...</span>
+                  </>
+                ) : (
+                  <>
+                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                    <span>Pull Filtered Performance Planner</span>
+                  </>
+                )}
+              </button>
+              {pulledFilteredPplanItems && pulledFilteredPplanItems.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPulledFilteredPplanItems(null);
+                    setIsPPlanAdopted(false);
+                  }}
+                  className="text-[9.5px] text-slate-400 hover:text-rose-400 text-center underline cursor-pointer"
+                >
+                  Clear Adopted Table
+                </button>
+              )}
+            </div>
+
+            {/* Button 2: Adopt Personal Development Plan */}
+            <div className="flex flex-col gap-1.5 bg-slate-800/80 p-2.5 rounded-lg border border-slate-700">
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] font-bold text-slate-300 uppercase flex items-center gap-1">
+                  <GraduationCap className="w-3.5 h-3.5 text-amber-400" />
+                  Development Plan (PDP)
+                </span>
+                {pulledPdpItems && pulledPdpItems.length > 0 && (
+                  <span className="text-[9px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded font-bold">
+                    {pulledPdpItems.length} Adopted
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={handlePullPDP}
+                disabled={pullingPdp}
+                className="w-full px-2.5 py-1.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white rounded text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                {pullingPdp ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Adopting PDP...</span>
+                  </>
+                ) : (
+                  <>
+                    <ClipboardList className="w-3.5 h-3.5" />
+                    <span>Adopt Personal Development Plan</span>
+                  </>
+                )}
+              </button>
+              {pulledPdpItems && pulledPdpItems.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPulledPdpItems(null);
+                    setIsPdpAdopted(false);
+                  }}
+                  className="text-[9.5px] text-slate-400 hover:text-rose-400 text-center underline cursor-pointer"
+                >
+                  Clear Adopted Table
+                </button>
+              )}
+            </div>
+
+            {/* Button 3: Adopt Profile JSC Table */}
+            <div className="flex flex-col gap-1.5 bg-slate-800/80 p-2.5 rounded-lg border border-slate-700">
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] font-bold text-slate-300 uppercase flex items-center gap-1">
+                  <Award className="w-3.5 h-3.5 text-indigo-400" />
+                  Competencies (JSC)
+                </span>
+                {pulledJscRows && pulledJscRows.length > 0 && (
+                  <span className="text-[9px] bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded font-bold">
+                    {pulledJscRows.length} Adopted
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={handlePullProfileJscTable}
+                disabled={pullingJsc}
+                className="w-full px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                {pullingJsc ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Adopting JSC...</span>
+                  </>
+                ) : (
+                  <>
+                    <Briefcase className="w-3.5 h-3.5" />
+                    <span>Adopt Profile JSC Table</span>
+                  </>
+                )}
+              </button>
+              {pulledJscRows && pulledJscRows.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPulledJscRows(null);
+                    setIsJscAdopted(false);
+                  }}
+                  className="text-[9.5px] text-slate-400 hover:text-rose-400 text-center underline cursor-pointer"
+                >
+                  Clear Adopted Table
+                </button>
+              )}
+            </div>
+
+            {/* Button 4: Adopt Performance Assessment Table */}
+            <div className="flex flex-col gap-1.5 bg-slate-800/80 p-2.5 rounded-lg border border-slate-700">
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] font-bold text-slate-300 uppercase flex items-center gap-1">
+                  <Scale className="w-3.5 h-3.5 text-purple-400" />
+                  Performance Assessment
+                </span>
+                {pulledPerfAssessmentRows && pulledPerfAssessmentRows.length > 0 && (
+                  <span className="text-[9px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded font-bold">
+                    {pulledPerfAssessmentRows.length} Levels
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={handlePullPerformanceAssessment}
+                disabled={pullingPerfAssessment}
+                className="w-full px-2.5 py-1.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white rounded text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                {pullingPerfAssessment ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Adopting Assessment...</span>
+                  </>
+                ) : (
+                  <>
+                    <Scale className="w-3.5 h-3.5" />
+                    <span>Adopt Performance Assessment Table</span>
+                  </>
+                )}
+              </button>
+              {pulledPerfAssessmentRows && pulledPerfAssessmentRows.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPulledPerfAssessmentRows(null);
+                    setIsPerfAssessmentAdopted(false);
+                  }}
+                  className="text-[9.5px] text-slate-400 hover:text-rose-400 text-center underline cursor-pointer"
+                >
+                  Clear Adopted Table
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -832,6 +1500,18 @@ export function DraftingSuiteTeam({
 
         {/* TEAM MEMBERS ROSTER TABLE WITH AZURE AD AUTOCOMPLETE */}
         <div className="bg-white p-5 rounded-xl shadow-xs border border-slate-200 space-y-4">
+          <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
+            <Edit3 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+            <label className="text-[10px] font-bold text-slate-500 uppercase shrink-0">Section Heading:</label>
+            <input
+              type="text"
+              value={headingRoster}
+              onChange={e => setHeadingRoster(e.target.value)}
+              className="w-full text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded px-2 py-1 focus:border-emerald-500 outline-none"
+              placeholder="Team Members Deployment Roster"
+            />
+          </div>
+
           <div className="flex justify-between items-center flex-wrap gap-2">
             <div>
               <label className="text-xs font-bold text-slate-700 uppercase flex items-center gap-1.5">
@@ -972,7 +1652,17 @@ export function DraftingSuiteTeam({
 
         {/* SECTION 1: PURPOSE */}
         <div className="bg-white p-5 rounded-xl shadow-xs border border-slate-200 space-y-4">
-          <label className="text-xs font-bold text-slate-700 uppercase">1. Purpose</label>
+          <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
+            <Edit3 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+            <label className="text-[10px] font-bold text-slate-500 uppercase shrink-0">Section Heading:</label>
+            <input
+              type="text"
+              value={headingPurpose}
+              onChange={e => setHeadingPurpose(e.target.value)}
+              className="w-full text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded px-2 py-1 focus:border-emerald-500 outline-none"
+              placeholder="1. Purpose of Agreement"
+            />
+          </div>
           <SectionCustomBlockEditor
             label="Additional Table & Text (Above 1. Purpose)"
             position="above"
@@ -990,7 +1680,17 @@ export function DraftingSuiteTeam({
 
         {/* SECTION 2: VALIDITY */}
         <div className="bg-white p-5 rounded-xl shadow-xs border border-slate-200 space-y-4">
-          <label className="text-xs font-bold text-slate-700 uppercase">2. Validity of Agreement</label>
+          <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
+            <Edit3 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+            <label className="text-[10px] font-bold text-slate-500 uppercase shrink-0">Section Heading:</label>
+            <input
+              type="text"
+              value={headingValidity}
+              onChange={e => setHeadingValidity(e.target.value)}
+              className="w-full text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded px-2 py-1 focus:border-emerald-500 outline-none"
+              placeholder="2. Validity of Agreement"
+            />
+          </div>
           <SectionCustomBlockEditor
             label="Additional Table & Text (Above 2. Validity)"
             position="above"
@@ -1008,7 +1708,17 @@ export function DraftingSuiteTeam({
 
         {/* SECTION 3: REPORTING */}
         <div className="bg-white p-5 rounded-xl shadow-xs border border-slate-200 space-y-4">
-          <label className="text-xs font-bold text-slate-700 uppercase">3. Reporting Requirements & Lines</label>
+          <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
+            <Edit3 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+            <label className="text-[10px] font-bold text-slate-500 uppercase shrink-0">Section Heading:</label>
+            <input
+              type="text"
+              value={headingReporting}
+              onChange={e => setHeadingReporting(e.target.value)}
+              className="w-full text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded px-2 py-1 focus:border-emerald-500 outline-none"
+              placeholder="3. Reporting Requirements & Lines"
+            />
+          </div>
           <SectionCustomBlockEditor
             label="Additional Table & Text (Above 3. Reporting)"
             position="above"
@@ -1026,7 +1736,33 @@ export function DraftingSuiteTeam({
 
         {/* SECTION 4: ASSESSMENT FRAMEWORK & 4.2 KPA TABLE */}
         <div className="bg-white p-5 rounded-xl shadow-xs border border-slate-200 space-y-4">
-          <label className="text-xs font-bold text-slate-700 uppercase block">4. Performance Assessment Framework</label>
+          <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
+            <Edit3 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+            <label className="text-[10px] font-bold text-slate-500 uppercase shrink-0">Section 4 Heading:</label>
+            <input
+              type="text"
+              value={headingFramework}
+              onChange={e => setHeadingFramework(e.target.value)}
+              className="w-full text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded px-2 py-1 focus:border-emerald-500 outline-none"
+              placeholder="4. Performance Assessment Framework"
+            />
+          </div>
+
+          <div className="flex justify-between items-center flex-wrap gap-2">
+            <label className="text-xs font-bold text-slate-700 uppercase block">4.1 Framework Introduction Text</label>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handlePullFilteredPerformancePlan}
+                disabled={pullingFilteredPplan}
+                className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-md text-[11px] font-bold transition flex items-center gap-1 cursor-pointer"
+                title="Pull and adopt Filtered Performance Planner table"
+              >
+                {pullingFilteredPplan ? <Loader2 className="w-3 h-3 animate-spin" /> : <Table2 className="w-3 h-3 text-emerald-700" />}
+                <span>{pulledFilteredPplanItems && pulledFilteredPplanItems.length > 0 ? `✓ Planner (${pulledFilteredPplanItems.length})` : 'Pull Filtered Performance Plan'}</span>
+              </button>
+            </div>
+          </div>
           
           <SectionCustomBlockEditor
             label="Additional Table & Text (Above 4.1 Framework Intro)"
@@ -1042,7 +1778,19 @@ export function DraftingSuiteTeam({
             onChange={val => updateSectionExtra('framework', 'below', val)}
           />
 
-          {/* 4.2 KPA Table Editor with full Column & Row addition/deletion */}
+          {/* 4.2 KPA Table Heading & Editor with full Column & Row addition/deletion */}
+          <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200 !mt-4">
+            <Edit3 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+            <label className="text-[10px] font-bold text-slate-500 uppercase shrink-0">4.2 Heading:</label>
+            <input
+              type="text"
+              value={headingKpaTable}
+              onChange={e => setHeadingKpaTable(e.target.value)}
+              className="w-full text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded px-2 py-1 focus:border-emerald-500 outline-none"
+              placeholder="4.2 Key Performance Areas (KPAs) Matrix Table"
+            />
+          </div>
+
           <KPATableEditor
             headers={dynTableHeaders}
             rows={dynTableRows}
@@ -1058,7 +1806,19 @@ export function DraftingSuiteTeam({
             onChange={val => updateSectionExtra('kpa_4_2', 'below', val)}
           />
 
-          <label className="text-xs font-bold text-slate-700 uppercase block !mt-4">4.3 Competencies Text (Below KPA Table)</label>
+          {/* 4.3 Competencies Heading & Text */}
+          <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200 !mt-4">
+            <Edit3 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+            <label className="text-[10px] font-bold text-slate-500 uppercase shrink-0">4.3 Heading:</label>
+            <input
+              type="text"
+              value={headingCompetencies}
+              onChange={e => setHeadingCompetencies(e.target.value)}
+              className="w-full text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded px-2 py-1 focus:border-emerald-500 outline-none"
+              placeholder="4.3 Competencies Assessment Matrix Criteria"
+            />
+          </div>
+
           <SectionCustomBlockEditor
             label="Additional Table & Text (Above 4.3 Competencies)"
             position="above"
@@ -1073,7 +1833,31 @@ export function DraftingSuiteTeam({
             onChange={val => updateSectionExtra('competencies_4_3', 'below', val)}
           />
 
-          <label className="text-xs font-bold text-slate-700 uppercase block !mt-4">4.4 Framework Footer Text</label>
+          {/* 4.4 Framework Footer Heading & Text */}
+          <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200 !mt-4">
+            <Edit3 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+            <label className="text-[10px] font-bold text-slate-500 uppercase shrink-0">4.4 Heading:</label>
+            <input
+              type="text"
+              value={headingFramework44}
+              onChange={e => setHeadingFramework44(e.target.value)}
+              className="w-full text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded px-2 py-1 focus:border-emerald-500 outline-none"
+              placeholder="4.4 Performance Weightings & Core Assessment Principles"
+            />
+          </div>
+
+          <div className="flex justify-between items-center flex-wrap gap-2">
+            <label className="text-xs font-bold text-slate-700 uppercase block">4.4 Framework Footer Text &amp; PDP</label>
+            <button
+              type="button"
+              onClick={handlePullPDP}
+              disabled={pullingPdp}
+              className="px-2 py-0.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded text-[10.5px] font-bold transition flex items-center gap-1 cursor-pointer"
+            >
+              <GraduationCap className="w-3 h-3 text-amber-600" />
+              <span>{pulledPdpItems && pulledPdpItems.length > 0 ? `Re-adopt PDP (${pulledPdpItems.length})` : 'Adopt Personal Development Plan'}</span>
+            </button>
+          </div>
           <SectionCustomBlockEditor
             label="Additional Table & Text (Above 4.4 Framework Footer)"
             position="above"
@@ -1087,11 +1871,92 @@ export function DraftingSuiteTeam({
             extra={getSectionExtra('framework_4_4').below}
             onChange={val => updateSectionExtra('framework_4_4', 'below', val)}
           />
+
+          {/* ADOPT PROFILE JSC TABLE BLOCK - PLACED DIRECTLY BELOW POINT NUMBER 4.4 */}
+          <div className="mt-6 border-2 border-indigo-200 rounded-xl p-4 bg-indigo-50/40 space-y-3">
+            <div className="flex items-center gap-2 bg-white p-2 rounded-lg border border-indigo-200">
+              <Edit3 className="w-3.5 h-3.5 text-indigo-700 shrink-0" />
+              <label className="text-[10px] font-bold text-indigo-800 uppercase shrink-0">JSC Table Heading (Below 4.4):</label>
+              <input
+                type="text"
+                value={headingJscTable}
+                onChange={e => setHeadingJscTable(e.target.value)}
+                className="w-full text-xs font-bold text-slate-800 bg-slate-50 border border-indigo-200 rounded px-2 py-1 focus:border-indigo-500 focus:bg-white outline-none"
+                placeholder="4.5 Adopted Profile Job Specific Competencies (JSC) Matrix"
+              />
+            </div>
+
+            <div className="flex justify-between items-center flex-wrap gap-2">
+              <div>
+                <span className="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
+                  <Award className="w-4 h-4 text-indigo-700" />
+                  Adopt Profile JSC Table (Imported below point 4.4)
+                </span>
+                <p className="text-[10.5px] text-indigo-700/80">
+                  Imports the official Job Specific Competencies table for this position below clause 4.4.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handlePullProfileJscTable}
+                  disabled={pullingJsc}
+                  className="px-3 py-1.5 bg-indigo-700 hover:bg-indigo-800 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  title="Adopt full Profile JSC table below point 4.4"
+                >
+                  {pullingJsc ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Award className="w-3.5 h-3.5 text-indigo-200" />}
+                  <span>{pulledJscRows && pulledJscRows.length > 0 ? `Re-adopt Profile JSC (${pulledJscRows.length} Rows)` : 'Adopt Profile JSC Table'}</span>
+                </button>
+
+                {pulledJscRows && pulledJscRows.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPulledJscRows(null);
+                      setIsJscAdopted(false);
+                    }}
+                    className="px-2 py-1 bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 rounded text-xs font-semibold cursor-pointer"
+                    title="Remove adopted JSC Table"
+                  >
+                    Clear JSC
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {pulledJscRows && pulledJscRows.length > 0 && (
+              <div className="bg-white rounded-lg p-3 border border-indigo-200 text-xs space-y-1.5">
+                <div className="flex justify-between items-center text-[11px] font-bold text-indigo-900 border-b border-indigo-100 pb-1">
+                  <span>✓ {pulledJscRows.length} Competencies Adopted</span>
+                  <span>Total Weight: {pulledJscRows.reduce((acc, curr) => acc + Number(curr.weight || 0), 0)}%</span>
+                </div>
+                <div className="max-h-36 overflow-y-auto divide-y divide-slate-100 text-[11px] text-slate-700">
+                  {pulledJscRows.map((jsc, idx) => (
+                    <div key={idx} className="py-1 flex justify-between items-center">
+                      <span className="font-semibold">{jsc.jscNo || `JSC-0${idx+1}`}: {jsc.competency}</span>
+                      <span className="font-bold text-indigo-700">{jsc.weight}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* SECTION 5: CONDITIONS */}
         <div className="bg-white p-5 rounded-xl shadow-xs border border-slate-200 space-y-4">
-          <label className="text-xs font-bold text-slate-700 uppercase">5. Conditions of Performance</label>
+          <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
+            <Edit3 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+            <label className="text-[10px] font-bold text-slate-500 uppercase shrink-0">Section Heading:</label>
+            <input
+              type="text"
+              value={headingConditions}
+              onChange={e => setHeadingConditions(e.target.value)}
+              className="w-full text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded px-2 py-1 focus:border-emerald-500 outline-none"
+              placeholder="5. Conditions of Performance"
+            />
+          </div>
           <SectionCustomBlockEditor
             label="Additional Table & Text (Above 5. Conditions)"
             position="above"
@@ -1109,7 +1974,17 @@ export function DraftingSuiteTeam({
 
         {/* SECTION 6: KEY PERFORMANCE AREAS / DUTIES */}
         <div className="bg-white p-5 rounded-xl shadow-xs border border-slate-200 space-y-4">
-          <label className="text-xs font-bold text-slate-700 uppercase">6. Key Performance Areas / Duties Description</label>
+          <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
+            <Edit3 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+            <label className="text-[10px] font-bold text-slate-500 uppercase shrink-0">Section Heading:</label>
+            <input
+              type="text"
+              value={headingKpaDuties}
+              onChange={e => setHeadingKpaDuties(e.target.value)}
+              className="w-full text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded px-2 py-1 focus:border-emerald-500 outline-none"
+              placeholder="6. Key Performance Areas / Duties Description"
+            />
+          </div>
           <SectionCustomBlockEditor
             label="Additional Table & Text (Above 6. KPA Duties)"
             position="above"
@@ -1127,7 +2002,30 @@ export function DraftingSuiteTeam({
 
         {/* SECTION 7: RATING SCALE */}
         <div className="bg-white p-5 rounded-xl shadow-xs border border-slate-200 space-y-4">
-          <label className="text-xs font-bold text-slate-700 uppercase">7. Performance Assessment Rating Scale</label>
+          <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
+            <Edit3 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+            <label className="text-[10px] font-bold text-slate-500 uppercase shrink-0">Section Heading:</label>
+            <input
+              type="text"
+              value={headingRatingScale}
+              onChange={e => setHeadingRatingScale(e.target.value)}
+              className="w-full text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded px-2 py-1 focus:border-emerald-500 outline-none"
+              placeholder="7. Performance Assessment Rating Scale"
+            />
+          </div>
+
+          <div className="flex justify-between items-center flex-wrap gap-2">
+            <label className="text-xs font-bold text-slate-700 uppercase">Performance Assessment Table Adoption</label>
+            <button
+              type="button"
+              onClick={handlePullPerformanceAssessment}
+              disabled={pullingPerfAssessment}
+              className="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+            >
+              {pullingPerfAssessment ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Scale className="w-3.5 h-3.5 text-purple-600" />}
+              <span>{pulledPerfAssessmentRows && pulledPerfAssessmentRows.length > 0 ? `Re-adopt Assessment (${pulledPerfAssessmentRows.length})` : 'Adopt Performance Assessment Table'}</span>
+            </button>
+          </div>
           <SectionCustomBlockEditor
             label="Additional Table & Text (Above 7. Rating Scale)"
             position="above"
@@ -1145,8 +2043,20 @@ export function DraftingSuiteTeam({
 
         {/* SECTION 8: TIMETABLE FOR REVIEW */}
         <div className="bg-white p-5 rounded-xl shadow-xs border border-slate-200 space-y-4">
+          <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
+            <Edit3 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+            <label className="text-[10px] font-bold text-slate-500 uppercase shrink-0">Section Heading:</label>
+            <input
+              type="text"
+              value={headingTimetable}
+              onChange={e => setHeadingTimetable(e.target.value)}
+              className="w-full text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded px-2 py-1 focus:border-emerald-500 outline-none"
+              placeholder="8. Timetable for Performance Reviews"
+            />
+          </div>
+
           <div className="flex justify-between items-center">
-            <label className="text-xs font-bold text-slate-700 uppercase">8. Timetable for Performance Reviews</label>
+            <label className="text-xs font-bold text-slate-700 uppercase">Review Quarters Schedule</label>
             <button
               type="button"
               onClick={() => {
@@ -1286,7 +2196,17 @@ export function DraftingSuiteTeam({
 
         {/* SECTION 9: POOR PERFORMANCE */}
         <div className="bg-white p-5 rounded-xl shadow-xs border border-slate-200 space-y-4">
-          <label className="text-xs font-bold text-slate-700 uppercase">9. Management of Poor Performance Outcomes</label>
+          <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
+            <Edit3 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+            <label className="text-[10px] font-bold text-slate-500 uppercase shrink-0">Section Heading:</label>
+            <input
+              type="text"
+              value={headingPoorPerformance}
+              onChange={e => setHeadingPoorPerformance(e.target.value)}
+              className="w-full text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded px-2 py-1 focus:border-emerald-500 outline-none"
+              placeholder="9. Management of Poor Performance Outcomes"
+            />
+          </div>
           <SectionCustomBlockEditor
             label="Additional Table & Text (Above 9. Poor Performance)"
             position="above"
@@ -1304,7 +2224,17 @@ export function DraftingSuiteTeam({
 
         {/* SECTION 10: DISPUTE RESOLUTION */}
         <div className="bg-white p-5 rounded-xl shadow-xs border border-slate-200 space-y-4">
-          <label className="text-xs font-bold text-slate-700 uppercase">10. Dispute Resolution Mechanism</label>
+          <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
+            <Edit3 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+            <label className="text-[10px] font-bold text-slate-500 uppercase shrink-0">Section Heading:</label>
+            <input
+              type="text"
+              value={headingDispute}
+              onChange={e => setHeadingDispute(e.target.value)}
+              className="w-full text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded px-2 py-1 focus:border-emerald-500 outline-none"
+              placeholder="10. Dispute Resolution Mechanism"
+            />
+          </div>
           <SectionCustomBlockEditor
             label="Additional Table & Text (Above 10. Dispute Resolution)"
             position="above"
@@ -1322,7 +2252,17 @@ export function DraftingSuiteTeam({
 
         {/* SECTION 11: AMENDMENTS */}
         <div className="bg-white p-5 rounded-xl shadow-xs border border-slate-200 space-y-4">
-          <label className="text-xs font-bold text-slate-700 uppercase">11. General & Amendments</label>
+          <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
+            <Edit3 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+            <label className="text-[10px] font-bold text-slate-500 uppercase shrink-0">Section Heading:</label>
+            <input
+              type="text"
+              value={headingAmendment}
+              onChange={e => setHeadingAmendment(e.target.value)}
+              className="w-full text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded px-2 py-1 focus:border-emerald-500 outline-none"
+              placeholder="11. General & Amendments"
+            />
+          </div>
           <SectionCustomBlockEditor
             label="Additional Table & Text (Above 11. Amendments)"
             position="above"
@@ -1340,7 +2280,17 @@ export function DraftingSuiteTeam({
 
         {/* SECTION 12: EVALUATION */}
         <div className="bg-white p-5 rounded-xl shadow-xs border border-slate-200 space-y-4">
-          <label className="text-xs font-bold text-slate-700 uppercase">12. Evaluation & Consultation</label>
+          <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
+            <Edit3 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+            <label className="text-[10px] font-bold text-slate-500 uppercase shrink-0">Section Heading:</label>
+            <input
+              type="text"
+              value={headingEvaluation}
+              onChange={e => setHeadingEvaluation(e.target.value)}
+              className="w-full text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded px-2 py-1 focus:border-emerald-500 outline-none"
+              placeholder="12. Evaluation & Consultation"
+            />
+          </div>
           <SectionCustomBlockEditor
             label="Additional Table & Text (Above 12. Evaluation)"
             position="above"
@@ -1358,11 +2308,23 @@ export function DraftingSuiteTeam({
 
         {/* SECTION 13: SIGNATURES OF PARTIES WITH AZURE AD SELECTION & LIVE PROFILE AUTO-UPDATE */}
         <div className="bg-white p-5 rounded-xl shadow-xs border border-slate-200 space-y-4">
+          <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
+            <Edit3 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+            <label className="text-[10px] font-bold text-slate-500 uppercase shrink-0">Section Heading:</label>
+            <input
+              type="text"
+              value={headingSignatures}
+              onChange={e => setHeadingSignatures(e.target.value)}
+              className="w-full text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded px-2 py-1 focus:border-emerald-500 outline-none"
+              placeholder="13. Signatures of Parties to the Agreement"
+            />
+          </div>
+
           <div className="flex justify-between items-center flex-wrap gap-2">
             <div>
               <label className="text-xs font-bold text-slate-700 uppercase flex items-center gap-1.5">
                 <PenTool className="w-4 h-4 text-emerald-600" />
-                13. Signatures of Parties to the Agreement
+                Signatories
               </label>
               <p className="text-[11px] text-slate-500">
                 Search names in Azure AD. Uploaded signatures from User Management auto-render live.
@@ -1575,7 +2537,17 @@ export function DraftingSuiteTeam({
 
         {/* ANNEXURES */}
         <div className="bg-white p-5 rounded-xl shadow-xs border border-slate-200 space-y-4">
-          <label className="text-xs font-bold text-slate-700 uppercase">Annexure C - Disclosure of Financial Interest</label>
+          <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
+            <Edit3 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+            <label className="text-[10px] font-bold text-slate-500 uppercase shrink-0">Annexure Heading:</label>
+            <input
+              type="text"
+              value={headingAnnexureC}
+              onChange={e => setHeadingAnnexureC(e.target.value)}
+              className="w-full text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded px-2 py-1 focus:border-emerald-500 outline-none"
+              placeholder="Annexure C - Disclosure of Financial Interest"
+            />
+          </div>
           <SectionCustomBlockEditor
             label="Additional Table & Text (Above Annexure C)"
             position="above"
@@ -1674,7 +2646,7 @@ export function DraftingSuiteTeam({
             <SectionCustomBlockViewer extra={getSectionExtra('roster').above} />
             <h3 className="text-xs font-extrabold uppercase text-emerald-900 tracking-wider mb-3 flex items-center gap-1.5">
               <Users className="w-4 h-4 text-emerald-700" />
-              Team Members Deployment Roster ({teamList[activeTeamIndex]?.name})
+              {headingRoster || `Team Members Deployment Roster (${teamList[activeTeamIndex]?.name})`}
             </h3>
             <table className="w-full text-left border-collapse border border-slate-300 text-xs">
               <thead className="bg-slate-100 text-slate-800 uppercase font-black text-[10px]">
@@ -1711,7 +2683,7 @@ export function DraftingSuiteTeam({
             <div>
               <SectionCustomBlockViewer extra={getSectionExtra('purpose').above} />
               <h3 className="text-xs font-extrabold uppercase text-emerald-900 tracking-wide border-b border-emerald-800/40 pb-1 mb-2">
-                1. Purpose of Agreement
+                {headingPurpose || "1. Purpose of Agreement"}
               </h3>
               {renderFormattedContent(purpose)}
               <SectionCustomBlockViewer extra={getSectionExtra('purpose').below} />
@@ -1721,7 +2693,7 @@ export function DraftingSuiteTeam({
             <div>
               <SectionCustomBlockViewer extra={getSectionExtra('validity').above} />
               <h3 className="text-xs font-extrabold uppercase text-emerald-900 tracking-wide border-b border-emerald-800/40 pb-1 mb-2">
-                2. Validity of Agreement
+                {headingValidity || "2. Validity of Agreement"}
               </h3>
               {renderFormattedContent(validity)}
               <SectionCustomBlockViewer extra={getSectionExtra('validity').below} />
@@ -1731,7 +2703,7 @@ export function DraftingSuiteTeam({
             <div>
               <SectionCustomBlockViewer extra={getSectionExtra('reporting').above} />
               <h3 className="text-xs font-extrabold uppercase text-emerald-900 tracking-wide border-b border-emerald-800/40 pb-1 mb-2">
-                3. Reporting Requirements & Governance
+                {headingReporting || "3. Reporting Requirements & Governance"}
               </h3>
               {renderFormattedContent(reporting)}
               <SectionCustomBlockViewer extra={getSectionExtra('reporting').below} />
@@ -1741,32 +2713,154 @@ export function DraftingSuiteTeam({
             <div>
               <SectionCustomBlockViewer extra={getSectionExtra('framework').above} />
               <h3 className="text-xs font-extrabold uppercase text-emerald-900 tracking-wide border-b border-emerald-800/40 pb-1 mb-2">
-                4. Performance Assessment Framework
+                {headingFramework || "4. Performance Assessment Framework"}
               </h3>
               {renderFormattedContent(framework)}
               <SectionCustomBlockViewer extra={getSectionExtra('framework').below} />
 
               {/* Dynamic KPA Table (Viewer) */}
               <div className="my-4">
+                <h4 className="text-[11px] font-bold text-slate-900 mb-2 uppercase">
+                  {headingKpaTable || "4.2 Key Performance Areas (KPAs) Matrix Table"}
+                </h4>
                 <KPATableViewer headers={dynTableHeaders} rows={dynTableRows} />
               </div>
 
+              {/* Adopted Filtered Performance Planner Table (if pulled/adopted) */}
+              {pulledFilteredPplanItems && pulledFilteredPplanItems.length > 0 && (
+                <div className="my-5 border border-emerald-300 rounded-lg p-3 bg-emerald-50/20">
+                  <div className="flex justify-between items-center mb-2 pb-1 border-b border-emerald-200">
+                    <span className="text-[11px] font-extrabold uppercase text-emerald-950 flex items-center gap-1.5">
+                      <Table2 className="w-3.5 h-3.5 text-emerald-700" />
+                      Adopted Filtered Annual Performance Plan (KPA &amp; KPI Matrix)
+                    </span>
+                    <span className="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded">
+                      {pulledFilteredPplanItems.length} KPIs Loaded
+                    </span>
+                  </div>
+                  <table className="w-full text-left border-collapse border border-slate-300 text-[10px]">
+                    <thead className="bg-slate-100 text-slate-800 font-black uppercase text-[9px]">
+                      <tr>
+                        <th className="border border-slate-300 p-1.5 text-center w-8">No.</th>
+                        <th className="border border-slate-300 p-1.5">Key Performance Area (KPA)</th>
+                        <th className="border border-slate-300 p-1.5">KPI Description</th>
+                        <th className="border border-slate-300 p-1.5 text-center">Baseline</th>
+                        <th className="border border-slate-300 p-1.5 text-center">Annual Target</th>
+                        <th className="border border-slate-300 p-1.5 text-center">Q1</th>
+                        <th className="border border-slate-300 p-1.5 text-center">Q2</th>
+                        <th className="border border-slate-300 p-1.5 text-center">Q3</th>
+                        <th className="border border-slate-300 p-1.5 text-center">Q4</th>
+                        <th className="border border-slate-300 p-1.5">Portfolio of Evidence (POE)</th>
+                        <th className="border border-slate-300 p-1.5 text-center">Wt%</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pulledFilteredPplanItems.map((item, idx) => (
+                        <tr key={item.id || idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'}>
+                          <td className="border border-slate-300 p-1.5 text-center font-bold text-slate-600">{idx + 1}</td>
+                          <td className="border border-slate-300 p-1.5 font-bold text-slate-800">{item.kpa || item.strategicGoal || 'Operational KPA'}</td>
+                          <td className="border border-slate-300 p-1.5 text-slate-700">{item.kpi || item.description}</td>
+                          <td className="border border-slate-300 p-1.5 text-center">{item.baseline || '—'}</td>
+                          <td className="border border-slate-300 p-1.5 text-center font-bold text-emerald-800">{item.annualTarget || '—'}</td>
+                          <td className="border border-slate-300 p-1.5 text-center">{item.q1Target || item.q1 || '—'}</td>
+                          <td className="border border-slate-300 p-1.5 text-center">{item.q2Target || item.q2 || '—'}</td>
+                          <td className="border border-slate-300 p-1.5 text-center">{item.q3Target || item.q3 || '—'}</td>
+                          <td className="border border-slate-300 p-1.5 text-center">{item.q4Target || item.q4 || '—'}</td>
+                          <td className="border border-slate-300 p-1.5 text-slate-600 text-[9px]">{item.poe || item.annualRequiredPoe || '—'}</td>
+                          <td className="border border-slate-300 p-1.5 text-center font-bold text-slate-700">{item.weighting || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
               <SectionCustomBlockViewer extra={getSectionExtra('kpa_4_2').below} />
 
-              <SectionCustomBlockViewer extra={getSectionExtra('competencies_4_3').above} />
-              {renderFormattedContent(frameworkBelowKpa)}
-              <SectionCustomBlockViewer extra={getSectionExtra('competencies_4_3').below} />
+              {/* 4.3 Competencies Text */}
+              <div className="my-3">
+                <h4 className="text-[11px] font-bold text-slate-900 mb-1 uppercase">
+                  {headingCompetencies || "4.3 Competencies Assessment Matrix Criteria"}
+                </h4>
+                <SectionCustomBlockViewer extra={getSectionExtra('competencies_4_3').above} />
+                {renderFormattedContent(frameworkBelowKpa)}
+                <SectionCustomBlockViewer extra={getSectionExtra('competencies_4_3').below} />
+              </div>
 
-              <SectionCustomBlockViewer extra={getSectionExtra('framework_4_4').above} />
-              {renderFormattedContent(frameworkBelowJsc)}
-              <SectionCustomBlockViewer extra={getSectionExtra('framework_4_4').below} />
+              {/* 4.4 Framework Footer Text */}
+              <div className="my-3">
+                <h4 className="text-[11px] font-bold text-slate-900 mb-1 uppercase">
+                  {headingFramework44 || "4.4 Performance Weightings & Core Assessment Principles"}
+                </h4>
+                <SectionCustomBlockViewer extra={getSectionExtra('framework_4_4').above} />
+                {renderFormattedContent(frameworkBelowJsc)}
+                <SectionCustomBlockViewer extra={getSectionExtra('framework_4_4').below} />
+              </div>
+
+              {/* ADOPTED PROFILE JSC TABLE - RENDERED DIRECTLY BELOW POINT NUMBER 4.4 */}
+              {pulledJscRows && pulledJscRows.length > 0 && (
+                <div className="my-6 border-2 border-indigo-300 rounded-lg p-3 bg-indigo-50/25">
+                  <div className="flex justify-between items-center mb-2 pb-1 border-b border-indigo-200">
+                    <span className="text-[11px] font-extrabold uppercase text-indigo-950 flex items-center gap-1.5">
+                      <Award className="w-3.5 h-3.5 text-indigo-700" />
+                      {headingJscTable || "4.5 Adopted Profile Job Specific Competencies (JSC) Matrix"}
+                    </span>
+                    <span className="text-[9px] bg-indigo-100 text-indigo-800 font-bold px-2 py-0.5 rounded">
+                      {pulledJscRows.length} Competencies Adopted Below 4.4
+                    </span>
+                  </div>
+                  <table className="w-full text-left border-collapse border border-slate-300 text-[10px]">
+                    <thead className="bg-slate-100 text-slate-800 font-black uppercase text-[9px]">
+                      <tr>
+                        <th className="border border-slate-300 p-1.5 text-center w-14">JSC No</th>
+                        <th className="border border-slate-300 p-1.5 min-w-[130px]">Core Competency</th>
+                        <th className="border border-slate-300 p-1.5 min-w-[220px]">Competency Definition &amp; Standard Requirements</th>
+                        <th className="border border-slate-300 p-1.5 text-center min-w-[110px]">Level of Capability</th>
+                        <th className="border border-slate-300 p-1.5 text-center w-14">Weight %</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pulledJscRows.map((jsc, idx) => (
+                        <tr key={jsc.id || idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'}>
+                          <td className="border border-slate-300 p-1.5 text-center font-bold text-indigo-800">{jsc.jscNo || `JSC-0${idx + 1}`}</td>
+                          <td className="border border-slate-300 p-1.5 font-bold text-slate-900">{jsc.competency}</td>
+                          <td className="border border-slate-300 p-1.5 text-slate-700 space-y-1">
+                            {typeof jsc.definition === 'string' ? (
+                              <p>{jsc.definition}</p>
+                            ) : (
+                              <>
+                                <p className="font-semibold text-slate-800">{jsc.definition?.mainText}</p>
+                                {jsc.definition?.subsections?.map((sub: any, sIdx: number) => (
+                                  <div key={sIdx} className="text-[9px] text-slate-600 pl-1.5 border-l border-indigo-200">
+                                    <span className="font-bold text-slate-800">{sub.heading}:</span> {sub.paragraphs?.join(' ')}
+                                  </div>
+                                ))}
+                              </>
+                            )}
+                          </td>
+                          <td className="border border-slate-300 p-1.5 text-center font-semibold text-slate-700">{jsc.level || 'Level 4: Superior Leader'}</td>
+                          <td className="border border-slate-300 p-1.5 text-center font-bold text-indigo-900">{jsc.weight || 0}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="bg-slate-100 font-extrabold text-[10px] text-slate-900">
+                      <tr>
+                        <td colSpan={4} className="border border-slate-300 p-1.5 text-right uppercase">Total JSC Weighting:</td>
+                        <td className="border border-slate-300 p-1.5 text-center font-black text-indigo-900">
+                          {pulledJscRows.reduce((acc, curr) => acc + Number(curr.weight || 0), 0)}%
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
             </div>
 
             {/* 5. Conditions */}
             <div>
               <SectionCustomBlockViewer extra={getSectionExtra('conditions').above} />
               <h3 className="text-xs font-extrabold uppercase text-emerald-900 tracking-wide border-b border-emerald-800/40 pb-1 mb-2">
-                5. Conditions of Performance
+                {headingConditions || "5. Conditions of Performance"}
               </h3>
               {renderFormattedContent(conditions)}
               <SectionCustomBlockViewer extra={getSectionExtra('conditions').below} />
@@ -1776,7 +2870,7 @@ export function DraftingSuiteTeam({
             <div>
               <SectionCustomBlockViewer extra={getSectionExtra('kpaDuties').above} />
               <h3 className="text-xs font-extrabold uppercase text-emerald-900 tracking-wide border-b border-emerald-800/40 pb-1 mb-2">
-                6. Key Performance Areas / Duties
+                {headingKpaDuties || "6. Key Performance Areas / Duties"}
               </h3>
               {renderFormattedContent(kpaText)}
               <SectionCustomBlockViewer extra={getSectionExtra('kpaDuties').below} />
@@ -1786,9 +2880,77 @@ export function DraftingSuiteTeam({
             <div>
               <SectionCustomBlockViewer extra={getSectionExtra('ratingScale').above} />
               <h3 className="text-xs font-extrabold uppercase text-emerald-900 tracking-wide border-b border-emerald-800/40 pb-1 mb-2">
-                7. Performance Assessment Rating Scale
+                {headingRatingScale || "7. Performance Assessment Rating Scale"}
               </h3>
               {renderFormattedContent(assessmentText)}
+
+              {/* Adopted Statutory Performance Assessment 5-Point Rating Scale Table */}
+              {pulledPerfAssessmentRows && pulledPerfAssessmentRows.length > 0 && (
+                <div className="my-5 border border-purple-300 rounded-lg p-3 bg-purple-50/20">
+                  <div className="flex justify-between items-center mb-2 pb-1 border-b border-purple-200">
+                    <span className="text-[11px] font-extrabold uppercase text-purple-950 flex items-center gap-1.5">
+                      <Scale className="w-3.5 h-3.5 text-purple-700" />
+                      7.1 {pulledPerfAssessmentTitle || "Adopted Performance Assessment Table (5-Point Rating Scale)"}
+                    </span>
+                    <span className="text-[9px] bg-purple-100 text-purple-800 font-bold px-2 py-0.5 rounded">
+                      {pulledPerfAssessmentRows.length} Rating Levels Adopted
+                    </span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse border border-slate-300 text-[10px]">
+                      <thead className="bg-slate-100 text-slate-800 font-black uppercase text-[9px]">
+                        <tr>
+                          {pulledPerfAssessmentHeaders.map((h, hIdx) => (
+                            <th 
+                              key={hIdx} 
+                              className={`border border-slate-300 p-1.5 ${
+                                hIdx === 0 ? 'text-center w-12' : 
+                                hIdx === 1 ? 'min-w-[130px]' : 
+                                hIdx === 2 ? 'min-w-[240px]' : 
+                                hIdx === 3 ? 'text-center min-w-[90px]' : 
+                                'min-w-[180px]'
+                              }`}
+                            >
+                              {h}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pulledPerfAssessmentRows.map((row, rIdx) => {
+                          const levelNum = row[0]?.trim();
+                          const levelBadgeColor = 
+                            levelNum === '5' ? 'bg-emerald-700 text-white' :
+                            levelNum === '4' ? 'bg-blue-600 text-white' :
+                            levelNum === '3' ? 'bg-teal-600 text-white' :
+                            levelNum === '2' ? 'bg-amber-500 text-white' :
+                            'bg-rose-600 text-white';
+
+                          return (
+                            <tr key={rIdx} className={rIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'}>
+                              <td className="border border-slate-300 p-1.5 text-center font-bold">
+                                <span className={`inline-block px-2 py-0.5 rounded-full text-[9.5px] font-black ${levelBadgeColor}`}>
+                                  Level {row[0]}
+                                </span>
+                              </td>
+                              <td className="border border-slate-300 p-1.5 font-bold text-slate-900">{row[1]}</td>
+                              <td className="border border-slate-300 p-1.5 text-slate-700 leading-relaxed text-[9.5px]">{row[2]}</td>
+                              <td className="border border-slate-300 p-1.5 text-center font-extrabold text-purple-900">{row[3]}</td>
+                              <td className="border border-slate-300 p-1.5 text-slate-700 text-[9.5px]">{row[4]}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  {pulledPerfAssessmentNotes && (
+                    <div className="mt-2 text-[9px] text-slate-600 italic bg-purple-50/60 p-2 rounded border border-purple-100">
+                      {renderFormattedContent(pulledPerfAssessmentNotes)}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <SectionCustomBlockViewer extra={getSectionExtra('ratingScale').below} />
             </div>
 
@@ -1796,7 +2958,7 @@ export function DraftingSuiteTeam({
             <div>
               <SectionCustomBlockViewer extra={getSectionExtra('timetable').above} />
               <h3 className="text-xs font-extrabold uppercase text-emerald-900 tracking-wide border-b border-emerald-800/40 pb-1 mb-2">
-                8. Timetable for Performance Reviews
+                {headingTimetable || "8. Timetable for Performance Reviews"}
               </h3>
               <table className="w-full text-left border-collapse border border-slate-300 text-[11px] my-3">
                 <thead className="bg-slate-100 text-slate-800 font-bold uppercase text-[9.5px]">
@@ -1830,7 +2992,7 @@ export function DraftingSuiteTeam({
             <div>
               <SectionCustomBlockViewer extra={getSectionExtra('poorPerformance').above} />
               <h3 className="text-xs font-extrabold uppercase text-emerald-900 tracking-wide border-b border-emerald-800/40 pb-1 mb-2">
-                9. Management of Poor Performance Outcomes
+                {headingPoorPerformance || "9. Management of Poor Performance Outcomes"}
               </h3>
               {renderFormattedContent(poorPerformance)}
               <SectionCustomBlockViewer extra={getSectionExtra('poorPerformance').below} />
@@ -1840,7 +3002,7 @@ export function DraftingSuiteTeam({
             <div>
               <SectionCustomBlockViewer extra={getSectionExtra('dispute').above} />
               <h3 className="text-xs font-extrabold uppercase text-emerald-900 tracking-wide border-b border-emerald-800/40 pb-1 mb-2">
-                10. Dispute Resolution Mechanism
+                {headingDispute || "10. Dispute Resolution Mechanism"}
               </h3>
               {renderFormattedContent(dispute)}
               <SectionCustomBlockViewer extra={getSectionExtra('dispute').below} />
@@ -1850,7 +3012,7 @@ export function DraftingSuiteTeam({
             <div>
               <SectionCustomBlockViewer extra={getSectionExtra('amendment').above} />
               <h3 className="text-xs font-extrabold uppercase text-emerald-900 tracking-wide border-b border-emerald-800/40 pb-1 mb-2">
-                11. General & Amendments
+                {headingAmendment || "11. General & Amendments"}
               </h3>
               {renderFormattedContent(amendment)}
               <SectionCustomBlockViewer extra={getSectionExtra('amendment').below} />
@@ -1860,7 +3022,7 @@ export function DraftingSuiteTeam({
             <div>
               <SectionCustomBlockViewer extra={getSectionExtra('evaluation').above} />
               <h3 className="text-xs font-extrabold uppercase text-emerald-900 tracking-wide border-b border-emerald-800/40 pb-1 mb-2">
-                12. Evaluation & Consultation
+                {headingEvaluation || "12. Evaluation & Consultation"}
               </h3>
               {renderFormattedContent(evaluation)}
               <SectionCustomBlockViewer extra={getSectionExtra('evaluation').below} />
@@ -1870,7 +3032,7 @@ export function DraftingSuiteTeam({
             <div className="pt-8 border-t-2 border-emerald-900/80 mt-10">
               <SectionCustomBlockViewer extra={getSectionExtra('signatures').above} />
               <h3 className="text-xs font-black uppercase text-emerald-900 tracking-wider text-center mb-6">
-                13. Signatures of Parties to the Performance Agreement
+                {headingSignatures || "13. Signatures of Parties to the Performance Agreement"}
               </h3>
 
               <div className="grid grid-cols-2 gap-6 my-6">
@@ -1979,10 +3141,57 @@ export function DraftingSuiteTeam({
               <SectionCustomBlockViewer extra={getSectionExtra('signatures').below} />
             </div>
 
+            {/* Annexure B: Personal Development Plan (PDP) Preview */}
+            {pulledPdpItems && pulledPdpItems.length > 0 && (
+              <div className="pt-6 border-t border-slate-200 text-xs">
+                <div className="my-3 border border-amber-300 rounded-lg p-3 bg-amber-50/20">
+                  <div className="flex justify-between items-center mb-2 pb-1 border-b border-amber-200">
+                    <span className="text-[11px] font-extrabold uppercase text-amber-950 flex items-center gap-1.5">
+                      <GraduationCap className="w-3.5 h-3.5 text-amber-700" />
+                      Annexure B: Adopted Personal Development Plan (PDP) Matrix
+                    </span>
+                    <span className="text-[9px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded">
+                      {pulledPdpItems.length} PDP Items Adopted
+                    </span>
+                  </div>
+                  <table className="w-full text-left border-collapse border border-slate-300 text-[10px]">
+                    <thead className="bg-slate-100 text-slate-800 font-black uppercase text-[9px]">
+                      <tr>
+                        <th className="border border-slate-300 p-1.5 text-center w-8">No.</th>
+                        <th className="border border-slate-300 p-1.5 min-w-[130px]">Identified Skills Gap</th>
+                        <th className="border border-slate-300 p-1.5 min-w-[130px]">Desired Outcomes</th>
+                        <th className="border border-slate-300 p-1.5 min-w-[120px]">Suggested Training / Intervention</th>
+                        <th className="border border-slate-300 p-1.5 text-center">Mode of Delivery</th>
+                        <th className="border border-slate-300 p-1.5 text-center">Time Frame</th>
+                        <th className="border border-slate-300 p-1.5">Work Opportunity / Practice</th>
+                        <th className="border border-slate-300 p-1.5 text-center">Support Person</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pulledPdpItems.map((pdp, idx) => (
+                        <tr key={pdp.id || idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'}>
+                          <td className="border border-slate-300 p-1.5 text-center font-bold text-slate-600">{idx + 1}</td>
+                          <td className="border border-slate-300 p-1.5 font-bold text-slate-900">{pdp.skillsGap || pdp.need || '—'}</td>
+                          <td className="border border-slate-300 p-1.5 text-slate-700">{pdp.outcomes || pdp.outcome || '—'}</td>
+                          <td className="border border-slate-300 p-1.5 text-slate-700">{pdp.suggestedTraining || pdp.training || '—'}</td>
+                          <td className="border border-slate-300 p-1.5 text-center">{pdp.modeOfDelivery || pdp.mode || '—'}</td>
+                          <td className="border border-slate-300 p-1.5 text-center font-semibold text-amber-900">{pdp.timeFrame || pdp.timing || '—'}</td>
+                          <td className="border border-slate-300 p-1.5 text-slate-700">{pdp.workOpportunity || pdp.workExperience || '—'}</td>
+                          <td className="border border-slate-300 p-1.5 text-center font-semibold text-slate-800">{pdp.supportPerson || pdp.support || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
             {/* Annexure C Preview */}
             <div className="pt-6 border-t border-slate-200 text-xs">
               <SectionCustomBlockViewer extra={getSectionExtra('annexureC').above} />
-              <h4 className="font-bold uppercase text-emerald-900 mb-2">Annexure C: Financial Disclosure</h4>
+              <h4 className="font-bold uppercase text-emerald-900 mb-2">
+                {headingAnnexureC || "Annexure C: Financial Disclosure"}
+              </h4>
               <div className="whitespace-pre-wrap text-slate-700 bg-slate-50 p-4 rounded border border-slate-200">
                 {annexureC}
               </div>
