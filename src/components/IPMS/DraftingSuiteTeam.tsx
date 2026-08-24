@@ -19,6 +19,26 @@ import {
   KPATableEditor, KPATableViewer
 } from './PADraftingCustomBlock';
 
+export interface TeamMemberSignatory {
+  id: string;
+  name: string;
+  designation: string;
+  title: string;
+  email: string;
+  signatureData: string;
+  date: string;
+}
+
+export interface InstitutionalSignatory {
+  id: string;
+  name: string;
+  designation: string;
+  title: string;
+  email: string;
+  signatureData: string;
+  date: string;
+}
+
 interface PADraftingSuiteTeamProps {
   currentUser: User;
   activeTenantId: string;
@@ -94,7 +114,7 @@ export function DraftingSuiteTeam({
   const [headingReporting, setHeadingReporting] = useState<string>('3. Reporting Requirements & Governance');
   const [headingFramework, setHeadingFramework] = useState<string>('4. Performance Assessment Framework');
   const [headingKpaTable, setHeadingKpaTable] = useState<string>('4.2 Key Performance Areas (KPA) Matrix Table');
-  const [headingPplanTable, setHeadingPplanTable] = useState<string>('Adopted Filtered Annual Performance Plan (KPA & KPI Matrix)');
+  const [headingPplanTable, setHeadingPplanTable] = useState<string>('Annexure A: Annual Performance Plan (KPA & KPI Matrix)');
   const [headingCompetencies, setHeadingCompetencies] = useState<string>('4.3 Job Specific Competencies Framework');
   const [headingFramework44, setHeadingFramework44] = useState<string>('4.4 Developmental Framework & Personal Development Plan');
   const [headingJscTable, setHeadingJscTable] = useState<string>('Adopted Profile Job Specific Competencies (JSC) Matrix');
@@ -140,7 +160,71 @@ export function DraftingSuiteTeam({
     { term: '4th Quarter', desc: 'April - June', type: 'Formal', activities: 'Annual Assessment', date: 'August', responsible: 'Manager' }
   ]);
 
-  // Signatures configuration: 5 comprehensive signatory roles
+  // Institutional / Supervisory Signatories (Fully dynamic: Add / Delete / Edit Titles, without PMU witness)
+  const [institutionalSignatures, setInstitutionalSignatures] = useState<InstitutionalSignatory[]>([
+    {
+      id: 'inst_sig_manager',
+      title: 'Signed by Direct Manager / Supervisor:',
+      name: 'M.L. Mahlangu',
+      designation: 'Direct Manager / Supervisor',
+      email: '',
+      signatureData: '',
+      date: new Date().toLocaleDateString()
+    },
+    {
+      id: 'inst_sig_mm',
+      title: 'Signed on behalf of Municipality (Municipal Manager):',
+      name: 'M.L. Mahlangu (Municipal Manager)',
+      designation: 'Municipal Manager (Accounting Officer)',
+      email: '',
+      signatureData: '',
+      date: new Date().toLocaleDateString()
+    },
+    {
+      id: 'inst_sig_hod',
+      title: 'Signed by Head of Department / Director:',
+      name: 'Audrey Mpanza',
+      designation: 'Head of Department / Director',
+      email: '',
+      signatureData: '',
+      date: new Date().toLocaleDateString()
+    }
+  ]);
+
+  const handleAddInstitutionalSignatory = () => {
+    const newSignatory: InstitutionalSignatory = {
+      id: `inst_sig_${Date.now()}`,
+      title: 'Signed by Supervisory Official / Authority:',
+      name: '',
+      designation: '',
+      email: '',
+      signatureData: '',
+      date: new Date().toLocaleDateString()
+    };
+    setInstitutionalSignatures(prev => [...prev, newSignatory]);
+    triggerNotification("Added new Supervisory / Institutional Signatory", "success");
+  };
+
+  const handleDeleteInstitutionalSignatory = (index: number) => {
+    setInstitutionalSignatures(prev => {
+      const target = prev[index];
+      const updated = prev.filter((_, i) => i !== index);
+      triggerNotification(`Removed "${target?.title || 'Signatory'}"`, "success");
+      return updated;
+    });
+  };
+
+  const handleUpdateInstitutionalSignatory = (index: number, field: keyof InstitutionalSignatory, value: string) => {
+    setInstitutionalSignatures(prev => {
+      const updated = [...prev];
+      if (updated[index]) {
+        updated[index] = { ...updated[index], [field]: value };
+      }
+      return updated;
+    });
+  };
+
+  // Signatures configuration: backwards-compatible fallback object
   const [userSignatures, setUserSignatures] = useState({
     // Signatory 1: Employee / Team Lead
     employeeTitle: 'Signed by Employee / Team Lead:',
@@ -166,12 +250,106 @@ export function DraftingSuiteTeam({
     hodEmail: '',
     hodSig: '',
 
-    // Signatory 5: PMS Official / Witness
+    // Signatory 5: PMS Official / Witness (Optional fallback)
     witnessTitle: 'Signed by Performance Management Unit / Witness:',
     witness: 'Yena Khuboni',
     witnessEmail: '',
     witnessSig: ''
   });
+
+  // Team Member Signatories dynamically synchronized from the top Deployment Roster
+  const [teamMemberSignatures, setTeamMemberSignatures] = useState<TeamMemberSignatory[]>(() => {
+    const initRows = currentTeam.defaultRows || defaultRows || [];
+    return initRows.map((r, idx) => ({
+      id: `member_sig_${idx}`,
+      name: r[1] || '',
+      designation: r[2] || '',
+      title: idx === 0 
+        ? `Signed by Team Lead / Director (${r[1] || 'Lead'}):` 
+        : `Signed by Team Member (${r[1] || `Member #${idx + 1}`}):`,
+      email: '',
+      signatureData: '',
+      date: new Date().toLocaleDateString()
+    }));
+  });
+
+  // Automatically keep teamMemberSignatures in sync with tableRows (roster)
+  useEffect(() => {
+    setTeamMemberSignatures(prev => {
+      return tableRows.map((row, idx) => {
+        const rawName = row[1] || '';
+        const rawDesig = row[2] || '';
+        const existing = prev[idx];
+
+        const defaultTitle = idx === 0 
+          ? `Signed by Team Lead / Director (${rawName || 'Lead'}):` 
+          : `Signed by Team Member (${rawName || `Member #${idx + 1}`}):`;
+
+        // If title matches auto-generated pattern or was empty, keep it updated with current name
+        let title = existing?.title;
+        if (!title || title.startsWith('Signed by Team Member') || title.startsWith('Signed by Team Lead')) {
+          title = defaultTitle;
+        }
+
+        return {
+          id: existing?.id || `member_sig_${idx}_${Date.now()}`,
+          name: rawName,
+          designation: rawDesig,
+          title: title || defaultTitle,
+          email: existing?.email || '',
+          signatureData: existing?.signatureData || '',
+          date: existing?.date || new Date().toLocaleDateString()
+        };
+      });
+    });
+  }, [tableRows]);
+
+  // Explicit sync handler
+  const handleSyncRosterToSignatures = () => {
+    const synced = tableRows.map((row, idx) => {
+      const rawName = row[1] || '';
+      const rawDesig = row[2] || '';
+      const existing = teamMemberSignatures[idx];
+      return {
+        id: existing?.id || `member_sig_${idx}_${Date.now()}`,
+        name: rawName,
+        designation: rawDesig,
+        title: idx === 0 
+          ? `Signed by Team Lead / Director (${rawName || 'Lead'}):` 
+          : `Signed by Team Member (${rawName || `Member #${idx + 1}`}):`,
+        email: existing?.email || '',
+        signatureData: existing?.signatureData || '',
+        date: existing?.date || new Date().toLocaleDateString()
+      };
+    });
+    setTeamMemberSignatures(synced);
+    triggerNotification(`Synchronized ${synced.length} team members from roster into Section 13 Signatures`, "success");
+  };
+
+  const handleUpdateMemberSignature = (index: number, field: keyof TeamMemberSignatory, value: string) => {
+    setTeamMemberSignatures(prev => {
+      const updated = [...prev];
+      if (updated[index]) {
+        updated[index] = { ...updated[index], [field]: value };
+      }
+      return updated;
+    });
+
+    // If name or designation is updated in Section 13, also reflect back to the top roster table!
+    if (field === 'name' || field === 'designation') {
+      setTableRows(prev => {
+        const newRows = [...prev];
+        if (newRows[index]) {
+          newRows[index] = [
+            newRows[index][0] || String(index + 1),
+            field === 'name' ? value : newRows[index][1] || '',
+            field === 'designation' ? value : newRows[index][2] || ''
+          ];
+        }
+        return newRows;
+      });
+    }
+  };
 
   // Annexures & Extras
   const [annexureA, setAnnexureA] = useState(true);
@@ -239,6 +417,7 @@ export function DraftingSuiteTeam({
   const [pulledJscRows, setPulledJscRows] = useState<any[] | null>(null);
   const [pullingJsc, setPullingJsc] = useState(false);
   const [khuboniJscNotes, setKhuboniJscNotes] = useState<string>('Notes / Developmental Framework Commentary: Employees shall be assessed against the adopted Job Specific Competencies quarterly.');
+  const [jscBelowText, setJscBelowText] = useState<string>('The Job Specific Competencies detailed above represent the core operational standards and behavioral requirements for effective service delivery under this agreement.');
 
   // Performance Assessment Table States
   const [pulledPerfAssessmentRows, setPulledPerfAssessmentRows] = useState<string[][] | null>(null);
@@ -247,7 +426,7 @@ export function DraftingSuiteTeam({
   ]);
   const [pulledPerfAssessmentTitle, setPulledPerfAssessmentTitle] = useState<string>("Performance Assessment Framework (5-Point Rating Scale)");
   const [pulledPerfAssessmentNotes, setPulledPerfAssessmentNotes] = useState<string>(
-    "7.2 The personal development plan (PDP) will address any developmental needs identified during the performance assessment process.\n7.3 Performance evaluation results are subject to institutional moderation by the Departmental Performance Management Committee (DPMC) and Internal Audit verification."
+    "6.2 The personal development plan (PDP) will address any developmental needs identified during the performance assessment process.\n6.3 Performance evaluation results are subject to institutional moderation by the Departmental Performance Management Committee (DPMC) and Internal Audit verification."
   );
   const [pullingPerfAssessment, setPullingPerfAssessment] = useState(false);
   const [isPerfAssessmentAdopted, setIsPerfAssessmentAdopted] = useState<boolean>(false);
@@ -377,22 +556,22 @@ export function DraftingSuiteTeam({
         if (data && Array.isArray(data.items) && data.items.length > 0) {
           setPulledFilteredPplanItems(data.items);
           setIsPPlanAdopted(true);
-          triggerNotification(`Successfully pulled ${data.items.length} Filtered Performance Planner items!`, "success");
+          triggerNotification(`Successfully adopted ${data.items.length} Filtered Performance Plan items into Annexure A!`, "success");
         } else {
           setPulledFilteredPplanItems(DEFAULT_FILTERED_PPLAN_ITEMS);
           setIsPPlanAdopted(true);
-          triggerNotification("Adopted Filtered Performance Planner grid table!", "success");
+          triggerNotification("Adopted Filtered Annual Performance Plan (KPA & KPI matrix) into Annexure A!", "success");
         }
       } else {
         setPulledFilteredPplanItems(DEFAULT_FILTERED_PPLAN_ITEMS);
         setIsPPlanAdopted(true);
-        triggerNotification("Adopted Filtered Performance Planner grid table!", "success");
+        triggerNotification("Adopted Filtered Annual Performance Plan (KPA & KPI matrix) into Annexure A!", "success");
       }
     } catch (err: any) {
       console.error(err);
       setPulledFilteredPplanItems(DEFAULT_FILTERED_PPLAN_ITEMS);
       setIsPPlanAdopted(true);
-      triggerNotification("Adopted Filtered Performance Planner grid table!", "success");
+      triggerNotification("Adopted Filtered Annual Performance Plan (KPA & KPI matrix) into Annexure A!", "success");
     } finally {
       setPullingFilteredPplan(false);
     }
@@ -500,7 +679,7 @@ export function DraftingSuiteTeam({
         "Formal capability / incapacity proceedings initiated in terms of applicable municipal regulations."
       ]
     ],
-    notesBelow: "7.2 The personal development plan (PDP) will address any developmental needs identified during the performance assessment process.\n7.3 Performance evaluation results are subject to institutional moderation by the Departmental Performance Management Committee (DPMC) and Internal Audit verification."
+    notesBelow: "6.2 The personal development plan (PDP) will address any developmental needs identified during the performance assessment process.\n6.3 Performance evaluation results are subject to institutional moderation by the Departmental Performance Management Committee (DPMC) and Internal Audit verification."
   };
 
   const handlePullPerformanceAssessment = async () => {
@@ -522,14 +701,14 @@ export function DraftingSuiteTeam({
             setPulledPerfAssessmentNotes(data.notesBelow);
           }
           setIsPerfAssessmentAdopted(true);
-          triggerNotification(`Successfully adopted Performance Assessment Table (${data.rows.length} levels) into Section 7!`, "success");
+          triggerNotification(`Successfully adopted Performance Assessment Table (${data.rows.length} levels) below Point 6.1!`, "success");
         } else {
           setPulledPerfAssessmentRows(DEFAULT_PERFORMANCE_ASSESSMENT_CONFIG.rows);
           setPulledPerfAssessmentHeaders(DEFAULT_PERFORMANCE_ASSESSMENT_CONFIG.headers);
           setPulledPerfAssessmentTitle(DEFAULT_PERFORMANCE_ASSESSMENT_CONFIG.title);
           setPulledPerfAssessmentNotes(DEFAULT_PERFORMANCE_ASSESSMENT_CONFIG.notesBelow);
           setIsPerfAssessmentAdopted(true);
-          triggerNotification("Adopted statutory Performance Assessment Table (5-point rating scale) into Section 7!", "success");
+          triggerNotification("Adopted statutory Performance Assessment Table (5-point rating scale) below Point 6.1!", "success");
         }
       } else {
         setPulledPerfAssessmentRows(DEFAULT_PERFORMANCE_ASSESSMENT_CONFIG.rows);
@@ -537,7 +716,7 @@ export function DraftingSuiteTeam({
         setPulledPerfAssessmentTitle(DEFAULT_PERFORMANCE_ASSESSMENT_CONFIG.title);
         setPulledPerfAssessmentNotes(DEFAULT_PERFORMANCE_ASSESSMENT_CONFIG.notesBelow);
         setIsPerfAssessmentAdopted(true);
-        triggerNotification("Adopted statutory Performance Assessment Table (5-point rating scale) into Section 7!", "success");
+        triggerNotification("Adopted statutory Performance Assessment Table (5-point rating scale) below Point 6.1!", "success");
       }
     } catch (err: any) {
       console.error("Error adopting performance assessment table:", err);
@@ -546,7 +725,7 @@ export function DraftingSuiteTeam({
       setPulledPerfAssessmentTitle(DEFAULT_PERFORMANCE_ASSESSMENT_CONFIG.title);
       setPulledPerfAssessmentNotes(DEFAULT_PERFORMANCE_ASSESSMENT_CONFIG.notesBelow);
       setIsPerfAssessmentAdopted(true);
-      triggerNotification("Adopted statutory Performance Assessment Table (5-point rating scale) into Section 7!", "success");
+      triggerNotification("Adopted statutory Performance Assessment Table (5-point rating scale) below Point 6.1!", "success");
     } finally {
       setPullingPerfAssessment(false);
     }
@@ -616,17 +795,40 @@ export function DraftingSuiteTeam({
       }
       const combined = [...allUsers, ...(usersList || tenantUsers)];
 
+      const findSig = (name?: string, email?: string) => {
+        const match = combined.find(u => 
+          (email && u.email && u.email.toLowerCase().trim() === email.toLowerCase().trim()) ||
+          (name && u.fullName && u.fullName.toLowerCase().trim() === name.toLowerCase().trim())
+        );
+        return match?.signatureData || '';
+      };
+
+      // Sync Institutional Signatures
+      setInstitutionalSignatures(prev => {
+        return prev.map(inst => {
+          const sig = findSig(inst.name, inst.email);
+          if (sig && sig !== inst.signatureData) {
+            return { ...inst, signatureData: sig };
+          }
+          return inst;
+        });
+      });
+
+      // Sync Team Member Signatures
+      setTeamMemberSignatures(prev => {
+        return prev.map(m => {
+          const sig = findSig(m.name, m.email);
+          if (sig && sig !== m.signatureData) {
+            return { ...m, signatureData: sig };
+          }
+          return m;
+        });
+      });
+
+      // Backwards-compatible userSignatures sync
       setUserSignatures(prev => {
         const next = { ...prev };
         let changed = false;
-
-        const findSig = (name: string, email: string) => {
-          const match = combined.find(u => 
-            (email && u.email && u.email.toLowerCase().trim() === email.toLowerCase().trim()) ||
-            (name && u.fullName && u.fullName.toLowerCase().trim() === name.toLowerCase().trim())
-          );
-          return match?.signatureData || '';
-        };
 
         const empSig = findSig(next.employee, next.employeeEmail);
         if (empSig && empSig !== next.employeeSig) {
@@ -728,6 +930,44 @@ export function DraftingSuiteTeam({
           if (state.userSignatures !== undefined) {
             setUserSignatures(prev => ({ ...prev, ...state.userSignatures }));
           }
+          if (Array.isArray(state.institutionalSignatures) && state.institutionalSignatures.length > 0) {
+            setInstitutionalSignatures(state.institutionalSignatures);
+          } else if (state.userSignatures) {
+            // Fallback from legacy userSignatures (excluding witness by default)
+            const legacyInst: InstitutionalSignatory[] = [
+              {
+                id: 'inst_sig_manager',
+                title: state.userSignatures.managerTitle || 'Signed by Direct Manager / Supervisor:',
+                name: state.userSignatures.manager || 'M.L. Mahlangu',
+                designation: 'Direct Manager / Supervisor',
+                email: state.userSignatures.managerEmail || '',
+                signatureData: state.userSignatures.managerSig || '',
+                date: new Date().toLocaleDateString()
+              },
+              {
+                id: 'inst_sig_mm',
+                title: state.userSignatures.mmTitle || 'Signed on behalf of Municipality (Municipal Manager):',
+                name: state.userSignatures.mm || 'M.L. Mahlangu (Municipal Manager)',
+                designation: 'Municipal Manager (Accounting Officer)',
+                email: state.userSignatures.mmEmail || '',
+                signatureData: state.userSignatures.mmSig || '',
+                date: new Date().toLocaleDateString()
+              },
+              {
+                id: 'inst_sig_hod',
+                title: state.userSignatures.hodTitle || 'Signed by Head of Department / Director:',
+                name: state.userSignatures.hod || 'Audrey Mpanza',
+                designation: 'Head of Department / Director',
+                email: state.userSignatures.hodEmail || '',
+                signatureData: state.userSignatures.hodSig || '',
+                date: new Date().toLocaleDateString()
+              }
+            ];
+            setInstitutionalSignatures(legacyInst);
+          }
+          if (Array.isArray(state.teamMemberSignatures) && state.teamMemberSignatures.length > 0) {
+            setTeamMemberSignatures(state.teamMemberSignatures);
+          }
           if (state.annexureA !== undefined) setAnnexureA(state.annexureA);
           if (state.annexureB !== undefined) setAnnexureB(state.annexureB);
           if (state.annexureC !== undefined) setAnnexureC(state.annexureC);
@@ -740,6 +980,11 @@ export function DraftingSuiteTeam({
           if (state.pulledPdpItems !== undefined) setPulledPdpItems(state.pulledPdpItems);
           if (state.pulledJscRows !== undefined) setPulledJscRows(state.pulledJscRows);
           if (state.khuboniJscNotes !== undefined) setKhuboniJscNotes(state.khuboniJscNotes);
+          if (state.jscBelowText !== undefined) {
+            setJscBelowText(state.jscBelowText);
+          } else if (state.khuboniJscNotes !== undefined) {
+            setJscBelowText(state.khuboniJscNotes);
+          }
           if (state.isPdpAdopted !== undefined) setIsPdpAdopted(state.isPdpAdopted);
           if (state.isJscAdopted !== undefined) setIsJscAdopted(state.isJscAdopted);
           if (state.isPPlanAdopted !== undefined) setIsPPlanAdopted(state.isPPlanAdopted);
@@ -776,9 +1021,9 @@ export function DraftingSuiteTeam({
             const normalized: Record<string, DualSectionExtras> = {};
             const allKeys = [
               'coverPage', 'roster', 'purpose', 'validity', 'reporting', 'framework',
-              'kpa_4_2', 'competencies_4_3', 'framework_4_4', 'conditions', 'kpaDuties',
+              'kpa_4_2', 'competencies_4_3', 'framework_4_4', 'jsc_table', 'conditions', 'kpaDuties',
               'ratingScale', 'timetable', 'poorPerformance', 'dispute', 'amendment',
-              'evaluation', 'signatures', 'annexureC'
+              'evaluation', 'signatures', 'annexureA', 'annexureC'
             ];
             allKeys.forEach(k => {
               normalized[k] = normalizeSectionExtras(state.sectionExtras, k);
@@ -867,6 +1112,8 @@ export function DraftingSuiteTeam({
         evaluation,
         signatures,
         userSignatures,
+        institutionalSignatures,
+        teamMemberSignatures,
         annexureA,
         annexureB,
         annexureC,
@@ -885,6 +1132,7 @@ export function DraftingSuiteTeam({
         pulledPerfAssessmentTitle,
         pulledPerfAssessmentNotes,
         khuboniJscNotes,
+        jscBelowText,
         teamRosterNotes,
         dynTableHeaders,
         dynTableRows,
@@ -966,6 +1214,8 @@ export function DraftingSuiteTeam({
         evaluation,
         signatures,
         userSignatures,
+        institutionalSignatures,
+        teamMemberSignatures,
         annexureA,
         annexureB,
         annexureC,
@@ -984,6 +1234,7 @@ export function DraftingSuiteTeam({
         pulledPerfAssessmentTitle,
         pulledPerfAssessmentNotes,
         khuboniJscNotes,
+        jscBelowText,
         teamRosterNotes,
         dynTableHeaders,
         dynTableRows,
@@ -1748,21 +1999,7 @@ export function DraftingSuiteTeam({
             />
           </div>
 
-          <div className="flex justify-between items-center flex-wrap gap-2">
-            <label className="text-xs font-bold text-slate-700 uppercase block">4.1 Framework Introduction Text</label>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handlePullFilteredPerformancePlan}
-                disabled={pullingFilteredPplan}
-                className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-md text-[11px] font-bold transition flex items-center gap-1 cursor-pointer"
-                title="Pull and adopt Filtered Performance Planner table"
-              >
-                {pullingFilteredPplan ? <Loader2 className="w-3 h-3 animate-spin" /> : <Table2 className="w-3 h-3 text-emerald-700" />}
-                <span>{pulledFilteredPplanItems && pulledFilteredPplanItems.length > 0 ? `✓ Planner (${pulledFilteredPplanItems.length})` : 'Pull Filtered Performance Plan'}</span>
-              </button>
-            </div>
-          </div>
+          <label className="text-xs font-bold text-slate-700 uppercase block">4.1 Framework Introduction Text</label>
           
           <SectionCustomBlockEditor
             label="Additional Table & Text (Above 4.1 Framework Intro)"
@@ -1941,6 +2178,36 @@ export function DraftingSuiteTeam({
                 </div>
               </div>
             )}
+
+            {/* Dedicated Textbox Below Adopted JSC Table */}
+            <div className="pt-3 border-t border-indigo-200/80 space-y-2">
+              <div className="flex justify-between items-center">
+                <label className="text-[11px] font-bold text-indigo-950 uppercase flex items-center gap-1.5">
+                  <Edit3 className="w-3.5 h-3.5 text-indigo-700" />
+                  Textbox Below Adopted JSC Table:
+                </label>
+                <span className="text-[10px] text-indigo-700 font-medium">Rendered directly beneath the adopted JSC table</span>
+              </div>
+              <SectionCustomBlockEditor
+                label="Additional Table & Text (Above JSC Textbox)"
+                position="above"
+                extra={getSectionExtra('jsc_table').above}
+                onChange={val => updateSectionExtra('jsc_table', 'above', val)}
+              />
+              <textarea
+                value={jscBelowText}
+                onChange={e => setJscBelowText(e.target.value)}
+                rows={3}
+                placeholder="Enter notes, operational criteria, or narrative text to display directly below the adopted Job Specific Competence table..."
+                className="w-full text-xs p-3 bg-white border border-indigo-200 rounded-lg focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none text-slate-800 transition"
+              />
+              <SectionCustomBlockEditor
+                label="Additional Table & Text (Below JSC Textbox)"
+                position="below"
+                extra={getSectionExtra('jsc_table').below}
+                onChange={val => updateSectionExtra('jsc_table', 'below', val)}
+              />
+            </div>
           </div>
         </div>
 
@@ -1972,7 +2239,7 @@ export function DraftingSuiteTeam({
           />
         </div>
 
-        {/* SECTION 6: KEY PERFORMANCE AREAS / DUTIES */}
+        {/* SECTION 6: KEY PERFORMANCE AREAS / DUTIES & PERFORMANCE ASSESSMENT TABLE (BELOW POINT 6.1) */}
         <div className="bg-white p-5 rounded-xl shadow-xs border border-slate-200 space-y-4">
           <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
             <Edit3 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
@@ -1992,6 +2259,48 @@ export function DraftingSuiteTeam({
             onChange={val => updateSectionExtra('kpaDuties', 'above', val)}
           />
           <textarea value={kpaText} onChange={e => setKpaText(e.target.value)} rows={3} className="w-full text-xs p-3 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+
+          {/* Performance Assessment Table Adoption (Positioned Below Point 6.1) */}
+          <div className="pt-3 border-t border-purple-200 space-y-3 bg-purple-50/20 p-3 rounded-lg">
+            <div className="flex justify-between items-center flex-wrap gap-2">
+              <label className="text-xs font-bold text-purple-950 uppercase flex items-center gap-1.5">
+                <Scale className="w-3.5 h-3.5 text-purple-700" />
+                Performance Assessment Table (Below Point 6.1)
+              </label>
+              <button
+                type="button"
+                onClick={handlePullPerformanceAssessment}
+                disabled={pullingPerfAssessment}
+                className="px-2.5 py-1 bg-purple-100 hover:bg-purple-200 text-purple-800 border border-purple-300 rounded text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+              >
+                {pullingPerfAssessment ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Scale className="w-3.5 h-3.5 text-purple-600" />}
+                <span>{pulledPerfAssessmentRows && pulledPerfAssessmentRows.length > 0 ? `Re-adopt Assessment (${pulledPerfAssessmentRows.length})` : 'Adopt Performance Assessment Table'}</span>
+              </button>
+            </div>
+            {pulledPerfAssessmentRows && pulledPerfAssessmentRows.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-[10px] text-purple-900">
+                  <span className="font-semibold">Table Heading:</span>
+                  <input
+                    type="text"
+                    value={pulledPerfAssessmentTitle}
+                    onChange={e => setPulledPerfAssessmentTitle(e.target.value)}
+                    className="text-[11px] font-bold p-1 border border-purple-200 rounded w-2/3 bg-white"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-purple-900">Notes Below 6.1 Table (Points 6.2, 6.3, etc.):</label>
+                  <textarea
+                    value={pulledPerfAssessmentNotes}
+                    onChange={e => setPulledPerfAssessmentNotes(e.target.value)}
+                    rows={2}
+                    className="w-full text-xs p-2 border border-purple-200 rounded bg-white"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
           <SectionCustomBlockEditor
             label="Additional Table & Text (Below 6. KPA Duties)"
             position="below"
@@ -2012,19 +2321,6 @@ export function DraftingSuiteTeam({
               className="w-full text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded px-2 py-1 focus:border-emerald-500 outline-none"
               placeholder="7. Performance Assessment Rating Scale"
             />
-          </div>
-
-          <div className="flex justify-between items-center flex-wrap gap-2">
-            <label className="text-xs font-bold text-slate-700 uppercase">Performance Assessment Table Adoption</label>
-            <button
-              type="button"
-              onClick={handlePullPerformanceAssessment}
-              disabled={pullingPerfAssessment}
-              className="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded text-xs font-bold transition flex items-center gap-1 cursor-pointer"
-            >
-              {pullingPerfAssessment ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Scale className="w-3.5 h-3.5 text-purple-600" />}
-              <span>{pulledPerfAssessmentRows && pulledPerfAssessmentRows.length > 0 ? `Re-adopt Assessment (${pulledPerfAssessmentRows.length})` : 'Adopt Performance Assessment Table'}</span>
-            </button>
           </div>
           <SectionCustomBlockEditor
             label="Additional Table & Text (Above 7. Rating Scale)"
@@ -2324,21 +2620,32 @@ export function DraftingSuiteTeam({
             <div>
               <label className="text-xs font-bold text-slate-700 uppercase flex items-center gap-1.5">
                 <PenTool className="w-4 h-4 text-emerald-600" />
-                Signatories
+                Signatories & Signatures Configuration
               </label>
               <p className="text-[11px] text-slate-500">
-                Search names in Azure AD. Uploaded signatures from User Management auto-render live.
+                Team member names & roles update automatically from the top deployment roster. Signatory titles are fully editable, and all names can be searched in Azure AD or added manually.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => syncSignaturesFromDirectory()}
-              disabled={isRefreshingSignatures}
-              className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingSignatures ? 'animate-spin text-emerald-600' : ''}`} />
-              {isRefreshingSignatures ? 'Syncing Profiles...' : 'Sync Signatures'}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleSyncRosterToSignatures}
+                className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                title="Sync all names and designations from top deployment roster"
+              >
+                <Users className="w-3.5 h-3.5 text-emerald-700" />
+                <span>Sync from Roster ({tableRows.length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => syncSignaturesFromDirectory()}
+                disabled={isRefreshingSignatures}
+                className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingSignatures ? 'animate-spin text-emerald-600' : ''}`} />
+                {isRefreshingSignatures ? 'Syncing Profiles...' : 'Sync Signatures'}
+              </button>
+            </div>
           </div>
 
           <SectionCustomBlockEditor
@@ -2348,183 +2655,274 @@ export function DraftingSuiteTeam({
             onChange={val => updateSectionExtra('signatures', 'above', val)}
           />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            
-            {/* 1. Employee / Team Lead */}
-            <div className="p-3 border border-slate-200 rounded-lg bg-slate-50/50 space-y-2">
-              <label className="text-[10px] font-bold text-slate-600 uppercase block">
-                1. Employee / Team Representative
-              </label>
-              <TeamAzureSearchInput
-                value={userSignatures.employee}
-                placeholder="Search Employee in Azure AD..."
-                onChange={val => setUserSignatures({ ...userSignatures, employee: val })}
-                onSelectUser={u => {
-                  setUserSignatures({
-                    ...userSignatures,
-                    employee: u.fullName,
-                    employeeEmail: u.email,
-                    employeeSig: u.signatureData || userSignatures.employeeSig
-                  });
-                }}
-              />
-              <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1">
-                <span>Signature Status:</span>
-                {userSignatures.employeeSig ? (
-                  <span className="text-emerald-700 font-bold flex items-center gap-1">
-                    ✓ Signature Loaded
-                  </span>
-                ) : (
-                  <span className="text-amber-600 italic">No signature on file</span>
-                )}
-              </div>
-              {userSignatures.employeeSig && (
-                <div className="h-10 bg-white border border-slate-200 rounded p-1 flex items-center justify-center">
-                  <img src={userSignatures.employeeSig} alt="Employee Sig" className="max-h-8 object-contain" referrerPolicy="no-referrer" />
-                </div>
-              )}
+          {/* Sub-Section 1: Team Members from Deployment Roster */}
+          <div className="space-y-3">
+            <div className="flex justify-between items-center bg-slate-100/80 px-3 py-2 rounded-lg border border-slate-200">
+              <span className="text-xs font-bold uppercase text-slate-800 flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5 text-emerald-700" />
+                1. Team Members Signatures ({teamMemberSignatures.length} Roster Members)
+              </span>
+              <span className="text-[10px] text-slate-500 italic">
+                Names sync with top roster table • Titles and details editable
+              </span>
             </div>
 
-            {/* 2. Direct Manager / Supervisor */}
-            <div className="p-3 border border-slate-200 rounded-lg bg-slate-50/50 space-y-2">
-              <label className="text-[10px] font-bold text-slate-600 uppercase block">
-                2. Direct Manager / Supervisor
-              </label>
-              <TeamAzureSearchInput
-                value={userSignatures.manager}
-                placeholder="Search Manager in Azure AD..."
-                onChange={val => setUserSignatures({ ...userSignatures, manager: val })}
-                onSelectUser={u => {
-                  setUserSignatures({
-                    ...userSignatures,
-                    manager: u.fullName,
-                    managerEmail: u.email,
-                    managerSig: u.signatureData || userSignatures.managerSig
-                  });
-                }}
-              />
-              <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1">
-                <span>Signature Status:</span>
-                {userSignatures.managerSig ? (
-                  <span className="text-emerald-700 font-bold flex items-center gap-1">
-                    ✓ Signature Loaded
-                  </span>
-                ) : (
-                  <span className="text-amber-600 italic">No signature on file</span>
-                )}
-              </div>
-              {userSignatures.managerSig && (
-                <div className="h-10 bg-white border border-slate-200 rounded p-1 flex items-center justify-center">
-                  <img src={userSignatures.managerSig} alt="Manager Sig" className="max-h-8 object-contain" referrerPolicy="no-referrer" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {teamMemberSignatures.map((member, idx) => (
+                <div 
+                  key={member.id || idx}
+                  className="p-3.5 border border-slate-200 rounded-xl bg-slate-50/70 hover:bg-slate-50 transition space-y-2.5 shadow-2xs"
+                >
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
+                    <span className="text-[11px] font-extrabold uppercase text-emerald-900 flex items-center gap-1.5">
+                      <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] flex items-center justify-center font-black">
+                        {idx + 1}
+                      </span>
+                      {idx === 0 ? 'Team Lead / Director' : `Team Member #${idx + 1}`}
+                    </span>
+                    {member.signatureData ? (
+                      <span className="text-[10px] text-emerald-700 font-bold flex items-center gap-1">
+                        ✓ Signature Loaded
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-amber-700 italic">
+                        Pending signature
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Editable Title */}
+                  <div>
+                    <label className="text-[9px] font-bold text-slate-500 uppercase block mb-0.5">
+                      Editable Title / Role Heading:
+                    </label>
+                    <input
+                      type="text"
+                      value={member.title}
+                      onChange={e => handleUpdateMemberSignature(idx, 'title', e.target.value)}
+                      placeholder={`Signed by Team Member (${member.name || `Member #${idx + 1}`}):`}
+                      className="w-full text-xs font-semibold text-slate-800 bg-white border border-slate-300 rounded px-2.5 py-1.5 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                    />
+                  </div>
+
+                  {/* Name with Azure AD Search & Manual Add */}
+                  <div>
+                    <label className="text-[9px] font-bold text-slate-500 uppercase block mb-0.5">
+                      Full Name (Azure AD Search / Manual):
+                    </label>
+                    <TeamAzureSearchInput
+                      value={member.name}
+                      placeholder="Search Azure AD directory or enter manually..."
+                      onChange={val => handleUpdateMemberSignature(idx, 'name', val)}
+                      onSelectUser={u => {
+                        handleUpdateMemberSignature(idx, 'name', u.fullName);
+                        if (u.jobFunction || u.department) {
+                          handleUpdateMemberSignature(idx, 'designation', u.jobFunction || u.department || '');
+                        }
+                        if (u.email) {
+                          handleUpdateMemberSignature(idx, 'email', u.email);
+                        }
+                        if (u.signatureData) {
+                          handleUpdateMemberSignature(idx, 'signatureData', u.signatureData);
+                        }
+                      }}
+                    />
+                  </div>
+
+                  {/* Designation / Employee No. */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[9px] font-bold text-slate-500 uppercase block mb-0.5">
+                        Designation / Role:
+                      </label>
+                      <input
+                        type="text"
+                        value={member.designation}
+                        onChange={e => handleUpdateMemberSignature(idx, 'designation', e.target.value)}
+                        placeholder="e.g. Director: Corporate Services"
+                        className="w-full text-xs text-slate-700 bg-white border border-slate-300 rounded px-2 py-1 outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-bold text-slate-500 uppercase block mb-0.5">
+                        Date:
+                      </label>
+                      <input
+                        type="text"
+                        value={member.date || new Date().toLocaleDateString()}
+                        onChange={e => handleUpdateMemberSignature(idx, 'date', e.target.value)}
+                        placeholder="e.g. 2025/07/01"
+                        className="w-full text-xs text-slate-700 bg-white border border-slate-300 rounded px-2 py-1 outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Signature preview if exists */}
+                  {member.signatureData && (
+                    <div className="h-9 bg-white border border-slate-200 rounded p-1 flex items-center justify-center">
+                      <img src={member.signatureData} alt="Sig" className="max-h-7 object-contain" referrerPolicy="no-referrer" />
+                    </div>
+                  )}
                 </div>
-              )}
+              ))}
+            </div>
+          </div>
+
+          {/* Sub-Section 2: Supervisory & Institutional Signatories */}
+          <div className="space-y-3 pt-4 border-t border-slate-200">
+            <div className="flex flex-wrap justify-between items-center bg-slate-100/90 px-3 py-2 rounded-lg border border-slate-200 gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold uppercase text-slate-800 flex items-center gap-1.5">
+                  <Shield className="w-3.5 h-3.5 text-emerald-700" />
+                  2. Supervisory & Institutional Signatories ({institutionalSignatures.length} Signatories)
+                </span>
+                <span className="text-[10px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full font-bold">
+                  {institutionalSignatures.length} Configured
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleAddInstitutionalSignatory}
+                  className="bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-bold px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 transition shadow-2xs cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Add Institutional Signatory
+                </button>
+              </div>
             </div>
 
-            {/* 3. Municipal Manager / Accounting Officer */}
-            <div className="p-3 border border-slate-200 rounded-lg bg-slate-50/50 space-y-2">
-              <label className="text-[10px] font-bold text-slate-600 uppercase block">
-                3. Municipal Manager (Accounting Officer)
-              </label>
-              <TeamAzureSearchInput
-                value={userSignatures.mm}
-                placeholder="Search Municipal Manager in Azure AD..."
-                onChange={val => setUserSignatures({ ...userSignatures, mm: val })}
-                onSelectUser={u => {
-                  setUserSignatures({
-                    ...userSignatures,
-                    mm: u.fullName,
-                    mmEmail: u.email,
-                    mmSig: u.signatureData || userSignatures.mmSig
-                  });
-                }}
-              />
-              <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1">
-                <span>Signature Status:</span>
-                {userSignatures.mmSig ? (
-                  <span className="text-emerald-700 font-bold flex items-center gap-1">
-                    ✓ Signature Loaded
-                  </span>
-                ) : (
-                  <span className="text-amber-600 italic">No signature on file</span>
-                )}
+            {institutionalSignatures.length === 0 ? (
+              <div className="p-6 border-2 border-dashed border-slate-200 rounded-xl text-center bg-slate-50">
+                <Shield className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                <p className="text-xs font-bold text-slate-600">No Institutional Signatories configured</p>
+                <p className="text-[10px] text-slate-400 mt-0.5">Click &quot;Add Institutional Signatory&quot; above to add municipal managers, directors, or oversight authorities.</p>
+                <button
+                  type="button"
+                  onClick={handleAddInstitutionalSignatory}
+                  className="mt-3 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Add Institutional Signatory
+                </button>
               </div>
-              {userSignatures.mmSig && (
-                <div className="h-10 bg-white border border-slate-200 rounded p-1 flex items-center justify-center">
-                  <img src={userSignatures.mmSig} alt="MM Sig" className="max-h-8 object-contain" referrerPolicy="no-referrer" />
-                </div>
-              )}
-            </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {institutionalSignatures.map((inst, idx) => (
+                  <div key={inst.id || `inst_sig_${idx}`} className="p-3.5 border border-slate-200 rounded-xl bg-slate-50/70 hover:bg-slate-50 transition space-y-2.5 shadow-2xs relative">
+                    <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
+                      <span className="text-[11px] font-extrabold uppercase text-slate-700 flex items-center gap-1.5">
+                        <span className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-800 text-[10px] flex items-center justify-center font-bold">
+                          {idx + 1}
+                        </span>
+                        {inst.designation || `Signatory #${idx + 1}`}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        {inst.signatureData ? (
+                          <span className="text-[10px] text-emerald-700 font-bold flex items-center gap-1">
+                            ✓ Signature Loaded
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-amber-700 italic">
+                            Pending signature
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteInstitutionalSignatory(idx)}
+                          title="Delete this institutional signatory"
+                          className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
 
-            {/* 4. Head of Department / Director */}
-            <div className="p-3 border border-slate-200 rounded-lg bg-slate-50/50 space-y-2">
-              <label className="text-[10px] font-bold text-slate-600 uppercase block">
-                4. Head of Department / Director
-              </label>
-              <TeamAzureSearchInput
-                value={userSignatures.hod}
-                placeholder="Search HOD / Director in Azure AD..."
-                onChange={val => setUserSignatures({ ...userSignatures, hod: val })}
-                onSelectUser={u => {
-                  setUserSignatures({
-                    ...userSignatures,
-                    hod: u.fullName,
-                    hodEmail: u.email,
-                    hodSig: u.signatureData || userSignatures.hodSig
-                  });
-                }}
-              />
-              <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1">
-                <span>Signature Status:</span>
-                {userSignatures.hodSig ? (
-                  <span className="text-emerald-700 font-bold flex items-center gap-1">
-                    ✓ Signature Loaded
-                  </span>
-                ) : (
-                  <span className="text-amber-600 italic">No signature on file</span>
-                )}
+                    {/* Editable Title */}
+                    <div>
+                      <label className="text-[9px] font-bold text-slate-500 uppercase block mb-0.5">
+                        Editable Title / Role Heading:
+                      </label>
+                      <input
+                        type="text"
+                        value={inst.title}
+                        onChange={e => handleUpdateInstitutionalSignatory(idx, 'title', e.target.value)}
+                        placeholder="Signed by Direct Manager / Supervisor:"
+                        className="w-full text-xs font-semibold text-slate-800 bg-white border border-slate-300 rounded px-2.5 py-1.5 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                      />
+                    </div>
+
+                    {/* Full Name with Azure AD Search + Manual Fallback */}
+                    <div>
+                      <label className="text-[9px] font-bold text-slate-500 uppercase block mb-0.5">
+                        Full Name (Azure AD Search / Manual):
+                      </label>
+                      <TeamAzureSearchInput
+                        value={inst.name}
+                        placeholder="Search signatory in Azure AD or enter manually..."
+                        onChange={val => handleUpdateInstitutionalSignatory(idx, 'name', val)}
+                        onSelectUser={u => {
+                          handleUpdateInstitutionalSignatory(idx, 'name', u.fullName);
+                          if (u.jobFunction || u.department) {
+                            handleUpdateInstitutionalSignatory(idx, 'designation', u.jobFunction || u.department || '');
+                          }
+                          if (u.email) {
+                            handleUpdateInstitutionalSignatory(idx, 'email', u.email);
+                          }
+                          if (u.signatureData) {
+                            handleUpdateInstitutionalSignatory(idx, 'signatureData', u.signatureData);
+                          }
+                        }}
+                      />
+                    </div>
+
+                    {/* Designation / Role & Date */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[9px] font-bold text-slate-500 uppercase block mb-0.5">
+                          Designation / Role:
+                        </label>
+                        <input
+                          type="text"
+                          value={inst.designation || ''}
+                          onChange={e => handleUpdateInstitutionalSignatory(idx, 'designation', e.target.value)}
+                          placeholder="e.g. Municipal Manager"
+                          className="w-full text-xs text-slate-700 bg-white border border-slate-300 rounded px-2 py-1 outline-none focus:border-emerald-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-bold text-slate-500 uppercase block mb-0.5">
+                          Date:
+                        </label>
+                        <input
+                          type="text"
+                          value={inst.date || new Date().toLocaleDateString()}
+                          onChange={e => handleUpdateInstitutionalSignatory(idx, 'date', e.target.value)}
+                          placeholder="e.g. 2025/07/01"
+                          className="w-full text-xs text-slate-700 bg-white border border-slate-300 rounded px-2 py-1 outline-none focus:border-emerald-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Signature Preview */}
+                    {inst.signatureData && (
+                      <div className="h-9 bg-white border border-slate-200 rounded p-1 flex items-center justify-between px-2">
+                        <span className="text-[9px] text-slate-400 italic">Signature on file:</span>
+                        <img src={inst.signatureData} alt="Sig" className="max-h-7 object-contain" referrerPolicy="no-referrer" />
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateInstitutionalSignatory(idx, 'signatureData', '')}
+                          title="Clear loaded signature"
+                          className="text-[9px] text-slate-400 hover:text-red-500"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
-              {userSignatures.hodSig && (
-                <div className="h-10 bg-white border border-slate-200 rounded p-1 flex items-center justify-center">
-                  <img src={userSignatures.hodSig} alt="HOD Sig" className="max-h-8 object-contain" referrerPolicy="no-referrer" />
-                </div>
-              )}
-            </div>
-
-            {/* 5. Performance Management Unit (PMU) / Witness */}
-            <div className="p-3 border border-slate-200 rounded-lg bg-slate-50/50 space-y-2 md:col-span-2">
-              <label className="text-[10px] font-bold text-slate-600 uppercase block">
-                5. Performance Management Unit (PMU) / Direct Witness
-              </label>
-              <TeamAzureSearchInput
-                value={userSignatures.witness}
-                placeholder="Search PMS Official / Witness in Azure AD..."
-                onChange={val => setUserSignatures({ ...userSignatures, witness: val })}
-                onSelectUser={u => {
-                  setUserSignatures({
-                    ...userSignatures,
-                    witness: u.fullName,
-                    witnessEmail: u.email,
-                    witnessSig: u.signatureData || userSignatures.witnessSig
-                  });
-                }}
-              />
-              <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1">
-                <span>Signature Status:</span>
-                {userSignatures.witnessSig ? (
-                  <span className="text-emerald-700 font-bold flex items-center gap-1">
-                    ✓ Signature Loaded
-                  </span>
-                ) : (
-                  <span className="text-amber-600 italic">No signature on file</span>
-                )}
-              </div>
-              {userSignatures.witnessSig && (
-                <div className="h-10 bg-white border border-slate-200 rounded p-1 flex items-center justify-center">
-                  <img src={userSignatures.witnessSig} alt="Witness Sig" className="max-h-8 object-contain" referrerPolicy="no-referrer" />
-                </div>
-              )}
-            </div>
-
+            )}
           </div>
 
           <SectionCustomBlockEditor
@@ -2532,6 +2930,110 @@ export function DraftingSuiteTeam({
             position="below"
             extra={getSectionExtra('signatures').below}
             onChange={val => updateSectionExtra('signatures', 'below', val)}
+          />
+        </div>
+
+        {/* ANNEXURE A: PERFORMANCE PLAN (KPA & KPI TABLE) */}
+        <div className="bg-white p-5 rounded-xl shadow-xs border border-slate-200 space-y-4">
+          <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
+            <Edit3 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+            <label className="text-[10px] font-bold text-slate-500 uppercase shrink-0">Annexure Heading:</label>
+            <input
+              type="text"
+              value={headingPplanTable}
+              onChange={e => setHeadingPplanTable(e.target.value)}
+              className="w-full text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded px-2 py-1 focus:border-emerald-500 outline-none"
+              placeholder="Annexure A: Annual Performance Plan (KPA & KPI Matrix)"
+            />
+          </div>
+
+          <div className="flex justify-between items-center flex-wrap gap-2">
+            <div>
+              <label className="text-xs font-bold text-slate-700 uppercase flex items-center gap-1.5">
+                <Table2 className="w-4 h-4 text-emerald-600" />
+                Annexure A: Performance Plan (KPA &amp; KPI Matrix)
+              </label>
+              <p className="text-[11px] text-slate-500">
+                Adopt filtered Annual Performance Plan (KPA &amp; KPI matrix) table directly into Annexure A below Section 13.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handlePullFilteredPerformancePlan}
+                disabled={pullingFilteredPplan}
+                className="px-2.5 py-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300 rounded text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+              >
+                {pullingFilteredPplan ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Table2 className="w-3.5 h-3.5 text-emerald-700" />}
+                <span>{pulledFilteredPplanItems && pulledFilteredPplanItems.length > 0 ? `Re-adopt Plan (${pulledFilteredPplanItems.length})` : 'Adopt Filtered Performance Plan'}</span>
+              </button>
+              {pulledFilteredPplanItems && pulledFilteredPplanItems.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPulledFilteredPplanItems(null);
+                    setIsPPlanAdopted(false);
+                    triggerNotification("Removed adopted Annexure A Performance Plan", "success");
+                  }}
+                  className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded text-xs font-bold transition cursor-pointer"
+                >
+                  Clear Plan
+                </button>
+              )}
+            </div>
+          </div>
+
+          <SectionCustomBlockEditor
+            label="Additional Table & Text (Above Annexure A)"
+            position="above"
+            extra={getSectionExtra('annexureA').above}
+            onChange={val => updateSectionExtra('annexureA', 'above', val)}
+          />
+
+          {pulledFilteredPplanItems && pulledFilteredPplanItems.length > 0 ? (
+            <div className="p-3 bg-emerald-50/40 rounded-lg border border-emerald-200 text-xs space-y-2">
+              <div className="flex justify-between items-center text-emerald-900 font-bold">
+                <span>{pulledFilteredPplanItems.length} KPIs / KPAs Active in Annexure A</span>
+                <span className="text-[10px] bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded font-mono">
+                  Ready for Contract Output
+                </span>
+              </div>
+              <div className="max-h-48 overflow-y-auto border border-emerald-200 rounded bg-white">
+                <table className="w-full text-[10px] text-left">
+                  <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
+                    <tr>
+                      <th className="p-1.5 w-6 text-center">#</th>
+                      <th className="p-1.5">KPA</th>
+                      <th className="p-1.5">KPI Description</th>
+                      <th className="p-1.5 text-center">Target</th>
+                      <th className="p-1.5 text-center">Weight</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {pulledFilteredPplanItems.map((item, idx) => (
+                      <tr key={idx}>
+                        <td className="p-1 text-center font-bold text-slate-500">{idx + 1}</td>
+                        <td className="p-1 font-semibold text-slate-800">{item.kpa || item.strategicGoal || 'KPA'}</td>
+                        <td className="p-1 text-slate-600">{item.kpi || item.description}</td>
+                        <td className="p-1 text-center font-bold text-emerald-700">{item.annualTarget || '—'}</td>
+                        <td className="p-1 text-center text-slate-700">{item.weighting || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <div className="p-4 bg-slate-50 rounded-lg border border-dashed border-slate-300 text-center text-xs text-slate-500">
+              Click &ldquo;Adopt Filtered Performance Plan&rdquo; to load and embed the full KPA &amp; KPI matrix into Annexure A.
+            </div>
+          )}
+
+          <SectionCustomBlockEditor
+            label="Additional Table & Text (Below Annexure A)"
+            position="below"
+            extra={getSectionExtra('annexureA').below}
+            onChange={val => updateSectionExtra('annexureA', 'below', val)}
           />
         </div>
 
@@ -2726,55 +3228,6 @@ export function DraftingSuiteTeam({
                 <KPATableViewer headers={dynTableHeaders} rows={dynTableRows} />
               </div>
 
-              {/* Adopted Filtered Performance Planner Table (if pulled/adopted) */}
-              {pulledFilteredPplanItems && pulledFilteredPplanItems.length > 0 && (
-                <div className="my-5 border border-emerald-300 rounded-lg p-3 bg-emerald-50/20">
-                  <div className="flex justify-between items-center mb-2 pb-1 border-b border-emerald-200">
-                    <span className="text-[11px] font-extrabold uppercase text-emerald-950 flex items-center gap-1.5">
-                      <Table2 className="w-3.5 h-3.5 text-emerald-700" />
-                      Adopted Filtered Annual Performance Plan (KPA &amp; KPI Matrix)
-                    </span>
-                    <span className="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded">
-                      {pulledFilteredPplanItems.length} KPIs Loaded
-                    </span>
-                  </div>
-                  <table className="w-full text-left border-collapse border border-slate-300 text-[10px]">
-                    <thead className="bg-slate-100 text-slate-800 font-black uppercase text-[9px]">
-                      <tr>
-                        <th className="border border-slate-300 p-1.5 text-center w-8">No.</th>
-                        <th className="border border-slate-300 p-1.5">Key Performance Area (KPA)</th>
-                        <th className="border border-slate-300 p-1.5">KPI Description</th>
-                        <th className="border border-slate-300 p-1.5 text-center">Baseline</th>
-                        <th className="border border-slate-300 p-1.5 text-center">Annual Target</th>
-                        <th className="border border-slate-300 p-1.5 text-center">Q1</th>
-                        <th className="border border-slate-300 p-1.5 text-center">Q2</th>
-                        <th className="border border-slate-300 p-1.5 text-center">Q3</th>
-                        <th className="border border-slate-300 p-1.5 text-center">Q4</th>
-                        <th className="border border-slate-300 p-1.5">Portfolio of Evidence (POE)</th>
-                        <th className="border border-slate-300 p-1.5 text-center">Wt%</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pulledFilteredPplanItems.map((item, idx) => (
-                        <tr key={item.id || idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'}>
-                          <td className="border border-slate-300 p-1.5 text-center font-bold text-slate-600">{idx + 1}</td>
-                          <td className="border border-slate-300 p-1.5 font-bold text-slate-800">{item.kpa || item.strategicGoal || 'Operational KPA'}</td>
-                          <td className="border border-slate-300 p-1.5 text-slate-700">{item.kpi || item.description}</td>
-                          <td className="border border-slate-300 p-1.5 text-center">{item.baseline || '—'}</td>
-                          <td className="border border-slate-300 p-1.5 text-center font-bold text-emerald-800">{item.annualTarget || '—'}</td>
-                          <td className="border border-slate-300 p-1.5 text-center">{item.q1Target || item.q1 || '—'}</td>
-                          <td className="border border-slate-300 p-1.5 text-center">{item.q2Target || item.q2 || '—'}</td>
-                          <td className="border border-slate-300 p-1.5 text-center">{item.q3Target || item.q3 || '—'}</td>
-                          <td className="border border-slate-300 p-1.5 text-center">{item.q4Target || item.q4 || '—'}</td>
-                          <td className="border border-slate-300 p-1.5 text-slate-600 text-[9px]">{item.poe || item.annualRequiredPoe || '—'}</td>
-                          <td className="border border-slate-300 p-1.5 text-center font-bold text-slate-700">{item.weighting || '—'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
               <SectionCustomBlockViewer extra={getSectionExtra('kpa_4_2').below} />
 
               {/* 4.3 Competencies Text */}
@@ -2852,6 +3305,13 @@ export function DraftingSuiteTeam({
                       </tr>
                     </tfoot>
                   </table>
+
+                  {/* Textbox rendered below adopted JSC Table */}
+                  <div className="mt-3 pt-2.5 border-t border-indigo-200 text-xs text-slate-800">
+                    <SectionCustomBlockViewer extra={getSectionExtra('jsc_table').above} />
+                    {jscBelowText && renderFormattedContent(jscBelowText)}
+                    <SectionCustomBlockViewer extra={getSectionExtra('jsc_table').below} />
+                  </div>
                 </div>
               )}
             </div>
@@ -2866,31 +3326,21 @@ export function DraftingSuiteTeam({
               <SectionCustomBlockViewer extra={getSectionExtra('conditions').below} />
             </div>
 
-            {/* 6. Duties / KPAs */}
+            {/* 6. Duties / KPAs & Performance Assessment Table (Below Point 6.1) */}
             <div>
               <SectionCustomBlockViewer extra={getSectionExtra('kpaDuties').above} />
               <h3 className="text-xs font-extrabold uppercase text-emerald-900 tracking-wide border-b border-emerald-800/40 pb-1 mb-2">
                 {headingKpaDuties || "6. Key Performance Areas / Duties"}
               </h3>
               {renderFormattedContent(kpaText)}
-              <SectionCustomBlockViewer extra={getSectionExtra('kpaDuties').below} />
-            </div>
 
-            {/* 7. Rating Scale */}
-            <div>
-              <SectionCustomBlockViewer extra={getSectionExtra('ratingScale').above} />
-              <h3 className="text-xs font-extrabold uppercase text-emerald-900 tracking-wide border-b border-emerald-800/40 pb-1 mb-2">
-                {headingRatingScale || "7. Performance Assessment Rating Scale"}
-              </h3>
-              {renderFormattedContent(assessmentText)}
-
-              {/* Adopted Statutory Performance Assessment 5-Point Rating Scale Table */}
+              {/* Adopted Statutory Performance Assessment 5-Point Rating Scale Table (Below Point 6.1) */}
               {pulledPerfAssessmentRows && pulledPerfAssessmentRows.length > 0 && (
                 <div className="my-5 border border-purple-300 rounded-lg p-3 bg-purple-50/20">
                   <div className="flex justify-between items-center mb-2 pb-1 border-b border-purple-200">
                     <span className="text-[11px] font-extrabold uppercase text-purple-950 flex items-center gap-1.5">
                       <Scale className="w-3.5 h-3.5 text-purple-700" />
-                      7.1 {pulledPerfAssessmentTitle || "Adopted Performance Assessment Table (5-Point Rating Scale)"}
+                      6.1 {pulledPerfAssessmentTitle || "Adopted Performance Assessment Table (5-Point Rating Scale)"}
                     </span>
                     <span className="text-[9px] bg-purple-100 text-purple-800 font-bold px-2 py-0.5 rounded">
                       {pulledPerfAssessmentRows.length} Rating Levels Adopted
@@ -2951,6 +3401,16 @@ export function DraftingSuiteTeam({
                 </div>
               )}
 
+              <SectionCustomBlockViewer extra={getSectionExtra('kpaDuties').below} />
+            </div>
+
+            {/* 7. Rating Scale */}
+            <div>
+              <SectionCustomBlockViewer extra={getSectionExtra('ratingScale').above} />
+              <h3 className="text-xs font-extrabold uppercase text-emerald-900 tracking-wide border-b border-emerald-800/40 pb-1 mb-2">
+                {headingRatingScale || "7. Performance Assessment Rating Scale"}
+              </h3>
+              {renderFormattedContent(assessmentText)}
               <SectionCustomBlockViewer extra={getSectionExtra('ratingScale').below} />
             </div>
 
@@ -3035,111 +3495,151 @@ export function DraftingSuiteTeam({
                 {headingSignatures || "13. Signatures of Parties to the Performance Agreement"}
               </h3>
 
-              <div className="grid grid-cols-2 gap-6 my-6">
+              {/* Sub-block A: Team Members Signatures */}
+              <div className="mb-6">
+                <h4 className="text-[10px] font-black uppercase tracking-wider text-emerald-950 mb-3 bg-emerald-50 px-3 py-1.5 rounded border border-emerald-200/80 flex items-center justify-between">
+                  <span>A. Team Member Signatories ({teamMemberSignatures.length} Members from Deployment Roster)</span>
+                  <span className="text-[9px] text-emerald-800 font-bold">Roster Synchronized</span>
+                </h4>
                 
-                {/* Employee / Team Lead Signature */}
-                <div className="border border-slate-300 p-4 rounded-lg bg-slate-50/60 space-y-3">
-                  <p className="font-bold text-[11px] uppercase text-slate-700 border-b border-slate-200 pb-1">
-                    Signed by Employee / Team Lead:
-                  </p>
-                  <div className="h-14 border-b border-black flex flex-col justify-end items-center relative pb-1">
-                    {userSignatures.employeeSig ? (
-                      <img 
-                        src={userSignatures.employeeSig} 
-                        alt="Employee Sig" 
-                        className="max-h-12 object-contain" 
-                        referrerPolicy="no-referrer"
-                      />
-                    ) : (
-                      <span className="font-serif italic text-xs text-slate-500">
-                        {userSignatures.employee || 'Employee Signature Placeholder'}
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-[10px] text-slate-600 flex justify-between">
-                    <span>Name: <strong>{userSignatures.employee || 'N/A'}</strong></span>
-                    <span>Date: {new Date().toLocaleDateString()}</span>
-                  </div>
+                <div className="grid grid-cols-2 gap-4">
+                  {teamMemberSignatures.map((member, idx) => (
+                    <div 
+                      key={member.id || idx}
+                      className="border border-slate-300 p-3.5 rounded-lg bg-slate-50/60 space-y-2.5 shadow-2xs"
+                    >
+                      <p className="font-bold text-[10px] uppercase text-slate-800 border-b border-slate-200 pb-1">
+                        {member.title || `Signed by ${idx === 0 ? 'Team Lead / Director' : 'Team Member'} (${member.name || `Member #${idx + 1}`}):`}
+                      </p>
+                      <div className="h-12 border-b border-black flex flex-col justify-end items-center relative pb-1">
+                        {member.signatureData ? (
+                          <img 
+                            src={member.signatureData} 
+                            alt={`${member.name} Sig`} 
+                            className="max-h-11 object-contain" 
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <span className="font-serif italic text-xs text-slate-500">
+                            {member.name ? `${member.name} (Signature)` : 'Signature Placeholder'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[9px] text-slate-600 space-y-0.5">
+                        <div className="flex justify-between">
+                          <span>Name: <strong className="text-slate-800">{member.name || 'N/A'}</strong></span>
+                          <span>Date: <strong className="text-slate-800">{member.date || new Date().toLocaleDateString()}</strong></span>
+                        </div>
+                        {member.designation && (
+                          <div className="truncate">
+                            Role: <span className="text-slate-700 font-semibold">{member.designation}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-
-                {/* Direct Manager Signature */}
-                <div className="border border-slate-300 p-4 rounded-lg bg-slate-50/60 space-y-3">
-                  <p className="font-bold text-[11px] uppercase text-slate-700 border-b border-slate-200 pb-1">
-                    Signed by Direct Manager / Supervisor:
-                  </p>
-                  <div className="h-14 border-b border-black flex flex-col justify-end items-center relative pb-1">
-                    {userSignatures.managerSig ? (
-                      <img 
-                        src={userSignatures.managerSig} 
-                        alt="Manager Sig" 
-                        className="max-h-12 object-contain" 
-                        referrerPolicy="no-referrer"
-                      />
-                    ) : (
-                      <span className="font-serif italic text-xs text-slate-500">
-                        {userSignatures.manager || 'Manager Signature Placeholder'}
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-[10px] text-slate-600 flex justify-between">
-                    <span>Name: <strong>{userSignatures.manager || 'Supervisor'}</strong></span>
-                    <span>Date: {new Date().toLocaleDateString()}</span>
-                  </div>
-                </div>
-
-                {/* Municipal Manager Signature */}
-                <div className="border border-slate-300 p-4 rounded-lg bg-slate-50/60 space-y-3">
-                  <p className="font-bold text-[11px] uppercase text-slate-700 border-b border-slate-200 pb-1">
-                    Signed on behalf of Municipality (Municipal Manager):
-                  </p>
-                  <div className="h-14 border-b border-black flex flex-col justify-end items-center relative pb-1">
-                    {userSignatures.mmSig ? (
-                      <img 
-                        src={userSignatures.mmSig} 
-                        alt="MM Sig" 
-                        className="max-h-12 object-contain" 
-                        referrerPolicy="no-referrer"
-                      />
-                    ) : (
-                      <span className="font-serif italic text-xs text-slate-500">
-                        {userSignatures.mm || 'Municipal Manager'}
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-[10px] text-slate-600 flex justify-between">
-                    <span>Name: <strong>{userSignatures.mm || 'Accounting Officer'}</strong></span>
-                    <span>Date: {new Date().toLocaleDateString()}</span>
-                  </div>
-                </div>
-
-                {/* Performance Management Unit / Witness Signature */}
-                <div className="border border-slate-300 p-4 rounded-lg bg-slate-50/60 space-y-3">
-                  <p className="font-bold text-[11px] uppercase text-slate-700 border-b border-slate-200 pb-1">
-                    Signed by Performance Management Unit / Witness:
-                  </p>
-                  <div className="h-14 border-b border-black flex flex-col justify-end items-center relative pb-1">
-                    {userSignatures.witnessSig ? (
-                      <img 
-                        src={userSignatures.witnessSig} 
-                        alt="Witness Sig" 
-                        className="max-h-12 object-contain" 
-                        referrerPolicy="no-referrer"
-                      />
-                    ) : (
-                      <span className="font-serif italic text-xs text-slate-500">
-                        {userSignatures.witness || 'PMS Witness'}
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-[10px] text-slate-600 flex justify-between">
-                    <span>Name: <strong>{userSignatures.witness || 'PMS Official'}</strong></span>
-                    <span>Date: {new Date().toLocaleDateString()}</span>
-                  </div>
-                </div>
-
               </div>
+
+              {/* Sub-block B: Institutional & Supervisory Signatures */}
+              {institutionalSignatures && institutionalSignatures.length > 0 && (
+                <div>
+                  <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-800 mb-3 bg-slate-100 px-3 py-1.5 rounded border border-slate-200 flex items-center justify-between">
+                    <span>B. Supervisory & Institutional Authorities ({institutionalSignatures.length})</span>
+                    <span className="text-[9px] text-slate-600 font-bold">Institutional Oversight</span>
+                  </h4>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {institutionalSignatures.map((inst, idx) => (
+                      <div key={inst.id || `preview_inst_${idx}`} className="border border-slate-300 p-3.5 rounded-lg bg-slate-50/60 space-y-2.5 shadow-2xs">
+                        <p className="font-bold text-[10px] uppercase text-slate-800 border-b border-slate-200 pb-1 truncate" title={inst.title || `Signed by ${inst.name || 'Signatory'}:`}>
+                          {inst.title || `Signed by ${inst.designation || 'Institutional Signatory'}:`}
+                        </p>
+                        <div className="h-12 border-b border-black flex flex-col justify-end items-center relative pb-1">
+                          {inst.signatureData ? (
+                            <img 
+                              src={inst.signatureData} 
+                              alt={`${inst.name} Sig`} 
+                              className="max-h-11 object-contain" 
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : (
+                            <span className="font-serif italic text-xs text-slate-500">
+                              {inst.name ? `${inst.name} (Signature)` : 'Signature Placeholder'}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[9px] text-slate-600 space-y-0.5">
+                          <div className="flex justify-between">
+                            <span>Name: <strong className="text-slate-800">{inst.name || 'N/A'}</strong></span>
+                            <span>Date: <strong className="text-slate-800">{inst.date || new Date().toLocaleDateString()}</strong></span>
+                          </div>
+                          {inst.designation && (
+                            <div className="truncate">
+                              Role: <span className="text-slate-700 font-semibold">{inst.designation}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <SectionCustomBlockViewer extra={getSectionExtra('signatures').below} />
             </div>
+
+            {/* Annexure A: Performance Plan (KPA & KPI Matrix) Preview */}
+            {pulledFilteredPplanItems && pulledFilteredPplanItems.length > 0 && (
+              <div className="pt-6 border-t-2 border-emerald-900/80 text-xs">
+                <SectionCustomBlockViewer extra={getSectionExtra('annexureA').above} />
+                <div className="my-3 border border-emerald-300 rounded-lg p-3 bg-emerald-50/20">
+                  <div className="flex justify-between items-center mb-2 pb-1 border-b border-emerald-200">
+                    <span className="text-[11px] font-extrabold uppercase text-emerald-950 flex items-center gap-1.5">
+                      <Table2 className="w-3.5 h-3.5 text-emerald-700" />
+                      {headingPplanTable || "Annexure A: Annual Performance Plan (KPA & KPI Matrix)"}
+                    </span>
+                    <span className="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded">
+                      {pulledFilteredPplanItems.length} KPIs Adopted
+                    </span>
+                  </div>
+                  <table className="w-full text-left border-collapse border border-slate-300 text-[10px]">
+                    <thead className="bg-slate-100 text-slate-800 font-black uppercase text-[9px]">
+                      <tr>
+                        <th className="border border-slate-300 p-1.5 text-center w-8">No.</th>
+                        <th className="border border-slate-300 p-1.5">Key Performance Area (KPA)</th>
+                        <th className="border border-slate-300 p-1.5">KPI Description</th>
+                        <th className="border border-slate-300 p-1.5 text-center">Baseline</th>
+                        <th className="border border-slate-300 p-1.5 text-center">Annual Target</th>
+                        <th className="border border-slate-300 p-1.5 text-center">Q1</th>
+                        <th className="border border-slate-300 p-1.5 text-center">Q2</th>
+                        <th className="border border-slate-300 p-1.5 text-center">Q3</th>
+                        <th className="border border-slate-300 p-1.5 text-center">Q4</th>
+                        <th className="border border-slate-300 p-1.5">Portfolio of Evidence (POE)</th>
+                        <th className="border border-slate-300 p-1.5 text-center">Wt%</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pulledFilteredPplanItems.map((item, idx) => (
+                        <tr key={item.id || idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'}>
+                          <td className="border border-slate-300 p-1.5 text-center font-bold text-slate-600">{idx + 1}</td>
+                          <td className="border border-slate-300 p-1.5 font-bold text-slate-800">{item.kpa || item.strategicGoal || 'Operational KPA'}</td>
+                          <td className="border border-slate-300 p-1.5 text-slate-700">{item.kpi || item.description}</td>
+                          <td className="border border-slate-300 p-1.5 text-center">{item.baseline || '—'}</td>
+                          <td className="border border-slate-300 p-1.5 text-center font-bold text-emerald-800">{item.annualTarget || '—'}</td>
+                          <td className="border border-slate-300 p-1.5 text-center">{item.q1Target || item.q1 || '—'}</td>
+                          <td className="border border-slate-300 p-1.5 text-center">{item.q2Target || item.q2 || '—'}</td>
+                          <td className="border border-slate-300 p-1.5 text-center">{item.q3Target || item.q3 || '—'}</td>
+                          <td className="border border-slate-300 p-1.5 text-center">{item.q4Target || item.q4 || '—'}</td>
+                          <td className="border border-slate-300 p-1.5 text-slate-600 text-[9px]">{item.poe || item.annualRequiredPoe || '—'}</td>
+                          <td className="border border-slate-300 p-1.5 text-center font-bold text-slate-700">{item.weighting || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <SectionCustomBlockViewer extra={getSectionExtra('annexureA').below} />
+              </div>
+            )}
 
             {/* Annexure B: Personal Development Plan (PDP) Preview */}
             {pulledPdpItems && pulledPdpItems.length > 0 && (

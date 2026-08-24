@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, UserCheck, CheckCircle, Loader2, Sparkles } from 'lucide-react';
+import { Search, UserCheck, UserPlus, Loader2, Sparkles, PlusCircle } from 'lucide-react';
 
 export interface AzureUser {
   id?: string;
@@ -79,6 +79,22 @@ export const TeamAzureSearchInput: React.FC<TeamAzureSearchInputProps> = ({
     setIsOpen(false);
   };
 
+  const handleManualAdd = () => {
+    const trimmed = query.trim();
+    if (!trimmed) return;
+    const manualUser: AzureUser = {
+      fullName: trimmed,
+      email: '',
+      jobFunction: 'Custom Municipal Official',
+      department: 'Manual Entry'
+    };
+    onChange(trimmed);
+    if (onSelectUser) {
+      onSelectUser(manualUser);
+    }
+    setIsOpen(false);
+  };
+
   return (
     <div ref={containerRef} className="relative w-full">
       <div className={`flex items-center gap-1.5 bg-white border border-slate-300 rounded focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500 transition shadow-xs ${className}`}>
@@ -92,6 +108,16 @@ export const TeamAzureSearchInput: React.FC<TeamAzureSearchInputProps> = ({
             onChange(e.target.value);
             setIsOpen(true);
           }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              if (results.length > 0) {
+                handleSelect(results[0]);
+              } else if (query.trim()) {
+                handleManualAdd();
+              }
+            }
+          }}
           placeholder={placeholder}
           className={`w-full bg-transparent outline-none text-slate-800 ${compact ? 'text-[11px] py-1 px-1' : 'text-xs py-1.5 px-2'}`}
         />
@@ -99,7 +125,7 @@ export const TeamAzureSearchInput: React.FC<TeamAzureSearchInputProps> = ({
       </div>
 
       {isOpen && (
-        <div className="absolute left-0 top-full mt-1 w-full min-w-[280px] max-h-60 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-xl z-50 divide-y divide-slate-100 animate-in fade-in zoom-in-95 duration-100">
+        <div className="absolute left-0 top-full mt-1 w-full min-w-[290px] max-h-64 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-xl z-50 divide-y divide-slate-100 animate-in fade-in zoom-in-95 duration-100">
           <div className="p-1.5 bg-slate-50 text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center justify-between">
             <span className="flex items-center gap-1">
               <Sparkles className="w-3 h-3 text-emerald-600" /> Azure AD Directory ({results.length})
@@ -108,36 +134,63 @@ export const TeamAzureSearchInput: React.FC<TeamAzureSearchInputProps> = ({
           </div>
 
           {results.length === 0 && !loading ? (
-            <div className="p-3 text-center text-xs text-slate-400">
-              No matching users found in directory
+            <div className="p-3 text-center space-y-2">
+              <div className="text-xs text-slate-500">
+                No matching users found in Azure AD directory for &ldquo;<span className="font-semibold text-slate-700">{query}</span>&rdquo;
+              </div>
+              {query.trim() && (
+                <button
+                  type="button"
+                  onClick={handleManualAdd}
+                  className="w-full py-1.5 px-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <PlusCircle className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Use &ldquo;{query.trim()}&rdquo; (Manual Add)</span>
+                </button>
+              )}
             </div>
           ) : (
-            results.map((user, idx) => (
-              <button
-                key={`${user.email || user.fullName}-${idx}`}
-                type="button"
-                onClick={() => handleSelect(user)}
-                className="w-full text-left p-2 hover:bg-emerald-50/80 transition flex items-start justify-between gap-2 group cursor-pointer"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs font-semibold text-slate-800 group-hover:text-emerald-900 truncate flex items-center gap-1.5">
-                    {user.fullName}
-                    {user.signatureData && (
-                      <span className="inline-flex items-center gap-0.5 px-1 py-0.2 bg-emerald-100 text-emerald-800 text-[9px] font-bold rounded" title="Signature on file">
-                        ✍️ Signed
-                      </span>
-                    )}
+            <>
+              {results.map((user, idx) => (
+                <button
+                  key={`${user.email || user.fullName}-${idx}`}
+                  type="button"
+                  onClick={() => handleSelect(user)}
+                  className="w-full text-left p-2 hover:bg-emerald-50/80 transition flex items-start justify-between gap-2 group cursor-pointer"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-semibold text-slate-800 group-hover:text-emerald-900 truncate flex items-center gap-1.5">
+                      {user.fullName}
+                      {user.signatureData && (
+                        <span className="inline-flex items-center gap-0.5 px-1 py-0.2 bg-emerald-100 text-emerald-800 text-[9px] font-bold rounded" title="Signature on file">
+                          ✍️ Signed
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[10px] text-slate-500 truncate">
+                      {user.jobFunction || user.department || 'Municipal Employee'}
+                    </div>
+                    <div className="text-[9px] text-slate-400 truncate">
+                      {user.email}
+                    </div>
                   </div>
-                  <div className="text-[10px] text-slate-500 truncate">
-                    {user.jobFunction || user.department || 'Municipal Employee'}
-                  </div>
-                  <div className="text-[9px] text-slate-400 truncate">
-                    {user.email}
-                  </div>
+                  <UserCheck className="w-4 h-4 text-slate-300 group-hover:text-emerald-600 shrink-0 mt-1" />
+                </button>
+              ))}
+
+              {query.trim() && (
+                <div className="p-1.5 bg-slate-50 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={handleManualAdd}
+                    className="w-full py-1 px-2 text-left text-xs font-semibold text-slate-600 hover:text-emerald-800 hover:bg-emerald-50 rounded transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <UserPlus className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Or use &ldquo;<strong>{query.trim()}</strong>&rdquo; as Custom Official</span>
+                  </button>
                 </div>
-                <UserCheck className="w-4 h-4 text-slate-300 group-hover:text-emerald-600 shrink-0 mt-1" />
-              </button>
-            ))
+              )}
+            </>
           )}
         </div>
       )}
