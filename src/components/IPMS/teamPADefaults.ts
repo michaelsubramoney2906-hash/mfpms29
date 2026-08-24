@@ -12,127 +12,130 @@ export interface DepartmentConfig {
   teams: TeamPreset[];
 }
 
+const CDS_CONFIG: DepartmentConfig = {
+  title: "Community & Disaster Services (CDS) Team",
+  documentIdSuffix: "cds",
+  defaultHeaders: ["No.", "Full Name (Team Members)", "Employee Number / Station Designation"],
+  teams: [
+    {
+      id: 1,
+      name: "Alpha Shift - Fire & Rescue Platoon",
+      description: "Primary rapid response, structural firefighting, and emergency rescue",
+      defaultRows: [
+        ["1", "Captain Sibusiso Sithole (Shift Commander)", "FF-0101"],
+        ["2", "Kagiso Mokoena (Lead Firefighter & Hazmat Specialist)", "FF-0204"],
+        ["3", "Lindiwe Nkosi (Senior Rescue Pump Operator)", "FF-0309"],
+        ["4", "Pieter van der Merwe (Paramedic & First Responder)", "FF-0415"],
+        ["5", "Bongani Khumalo (Apparatus Driver & Extrication Tech)", "FF-0520"],
+        ["6", "Noluthando Ndlovu (Fire Safety & Prevention Officer)", "FF-0632"],
+        ["7", "Zane Marais (High Angle & Mountain Rescue Tech)", "FF-0740"],
+        ["8", "Sipho Zulu (Wildland Fire Control Specialist)", "FF-0855"]
+      ]
+    },
+    {
+      id: 2,
+      name: "Bravo Shift - Wildland & Hazardous Materials",
+      description: "Wildfire containment, chemical neutralization, and toxic spill response",
+      defaultRows: [
+        ["1", "Lieutenant Thabo Motsepe (Bravo Platoon Leader)", "FF-0201"],
+        ["2", "Nomvula Mahlangu (Hazmat Specialist Level 3)", "FF-0202"],
+        ["3", "Jaco Du Plessis (Wildland Forestry Driver Operator)", "FF-0203"],
+        ["4", "Ayanda Radebe (Breathing Apparatus Specialist)", "FF-0204"],
+        ["5", "Karabo Maseko (Incident Command Radio Dispatcher)", "FF-0205"]
+      ]
+    },
+    {
+      id: 3,
+      name: "Charlie Shift - Heavy Rescue & Vehicle Extrication",
+      description: "Specialized hydraulic extrication, heavy transport crash mitigation, and trench rescue",
+      defaultRows: [
+        ["1", "Station Officer Michael Khanyile", "FF-0301"],
+        ["2", "Dumisani Mazibuko (Hydraulic Extrication Tech)", "FF-0302"],
+        ["3", "Stefan van Zyl (Heavy Tender Operator)", "FF-0303"],
+        ["4", "Palesa Molefe (Emergency Medical Tech)", "FF-0304"],
+        ["5", "Godfrey Tshabalala (Safety & Breaching Specialist)", "FF-0305"]
+      ]
+    },
+    {
+      id: 4,
+      name: "Delta Shift - Industrial Safety & Petrochemical Response",
+      description: "High-temperature suppression, industrial refinery safety, and foam apparatus deployment",
+      defaultRows: [
+        ["1", "Lieutenant Sipho Dlamini (Industrial Fire Officer)", "FF-0401"],
+        ["2", "Brandon Pillay (Foam Unit Operator)", "FF-0402"],
+        ["3", "Precious Ndaba (Industrial Risk Assessor)", "FF-0403"],
+        ["4", "Willem Steyn (Thermal Imaging & Vent Tech)", "FF-0404"]
+      ]
+    },
+    {
+      id: 5,
+      name: "Hazmat Specialist & Chemical Containment Crew",
+      description: "Radiation, biological, and dangerous goods emergency mitigation",
+      defaultRows: [
+        ["1", "Specialist Commander Vusi Khumalo", "FF-0501"],
+        ["2", "Fatima Hoosain (Chemical Detection Analyst)", "FF-0502"],
+        ["3", "Clarence Sithole (Decontamination Unit Tech)", "FF-0503"],
+        ["4", "Kobus Engelbrecht (Hazmat Incident Officer)", "FF-0504"]
+      ]
+    },
+    {
+      id: 6,
+      name: "Emergency Medical & First Responder Unit",
+      description: "Triage operations, advanced life support, and rapid evacuation",
+      defaultRows: [
+        ["1", "Paramedic Lead Lerato Mthembu", "FF-0601"],
+        ["2", "David Naidoo (Intermediate Life Support)", "FF-0602"],
+        ["3", "Zanele Vilakazi (Emergency Care Practitioner)", "FF-0603"],
+        ["4", "Henk Joubert (Ambulance & Rescue Driver)", "FF-0604"]
+      ]
+    },
+    {
+      id: 7,
+      name: "Aviation & Aerodrome Rescue Platoon",
+      description: "Airport runway emergency response and aircraft firefighting",
+      defaultRows: [
+        ["1", "Commander Johannes Swart (ARFF Lead)", "FF-0701"],
+        ["2", "Mandla Maseko (Crash Tender Driver)", "FF-0702"],
+        ["3", "Refilwe Tau (Aircraft Evacuation Tech)", "FF-0703"]
+      ]
+    },
+    {
+      id: 8,
+      name: "High-Angle, Confined Space & Mountain Rescue",
+      description: "Vertical rope rescue, cliff evacuation, and silo/trench operations",
+      defaultRows: [
+        ["1", "Rope Rescue Commander Siphiwe Gwebu", "FF-0801"],
+        ["2", "Andrew Scott (High-Angle Technician)", "FF-0802"],
+        ["3", "Nompumelelo Shabangu (Confined Space Specialist)", "FF-0803"]
+      ]
+    },
+    {
+      id: 9,
+      name: "Water Rescue & Aquatic Dive Unit",
+      description: "Swiftwater rescue, flood response, and submerged asset recovery",
+      defaultRows: [
+        ["1", "Master Diver Bheki Zwane", "FF-0901"],
+        ["2", "Gert Bekker (Swiftwater Rescue Specialist)", "FF-0902"],
+        ["3", "Themba Masina (Boat Pilot & Water Rescuer)", "FF-0903"]
+      ]
+    },
+    {
+      id: 10,
+      name: "Disaster Management & Incident Command Support",
+      description: "Strategic coordination, emergency communications, and operational logistics",
+      defaultRows: [
+        ["1", "Chief Disaster Officer Audrey Mokoena", "FF-1001"],
+        ["2", "Sibusiso Ndlovu (Field Logistics Coordinator)", "FF-1002"],
+        ["3", "Elize Van Eeden (GIS & Emergency Dispatcher)", "FF-1003"],
+        ["4", "Musa Zulu (Public Safety & Relief Officer)", "FF-1004"]
+      ]
+    }
+  ]
+};
+
 export const TEAM_MODULE_CONFIGS: Record<string, DepartmentConfig> = {
-  firefighters: {
-    title: "Firefighters Team",
-    documentIdSuffix: "firefighters",
-    defaultHeaders: ["No.", "Full Name (Team Members)", "Employee Number / Station Designation"],
-    teams: [
-      {
-        id: 1,
-        name: "Alpha Shift - Fire & Rescue Platoon",
-        description: "Primary rapid response, structural firefighting, and emergency rescue",
-        defaultRows: [
-          ["1", "Captain Sibusiso Sithole (Shift Commander)", "FF-0101"],
-          ["2", "Kagiso Mokoena (Lead Firefighter & Hazmat Specialist)", "FF-0204"],
-          ["3", "Lindiwe Nkosi (Senior Rescue Pump Operator)", "FF-0309"],
-          ["4", "Pieter van der Merwe (Paramedic & First Responder)", "FF-0415"],
-          ["5", "Bongani Khumalo (Apparatus Driver & Extrication Tech)", "FF-0520"],
-          ["6", "Noluthando Ndlovu (Fire Safety & Prevention Officer)", "FF-0632"],
-          ["7", "Zane Marais (High Angle & Mountain Rescue Tech)", "FF-0740"],
-          ["8", "Sipho Zulu (Wildland Fire Control Specialist)", "FF-0855"]
-        ]
-      },
-      {
-        id: 2,
-        name: "Bravo Shift - Wildland & Hazardous Materials",
-        description: "Wildfire containment, chemical neutralization, and toxic spill response",
-        defaultRows: [
-          ["1", "Lieutenant Thabo Motsepe (Bravo Platoon Leader)", "FF-0201"],
-          ["2", "Nomvula Mahlangu (Hazmat Specialist Level 3)", "FF-0202"],
-          ["3", "Jaco Du Plessis (Wildland Forestry Driver Operator)", "FF-0203"],
-          ["4", "Ayanda Radebe (Breathing Apparatus Specialist)", "FF-0204"],
-          ["5", "Karabo Maseko (Incident Command Radio Dispatcher)", "FF-0205"]
-        ]
-      },
-      {
-        id: 3,
-        name: "Charlie Shift - Heavy Rescue & Vehicle Extrication",
-        description: "Specialized hydraulic extrication, heavy transport crash mitigation, and trench rescue",
-        defaultRows: [
-          ["1", "Station Officer Michael Khanyile", "FF-0301"],
-          ["2", "Dumisani Mazibuko (Hydraulic Extrication Tech)", "FF-0302"],
-          ["3", "Stefan van Zyl (Heavy Tender Operator)", "FF-0303"],
-          ["4", "Palesa Molefe (Emergency Medical Tech)", "FF-0304"],
-          ["5", "Godfrey Tshabalala (Safety & Breaching Specialist)", "FF-0305"]
-        ]
-      },
-      {
-        id: 4,
-        name: "Delta Shift - Industrial Safety & Petrochemical Response",
-        description: "High-temperature suppression, industrial refinery safety, and foam apparatus deployment",
-        defaultRows: [
-          ["1", "Lieutenant Sipho Dlamini (Industrial Fire Officer)", "FF-0401"],
-          ["2", "Brandon Pillay (Foam Unit Operator)", "FF-0402"],
-          ["3", "Precious Ndaba (Industrial Risk Assessor)", "FF-0403"],
-          ["4", "Willem Steyn (Thermal Imaging & Vent Tech)", "FF-0404"]
-        ]
-      },
-      {
-        id: 5,
-        name: "Hazmat Specialist & Chemical Containment Crew",
-        description: "Radiation, biological, and dangerous goods emergency mitigation",
-        defaultRows: [
-          ["1", "Specialist Commander Vusi Khumalo", "FF-0501"],
-          ["2", "Fatima Hoosain (Chemical Detection Analyst)", "FF-0502"],
-          ["3", "Clarence Sithole (Decontamination Unit Tech)", "FF-0503"],
-          ["4", "Kobus Engelbrecht (Hazmat Incident Officer)", "FF-0504"]
-        ]
-      },
-      {
-        id: 6,
-        name: "Emergency Medical & First Responder Unit",
-        description: "Triage operations, advanced life support, and rapid evacuation",
-        defaultRows: [
-          ["1", "Paramedic Lead Lerato Mthembu", "FF-0601"],
-          ["2", "David Naidoo (Intermediate Life Support)", "FF-0602"],
-          ["3", "Zanele Vilakazi (Emergency Care Practitioner)", "FF-0603"],
-          ["4", "Henk Joubert (Ambulance & Rescue Driver)", "FF-0604"]
-        ]
-      },
-      {
-        id: 7,
-        name: "Aviation & Aerodrome Rescue Platoon",
-        description: "Airport runway emergency response and aircraft firefighting",
-        defaultRows: [
-          ["1", "Commander Johannes Swart (ARFF Lead)", "FF-0701"],
-          ["2", "Mandla Maseko (Crash Tender Driver)", "FF-0702"],
-          ["3", "Refilwe Tau (Aircraft Evacuation Tech)", "FF-0703"]
-        ]
-      },
-      {
-        id: 8,
-        name: "High-Angle, Confined Space & Mountain Rescue",
-        description: "Vertical rope rescue, cliff evacuation, and silo/trench operations",
-        defaultRows: [
-          ["1", "Rope Rescue Commander Siphiwe Gwebu", "FF-0801"],
-          ["2", "Andrew Scott (High-Angle Technician)", "FF-0802"],
-          ["3", "Nompumelelo Shabangu (Confined Space Specialist)", "FF-0803"]
-        ]
-      },
-      {
-        id: 9,
-        name: "Water Rescue & Aquatic Dive Unit",
-        description: "Swiftwater rescue, flood response, and submerged asset recovery",
-        defaultRows: [
-          ["1", "Master Diver Bheki Zwane", "FF-0901"],
-          ["2", "Gert Bekker (Swiftwater Rescue Specialist)", "FF-0902"],
-          ["3", "Themba Masina (Boat Pilot & Water Rescuer)", "FF-0903"]
-        ]
-      },
-      {
-        id: 10,
-        name: "Disaster Management & Incident Command Support",
-        description: "Strategic coordination, emergency communications, and operational logistics",
-        defaultRows: [
-          ["1", "Chief Disaster Officer Audrey Mokoena", "FF-1001"],
-          ["2", "Sibusiso Ndlovu (Field Logistics Coordinator)", "FF-1002"],
-          ["3", "Elize Van Eeden (GIS & Emergency Dispatcher)", "FF-1003"],
-          ["4", "Musa Zulu (Public Safety & Relief Officer)", "FF-1004"]
-        ]
-      }
-    ]
-  },
+  cds: CDS_CONFIG,
+  firefighters: CDS_CONFIG,
 
   technical_services: {
     title: "Technical Services Team",

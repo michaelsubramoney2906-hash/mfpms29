@@ -11,6 +11,12 @@ import { NKANGALA_LOGO_BASE64 } from './nkangala_logo_base64';
 import { TEAM_MODULE_CONFIGS, TeamPreset } from './teamPADefaults';
 import { TeamAzureSearchInput, AzureUser } from './TeamAzureSearchInput';
 import { BulkAddDirectoryModal } from './BulkAddDirectoryModal';
+import { 
+  DualSectionExtras, SectionExtraBlock, CustomTableBlock,
+  createDefaultDualExtras, createDefaultExtraBlock, normalizeSectionExtras,
+  SectionCustomBlockEditor, SectionCustomBlockViewer,
+  KPATableEditor, KPATableViewer
+} from './PADraftingCustomBlock';
 
 interface PADraftingSuiteTeamProps {
   currentUser: User;
@@ -147,17 +153,45 @@ export function DraftingSuiteTeam({
   const [isPPlanAdopted, setIsPPlanAdopted] = useState<boolean>(false);
   const [teamRosterNotes, setTeamRosterNotes] = useState<string>('Operational notes and descriptions regarding the roster assignments above.');
 
-  // Custom additional section text boxes & tables
-  const [sectionExtras, setSectionExtras] = useState<Record<string, { text: string; table: { enabled: boolean; headers: string[]; rows: string[][] } }>>({
-    purpose: { text: '', table: { enabled: false, headers: ['Action Item', 'Target Date', 'Status'], rows: [['', '', '']] } },
-    validity: { text: '', table: { enabled: false, headers: ['Action Item', 'Target Date', 'Status'], rows: [['', '', '']] } },
-    reporting: { text: '', table: { enabled: false, headers: ['Action Item', 'Target Date', 'Status'], rows: [['', '', '']] } },
-    framework: { text: '', table: { enabled: false, headers: ['Action Item', 'Target Date', 'Status'], rows: [['', '', '']] } },
-    timetable: { text: '', table: { enabled: false, headers: ['Action Item', 'Target Date', 'Status'], rows: [['', '', '']] } },
-    poorPerformance: { text: '', table: { enabled: false, headers: ['Action Item', 'Target Date', 'Status'], rows: [['', '', '']] } },
-    dispute: { text: '', table: { enabled: false, headers: ['Action Item', 'Target Date', 'Status'], rows: [['', '', '']] } },
-    signatures: { text: '', table: { enabled: false, headers: ['Action Item', 'Target Date', 'Status'], rows: [['', '', '']] } },
+  // Custom additional section text boxes & tables (Dual: Above & Below for every section)
+  const [sectionExtras, setSectionExtras] = useState<Record<string, DualSectionExtras>>({
+    coverPage: createDefaultDualExtras(),
+    roster: createDefaultDualExtras(),
+    purpose: createDefaultDualExtras(),
+    validity: createDefaultDualExtras(),
+    reporting: createDefaultDualExtras(),
+    framework: createDefaultDualExtras(),
+    kpa_4_2: createDefaultDualExtras(),
+    competencies_4_3: createDefaultDualExtras(),
+    framework_4_4: createDefaultDualExtras(),
+    conditions: createDefaultDualExtras(),
+    kpaDuties: createDefaultDualExtras(),
+    ratingScale: createDefaultDualExtras(),
+    timetable: createDefaultDualExtras(),
+    poorPerformance: createDefaultDualExtras(),
+    dispute: createDefaultDualExtras(),
+    amendment: createDefaultDualExtras(),
+    evaluation: createDefaultDualExtras(),
+    signatures: createDefaultDualExtras(),
+    annexureC: createDefaultDualExtras(),
   });
+
+  const updateSectionExtra = (sectionKey: string, position: 'above' | 'below', updated: SectionExtraBlock) => {
+    setSectionExtras(prev => {
+      const existing = normalizeSectionExtras(prev, sectionKey);
+      return {
+        ...prev,
+        [sectionKey]: {
+          ...existing,
+          [position]: updated
+        }
+      };
+    });
+  };
+
+  const getSectionExtra = (sectionKey: string): DualSectionExtras => {
+    return normalizeSectionExtras(sectionExtras, sectionKey);
+  };
 
   // Dynamic KPA & Competencies Table states
   const [dynTableHeaders, setDynTableHeaders] = useState<string[]>(['KPA No', 'National KPA', 'Functional Area KPA', 'Weighting']);
@@ -351,7 +385,19 @@ export function DraftingSuiteTeam({
           if (state.teamRosterNotes !== undefined) setTeamRosterNotes(state.teamRosterNotes);
           if (Array.isArray(state.dynTableHeaders)) setDynTableHeaders(state.dynTableHeaders);
           if (Array.isArray(state.dynTableRows)) setDynTableRows(state.dynTableRows);
-          if (state.sectionExtras !== undefined) setSectionExtras(state.sectionExtras);
+          if (state.sectionExtras !== undefined) {
+            const normalized: Record<string, DualSectionExtras> = {};
+            const allKeys = [
+              'coverPage', 'roster', 'purpose', 'validity', 'reporting', 'framework',
+              'kpa_4_2', 'competencies_4_3', 'framework_4_4', 'conditions', 'kpaDuties',
+              'ratingScale', 'timetable', 'poorPerformance', 'dispute', 'amendment',
+              'evaluation', 'signatures', 'annexureC'
+            ];
+            allKeys.forEach(k => {
+              normalized[k] = normalizeSectionExtras(state.sectionExtras, k);
+            });
+            setSectionExtras(normalized);
+          }
           if (state.customTeamName) {
             setTeamList(prev => {
               const updated = [...prev];
@@ -764,11 +810,23 @@ export function DraftingSuiteTeam({
         {/* COVER PAGE EDITOR */}
         <div className="bg-white p-5 rounded-xl shadow-xs border border-slate-200 space-y-4">
           <label className="text-xs font-bold text-slate-700 uppercase">Cover Page Text</label>
+          <SectionCustomBlockEditor
+            label="Additional Table & Text (Above Cover Page)"
+            position="above"
+            extra={getSectionExtra('coverPage').above}
+            onChange={val => updateSectionExtra('coverPage', 'above', val)}
+          />
           <textarea 
             value={coverPage} 
             onChange={e => setCoverPage(e.target.value)} 
             rows={5} 
             className="w-full text-xs p-3 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none font-mono" 
+          />
+          <SectionCustomBlockEditor
+            label="Additional Table & Text (Below Cover Page)"
+            position="below"
+            extra={getSectionExtra('coverPage').below}
+            onChange={val => updateSectionExtra('coverPage', 'below', val)}
           />
         </div>
 
@@ -804,6 +862,13 @@ export function DraftingSuiteTeam({
               </button>
             </div>
           </div>
+
+          <SectionCustomBlockEditor
+            label="Additional Table & Text (Above Team Roster)"
+            position="above"
+            extra={getSectionExtra('roster').above}
+            onChange={val => updateSectionExtra('roster', 'above', val)}
+          />
 
           <div className="space-y-3 max-h-96 overflow-y-auto pr-1 border border-slate-100 rounded-lg p-2 bg-slate-50">
             {tableRows.map((row, rIdx) => (
@@ -896,42 +961,186 @@ export function DraftingSuiteTeam({
               Total roster count: <strong className="text-slate-800">{tableRows.length}</strong>
             </span>
           </div>
+
+          <SectionCustomBlockEditor
+            label="Additional Table & Text (Below Team Roster)"
+            position="below"
+            extra={getSectionExtra('roster').below}
+            onChange={val => updateSectionExtra('roster', 'below', val)}
+          />
         </div>
 
         {/* SECTION 1: PURPOSE */}
         <div className="bg-white p-5 rounded-xl shadow-xs border border-slate-200 space-y-4">
           <label className="text-xs font-bold text-slate-700 uppercase">1. Purpose</label>
+          <SectionCustomBlockEditor
+            label="Additional Table & Text (Above 1. Purpose)"
+            position="above"
+            extra={getSectionExtra('purpose').above}
+            onChange={val => updateSectionExtra('purpose', 'above', val)}
+          />
           <textarea value={purpose} onChange={e => setPurpose(e.target.value)} rows={3} className="w-full text-xs p-3 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+          <SectionCustomBlockEditor
+            label="Additional Table & Text (Below 1. Purpose)"
+            position="below"
+            extra={getSectionExtra('purpose').below}
+            onChange={val => updateSectionExtra('purpose', 'below', val)}
+          />
         </div>
 
         {/* SECTION 2: VALIDITY */}
         <div className="bg-white p-5 rounded-xl shadow-xs border border-slate-200 space-y-4">
           <label className="text-xs font-bold text-slate-700 uppercase">2. Validity of Agreement</label>
+          <SectionCustomBlockEditor
+            label="Additional Table & Text (Above 2. Validity)"
+            position="above"
+            extra={getSectionExtra('validity').above}
+            onChange={val => updateSectionExtra('validity', 'above', val)}
+          />
           <textarea value={validity} onChange={e => setValidity(e.target.value)} rows={2} className="w-full text-xs p-3 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+          <SectionCustomBlockEditor
+            label="Additional Table & Text (Below 2. Validity)"
+            position="below"
+            extra={getSectionExtra('validity').below}
+            onChange={val => updateSectionExtra('validity', 'below', val)}
+          />
         </div>
 
         {/* SECTION 3: REPORTING */}
         <div className="bg-white p-5 rounded-xl shadow-xs border border-slate-200 space-y-4">
           <label className="text-xs font-bold text-slate-700 uppercase">3. Reporting Requirements & Lines</label>
+          <SectionCustomBlockEditor
+            label="Additional Table & Text (Above 3. Reporting)"
+            position="above"
+            extra={getSectionExtra('reporting').above}
+            onChange={val => updateSectionExtra('reporting', 'above', val)}
+          />
           <textarea value={reporting} onChange={e => setReporting(e.target.value)} rows={3} className="w-full text-xs p-3 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+          <SectionCustomBlockEditor
+            label="Additional Table & Text (Below 3. Reporting)"
+            position="below"
+            extra={getSectionExtra('reporting').below}
+            onChange={val => updateSectionExtra('reporting', 'below', val)}
+          />
         </div>
 
-        {/* SECTION 4: ASSESSMENT FRAMEWORK */}
+        {/* SECTION 4: ASSESSMENT FRAMEWORK & 4.2 KPA TABLE */}
         <div className="bg-white p-5 rounded-xl shadow-xs border border-slate-200 space-y-4">
           <label className="text-xs font-bold text-slate-700 uppercase block">4. Performance Assessment Framework</label>
-          <textarea value={framework} onChange={e => setFramework(e.target.value)} rows={3} className="w-full text-xs p-3 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
           
-          <label className="text-xs font-bold text-slate-700 uppercase block !mt-3">4.3 Competencies Text (Below KPA Table)</label>
-          <textarea value={frameworkBelowKpa} onChange={e => setFrameworkBelowKpa(e.target.value)} rows={2} className="w-full text-xs p-3 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+          <SectionCustomBlockEditor
+            label="Additional Table & Text (Above 4.1 Framework Intro)"
+            position="above"
+            extra={getSectionExtra('framework').above}
+            onChange={val => updateSectionExtra('framework', 'above', val)}
+          />
+          <textarea value={framework} onChange={e => setFramework(e.target.value)} rows={3} className="w-full text-xs p-3 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+          <SectionCustomBlockEditor
+            label="Additional Table & Text (Below 4.1 Framework Intro)"
+            position="below"
+            extra={getSectionExtra('framework').below}
+            onChange={val => updateSectionExtra('framework', 'below', val)}
+          />
 
-          <label className="text-xs font-bold text-slate-700 uppercase block !mt-3">4.4 Framework Footer Text (Below Competencies Table)</label>
+          {/* 4.2 KPA Table Editor with full Column & Row addition/deletion */}
+          <KPATableEditor
+            headers={dynTableHeaders}
+            rows={dynTableRows}
+            onChangeHeaders={setDynTableHeaders}
+            onChangeRows={setDynTableRows}
+          />
+          
+          {/* Below Point 4.2 KPA Table Custom Block */}
+          <SectionCustomBlockEditor
+            label="Additional Table & Text (Below 4.2 KPA Table)"
+            position="below"
+            extra={getSectionExtra('kpa_4_2').below}
+            onChange={val => updateSectionExtra('kpa_4_2', 'below', val)}
+          />
+
+          <label className="text-xs font-bold text-slate-700 uppercase block !mt-4">4.3 Competencies Text (Below KPA Table)</label>
+          <SectionCustomBlockEditor
+            label="Additional Table & Text (Above 4.3 Competencies)"
+            position="above"
+            extra={getSectionExtra('competencies_4_3').above}
+            onChange={val => updateSectionExtra('competencies_4_3', 'above', val)}
+          />
+          <textarea value={frameworkBelowKpa} onChange={e => setFrameworkBelowKpa(e.target.value)} rows={2} className="w-full text-xs p-3 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+          <SectionCustomBlockEditor
+            label="Additional Table & Text (Below 4.3 Competencies)"
+            position="below"
+            extra={getSectionExtra('competencies_4_3').below}
+            onChange={val => updateSectionExtra('competencies_4_3', 'below', val)}
+          />
+
+          <label className="text-xs font-bold text-slate-700 uppercase block !mt-4">4.4 Framework Footer Text</label>
+          <SectionCustomBlockEditor
+            label="Additional Table & Text (Above 4.4 Framework Footer)"
+            position="above"
+            extra={getSectionExtra('framework_4_4').above}
+            onChange={val => updateSectionExtra('framework_4_4', 'above', val)}
+          />
           <textarea value={frameworkBelowJsc} onChange={e => setFrameworkBelowJsc(e.target.value)} rows={2} className="w-full text-xs p-3 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+          <SectionCustomBlockEditor
+            label="Additional Table & Text (Below 4.4 Framework Footer)"
+            position="below"
+            extra={getSectionExtra('framework_4_4').below}
+            onChange={val => updateSectionExtra('framework_4_4', 'below', val)}
+          />
         </div>
 
         {/* SECTION 5: CONDITIONS */}
         <div className="bg-white p-5 rounded-xl shadow-xs border border-slate-200 space-y-4">
           <label className="text-xs font-bold text-slate-700 uppercase">5. Conditions of Performance</label>
+          <SectionCustomBlockEditor
+            label="Additional Table & Text (Above 5. Conditions)"
+            position="above"
+            extra={getSectionExtra('conditions').above}
+            onChange={val => updateSectionExtra('conditions', 'above', val)}
+          />
           <textarea value={conditions} onChange={e => setConditions(e.target.value)} rows={2} className="w-full text-xs p-3 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+          <SectionCustomBlockEditor
+            label="Additional Table & Text (Below 5. Conditions)"
+            position="below"
+            extra={getSectionExtra('conditions').below}
+            onChange={val => updateSectionExtra('conditions', 'below', val)}
+          />
+        </div>
+
+        {/* SECTION 6: KEY PERFORMANCE AREAS / DUTIES */}
+        <div className="bg-white p-5 rounded-xl shadow-xs border border-slate-200 space-y-4">
+          <label className="text-xs font-bold text-slate-700 uppercase">6. Key Performance Areas / Duties Description</label>
+          <SectionCustomBlockEditor
+            label="Additional Table & Text (Above 6. KPA Duties)"
+            position="above"
+            extra={getSectionExtra('kpaDuties').above}
+            onChange={val => updateSectionExtra('kpaDuties', 'above', val)}
+          />
+          <textarea value={kpaText} onChange={e => setKpaText(e.target.value)} rows={3} className="w-full text-xs p-3 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+          <SectionCustomBlockEditor
+            label="Additional Table & Text (Below 6. KPA Duties)"
+            position="below"
+            extra={getSectionExtra('kpaDuties').below}
+            onChange={val => updateSectionExtra('kpaDuties', 'below', val)}
+          />
+        </div>
+
+        {/* SECTION 7: RATING SCALE */}
+        <div className="bg-white p-5 rounded-xl shadow-xs border border-slate-200 space-y-4">
+          <label className="text-xs font-bold text-slate-700 uppercase">7. Performance Assessment Rating Scale</label>
+          <SectionCustomBlockEditor
+            label="Additional Table & Text (Above 7. Rating Scale)"
+            position="above"
+            extra={getSectionExtra('ratingScale').above}
+            onChange={val => updateSectionExtra('ratingScale', 'above', val)}
+          />
+          <textarea value={assessmentText} onChange={e => setAssessmentText(e.target.value)} rows={3} className="w-full text-xs p-3 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+          <SectionCustomBlockEditor
+            label="Additional Table & Text (Below 7. Rating Scale)"
+            position="below"
+            extra={getSectionExtra('ratingScale').below}
+            onChange={val => updateSectionExtra('ratingScale', 'below', val)}
+          />
         </div>
 
         {/* SECTION 8: TIMETABLE FOR REVIEW */}
@@ -952,6 +1161,13 @@ export function DraftingSuiteTeam({
               <Plus className="w-3 h-3" /> Add Review Quarter
             </button>
           </div>
+
+          <SectionCustomBlockEditor
+            label="Additional Table & Text (Above 8. Timetable)"
+            position="above"
+            extra={getSectionExtra('timetable').above}
+            onChange={val => updateSectionExtra('timetable', 'above', val)}
+          />
 
           <div className="overflow-x-auto border border-slate-200 rounded-lg">
             <table className="w-full text-left text-xs">
@@ -1057,6 +1273,87 @@ export function DraftingSuiteTeam({
               </tbody>
             </table>
           </div>
+
+          <textarea value={timetable} onChange={e => setTimetable(e.target.value)} rows={2} className="w-full text-xs p-3 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+
+          <SectionCustomBlockEditor
+            label="Additional Table & Text (Below 8. Timetable)"
+            position="below"
+            extra={getSectionExtra('timetable').below}
+            onChange={val => updateSectionExtra('timetable', 'below', val)}
+          />
+        </div>
+
+        {/* SECTION 9: POOR PERFORMANCE */}
+        <div className="bg-white p-5 rounded-xl shadow-xs border border-slate-200 space-y-4">
+          <label className="text-xs font-bold text-slate-700 uppercase">9. Management of Poor Performance Outcomes</label>
+          <SectionCustomBlockEditor
+            label="Additional Table & Text (Above 9. Poor Performance)"
+            position="above"
+            extra={getSectionExtra('poorPerformance').above}
+            onChange={val => updateSectionExtra('poorPerformance', 'above', val)}
+          />
+          <textarea value={poorPerformance} onChange={e => setPoorPerformance(e.target.value)} rows={2} className="w-full text-xs p-3 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+          <SectionCustomBlockEditor
+            label="Additional Table & Text (Below 9. Poor Performance)"
+            position="below"
+            extra={getSectionExtra('poorPerformance').below}
+            onChange={val => updateSectionExtra('poorPerformance', 'below', val)}
+          />
+        </div>
+
+        {/* SECTION 10: DISPUTE RESOLUTION */}
+        <div className="bg-white p-5 rounded-xl shadow-xs border border-slate-200 space-y-4">
+          <label className="text-xs font-bold text-slate-700 uppercase">10. Dispute Resolution Mechanism</label>
+          <SectionCustomBlockEditor
+            label="Additional Table & Text (Above 10. Dispute Resolution)"
+            position="above"
+            extra={getSectionExtra('dispute').above}
+            onChange={val => updateSectionExtra('dispute', 'above', val)}
+          />
+          <textarea value={dispute} onChange={e => setDispute(e.target.value)} rows={2} className="w-full text-xs p-3 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+          <SectionCustomBlockEditor
+            label="Additional Table & Text (Below 10. Dispute Resolution)"
+            position="below"
+            extra={getSectionExtra('dispute').below}
+            onChange={val => updateSectionExtra('dispute', 'below', val)}
+          />
+        </div>
+
+        {/* SECTION 11: AMENDMENTS */}
+        <div className="bg-white p-5 rounded-xl shadow-xs border border-slate-200 space-y-4">
+          <label className="text-xs font-bold text-slate-700 uppercase">11. General & Amendments</label>
+          <SectionCustomBlockEditor
+            label="Additional Table & Text (Above 11. Amendments)"
+            position="above"
+            extra={getSectionExtra('amendment').above}
+            onChange={val => updateSectionExtra('amendment', 'above', val)}
+          />
+          <textarea value={amendment} onChange={e => setAmendment(e.target.value)} rows={2} className="w-full text-xs p-3 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+          <SectionCustomBlockEditor
+            label="Additional Table & Text (Below 11. Amendments)"
+            position="below"
+            extra={getSectionExtra('amendment').below}
+            onChange={val => updateSectionExtra('amendment', 'below', val)}
+          />
+        </div>
+
+        {/* SECTION 12: EVALUATION */}
+        <div className="bg-white p-5 rounded-xl shadow-xs border border-slate-200 space-y-4">
+          <label className="text-xs font-bold text-slate-700 uppercase">12. Evaluation & Consultation</label>
+          <SectionCustomBlockEditor
+            label="Additional Table & Text (Above 12. Evaluation)"
+            position="above"
+            extra={getSectionExtra('evaluation').above}
+            onChange={val => updateSectionExtra('evaluation', 'above', val)}
+          />
+          <textarea value={evaluation} onChange={e => setEvaluation(e.target.value)} rows={2} className="w-full text-xs p-3 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+          <SectionCustomBlockEditor
+            label="Additional Table & Text (Below 12. Evaluation)"
+            position="below"
+            extra={getSectionExtra('evaluation').below}
+            onChange={val => updateSectionExtra('evaluation', 'below', val)}
+          />
         </div>
 
         {/* SECTION 13: SIGNATURES OF PARTIES WITH AZURE AD SELECTION & LIVE PROFILE AUTO-UPDATE */}
@@ -1081,6 +1378,13 @@ export function DraftingSuiteTeam({
               {isRefreshingSignatures ? 'Syncing Profiles...' : 'Sync Signatures'}
             </button>
           </div>
+
+          <SectionCustomBlockEditor
+            label="Additional Table & Text (Above 13. Signatures)"
+            position="above"
+            extra={getSectionExtra('signatures').above}
+            onChange={val => updateSectionExtra('signatures', 'above', val)}
+          />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             
@@ -1260,12 +1564,31 @@ export function DraftingSuiteTeam({
             </div>
 
           </div>
+
+          <SectionCustomBlockEditor
+            label="Additional Table & Text (Below 13. Signatures)"
+            position="below"
+            extra={getSectionExtra('signatures').below}
+            onChange={val => updateSectionExtra('signatures', 'below', val)}
+          />
         </div>
 
         {/* ANNEXURES */}
         <div className="bg-white p-5 rounded-xl shadow-xs border border-slate-200 space-y-4">
           <label className="text-xs font-bold text-slate-700 uppercase">Annexure C - Disclosure of Financial Interest</label>
+          <SectionCustomBlockEditor
+            label="Additional Table & Text (Above Annexure C)"
+            position="above"
+            extra={getSectionExtra('annexureC').above}
+            onChange={val => updateSectionExtra('annexureC', 'above', val)}
+          />
           <textarea value={annexureC} onChange={e => setAnnexureC(e.target.value)} rows={4} className="w-full text-xs p-3 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+          <SectionCustomBlockEditor
+            label="Additional Table & Text (Below Annexure C)"
+            position="below"
+            extra={getSectionExtra('annexureC').below}
+            onChange={val => updateSectionExtra('annexureC', 'below', val)}
+          />
         </div>
 
       </div>
@@ -1340,12 +1663,15 @@ export function DraftingSuiteTeam({
           </div>
 
           {/* Cover Page Body */}
+          <SectionCustomBlockViewer extra={getSectionExtra('coverPage').above} />
           <div className="whitespace-pre-wrap text-xs text-slate-800 leading-relaxed font-sans text-center max-w-lg mx-auto py-6 border-b border-slate-200 mb-8 bg-slate-50/50 p-6 rounded-lg">
             {coverPage}
           </div>
+          <SectionCustomBlockViewer extra={getSectionExtra('coverPage').below} />
 
           {/* Team Members Roster Deployment Table */}
           <div className="mb-8">
+            <SectionCustomBlockViewer extra={getSectionExtra('roster').above} />
             <h3 className="text-xs font-extrabold uppercase text-emerald-900 tracking-wider mb-3 flex items-center gap-1.5">
               <Users className="w-4 h-4 text-emerald-700" />
               Team Members Deployment Roster ({teamList[activeTeamIndex]?.name})
@@ -1376,79 +1702,99 @@ export function DraftingSuiteTeam({
                 ))}
               </tbody>
             </table>
+            <SectionCustomBlockViewer extra={getSectionExtra('roster').below} />
           </div>
 
           {/* Document Clauses */}
           <div className="space-y-6 text-xs text-slate-800">
             {/* 1. Purpose */}
             <div>
+              <SectionCustomBlockViewer extra={getSectionExtra('purpose').above} />
               <h3 className="text-xs font-extrabold uppercase text-emerald-900 tracking-wide border-b border-emerald-800/40 pb-1 mb-2">
                 1. Purpose of Agreement
               </h3>
               {renderFormattedContent(purpose)}
+              <SectionCustomBlockViewer extra={getSectionExtra('purpose').below} />
             </div>
 
             {/* 2. Validity */}
             <div>
+              <SectionCustomBlockViewer extra={getSectionExtra('validity').above} />
               <h3 className="text-xs font-extrabold uppercase text-emerald-900 tracking-wide border-b border-emerald-800/40 pb-1 mb-2">
                 2. Validity of Agreement
               </h3>
               {renderFormattedContent(validity)}
+              <SectionCustomBlockViewer extra={getSectionExtra('validity').below} />
             </div>
 
             {/* 3. Reporting */}
             <div>
+              <SectionCustomBlockViewer extra={getSectionExtra('reporting').above} />
               <h3 className="text-xs font-extrabold uppercase text-emerald-900 tracking-wide border-b border-emerald-800/40 pb-1 mb-2">
                 3. Reporting Requirements & Governance
               </h3>
               {renderFormattedContent(reporting)}
+              <SectionCustomBlockViewer extra={getSectionExtra('reporting').below} />
             </div>
 
             {/* 4. Assessment Framework */}
             <div>
+              <SectionCustomBlockViewer extra={getSectionExtra('framework').above} />
               <h3 className="text-xs font-extrabold uppercase text-emerald-900 tracking-wide border-b border-emerald-800/40 pb-1 mb-2">
                 4. Performance Assessment Framework
               </h3>
               {renderFormattedContent(framework)}
+              <SectionCustomBlockViewer extra={getSectionExtra('framework').below} />
 
-              {/* Dynamic KPA Table */}
+              {/* Dynamic KPA Table (Viewer) */}
               <div className="my-4">
-                <table className="w-full text-left border-collapse border border-slate-300 text-[11px]">
-                  <thead className="bg-emerald-50 text-emerald-900 font-bold uppercase text-[9.5px]">
-                    <tr>
-                      {dynTableHeaders.map((h, i) => (
-                        <th key={i} className="border border-slate-300 p-2">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {dynTableRows.map((r, i) => (
-                      <tr key={i} className="border-b border-slate-200">
-                        {r.map((c, ci) => (
-                          <td key={ci} className={`border border-slate-300 p-2 ${ci === 0 ? 'text-center font-bold' : ''}`}>
-                            {c}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <KPATableViewer headers={dynTableHeaders} rows={dynTableRows} />
               </div>
 
+              <SectionCustomBlockViewer extra={getSectionExtra('kpa_4_2').below} />
+
+              <SectionCustomBlockViewer extra={getSectionExtra('competencies_4_3').above} />
               {renderFormattedContent(frameworkBelowKpa)}
+              <SectionCustomBlockViewer extra={getSectionExtra('competencies_4_3').below} />
+
+              <SectionCustomBlockViewer extra={getSectionExtra('framework_4_4').above} />
               {renderFormattedContent(frameworkBelowJsc)}
+              <SectionCustomBlockViewer extra={getSectionExtra('framework_4_4').below} />
             </div>
 
             {/* 5. Conditions */}
             <div>
+              <SectionCustomBlockViewer extra={getSectionExtra('conditions').above} />
               <h3 className="text-xs font-extrabold uppercase text-emerald-900 tracking-wide border-b border-emerald-800/40 pb-1 mb-2">
                 5. Conditions of Performance
               </h3>
               {renderFormattedContent(conditions)}
+              <SectionCustomBlockViewer extra={getSectionExtra('conditions').below} />
+            </div>
+
+            {/* 6. Duties / KPAs */}
+            <div>
+              <SectionCustomBlockViewer extra={getSectionExtra('kpaDuties').above} />
+              <h3 className="text-xs font-extrabold uppercase text-emerald-900 tracking-wide border-b border-emerald-800/40 pb-1 mb-2">
+                6. Key Performance Areas / Duties
+              </h3>
+              {renderFormattedContent(kpaText)}
+              <SectionCustomBlockViewer extra={getSectionExtra('kpaDuties').below} />
+            </div>
+
+            {/* 7. Rating Scale */}
+            <div>
+              <SectionCustomBlockViewer extra={getSectionExtra('ratingScale').above} />
+              <h3 className="text-xs font-extrabold uppercase text-emerald-900 tracking-wide border-b border-emerald-800/40 pb-1 mb-2">
+                7. Performance Assessment Rating Scale
+              </h3>
+              {renderFormattedContent(assessmentText)}
+              <SectionCustomBlockViewer extra={getSectionExtra('ratingScale').below} />
             </div>
 
             {/* 8. Timetable */}
             <div>
+              <SectionCustomBlockViewer extra={getSectionExtra('timetable').above} />
               <h3 className="text-xs font-extrabold uppercase text-emerald-900 tracking-wide border-b border-emerald-800/40 pb-1 mb-2">
                 8. Timetable for Performance Reviews
               </h3>
@@ -1477,26 +1823,52 @@ export function DraftingSuiteTeam({
                 </tbody>
               </table>
               {renderFormattedContent(timetable)}
+              <SectionCustomBlockViewer extra={getSectionExtra('timetable').below} />
             </div>
 
             {/* 9. Poor Performance */}
             <div>
+              <SectionCustomBlockViewer extra={getSectionExtra('poorPerformance').above} />
               <h3 className="text-xs font-extrabold uppercase text-emerald-900 tracking-wide border-b border-emerald-800/40 pb-1 mb-2">
                 9. Management of Poor Performance Outcomes
               </h3>
               {renderFormattedContent(poorPerformance)}
+              <SectionCustomBlockViewer extra={getSectionExtra('poorPerformance').below} />
             </div>
 
             {/* 10. Dispute Resolution */}
             <div>
+              <SectionCustomBlockViewer extra={getSectionExtra('dispute').above} />
               <h3 className="text-xs font-extrabold uppercase text-emerald-900 tracking-wide border-b border-emerald-800/40 pb-1 mb-2">
                 10. Dispute Resolution Mechanism
               </h3>
               {renderFormattedContent(dispute)}
+              <SectionCustomBlockViewer extra={getSectionExtra('dispute').below} />
+            </div>
+
+            {/* 11. Amendments */}
+            <div>
+              <SectionCustomBlockViewer extra={getSectionExtra('amendment').above} />
+              <h3 className="text-xs font-extrabold uppercase text-emerald-900 tracking-wide border-b border-emerald-800/40 pb-1 mb-2">
+                11. General & Amendments
+              </h3>
+              {renderFormattedContent(amendment)}
+              <SectionCustomBlockViewer extra={getSectionExtra('amendment').below} />
+            </div>
+
+            {/* 12. Evaluation */}
+            <div>
+              <SectionCustomBlockViewer extra={getSectionExtra('evaluation').above} />
+              <h3 className="text-xs font-extrabold uppercase text-emerald-900 tracking-wide border-b border-emerald-800/40 pb-1 mb-2">
+                12. Evaluation & Consultation
+              </h3>
+              {renderFormattedContent(evaluation)}
+              <SectionCustomBlockViewer extra={getSectionExtra('evaluation').below} />
             </div>
 
             {/* 13. Signatures of Parties Block */}
             <div className="pt-8 border-t-2 border-emerald-900/80 mt-10">
+              <SectionCustomBlockViewer extra={getSectionExtra('signatures').above} />
               <h3 className="text-xs font-black uppercase text-emerald-900 tracking-wider text-center mb-6">
                 13. Signatures of Parties to the Performance Agreement
               </h3>
@@ -1604,14 +1976,17 @@ export function DraftingSuiteTeam({
                 </div>
 
               </div>
+              <SectionCustomBlockViewer extra={getSectionExtra('signatures').below} />
             </div>
 
             {/* Annexure C Preview */}
             <div className="pt-6 border-t border-slate-200 text-xs">
+              <SectionCustomBlockViewer extra={getSectionExtra('annexureC').above} />
               <h4 className="font-bold uppercase text-emerald-900 mb-2">Annexure C: Financial Disclosure</h4>
               <div className="whitespace-pre-wrap text-slate-700 bg-slate-50 p-4 rounded border border-slate-200">
                 {annexureC}
               </div>
+              <SectionCustomBlockViewer extra={getSectionExtra('annexureC').below} />
             </div>
 
           </div>
