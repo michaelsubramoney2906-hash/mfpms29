@@ -141,6 +141,15 @@ export function CompactPoeUploader({
   );
 }
 
+const DEFAULT_TECHNICAL_SERVICES_ROWS = [
+  ['1', 'Eng. Sipho Mthembu (Chief Engineer / General Manager)', 'TS-0100'],
+  ['2', 'Johan Botha (Senior Water Network Superintendent)', 'TS-0205'],
+  ['3', 'Nolwazi Dube (Water Distribution Supervisor)', 'TS-0312'],
+  ['4', 'Tebogo Radebe (Pipe Fitting & Valve Specialist)', 'TS-0418'],
+  ['5', 'Farai Moyo (Wastewater Plant Process Controller)', 'TS-0525'],
+  ['6', 'Mandla Ndlovu (Water Quality Testing Tech)', 'TS-0630']
+];
+
 const DEFAULT_CORPORATE_SERVICES_ROWS = [
   ['1', 'Audrey Mpanza (Director: Corporate Services)', 'CS-0101'],
   ['2', 'Mike Thompson (Senior HR & Governance Lead)', 'CS-0205'],
@@ -323,7 +332,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [hasSavedOnce, setHasSavedOnce] = useState(false);
   const [showRestrictedFieldsOverride, setShowRestrictedFieldsOverride] = useState(true);
-  const [activeTab, setActiveTab] = useState<'brief' | 'templates' | 'drafting_suite' | 'lead_fire_fighter' | 'drafting_suite_firefighters' | 'drafting_suite_corporate_services' | 'drafting_suite_pms_team'>('brief');
+  const [activeTab, setActiveTab] = useState<'brief' | 'templates' | 'drafting_suite' | 'lead_fire_fighter' | 'drafting_suite_firefighters' | 'drafting_suite_technical_services' | 'drafting_suite_corporate_services' | 'drafting_suite_pms_team'>('brief');
   const [users, setUsers] = useState<any[]>([]);
   const [selectedUserEmail, setSelectedUserEmail] = useState<string>('');
 
@@ -1960,49 +1969,55 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
         {renderHeader()}
         
         {/* Navigation Tabs */}
-        <div className="bg-white border-b border-gray-200 px-6 flex gap-4">
+        <div className="bg-white border-b border-gray-200 px-6 flex gap-4 overflow-x-auto hide-scrollbar">
           <button 
             onClick={() => setActiveTab('brief')}
-            className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors ${activeTab === 'brief' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+            className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'brief' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
           >
             Brief
           </button>
           <button 
             onClick={() => setActiveTab('templates')}
-            className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors ${activeTab === 'templates' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+            className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'templates' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
           >
             Templates
           </button>
           <button 
             onClick={() => setActiveTab('drafting_suite')}
-            className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors ${activeTab === 'drafting_suite' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+            className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'drafting_suite' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
           >
             Drafting Suite
-          </button>
-          <button 
-            onClick={() => setActiveTab('drafting_suite_corporate_services')}
-            className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors ${activeTab === 'drafting_suite_corporate_services' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-          >
-            Corporate Services Team Drafting Suite
-          </button>
-          <button 
-            onClick={() => setActiveTab('drafting_suite_pms_team')}
-            className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors ${activeTab === 'drafting_suite_pms_team' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-          >
-            PMS Team Drafting Suite
           </button>
           {isFirefighterTabVisible && (
             <button 
               onClick={() => setActiveTab('drafting_suite_firefighters')}
-              className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors ${activeTab === 'drafting_suite_firefighters' ? 'border-amber-600 text-amber-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+              className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'drafting_suite_firefighters' ? 'border-amber-600 text-amber-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
             >
               Drafting Suite Firefighters
             </button>
           )}
+          <button 
+            onClick={() => setActiveTab('drafting_suite_technical_services')}
+            className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'drafting_suite_technical_services' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+          >
+            Technical Services Team PA
+          </button>
+          <button 
+            onClick={() => setActiveTab('drafting_suite_corporate_services')}
+            className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'drafting_suite_corporate_services' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+          >
+            Corporate Services Team PA
+          </button>
+          <button 
+            onClick={() => setActiveTab('drafting_suite_pms_team')}
+            className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'drafting_suite_pms_team' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+          >
+            PMS Team PA
+          </button>
           {isLeadFireFighter && (
             <button 
               onClick={() => setActiveTab('lead_fire_fighter')}
-              className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors ${activeTab === 'lead_fire_fighter' ? 'border-amber-600 text-amber-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+              className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'lead_fire_fighter' ? 'border-amber-600 text-amber-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
             >
               Lead Fire Fighter PA
             </button>
@@ -2011,6 +2026,15 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
 
         {activeTab === 'drafting_suite' ? (
           <PADraftingSuite key={`pa_suite_${effectiveUser?.email || currentUser.email}_${activeTenantId}`} currentUser={effectiveUser as any} activeTenantId={activeTenantId} />
+        ) : activeTab === 'drafting_suite_technical_services' ? (
+          <DraftingSuiteTeam 
+            key={`pa_tech_${effectiveUser?.email || currentUser.email}_${activeTenantId}`}
+            currentUser={effectiveUser as any} 
+            activeTenantId={activeTenantId} 
+            teamTitle="Technical Services Team"
+            documentIdSuffix="technical_services"
+            defaultRows={DEFAULT_TECHNICAL_SERVICES_ROWS}
+          />
         ) : activeTab === 'drafting_suite_corporate_services' ? (
           <DraftingSuiteTeam 
             key={`pa_corp_${effectiveUser?.email || currentUser.email}_${activeTenantId}`}
