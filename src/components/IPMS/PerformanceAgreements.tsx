@@ -345,37 +345,17 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
     return currentUser;
   }, [selectedUserEmail, users, currentUser]);
 
-  // Check if current user is a lead fire fighter
+  // Check if active or impersonated user is a lead fire fighter
   const isLeadFireFighter = React.useMemo(() => {
-    if (!currentUser) return false;
-    const isFire = (currentUser.jobFunction || '').toLowerCase().includes('fire') || 
-                   (currentUser.department || '').toLowerCase().includes('fire') ||
-                   (currentUser.systemRole || '').toLowerCase().includes('fire');
-    const isLead = (currentUser.jobFunction || '').toLowerCase().includes('lead') ||
-                   (currentUser.systemRole || '').toLowerCase().includes('lead');
+    const targetUser = effectiveUser || currentUser;
+    if (!targetUser) return false;
+    const isFire = (targetUser.jobFunction || '').toLowerCase().includes('fire') || 
+                   (targetUser.department || '').toLowerCase().includes('fire') ||
+                   (targetUser.systemRole || '').toLowerCase().includes('fire');
+    const isLead = (targetUser.jobFunction || '').toLowerCase().includes('lead') ||
+                   (targetUser.systemRole || '').toLowerCase().includes('lead');
     return isFire && isLead;
-  }, [currentUser]);
-
-  // Check if current user is allowed to view the drafting suite firefighters tab
-  const isFirefighterTabVisible = React.useMemo(() => {
-    if (!currentUser) return false;
-    const userRole = (currentUser.role || '').toLowerCase().trim();
-    const userSystemRole = (currentUser.systemRole || '').toLowerCase().trim();
-    const jobTitle = (currentUser.jobFunction || '').toLowerCase().trim();
-
-    // 1. Global & system administrators
-    const isGlobalOrSystemAdmin = 
-      userRole === 'admin' || 
-      userSystemRole.includes('global administrator') || 
-      userSystemRole.includes('system administrator') || 
-      userSystemRole.includes('admin') || 
-      userSystemRole.includes('system admin');
-
-    // 2. Users in azure ad who have fire fighter in their job title (jobFunction)
-    const hasFireFighterTitle = jobTitle.includes('fire fighter') || jobTitle.includes('firefighter');
-
-    return isGlobalOrSystemAdmin || hasFireFighterTitle;
-  }, [currentUser]);
+  }, [effectiveUser, currentUser]);
 
   const canCurrentUserReview = React.useCallback(() => {
     if (!currentUser) return false;
@@ -1988,14 +1968,12 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
           >
             Drafting Suite
           </button>
-          {isFirefighterTabVisible && (
-            <button 
-              onClick={() => setActiveTab('drafting_suite_firefighters')}
-              className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'drafting_suite_firefighters' ? 'border-amber-600 text-amber-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-            >
-              Drafting Suite CDS
-            </button>
-          )}
+          <button 
+            onClick={() => setActiveTab('drafting_suite_firefighters')}
+            className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'drafting_suite_firefighters' ? 'border-amber-600 text-amber-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+          >
+            CDS Team PA
+          </button>
           <button 
             onClick={() => setActiveTab('drafting_suite_technical_services')}
             className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'drafting_suite_technical_services' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
@@ -2053,7 +2031,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
             documentIdSuffix="pms_team"
             defaultRows={DEFAULT_PMS_TEAM_ROWS}
           />
-        ) : activeTab === 'drafting_suite_firefighters' && isFirefighterTabVisible ? (
+        ) : activeTab === 'drafting_suite_firefighters' ? (
           <DraftingSuiteFirefighters key={`pa_ff_${effectiveUser?.email || currentUser.email}_${activeTenantId}`} currentUser={effectiveUser as any} activeTenantId={activeTenantId} />
         ) : activeTab === 'lead_fire_fighter' ? (
           <LeadFireFighterPADraftingSuite key={`pa_lff_${effectiveUser?.email || currentUser.email}_${activeTenantId}`} currentUser={effectiveUser as any} activeTenantId={activeTenantId} />
