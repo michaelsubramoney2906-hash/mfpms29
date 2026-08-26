@@ -5,7 +5,8 @@ import {
   Search, ArrowLeft, ChevronRight, HardDrive, RefreshCw, X, CheckCircle2,
   AlertTriangle, Filter, Grid, List as ListIcon, ShieldCheck, Building2,
   Cloud, Sparkles, FolderTree, Clock, User as UserIcon, Tag, Copy, Maximize2,
-  ExternalLink, ZoomIn, ZoomOut, RotateCw, ChevronLeft, Table, Layers, FileCheck, Check
+  ExternalLink, ZoomIn, ZoomOut, RotateCw, ChevronLeft, Table, Layers, FileCheck, Check,
+  Bell, Users, CheckSquare, Square, Send, Info, Mail, AlertCircle, CheckSquare2
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import mammoth from 'mammoth';
@@ -28,6 +29,38 @@ export interface SharePointItem {
   organization?: string;
   color?: string;
   description?: string;
+}
+
+export interface DirectoryUser {
+  id: string;
+  fullName: string;
+  email: string;
+  jobFunction: string;
+  department: string;
+  organization: string;
+  organizationLabel: string;
+  role: string;
+  systemRole: string;
+  source: string;
+}
+
+export interface SharePointNotification {
+  id: string;
+  type: string;
+  title: string;
+  fileName: string;
+  fileId: string;
+  folderId: string;
+  folderName: string;
+  organization: string;
+  uploadedBy: string;
+  uploadedByEmail: string;
+  size: number;
+  extension: string;
+  note?: string;
+  createdAt: string;
+  recipients: string[];
+  readBy?: string[];
 }
 
 interface SharePointProps {
@@ -71,6 +104,23 @@ export function SharePoint({ currentUser, activeTenantId, initialFolderId }: Sha
   const [showUploadQueue, setShowUploadQueue] = useState(false);
   const uploadDismissTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Upload & Notification Modal state
+  const [showUploadNotifyModal, setShowUploadNotifyModal] = useState(false);
+  const [pendingFilesToUpload, setPendingFilesToUpload] = useState<File[]>([]);
+  const [targetUploadFolderId, setTargetUploadFolderId] = useState<string>('folder_nkangala_root');
+  const [directoryUsers, setDirectoryUsers] = useState<DirectoryUser[]>([]);
+  const [loadingDirectoryUsers, setLoadingDirectoryUsers] = useState(false);
+  const [selectedRecipients, setSelectedRecipients] = useState<Set<string>>(new Set());
+  const [notifyEnabled, setNotifyEnabled] = useState(true);
+  const [customNotificationNote, setCustomNotificationNote] = useState('');
+  const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [userOrgFilter, setUserOrgFilter] = useState<'all' | 'nkangala' | 'mzansi' | 'managers' | 'auditors'>('all');
+  const [isUploadingWithNotify, setIsUploadingWithNotify] = useState(false);
+
+  // SharePoint Upload Notifications stream
+  const [notifications, setNotifications] = useState<SharePointNotification[]>([]);
+  const [showNotificationsDrawer, setShowNotificationsDrawer] = useState(false);
+
   // Modals
   const [showNewFolderModal, setShowNewFolderModal] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
@@ -100,6 +150,77 @@ export function SharePoint({ currentUser, activeTenantId, initialFolderId }: Sha
   const [rotation, setRotation] = useState(0);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Keyboard shortcut listener: Escape key closes viewer or active modals
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (previewFile) {
+          handleCloseViewer();
+        } else if (showUploadNotifyModal) {
+          setShowUploadNotifyModal(false);
+          setPendingFilesToUpload([]);
+        } else if (showNotificationsDrawer) {
+          setShowNotificationsDrawer(false);
+        } else if (showNewFolderModal) {
+          setShowNewFolderModal(false);
+        } else if (renameTarget) {
+          setRenameTarget(null);
+        } else if (deleteTarget) {
+          setDeleteTarget(null);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [previewFile, showUploadNotifyModal, showNotificationsDrawer, showNewFolderModal, renameTarget, deleteTarget]);
+
+  // Fetch Directory Users from Azure AD & Municipal base
+  const fetchDirectoryUsers = async () => {
+    try {
+      setLoadingDirectoryUsers(true);
+      const res = await fetch('/api/sharepoint/directory-users');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.users && Array.isArray(data.users)) {
+          setDirectoryUsers(data.users);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load directory users:', err);
+    } finally {
+      setLoadingDirectoryUsers(false);
+    }
+  };
+
+  // Fetch Notifications
+  const fetchNotifications = async () => {
+    try {
+      const res = await fetch(`/api/sharepoint/notifications?userEmail=${encodeURIComponent(currentUser.email || '')}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.notifications && Array.isArray(data.notifications)) {
+          setNotifications(data.notifications);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch SharePoint notifications:', err);
+    }
+  };
+
+  // Mark all notifications as read
+  const handleMarkAllNotifsRead = async () => {
+    try {
+      await fetch('/api/sharepoint/notifications/mark-read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userEmail: currentUser.email })
+      });
+      fetchNotifications();
+    } catch (err) {
+      console.error('Failed to mark notifications read:', err);
+    }
+  };
 
   // Safe Navigation Handler that updates history
   const navigateToFolder = (targetId: string | null) => {
@@ -142,7 +263,20 @@ export function SharePoint({ currentUser, activeTenantId, initialFolderId }: Sha
 
   useEffect(() => {
     fetchItems();
-  }, []);
+    fetchDirectoryUsers();
+    fetchNotifications();
+
+    const interval = setInterval(() => {
+      fetchNotifications();
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [currentUser.email]);
+
+  // Compute unread notifications count
+  const unreadNotifsCount = useMemo(() => {
+    const myEmail = (currentUser.email || '').toLowerCase().trim();
+    return notifications.filter(n => !(n.readBy || []).map(e => e.toLowerCase()).includes(myEmail)).length;
+  }, [notifications, currentUser.email]);
 
   // Update current folder if initialFolderId prop changes
   useEffect(() => {
@@ -352,6 +486,72 @@ export function SharePoint({ currentUser, activeTenantId, initialFolderId }: Sha
     };
   }, [items, folderStatsMap]);
 
+  // Filtered Directory Users for Azure AD selection in upload modal
+  const filteredDirectoryUsers = useMemo(() => {
+    return directoryUsers.filter(u => {
+      // Organization / role filter
+      if (userOrgFilter === 'nkangala' && u.organization !== 'nkangaladm.gov.za') return false;
+      if (userOrgFilter === 'mzansi' && u.organization !== 'mzansiflow.co.za') return false;
+      if (userOrgFilter === 'managers' && !['manager', 'head', 'lead', 'director', 'cfo', 'supervisor', 'admin'].some(term => 
+        (u.jobFunction || '').toLowerCase().includes(term) || (u.role || '').toLowerCase().includes(term) || (u.systemRole || '').toLowerCase().includes(term)
+      )) return false;
+      if (userOrgFilter === 'auditors' && !['audit', 'internal control', 'risk', 'compliance', 'analyst', 'pmu'].some(term => 
+        (u.department || '').toLowerCase().includes(term) || (u.jobFunction || '').toLowerCase().includes(term)
+      )) return false;
+
+      // Search query
+      if (userSearchQuery.trim()) {
+        const q = userSearchQuery.toLowerCase();
+        const match = u.fullName.toLowerCase().includes(q) ||
+                      u.email.toLowerCase().includes(q) ||
+                      (u.department && u.department.toLowerCase().includes(q)) ||
+                      (u.jobFunction && u.jobFunction.toLowerCase().includes(q));
+        if (!match) return false;
+      }
+
+      return true;
+    });
+  }, [directoryUsers, userOrgFilter, userSearchQuery]);
+
+  // Directory Selection Helpers
+  const toggleUserSelection = (email: string) => {
+    const norm = email.toLowerCase().trim();
+    setSelectedRecipients(prev => {
+      const next = new Set(prev);
+      if (next.has(norm)) {
+        next.delete(norm);
+      } else {
+        next.add(norm);
+      }
+      return next;
+    });
+  };
+
+  const selectAllFilteredUsers = () => {
+    setSelectedRecipients(prev => {
+      const next = new Set(prev);
+      filteredDirectoryUsers.forEach(u => next.add(u.email.toLowerCase().trim()));
+      return next;
+    });
+  };
+
+  const clearAllUserSelections = () => {
+    setSelectedRecipients(new Set());
+  };
+
+  const selectByOrgPreset = (org: 'nkangala' | 'mzansi') => {
+    setSelectedRecipients(prev => {
+      const next = new Set(prev);
+      directoryUsers.forEach(u => {
+        if ((org === 'nkangala' && u.organization === 'nkangaladm.gov.za') ||
+            (org === 'mzansi' && u.organization === 'mzansiflow.co.za')) {
+          next.add(u.email.toLowerCase().trim());
+        }
+      });
+      return next;
+    });
+  };
+
   // Handle Drag & Drop Uploads
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
@@ -376,6 +576,41 @@ export function SharePoint({ currentUser, activeTenantId, initialFolderId }: Sha
     e.stopPropagation();
   };
 
+  // Open the Upload & Notification Modal when files are selected or dropped
+  const handleInitiateUpload = (files: File[], targetFolderId?: string) => {
+    if (!files || files.length === 0) return;
+
+    const folderId = targetFolderId || currentFolderId || 'folder_nkangala_root';
+    setPendingFilesToUpload(files);
+    setTargetUploadFolderId(folderId);
+    setCustomNotificationNote('');
+    setNotifyEnabled(true);
+    setUserSearchQuery('');
+    setUserOrgFilter('all');
+
+    // Pre-select recipients based on folder context
+    const targetFolderObj = items.find(it => it.id === folderId);
+    const isNkangalaTarget = targetFolderObj ? targetFolderObj.organization === 'nkangaladm.gov.za' : true;
+
+    // Load directory users if not already present
+    if (directoryUsers.length === 0) {
+      fetchDirectoryUsers();
+    }
+
+    // Default pre-select: target org users (e.g. Nkangala or Mzansi)
+    const initialSelection = new Set<string>();
+    directoryUsers.forEach(u => {
+      if (isNkangalaTarget && u.organization === 'nkangaladm.gov.za') {
+        initialSelection.add(u.email.toLowerCase().trim());
+      } else if (!isNkangalaTarget && u.organization === 'mzansiflow.co.za') {
+        initialSelection.add(u.email.toLowerCase().trim());
+      }
+    });
+
+    setSelectedRecipients(initialSelection);
+    setShowUploadNotifyModal(true);
+  };
+
   const handleDrop = async (e: React.DragEvent, targetFolderId?: string) => {
     e.preventDefault();
     e.stopPropagation();
@@ -384,16 +619,22 @@ export function SharePoint({ currentUser, activeTenantId, initialFolderId }: Sha
 
     const files = e.dataTransfer.files;
     if (files && files.length > 0) {
-      await processFilesUpload(Array.from(files), targetFolderId || currentFolderId || 'folder_nkangala_root');
+      handleInitiateUpload(Array.from(files), targetFolderId || currentFolderId || 'folder_nkangala_root');
     }
   };
 
-  // Upload processor with Automatic Auto-Dismiss when completed
-  const processFilesUpload = async (fileList: File[], targetFolderId: string) => {
+  // Upload processor with Automatic Auto-Dismiss when completed and Azure AD notifications dispatch
+  const processFilesUpload = async (
+    fileList: File[], 
+    targetFolderId: string, 
+    notifiedEmails: string[] = [], 
+    notifyNote: string = ''
+  ) => {
     if (uploadDismissTimeoutRef.current) {
       clearTimeout(uploadDismissTimeoutRef.current);
     }
 
+    setIsUploadingWithNotify(true);
     setShowUploadQueue(true);
     const newTasks: UploadTask[] = fileList.map(f => ({
       id: `${f.name}_${Date.now()}_${Math.random()}`,
@@ -441,7 +682,7 @@ export function SharePoint({ currentUser, activeTenantId, initialFolderId }: Sha
 
         setUploadQueue(prev => prev.map(t => t.id === task.id ? { ...t, progress: 85 } : t));
 
-        // Submit to backend
+        // Submit to backend with notification payload
         const res = await fetch('/api/sharepoint/upload', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -457,7 +698,9 @@ export function SharePoint({ currentUser, activeTenantId, initialFolderId }: Sha
             uploadedBy: currentUser.fullName || currentUser.email,
             uploadedByEmail: currentUser.email,
             organization: org,
-            description: `Uploaded to ${targetFolder?.name || 'SharePoint'} on ${new Date().toLocaleString()}`
+            description: `Uploaded to ${targetFolder?.name || 'SharePoint'} on ${new Date().toLocaleString()}`,
+            notifyUserEmails: notifiedEmails,
+            notifyNote: notifyNote
           })
         });
 
@@ -478,6 +721,11 @@ export function SharePoint({ currentUser, activeTenantId, initialFolderId }: Sha
         setUploadQueue(prev => prev.map(t => t.id === task.id ? { ...t, status: 'error', error: err.message } : t));
       }
     }
+
+    setIsUploadingWithNotify(false);
+    setShowUploadNotifyModal(false);
+    setPendingFilesToUpload([]);
+    fetchNotifications();
 
     // Auto-disappear upload progress popup automatically after completion (2.5 seconds)
     uploadDismissTimeoutRef.current = setTimeout(() => {
@@ -775,7 +1023,26 @@ export function SharePoint({ currentUser, activeTenantId, initialFolderId }: Sha
         </div>
 
         {/* Global Storage & Quick Controls */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
+          {/* Notifications Drawer Toggle */}
+          <button
+            onClick={() => setShowNotificationsDrawer(prev => !prev)}
+            title="Share Point Document Upload Notifications"
+            className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+              unreadNotifsCount > 0
+                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30 shadow-md shadow-amber-950/40'
+                : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+            }`}
+          >
+            <Bell className={`w-4 h-4 ${unreadNotifsCount > 0 ? 'text-amber-400 animate-bounce' : 'text-slate-400'}`} />
+            <span className="hidden sm:inline">Notifications</span>
+            {unreadNotifsCount > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-amber-400 text-slate-950 font-mono">
+                {unreadNotifsCount}
+              </span>
+            )}
+          </button>
+
           {/* Action Buttons */}
           <button
             onClick={() => setShowNewFolderModal(true)}
@@ -792,7 +1059,9 @@ export function SharePoint({ currentUser, activeTenantId, initialFolderId }: Sha
             className="hidden"
             onChange={(e) => {
               if (e.target.files && e.target.files.length > 0) {
-                processFilesUpload(Array.from(e.target.files), currentFolderId || 'folder_nkangala_root');
+                handleInitiateUpload(Array.from(e.target.files), currentFolderId || 'folder_nkangala_root');
+                // Reset file input value so same files can be re-selected if needed
+                e.target.value = '';
               }
             }}
           />
@@ -1656,19 +1925,537 @@ export function SharePoint({ currentUser, activeTenantId, initialFolderId }: Sha
       )}
 
       {/* ========================================================================= */}
+      {/* MODAL: UPLOAD FILES & AZURE AD DIRECTORY USER NOTIFICATION PICKER         */}
+      {/* ========================================================================= */}
+      {showUploadNotifyModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-700/80 rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 my-auto overflow-hidden">
+            
+            {/* Modal Header */}
+            <div className="px-6 py-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 text-white flex items-center justify-center shadow-lg shadow-emerald-950/40">
+                  <Upload className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    Upload to SharePoint & Notify Users
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Select target directory users from Azure AD to receive immediate alerts
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  setShowUploadNotifyModal(false);
+                  setPendingFilesToUpload([]);
+                }}
+                className="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                title="Cancel Upload (Esc)"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-5">
+              
+              {/* Destination Folder & Staged Files Overview */}
+              <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <Folder className="w-3.5 h-3.5 text-emerald-400" />
+                    Target Destination:
+                  </span>
+                  <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 flex items-center gap-1.5">
+                    <Building2 className="w-3.5 h-3.5 text-emerald-400" />
+                    {items.find(it => it.id === targetUploadFolderId)?.name || 'SharePoint Root'}
+                  </span>
+                </div>
+
+                {/* Staged Files List */}
+                <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
+                  {pendingFilesToUpload.map((f, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs"
+                    >
+                      <div className="flex items-center gap-2 truncate min-w-0">
+                        <FileText className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        <span className="text-slate-200 font-medium truncate">{f.name}</span>
+                      </div>
+                      <span className="text-[11px] font-mono text-slate-400 shrink-0">
+                        {formatBytes(f.size)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Notification Toggle Banner */}
+              <div className="bg-slate-950/90 border border-slate-800 rounded-xl p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-300 flex items-center justify-center">
+                      <Bell className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-white">Notify Azure AD Directory Users</h4>
+                      <p className="text-[11px] text-slate-400">
+                        Send notifications to users across Nkangala District Municipality & Mzansi Flow
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setNotifyEnabled(!notifyEnabled)}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      notifyEnabled ? 'bg-emerald-600' : 'bg-slate-700'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        notifyEnabled ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {notifyEnabled && (
+                  <div className="mt-4 pt-4 border-t border-slate-800/80 space-y-3 animate-in fade-in duration-150">
+                    
+                    {/* Quick Filters */}
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                          <Users className="w-3 h-3 text-emerald-400" />
+                          Directory Filter:
+                        </span>
+
+                        <div className="flex items-center gap-1 text-xs">
+                          <button
+                            type="button"
+                            onClick={selectAllFilteredUsers}
+                            className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-semibold transition-colors cursor-pointer"
+                          >
+                            Select All
+                          </button>
+                          <button
+                            type="button"
+                            onClick={clearAllUserSelections}
+                            className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-semibold transition-colors cursor-pointer"
+                          >
+                            Clear All
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Filter Chips */}
+                      <div className="flex flex-wrap gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setUserOrgFilter('all')}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                            userOrgFilter === 'all'
+                              ? 'bg-emerald-600 text-white'
+                              : 'bg-slate-800 text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          All ({directoryUsers.length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setUserOrgFilter('nkangala');
+                            selectByOrgPreset('nkangala');
+                          }}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 cursor-pointer ${
+                            userOrgFilter === 'nkangala'
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-slate-800 text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          <Building2 className="w-3 h-3 text-blue-400" />
+                          Nkangala DM ({directoryUsers.filter(u => u.organization === 'nkangaladm.gov.za').length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setUserOrgFilter('mzansi');
+                            selectByOrgPreset('mzansi');
+                          }}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 cursor-pointer ${
+                            userOrgFilter === 'mzansi'
+                              ? 'bg-teal-600 text-white'
+                              : 'bg-slate-800 text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          <Cloud className="w-3 h-3 text-teal-400" />
+                          Mzansi Flow ({directoryUsers.filter(u => u.organization === 'mzansiflow.co.za').length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setUserOrgFilter('managers')}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                            userOrgFilter === 'managers'
+                              ? 'bg-purple-600 text-white'
+                              : 'bg-slate-800 text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          Managers & Reviewers
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setUserOrgFilter('auditors')}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                            userOrgFilter === 'auditors'
+                              ? 'bg-amber-600 text-white'
+                              : 'bg-slate-800 text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          Auditors & PMU
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Directory User Search */}
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        placeholder="Search Azure AD directory by name, email, department, job title..."
+                        value={userSearchQuery}
+                        onChange={(e) => setUserSearchQuery(e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+
+                    {/* Selected Count Indicator */}
+                    <div className="flex items-center justify-between text-xs px-1">
+                      <span className="text-slate-400">
+                        Showing <strong className="text-slate-200">{filteredDirectoryUsers.length}</strong> users
+                      </span>
+                      <span className="font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full text-[11px]">
+                        {selectedRecipients.size} user{selectedRecipients.size === 1 ? '' : 's'} selected for notification
+                      </span>
+                    </div>
+
+                    {/* User Selection Checkbox List */}
+                    <div className="max-h-52 overflow-y-auto space-y-1.5 pr-1 border border-slate-800 rounded-xl p-2 bg-slate-900/60">
+                      {loadingDirectoryUsers ? (
+                        <div className="flex items-center justify-center py-6 gap-2 text-slate-400 text-xs">
+                          <RefreshCw className="w-4 h-4 animate-spin text-emerald-400" />
+                          <span>Loading Azure AD Directory...</span>
+                        </div>
+                      ) : filteredDirectoryUsers.length === 0 ? (
+                        <div className="py-6 text-center text-slate-400 text-xs">
+                          No users matched your directory filter or search criteria.
+                        </div>
+                      ) : (
+                        filteredDirectoryUsers.map((u) => {
+                          const isSelected = selectedRecipients.has(u.email.toLowerCase().trim());
+                          const isNkangala = u.organization === 'nkangaladm.gov.za';
+                          
+                          return (
+                            <div
+                              key={u.id || u.email}
+                              onClick={() => toggleUserSelection(u.email)}
+                              className={`flex items-center justify-between gap-3 p-2.5 rounded-xl border transition-all cursor-pointer ${
+                                isSelected
+                                  ? 'bg-emerald-950/40 border-emerald-500/50 text-white shadow-sm'
+                                  : 'bg-slate-900/80 border-slate-800/80 text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div
+                                  className={`w-5 h-5 rounded flex items-center justify-center border shrink-0 ${
+                                    isSelected
+                                      ? 'bg-emerald-600 border-emerald-500 text-white'
+                                      : 'border-slate-700 bg-slate-950 text-transparent'
+                                  }`}
+                                >
+                                  <Check className="w-3.5 h-3.5 stroke-[3]" />
+                                </div>
+
+                                <div className="w-7 h-7 rounded-lg bg-slate-800 text-slate-200 font-bold text-xs flex items-center justify-center shrink-0 border border-slate-700">
+                                  {u.fullName.charAt(0) || 'U'}
+                                </div>
+
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2 truncate">
+                                    <span className="font-bold text-xs truncate">{u.fullName}</span>
+                                    <span
+                                      className={`px-1.5 py-0.2 text-[9px] font-bold rounded-full border ${
+                                        isNkangala
+                                          ? 'bg-blue-500/10 text-blue-300 border-blue-500/20'
+                                          : 'bg-teal-500/10 text-teal-300 border-teal-500/20'
+                                      }`}
+                                    >
+                                      {isNkangala ? 'Nkangala DM' : 'Mzansi Flow'}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2 text-[10px] text-slate-400 truncate">
+                                    <span>{u.email}</span>
+                                    {u.jobFunction && (
+                                      <>
+                                        <span>•</span>
+                                        <span className="text-slate-300">{u.jobFunction}</span>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <span className="text-[10px] font-mono text-slate-500 shrink-0">
+                                {u.department || 'General'}
+                              </span>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    {/* Optional Notification Message Note */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
+                        Optional Upload Message / Note
+                      </label>
+                      <textarea
+                        rows={2}
+                        placeholder="e.g. Please review the updated municipal SDBIP quarterly portfolio attachment..."
+                        value={customNotificationNote}
+                        onChange={(e) => setCustomNotificationNote(e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500 resize-none"
+                      />
+                    </div>
+
+                  </div>
+                )}
+              </div>
+
+            </div>
+
+            {/* Modal Footer Controls */}
+            <div className="px-6 py-4 bg-slate-950 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowUploadNotifyModal(false);
+                  setPendingFilesToUpload([]);
+                }}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+
+              <div className="flex items-center gap-2">
+                {notifyEnabled && (
+                  <button
+                    type="button"
+                    disabled={isUploadingWithNotify}
+                    onClick={() => {
+                      processFilesUpload(
+                        pendingFilesToUpload,
+                        targetUploadFolderId,
+                        [],
+                        ''
+                      );
+                    }}
+                    className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    Upload Without Notifying
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  disabled={isUploadingWithNotify}
+                  onClick={() => {
+                    const recipientList = notifyEnabled ? Array.from(selectedRecipients) : [];
+                    processFilesUpload(
+                      pendingFilesToUpload,
+                      targetUploadFolderId,
+                      recipientList,
+                      customNotificationNote
+                    );
+                  }}
+                  className="flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold transition-all shadow-md shadow-emerald-950/40 cursor-pointer disabled:opacity-50"
+                >
+                  {isUploadingWithNotify ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Uploading to Supabase...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      <span>
+                        {notifyEnabled && selectedRecipients.size > 0
+                          ? `Upload & Notify (${selectedRecipients.size} Users)`
+                          : 'Upload to SharePoint'}
+                      </span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* SLIDE-OVER DRAWER: SHAREPOINT DOCUMENT UPLOAD NOTIFICATIONS               */}
+      {/* ========================================================================= */}
+      {showNotificationsDrawer && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex justify-end animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-slate-900 border-l border-slate-800 h-full flex flex-col shadow-2xl animate-in slide-in-from-right duration-200">
+            
+            {/* Drawer Header */}
+            <div className="px-6 py-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center">
+                  <Bell className="w-4.5 h-4.5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">SharePoint Notifications</h3>
+                  <p className="text-[11px] text-slate-400">
+                    Uploaded documents & cross-organizational activity
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1">
+                {notifications.length > 0 && (
+                  <button
+                    onClick={handleMarkAllNotifsRead}
+                    title="Mark all notifications as read"
+                    className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-semibold transition-colors cursor-pointer"
+                  >
+                    Mark Read
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowNotificationsDrawer(false)}
+                  className="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                  title="Close Drawer (Esc)"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Notifications List */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {notifications.length === 0 ? (
+                <div className="py-20 text-center text-slate-400">
+                  <Bell className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                  <h4 className="text-sm font-bold text-slate-300 mb-1">No Notifications Yet</h4>
+                  <p className="text-xs text-slate-500 max-w-xs mx-auto">
+                    When teammates from Nkangala DM or Mzansi Flow upload documents and select you for notifications, they will appear here.
+                  </p>
+                </div>
+              ) : (
+                notifications.map(notif => {
+                  const myEmail = (currentUser.email || '').toLowerCase().trim();
+                  const isUnread = !(notif.readBy || []).map(e => e.toLowerCase()).includes(myEmail);
+                  const isNkangala = notif.organization === 'nkangaladm.gov.za';
+                  const matchingItem = items.find(it => it.id === notif.fileId);
+
+                  return (
+                    <div
+                      key={notif.id}
+                      className={`p-4 rounded-xl border transition-all ${
+                        isUnread
+                          ? 'bg-slate-900 border-amber-500/40 shadow-lg shadow-amber-950/20'
+                          : 'bg-slate-950/70 border-slate-800 text-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`w-2 h-2 rounded-full ${
+                              isUnread ? 'bg-amber-400 animate-pulse' : 'bg-slate-600'
+                            }`}
+                          />
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                              isNkangala
+                                ? 'bg-blue-500/10 text-blue-300 border-blue-500/20'
+                                : 'bg-teal-500/10 text-teal-300 border-teal-500/20'
+                            }`}
+                          >
+                            {isNkangala ? 'Nkangala DM' : 'Mzansi Flow'}
+                          </span>
+                        </div>
+
+                        <span className="text-[10px] font-mono text-slate-500 flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {formatDateTime(notif.createdAt).date} {formatDateTime(notif.createdAt).time}
+                        </span>
+                      </div>
+
+                      <h4 className="text-xs font-bold text-white mb-1">{notif.title}</h4>
+                      
+                      <div className="flex items-center gap-2 text-[11px] text-slate-400 mb-2">
+                        <FileText className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        <span className="text-slate-200 font-medium truncate">{notif.fileName}</span>
+                        <span>•</span>
+                        <span className="font-mono">{formatBytes(notif.size)}</span>
+                      </div>
+
+                      {notif.note && (
+                        <div className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-300 italic mb-3">
+                          "{notif.note}"
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between gap-2 pt-1">
+                        <span className="text-[10px] text-slate-400">
+                          By: <strong className="text-slate-200">{notif.uploadedBy}</strong>
+                        </span>
+
+                        {matchingItem && (
+                          <button
+                            onClick={() => {
+                              setShowNotificationsDrawer(false);
+                              handleOpenFile(matchingItem);
+                            }}
+                            className="flex items-center gap-1 px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-sm transition-colors cursor-pointer"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>View Document</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
       {/* ACTUAL IN-SYSTEM DOCUMENT VIEWER (WORD DOCX, EXCEL SPREADSHEET, PDF)      */}
       {/* ========================================================================= */}
       {previewFile && (
         <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex flex-col overflow-hidden animate-in fade-in duration-200">
           
-          {/* Viewer Top Toolbar with Back Arrow */}
+          {/* Viewer Top Toolbar with Back Arrow & Prominent Close Button */}
           <div className="px-6 py-3.5 bg-slate-900/95 border-b border-slate-800 flex items-center justify-between gap-4 shrink-0 shadow-lg">
             <div className="flex items-center gap-3 min-w-0">
               
               {/* Back to Drive button */}
               <button
                 onClick={handleCloseViewer}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-bold transition-all border border-slate-700 shrink-0 cursor-pointer"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-bold transition-all border border-slate-700 shrink-0 cursor-pointer"
+                title="Return to SharePoint Drive (Esc)"
               >
                 <ArrowLeft className="w-4 h-4 text-emerald-400" />
                 <span>Back to Drive</span>
@@ -1740,12 +2527,15 @@ export function SharePoint({ currentUser, activeTenantId, initialFolderId }: Sha
                 <span>Download Document</span>
               </button>
 
+              {/* HIGH VISIBILITY CLOSE BUTTON */}
               <button
                 onClick={handleCloseViewer}
-                className="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
-                title="Close Viewer"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all shadow-md shadow-rose-950/40 border border-rose-500/50 cursor-pointer"
+                title="Close Document Viewer (Esc)"
               >
                 <X className="w-4 h-4" />
+                <span>Close Viewer</span>
+                <kbd className="hidden sm:inline-block px-1 py-0.2 rounded text-[10px] bg-rose-800/80 font-mono">Esc</kbd>
               </button>
             </div>
           </div>
@@ -1770,9 +2560,19 @@ export function SharePoint({ currentUser, activeTenantId, initialFolderId }: Sha
                         <FileText className="w-5 h-5 text-blue-400" />
                         <span className="font-bold text-white text-sm">Microsoft Word In-System Reader</span>
                       </div>
-                      <span className="px-2.5 py-0.5 rounded text-[10px] font-mono bg-blue-500/10 text-blue-300 border border-blue-500/30">
-                        DOCX Formatted Canvas
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="px-2.5 py-0.5 rounded text-[10px] font-mono bg-blue-500/10 text-blue-300 border border-blue-500/30">
+                          DOCX Formatted Canvas
+                        </span>
+                        <button
+                          onClick={handleCloseViewer}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-rose-600/80 text-slate-300 hover:text-white text-xs font-bold transition-all border border-slate-700 cursor-pointer"
+                          title="Close Document Viewer"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          <span>Close</span>
+                        </button>
+                      </div>
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-6 sm:p-10 bg-slate-900/60 flex justify-center">
@@ -1823,7 +2623,7 @@ export function SharePoint({ currentUser, activeTenantId, initialFolderId }: Sha
                         <span className="font-bold text-white text-sm">Microsoft Excel In-System Spreadsheet Inspector</span>
                       </div>
 
-                      {/* Search within spreadsheet */}
+                      {/* Search within spreadsheet & Close */}
                       <div className="flex items-center gap-2">
                         <div className="relative">
                           <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
@@ -1838,6 +2638,14 @@ export function SharePoint({ currentUser, activeTenantId, initialFolderId }: Sha
                         <span className="px-2.5 py-1 rounded bg-emerald-500/10 text-emerald-300 text-[10px] font-mono border border-emerald-500/20">
                           {activeExcelRows.length} rows
                         </span>
+                        <button
+                          onClick={handleCloseViewer}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-rose-600/80 text-slate-300 hover:text-white text-xs font-bold transition-all border border-slate-700 cursor-pointer"
+                          title="Close Spreadsheet Inspector"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          <span>Close</span>
+                        </button>
                       </div>
                     </div>
 
@@ -1929,9 +2737,19 @@ export function SharePoint({ currentUser, activeTenantId, initialFolderId }: Sha
                         <FileText className="w-4 h-4 text-rose-400" />
                         <span className="font-bold text-white text-xs">PDF Document Viewer</span>
                       </div>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-rose-500/10 text-rose-300 border border-rose-500/30">
-                        Interactive PDF Canvas
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-rose-500/10 text-rose-300 border border-rose-500/30">
+                          Interactive PDF Canvas
+                        </span>
+                        <button
+                          onClick={handleCloseViewer}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-rose-600/80 text-slate-300 hover:text-white text-xs font-bold transition-all border border-slate-700 cursor-pointer"
+                          title="Close PDF Viewer"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          <span>Close</span>
+                        </button>
+                      </div>
                     </div>
 
                     <div className="flex-1 w-full h-full bg-slate-950">
@@ -1964,17 +2782,19 @@ export function SharePoint({ currentUser, activeTenantId, initialFolderId }: Sha
                 {/* 4. IMAGE VIEWER                                */}
                 {/* ============================================== */}
                 {['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp'].includes(previewFile.item.extension?.toLowerCase() || '') && (
-                  <div className="w-full h-full flex items-center justify-center overflow-auto p-4">
+                  <div className="w-full h-full flex items-center justify-center overflow-auto p-4 relative">
                     {previewFile.payload?.dataUrl ? (
-                      <img
-                        src={previewFile.payload.dataUrl}
-                        alt={previewFile.item.name}
-                        style={{
-                          transform: `scale(${zoomLevel / 100}) rotate(${rotation}deg)`,
-                          transition: 'transform 0.2s ease-out'
-                        }}
-                        className="max-h-[85vh] max-w-[85vw] object-contain rounded-xl shadow-2xl border border-slate-800"
-                      />
+                      <div className="relative">
+                        <img
+                          src={previewFile.payload.dataUrl}
+                          alt={previewFile.item.name}
+                          style={{
+                            transform: `scale(${zoomLevel / 100}) rotate(${rotation}deg)`,
+                            transition: 'transform 0.2s ease-out'
+                          }}
+                          className="max-h-[85vh] max-w-[85vw] object-contain rounded-xl shadow-2xl border border-slate-800"
+                        />
+                      </div>
                     ) : (
                       <div className="text-center text-slate-400">
                         <ImageIcon className="w-16 h-16 text-purple-400 mx-auto mb-3" />
@@ -1994,17 +2814,27 @@ export function SharePoint({ currentUser, activeTenantId, initialFolderId }: Sha
                         <FileCode className="w-5 h-5 text-sky-400" />
                         <span className="font-bold text-white text-sm">{previewFile.item.name}</span>
                       </div>
-                      <button
-                        onClick={() => {
-                          if (previewFile.payload?.textContent) {
-                            navigator.clipboard.writeText(previewFile.payload.textContent);
-                          }
-                        }}
-                        className="flex items-center gap-1 px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold cursor-pointer"
-                      >
-                        <Copy className="w-3.5 h-3.5" />
-                        <span>Copy Content</span>
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            if (previewFile.payload?.textContent) {
+                              navigator.clipboard.writeText(previewFile.payload.textContent);
+                            }
+                          }}
+                          className="flex items-center gap-1 px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold cursor-pointer"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>Copy Content</span>
+                        </button>
+                        <button
+                          onClick={handleCloseViewer}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-rose-600/80 text-slate-300 hover:text-white text-xs font-bold transition-all border border-slate-700 cursor-pointer"
+                          title="Close Code Viewer"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          <span>Close</span>
+                        </button>
+                      </div>
                     </div>
 
                     <div className="flex-1 overflow-auto bg-slate-950 rounded-xl p-4 border border-slate-800 font-mono text-xs text-slate-200">
@@ -2019,12 +2849,23 @@ export function SharePoint({ currentUser, activeTenantId, initialFolderId }: Sha
                 {/* 6. MEDIA VIEWER (AUDIO / VIDEO)                */}
                 {/* ============================================== */}
                 {['mp3', 'wav', 'ogg', 'mp4', 'webm', 'mov'].includes(previewFile.item.extension?.toLowerCase() || '') && (
-                  <div className="max-w-2xl w-full bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center shadow-2xl">
+                  <div className="max-w-2xl w-full bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center shadow-2xl relative">
+                    <div className="absolute top-4 right-4">
+                      <button
+                        onClick={handleCloseViewer}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-rose-600/80 text-slate-300 hover:text-white text-xs font-bold transition-all border border-slate-700 cursor-pointer"
+                        title="Close Media Player"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        <span>Close</span>
+                      </button>
+                    </div>
+
                     {['mp4', 'webm', 'mov'].includes(previewFile.item.extension?.toLowerCase() || '') ? (
                       <video
                         controls
                         src={previewFile.payload?.dataUrl}
-                        className="w-full max-h-[60vh] rounded-xl border border-slate-800 bg-black"
+                        className="w-full max-h-[60vh] rounded-xl border border-slate-800 bg-black mt-4"
                       />
                     ) : (
                       <div className="py-8">
@@ -2040,7 +2881,16 @@ export function SharePoint({ currentUser, activeTenantId, initialFolderId }: Sha
                 {/* 7. GENERIC / BINARY FALLBACK                   */}
                 {/* ============================================== */}
                 {!['docx', 'doc', 'rtf', 'odt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'xlsx', 'xls', 'csv', 'tsv', 'txt', 'json', 'sql', 'md', 'ts', 'js', 'html', 'css', 'yaml', 'xml', 'mp3', 'wav', 'ogg', 'mp4', 'webm', 'mov'].includes(previewFile.item.extension?.toLowerCase() || '') && (
-                  <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center shadow-2xl">
+                  <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center shadow-2xl relative">
+                    <div className="absolute top-4 right-4">
+                      <button
+                        onClick={handleCloseViewer}
+                        className="p-1 rounded-lg bg-slate-800 hover:bg-rose-600 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                        title="Close Viewer"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
                     <div className="w-16 h-16 rounded-2xl bg-slate-800 text-emerald-400 mx-auto flex items-center justify-center mb-4">
                       <File className="w-8 h-8" />
                     </div>
@@ -2051,13 +2901,21 @@ export function SharePoint({ currentUser, activeTenantId, initialFolderId }: Sha
                     <p className="text-xs text-slate-400 mb-6 leading-relaxed">
                       This file format is securely persisted in the Supabase repository. You can download it directly to view in your desktop application.
                     </p>
-                    <button
-                      onClick={() => handleDownloadFile(previewFile.item)}
-                      className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-md flex items-center gap-2 mx-auto cursor-pointer"
-                    >
-                      <Download className="w-4 h-4" />
-                      <span>Download File</span>
-                    </button>
+                    <div className="flex items-center justify-center gap-3">
+                      <button
+                        onClick={() => handleDownloadFile(previewFile.item)}
+                        className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-md flex items-center gap-2 cursor-pointer"
+                      >
+                        <Download className="w-4 h-4" />
+                        <span>Download File</span>
+                      </button>
+                      <button
+                        onClick={handleCloseViewer}
+                        className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all cursor-pointer"
+                      >
+                        Close
+                      </button>
+                    </div>
                   </div>
                 )}
 

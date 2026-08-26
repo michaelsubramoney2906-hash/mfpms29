@@ -5026,7 +5026,9 @@ CRITICAL SCOPE & ZERO-VARIANCE EXTRACTION MANDATES:
       uploadedBy, 
       uploadedByEmail, 
       organization,
-      description 
+      description,
+      notifyUserEmails,
+      notifyNote
     } = req.body;
 
     if (!name || !name.trim()) {
@@ -5094,9 +5096,261 @@ CRITICAL SCOPE & ZERO-VARIANCE EXTRACTION MANDATES:
       items.push(fileMeta);
       await saveSharePointIndex(supabase, items);
 
-      res.json({ success: true, file: fileMeta, items });
+      // Handle Notifications for Azure AD / Directory recipients
+      let notifiedRecipients: string[] = [];
+      if (Array.isArray(notifyUserEmails) && notifyUserEmails.length > 0) {
+        notifiedRecipients = notifyUserEmails.map((e: string) => String(e).toLowerCase().trim()).filter(Boolean);
+        
+        const folderDisplayName = parentFolder ? parentFolder.name : (fileOrg === 'mzansiflow.co.za' ? 'Mzansi Flow' : 'Nkangala District Municipality');
+        const notifId = `sp_notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+        const notifRecord = {
+          id: notifId,
+          type: 'sharepoint_upload',
+          title: `SharePoint: New Document in ${folderDisplayName}`,
+          fileName: fileMeta.name,
+          fileId: fileId,
+          folderId: targetParentId,
+          folderName: folderDisplayName,
+          organization: fileOrg,
+          uploadedBy: uploadedBy || 'Staff Member',
+          uploadedByEmail: uploadedByEmail || '',
+          size: fileMeta.size,
+          extension: ext,
+          note: notifyNote ? String(notifyNote).trim() : '',
+          createdAt: new Date().toISOString(),
+          recipients: notifiedRecipients,
+          readBy: []
+        };
+
+        // 1. Persist to sharepoint_notifications_store
+        try {
+          const { data: existingNotifs } = await supabase
+            .from('messages')
+            .select('content')
+            .eq('id', 'sharepoint_notifications_store')
+            .maybeSingle();
+
+          let notificationsList: any[] = [];
+          if (existingNotifs && existingNotifs.content) {
+            try {
+              notificationsList = JSON.parse(existingNotifs.content);
+              if (!Array.isArray(notificationsList)) notificationsList = [];
+            } catch (e) {
+              notificationsList = [];
+            }
+          }
+
+          notificationsList.unshift(notifRecord);
+          // Keep the latest 300 notifications
+          if (notificationsList.length > 300) {
+            notificationsList = notificationsList.slice(0, 300);
+          }
+
+          await supabase.from('messages').upsert({
+            id: 'sharepoint_notifications_store',
+            tenant_id: 'global_sharepoint',
+            sender_id: 'sharepoint_notifier',
+            sender_email: uploadedByEmail || 'sharepoint@system.local',
+            sender_name: 'SharePoint Notification Dispatcher',
+            content: JSON.stringify(notificationsList),
+            message_type: 'sharepoint_notifications_store',
+            created_at: new Date().toISOString()
+          });
+        } catch (notifStoreErr) {
+          console.error("[SharePoint] Error saving notifications store:", notifStoreErr);
+        }
+
+        // 2. Also inject into IPMS Inboxes across tenants
+        try {
+          const tenantStores = ['ipms_inbox_store_global', 'ipms_inbox_store_tenant-229', 'ipms_inbox_store_nkangala_auto'];
+          for (const storeId of tenantStores) {
+            const { data: tenantInboxData } = await supabase
+              .from('messages')
+              .select('content')
+              .eq('id', storeId)
+              .maybeSingle();
+
+            let inboxMsgs: any[] = [];
+            if (tenantInboxData && tenantInboxData.content) {
+              try {
+                inboxMsgs = JSON.parse(tenantInboxData.content);
+                if (!Array.isArray(inboxMsgs)) inboxMsgs = [];
+              } catch (_) {
+                inboxMsgs = [];
+              }
+            }
+
+            const inboxEntry = {
+              id: `sp_msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+              senderEmail: uploadedByEmail || 'sharepoint@mzansiflow.co.za',
+              senderName: uploadedBy || 'SharePoint Repository',
+              recipientEmail: notifiedRecipients[0] || 'all@district.local',
+              recipientEmails: notifiedRecipients,
+              subject: `[SharePoint] Document Uploaded: ${fileMeta.name} in ${folderDisplayName}`,
+              body: `A new document "${fileMeta.name}" (${(fileMeta.size / 1024).toFixed(1)} KB) has been uploaded by ${uploadedBy} to folder "${folderDisplayName}".\n\n${notifyNote ? `Note: ${notifyNote}\n\n` : ''}You can view this document in SharePoint.`,
+              category: 'sharepoint',
+              attachments: [{ name: fileMeta.name, size: fileMeta.size, type: fileMeta.fileType, fileId: fileId }],
+              createdAt: new Date().toISOString(),
+              readBy: [],
+              starredBy: [],
+              trashedBy: []
+            };
+
+            inboxMsgs.unshift(inboxEntry);
+            if (inboxMsgs.length > 250) inboxMsgs = inboxMsgs.slice(0, 250);
+
+            await supabase.from('messages').upsert({
+              id: storeId,
+              tenant_id: storeId.replace('ipms_inbox_store_', ''),
+              sender_id: 'sharepoint_inbox_bridge',
+              sender_email: uploadedByEmail || 'sharepoint@system.local',
+              sender_name: 'SharePoint Inbox Bridge',
+              content: JSON.stringify(inboxMsgs),
+              message_type: 'ipms_inbox_store',
+              created_at: new Date().toISOString()
+            });
+          }
+        } catch (inboxErr) {
+          console.error("[SharePoint] Error bridging notification to inbox:", inboxErr);
+        }
+
+        // 3. Emit real-time WebSocket alert
+        try {
+          io.emit("sharepoint_notification", notifRecord);
+        } catch (socketErr) {
+          console.warn("[SharePoint] Socket emit warning:", socketErr);
+        }
+      }
+
+      res.json({ 
+        success: true, 
+        file: fileMeta, 
+        items,
+        notifiedCount: notifiedRecipients.length,
+        notifiedRecipients
+      });
     } catch (err: any) {
       console.error("[POST /api/sharepoint/upload Error]:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Directory Users for Share Point Notification Selection
+  app.get("/api/sharepoint/directory-users", async (req, res) => {
+    try {
+      const allUsers = await getConsolidatedUsersList('global');
+      const formatted = allUsers.map((u: any) => {
+        const email = (u.email || '').toLowerCase().trim();
+        const isNkangala = email.includes('nkangala') || email.endsWith('.gov.za');
+        const isMzansi = email.includes('mzansiflow') || email.includes('massivedynamix');
+        
+        return {
+          id: u.id || email,
+          fullName: u.fullName || email.split('@')[0],
+          email: u.email,
+          jobFunction: u.jobFunction || 'Municipal Officer',
+          department: u.department || (isNkangala ? 'Nkangala District Municipality' : 'Mzansi Flow Enterprise'),
+          organization: isNkangala ? 'nkangaladm.gov.za' : (isMzansi ? 'mzansiflow.co.za' : 'nkangaladm.gov.za'),
+          organizationLabel: isNkangala ? '🏛️ Nkangala District Municipality' : '☁️ Mzansi Flow',
+          role: u.role || 'tenant_user',
+          systemRole: u.systemRole || 'Staff Member',
+          source: u.source || 'azure_ad'
+        };
+      });
+
+      // Filter out duplicate emails and sort alphabetically
+      const seen = new Set<string>();
+      const unique = formatted.filter((u: any) => {
+        if (!u.email) return false;
+        const key = u.email.toLowerCase().trim();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }).sort((a: any, b: any) => a.fullName.localeCompare(b.fullName));
+
+      res.json({ success: true, users: unique, total: unique.length });
+    } catch (err: any) {
+      console.error("[GET /api/sharepoint/directory-users Error]:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Get SharePoint upload notifications
+  app.get("/api/sharepoint/notifications", async (req, res) => {
+    const userEmail = req.query.userEmail ? String(req.query.userEmail).toLowerCase().trim() : '';
+    try {
+      const supabase = getSupabase();
+      const { data, error } = await supabase
+        .from('messages')
+        .select('content')
+        .eq('id', 'sharepoint_notifications_store')
+        .maybeSingle();
+
+      if (error || !data || !data.content) {
+        return res.json({ success: true, notifications: [] });
+      }
+
+      let allNotifs: any[] = [];
+      try {
+        allNotifs = JSON.parse(data.content);
+        if (!Array.isArray(allNotifs)) allNotifs = [];
+      } catch (_) {
+        allNotifs = [];
+      }
+
+      // Filter for notifications matching userEmail or general broadcast
+      const userNotifs = userEmail ? allNotifs.filter((n: any) => {
+        if (!Array.isArray(n.recipients) || n.recipients.length === 0) return true;
+        return n.recipients.some((r: string) => r.toLowerCase().trim() === userEmail || r === 'all');
+      }) : allNotifs;
+
+      res.json({ success: true, notifications: userNotifs });
+    } catch (err: any) {
+      console.error("[GET /api/sharepoint/notifications Error]:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Mark notification as read
+  app.post("/api/sharepoint/notifications/mark-read", async (req, res) => {
+    const { notificationId, userEmail } = req.body;
+    if (!userEmail) return res.status(400).json({ error: "userEmail required" });
+
+    try {
+      const supabase = getSupabase();
+      const { data } = await supabase
+        .from('messages')
+        .select('content')
+        .eq('id', 'sharepoint_notifications_store')
+        .maybeSingle();
+
+      if (data && data.content) {
+        let allNotifs = JSON.parse(data.content);
+        if (Array.isArray(allNotifs)) {
+          allNotifs = allNotifs.map((n: any) => {
+            if (!notificationId || n.id === notificationId) {
+              const readSet = new Set((n.readBy || []).map((e: string) => e.toLowerCase()));
+              readSet.add(userEmail.toLowerCase().trim());
+              return { ...n, readBy: Array.from(readSet) };
+            }
+            return n;
+          });
+
+          await supabase.from('messages').upsert({
+            id: 'sharepoint_notifications_store',
+            tenant_id: 'global_sharepoint',
+            sender_id: 'sharepoint_notifier',
+            sender_email: 'sharepoint@system.local',
+            sender_name: 'SharePoint Notification Dispatcher',
+            content: JSON.stringify(allNotifs),
+            message_type: 'sharepoint_notifications_store',
+            created_at: new Date().toISOString()
+          });
+        }
+      }
+
+      res.json({ success: true });
+    } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
   });
