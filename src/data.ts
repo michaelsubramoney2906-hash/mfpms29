@@ -5,7 +5,7 @@ import {
   Users, Landmark, Search, ShieldAlert, Users2, Mic, Settings,
   MessageCircle, HelpCircle, Calendar, Database, Box, GraduationCap,
   Shield, Key, Ticket, List, MessageSquare, FileBarChart, UserCheck, LayoutGrid, BadgePlus, Mail,
-  Cpu, GitFork, ClipboardCheck, CalendarDays
+  Cpu, GitFork, ClipboardCheck, CalendarDays, FolderTree, Building2, Cloud, Share2
 } from 'lucide-react';
 import type { Module, Tenant } from './types';
 
@@ -352,13 +352,13 @@ export const modules: Module[] = [
   },
 
   {
-    id: 'mf-connect',
-    name: 'MF Connect',
-    icon: MessageCircle,
+    id: 'sharepoint',
+    name: 'Share Point',
+    icon: FolderTree,
     subModules: [
-      { id: 'ca', name: 'Chat Admin', icon: Shield },
-      { id: 'chat', name: 'Chat', icon: MessageSquare },
-      { id: 'hds', name: 'Help Desk & Support', icon: HelpCircle },
+      { id: 'sharepoint-drives', name: 'Share Point Drives', icon: FolderTree },
+      { id: 'sharepoint-nkangala', name: 'Nkangala District Municipality', icon: Building2 },
+      { id: 'sharepoint-mzansiflow', name: 'Mzansi Flow Drive', icon: Cloud },
     ]
   },
   {

@@ -4,8 +4,7 @@ import { modules, tenants } from '../data';
 import type { User, Module } from '../types';
 import { ChevronDown, LogOut, ShieldCheck, ChevronRight, LayoutGrid, Calendar as CalendarIcon, Bell, ArrowLeft } from 'lucide-react';
 import { UserManagement } from './UserManagement';
-import { Chat } from './Chat';
-import { HelpDeskSupport } from './HelpDeskSupport';
+import { SharePoint } from './SharePoint';
 import { APR } from './APR/APR';
 import { AR } from './AR/AR';
 import { BudgetImport } from './BudgetImport/BudgetImport';
@@ -673,13 +672,19 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
             <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
               <UserManagement currentUser={fullUserProfile} activeTenantId={activeTenantId} onImpersonate={onImpersonate} />
             </div>
-          ) : activeSubModule.id === 'chat' || activeSubModule.id === 'ca' || activeSubModule.id === 'admin-chat' ? (
+          ) : activeSubModule.id === 'sharepoint' || activeSubModule.id === 'sharepoint-drives' || activeSubModule.id === 'sharepoint-nkangala' || activeSubModule.id === 'sharepoint-mzansiflow' || activeSubModule.id === 'chat' || activeSubModule.id === 'ca' || activeSubModule.id === 'hds' || activeSubModule.id === 'admin-chat' ? (
              <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
-                <Chat currentUser={fullUserProfile} activeTenantId={activeTenantId} />
-             </div>
-          ) : activeSubModule.id === 'hds' ? (
-             <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
-                <HelpDeskSupport currentUser={fullUserProfile} activeTenantId={activeTenantId} />
+                <SharePoint
+                  currentUser={fullUserProfile}
+                  activeTenantId={activeTenantId}
+                  initialFolderId={
+                    activeSubModule.id === 'sharepoint-nkangala'
+                      ? 'folder_nkangala_root'
+                      : activeSubModule.id === 'sharepoint-mzansiflow'
+                      ? 'folder_mzansiflow_root'
+                      : null
+                  }
+                />
              </div>
           ) : activeSubModule.id === 'apr' ? (
              <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
@@ -915,6 +920,10 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
             </div>
           )}
         </RestrictedModuleWrapper>
+        ) : activeModule.id === 'sharepoint' ? (
+          <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
+            <SharePoint currentUser={fullUserProfile} activeTenantId={activeTenantId} />
+          </div>
         ) : (
           <>
             {/* Sub-modules Grid */}

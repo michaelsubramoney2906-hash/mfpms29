@@ -31,8 +31,8 @@ const SUBMODULE_TO_PARENT_MAP: Record<string, string> = {
   'ipms-manager-review': 'ipms', 'ipms-internal-audit': 'ipms', 'ipms-dpmc': 'ipms',
   'ipms-reports': 'ipms', 'pa-templates': 'ipms', 'organogram': 'ipms', 'ipms-organogram': 'ipms',
 
-  // MF Connect
-  'ca': 'mf-connect', 'chat': 'mf-connect', 'hds': 'mf-connect',
+  // Share Point
+  'sharepoint-drives': 'sharepoint', 'sharepoint-nkangala': 'sharepoint', 'sharepoint-mzansiflow': 'sharepoint',
 
   // More
   'extraction-engine': 'more', 'ce': 'more', 'ear': 'more', 'fbi': 'more', 'fea': 'more',
