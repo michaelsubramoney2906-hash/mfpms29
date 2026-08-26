@@ -4797,6 +4797,439 @@ CRITICAL SCOPE & ZERO-VARIANCE EXTRACTION MANDATES:
     }
   });
 
+  // ==========================================
+  // SHARE POINT STORAGE & DRAG-AND-DROP API
+  // ==========================================
+
+  const DEFAULT_SHAREPOINT_ITEMS = [
+    {
+      id: 'folder_nkangala_root',
+      name: 'Nkangala District Municipality',
+      parentId: null,
+      type: 'folder',
+      createdAt: '2026-08-25T08:00:00.000Z',
+      updatedAt: '2026-08-25T08:00:00.000Z',
+      createdBy: 'System Administrator',
+      createdByEmail: 'admin@nkangaladm.gov.za',
+      organization: 'nkangaladm.gov.za',
+      color: 'emerald',
+      description: 'Official municipal shared drive for Nkangala District Municipality. Accessible to all Nkangala and Mzansi Flow personnel.'
+    },
+    {
+      id: 'folder_mzansiflow_root',
+      name: 'Mzansi Flow',
+      parentId: null,
+      type: 'folder',
+      createdAt: '2026-08-25T08:00:00.000Z',
+      updatedAt: '2026-08-25T08:00:00.000Z',
+      createdBy: 'System Administrator',
+      createdByEmail: 'admin@mzansiflow.co.za',
+      organization: 'mzansiflow.co.za',
+      color: 'sky',
+      description: 'Central enterprise drive for Mzansi Flow PMS systems, templates, frameworks and cross-organizational files.'
+    },
+    {
+      id: 'folder_nk_sdbip',
+      name: 'SDBIP Operational Portfolios & Scorecards',
+      parentId: 'folder_nkangala_root',
+      type: 'folder',
+      createdAt: '2026-08-25T08:15:00.000Z',
+      updatedAt: '2026-08-25T08:15:00.000Z',
+      createdBy: 'Performance Management Unit',
+      createdByEmail: 'pmu@nkangaladm.gov.za',
+      organization: 'nkangaladm.gov.za',
+      color: 'emerald',
+      description: '2nd & 3rd Layer SDBIP Quarterly Portfolios and Operational KPIs'
+    },
+    {
+      id: 'folder_nk_poe',
+      name: 'Portfolio of Evidence (POE) Archive',
+      parentId: 'folder_nkangala_root',
+      type: 'folder',
+      createdAt: '2026-08-25T08:20:00.000Z',
+      updatedAt: '2026-08-25T08:20:00.000Z',
+      createdBy: 'Internal Audit Unit',
+      createdByEmail: 'internalaudit@nkangaladm.gov.za',
+      organization: 'nkangaladm.gov.za',
+      color: 'amber',
+      description: 'Verified Evidence Documents, Statutory Submissions, and Sign-off Sheets'
+    },
+    {
+      id: 'folder_nk_pa',
+      name: 'Institutional Performance Agreements 2025-2026',
+      parentId: 'folder_nkangala_root',
+      type: 'folder',
+      createdAt: '2026-08-25T08:25:00.000Z',
+      updatedAt: '2026-08-25T08:25:00.000Z',
+      createdBy: 'Office of the Municipal Manager',
+      createdByEmail: 'mm@nkangaladm.gov.za',
+      organization: 'nkangaladm.gov.za',
+      color: 'indigo',
+      description: 'Signed Section 57 and General Staff Performance Agreements & PDPs'
+    },
+    {
+      id: 'folder_mf_templates',
+      name: 'PMS Statutory Templates & Governance Schemas',
+      parentId: 'folder_mzansiflow_root',
+      type: 'folder',
+      createdAt: '2026-08-25T08:30:00.000Z',
+      updatedAt: '2026-08-25T08:30:00.000Z',
+      createdBy: 'Mzansi Flow Technical Governance',
+      createdByEmail: 'tech@mzansiflow.co.za',
+      organization: 'mzansiflow.co.za',
+      color: 'sky',
+      description: 'Official MFMA / MSA Document Blueprints, Scorecard Templates & Guidelines'
+    },
+    {
+      id: 'folder_mf_manuals',
+      name: 'Standard Operating Procedures & User Handbooks',
+      parentId: 'folder_mzansiflow_root',
+      type: 'folder',
+      createdAt: '2026-08-25T08:35:00.000Z',
+      updatedAt: '2026-08-25T08:35:00.000Z',
+      createdBy: 'Mzansi Flow Support Services',
+      createdByEmail: 'support@mzansiflow.co.za',
+      organization: 'mzansiflow.co.za',
+      color: 'blue',
+      description: 'Step-by-step guides for IPMS, OPMS, and Auditing modules'
+    }
+  ];
+
+  // Helper to load or initialize Share Point index from Supabase
+  async function getSharePointIndex(supabase: any) {
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .select('content')
+        .eq('id', 'sharepoint_index')
+        .maybeSingle();
+
+      if (error) {
+        console.warn("[SharePoint] Error reading sharepoint_index from Supabase:", error.message);
+      }
+
+      if (data && data.content) {
+        try {
+          const parsed = JSON.parse(data.content);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            // Ensure the two mandatory root folders always exist
+            const hasNkangala = parsed.some((it: any) => it.id === 'folder_nkangala_root');
+            const hasMzansi = parsed.some((it: any) => it.id === 'folder_mzansiflow_root');
+            if (!hasNkangala || !hasMzansi) {
+              const updated = [...parsed];
+              if (!hasNkangala) updated.unshift(DEFAULT_SHAREPOINT_ITEMS[0]);
+              if (!hasMzansi) updated.unshift(DEFAULT_SHAREPOINT_ITEMS[1]);
+              await saveSharePointIndex(supabase, updated);
+              return updated;
+            }
+            return parsed;
+          }
+        } catch (e) {
+          console.error("[SharePoint] Parse error on sharepoint_index:", e);
+        }
+      }
+
+      // Initialize default
+      await saveSharePointIndex(supabase, DEFAULT_SHAREPOINT_ITEMS);
+      return DEFAULT_SHAREPOINT_ITEMS;
+    } catch (err: any) {
+      console.error("[SharePoint] Index load exception:", err.message);
+      return DEFAULT_SHAREPOINT_ITEMS;
+    }
+  }
+
+  // Helper to persist Share Point index to Supabase
+  async function saveSharePointIndex(supabase: any, items: any[]) {
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .upsert({
+          id: 'sharepoint_index',
+          tenant_id: 'global_sharepoint',
+          sender_id: 'sharepoint_engine',
+          sender_email: 'sharepoint@system.local',
+          sender_name: 'Share Point Engine',
+          content: JSON.stringify(items),
+          message_type: 'sharepoint_index',
+          created_at: new Date().toISOString()
+        });
+      if (error) {
+        console.error("[SharePoint] Supabase index upsert error:", error.message);
+      }
+    } catch (err: any) {
+      console.error("[SharePoint] Failed to save sharepoint_index:", err.message);
+    }
+  }
+
+  // 1. GET all Share Point items (Folders & File metadata)
+  app.get("/api/sharepoint/items", async (req, res) => {
+    try {
+      const supabase = getSupabase();
+      const items = await getSharePointIndex(supabase);
+      res.json({ success: true, items });
+    } catch (err: any) {
+      console.error("[GET /api/sharepoint/items Error]:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // 2. POST create a new sub-folder
+  app.post("/api/sharepoint/folder", async (req, res) => {
+    const { name, parentId, createdBy, createdByEmail, organization, color, description } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: "Folder name is required." });
+    }
+
+    try {
+      const supabase = getSupabase();
+      const items = await getSharePointIndex(supabase);
+
+      const targetParentId = parentId || 'folder_nkangala_root';
+      const parentFolder = items.find((it: any) => it.id === targetParentId);
+      const folderOrg = organization || (parentFolder ? parentFolder.organization : 'nkangaladm.gov.za');
+
+      const newFolder = {
+        id: `folder_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        name: name.trim(),
+        parentId: targetParentId,
+        type: 'folder',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        createdBy: createdBy || 'System User',
+        createdByEmail: createdByEmail || '',
+        organization: folderOrg,
+        color: color || 'emerald',
+        description: description || ''
+      };
+
+      items.push(newFolder);
+      await saveSharePointIndex(supabase, items);
+
+      res.json({ success: true, folder: newFolder, items });
+    } catch (err: any) {
+      console.error("[POST /api/sharepoint/folder Error]:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // 3. POST upload single or multiple files (large files supported)
+  app.post("/api/sharepoint/upload", async (req, res) => {
+    const { 
+      name, 
+      originalName, 
+      parentId, 
+      size, 
+      fileType, 
+      mimeType, 
+      dataUrl, 
+      textContent,
+      uploadedBy, 
+      uploadedByEmail, 
+      organization,
+      description 
+    } = req.body;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: "File name is required." });
+    }
+
+    try {
+      const supabase = getSupabase();
+      const items = await getSharePointIndex(supabase);
+
+      const fileId = `file_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+      const targetParentId = parentId || 'folder_nkangala_root';
+      const parentFolder = items.find((it: any) => it.id === targetParentId);
+      const fileOrg = organization || (parentFolder ? parentFolder.organization : 'nkangaladm.gov.za');
+
+      // Determine extension/format
+      const ext = name.includes('.') ? name.split('.').pop()?.toLowerCase() || 'dat' : 'dat';
+
+      const fileMeta = {
+        id: fileId,
+        name: name.trim(),
+        originalName: originalName || name.trim(),
+        parentId: targetParentId,
+        type: 'file',
+        size: Number(size) || 0,
+        fileType: fileType || ext,
+        mimeType: mimeType || 'application/octet-stream',
+        extension: ext,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        uploadedBy: uploadedBy || 'Staff Member',
+        uploadedByEmail: uploadedByEmail || '',
+        organization: fileOrg,
+        description: description || '',
+        previewAvailable: true
+      };
+
+      // Store file payload into Supabase record `sharepoint_file_${fileId}`
+      const filePayload = {
+        id: fileId,
+        metadata: fileMeta,
+        dataUrl: dataUrl || '',
+        textContent: textContent || '',
+        savedAt: new Date().toISOString()
+      };
+
+      const { error: fileWriteError } = await supabase
+        .from('messages')
+        .upsert({
+          id: `sharepoint_file_${fileId}`,
+          tenant_id: 'global_sharepoint',
+          sender_id: 'sharepoint_uploader',
+          sender_email: uploadedByEmail || 'sharepoint@system.local',
+          sender_name: uploadedBy || 'Share Point User',
+          content: JSON.stringify(filePayload),
+          message_type: 'sharepoint_file_payload',
+          created_at: new Date().toISOString()
+        });
+
+      if (fileWriteError) {
+        console.warn("[SharePoint] File payload storage warning:", fileWriteError.message);
+      }
+
+      // Add to index
+      items.push(fileMeta);
+      await saveSharePointIndex(supabase, items);
+
+      res.json({ success: true, file: fileMeta, items });
+    } catch (err: any) {
+      console.error("[POST /api/sharepoint/upload Error]:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // 4. GET full file payload for viewing/previewing/downloading
+  app.get("/api/sharepoint/file/:fileId", async (req, res) => {
+    const { fileId } = req.params;
+    try {
+      const supabase = getSupabase();
+      const { data, error } = await supabase
+        .from('messages')
+        .select('content')
+        .eq('id', `sharepoint_file_${fileId}`)
+        .maybeSingle();
+
+      if (error) {
+        console.error("[SharePoint] Error fetching file payload:", error.message);
+        return res.status(500).json({ error: error.message });
+      }
+
+      if (data && data.content) {
+        try {
+          const parsed = JSON.parse(data.content);
+          return res.json({ success: true, file: parsed });
+        } catch (parseErr) {
+          console.error("[SharePoint] Parse error on file payload:", parseErr);
+        }
+      }
+
+      // Fallback: check index to see if metadata exists
+      const items = await getSharePointIndex(supabase);
+      const meta = items.find((it: any) => it.id === fileId);
+      if (meta) {
+        return res.json({
+          success: true,
+          file: {
+            id: fileId,
+            metadata: meta,
+            dataUrl: '',
+            textContent: `File: ${meta.name}\nSize: ${meta.size} bytes\nFormat: ${meta.fileType}\nUploaded by: ${meta.uploadedBy} (${meta.uploadedByEmail})\nDate: ${meta.createdAt}`
+          }
+        });
+      }
+
+      res.status(404).json({ error: "File not found." });
+    } catch (err: any) {
+      console.error("[GET /api/sharepoint/file/:fileId Error]:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // 5. DELETE a file or folder (and recursively all children)
+  app.delete("/api/sharepoint/item/:itemId", async (req, res) => {
+    const { itemId } = req.params;
+    if (itemId === 'folder_nkangala_root' || itemId === 'folder_mzansiflow_root') {
+      return res.status(400).json({ error: "Root municipal/enterprise folders cannot be deleted." });
+    }
+
+    try {
+      const supabase = getSupabase();
+      let items = await getSharePointIndex(supabase);
+
+      // Collect all descendant IDs to delete recursively
+      const idsToDelete = new Set<string>([itemId]);
+      let changed = true;
+      while (changed) {
+        changed = false;
+        for (const item of items) {
+          if (item.parentId && idsToDelete.has(item.parentId) && !idsToDelete.has(item.id)) {
+            idsToDelete.add(item.id);
+            changed = true;
+          }
+        }
+      }
+
+      // Delete file payload records from Supabase messages table
+      for (const id of idsToDelete) {
+        const target = items.find((it: any) => it.id === id);
+        if (target && target.type === 'file') {
+          await supabase.from('messages').delete().eq('id', `sharepoint_file_${id}`);
+        }
+      }
+
+      // Filter out deleted items from index
+      items = items.filter((it: any) => !idsToDelete.has(it.id));
+      await saveSharePointIndex(supabase, items);
+
+      res.json({ success: true, deletedCount: idsToDelete.size, items });
+    } catch (err: any) {
+      console.error("[DELETE /api/sharepoint/item/:itemId Error]:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // 6. PUT update / rename / move item
+  app.put("/api/sharepoint/item/:itemId", async (req, res) => {
+    const { itemId } = req.params;
+    const { name, parentId, color, description } = req.body;
+
+    try {
+      const supabase = getSupabase();
+      const items = await getSharePointIndex(supabase);
+      const targetIndex = items.findIndex((it: any) => it.id === itemId);
+
+      if (targetIndex === -1) {
+        return res.status(404).json({ error: "Item not found." });
+      }
+
+      if (name && name.trim()) {
+        items[targetIndex].name = name.trim();
+        if (items[targetIndex].type === 'file' && name.includes('.')) {
+          items[targetIndex].extension = name.split('.').pop()?.toLowerCase() || items[targetIndex].extension;
+        }
+      }
+      if (parentId !== undefined && parentId !== itemId) {
+        items[targetIndex].parentId = parentId;
+      }
+      if (color !== undefined) {
+        items[targetIndex].color = color;
+      }
+      if (description !== undefined) {
+        items[targetIndex].description = description;
+      }
+      items[targetIndex].updatedAt = new Date().toISOString();
+
+      await saveSharePointIndex(supabase, items);
+      res.json({ success: true, item: items[targetIndex], items });
+    } catch (err: any) {
+      console.error("[PUT /api/sharepoint/item/:itemId Error]:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Core Competencies Routes
   app.get("/api/tenant/:tenantId/core-competencies", async (req, res) => {
     const { tenantId: routeTenantId } = req.params;
