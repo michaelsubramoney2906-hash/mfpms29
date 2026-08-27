@@ -341,11 +341,59 @@ export function QuarterPoeSelector({
   );
 }
 
+
+const DUAL_LAYER_USERS = [
+  'hlezard@nkangaladm.gov.za',
+  'dimpems@nkangaladm.gov.za',
+  'madihlabapk@nkangaladm.gov.za',
+  'mazwitc@nkangaladm.gov.za',
+  'bembem@nkangaladm.gov.za',
+  'masanabol@nkangaladm.gov.za'
+].map(e => e.toLowerCase());
+
+function getIsDualLayerTeamLeader(email) {
+  if (!email) return false;
+  return DUAL_LAYER_USERS.includes(email.toLowerCase().trim());
+}
+
 export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
   const [kpis, setKpis] = useState<KpiItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
+
+  const isDualLayerTeamLeader = getIsDualLayerTeamLeader(currentUser?.email);
+  const [agreementScope, setAgreementScope] = useState<'individual' | 'team'>('individual');
+  const targetEmail = isDualLayerTeamLeader && agreementScope === 'team' ? currentUser.email + '_team' : currentUser.email;
+
+
+
+  const manualCommitToDatabase = async (scope: 'individual' | 'team') => {
+    const saveEmail = scope === 'team' ? currentUser.email + '_team' : currentUser.email;
+    setSaving(true);
+    try {
+      // 1. Commit KPIs
+      await fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(saveEmail)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kpis })
+      });
+      // 2. Commit Performance Plan
+      await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(saveEmail)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: pplanData.items })
+      });
+      setNotification(`Successfully committed KPIs and Performance Plan to ${scope === 'team' ? 'Team' : 'Personal'} Database.`);
+      setTimeout(() => setNotification(null), 4000);
+    } catch (err) {
+      console.error(err);
+      setNotification('Failed to commit database.');
+      setTimeout(() => setNotification(null), 4000);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   // Form states
   const [kpa, setKpa] = useState('');
@@ -434,7 +482,7 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
       }
 
       // 1. Fetch KPI register
-      const kpiRes = await fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(currentUser.email)}&t=${Date.now()}`);
+      const kpiRes = await fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(targetEmail)}&t=${Date.now()}`);
       if (kpiRes.ok) {
         const data = await kpiRes.json();
         if (data && Array.isArray(data.kpis)) {
@@ -445,7 +493,7 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
       }
 
       // 2. Fetch Performance Plan
-      const planRes = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${currentUser.email}&t=${Date.now()}`);
+      const planRes = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${targetEmail}&t=${Date.now()}`);
       if (planRes.ok) {
         const data = await planRes.json();
         if (data && Array.isArray(data.items)) {
@@ -519,7 +567,7 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
         evaluationComment: targetKpi.q1Comment || targetKpi.q2Comment || targetKpi.q3Comment || targetKpi.q4Comment || '',
         reviewComment: targetKpi.reviewComment || '',
         reviewApprovalStatus: targetKpi.reviewApprovalStatus || 'Pending',
-        evaluationUsername: currentUser.email,
+        evaluationUsername: targetEmail,
         reviewManagerName: currentUser.manager || 'Line Manager',
         poe: `Q1: ${targetKpi.q1Poe}\nQ2: ${targetKpi.q2Poe}\nQ3: ${targetKpi.q3Poe}\nQ4: ${targetKpi.q4Poe}`,
         weighting: targetKpi.weighting,
@@ -545,17 +593,17 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
       setPplanData(updatedPlanData);
 
       // Save updated Plan array
-      await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${currentUser.email}`, {
+      await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${targetEmail}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedPlanData)
       });
-      window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: currentUser.email } }));
+      window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: targetEmail } }));
     }
 
     // 3. Save to database
     try {
-      await fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(currentUser.email)}`, {
+      await fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(targetEmail)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ kpis: updatedKpis })
@@ -574,7 +622,7 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
     const htmlContent = `
       <html>
         <head>
-          <title>${qName} - ${currentUser.fullName || currentUser.email}</title>
+          <title>${qName} - ${currentUser.fullName || targetEmail}</title>
           <style>
             body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #1e293b; background: white; line-height: 1.6; }
             .header { border-bottom: 3px solid #10b981; padding-bottom: 20px; margin-bottom: 30px; }
@@ -599,7 +647,7 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
           <table class="meta-table">
             <tr>
               <td class="label">Azure AD Username</td>
-              <td>${currentUser.email}</td>
+              <td>${targetEmail}</td>
               <td class="label">Employee Name</td>
               <td>${currentUser.fullName || 'Municipal Professional'}</td>
             </tr>
@@ -650,7 +698,7 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
           </div>
 
           <div class="footer">
-            Nkangala Strategic SDBIP IPMS Tracker • Confidential Internal Audit Statement • Generated by Azure AD User ${currentUser.email}
+            Nkangala Strategic SDBIP IPMS Tracker • Confidential Internal Audit Statement • Generated by Azure AD User ${targetEmail}
           </div>
         </body>
       </html>
@@ -815,19 +863,19 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
 
     try {
       // Post updated KPIs to database
-      await fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(currentUser.email)}`, {
+      await fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(targetEmail)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ kpis: updatedKpis })
       });
 
       // Post updated Plan array to database
-      await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${currentUser.email}`, {
+      await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${targetEmail}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedPlanData)
       });
-      window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: currentUser.email } }));
+      window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: targetEmail } }));
 
       // Synchronize to 2nd & 3rd layer SDBIP
       try {
@@ -838,7 +886,7 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
           if (db && Array.isArray(db.items)) sdbipData = db.items;
         }
 
-        const sdbMatchIdx = sdbipData.findIndex((item: any) => item.refNum && item.refNum.toLowerCase().trim() === kpiNo.toLowerCase().trim() && item.evaluationUser === currentUser.email);
+        const sdbMatchIdx = sdbipData.findIndex((item: any) => item.refNum && item.refNum.toLowerCase().trim() === kpiNo.toLowerCase().trim() && item.evaluationUser === targetEmail);
         
         const sdbipRow = {
           id: sdbMatchIdx >= 0 ? sdbipData[sdbMatchIdx].id : `sdbip23_${Date.now()}_auto`,
@@ -870,7 +918,7 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
           q3PoeDocs: q3Docs,
           q4PoeDocs: q4Docs,
           responsibleUnit: currentUser.department || '',
-          evaluationUser: currentUser.email,
+          evaluationUser: targetEmail,
           reviewManager: currentUser.manager || 'Line Manager',
           poeStatus: 'Local Draft / IPMS Synchronized'
         };
@@ -948,18 +996,18 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
       setPplanData(updatedPlanData);
 
       try {
-        await fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(currentUser.email)}`, {
+        await fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(targetEmail)}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ kpis: remainingKpis })
         });
 
-        await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${currentUser.email}`, {
+        await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${targetEmail}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updatedPlanData)
         });
-        window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: currentUser.email } }));
+        window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: targetEmail } }));
 
         showNotification(`KPI target ${codeStr} removed from list and Performance Plan.`);
       } catch (err) {
@@ -983,10 +1031,43 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
             Capture Municipal Key Performance Indicators (KPIs) with mandatory quarterly Portfolio of Evidence (POE). Syncs directly with Performance Plan boxes.
           </p>
         </div>
-        <div className="flex items-center gap-2 bg-emerald-950/40 px-4 py-2 rounded-xl border border-emerald-500/10 text-[11px] font-mono text-emerald-300">
-          <TrendingUp className="w-4 h-4 text-emerald-400" />
-          <span>Sync Status: Actively Linked to Performance Plan</span>
+        
+        <div className="flex items-center gap-2">
+          {isDualLayerTeamLeader ? (
+            <div className="flex gap-2">
+              <button
+                onClick={() => manualCommitToDatabase('individual')}
+                disabled={saving}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-xl text-[10px] uppercase tracking-wide flex items-center gap-1.5 transition disabled:opacity-50"
+              >
+                {saving ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                Commit Personal DB
+              </button>
+              <button
+                onClick={() => manualCommitToDatabase('team')}
+                disabled={saving}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2 rounded-xl text-[10px] uppercase tracking-wide flex items-center gap-1.5 transition disabled:opacity-50"
+              >
+                {saving ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                Commit Team DB
+              </button>
+            </div>
+          ) : (
+            <button
+                onClick={() => manualCommitToDatabase('individual')}
+                disabled={saving}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2 rounded-xl text-[10px] uppercase tracking-wide flex items-center gap-1.5 transition disabled:opacity-50"
+              >
+                {saving ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                Commit to Database
+              </button>
+          )}
+          <div className="bg-emerald-950/40 px-4 py-2 rounded-xl border border-emerald-500/10 text-[11px] font-mono text-emerald-300 flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-emerald-400" />
+            <span>Sync Status: Actively Linked to Performance Plan</span>
+          </div>
         </div>
+
       </div>
 
       {notification && (
@@ -1498,7 +1579,7 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
                           <div className="p-3 bg-amber-950/20 border border-amber-500/20 rounded-lg space-y-2 text-left">
                             <div className="flex justify-between items-center gap-2">
                               <span className="text-[9px] font-black uppercase text-amber-400 tracking-wider">Evaluation Box</span>
-                              <span className="text-[9.5px] bg-amber-500/20 px-2 py-0.5 rounded text-amber-200 font-mono font-extrabold truncate max-w-[150px]">{currentUser.email}</span>
+                              <span className="text-[9.5px] bg-amber-500/20 px-2 py-0.5 rounded text-amber-200 font-mono font-extrabold truncate max-w-[150px]">{targetEmail}</span>
                             </div>
                             <textarea 
                               rows={2}
@@ -1529,7 +1610,7 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
                                         type="button"
                                         onClick={() => {
                                           generateQuarterlyReport(k, quarter);
-                                          showNotification(`Sent ${quarter} Performance Plan Report on behalf of ${currentUser.email} to your Line Manager!`);
+                                          showNotification(`Sent ${quarter} Performance Plan Report on behalf of ${targetEmail} to your Line Manager!`);
                                           setShowReviewOptionsKpiId(null);
                                         }}
                                         className="py-1 bg-slate-900 border border-slate-800 hover:bg-emerald-600 hover:border-emerald-500 text-white font-bold text-[8.5px] rounded transition truncate cursor-pointer"
@@ -1815,7 +1896,7 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
                      (updatedKpis[kpiIdx] as any)[`${browseModalQuarter.toLowerCase()}PoeDocs`] = browseModalPoeDocs;
                      setKpis(updatedKpis);
                      try {
-                        await fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(currentUser.email)}`, {
+                        await fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(targetEmail)}`, {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ kpis: updatedKpis })

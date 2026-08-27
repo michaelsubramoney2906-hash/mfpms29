@@ -50,7 +50,27 @@ interface SupportMaster {
   role: string;
 }
 
+
+const DUAL_LAYER_USERS = [
+  'hlezard@nkangaladm.gov.za',
+  'dimpems@nkangaladm.gov.za',
+  'madihlabapk@nkangaladm.gov.za',
+  'mazwitc@nkangaladm.gov.za',
+  'bembem@nkangaladm.gov.za',
+  'masanabol@nkangaladm.gov.za'
+].map(e => e.toLowerCase());
+
+function getIsDualLayerTeamLeader(email) {
+  if (!email) return false;
+  return DUAL_LAYER_USERS.includes(email.toLowerCase().trim());
+}
+
 export function PersonalDevelopmentPlan({ currentUser, activeTenantId }: PersonalDevelopmentPlanProps) {
+
+  const isDualLayerTeamLeader = getIsDualLayerTeamLeader(currentUser?.email);
+  const [agreementScope, setAgreementScope] = useState<'individual' | 'team'>('individual');
+  const targetEmail = isDualLayerTeamLeader && agreementScope === 'team' ? currentUser.email + '_team' : currentUser.email;
+
   // Navigation Tabs state
   const [activeTab, setActiveTab] = useState<'planner' | 'reporting'>('planner');
 
@@ -132,7 +152,7 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId }: Persona
     const fetchPdpData = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`/api/tenant/${activeTenantId}/pdp?userId=${currentUser.email}`);
+        const res = await fetch(`/api/tenant/${activeTenantId}/pdp?userId=${targetEmail}`);
         if (!res.ok) throw new Error("Failed to load server state");
         const data = await res.json();
         if (active && data) {
@@ -160,7 +180,7 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId }: Persona
     };
     fetchPdpData();
     return () => { active = false; };
-  }, [activeTenantId, currentUser]);
+  }, [activeTenantId, currentUser, targetEmail]);
 
   // Save changes to Supabase
   const handleSaveToDatabase = async (
@@ -168,7 +188,8 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId }: Persona
     cmGaps = skillsGapsMasters,
     cmTrainings = trainingsMasters,
     cmModes = modesMasters,
-    cmSupport = supportMasters
+    cmSupport = supportMasters,
+    explicitTargetEmail?: string
   ) => {
     try {
       setSyncStatus('saving');
@@ -182,7 +203,8 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId }: Persona
         supportMasters: cmSupport
       };
       
-      const res = await fetch(`/api/tenant/${activeTenantId}/pdp?userId=${currentUser.email}`, {
+      const emailToSave = explicitTargetEmail || targetEmail;
+      const res = await fetch(`/api/tenant/${activeTenantId}/pdp?userId=${emailToSave}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -718,14 +740,35 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId }: Persona
             <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
             Tenant: <span className="text-blue-300 font-bold font-mono">{activeTenantId}</span>
           </span>
-          <button
-            onClick={() => handleSaveToDatabase()}
-            disabled={saving}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition duration-150 uppercase tracking-wide cursor-pointer disabled:opacity-50"
-          >
-            {saving ? <RefreshCw className="w-4.5 h-4.5 animate-spin" /> : <Save className="w-4 h-4" />}
-            <span>{saving ? "Syncing..." : "Database Commit"}</span>
-          </button>
+          {isDualLayerTeamLeader ? (
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleSaveToDatabase(undefined, undefined, undefined, undefined, undefined, currentUser.email)}
+                disabled={saving}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition duration-150 uppercase tracking-wide cursor-pointer disabled:opacity-50"
+              >
+                {saving ? <RefreshCw className="w-4.5 h-4.5 animate-spin" /> : <Save className="w-4 h-4" />}
+                <span>{saving ? "Syncing..." : "Commit Personal DB"}</span>
+              </button>
+              <button
+                onClick={() => handleSaveToDatabase(undefined, undefined, undefined, undefined, undefined, currentUser.email + '_team')}
+                disabled={saving}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition duration-150 uppercase tracking-wide cursor-pointer disabled:opacity-50"
+              >
+                {saving ? <RefreshCw className="w-4.5 h-4.5 animate-spin" /> : <Save className="w-4 h-4" />}
+                <span>{saving ? "Syncing..." : "Commit Team DB"}</span>
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => handleSaveToDatabase()}
+              disabled={saving}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition duration-150 uppercase tracking-wide cursor-pointer disabled:opacity-50"
+            >
+              {saving ? <RefreshCw className="w-4.5 h-4.5 animate-spin" /> : <Save className="w-4 h-4" />}
+              <span>{saving ? "Syncing..." : "Database Commit"}</span>
+            </button>
+          )}
         </div>
       </div>
 

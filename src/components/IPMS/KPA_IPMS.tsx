@@ -46,7 +46,23 @@ const MSCOA_CODES = [
   "Item"
 ];
 
+
+const DUAL_LAYER_USERS = [
+  'hlezard@nkangaladm.gov.za',
+  'dimpems@nkangaladm.gov.za',
+  'madihlabapk@nkangaladm.gov.za',
+  'mazwitc@nkangaladm.gov.za',
+  'bembem@nkangaladm.gov.za',
+  'masanabol@nkangaladm.gov.za'
+].map(e => e.toLowerCase());
+
+function getIsDualLayerTeamLeader(email: string | undefined) {
+  if (!email) return false;
+  return DUAL_LAYER_USERS.includes(email.toLowerCase().trim());
+}
+
 export function KPAIPMS({ currentUser, activeTenantId }: KPAIPMSProps) {
+  const isDualLayerTeamLeader = getIsDualLayerTeamLeader(currentUser?.email);
   const [kpas, setKpas] = useState<KpaUnit[]>([]);
   const [title, setTitle] = useState('');
   const [nationalKpa, setNationalKpa] = useState('');
@@ -148,7 +164,7 @@ export function KPAIPMS({ currentUser, activeTenantId }: KPAIPMSProps) {
   const loadKpas = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/tenant/${activeTenantId}/kpas?t=${Date.now()}`);
+      const res = await fetch(`/api/tenant/${activeTenantId}/kpas?userId=${encodeURIComponent(currentUser.email)}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
         if (data) {
@@ -174,11 +190,12 @@ export function KPAIPMS({ currentUser, activeTenantId }: KPAIPMSProps) {
     }
   };
 
-  const saveKpasList = async (newList: KpaUnit[], customTableToSave = { headers: tableHeaders, rows: tableRows }) => {
+  const saveKpasList = async (newList: KpaUnit[], customTableToSave = { headers: tableHeaders, rows: tableRows }, scopeOverride?: 'individual' | 'team') => {
     setSaving(true);
     try {
       // Save both the KPA list and the custom table to the messages table
-      const res = await fetch(`/api/tenant/${activeTenantId}/kpas`, {
+      const saveEmail = scopeOverride === 'team' ? currentUser.email + '_team' : currentUser.email;
+      const res = await fetch(`/api/tenant/${activeTenantId}/kpas?userId=${encodeURIComponent(saveEmail)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

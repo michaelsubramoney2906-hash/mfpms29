@@ -81,6 +81,21 @@ interface CompetencyRow {
   q4?: CompetencyQuarterData;
 }
 
+
+const DUAL_LAYER_USERS = [
+  'hlezard@nkangaladm.gov.za',
+  'dimpems@nkangaladm.gov.za',
+  'madihlabapk@nkangaladm.gov.za',
+  'mazwitc@nkangaladm.gov.za',
+  'bembem@nkangaladm.gov.za',
+  'masanabol@nkangaladm.gov.za'
+].map(e => e.toLowerCase());
+
+function getIsDualLayerTeamLeader(email) {
+  if (!email) return false;
+  return DUAL_LAYER_USERS.includes(email.toLowerCase().trim());
+}
+
 export function JobSpecificCompetencies({ currentUser, activeTenantId }: JobSpecificCompetenciesProps) {
   // Navigation Tabs state
   const [activeTab, setActiveTab] = useState<'legislation' | 'templates' | 'self_evaluation' | 'manager_approval' | 'reporting'>('templates');
@@ -216,11 +231,19 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId }: JobSpec
   ]);
 
   const [selectedQuarter, setSelectedQuarter] = useState<'q1' | 'q2' | 'q3' | 'q4'>('q1');
-  const [selectedUserEmail, setSelectedUserEmail] = useState<string>(currentUser.email || '');
+  const [selectedUserEmailState, setSelectedUserEmailState] = useState<string>('');
+  
+  const isDualLayerTeamLeader = getIsDualLayerTeamLeader(currentUser?.email);
+  const [agreementScope, setAgreementScope] = useState<'individual' | 'team'>('individual');
+
+  const userTargetEmail = isDualLayerTeamLeader && agreementScope === 'team' ? currentUser.email + '_team' : currentUser.email;
+  const selectedUserEmail = selectedUserEmailState || userTargetEmail;
+  
+
 
   useEffect(() => {
     if (currentUser.email) {
-      setSelectedUserEmail(currentUser.email);
+      setSelectedUserEmailState(currentUser.email);
     }
   }, [currentUser.email]);
 
@@ -297,7 +320,8 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId }: JobSpec
     cmComp = competencyMasters,
     cmDef = definitionMasters,
     cmLvl = levelMasters,
-    cmWt = weightMasters
+    cmWt = weightMasters,
+    explicitTargetEmail?: string
   ) => {
     try {
       setSyncStatus('saving');
@@ -312,7 +336,8 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId }: JobSpec
         weightMasters: cmWt
       };
       
-      const res = await fetch(`/api/tenant/${activeTenantId}/job-competencies?userId=${encodeURIComponent(selectedUserEmail)}`, {
+      const emailToSave = explicitTargetEmail || selectedUserEmail;
+      const res = await fetch(`/api/tenant/${activeTenantId}/job-competencies?userId=${encodeURIComponent(emailToSave)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -1323,14 +1348,35 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId }: JobSpec
             <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
             Tenant Workspace: <span className="text-orange-300 font-bold font-mono">{activeTenantId}</span>
           </span>
-          <button
-            onClick={() => handleSaveToDatabase()}
-            disabled={saving}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition duration-150 uppercase tracking-wide cursor-pointer disabled:opacity-50"
-          >
-            {saving ? <RefreshCw className="w-4.5 h-4.5 animate-spin" /> : <Save className="w-4 h-4" />}
-            <span>{saving ? "Syncing..." : "Database Commit"}</span>
-          </button>
+          {isDualLayerTeamLeader ? (
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleSaveToDatabase(undefined, undefined, undefined, undefined, undefined, undefined, currentUser.email)}
+                disabled={saving}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition duration-150 uppercase tracking-wide cursor-pointer disabled:opacity-50"
+              >
+                {saving ? <RefreshCw className="w-4.5 h-4.5 animate-spin" /> : <Save className="w-4 h-4" />}
+                <span>{saving ? "Syncing..." : "Commit Personal DB"}</span>
+              </button>
+              <button
+                onClick={() => handleSaveToDatabase(undefined, undefined, undefined, undefined, undefined, undefined, currentUser.email + '_team')}
+                disabled={saving}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition duration-150 uppercase tracking-wide cursor-pointer disabled:opacity-50"
+              >
+                {saving ? <RefreshCw className="w-4.5 h-4.5 animate-spin" /> : <Save className="w-4 h-4" />}
+                <span>{saving ? "Syncing..." : "Commit Team DB"}</span>
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => handleSaveToDatabase()}
+              disabled={saving}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition duration-150 uppercase tracking-wide cursor-pointer disabled:opacity-50"
+            >
+              {saving ? <RefreshCw className="w-4.5 h-4.5 animate-spin" /> : <Save className="w-4 h-4" />}
+              <span>{saving ? "Syncing..." : "Database Commit"}</span>
+            </button>
+          )}
         </div>
       </div>
 

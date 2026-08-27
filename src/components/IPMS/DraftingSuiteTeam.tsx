@@ -72,6 +72,25 @@ const renderFormattedContent = (text: string) => {
   );
 };
 
+
+const DUAL_LAYER_USERS_DST = [
+  'hlezard@nkangaladm.gov.za',
+  'dimpems@nkangaladm.gov.za',
+  'madihlabapk@nkangaladm.gov.za',
+  'mazwitc@nkangaladm.gov.za',
+  'bembem@nkangaladm.gov.za',
+  'masanabol@nkangaladm.gov.za'
+].map(e => e.toLowerCase());
+
+function getEmailScope(email) {
+  if (!email) return 'default';
+  const norm = email.toLowerCase().trim();
+  if (DUAL_LAYER_USERS_DST.includes(norm)) {
+    return norm + '_team';
+  }
+  return norm;
+}
+
 export function DraftingSuiteTeam({ 
   currentUser, 
   activeTenantId, 
@@ -549,7 +568,7 @@ export function DraftingSuiteTeam({
   const handlePullFilteredPerformancePlan = async () => {
     setPullingFilteredPplan(true);
     try {
-      const emailToUse = currentUser?.email || 'khuboniy@nkangaladm.gov.za';
+      const emailToUse = getEmailScope(currentUser?.email || 'khuboniy@nkangaladm.gov.za');
       const res = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
@@ -580,7 +599,7 @@ export function DraftingSuiteTeam({
   const handlePullPDP = async () => {
     setPullingPdp(true);
     try {
-      const emailToUse = currentUser?.email || 'khuboniy@nkangaladm.gov.za';
+      const emailToUse = getEmailScope(currentUser?.email || 'khuboniy@nkangaladm.gov.za');
       const res = await fetch(`/api/tenant/${activeTenantId}/pdp?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
@@ -611,7 +630,7 @@ export function DraftingSuiteTeam({
   const handlePullProfileJscTable = async () => {
     setPullingJsc(true);
     try {
-      const emailToUse = (currentUser?.email || 'khuboniy@nkangaladm.gov.za').toLowerCase().trim();
+      const emailToUse = getEmailScope(currentUser?.email || 'khuboniy@nkangaladm.gov.za');
       const res = await fetch(`/api/tenant/${activeTenantId}/job-competencies?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
@@ -685,7 +704,7 @@ export function DraftingSuiteTeam({
   const handlePullPerformanceAssessment = async () => {
     setPullingPerfAssessment(true);
     try {
-      const emailToUse = (currentUser?.email || 'khuboniy@nkangaladm.gov.za').toLowerCase().trim();
+      const emailToUse = getEmailScope(currentUser?.email || 'khuboniy@nkangaladm.gov.za');
       const res = await fetch(`/api/tenant/${activeTenantId}/performance-assessment-config?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();

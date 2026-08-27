@@ -16,6 +16,16 @@ import { PATemplates } from './PATemplates';
 import { NKANGALA_LOGO_BASE64 } from './nkangala_logo_base64';
 import { PoeDocument } from './Evaluation_IPMS';
 
+
+const DUAL_LAYER_USERS = [
+  'hlezard@nkangaladm.gov.za',
+  'dimpems@nkangaladm.gov.za',
+  'madihlabapk@nkangaladm.gov.za',
+  'mazwitc@nkangaladm.gov.za',
+  'bembem@nkangaladm.gov.za',
+  'masanabol@nkangaladm.gov.za'
+].map(e => e.toLowerCase());
+
 export const calculateVariance = (target?: string, actual?: string): string => {
   if (!target || !actual) return '0';
   const cleanNum = (val: string) => {
@@ -335,6 +345,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
   const [activeTab, setActiveTab] = useState<'brief' | 'templates' | 'drafting_suite' | 'lead_fire_fighter' | 'drafting_suite_firefighters' | 'drafting_suite_technical_services' | 'drafting_suite_corporate_services' | 'drafting_suite_pms_team'>('brief');
   const [users, setUsers] = useState<any[]>([]);
   const [selectedUserEmail, setSelectedUserEmail] = useState<string>('');
+  const [agreementScope, setAgreementScope] = useState<'individual' | 'team'>('individual');
 
   const effectiveUser = React.useMemo(() => {
     if (selectedUserEmail) {
@@ -344,6 +355,13 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
     }
     return currentUser;
   }, [selectedUserEmail, users, currentUser]);
+
+  const isDualLayerTeamLeader = React.useMemo(() => {
+    const targetUser = effectiveUser || currentUser;
+    if (!targetUser || !targetUser.email) return false;
+    const email = targetUser.email.toLowerCase().trim();
+    return DUAL_LAYER_USERS.includes(email);
+  }, [effectiveUser, currentUser]);
 
   // Check if active or impersonated user is a lead fire fighter
   const isLeadFireFighter = React.useMemo(() => {
@@ -1949,6 +1967,38 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
         {renderHeader()}
         
         {/* Navigation Tabs */}
+        {isDualLayerTeamLeader && (
+          <div className="bg-slate-900 px-6 py-3 flex items-center gap-4 justify-between border-b border-slate-800">
+            <div className="flex items-center gap-3">
+              <Layers className="w-5 h-5 text-indigo-400" />
+              <div className="flex flex-col">
+                <span className="text-sm font-bold text-white uppercase tracking-wider">Dual-Layer Performance Scope</span>
+                <span className="text-[10px] text-slate-400">You manage a team and have an individual scorecard.</span>
+              </div>
+            </div>
+            <div className="flex items-center bg-slate-800 rounded-xl p-1 shadow-inner border border-slate-700">
+              <button 
+                onClick={() => {
+                  setAgreementScope('team');
+                  setActiveTab('brief');
+                }}
+                className={`px-6 py-2 rounded-lg text-xs font-bold transition-all ${agreementScope === 'team' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}`}
+              >
+                Team Performance
+              </button>
+              <button 
+                onClick={() => {
+                  setAgreementScope('individual');
+                  setActiveTab('drafting_suite');
+                }}
+                className={`px-6 py-2 rounded-lg text-xs font-bold transition-all ${agreementScope === 'individual' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}`}
+              >
+                My Personal Agreement
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="bg-white border-b border-gray-200 px-6 flex gap-4 overflow-x-auto hide-scrollbar">
           <button 
             onClick={() => setActiveTab('brief')}
@@ -1962,37 +2012,43 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
           >
             Templates
           </button>
-          <button 
-            onClick={() => setActiveTab('drafting_suite')}
-            className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'drafting_suite' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-          >
-            Drafting Suite
-          </button>
-          <button 
-            onClick={() => setActiveTab('drafting_suite_firefighters')}
-            className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'drafting_suite_firefighters' ? 'border-amber-600 text-amber-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-          >
-            CDS Team PA
-          </button>
-          <button 
-            onClick={() => setActiveTab('drafting_suite_technical_services')}
-            className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'drafting_suite_technical_services' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-          >
-            Technical Services Team PA
-          </button>
-          <button 
-            onClick={() => setActiveTab('drafting_suite_corporate_services')}
-            className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'drafting_suite_corporate_services' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-          >
-            Corporate Services Team PA
-          </button>
-          <button 
-            onClick={() => setActiveTab('drafting_suite_pms_team')}
-            className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'drafting_suite_pms_team' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-          >
-            PMS Team PA
-          </button>
-          {isLeadFireFighter && (
+          {(!isDualLayerTeamLeader || agreementScope === 'individual') && (
+            <button 
+              onClick={() => setActiveTab('drafting_suite')}
+              className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'drafting_suite' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+            >
+              Drafting Suite
+            </button>
+          )}
+          {(!isDualLayerTeamLeader || agreementScope === 'team') && (
+            <>
+              <button 
+                onClick={() => setActiveTab('drafting_suite_firefighters')}
+                className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'drafting_suite_firefighters' ? 'border-amber-600 text-amber-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+              >
+                CDS Team PA
+              </button>
+              <button 
+                onClick={() => setActiveTab('drafting_suite_technical_services')}
+                className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'drafting_suite_technical_services' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+              >
+                Technical Services Team PA
+              </button>
+              <button 
+                onClick={() => setActiveTab('drafting_suite_corporate_services')}
+                className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'drafting_suite_corporate_services' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+              >
+                Corporate Services Team PA
+              </button>
+              <button 
+                onClick={() => setActiveTab('drafting_suite_pms_team')}
+                className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'drafting_suite_pms_team' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+              >
+                PMS Team PA
+              </button>
+            </>
+          )}
+          {isLeadFireFighter && (!isDualLayerTeamLeader || agreementScope === 'team') && (
             <button 
               onClick={() => setActiveTab('lead_fire_fighter')}
               className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'lead_fire_fighter' ? 'border-amber-600 text-amber-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
