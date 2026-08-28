@@ -1344,7 +1344,29 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId }: JobSpec
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
+
+          {isDualLayerTeamLeader && (
+            <div className="flex items-center gap-1.5 bg-slate-800 p-1 rounded-xl shrink-0 mr-4">
+              <button
+                onClick={() => setAgreementScope('individual')}
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition ${
+                  agreementScope === 'individual' ? 'bg-orange-500 text-white shadow' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                My Personal JSC
+              </button>
+              <button
+                onClick={() => setAgreementScope('team')}
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition ${
+                  agreementScope === 'team' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Team JSC
+              </button>
+            </div>
+          )}
           <span className="text-xs bg-slate-850 px-3 py-1.5 rounded-xl border border-slate-800 flex items-center gap-2">
+
             <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
             Tenant Workspace: <span className="text-orange-300 font-bold font-mono">{activeTenantId}</span>
           </span>

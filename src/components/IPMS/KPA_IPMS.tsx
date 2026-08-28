@@ -62,7 +62,11 @@ function getIsDualLayerTeamLeader(email: string | undefined) {
 }
 
 export function KPAIPMS({ currentUser, activeTenantId }: KPAIPMSProps) {
+
   const isDualLayerTeamLeader = getIsDualLayerTeamLeader(currentUser?.email);
+  const [agreementScope, setAgreementScope] = useState<'individual' | 'team'>('individual');
+  const targetEmail = isDualLayerTeamLeader && agreementScope === 'team' ? currentUser.email + '_team' : currentUser.email;
+
   const [kpas, setKpas] = useState<KpaUnit[]>([]);
   const [title, setTitle] = useState('');
   const [nationalKpa, setNationalKpa] = useState('');
@@ -157,14 +161,18 @@ export function KPAIPMS({ currentUser, activeTenantId }: KPAIPMSProps) {
     showNotification("Weights scaled proportionally (summing to exactly 100%).");
   };
 
+
   useEffect(() => {
     loadKpas();
-  }, [activeTenantId]);
+  }, [activeTenantId, targetEmail]);
+
+
 
   const loadKpas = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/tenant/${activeTenantId}/kpas?userId=${encodeURIComponent(currentUser.email)}&t=${Date.now()}`);
+      const res = await fetch(`/api/tenant/${activeTenantId}/kpas?userId=${encodeURIComponent(targetEmail)}&t=${Date.now()}`);
+
       if (res.ok) {
         const data = await res.json();
         if (data) {
