@@ -1042,7 +1042,7 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
                   agreementScope === 'individual' ? 'bg-emerald-500 text-white shadow' : 'text-slate-400 hover:text-white'
                 }`}
               >
-                My Personal Plan
+                My Personal Module
               </button>
               <button
                 onClick={() => setAgreementScope('team')}
@@ -1050,7 +1050,7 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
                   agreementScope === 'team' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'
                 }`}
               >
-                Team Plan
+                Team Module
               </button>
             </div>
           )}

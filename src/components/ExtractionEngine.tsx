@@ -415,7 +415,7 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
   };
 
   // 6. Direct 1-Click Sync to IPMS Performance Plan Module (Annual Performance Planner Grid)
-  const handleSyncToIPMS = async () => {
+  const handleSyncToIPMS = async (targetProfile: "individual" | "team" = "individual") => {
     const selected = extractedItems.filter(it => it._selected !== false);
     if (selected.length === 0) {
       setStatusMessage({ type: 'error', text: 'Please select at least one KPI to sync to the IPMS Performance Plan.' });
@@ -644,385 +644,54 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
 
           <div className="flex items-center gap-2 shrink-0">
             {extractedItems.length > 0 && (
-              <button
-                id="btn_clear_engine_header"
-                onClick={() => handleClearEngine(true)}
-                className="px-3.5 py-2.5 bg-rose-950/50 hover:bg-rose-900/70 text-rose-300 border border-rose-600/40 rounded-xl font-bold text-xs flex items-center gap-2 transition hover:shadow-lg cursor-pointer"
-                title="Clear all extracted items and reset engine state"
-              >
-                <Trash2 className="w-4 h-4 text-rose-400" />
-                <span>Clear Engine</span>
-              </button>
-            )}
-            <button
-              id="btn_load_sample_doc"
-              onClick={handleLoadSample}
-              disabled={isProcessing}
-              className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-indigo-500/30 rounded-xl font-bold text-xs flex items-center gap-2 transition hover:shadow-lg disabled:opacity-50 cursor-pointer"
-            >
-              <Play className="w-4 h-4 text-indigo-400" />
-              <span>Load Sample Scorecard</span>
-            </button>
-          </div>
-        </div>
-
-        {/* STRICT FIELD MAPPING PILLS BANNER */}
-        <div className="mt-5 pt-4 border-t border-slate-800/80">
-          <div className="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Strict Target Schema Keys (Mapped 1-to-1):</span>
-          </div>
-          <div className="flex flex-wrap gap-1.5 font-mono text-[11px]">
-            {['kpi no', 'kpi description', '%wt', 'baseline', 'annual target', '1st qtr target', '2nd qtr target', '3rd qtr target', '4th qtr target', 'poe', 'budget', 'functional kpa'].map((keyName) => (
-              <span key={keyName} className="bg-slate-800/90 text-indigo-200 border border-indigo-700/40 px-2.5 py-1 rounded-md">
-                "{keyName}"
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* STATUS NOTIFICATION */}
-      {statusMessage && (
-        <div className={`p-4 rounded-xl border flex items-center justify-between gap-3 text-sm ${
-          statusMessage.type === 'success' 
-            ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-200' 
-            : statusMessage.type === 'error'
-            ? 'bg-rose-950/60 border-rose-500/40 text-rose-200'
-            : 'bg-indigo-950/60 border-indigo-500/40 text-indigo-200'
-        }`}>
-          <div className="flex items-center gap-3">
-            {statusMessage.type === 'success' && <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />}
-            {statusMessage.type === 'error' && <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />}
-            {statusMessage.type === 'info' && <RefreshCw className="w-5 h-5 text-indigo-400 shrink-0 animate-spin" />}
-            <span>{statusMessage.text}</span>
-          </div>
-          <button 
-            onClick={() => setStatusMessage(null)}
-            className="text-xs text-slate-400 hover:text-white px-2 py-1"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
-
-      {/* NAVIGATION TABS & PERSISTENCE CONTROLS */}
-      <div className="flex flex-wrap items-center justify-between border-b border-slate-800 pb-3 gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            id="tab_upload_file"
-            onClick={() => setActiveTab('upload')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
-              activeTab === 'upload'
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
-                : 'bg-slate-800/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-            }`}
-          >
-            <Upload className="w-4 h-4" />
-            <span>Upload Document</span>
-          </button>
-
-          <button
-            id="tab_paste_table"
-            onClick={() => setActiveTab('paste')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
-              activeTab === 'paste'
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
-                : 'bg-slate-800/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-            }`}
-          >
-            <Table className="w-4 h-4" />
-            <span>Paste Table / TSV</span>
-          </button>
-
-          {extractedItems.length > 0 && (
-            <>
-              <button
-                id="tab_view_results"
-                onClick={() => setActiveTab('results')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
-                  activeTab === 'results'
-                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
-                    : 'bg-slate-800/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-                }`}
-              >
-                <FileSpreadsheet className="w-4 h-4" />
-                <span>Mapped Grid ({extractedItems.length})</span>
-                {hasUnsavedChanges && (
-                  <span className="w-2 h-2 rounded-full bg-amber-400" title="Unsaved edits" />
-                )}
-              </button>
-
-              <button
-                id="tab_view_json"
-                onClick={() => setActiveTab('json')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
-                  activeTab === 'json'
-                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
-                    : 'bg-slate-800/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-                }`}
-              >
-                <Code2 className="w-4 h-4" />
-                <span>Schema JSON</span>
-              </button>
-            </>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            id="btn_load_saved_scorecard"
-            onClick={handleLoadSavedScorecard}
-            disabled={isLoadingSaved}
-            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold flex items-center gap-1.5 transition disabled:opacity-50"
-            title="Load previously saved scorecard dataset from Supabase"
-          >
-            <Database className="w-3.5 h-3.5 text-cyan-400" />
-            <span>{isLoadingSaved ? 'Loading...' : 'Load Saved Dataset'}</span>
-          </button>
-
-          {extractedItems.length > 0 && (
-            <>
-              <button
-                id="btn_save_dataset_header"
-                onClick={handleSaveDataset}
-                disabled={isSavingDataset}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
-                  hasUnsavedChanges 
-                    ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-md shadow-amber-600/30 animate-pulse'
-                    : 'bg-indigo-700/80 hover:bg-indigo-600 text-white'
-                }`}
-                title="Save scorecard dataset & all edits to Supabase"
-              >
-                {isSavingDataset ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                <span>{hasUnsavedChanges ? 'Save Edits' : 'Saved'}</span>
-              </button>
-
-              <button
-                onClick={handleExportExcel}
-                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold flex items-center gap-1.5 transition"
-                title="Download Excel"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Excel</span>
-              </button>
-
-              <button
-                onClick={handleExportJson}
-                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold flex items-center gap-1.5 transition"
-                title="Download JSON"
-              >
-                <FileCode className="w-3.5 h-3.5 text-indigo-400" />
-                <span>JSON</span>
-              </button>
-
-              <button
-                id="btn_clear_engine_toolbar"
-                onClick={() => handleClearEngine(true)}
-                className="px-3 py-1.5 bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-600/40 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
-                title="Completely clear engine & wipe mappings"
-              >
-                <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-                <span>Clear Engine</span>
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* 1. UPLOAD TAB */}
-      {activeTab === 'upload' && (
-        <div className="bg-slate-800/40 border border-slate-700/60 rounded-2xl p-8">
-          <div 
-            onClick={() => fileInputRef.current?.click()}
-            className="border-2 border-dashed border-indigo-500/40 hover:border-indigo-400 bg-slate-900/60 hover:bg-slate-900 rounded-2xl p-12 text-center flex flex-col items-center justify-center cursor-pointer transition group relative"
-          >
-            <input 
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf,.docx,.xlsx,.xls,.csv,.json,.txt"
-              className="hidden"
-              onChange={handleFileUpload}
-            />
-
-            <div className="w-20 h-20 rounded-3xl bg-indigo-600/20 group-hover:bg-indigo-600/30 border border-indigo-500/30 flex items-center justify-center text-indigo-400 mb-4 transition transform group-hover:scale-105">
-              {isProcessing ? (
-                <RefreshCw className="w-10 h-10 animate-spin text-indigo-400" />
-              ) : (
-                <Upload className="w-10 h-10" />
-              )}
-            </div>
-
-            <h3 className="text-xl font-black text-white mb-2">
-              {isProcessing ? 'Extracting Scorecard...' : 'Drop Performance Agreement or Scorecard Here'}
-            </h3>
-            <p className="text-slate-400 text-sm max-w-md mb-4">
-              Supports <strong className="text-slate-200">PDF (.pdf)</strong>, <strong className="text-slate-200">Word (.docx)</strong>, <strong className="text-slate-200">Excel (.xlsx/.csv)</strong>, and <strong className="text-slate-200">JSON</strong> files.
-            </p>
-
-            <div className="flex flex-wrap items-center justify-center gap-2 text-xs">
-              <span className="bg-indigo-950/80 border border-indigo-700/50 text-indigo-300 px-3 py-1 rounded-full font-bold">
-                14-Field Scorecard Detection
-              </span>
-              <span className="bg-emerald-950/80 border border-emerald-700/50 text-emerald-300 px-3 py-1 rounded-full font-bold">
-                Automated KPA Classification
-              </span>
-              <span className="bg-purple-950/80 border border-purple-700/50 text-purple-300 px-3 py-1 rounded-full font-bold">
-                Direct IPMS Grid Sync
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 2. PASTE TAB */}
-      {activeTab === 'paste' && (
-        <div className="bg-slate-800/40 border border-slate-700/60 rounded-2xl p-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-base font-bold text-white">Paste Table from Word, Excel, or SDBIP Scorecard</h3>
-              <p className="text-xs text-slate-400">Directly paste copied table cells (Ctrl+V) or raw tab-separated text below.</p>
-            </div>
-            <button
-              onClick={handleLoadSample}
-              className="text-xs text-indigo-400 hover:text-indigo-300 font-bold underline cursor-pointer"
-            >
-              Insert Sample Text
-            </button>
-          </div>
-
-          <textarea
-            id="paste_textarea_input"
-            value={pasteText}
-            onChange={(e) => setPasteText(e.target.value)}
-            onPaste={handleDirectPaste}
-            placeholder="Paste copied table rows or SDBIP matrix here (e.g. from Word or Excel)..."
-            rows={12}
-            className="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 text-xs font-mono text-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-          />
-
-          <div className="flex items-center justify-end gap-3">
-            <button
-              onClick={() => setPasteText('')}
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition"
-            >
-              Clear
-            </button>
-            <button
-              id="btn_parse_pasted_text"
-              onClick={handleParsePastedText}
-              disabled={isProcessing || !pasteText.trim()}
-              className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition disabled:opacity-50 cursor-pointer shadow-lg shadow-indigo-600/30"
-            >
-              {isProcessing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              <span>Extract &amp; Map Schema</span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 3. RESULTS GRID TAB */}
-      {activeTab === 'results' && extractedItems.length > 0 && (
-        <div className="space-y-4">
-          
-          {/* CONTROL & SUMMARY BAR */}
-          <div className="bg-slate-800/80 border border-slate-700/70 rounded-2xl p-4 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-            
-            {/* Functional KPA Filter Pills */}
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 mr-1">
-                <Filter className="w-3.5 h-3.5" />
-                <span>Functional KPA:</span>
-              </span>
-              <button
-                onClick={() => setKpaFilter('all')}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
-                  kpaFilter === 'all'
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-slate-900 text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                All ({extractedItems.length})
-              </button>
-
-              {uniqueFunctionalKpas.map(fKpa => {
-                const count = kpaCounts[fKpa] || 0;
-                return (
-                  <button
-                    key={fKpa}
-                    onClick={() => setKpaFilter(fKpa)}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                      kpaFilter === fKpa
-                        ? 'bg-slate-700 text-white ring-2 ring-indigo-500'
-                        : 'bg-slate-900 text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    <span className="truncate max-w-[180px]">{fKpa}</span>
-                    <span className="bg-slate-800 text-[10px] px-1.5 py-0.2 rounded-full font-mono">{count}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* WEIGHT STATUS, SAVE & SYNC BUTTONS */}
-            <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto justify-end">
-              <div className={`px-3 py-1.5 rounded-xl border text-xs font-black flex items-center gap-1.5 ${
-                Math.round(totalWeight) === 100
-                  ? 'bg-emerald-950/80 border-emerald-500/50 text-emerald-300'
-                  : 'bg-amber-950/80 border-amber-500/50 text-amber-300'
-              }`}>
-                <span>Total Weight:</span>
-                <span className="font-mono text-sm">{totalWeight.toFixed(1)}%</span>
-                {Math.round(totalWeight) === 100 ? (
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+              <div className="flex items-center gap-2">
+                {/* DUAL LAYER EXTRACT BUTTONS */}
+                {['hlezard@nkangaladm.gov.za', 'dimpems@nkangaladm.gov.za', 'madihlabapk@nkangaladm.gov.za', 'mazwitc@nkangaladm.gov.za', 'bembem@nkangaladm.gov.za', 'masanabol@nkangaladm.gov.za'].includes((currentUser?.email || '').toLowerCase().trim()) ? (
+                  <div className="flex gap-2">
+                    <button
+                      id="btn_sync_to_ipms_module_indiv"
+                      onClick={() => handleSyncToIPMS('individual')}
+                      disabled={isSyncingToIPMS}
+                      className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-black flex items-center gap-2 transition shadow-lg shadow-emerald-600/30 disabled:opacity-50 cursor-pointer"
+                    >
+                      {isSyncingToIPMS ? (
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <ArrowRight className="w-4 h-4" />
+                      )}
+                      <span>Push to Individual Performance Plan</span>
+                    </button>
+                    <button
+                      id="btn_sync_to_ipms_module_team"
+                      onClick={() => handleSyncToIPMS('team')}
+                      disabled={isSyncingToIPMS}
+                      className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl text-xs font-black flex items-center gap-2 transition shadow-lg shadow-indigo-600/30 disabled:opacity-50 cursor-pointer"
+                    >
+                      {isSyncingToIPMS ? (
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <ArrowRight className="w-4 h-4" />
+                      )}
+                      <span>Push to Team Performance Plan</span>
+                    </button>
+                  </div>
                 ) : (
-                  <span className="text-[10px] opacity-75">(Target: 100%)</span>
+                  <button
+                    id="btn_sync_to_ipms_module"
+                    onClick={() => handleSyncToIPMS('individual')}
+                    disabled={isSyncingToIPMS}
+                    className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-black flex items-center gap-2 transition shadow-lg shadow-emerald-600/30 disabled:opacity-50 cursor-pointer"
+                  >
+                    {isSyncingToIPMS ? (
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <ArrowRight className="w-4 h-4" />
+                    )}
+                    <span>Push to IPMS Performance Plan</span>
+                  </button>
                 )}
               </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  id="btn_save_extraction_edits"
-                  onClick={handleSaveDataset}
-                  disabled={isSavingDataset}
-                  className={`px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition cursor-pointer shadow-lg ${
-                    hasUnsavedChanges 
-                      ? 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white shadow-amber-600/30 animate-pulse'
-                      : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/30'
-                  }`}
-                  title="Save edited KPI data directly to database"
-                >
-                  {isSavingDataset ? (
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Save className="w-4 h-4" />
-                  )}
-                  <span>{hasUnsavedChanges ? 'Save Changes *' : 'Save Changes'}</span>
-                </button>
-
-                <input
-                  type="email"
-                  value={targetEmployeeEmail}
-                  onChange={(e) => setTargetEmployeeEmail(e.target.value)}
-                  placeholder="Target user email..."
-                  className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-200 w-44 focus:outline-none focus:border-indigo-500"
-                  title="Target employee email for Performance Plan sync"
-                />
-
-                <button
-                  id="btn_sync_to_ipms_module"
-                  onClick={handleSyncToIPMS}
-                  disabled={isSyncingToIPMS}
-                  className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-black flex items-center gap-2 transition shadow-lg shadow-emerald-600/30 disabled:opacity-50 cursor-pointer"
-                >
-                  {isSyncingToIPMS ? (
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <ArrowRight className="w-4 h-4" />
-                  )}
-                  <span>Push to IPMS Performance Plan</span>
-                </button>
-              </div>
+            )}
             </div>
           </div>
 
@@ -1299,7 +968,6 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
             </div>
           </div>
         </div>
-      )}
 
       {/* 4. JSON SCHEMA VIEW TAB */}
       {activeTab === 'json' && extractedItems.length > 0 && (

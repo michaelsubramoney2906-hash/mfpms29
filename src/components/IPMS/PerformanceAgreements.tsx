@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { User } from '../../types';
 import { 
   FileText, Shield, Info, BookOpen, Compass, Layers,
-  Plus, Trash2, Save, Download, Lock, CheckSquare, 
+  Plus, Trash2, Save, Send, Download, Lock, CheckSquare, 
   HelpCircle, Archive, ClipboardList, Briefcase, FileDown,
   Check, Edit2, Sparkles, CheckCircle2, ShieldCheck, XSquare, Eye, EyeOff,
   Maximize2, Minimize2, Paperclip, Upload, RefreshCw
@@ -770,7 +770,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
       const res = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(targetEmail)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ metadata: metaToSave, items: customItems })
+        body: JSON.stringify({ metadata: metaToSave, Send, items: customItems })
       });
       if (!res.ok) throw new Error("Failed to post payload to database");
       setHasSavedOnce(true);
@@ -1885,7 +1885,62 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
   };
 
   // Rendering Standard Header of Module
+
+  const handleSendForReview = async () => {
+    if (!currentUser?.email) return;
+    
+    // We send a notification to Manager & Internal Audit
+    try {
+      setIsLoading(true);
+      const isTeam = agreementScope === 'team';
+      const pTitle = isTeam ? 'Team Performance Agreement Draft Review' : 'Individual Performance Agreement Draft Review';
+      const targetEmailStr = isTeam ? currentUser.email + '_team' : currentUser.email;
+
+      await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          notification: {
+            senderEmail: targetEmailStr,
+            senderName: currentUser.fullName || currentUser.email,
+            recipientEmail: 'manager@nkangaladm.gov.za',
+            recipientName: 'Manager',
+            title: pTitle,
+            message: `${currentUser.fullName || currentUser.email} has submitted their ${isTeam ? 'Team' : 'Individual'} Performance Agreement for review.`,
+            actionType: 'revision_requested',
+            employeeEmail: targetEmailStr
+          }
+        })
+      });
+
+      await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          notification: {
+            senderEmail: targetEmailStr,
+            senderName: currentUser.fullName || currentUser.email,
+            recipientEmail: 'audit@nkangaladm.gov.za',
+            recipientName: 'Internal Audit',
+            title: pTitle,
+            message: `${currentUser.fullName || currentUser.email} has submitted their ${isTeam ? 'Team' : 'Individual'} Performance Agreement for review.`,
+            actionType: 'audit_request',
+            employeeEmail: targetEmailStr
+          }
+        })
+      });
+
+      alert(`Successfully sent ${isTeam ? 'Team' : 'Individual'} Performance Agreement to Manager and Internal Audit for review.`);
+    } catch (e) {
+      console.error(e);
+      alert('Failed to send for review.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const renderHeader = () => (
+
     <div id="pa-nav-ribbon" className="bg-slate-900 border-b border-slate-950 px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4 shrink-0">
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl bg-green-600 text-white flex items-center justify-center border border-green-500 shadow-md">
