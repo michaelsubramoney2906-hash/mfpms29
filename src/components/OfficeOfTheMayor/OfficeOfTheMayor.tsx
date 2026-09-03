@@ -23,7 +23,7 @@ export function OfficeOfTheMayor({ currentUser, activeTenantId }: OfficeOfTheMay
     const saved = localStorage.getItem('mz_mayor_profile');
     if (saved) {
       try {
-        const data = JSON.parse(saved);
+        let data: any = {}; try { data = JSON.parse(saved); } catch(e) { return; }
         if (data.photo) setPhoto(data.photo);
         if (data.firstName) setFirstName(data.firstName);
         if (data.lastName) setLastName(data.lastName);

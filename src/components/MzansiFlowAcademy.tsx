@@ -44,7 +44,10 @@ export function MzansiFlowAcademy({ currentUser, activeTenantId }: MFAcademyProp
   // Saved history for badges - PER USER
   const [history, setHistory] = useState<Record<string, number>>(() => {
     const saved = localStorage.getItem(`academy_history_${currentUser.email}`);
-    return saved ? JSON.parse(saved) : {};
+    if (saved && saved !== 'undefined') {
+      try { return JSON.parse(saved); } catch(e) {}
+    }
+    return {};
   });
 
   const getCourseStatus = (cId: CourseId) => {

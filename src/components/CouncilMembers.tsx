@@ -41,7 +41,10 @@ const initialPlaceholderMembers: CouncilMember[] = Array.from({ length: 75 }, (_
 export function CouncilMembers({ currentUser, activeTenantId }: CouncilMembersProps) {
   const [members, setMembers] = useState<CouncilMember[]>(() => {
     const saved = localStorage.getItem(`council_members_${activeTenantId}`);
-    return saved ? JSON.parse(saved) : initialPlaceholderMembers;
+    if (saved && saved !== 'undefined') {
+      try { return JSON.parse(saved); } catch(e) {}
+    }
+    return initialPlaceholderMembers;
   });
 
   const [searchQuery, setSearchQuery] = useState('');

@@ -55,7 +55,10 @@ const defaultInitialResolutions: ResolutionItem[] = [
 export function CouncilResolutions({ currentUser, activeTenantId }: CouncilResolutionsProps) {
   const [resolutions, setResolutions] = useState<ResolutionItem[]>(() => {
     const saved = localStorage.getItem(`council_resolutions_${activeTenantId}`);
-    return saved ? JSON.parse(saved) : defaultInitialResolutions;
+    if (saved && saved !== 'undefined') {
+      try { return JSON.parse(saved); } catch(e) {}
+    }
+    return defaultInitialResolutions;
   });
 
   const [showForm, setShowForm] = useState(false);

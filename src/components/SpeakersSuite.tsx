@@ -22,7 +22,7 @@ export function SpeakersSuite({ currentUser, activeTenantId }: SpeakersSuiteProp
     const saved = localStorage.getItem('mz_speaker_profile');
     if (saved) {
       try {
-        const data = JSON.parse(saved);
+        let data: any = {}; try { data = JSON.parse(saved); } catch(e) { return; }
         if (data.photo) setPhoto(data.photo);
         if (data.firstName) setFirstName(data.firstName);
         if (data.lastName) setLastName(data.lastName);

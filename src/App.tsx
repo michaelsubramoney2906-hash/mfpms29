@@ -16,8 +16,13 @@ export default function App() {
 
   useEffect(() => {
     const userStr = localStorage.getItem('currentUser');
-    if (userStr && !user) {
-      setUser(JSON.parse(userStr));
+    if (userStr && !user && userStr !== 'undefined' && userStr !== '[object Object]') {
+      try {
+        setUser(JSON.parse(userStr));
+      } catch (e) {
+        console.error("Failed to parse currentUser from localStorage", e);
+        localStorage.removeItem('currentUser');
+      }
     }
   }, []);
 
@@ -217,10 +222,14 @@ export default function App() {
     } else {
       // Restore original admin
       const originalAdminStr = sessionStorage.getItem('originalAdminUser');
-      if (originalAdminStr) {
-        const originalAdmin = JSON.parse(originalAdminStr);
-        sessionStorage.removeItem('originalAdminUser');
-        handleSetUser(originalAdmin);
+      if (originalAdminStr && originalAdminStr !== 'undefined') {
+        try {
+          const originalAdmin = JSON.parse(originalAdminStr);
+          sessionStorage.removeItem('originalAdminUser');
+          handleSetUser(originalAdmin);
+        } catch (e) {
+          sessionStorage.removeItem('originalAdminUser');
+        }
       }
     }
   };

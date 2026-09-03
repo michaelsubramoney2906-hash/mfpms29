@@ -1,1 +1,1 @@
-console.log("Waiting");
+console.log("Wait");
