@@ -7,6 +7,7 @@ import { SDBIPDraftingSuite } from './SDBIPDraftingSuite';
 import { WordProcessor } from './WordProcessor';
 import { DraftingSuiteTab } from '../APR/APR';
 import { AzureADPicker } from './AzureADPicker';
+import { SDBIPPagination } from './SDBIPPagination';
 
 interface SDBIPProps {
   currentUser: User;
@@ -241,7 +242,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
   const [workflowPhase, setWorkflowPhase] = useState<'q1' | 'q2' | 'midTerm' | 'q3' | 'q4' | 'annual'>('q1');
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifications, setShowNotifications] = useState(true);
-  const [isWorkflowDeskOpen, setIsWorkflowDeskOpen] = useState(true);
+  const [isWorkflowDeskOpen, setIsWorkflowDeskOpen] = useState(false);
   const [selectedWorkflowRow, setSelectedWorkflowRow] = useState<SdbipRow | null>(null);
   const [workflowComments, setWorkflowComments] = useState('');
   const [workflowCommentsMap, setWorkflowCommentsMap] = useState<{[key: string]: string}>({});
@@ -249,6 +250,21 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
   const [submissionFilter, setSubmissionFilter] = useState<'submitted' | 'all'>('submitted');
   const [showAllKpisInDesk, setShowAllKpisInDesk] = useState(true);
   const [isTableExpanded, setIsTableExpanded] = useState(false);
+
+  // Performance pagination states
+  const [tablePage, setTablePage] = useState(1);
+  const [tablePageSize, setTablePageSize] = useState<number | 'all'>(50);
+
+  const [reportingPage, setReportingPage] = useState(1);
+  const [reportingPageSize, setReportingPageSize] = useState<number | 'all'>(50);
+
+  const [deskPage, setDeskPage] = useState(1);
+  const [deskPageSize, setDeskPageSize] = useState<number | 'all'>(25);
+
+  // Auto-saving & debouncing indicators
+  const [isSavingRows, setIsSavingRows] = useState(false);
+  const saveDebounceTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const lastUserEditTimeRef = React.useRef<number>(0);
 
   const currentUserDisplayName = currentUser.fullName || currentUser.email.split('@')[0];
 
@@ -362,6 +378,28 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
       return true;
     });
   }, [rows, searchRef, searchAdName, selectedKpa, selectedNationalKpa]);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setTablePage(1);
+  }, [searchRef, searchAdName, selectedKpa, selectedNationalKpa]);
+
+  useEffect(() => {
+    setReportingPage(1);
+  }, [searchRef, searchAdName, selectedKpa, selectedNationalKpa]);
+
+  // Paginated slices for 60fps instant UI
+  const paginatedTableRows = React.useMemo(() => {
+    if (tablePageSize === 'all') return filteredRows;
+    const start = (tablePage - 1) * tablePageSize;
+    return filteredRows.slice(start, start + tablePageSize);
+  }, [filteredRows, tablePage, tablePageSize]);
+
+  const paginatedReportingRows = React.useMemo(() => {
+    if (reportingPageSize === 'all') return filteredRows;
+    const start = (reportingPage - 1) * reportingPageSize;
+    return filteredRows.slice(start, start + reportingPageSize);
+  }, [filteredRows, reportingPage, reportingPageSize]);
 
   const renderSmartFilterPanel = () => {
     return (
@@ -570,7 +608,11 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
         
         // If no rows are loaded, generate 25 default blank template rows
         if (rowsData && Array.isArray(rowsData.items) && rowsData.items.length > 0) {
-          setRows(rowsData.items);
+          if (isBackground && Date.now() - lastUserEditTimeRef.current < 15000) {
+            // Keep local active edits without clobbering
+          } else {
+            setRows(rowsData.items);
+          }
         } else if (!isBackground) {
           const templates: SdbipRow[] = Array.from({ length: 25 }, (_, idx) => ({
             id: `row-template-${idx + 1}`,
@@ -640,7 +682,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     fetchSDBIPAll(false);
     const interval = setInterval(() => {
       fetchSDBIPAll(true);
-    }, 4000);
+    }, 25000);
 
     const handleFocus = () => {
       fetchSDBIPAll(true);
@@ -814,6 +856,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
 
   const saveRows = async (updatedRows: SdbipRow[]) => {
     try {
+      setIsSavingRows(true);
       await fetch(`/api/tenant/${activeTenantId}/sdbip`, {
         method: 'POST',
         headers: {
@@ -823,7 +866,20 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
       });
     } catch (err) {
       console.error("Failed to save SDBIP rows:", err);
+    } finally {
+      setIsSavingRows(false);
     }
+  };
+
+  const debouncedSaveRows = (updatedRows: SdbipRow[]) => {
+    lastUserEditTimeRef.current = Date.now();
+    setIsSavingRows(true);
+    if (saveDebounceTimeoutRef.current) {
+      clearTimeout(saveDebounceTimeoutRef.current);
+    }
+    saveDebounceTimeoutRef.current = setTimeout(() => {
+      saveRows(updatedRows);
+    }, 600);
   };
 
   const savePoes = async (updatedPoes: SdbipPoeFile[]) => {
@@ -1221,7 +1277,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
       return r;
     });
     setRows(updated);
-    saveRows(updated);
+    debouncedSaveRows(updated);
   };
 
   const triggerUploadModal = (rowId: string, refNum: string, quarter: 'q1' | 'q2' | 'midTerm' | 'q3' | 'q4' | 'general' = 'general') => {
@@ -2222,9 +2278,16 @@ Timestamp: ${new Date().toLocaleString()}
                 };
 
                 const renderSdbipTableReplica = (rowsToRender: SdbipRow[]) => {
+                  const isAll = deskPageSize === 'all';
+                  const numericSize = isAll ? rowsToRender.length : deskPageSize;
+                  const totalPages = isAll || rowsToRender.length === 0 ? 1 : Math.ceil(rowsToRender.length / numericSize);
+                  const safeDeskPage = Math.min(Math.max(1, deskPage), totalPages || 1);
+                  const paginatedRows = isAll ? rowsToRender : rowsToRender.slice((safeDeskPage - 1) * numericSize, safeDeskPage * numericSize);
+
                   return (
-                    <div className="overflow-auto border border-slate-200 rounded-xl relative bg-white h-[380px] shadow-sm select-none">
-                      <table className="w-full text-left border-collapse table-fixed min-w-[2800px]">
+                    <div className="space-y-2">
+                      <div className="overflow-auto border border-slate-200 rounded-xl relative bg-white h-[380px] shadow-sm select-none">
+                        <table className="w-full text-left border-collapse table-fixed min-w-[2800px]">
                         <thead className="sticky top-0 bg-slate-100 z-20 border-b border-slate-200 text-[10px] font-black tracking-wider uppercase text-slate-700 font-mono">
                           <tr>
                             <th className="p-3 border-r border-slate-200 w-24 sticky left-0 z-30 bg-slate-100">REF NUMBER</th>
@@ -2258,7 +2321,7 @@ Timestamp: ${new Date().toLocaleString()}
                           </tr>
                         </thead>
                         <tbody className="text-xs font-medium text-slate-800 divide-y divide-slate-100">
-                          {rowsToRender.map((row) => {
+                          {paginatedRows.map((row) => {
                             const isSelected = selectedWorkflowRow?.id === row.id;
                             const pData = getPhaseData(row, workflowPhase);
                             const wf = row.workflows?.[workflowPhase] || { status: 'draft' };
@@ -2461,6 +2524,16 @@ Timestamp: ${new Date().toLocaleString()}
                           })}
                         </tbody>
                       </table>
+                      </div>
+                      <SDBIPPagination
+                        currentPage={safeDeskPage}
+                        pageSize={deskPageSize}
+                        totalItems={rowsToRender.length}
+                        onPageChange={setDeskPage}
+                        onPageSizeChange={setDeskPageSize}
+                        pageSizeOptions={[15, 25, 50, 100, 'all']}
+                        itemName="desk KPIs"
+                      />
                     </div>
                   );
                 };
@@ -3361,6 +3434,18 @@ Timestamp: ${new Date().toLocaleString()}
             {/* Smart Filter Panel */}
             {renderSmartFilterPanel()}
 
+            {/* Pagination Controls Header */}
+            <SDBIPPagination
+              currentPage={tablePage}
+              pageSize={tablePageSize}
+              totalItems={filteredRows.length}
+              onPageChange={setTablePage}
+              onPageSizeChange={setTablePageSize}
+              pageSizeOptions={[25, 50, 100, 200, 'all']}
+              itemName="SDBIP top layer items"
+              isSaving={isSavingRows}
+            />
+
             {/* Large Wide Spreadsheet Table Container */}
             <div className="overflow-auto border border-slate-200 rounded-xl relative bg-white h-[580px] max-h-[68vh]">
               
@@ -3400,7 +3485,7 @@ Timestamp: ${new Date().toLocaleString()}
 
                 {/* Body Rows */}
                 <tbody className="text-xs font-medium text-slate-800 divide-y divide-slate-100">
-                  {filteredRows.map((row) => (
+                  {paginatedTableRows.map((row) => (
                     <tr key={row.id} className="group hover:bg-slate-50/70 transition-colors">
                       
                       {/* Ref Num */}
@@ -3642,7 +3727,7 @@ Timestamp: ${new Date().toLocaleString()}
 
                       {/* POE Upload with redirect indicators as instructed */}
                       <td className="p-2 border-r border-indigo-200 text-center bg-indigo-50/40 min-w-[140px]">
-                        {row.poeStatus.includes('Uploaded') || row.poeStatus === 'Attached' || row.poeDesc || (row.q1Poes && row.q1Poes.length > 0) ? (
+                        {(row.poeStatus?.includes('Uploaded')) || row.poeStatus === 'Attached' || row.poeDesc || (row.q1Poes && row.q1Poes.length > 0) ? (
                           <div className="flex flex-col items-center gap-1.5 select-none">
                             <span className="text-[10px] bg-emerald-100 text-emerald-800 font-black px-2 py-0.5 rounded-md border border-emerald-200 max-w-[150px] truncate">
                               Uploaded - Cloud Vault
@@ -3728,6 +3813,18 @@ Timestamp: ${new Date().toLocaleString()}
               </table>
 
             </div>
+
+            {/* Pagination Controls Footer */}
+            <SDBIPPagination
+              currentPage={tablePage}
+              pageSize={tablePageSize}
+              totalItems={filteredRows.length}
+              onPageChange={setTablePage}
+              onPageSizeChange={setTablePageSize}
+              pageSizeOptions={[25, 50, 100, 200, 'all']}
+              itemName="SDBIP top layer items"
+              isSaving={isSavingRows}
+            />
 
             {/* Quick Add Form Row helper at the bottom of spreadsheet */}
             <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl select-none">
@@ -3886,6 +3983,20 @@ Timestamp: ${new Date().toLocaleString()}
                 renderSmartFilterPanel()
               )}
 
+              {/* Reporting Pagination Controls Header */}
+              <div className="mb-2 shrink-0">
+                <SDBIPPagination
+                  currentPage={reportingPage}
+                  pageSize={reportingPageSize}
+                  totalItems={filteredRows.length}
+                  onPageChange={setReportingPage}
+                  onPageSizeChange={setReportingPageSize}
+                  pageSizeOptions={[25, 50, 100, 200, 'all']}
+                  itemName="reporting items"
+                  isSaving={isSavingRows}
+                />
+              </div>
+
               <div className={`overflow-auto border border-slate-200 rounded-xl relative bg-white transition-all duration-300 ${isTableExpanded ? 'flex-1 shadow-2xl border-indigo-100 min-h-0' : 'h-[580px] max-h-[68vh]'}`}>
               <table className="w-full text-left border-collapse table-fixed min-w-[8828px]">
                 <thead className="sticky top-0 bg-slate-100 z-20 border-b-2 border-slate-200 text-[10px] font-black tracking-wider uppercase text-slate-700 font-mono">
@@ -3962,7 +4073,7 @@ Timestamp: ${new Date().toLocaleString()}
                 </thead>
 
                 <tbody className="text-xs font-medium text-slate-800 divide-y divide-slate-100">
-                  {filteredRows.map((row) => (
+                  {paginatedReportingRows.map((row) => (
                     <tr key={row.id} className="group hover:bg-slate-50/70 transition-colors">
                       <td className="p-2 border-r border-slate-150 sticky left-0 z-10 bg-white group-hover:bg-slate-50/95 transition-colors font-mono text-[11px]">{row.refNum}</td>
                       <td className="p-2 border-r border-slate-150 text-[11px] leading-tight text-slate-500 overflow-hidden text-ellipsis whitespace-normal">{row.strategicObj}</td>
@@ -4837,6 +4948,20 @@ Timestamp: ${new Date().toLocaleString()}
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            {/* Reporting Pagination Controls Footer */}
+            <div className="mt-2 shrink-0">
+              <SDBIPPagination
+                currentPage={reportingPage}
+                pageSize={reportingPageSize}
+                totalItems={filteredRows.length}
+                onPageChange={setReportingPage}
+                onPageSizeChange={setReportingPageSize}
+                pageSizeOptions={[25, 50, 100, 200, 'all']}
+                itemName="reporting items"
+                isSaving={isSavingRows}
+              />
             </div>
           </div>
 

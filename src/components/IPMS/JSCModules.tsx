@@ -150,7 +150,10 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId }: JSCMod
       }
     };
     if (userEmail) fetchCompetencies();
-      const currentMonth = new Date().getMonth(); // 0-11
+    return () => { active = false; };
+  }, [activeTenantId, userEmail]);
+
+  const currentMonth = new Date().getMonth(); // 0-11
   let isTimeLocked = false;
   let activePeriodStr = "";
   if (selectedQuarter === 'q1') {
@@ -166,9 +169,6 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId }: JSCMod
     isTimeLocked = !(currentMonth >= 3 && currentMonth <= 5);
     activePeriodStr = "April - June";
   }
-
-  return () => { active = false; };
-  }, [activeTenantId, userEmail]);
 
   const handleSaveToDatabase = async (updatedRows: CompetencyRow[]) => {
     try {
