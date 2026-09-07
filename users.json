@@ -1,22 +1,5 @@
 [
   {
-    "id": "admin-delphine-mzansiflow",
-    "fullName": "Delphine",
-    "email": "delphine@mzansiflow.co.za",
-    "jobFunction": "Global Administrator",
-    "department": "Administration",
-    "source": "manual",
-    "role": "Global Administrator",
-    "systemRole": "Global Administrator",
-    "tenantId": "global",
-    "manager": "Mike",
-    "directorate": "Mzansi Flow Operations",
-    "reportTo": "Mike",
-    "level": "L1 Executive",
-    "signatureType": "draw",
-    "managerEmail": "mike@massivedynamixdistributors.com"
-  },
-  {
     "id": "bdfeee3f-6281-4a6d-b810-25711f39e441",
     "fullName": "Moosa Bhamjee",
     "email": "bhamjeem@nkangaladm.gov.za",
@@ -1017,12 +1000,12 @@
     "source": "manual",
     "role": "Systems Administrator",
     "tenantId": "tenant-229",
-    "manager": "Delphine",
+    "manager": "Audrey",
     "directorate": "",
     "reportTo": "",
     "level": "1",
     "signatureType": "draw",
-    "managerEmail": "delphine@mzansiflow.co.za"
+    "managerEmail": "audrey@mzansiflow.co.za"
   },
   {
     "id": "sdbip-auditor-fatima-patel",
@@ -1274,12 +1257,12 @@
     "source": "manual",
     "role": "Standard User",
     "tenantId": "tenant-229",
-    "manager": "Delphine",
+    "manager": "Audrey",
     "directorate": "",
     "reportTo": "",
     "level": "1",
     "signatureType": "draw",
-    "managerEmail": "delphine@mzansiflow.co.za"
+    "managerEmail": "audrey@mzansiflow.co.za"
   },
   {
     "id": "61412166-ca86-43af-8b2b-70bf823f942a",

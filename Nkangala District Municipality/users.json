@@ -154,20 +154,6 @@
     "level": "1"
   },
   {
-    "id": "0df28c52-7ad2-4fdd-9bd4-c5b8e194c68f",
-    "fullName": "Sibusiso M. Shabangu",
-    "email": "ShabanguSM@nkangaladm.gov.za",
-    "jobFunction": "Divisional Manager: IPMS & OPMS",
-    "department": "PMS",
-    "source": "azure_ad",
-    "role": "Approver",
-    "tenantId": "nkangala_auto",
-    "manager": "ML Mahlangu",
-    "directorate": "Office of the Municipal Manager",
-    "reportTo": "Mandla L. Mahlangu",
-    "level": "3"
-  },
-  {
     "id": "jn9zlagqg3",
     "fullName": "Ruanna Reddy-Serame",
     "email": "ruannars@mzansiflow.co.za",
@@ -194,6 +180,20 @@
     "directorate": "MzansiFlow Corporate",
     "reportTo": "Mike",
     "level": "1"
+  },
+  {
+    "id": "0df28c52-7ad2-4fdd-9bd4-c5b8e194c68f",
+    "fullName": "Sibusiso M. Shabangu",
+    "email": "ShabanguSM@nkangaladm.gov.za",
+    "jobFunction": "Divisional Manager: IPMS & OPMS",
+    "department": "PMS",
+    "source": "azure_ad",
+    "role": "tenant_user",
+    "tenantId": "nkangala_auto",
+    "manager": "ML Mahlangu",
+    "directorate": "Office of the Municipal Manager",
+    "reportTo": "Mandla L. Mahlangu",
+    "level": "3"
   },
   {
     "id": "d2a18c17-0ade-487b-8237-4fc63049754b",
@@ -525,20 +525,6 @@
     "department": "Corporate Services",
     "source": "azure_ad",
     "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "",
-    "directorate": "",
-    "reportTo": "",
-    "level": "1"
-  },
-  {
-    "id": "user-delphine-mzansiflow-auto",
-    "fullName": "Delphine",
-    "email": "delphine@mzansiflow.co.za",
-    "jobFunction": "Department Manager",
-    "department": "Strategic Planning",
-    "source": "manual",
-    "role": "Global Administrator",
     "tenantId": "nkangala_auto",
     "manager": "",
     "directorate": "",
@@ -896,20 +882,6 @@
     "level": "1"
   },
   {
-    "id": "user-delphine-mzansiflow-t229",
-    "fullName": "Delphine",
-    "email": "delphine@mzansiflow.co.za",
-    "jobFunction": "Department Manager",
-    "department": "Strategic Planning",
-    "source": "manual",
-    "role": "Standard User",
-    "tenantId": "tenant-229",
-    "manager": "",
-    "directorate": "",
-    "reportTo": "",
-    "level": "1"
-  },
-  {
     "id": "user-marlan-mzansiflow-t229",
     "fullName": "Marlan",
     "email": "marlan@mzansiflow.co.za",
@@ -1095,7 +1067,7 @@
     "id": "user-bonganim-mzansiflow",
     "fullName": "Bongani M.",
     "email": "bonganim@mzansiflow.co.za",
-    "jobFunction": "Systems Specialist",
+    "jobFunction": "Global Administrator",
     "department": "Mzansi Flow Operations",
     "source": "manual",
     "role": "Global Administrator",
@@ -1103,8 +1075,7 @@
     "manager": "Mike",
     "directorate": "Mzansi Flow Operations",
     "reportTo": "Mike",
-    "level": "L3 Specialist",
-    "systemRole": "Global Administrator"
+    "level": "L3 Specialist"
   },
   {
     "id": "f10b1ed6-2d47-40f7-833f-6770a090ed44",
@@ -2241,20 +2212,6 @@
     "level": "1"
   },
   {
-    "id": "169d4306-8f98-4635-a290-b255f00a19e5",
-    "fullName": "Nompumelelo P. Nsibande",
-    "email": "NsibandeNP@nkangaladm.gov.za",
-    "jobFunction": "PMS Officer",
-    "department": "Performance Management Unit",
-    "source": "azure_ad",
-    "role": "tenant_user",
-    "tenantId": "nkangala_auto",
-    "manager": "Yena Khuboni",
-    "directorate": "Office of the Municipal Manager",
-    "reportTo": "Yena Khuboni",
-    "level": "4"
-  },
-  {
     "id": "b4f47e9e-4246-4eac-aca7-9eb98d5386b4",
     "fullName": "Naume Nkosi",
     "email": "nkosinm@nkangaladm.gov.za",
@@ -2379,6 +2336,20 @@
     "directorate": "Finance",
     "reportTo": "",
     "level": "1"
+  },
+  {
+    "id": "169d4306-8f98-4635-a290-b255f00a19e5",
+    "fullName": "Nompumelelo P. Nsibande",
+    "email": "NsibandeNP@nkangaladm.gov.za",
+    "jobFunction": "PMS Officer",
+    "department": "Performance Management Unit",
+    "source": "azure_ad",
+    "role": "tenant_user",
+    "tenantId": "tenant-229",
+    "manager": "Yena Khuboni",
+    "directorate": "Office of the Municipal Manager",
+    "reportTo": "Yena Khuboni",
+    "level": "4"
   },
   {
     "id": "a49aae9b-a9e8-426f-b4b7-a112860f91d1",
@@ -3739,20 +3710,6 @@
     "level": "1"
   },
   {
-    "id": "seed_ro88facu888",
-    "fullName": "Bonagni",
-    "email": "bonagni@mzansiflow.co.za",
-    "jobFunction": null,
-    "department": null,
-    "source": "manual",
-    "role": "Systems Administrator",
-    "tenantId": "global",
-    "manager": "",
-    "directorate": "",
-    "reportTo": "",
-    "level": "1"
-  },
-  {
     "id": "c40c0594-2dd8-433b-af76-fc6ab82fbab5",
     "fullName": "Vodacom Smart_Gov",
     "email": "",
@@ -4407,6 +4364,20 @@
     "tenantId": "nkangala_auto",
     "manager": "TS Mazwi",
     "directorate": "Corporate",
+    "reportTo": "",
+    "level": "1"
+  },
+  {
+    "id": "seed_ro88facu888",
+    "fullName": "Bonagni",
+    "email": "bonagni@mzansiflow.co.za",
+    "jobFunction": null,
+    "department": null,
+    "source": "manual",
+    "role": "Global Administrator",
+    "tenantId": "global",
+    "manager": "",
+    "directorate": "",
     "reportTo": "",
     "level": "1"
   },

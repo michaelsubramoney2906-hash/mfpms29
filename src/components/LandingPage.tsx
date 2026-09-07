@@ -26,7 +26,6 @@ export function LandingPage({ onLogin }: LandingPageProps) {
     'mike@mzansiflow.co.za',
     'mike@massivedynamixdistributors.com',
     'audrey@mzansiflow.co.za',
-    'delphine@mzansiflow.co.za',
     'bonganim@mzansiflow.co.za',
     'qiniso@mzansiflow.co.za',
     'marlan@mzansiflow.co.za'
@@ -39,7 +38,6 @@ export function LandingPage({ onLogin }: LandingPageProps) {
     'audrey@mzansiflow.co.za',
     'marlan@mzansiflow.co.za',
     'qiniso@mzansiflow.co.za',
-    'delphine@mzansiflow.co.za',
     'bonganim@mzansiflow.co.za'
   ];
   const isPasswordRequired = PASSWORD_REQUIRED_EMAILS.includes(email.trim().toLowerCase());
@@ -116,7 +114,7 @@ export function LandingPage({ onLogin }: LandingPageProps) {
       email: lowerEmail,
       role: userRole as any,
       tenantId: isGlobalAdmin ? undefined : (internalProfile?.tenantId || internalProfile?.tenant_id || selectedTenant),
-      fullName: internalProfile?.fullName || internalProfile?.full_name || (lowerEmail.includes('delphine') ? 'Delphine' : lowerEmail.includes('bongani') ? 'Bongani M.' : lowerEmail.split('@')[0]),
+      fullName: internalProfile?.fullName || internalProfile?.full_name || (lowerEmail.includes('bongani') ? 'Bongani M.' : lowerEmail.split('@')[0]),
       jobFunction: isGlobalAdmin ? 'Global Administrator' : (internalProfile?.jobFunction || internalProfile?.job_function || 'Department Manager'),
       department: internalProfile?.department || (isGlobalAdmin ? 'Administration' : undefined),
       manager: internalProfile?.manager,

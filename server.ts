@@ -1937,7 +1937,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
         }
 
         // Determine correct role - Nkangala users are restricted sandbox, never global systems admins
-        const defaultRole = (normalizedEmail === 'audrey@mzansiflow.co.za' || normalizedEmail === 'mike@mzansiflow.co.za' || normalizedEmail === 'delphine@mzansiflow.co.za' || normalizedEmail === 'bonganim@mzansiflow.co.za' || normalizedEmail.includes('massivedynamixdistributors.com'))
+        const defaultRole = (normalizedEmail === 'audrey@mzansiflow.co.za' || normalizedEmail === 'mike@mzansiflow.co.za' || normalizedEmail === 'bonganim@mzansiflow.co.za' || normalizedEmail.includes('massivedynamixdistributors.com'))
           ? 'Global Administrator'
           : (isSystemAdmin && !isNkangalaUser)
             ? 'Systems Administrator'
@@ -3197,18 +3197,18 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       if (emailLower.includes('shabangusm')) {
         userRole = 'Approver';
       }
-      if (emailLower.includes('delphine') || emailLower.includes('bonganim')) {
+      if (emailLower.includes('bonganim')) {
         userRole = 'Global Administrator';
       }
       return {
         id: u.id,
         fullName: u.full_name,
         email: u.email,
-        jobFunction: (emailLower.includes('delphine') || emailLower.includes('bonganim')) ? 'Global Administrator' : u.job_function,
+        jobFunction: (emailLower.includes('bonganim')) ? 'Global Administrator' : u.job_function,
         department: u.department,
         source: u.source,
         role: userRole,
-        tenantId: (emailLower.includes('delphine') || emailLower.includes('bonganim')) ? 'global' : tId,
+        tenantId: (emailLower.includes('bonganim')) ? 'global' : tId,
         manager: extraMap[u.id]?.manager || '',
         directorate: extraMap[u.id]?.directorate || '',
         reportTo: extraMap[u.id]?.reportTo || '',
@@ -3257,7 +3257,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
     }
 
     // In case we don't have the global admins seeded in Supabase yet, let's inject them for now
-    const adminEmails = ['mike@mzansiflow.co.za', 'audrey@mzansiflow.co.za', 'delphine@mzansiflow.co.za', 'bonganim@mzansiflow.co.za', 'qiniso@mzansiflow.co.za', 'marlan@mzansiflow.co.za'];
+    const adminEmails = ['mike@mzansiflow.co.za', 'audrey@mzansiflow.co.za', 'bonganim@mzansiflow.co.za', 'qiniso@mzansiflow.co.za', 'marlan@mzansiflow.co.za'];
     const missingAdmins = adminEmails.filter(e => !formatted.some(f => f.email === e));
     if (missingAdmins.length > 0) {
       missingAdmins.forEach(email => {
@@ -3520,12 +3520,14 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       }
     });
 
+    const sanitizedFormatted = formatted.filter((u: any) => (u.email || '').toLowerCase().trim() !== 'delphine@mzansiflow.co.za');
+
     usersCacheMap[cacheKey] = {
-      data: formatted,
+      data: sanitizedFormatted,
       timestamp: Date.now()
     };
 
-    return formatted;
+    return sanitizedFormatted;
   }
 
   // 5. Get users
@@ -8181,11 +8183,17 @@ User Request: ${prompt}`;
           return;
         }
 
+        // Remove delphine from database users if present
+        try {
+          await supabase.from('users').delete().ilike('email', 'delphine@mzansiflow.co.za');
+        } catch (delErr) {
+          console.error('Error removing delphine from users table:', delErr);
+        }
+
         const seedUsers = [
           { email: 'mike@mzansiflow.co.za', fullName: 'Mike', role: 'Global Administrator' },
           { email: 'mike@massivedynamixdistributors.com', fullName: 'Mike', role: 'Global Administrator' },
           { email: 'audrey@mzansiflow.co.za', fullName: 'Audrey', role: 'Global Administrator' },
-          { email: 'delphine@mzansiflow.co.za', fullName: 'Delphine', role: 'Global Administrator' },
           { email: 'bonganim@mzansiflow.co.za', fullName: 'Bongani M.', role: 'Global Administrator' },
           { email: 'bonagni@mzansiflow.co.za', fullName: 'Bonagni', role: 'Global Administrator' },
           { email: 'qiniso@mzansiflow.co.za', fullName: 'Qiniso', role: 'Systems Administrator' },
