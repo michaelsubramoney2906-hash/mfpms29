@@ -8,6 +8,7 @@ import { WordProcessor } from './WordProcessor';
 import { DraftingSuiteTab } from '../APR/APR';
 import { AzureADPicker } from './AzureADPicker';
 import { SDBIPPagination } from './SDBIPPagination';
+import { ExpandableCell, CellExpandModal, ExpandModalState } from './ExpandableCell';
 import { isQuarterInReportingPeriod, getQuarterLockNotice, REPORTING_PERIOD_CONFIGS, getCurrentMunicipalQuarter, ReportingPhase } from '../../utils/reportingPeriods';
 
 interface SDBIPProps {
@@ -181,6 +182,29 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     description: '',
     activeFileIndex: 0
   });
+
+  // Expandable cells inspector modal state
+  const [cellModal, setCellModal] = useState<ExpandModalState>({
+    isOpen: false,
+    title: '',
+    value: '',
+    isReadOnly: true
+  });
+
+  // Cell expandability modes: default to true so all words and sentences fit in cells automatically
+  const [isFitAllTopLayerCells, setIsFitAllTopLayerCells] = useState<boolean>(true);
+  const [isFitAllReportingCells, setIsFitAllReportingCells] = useState<boolean>(true);
+
+  const openCellExpandModal = (title: string, value: string, onSave?: (v: string) => void, readOnly: boolean = false, subtitle?: string) => {
+    setCellModal({
+      isOpen: true,
+      title,
+      value: value || '',
+      isReadOnly: readOnly,
+      onSave,
+      subtitle
+    });
+  };
 
   // Parser states for rich document rendering
   const [renderedDocHtml, setRenderedDocHtml] = useState<string>('');
@@ -3657,6 +3681,19 @@ Timestamp: ${new Date().toLocaleString()}
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <button 
+                  type="button"
+                  onClick={() => setIsFitAllTopLayerCells(!isFitAllTopLayerCells)}
+                  className={`px-3 py-1.5 border rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition ${
+                    isFitAllTopLayerCells 
+                      ? 'bg-indigo-50 border-indigo-300 text-indigo-700 shadow-xs' 
+                      : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
+                  }`}
+                  title="Expand all table cells vertically so all sentences fit comfortably without clipping"
+                >
+                  <Maximize2 className="w-3.5 h-3.5" />
+                  <span>{isFitAllTopLayerCells ? "Fit All Sentences (Active)" : "Expand All Cells"}</span>
+                </button>
+                <button 
                   onClick={exportToCSV}
                   className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer"
                 >
@@ -3683,37 +3720,37 @@ Timestamp: ${new Date().toLocaleString()}
             {/* Large Wide Spreadsheet Table Container */}
             <div className="overflow-auto border border-slate-200 rounded-xl relative bg-white h-[580px] max-h-[68vh]">
               
-              <table className="w-full text-left border-collapse select-text table-fixed min-w-[3036px]">
+              <table className="w-full text-left border-collapse select-text table-fixed min-w-[3420px]">
                 
                 {/* Headers */}
                 <thead className="sticky top-0 bg-slate-100 z-20 border-b-2 border-slate-200 text-[10px] font-black tracking-wider uppercase text-slate-700 font-mono">
                   <tr>
-                    <th className="p-3 border-r border-slate-200 w-24 sticky top-0 left-0 z-30 bg-slate-100">REF NUMBER</th>
-                    <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-slate-100">STRATEGIC OBJECTIVES</th>
-                    <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-slate-100">KPI</th>
+                    <th className="p-3 border-r border-slate-200 w-28 sticky top-0 left-0 z-30 bg-slate-100">REF NUMBER</th>
+                    <th className="p-3 border-r border-slate-200 w-72 sticky top-0 z-20 bg-slate-100">STRATEGIC OBJECTIVES</th>
+                    <th className="p-3 border-r border-slate-200 w-80 sticky top-0 z-20 bg-slate-100">KPI</th>
                     <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-blue-100 text-blue-900">BSD (X)</th>
                     <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-emerald-100 text-emerald-900">LED (X)</th>
                     <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-amber-100 text-amber-900">MFVM (X)</th>
                     <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-purple-100 text-purple-900">GGPP (X)</th>
                     <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-rose-100 text-rose-900">MIDT (X)</th>
                     <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-orange-100 text-orange-900">SR (X)</th>
-                    <th className="p-3 border-r border-slate-200 w-52 sticky top-0 z-20 bg-slate-100">RESPONSIBLE OWNER</th>
-                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-slate-100">UNIT OF MEASURE</th>
-                    <th className="p-3 border-r border-slate-200 w-44 sticky top-0 z-20 bg-slate-100">MSCOA TRACKING</th>
-                    <th className="p-3 border-r border-slate-200 w-40 sticky top-0 z-20 bg-slate-100">BASELINE</th>
-                    <th className="p-3 border-r border-slate-200 w-44 sticky top-0 z-20 bg-slate-100">ANNUAL TARGET</th>
-                    <th className="p-3 border-r border-slate-200 w-40 sticky top-0 z-20 bg-slate-100">BUDGET ALLOCATION</th>
-                    <th className="p-3 border-r border-slate-200 w-32 sticky top-0 z-20 bg-slate-100">1ST QUARTER</th>
-                    <th className="p-3 border-r border-slate-200 w-32 sticky top-0 z-20 bg-slate-100">2ND QUARTER</th>
-                    <th className="p-3 border-r border-slate-200 w-32 text-center sticky top-0 z-20 bg-rose-100 text-rose-900">MID TERM</th>
-                    <th className="p-3 border-r border-slate-200 w-32 sticky top-0 z-20 bg-slate-100">3RD QUARTER</th>
-                    <th className="p-3 border-r border-slate-200 w-32 sticky top-0 z-20 bg-slate-100">4TH QUARTER</th>
+                    <th className="p-3 border-r border-slate-200 w-56 sticky top-0 z-20 bg-slate-100">RESPONSIBLE OWNER</th>
+                    <th className="p-3 border-r border-slate-200 w-56 sticky top-0 z-20 bg-slate-100">UNIT OF MEASURE</th>
+                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-slate-100">MSCOA TRACKING</th>
+                    <th className="p-3 border-r border-slate-200 w-52 sticky top-0 z-20 bg-slate-100">BASELINE</th>
+                    <th className="p-3 border-r border-slate-200 w-56 sticky top-0 z-20 bg-slate-100">ANNUAL TARGET</th>
+                    <th className="p-3 border-r border-slate-200 w-44 sticky top-0 z-20 bg-slate-100">BUDGET ALLOCATION</th>
+                    <th className="p-3 border-r border-slate-200 w-44 sticky top-0 z-20 bg-slate-100">1ST QUARTER</th>
+                    <th className="p-3 border-r border-slate-200 w-44 sticky top-0 z-20 bg-slate-100">2ND QUARTER</th>
+                    <th className="p-3 border-r border-slate-200 w-44 text-center sticky top-0 z-20 bg-rose-100 text-rose-900">MID TERM</th>
+                    <th className="p-3 border-r border-slate-200 w-44 sticky top-0 z-20 bg-slate-100">3RD QUARTER</th>
+                    <th className="p-3 border-r border-slate-200 w-44 sticky top-0 z-20 bg-slate-100">4TH QUARTER</th>
                     <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-indigo-50 text-indigo-900">SUBMITTER</th>
                     <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-emerald-50 text-emerald-900">APPROVER</th>
                     <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-violet-50 text-violet-900">REVIEWER</th>
                     <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-amber-50 text-amber-900">INTERNAL AUDIT</th>
-                    <th className="p-3 border-r border-slate-200 w-48 text-center sticky top-0 z-20 bg-indigo-50 text-indigo-900 border-l border-indigo-200">POE AND DESCRIPTION</th>
-                    <th className="p-3 w-16 text-center sticky top-0 z-20 bg-slate-100">ACTIONS</th>
+                    <th className="p-3 border-r border-slate-200 w-56 text-center sticky top-0 z-20 bg-indigo-50 text-indigo-900 border-l border-indigo-200">POE AND DESCRIPTION</th>
+                    <th className="p-3 w-20 text-center sticky top-0 z-20 bg-slate-100">ACTIONS</th>
                   </tr>
                 </thead>
 
@@ -3724,31 +3761,44 @@ Timestamp: ${new Date().toLocaleString()}
                       
                       {/* Ref Num */}
                       <td className="p-2 border-r border-slate-150 sticky left-0 z-10 bg-white group-hover:bg-slate-50/95 transition-colors drop-shadow-[1px_0_0_rgba(203,213,225,1)]">
-                        <input 
-                          type="text" 
+                        <ExpandableCell 
                           value={row.refNum || ''}
-                          onChange={(e) => handleCellChange(row.id, 'refNum', e.target.value)}
-                          className="w-full bg-transparent border-0 p-1 focus:ring-1 focus:ring-indigo-300 rounded text-[11px] font-mono"
+                          onChange={(val) => handleCellChange(row.id, 'refNum', val)}
+                          cellTitle="Reference Number"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllTopLayerCells}
+                          minRows={1}
+                          onOpenExpandModal={openCellExpandModal}
+                          placeholder="TL ..."
+                          className="font-mono"
                         />
                       </td>
 
                       {/* Strategic Objectives */}
                       <td className="p-2 border-r border-slate-150">
-                        <textarea 
-                          rows={2}
+                        <ExpandableCell 
                           value={row.strategicObj || ''}
-                          onChange={(e) => handleCellChange(row.id, 'strategicObj', e.target.value)}
-                          className="w-full bg-transparent border-0 p-1 focus:ring-1 focus:ring-indigo-300 rounded text-[11px] resize min-h-[40px] leading-tight"
+                          onChange={(val) => handleCellChange(row.id, 'strategicObj', val)}
+                          cellTitle="Strategic Objectives"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllTopLayerCells}
+                          minRows={2}
+                          onOpenExpandModal={openCellExpandModal}
+                          placeholder="Strategic objectives narrative..."
                         />
                       </td>
 
                       {/* KPI */}
                       <td className="p-2 border-r border-slate-150">
-                        <textarea 
-                          rows={2}
+                        <ExpandableCell 
                           value={row.kpi || ''}
-                          onChange={(e) => handleCellChange(row.id, 'kpi', e.target.value)}
-                          className="w-full bg-transparent border-0 p-1 focus:ring-1 focus:ring-indigo-300 rounded text-[11px] resize min-h-[40px] leading-tight"
+                          onChange={(val) => handleCellChange(row.id, 'kpi', val)}
+                          cellTitle="Key Performance Indicator (KPI)"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllTopLayerCells}
+                          minRows={2}
+                          onOpenExpandModal={openCellExpandModal}
+                          placeholder="Key performance indicator sentence..."
                         />
                       </td>
                       <td className="p-2 border-r border-slate-150 text-center bg-blue-50/50">
@@ -3810,116 +3860,165 @@ Timestamp: ${new Date().toLocaleString()}
                         />
                       </td>
 
+                      {/* Responsible Owner */}
                       <td className="p-2 border-r border-slate-150">
-                        <textarea 
-                          rows={2}
+                        <ExpandableCell 
                           value={row.kpas || ''}
-                          onChange={(e) => handleCellChange(row.id, 'kpas', e.target.value)}
-                          className="w-full bg-transparent border-0 p-1 focus:ring-1 focus:ring-indigo-300 rounded font-bold text-slate-900 resize min-h-[40px] text-[11px]"
+                          onChange={(val) => handleCellChange(row.id, 'kpas', val)}
+                          cellTitle="Responsible Owner (KPAS)"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllTopLayerCells}
+                          minRows={2}
+                          onOpenExpandModal={openCellExpandModal}
+                          placeholder="Responsible owner department..."
+                          className="font-bold text-slate-900"
                         />
                       </td>
 
                       {/* Unit of Measure */}
                       <td className="p-2 border-r border-slate-150">
-                        <input 
-                          type="text" 
+                        <ExpandableCell 
                           value={row.uom || ''}
-                          onChange={(e) => handleCellChange(row.id, 'uom', e.target.value)}
-                          className="w-full bg-transparent border-0 p-1 focus:ring-1 focus:ring-indigo-300 rounded text-[11px]"
+                          onChange={(val) => handleCellChange(row.id, 'uom', val)}
+                          cellTitle="Unit of Measure"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllTopLayerCells}
+                          minRows={2}
+                          onOpenExpandModal={openCellExpandModal}
+                          placeholder="Unit of measure description..."
                         />
                       </td>
 
                       {/* mSCOA Tracking */}
                       <td className="p-2 border-r border-slate-150">
-                        <input 
-                          type="text" 
+                        <ExpandableCell 
                           value={row.mscoaTracking || ''}
-                          onChange={(e) => handleCellChange(row.id, 'mscoaTracking', e.target.value)}
-                          className="w-full bg-transparent border-0 p-1 focus:ring-1 focus:ring-indigo-300 rounded font-mono text-[11px]"
+                          onChange={(val) => handleCellChange(row.id, 'mscoaTracking', val)}
+                          cellTitle="mSCOA Tracking"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllTopLayerCells}
+                          minRows={2}
+                          onOpenExpandModal={openCellExpandModal}
+                          placeholder="mSCOA segment code..."
+                          className="font-mono text-slate-700"
                         />
                       </td>
 
                       {/* Baseline */}
                       <td className="p-2 border-r border-slate-150">
-                        <input 
-                          type="text" 
+                        <ExpandableCell 
                           value={row.baseline || ''}
-                          onChange={(e) => handleCellChange(row.id, 'baseline', e.target.value)}
-                          className="w-full bg-transparent border-0 p-1 focus:ring-1 focus:ring-indigo-300 rounded text-[11px]"
+                          onChange={(val) => handleCellChange(row.id, 'baseline', val)}
+                          cellTitle="Baseline"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllTopLayerCells}
+                          minRows={2}
+                          onOpenExpandModal={openCellExpandModal}
+                          placeholder="Baseline performance narrative..."
                         />
                       </td>
 
                       {/* Annual Target */}
                       <td className="p-2 border-r border-slate-150">
-                        <input 
-                          type="text" 
+                        <ExpandableCell 
                           value={row.annualTarget || ''}
-                          onChange={(e) => handleCellChange(row.id, 'annualTarget', e.target.value)}
-                          className="w-full bg-transparent border-0 p-1 focus:ring-1 focus:ring-indigo-300 rounded text-[11px]"
+                          onChange={(val) => handleCellChange(row.id, 'annualTarget', val)}
+                          cellTitle="Annual Target"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllTopLayerCells}
+                          minRows={2}
+                          onOpenExpandModal={openCellExpandModal}
+                          placeholder="Annual target description..."
+                          className="font-bold text-indigo-900"
                         />
                       </td>
 
                       {/* Budget Allocation */}
                       <td className="p-2 border-r border-slate-150">
-                        <input 
-                          type="text" 
+                        <ExpandableCell 
                           value={row.budgetAllocation || ''}
-                          onChange={(e) => handleCellChange(row.id, 'budgetAllocation', e.target.value)}
-                          className="w-full bg-transparent border-0 p-1 focus:ring-1 focus:ring-indigo-300 rounded font-bold text-[11px] text-slate-700"
+                          onChange={(val) => handleCellChange(row.id, 'budgetAllocation', val)}
+                          cellTitle="Budget Allocation"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllTopLayerCells}
+                          minRows={1}
+                          onOpenExpandModal={openCellExpandModal}
+                          placeholder="R 0 / Opex..."
+                          className="font-bold text-slate-800"
                         />
                       </td>
 
                       {/* Q1 */}
                       <td className={`p-2 border-r border-slate-150 ${!isQuarterActive('q1') ? 'bg-slate-50' : ''}`} title={!isQuarterActive('q1') ? getQuarterLockNotice('q1') : undefined}>
-                        <input 
-                          type="text" 
+                        <ExpandableCell 
                           value={row.q1 || ''}
                           disabled={!isQuarterActive('q1')}
-                          onChange={(e) => handleCellChange(row.id, 'q1', e.target.value)}
-                          className={`w-full bg-transparent border-0 p-1 rounded text-[11px] ${!isQuarterActive('q1') ? 'text-slate-400 cursor-not-allowed italic' : 'focus:ring-1 focus:ring-indigo-300'}`}
+                          onChange={(val) => handleCellChange(row.id, 'q1', val)}
+                          cellTitle="1st Quarter Target"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllTopLayerCells}
+                          minRows={2}
+                          onOpenExpandModal={openCellExpandModal}
+                          placeholder={!isQuarterActive('q1') ? "Locked" : "Q1 Target..."}
                         />
                       </td>
 
                       {/* Q2 */}
                       <td className={`p-2 border-r border-slate-150 ${!isQuarterActive('q2') ? 'bg-slate-50' : ''}`} title={!isQuarterActive('q2') ? getQuarterLockNotice('q2') : undefined}>
-                        <input 
-                          type="text" 
+                        <ExpandableCell 
                           value={row.q2 || ''}
                           disabled={!isQuarterActive('q2')}
-                          onChange={(e) => handleCellChange(row.id, 'q2', e.target.value)}
-                          className={`w-full bg-transparent border-0 p-1 rounded text-[11px] ${!isQuarterActive('q2') ? 'text-slate-400 cursor-not-allowed italic' : 'focus:ring-1 focus:ring-indigo-300'}`}
+                          onChange={(val) => handleCellChange(row.id, 'q2', val)}
+                          cellTitle="2nd Quarter Target"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllTopLayerCells}
+                          minRows={2}
+                          onOpenExpandModal={openCellExpandModal}
+                          placeholder={!isQuarterActive('q2') ? "Locked" : "Q2 Target..."}
                         />
                       </td>
 
                       {/* MID TERM Targets (Calculated) */}
                       <td className="p-2 border-r border-slate-150 text-center bg-rose-50/50">
-                        <input 
-                          type="text" 
+                        <ExpandableCell 
                           value={row.midTerm || ''}
                           readOnly
-                          className="w-full bg-transparent border-0 p-1 rounded text-center font-bold text-rose-900 text-[11px]"
+                          cellTitle="Mid Term Target (Calculated)"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllTopLayerCells}
+                          minRows={1}
+                          onOpenExpandModal={openCellExpandModal}
+                          textClassName="font-bold text-rose-900 text-center"
                         />
                       </td>
 
                       {/* Q3 */}
                       <td className={`p-2 border-r border-slate-150 ${!isQuarterActive('q3') ? 'bg-slate-50' : ''}`} title={!isQuarterActive('q3') ? getQuarterLockNotice('q3') : undefined}>
-                        <input 
-                          type="text" 
+                        <ExpandableCell 
                           value={row.q3 || ''}
                           disabled={!isQuarterActive('q3')}
-                          onChange={(e) => handleCellChange(row.id, 'q3', e.target.value)}
-                          className={`w-full bg-transparent border-0 p-1 rounded text-[11px] ${!isQuarterActive('q3') ? 'text-slate-400 cursor-not-allowed italic' : 'focus:ring-1 focus:ring-indigo-300'}`}
+                          onChange={(val) => handleCellChange(row.id, 'q3', val)}
+                          cellTitle="3rd Quarter Target"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllTopLayerCells}
+                          minRows={2}
+                          onOpenExpandModal={openCellExpandModal}
+                          placeholder={!isQuarterActive('q3') ? "Locked" : "Q3 Target..."}
                         />
                       </td>
 
                       {/* Q4 */}
                       <td className={`p-2 border-r border-slate-150 ${!isQuarterActive('q4') ? 'bg-slate-50' : ''}`} title={!isQuarterActive('q4') ? getQuarterLockNotice('q4') : undefined}>
-                        <input 
-                          type="text" 
+                        <ExpandableCell 
                           value={row.q4 || ''}
                           disabled={!isQuarterActive('q4')}
-                          onChange={(e) => handleCellChange(row.id, 'q4', e.target.value)}
-                          className={`w-full bg-transparent border-0 p-1 rounded text-[11px] ${!isQuarterActive('q4') ? 'text-slate-400 cursor-not-allowed italic' : 'focus:ring-1 focus:ring-indigo-300'}`}
+                          onChange={(val) => handleCellChange(row.id, 'q4', val)}
+                          cellTitle="4th Quarter Target"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllTopLayerCells}
+                          minRows={2}
+                          onOpenExpandModal={openCellExpandModal}
+                          placeholder={!isQuarterActive('q4') ? "Locked" : "Q4 Target..."}
                         />
                       </td>
 
@@ -3963,19 +4062,23 @@ Timestamp: ${new Date().toLocaleString()}
                         />
                       </td>
 
-                      {/* POE Upload with redirect indicators as instructed */}
-                      <td className="p-2 border-r border-indigo-200 text-center bg-indigo-50/40 min-w-[140px]">
+                      {/* POE Upload with full description and expandability */}
+                      <td className="p-2 border-r border-indigo-200 text-center bg-indigo-50/40 min-w-[170px]">
                         {(row.poeStatus?.includes('Uploaded')) || row.poeStatus === 'Attached' || row.poeDesc || (row.q1Poes && row.q1Poes.length > 0) ? (
                           <div className="flex flex-col items-center gap-1.5 select-none">
-                            <span className="text-[10px] bg-emerald-100 text-emerald-800 font-black px-2 py-0.5 rounded-md border border-emerald-200 max-w-[150px] truncate">
+                            <span className="text-[10px] bg-emerald-100 text-emerald-800 font-black px-2 py-0.5 rounded-md border border-emerald-200">
                               Uploaded - Cloud Vault
                             </span>
                             {row.poeDesc && (
-                              <p className="text-[9px] text-slate-600 italic max-w-[150px] truncate leading-tight" title={row.poeDesc}>
+                              <div 
+                                className="text-[10px] text-slate-700 italic max-w-[220px] whitespace-pre-wrap break-words leading-relaxed cursor-pointer hover:text-indigo-600 transition" 
+                                title="Click to inspect POE details"
+                                onClick={() => openCellExpandModal("POE Description", row.poeDesc || '', undefined, true, `Ref: ${row.refNum}`)}
+                              >
                                 "{row.poeDesc}"
-                              </p>
+                              </div>
                             )}
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1 mt-1">
                               <button 
                                 onClick={() => triggerViewPoeModal(row, 'general')}
                                 className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[9px] font-extrabold cursor-pointer transition shadow-xs"
@@ -4154,6 +4257,19 @@ Timestamp: ${new Date().toLocaleString()}
                   <span>{isPulling ? 'Pulling Data...' : 'Pull SDBIP Top Layer Data'}</span>
                 </button>
                 <button 
+                  type="button"
+                  onClick={() => setIsFitAllReportingCells(!isFitAllReportingCells)}
+                  className={`px-3 py-1.5 border rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition ${
+                    isFitAllReportingCells 
+                      ? 'bg-indigo-50 border-indigo-300 text-indigo-700 shadow-xs' 
+                      : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
+                  }`}
+                  title="Expand all table cells vertically so all sentences fit comfortably without clipping"
+                >
+                  <Maximize2 className="w-3.5 h-3.5" />
+                  <span>{isFitAllReportingCells ? "Fit All Sentences (Active)" : "Expand All Cells"}</span>
+                </button>
+                <button 
                   onClick={() => setIsTableExpanded(p => !p)}
                   className={`px-3 py-1.5 border rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all ${isTableExpanded ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'}`}
                   title="Toggle expanded full-page height to fill screen"
@@ -4193,6 +4309,18 @@ Timestamp: ${new Date().toLocaleString()}
                     >
                       <RefreshCw className={`w-4 h-4 ${isPulling ? 'animate-spin' : ''}`} />
                       <span>{isPulling ? 'Pulling Data...' : 'Pull SDBIP Top Layer Data'}</span>
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => setIsFitAllReportingCells(!isFitAllReportingCells)}
+                      className={`px-3 py-2 border rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition ${
+                        isFitAllReportingCells 
+                          ? 'bg-indigo-50 border-indigo-300 text-indigo-700' 
+                          : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
+                      }`}
+                    >
+                      <Maximize2 className="w-3.5 h-3.5" />
+                      <span>{isFitAllReportingCells ? "Fit Sentences" : "Expand Cells"}</span>
                     </button>
                     <button 
                       type="button"
@@ -4236,69 +4364,69 @@ Timestamp: ${new Date().toLocaleString()}
               </div>
 
               <div className={`overflow-auto border border-slate-200 rounded-xl relative bg-white transition-all duration-300 ${isTableExpanded ? 'flex-1 shadow-2xl border-indigo-100 min-h-0' : 'h-[580px] max-h-[68vh]'}`}>
-              <table className="w-full text-left border-collapse table-fixed min-w-[8828px]">
+              <table className="w-full text-left border-collapse table-fixed min-w-[9400px]">
                 <thead className="sticky top-0 bg-slate-100 z-20 border-b-2 border-slate-200 text-[10px] font-black tracking-wider uppercase text-slate-700 font-mono">
                   <tr>
                     {/* Fixed Info Columns */}
-                    <th className="p-3 border-r border-slate-200 w-24 sticky top-0 left-0 z-30 bg-slate-100">REF NUMBER</th>
-                    <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-slate-100">STRATEGIC OBJECTIVES</th>
-                    <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-slate-100">KPI</th>
+                    <th className="p-3 border-r border-slate-200 w-28 sticky top-0 left-0 z-30 bg-slate-100">REF NUMBER</th>
+                    <th className="p-3 border-r border-slate-200 w-72 sticky top-0 z-20 bg-slate-100">STRATEGIC OBJECTIVES</th>
+                    <th className="p-3 border-r border-slate-200 w-80 sticky top-0 z-20 bg-slate-100">KPI</th>
                     <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-blue-100 text-blue-900">BSD (X)</th>
                     <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-emerald-100 text-emerald-900">LED (X)</th>
                     <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-amber-100 text-amber-900">MFVM (X)</th>
                     <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-indigo-100 text-indigo-900">GGPP (X)</th>
                     <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-rose-100 text-rose-900">MIDT (X)</th>
                     <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-orange-100 text-orange-900">SR (X)</th>
-                    <th className="p-3 border-r border-slate-200 w-52 sticky top-0 z-20 bg-slate-100">RESPONSIBLE OWNER</th>
-                    <th className="p-3 border-r border-slate-200 w-40 sticky top-0 z-20 bg-slate-100">BASELINE</th>
-                    <th className="p-3 border-r border-slate-200 w-44 sticky top-0 z-20 bg-slate-100">ANNUAL TARGET</th>
-                    <th className="p-3 border-r border-slate-200 w-40 sticky top-0 z-20 bg-slate-100">TOTAL BUDGET</th>
+                    <th className="p-3 border-r border-slate-200 w-56 sticky top-0 z-20 bg-slate-100">RESPONSIBLE OWNER</th>
+                    <th className="p-3 border-r border-slate-200 w-52 sticky top-0 z-20 bg-slate-100">BASELINE</th>
+                    <th className="p-3 border-r border-slate-200 w-56 sticky top-0 z-20 bg-slate-100">ANNUAL TARGET</th>
+                    <th className="p-3 border-r border-slate-200 w-44 sticky top-0 z-20 bg-slate-100">TOTAL BUDGET</th>
                     <th className="p-3 border-r border-slate-200 w-32 text-center sticky top-0 z-20 bg-slate-200 text-slate-900">RAG STATUS</th>
-                    <th className="p-3 border-r border-slate-200 w-44 text-center sticky top-0 z-20 bg-indigo-50 text-indigo-900 border-b-2 border-indigo-200 font-bold">ACTIVE WORKFLOW ({workflowPhase.toUpperCase()})</th>
+                    <th className="p-3 border-r border-slate-200 w-48 text-center sticky top-0 z-20 bg-indigo-50 text-indigo-900 border-b-2 border-indigo-200 font-bold">ACTIVE WORKFLOW ({workflowPhase.toUpperCase()})</th>
                     
                     {/* Q1 Reporting */}
-                    <th className="p-3 border-r border-slate-200 w-36 sticky top-0 z-20 bg-teal-50 text-teal-955 font-bold text-center border-b-2 border-teal-200">Q1 EXPENDITURE</th>
-                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-indigo-50 text-indigo-955 font-bold text-center">Q1 POE</th>
-                    <th className="p-3 border-r border-slate-200 w-24 sticky top-0 z-20 bg-indigo-50 text-indigo-900 text-center">Q1 TARGET</th>
-                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-indigo-100 text-indigo-900 border-b-2 border-indigo-200">Q1 ACTUAL</th>
+                    <th className="p-3 border-r border-slate-200 w-44 sticky top-0 z-20 bg-teal-50 text-teal-955 font-bold text-center border-b-2 border-teal-200">Q1 EXPENDITURE</th>
+                    <th className="p-3 border-r border-slate-200 w-56 sticky top-0 z-20 bg-indigo-50 text-indigo-955 font-bold text-center">Q1 POE</th>
+                    <th className="p-3 border-r border-slate-200 w-28 sticky top-0 z-20 bg-indigo-50 text-indigo-900 text-center">Q1 TARGET</th>
+                    <th className="p-3 border-r border-slate-200 w-56 sticky top-0 z-20 bg-indigo-100 text-indigo-900 border-b-2 border-indigo-200">Q1 ACTUAL</th>
                     <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-indigo-200 text-indigo-955 border-b-2 border-indigo-300">Q1 VARIANCE</th>
-                    <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-indigo-300 text-indigo-955 border-b-2 border-indigo-400">Q1 CORRECTIVE MEASURE</th>
+                    <th className="p-3 border-r border-slate-200 w-72 sticky top-0 z-20 bg-indigo-300 text-indigo-955 border-b-2 border-indigo-400">Q1 CORRECTIVE MEASURE</th>
                     <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-indigo-400 text-indigo-955 font-bold text-center border-b-2 border-indigo-500">Q1 WORKFLOW CONTROL</th>
 
                     {/* Q2 Reporting */}
-                    <th className="p-3 border-r border-slate-200 w-36 sticky top-0 z-20 bg-teal-50 text-teal-955 font-bold text-center border-b-2 border-teal-200">Q2 EXPENDITURE</th>
-                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-blue-50 text-blue-955 font-bold text-center">Q2 POE</th>
-                    <th className="p-3 border-r border-slate-200 w-24 sticky top-0 z-20 bg-blue-50 text-blue-900 text-center">Q2 TARGET</th>
-                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-blue-100 text-blue-900 border-b-2 border-blue-200">Q2 ACTUAL</th>
+                    <th className="p-3 border-r border-slate-200 w-44 sticky top-0 z-20 bg-teal-50 text-teal-955 font-bold text-center border-b-2 border-teal-200">Q2 EXPENDITURE</th>
+                    <th className="p-3 border-r border-slate-200 w-56 sticky top-0 z-20 bg-blue-50 text-blue-955 font-bold text-center">Q2 POE</th>
+                    <th className="p-3 border-r border-slate-200 w-28 sticky top-0 z-20 bg-blue-50 text-blue-900 text-center">Q2 TARGET</th>
+                    <th className="p-3 border-r border-slate-200 w-56 sticky top-0 z-20 bg-blue-100 text-blue-900 border-b-2 border-blue-200">Q2 ACTUAL</th>
                     <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-blue-200 text-blue-955 border-b-2 border-blue-300">Q2 VARIANCE</th>
-                    <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-blue-300 text-blue-955 border-b-2 border-blue-400">Q2 CORRECTIVE MEASURE</th>
+                    <th className="p-3 border-r border-slate-200 w-72 sticky top-0 z-20 bg-blue-300 text-blue-955 border-b-2 border-blue-400">Q2 CORRECTIVE MEASURE</th>
                     <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-blue-400 text-blue-955 font-bold text-center border-b-2 border-blue-500">Q2 WORKFLOW CONTROL</th>
 
                     {/* Mid Term Reporting */}
-                    <th className="p-3 border-r border-slate-200 w-36 sticky top-0 z-20 bg-teal-50 text-teal-955 font-bold text-center border-b-2 border-teal-200">MID TERM EXPENDITURE</th>
-                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-emerald-50 text-emerald-955 font-bold text-center border-b-2 border-emerald-200">MID TERM POE</th>
+                    <th className="p-3 border-r border-slate-200 w-44 sticky top-0 z-20 bg-teal-50 text-teal-955 font-bold text-center border-b-2 border-teal-200">MID TERM EXPENDITURE</th>
+                    <th className="p-3 border-r border-slate-200 w-56 sticky top-0 z-20 bg-emerald-50 text-emerald-955 font-bold text-center border-b-2 border-emerald-200">MID TERM POE</th>
                     <th className="p-3 border-r border-slate-200 w-32 sticky top-0 z-20 bg-emerald-50 text-emerald-900 border-b-2 border-emerald-100">MID TERM TARGET</th>
-                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-emerald-100 text-emerald-900 border-b-2 border-emerald-200">MID TERM ACTUAL</th>
+                    <th className="p-3 border-r border-slate-200 w-56 sticky top-0 z-20 bg-emerald-100 text-emerald-900 border-b-2 border-emerald-200">MID TERM ACTUAL</th>
                     <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-emerald-200 text-emerald-900 border-b-2 border-emerald-300">MID TERM VARIANCE</th>
-                    <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-emerald-300 text-emerald-955 border-b-2 border-emerald-400">MID TERM CORRECTIVE MEASURE</th>
+                    <th className="p-3 border-r border-slate-200 w-72 sticky top-0 z-20 bg-emerald-300 text-emerald-955 border-b-2 border-emerald-400">MID TERM CORRECTIVE MEASURE</th>
                     <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-emerald-400 text-emerald-955 font-bold text-center border-b-2 border-emerald-500">MID-TERM WORKFLOW CONTROL</th>
 
                     {/* Q3 Reporting */}
-                    <th className="p-3 border-r border-slate-200 w-36 sticky top-0 z-20 bg-teal-50 text-teal-955 font-bold text-center border-b-2 border-teal-200">Q3 EXPENDITURE</th>
-                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-amber-50 text-amber-955 font-bold text-center">Q3 POE</th>
-                    <th className="p-3 border-r border-slate-200 w-24 sticky top-0 z-20 bg-amber-50 text-amber-900 text-center">Q3 TARGET</th>
-                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-amber-100 text-amber-900 border-b-2 border-amber-200">Q3 ACTUAL</th>
+                    <th className="p-3 border-r border-slate-200 w-44 sticky top-0 z-20 bg-teal-50 text-teal-955 font-bold text-center border-b-2 border-teal-200">Q3 EXPENDITURE</th>
+                    <th className="p-3 border-r border-slate-200 w-56 sticky top-0 z-20 bg-amber-50 text-amber-955 font-bold text-center">Q3 POE</th>
+                    <th className="p-3 border-r border-slate-200 w-28 sticky top-0 z-20 bg-amber-50 text-amber-900 text-center">Q3 TARGET</th>
+                    <th className="p-3 border-r border-slate-200 w-56 sticky top-0 z-20 bg-amber-100 text-amber-900 border-b-2 border-amber-200">Q3 ACTUAL</th>
                     <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-amber-200 text-amber-955 border-b-2 border-amber-300">Q3 VARIANCE</th>
-                    <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-amber-300 text-amber-955 border-b-2 border-amber-400">Q3 CORRECTIVE MEASURE</th>
+                    <th className="p-3 border-r border-slate-200 w-72 sticky top-0 z-20 bg-amber-300 text-amber-955 border-b-2 border-amber-400">Q3 CORRECTIVE MEASURE</th>
                     <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-amber-400 text-amber-955 font-bold text-center border-b-2 border-amber-500">Q3 WORKFLOW CONTROL</th>
 
                     {/* Q4 Reporting */}
-                    <th className="p-3 border-r border-slate-200 w-36 sticky top-0 z-20 bg-teal-50 text-teal-955 font-bold text-center border-b-2 border-teal-200">Q4 EXPENDITURE</th>
-                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-rose-50 text-rose-955 font-bold text-center">Q4 POE</th>
-                    <th className="p-3 border-r border-slate-200 w-24 sticky top-0 z-20 bg-rose-50 text-rose-900 text-center">Q4 TARGET</th>
-                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-rose-100 text-rose-900 border-b-2 border-rose-200">Q4 ACTUAL</th>
+                    <th className="p-3 border-r border-slate-200 w-44 sticky top-0 z-20 bg-teal-50 text-teal-955 font-bold text-center border-b-2 border-teal-200">Q4 EXPENDITURE</th>
+                    <th className="p-3 border-r border-slate-200 w-56 sticky top-0 z-20 bg-rose-50 text-rose-955 font-bold text-center">Q4 POE</th>
+                    <th className="p-3 border-r border-slate-200 w-28 sticky top-0 z-20 bg-rose-50 text-rose-900 text-center">Q4 TARGET</th>
+                    <th className="p-3 border-r border-slate-200 w-56 sticky top-0 z-20 bg-rose-100 text-rose-900 border-b-2 border-rose-200">Q4 ACTUAL</th>
                     <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-rose-200 text-rose-955 border-b-2 border-rose-300">Q4 VARIANCE</th>
-                    <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-rose-300 text-rose-955 border-b-2 border-rose-400">Q4 CORRECTIVE MEASURE</th>
+                    <th className="p-3 border-r border-slate-200 w-72 sticky top-0 z-20 bg-rose-300 text-rose-955 border-b-2 border-rose-400">Q4 CORRECTIVE MEASURE</th>
                     <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-rose-400 text-rose-955 font-bold text-center border-b-2 border-rose-500">Q4/ANNUAL WORKFLOW CONTROL</th>
 
                     <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-indigo-50 text-indigo-900 font-bold text-center border-b-2 border-indigo-200">SUBMITTER</th>
@@ -4313,19 +4441,96 @@ Timestamp: ${new Date().toLocaleString()}
                 <tbody className="text-xs font-medium text-slate-800 divide-y divide-slate-100">
                   {paginatedReportingRows.map((row) => (
                     <tr key={row.id} className="group hover:bg-slate-50/70 transition-colors">
-                      <td className="p-2 border-r border-slate-150 sticky left-0 z-10 bg-white group-hover:bg-slate-50/95 transition-colors font-mono text-[11px]">{row.refNum}</td>
-                      <td className="p-2 border-r border-slate-150 text-[11px] leading-tight text-slate-500 overflow-hidden text-ellipsis whitespace-normal">{row.strategicObj}</td>
-                      <td className="p-2 border-r border-slate-150 text-[11px] leading-tight font-bold text-slate-700">{row.kpi}</td>
+                      <td className="p-2 border-r border-slate-150 sticky left-0 z-10 bg-white group-hover:bg-slate-50/95 transition-colors font-mono text-[11px] drop-shadow-[1px_0_0_rgba(203,213,225,1)]">
+                        <ExpandableCell
+                          value={row.refNum || ''}
+                          readOnly
+                          cellTitle="Reference Number"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllReportingCells}
+                          minRows={1}
+                          onOpenExpandModal={openCellExpandModal}
+                          className="font-mono font-bold text-slate-800"
+                        />
+                      </td>
+                      <td className="p-2 border-r border-slate-150">
+                        <ExpandableCell
+                          value={row.strategicObj || ''}
+                          readOnly
+                          cellTitle="Strategic Objectives"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllReportingCells}
+                          minRows={2}
+                          onOpenExpandModal={openCellExpandModal}
+                          className="text-slate-600"
+                        />
+                      </td>
+                      <td className="p-2 border-r border-slate-150">
+                        <ExpandableCell
+                          value={row.kpi || ''}
+                          readOnly
+                          cellTitle="Key Performance Indicator (KPI)"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllReportingCells}
+                          minRows={2}
+                          onOpenExpandModal={openCellExpandModal}
+                          className="font-bold text-slate-800"
+                        />
+                      </td>
                       <td className="p-2 border-r border-slate-150 text-center bg-blue-50/30 font-bold text-blue-600">{row.bsd}</td>
                       <td className="p-2 border-r border-slate-150 text-center bg-emerald-50/30 font-bold text-emerald-600">{row.led}</td>
                       <td className="p-2 border-r border-slate-150 text-center bg-amber-50/30 font-bold text-amber-600">{row.mfvm}</td>
                       <td className="p-2 border-r border-slate-150 text-center bg-indigo-50/30 font-bold text-indigo-600">{row.ggpp}</td>
                       <td className="p-2 border-r border-slate-150 text-center bg-rose-50/30 font-bold text-rose-600">{row.midt}</td>
                       <td className="p-2 border-r border-slate-150 text-center bg-orange-50/30 font-bold text-orange-600">{row.sr}</td>
-                      <td className="p-2 border-r border-slate-150 text-[11px] text-slate-500">{row.kpas}</td>
-                      <td className="p-2 border-r border-slate-150 text-[11px] text-slate-600">{row.baseline}</td>
-                      <td className="p-2 border-r border-slate-150 text-[11px] font-black text-indigo-700">{row.annualTarget}</td>
-                      <td className="p-2 border-r border-slate-150 text-[11px] font-bold text-slate-700">{row.budgetAllocation || 'Opex'}</td>
+                      <td className="p-2 border-r border-slate-150">
+                        <ExpandableCell
+                          value={row.kpas || ''}
+                          readOnly
+                          cellTitle="Responsible Owner"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllReportingCells}
+                          minRows={2}
+                          onOpenExpandModal={openCellExpandModal}
+                          className="font-semibold text-slate-700"
+                        />
+                      </td>
+                      <td className="p-2 border-r border-slate-150">
+                        <ExpandableCell
+                          value={row.baseline || ''}
+                          readOnly
+                          cellTitle="Baseline"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllReportingCells}
+                          minRows={2}
+                          onOpenExpandModal={openCellExpandModal}
+                          className="text-slate-600"
+                        />
+                      </td>
+                      <td className="p-2 border-r border-slate-150">
+                        <ExpandableCell
+                          value={row.annualTarget || ''}
+                          readOnly
+                          cellTitle="Annual Target"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllReportingCells}
+                          minRows={2}
+                          onOpenExpandModal={openCellExpandModal}
+                          className="font-black text-indigo-700"
+                        />
+                      </td>
+                      <td className="p-2 border-r border-slate-150">
+                        <ExpandableCell
+                          value={row.budgetAllocation || 'Opex'}
+                          readOnly
+                          cellTitle="Total Budget Allocation"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllReportingCells}
+                          minRows={1}
+                          onOpenExpandModal={openCellExpandModal}
+                          className="font-bold text-slate-700"
+                        />
+                      </td>
                       
                       {/* RAG Status */}
                       <td className="p-2 border-r border-slate-150 text-center bg-slate-50/10">
@@ -4499,31 +4704,37 @@ Timestamp: ${new Date().toLocaleString()}
 
                       {/* Q1 Expenditure (Moved before POE) */}
                       <td className="p-2 border-r border-slate-100 bg-teal-50/10">
-                        <input 
-                          type="text"
-                          disabled={!isOpex(row.budgetAllocation) || !isQuarterActive('q1')}
+                        <ExpandableCell
                           value={isOpex(row.budgetAllocation) ? (row.q1Expenditure || '') : (() => {
                             const total = parseBudgetNum(row.budgetAllocation);
                             return total > 0 ? `R ${Math.round(total / 4).toLocaleString()}` : 'R 0';
                           })()}
-                          onChange={(e) => handleCellChange(row.id, 'q1Expenditure', e.target.value)}
-                          title={!isQuarterActive('q1') ? getQuarterLockNotice('q1') : undefined}
-                          className={`w-full border p-1 rounded text-[11px] font-bold ${!isQuarterActive('q1') || !isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white text-slate-800 border-slate-200'}`}
+                          disabled={!isOpex(row.budgetAllocation) || !isQuarterActive('q1')}
+                          onChange={(val) => handleCellChange(row.id, 'q1Expenditure', val)}
+                          cellTitle="Q1 Expenditure"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllReportingCells}
+                          minRows={1}
                           placeholder={!isQuarterActive('q1') ? "Locked" : "Q1 Exp..."}
+                          onOpenExpandModal={openCellExpandModal}
+                          className={`font-bold ${!isQuarterActive('q1') || !isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-800'}`}
                         />
                       </td>
 
                       {/* Q1 POE Column */}
                       <td className="p-2 border-r border-slate-100 bg-indigo-50/10">
                         <div className="space-y-2">
-                          <textarea 
-                            rows={2}
+                          <ExpandableCell
                             value={row.q1PoeDesc || ''}
                             disabled={!isQuarterActive('q1')}
-                            onChange={(e) => handleCellChange(row.id, 'q1PoeDesc', e.target.value)}
-                            title={!isQuarterActive('q1') ? getQuarterLockNotice('q1') : undefined}
-                            className={`w-full border p-1 rounded text-[10px] ${!isQuarterActive('q1') ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white border-slate-200 focus:ring-1 focus:ring-indigo-300'}`}
+                            onChange={(val) => handleCellChange(row.id, 'q1PoeDesc', val)}
+                            cellTitle="Q1 POE Description"
+                            refNum={row.refNum}
+                            isFitAll={isFitAllReportingCells}
+                            minRows={2}
                             placeholder={!isQuarterActive('q1') ? "Locked for this period" : "Q1 POE Description..."}
+                            onOpenExpandModal={openCellExpandModal}
+                            className={!isQuarterActive('q1') ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white border-slate-200'}
                           />
                           {row.q1Poes && row.q1Poes.length > 0 && (
                             <div 
@@ -4593,21 +4804,33 @@ Timestamp: ${new Date().toLocaleString()}
 
                       {/* Q1 TARGET Column */}
                       <td className="p-2 border-r border-slate-100 bg-indigo-50/20 text-center">
-                        <div className="font-bold text-indigo-900 text-xs">{row.q1 || '-'}</div>
+                        <ExpandableCell
+                          value={row.q1 || '-'}
+                          readOnly
+                          cellTitle="Q1 Target"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllReportingCells}
+                          minRows={1}
+                          onOpenExpandModal={openCellExpandModal}
+                          className="font-bold text-indigo-900 text-center"
+                        />
                       </td>
 
                       <td className="p-2 border-r border-slate-100 bg-indigo-50/5 relative group">
-                        <textarea 
-                          rows={3} 
+                        <ExpandableCell
+                          value={row.q1Actual || ''}
                           disabled={!isQuarterActive('q1')}
-                          value={row.q1Actual || ''} 
-                          onChange={(e) => handleCellChange(row.id, 'q1Actual', e.target.value)} 
-                          title={!isQuarterActive('q1') ? getQuarterLockNotice('q1') : undefined}
-                          className={`w-full border p-1 rounded text-[11px] ${!isQuarterActive('q1') ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white border-slate-200 focus:ring-1 focus:ring-indigo-300'}`} 
-                          placeholder={!isQuarterActive('q1') ? "Locked for this period" : "Q1 Actual..."} 
+                          onChange={(val) => handleCellChange(row.id, 'q1Actual', val)}
+                          cellTitle="Q1 Actual"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllReportingCells}
+                          minRows={2}
+                          placeholder={!isQuarterActive('q1') ? "Locked for this period" : "Q1 Actual..."}
+                          onOpenExpandModal={openCellExpandModal}
+                          className={!isQuarterActive('q1') ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white'}
                         />
                         {row.q1Actual && row.q1 && row.q1Actual !== row.q1 && (
-                          <div className="absolute top-1 right-1">
+                          <div className="absolute top-1 right-1 pointer-events-auto z-10">
                             <div className="relative group/tip">
                               <AlertCircle className="w-3 h-3 text-rose-500 animate-pulse cursor-help" />
                               <div className="absolute bottom-full right-0 mb-1 hidden group-hover/tip:block z-50">
@@ -4623,19 +4846,30 @@ Timestamp: ${new Date().toLocaleString()}
                         )}
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-indigo-50/5">
-                        <div className="w-full bg-white border border-slate-200 p-1 rounded text-[11px] font-bold text-slate-700 min-h-[40px]">
-                          {row.q1Variance || ''}
-                        </div>
+                        <ExpandableCell
+                          value={row.q1Variance || ''}
+                          readOnly
+                          cellTitle="Q1 Variance"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllReportingCells}
+                          minRows={1}
+                          placeholder="No variance"
+                          onOpenExpandModal={openCellExpandModal}
+                          className="font-bold text-slate-700 bg-white"
+                        />
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-indigo-50/5">
-                        <textarea 
-                          rows={3} 
-                          value={row.q1Corrective || ''} 
+                        <ExpandableCell
+                          value={row.q1Corrective || ''}
                           disabled={!isQuarterActive('q1') || isFieldDisabled(row.q1Variance)}
-                          onChange={(e) => handleCellChange(row.id, 'q1Corrective', e.target.value)} 
-                          title={!isQuarterActive('q1') ? getQuarterLockNotice('q1') : undefined}
-                          className={`w-full p-1 rounded text-[11px] transition-colors ${!isQuarterActive('q1') || isFieldDisabled(row.q1Variance) ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed italic font-normal' : 'bg-white border-slate-200 text-slate-800 focus:ring-1 focus:ring-indigo-300'}`} 
-                          placeholder={!isQuarterActive('q1') ? "Locked for this period" : isFieldDisabled(row.q1Variance) ? "No variance detected." : "Q1 Corrective..."} 
+                          onChange={(val) => handleCellChange(row.id, 'q1Corrective', val)}
+                          cellTitle="Q1 Corrective Measure"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllReportingCells}
+                          minRows={2}
+                          placeholder={!isQuarterActive('q1') ? "Locked for this period" : isFieldDisabled(row.q1Variance) ? "No variance detected." : "Q1 Corrective..."}
+                          onOpenExpandModal={openCellExpandModal}
+                          className={!isQuarterActive('q1') || isFieldDisabled(row.q1Variance) ? 'bg-slate-100 text-slate-400 cursor-not-allowed italic font-normal' : 'bg-white text-slate-800'}
                         />
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-indigo-100/10 text-center">
@@ -4644,31 +4878,37 @@ Timestamp: ${new Date().toLocaleString()}
 
                       {/* Q2 Expenditure (Moved before POE) */}
                       <td className="p-2 border-r border-slate-100 bg-teal-50/10">
-                        <input 
-                          type="text"
-                          disabled={!isOpex(row.budgetAllocation) || !isQuarterActive('q2')}
+                        <ExpandableCell
                           value={isOpex(row.budgetAllocation) ? (row.q2Expenditure || '') : (() => {
                             const total = parseBudgetNum(row.budgetAllocation);
                             return total > 0 ? `R ${Math.round(total / 4).toLocaleString()}` : 'R 0';
                           })()}
-                          onChange={(e) => handleCellChange(row.id, 'q2Expenditure', e.target.value)}
-                          title={!isQuarterActive('q2') ? getQuarterLockNotice('q2') : undefined}
-                          className={`w-full border p-1 rounded text-[11px] font-bold ${!isQuarterActive('q2') || !isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white text-slate-800 border-slate-200'}`}
+                          disabled={!isOpex(row.budgetAllocation) || !isQuarterActive('q2')}
+                          onChange={(val) => handleCellChange(row.id, 'q2Expenditure', val)}
+                          cellTitle="Q2 Expenditure"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllReportingCells}
+                          minRows={1}
                           placeholder={!isQuarterActive('q2') ? "Locked" : "Q2 Exp..."}
+                          onOpenExpandModal={openCellExpandModal}
+                          className={`font-bold ${!isQuarterActive('q2') || !isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-800'}`}
                         />
                       </td>
 
                       {/* Q2 POE Column */}
                       <td className="p-2 border-r border-slate-100 bg-blue-50/10">
                         <div className="space-y-2">
-                          <textarea 
-                            rows={2}
+                          <ExpandableCell
                             value={row.q2PoeDesc || ''}
                             disabled={!isQuarterActive('q2')}
-                            onChange={(e) => handleCellChange(row.id, 'q2PoeDesc', e.target.value)}
-                            title={!isQuarterActive('q2') ? getQuarterLockNotice('q2') : undefined}
-                            className={`w-full border p-1 rounded text-[10px] ${!isQuarterActive('q2') ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white border-slate-200 focus:ring-1 focus:ring-blue-300'}`}
+                            onChange={(val) => handleCellChange(row.id, 'q2PoeDesc', val)}
+                            cellTitle="Q2 POE Description"
+                            refNum={row.refNum}
+                            isFitAll={isFitAllReportingCells}
+                            minRows={2}
                             placeholder={!isQuarterActive('q2') ? "Locked for this period" : "Q2 POE Description..."}
+                            onOpenExpandModal={openCellExpandModal}
+                            className={!isQuarterActive('q2') ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white border-slate-200'}
                           />
                           {row.q2Poes && row.q2Poes.length > 0 && (
                             <div 
@@ -4738,21 +4978,33 @@ Timestamp: ${new Date().toLocaleString()}
 
                       {/* Q2 TARGET Column */}
                       <td className="p-2 border-r border-slate-100 bg-blue-50/20 text-center">
-                        <div className="font-bold text-blue-900 text-xs">{row.q2 || '-'}</div>
+                        <ExpandableCell
+                          value={row.q2 || '-'}
+                          readOnly
+                          cellTitle="Q2 Target"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllReportingCells}
+                          minRows={1}
+                          onOpenExpandModal={openCellExpandModal}
+                          className="font-bold text-blue-900 text-center"
+                        />
                       </td>
 
                       <td className="p-2 border-r border-slate-100 bg-blue-50/5 relative">
-                        <textarea 
-                          rows={3} 
+                        <ExpandableCell
+                          value={row.q2Actual || ''}
                           disabled={!isQuarterActive('q2')}
-                          value={row.q2Actual || ''} 
-                          onChange={(e) => handleCellChange(row.id, 'q2Actual', e.target.value)} 
-                          title={!isQuarterActive('q2') ? getQuarterLockNotice('q2') : undefined}
-                          className={`w-full border p-1 rounded text-[11px] ${!isQuarterActive('q2') ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white border-slate-200 focus:ring-1 focus:ring-blue-300'}`} 
-                          placeholder={!isQuarterActive('q2') ? "Locked for this period" : "Q2 Actual..."} 
+                          onChange={(val) => handleCellChange(row.id, 'q2Actual', val)}
+                          cellTitle="Q2 Actual"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllReportingCells}
+                          minRows={2}
+                          placeholder={!isQuarterActive('q2') ? "Locked for this period" : "Q2 Actual..."}
+                          onOpenExpandModal={openCellExpandModal}
+                          className={!isQuarterActive('q2') ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white'}
                         />
                         {row.q2Actual && row.q2 && row.q2Actual !== row.q2 && (
-                          <div className="absolute top-1 right-1">
+                          <div className="absolute top-1 right-1 pointer-events-auto z-10">
                             <div className="relative group/tip">
                               <AlertCircle className="w-3 h-3 text-rose-500 animate-pulse cursor-help" />
                               <div className="absolute bottom-full right-0 mb-1 hidden group-hover/tip:block z-50">
@@ -4768,19 +5020,30 @@ Timestamp: ${new Date().toLocaleString()}
                         )}
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-blue-50/5">
-                        <div className="w-full bg-white border border-slate-200 p-1 rounded text-[11px] font-bold text-slate-700 min-h-[40px]">
-                          {row.q2Variance || ''}
-                        </div>
+                        <ExpandableCell
+                          value={row.q2Variance || ''}
+                          readOnly
+                          cellTitle="Q2 Variance"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllReportingCells}
+                          minRows={1}
+                          placeholder="No variance"
+                          onOpenExpandModal={openCellExpandModal}
+                          className="font-bold text-slate-700 bg-white"
+                        />
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-blue-50/5">
-                        <textarea 
-                          rows={3} 
-                          value={row.q2Corrective || ''} 
+                        <ExpandableCell
+                          value={row.q2Corrective || ''}
                           disabled={!isQuarterActive('q2') || isFieldDisabled(row.q2Variance)}
-                          onChange={(e) => handleCellChange(row.id, 'q2Corrective', e.target.value)} 
-                          title={!isQuarterActive('q2') ? getQuarterLockNotice('q2') : undefined}
-                          className={`w-full p-1 focus:ring-1 focus:ring-blue-300 rounded text-[11px] transition-colors ${!isQuarterActive('q2') || isFieldDisabled(row.q2Variance) ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed italic font-normal' : 'bg-white border-slate-200 text-slate-800'}`} 
-                          placeholder={!isQuarterActive('q2') ? "Locked for this period" : isFieldDisabled(row.q2Variance) ? "No variance detected." : "Q2 Corrective..."} 
+                          onChange={(val) => handleCellChange(row.id, 'q2Corrective', val)}
+                          cellTitle="Q2 Corrective Measure"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllReportingCells}
+                          minRows={2}
+                          placeholder={!isQuarterActive('q2') ? "Locked for this period" : isFieldDisabled(row.q2Variance) ? "No variance detected." : "Q2 Corrective..."}
+                          onOpenExpandModal={openCellExpandModal}
+                          className={!isQuarterActive('q2') || isFieldDisabled(row.q2Variance) ? 'bg-slate-100 text-slate-400 cursor-not-allowed italic font-normal' : 'bg-white text-slate-800'}
                         />
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-blue-100/10 text-center">
@@ -4789,31 +5052,37 @@ Timestamp: ${new Date().toLocaleString()}
 
                       {/* Mid Term Expenditure */}
                       <td className="p-2 border-r border-slate-100 bg-teal-50/10">
-                        <input 
-                          type="text"
-                          disabled={!isOpex(row.budgetAllocation) || !isQuarterActive('midTerm')}
+                        <ExpandableCell
                           value={isOpex(row.budgetAllocation) ? (row.midTermExpenditure || '') : (() => {
                             const total = parseBudgetNum(row.budgetAllocation);
                             return total > 0 ? `R ${Math.round(total / 2).toLocaleString()}` : 'R 0';
                           })()}
-                          onChange={(e) => handleCellChange(row.id, 'midTermExpenditure', e.target.value)}
-                          title={!isQuarterActive('midTerm') ? getQuarterLockNotice('midTerm') : undefined}
-                          className={`w-full border p-1 rounded text-[11px] font-bold ${!isQuarterActive('midTerm') || !isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white text-slate-800 border-slate-200'}`}
+                          disabled={!isOpex(row.budgetAllocation) || !isQuarterActive('midTerm')}
+                          onChange={(val) => handleCellChange(row.id, 'midTermExpenditure', val)}
+                          cellTitle="Mid-Term Expenditure"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllReportingCells}
+                          minRows={1}
                           placeholder={!isQuarterActive('midTerm') ? "Locked" : "Mid Term Exp..."}
+                          onOpenExpandModal={openCellExpandModal}
+                          className={`font-bold ${!isQuarterActive('midTerm') || !isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-800'}`}
                         />
                       </td>
 
                       {/* Mid Term POE Column */}
                       <td className="p-2 border-r border-slate-100 bg-emerald-50/10">
                         <div className="space-y-2">
-                          <textarea 
-                            rows={2}
+                          <ExpandableCell
                             value={row.midTermPoeDesc || ''}
                             disabled={!isQuarterActive('midTerm')}
-                            onChange={(e) => handleCellChange(row.id, 'midTermPoeDesc', e.target.value)}
-                            title={!isQuarterActive('midTerm') ? getQuarterLockNotice('midTerm') : undefined}
-                            className={`w-full border p-1 rounded text-[10px] ${!isQuarterActive('midTerm') ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white border-slate-200 focus:ring-1 focus:ring-emerald-300'}`}
+                            onChange={(val) => handleCellChange(row.id, 'midTermPoeDesc', val)}
+                            cellTitle="Mid-Term POE Description"
+                            refNum={row.refNum}
+                            isFitAll={isFitAllReportingCells}
+                            minRows={2}
                             placeholder={!isQuarterActive('midTerm') ? "Locked for this period" : "Mid Term POE Description..."}
+                            onOpenExpandModal={openCellExpandModal}
+                            className={!isQuarterActive('midTerm') ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white border-slate-200'}
                           />
                           {row.midTermPoes && row.midTermPoes.length > 0 && (
                             <div 
@@ -4883,14 +5152,32 @@ Timestamp: ${new Date().toLocaleString()}
 
                       {/* Mid Term Target */}
                       <td className="p-2 border-r border-slate-100 bg-emerald-50/20 text-center">
-                        <div className="font-bold text-emerald-900 text-xs">{row.midTermTarget || ''}</div>
+                        <ExpandableCell
+                          value={row.midTermTarget || ''}
+                          readOnly
+                          cellTitle="Mid-Term Target"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllReportingCells}
+                          minRows={1}
+                          onOpenExpandModal={openCellExpandModal}
+                          className="font-bold text-emerald-900 text-center"
+                        />
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-emerald-50/5 relative">
-                        <div className="w-full bg-white border border-emerald-100 p-1 rounded text-[11px] min-h-[40px] font-bold text-emerald-700 mb-1">
-                          {row.midTermActual || ''}
-                        </div>
+                        <ExpandableCell
+                          value={row.midTermActual || ''}
+                          disabled={!isQuarterActive('midTerm')}
+                          onChange={(val) => handleCellChange(row.id, 'midTermActual', val)}
+                          cellTitle="Mid-Term Actual"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllReportingCells}
+                          minRows={2}
+                          placeholder={!isQuarterActive('midTerm') ? "Locked" : "Mid Term Actual..."}
+                          onOpenExpandModal={openCellExpandModal}
+                          className={!isQuarterActive('midTerm') ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white font-bold text-emerald-700'}
+                        />
                         {row.midTermActual && row.midTermTarget && row.midTermActual !== row.midTermTarget && (
-                          <div className="absolute top-1 right-1">
+                          <div className="absolute top-1 right-1 pointer-events-auto z-10">
                             <div className="relative group/tip">
                               <AlertCircle className="w-3 h-3 text-rose-500 animate-pulse cursor-help" />
                               <div className="absolute bottom-full right-0 mb-1 hidden group-hover/tip:block z-50">
@@ -4906,19 +5193,30 @@ Timestamp: ${new Date().toLocaleString()}
                         )}
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-emerald-50/5">
-                        <div className="w-full bg-white border border-emerald-100 p-1 rounded text-[11px] font-bold text-slate-800 min-h-[40px]">
-                          {row.midTermVariance || ''}
-                        </div>
+                        <ExpandableCell
+                          value={row.midTermVariance || ''}
+                          readOnly
+                          cellTitle="Mid-Term Variance"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllReportingCells}
+                          minRows={1}
+                          placeholder="No variance"
+                          onOpenExpandModal={openCellExpandModal}
+                          className="font-bold text-slate-800 bg-white"
+                        />
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-emerald-50/5">
-                        <textarea 
-                          rows={3} 
-                          value={row.midTermCorrective || ''} 
+                        <ExpandableCell
+                          value={row.midTermCorrective || ''}
                           disabled={!isQuarterActive('midTerm') || isFieldDisabled(row.midTermVariance)}
-                          onChange={(e) => handleCellChange(row.id, 'midTermCorrective', e.target.value)} 
-                          title={!isQuarterActive('midTerm') ? getQuarterLockNotice('midTerm') : undefined}
-                          className={`w-full p-1 focus:ring-1 focus:ring-emerald-300 rounded text-[11px] transition-colors ${!isQuarterActive('midTerm') || isFieldDisabled(row.midTermVariance) ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed italic font-normal' : 'bg-white border-emerald-100 p-1 text-slate-800'}`} 
-                          placeholder={!isQuarterActive('midTerm') ? "Locked for this period" : isFieldDisabled(row.midTermVariance) ? "No variance detected." : "Mid-Term Corrective..."} 
+                          onChange={(val) => handleCellChange(row.id, 'midTermCorrective', val)}
+                          cellTitle="Mid-Term Corrective Measure"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllReportingCells}
+                          minRows={2}
+                          placeholder={!isQuarterActive('midTerm') ? "Locked for this period" : isFieldDisabled(row.midTermVariance) ? "No variance detected." : "Mid-Term Corrective..."}
+                          onOpenExpandModal={openCellExpandModal}
+                          className={!isQuarterActive('midTerm') || isFieldDisabled(row.midTermVariance) ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed italic font-normal' : 'bg-white text-slate-800'}
                         />
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-emerald-100/10 text-center">
@@ -4927,31 +5225,37 @@ Timestamp: ${new Date().toLocaleString()}
 
                       {/* Q3 Expenditure (Moved before POE) */}
                       <td className="p-2 border-r border-slate-100 bg-teal-50/10">
-                        <input 
-                          type="text"
-                          disabled={!isOpex(row.budgetAllocation) || !isQuarterActive('q3')}
+                        <ExpandableCell
                           value={isOpex(row.budgetAllocation) ? (row.q3Expenditure || '') : (() => {
                             const total = parseBudgetNum(row.budgetAllocation);
                             return total > 0 ? `R ${Math.round(total / 4).toLocaleString()}` : 'R 0';
                           })()}
-                          onChange={(e) => handleCellChange(row.id, 'q3Expenditure', e.target.value)}
-                          title={!isQuarterActive('q3') ? getQuarterLockNotice('q3') : undefined}
-                          className={`w-full border p-1 rounded text-[11px] font-bold ${!isQuarterActive('q3') || !isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white text-slate-800 border-slate-200'}`}
+                          disabled={!isOpex(row.budgetAllocation) || !isQuarterActive('q3')}
+                          onChange={(val) => handleCellChange(row.id, 'q3Expenditure', val)}
+                          cellTitle="Q3 Expenditure"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllReportingCells}
+                          minRows={1}
                           placeholder={!isQuarterActive('q3') ? "Locked" : "Q3 Exp..."}
+                          onOpenExpandModal={openCellExpandModal}
+                          className={`font-bold ${!isQuarterActive('q3') || !isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-800'}`}
                         />
                       </td>
 
                       {/* Q3 POE Column */}
                       <td className="p-2 border-r border-slate-100 bg-amber-50/10">
                         <div className="space-y-2">
-                          <textarea 
-                            rows={2}
+                          <ExpandableCell
                             value={row.q3PoeDesc || ''}
                             disabled={!isQuarterActive('q3')}
-                            onChange={(e) => handleCellChange(row.id, 'q3PoeDesc', e.target.value)}
-                            title={!isQuarterActive('q3') ? getQuarterLockNotice('q3') : undefined}
-                            className={`w-full border p-1 rounded text-[10px] ${!isQuarterActive('q3') ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white border-slate-200 focus:ring-1 focus:ring-amber-300'}`}
+                            onChange={(val) => handleCellChange(row.id, 'q3PoeDesc', val)}
+                            cellTitle="Q3 POE Description"
+                            refNum={row.refNum}
+                            isFitAll={isFitAllReportingCells}
+                            minRows={2}
                             placeholder={!isQuarterActive('q3') ? "Locked for this period" : "Q3 POE Description..."}
+                            onOpenExpandModal={openCellExpandModal}
+                            className={!isQuarterActive('q3') ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white border-slate-200'}
                           />
                           {row.q3Poes && row.q3Poes.length > 0 && (
                             <div 
@@ -5021,21 +5325,33 @@ Timestamp: ${new Date().toLocaleString()}
 
                       {/* Q3 TARGET Column */}
                       <td className="p-2 border-r border-slate-100 bg-amber-50/20 text-center">
-                        <div className="font-bold text-amber-900 text-xs">{row.q3 || '-'}</div>
+                        <ExpandableCell
+                          value={row.q3 || '-'}
+                          readOnly
+                          cellTitle="Q3 Target"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllReportingCells}
+                          minRows={1}
+                          onOpenExpandModal={openCellExpandModal}
+                          className="font-bold text-amber-900 text-center"
+                        />
                       </td>
 
                       <td className="p-2 border-r border-slate-100 bg-amber-50/5 relative text-slate-800">
-                        <textarea 
-                          rows={3} 
+                        <ExpandableCell
+                          value={row.q3Actual || ''}
                           disabled={!isQuarterActive('q3')}
-                          value={row.q3Actual || ''} 
-                          onChange={(e) => handleCellChange(row.id, 'q3Actual', e.target.value)} 
-                          title={!isQuarterActive('q3') ? getQuarterLockNotice('q3') : undefined}
-                          className={`w-full border p-1 rounded text-[11px] ${!isQuarterActive('q3') ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white border-slate-200 focus:ring-1 focus:ring-amber-300'}`} 
-                          placeholder={!isQuarterActive('q3') ? "Locked for this period" : "Q3 Actual..."} 
+                          onChange={(val) => handleCellChange(row.id, 'q3Actual', val)}
+                          cellTitle="Q3 Actual"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllReportingCells}
+                          minRows={2}
+                          placeholder={!isQuarterActive('q3') ? "Locked for this period" : "Q3 Actual..."}
+                          onOpenExpandModal={openCellExpandModal}
+                          className={!isQuarterActive('q3') ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white'}
                         />
                         {row.q3Actual && row.q3 && row.q3Actual !== row.q3 && (
-                          <div className="absolute top-1 right-1">
+                          <div className="absolute top-1 right-1 pointer-events-auto z-10">
                             <div className="relative group/tip">
                               <AlertCircle className="w-3 h-3 text-rose-500 animate-pulse cursor-help" />
                               <div className="absolute bottom-full right-0 mb-1 hidden group-hover/tip:block z-50">
@@ -5051,19 +5367,30 @@ Timestamp: ${new Date().toLocaleString()}
                         )}
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-amber-50/5">
-                        <div className="w-full bg-white border border-slate-200 p-1 rounded text-[11px] font-bold text-slate-700 min-h-[40px]">
-                          {row.q3Variance || ''}
-                        </div>
+                        <ExpandableCell
+                          value={row.q3Variance || ''}
+                          readOnly
+                          cellTitle="Q3 Variance"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllReportingCells}
+                          minRows={1}
+                          placeholder="No variance"
+                          onOpenExpandModal={openCellExpandModal}
+                          className="font-bold text-slate-700 bg-white"
+                        />
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-amber-50/5">
-                        <textarea 
-                          rows={3} 
-                          value={row.q3Corrective || ''} 
-                          disabled={!isQuarterActive('q3') || isFieldDisabled(row.q3Variance)}
-                          onChange={(e) => handleCellChange(row.id, 'q3Corrective', e.target.value)} 
-                          title={!isQuarterActive('q3') ? getQuarterLockNotice('q3') : undefined}
-                          className={`w-full p-1 focus:ring-1 focus:ring-amber-300 rounded text-[11px] transition-colors ${!isQuarterActive('q3') || isFieldDisabled(row.q3Variance) ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed italic font-normal' : 'bg-white border-slate-200 text-slate-800'}`} 
-                          placeholder={!isQuarterActive('q3') ? "Locked for this period" : isFieldDisabled(row.q3Variance) ? "No variance detected." : "Q3 Corrective..."} 
+                        <ExpandableCell
+                          value={row.q3Corrective || ''}
+                          disabled={!isQuarterActive('q3')}
+                          onChange={(val) => handleCellChange(row.id, 'q3Corrective', val)}
+                          cellTitle="Q3 Corrective Measure"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllReportingCells}
+                          minRows={2}
+                          placeholder={!isQuarterActive('q3') ? "Locked for this period" : isFieldDisabled(row.q3Variance) ? "No variance detected." : "Q3 Corrective..."}
+                          onOpenExpandModal={openCellExpandModal}
+                          className={!isQuarterActive('q3') || isFieldDisabled(row.q3Variance) ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed italic font-normal' : 'bg-white text-slate-800'}
                         />
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-amber-100/10 text-center">
@@ -5072,31 +5399,37 @@ Timestamp: ${new Date().toLocaleString()}
 
                       {/* Q4 Expenditure (Moved before POE) */}
                       <td className="p-2 border-r border-slate-100 bg-teal-50/10">
-                        <input 
-                          type="text"
-                          disabled={!isOpex(row.budgetAllocation) || !isQuarterActive('q4')}
+                        <ExpandableCell
                           value={isOpex(row.budgetAllocation) ? (row.q4Expenditure || '') : (() => {
                             const total = parseBudgetNum(row.budgetAllocation);
                             return total > 0 ? `R ${Math.round(total / 4).toLocaleString()}` : 'R 0';
                           })()}
-                          onChange={(e) => handleCellChange(row.id, 'q4Expenditure', e.target.value)}
-                          title={!isQuarterActive('q4') ? getQuarterLockNotice('q4') : undefined}
-                          className={`w-full border p-1 rounded text-[11px] font-bold ${!isQuarterActive('q4') || !isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white text-slate-800 border-slate-200'}`}
+                          disabled={!isOpex(row.budgetAllocation) || !isQuarterActive('q4')}
+                          onChange={(val) => handleCellChange(row.id, 'q4Expenditure', val)}
+                          cellTitle="Q4 Expenditure"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllReportingCells}
+                          minRows={1}
                           placeholder={!isQuarterActive('q4') ? "Locked" : "Q4 Exp..."}
+                          onOpenExpandModal={openCellExpandModal}
+                          className={`font-bold ${!isQuarterActive('q4') || !isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-800'}`}
                         />
                       </td>
 
                       {/* Q4 POE Column */}
                       <td className="p-2 border-r border-slate-100 bg-rose-50/10">
                         <div className="space-y-2">
-                          <textarea 
-                            rows={2}
+                          <ExpandableCell
                             value={row.q4PoeDesc || ''}
                             disabled={!isQuarterActive('q4')}
-                            onChange={(e) => handleCellChange(row.id, 'q4PoeDesc', e.target.value)}
-                            title={!isQuarterActive('q4') ? getQuarterLockNotice('q4') : undefined}
-                            className={`w-full border p-1 rounded text-[10px] ${!isQuarterActive('q4') ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white border-slate-200 focus:ring-1 focus:ring-rose-300'}`}
+                            onChange={(val) => handleCellChange(row.id, 'q4PoeDesc', val)}
+                            cellTitle="Q4 POE Description"
+                            refNum={row.refNum}
+                            isFitAll={isFitAllReportingCells}
+                            minRows={2}
                             placeholder={!isQuarterActive('q4') ? "Locked for this period" : "Q4 POE Description..."}
+                            onOpenExpandModal={openCellExpandModal}
+                            className={!isQuarterActive('q4') ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white border-slate-200'}
                           />
                           {row.q4Poes && row.q4Poes.length > 0 && (
                             <div 
@@ -5166,21 +5499,33 @@ Timestamp: ${new Date().toLocaleString()}
 
                       {/* Q4 TARGET Column */}
                       <td className="p-2 border-r border-slate-100 bg-rose-50/20 text-center">
-                        <div className="font-bold text-rose-900 text-xs">{row.q4 || '-'}</div>
+                        <ExpandableCell
+                          value={row.q4 || '-'}
+                          readOnly
+                          cellTitle="Q4 Target"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllReportingCells}
+                          minRows={1}
+                          onOpenExpandModal={openCellExpandModal}
+                          className="font-bold text-rose-900 text-center"
+                        />
                       </td>
 
                       <td className="p-2 border-r border-slate-100 bg-rose-50/5 relative">
-                        <textarea 
-                          rows={3} 
+                        <ExpandableCell
+                          value={row.q4Actual || ''}
                           disabled={!isQuarterActive('q4')}
-                          value={row.q4Actual || ''} 
-                          onChange={(e) => handleCellChange(row.id, 'q4Actual', e.target.value)} 
-                          title={!isQuarterActive('q4') ? getQuarterLockNotice('q4') : undefined}
-                          className={`w-full border p-1 rounded text-[11px] ${!isQuarterActive('q4') ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white border-slate-200 focus:ring-1 focus:ring-rose-300'}`} 
-                          placeholder={!isQuarterActive('q4') ? "Locked for this period" : "Q4 Actual..."} 
+                          onChange={(val) => handleCellChange(row.id, 'q4Actual', val)}
+                          cellTitle="Q4 Actual"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllReportingCells}
+                          minRows={2}
+                          placeholder={!isQuarterActive('q4') ? "Locked for this period" : "Q4 Actual..."}
+                          onOpenExpandModal={openCellExpandModal}
+                          className={!isQuarterActive('q4') ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white'}
                         />
                         {row.q4Actual && row.q4 && row.q4Actual !== row.q4 && (
-                          <div className="absolute top-1 right-1">
+                          <div className="absolute top-1 right-1 pointer-events-auto z-10">
                             <div className="relative group/tip">
                               <AlertCircle className="w-3 h-3 text-rose-500 animate-pulse cursor-help" />
                               <div className="absolute bottom-full right-0 mb-1 hidden group-hover/tip:block z-50">
@@ -5196,19 +5541,30 @@ Timestamp: ${new Date().toLocaleString()}
                         )}
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-rose-50/5">
-                        <div className="w-full bg-white border border-slate-200 p-1 rounded text-[11px] font-bold text-slate-700 min-h-[40px]">
-                          {row.q4Variance || ''}
-                        </div>
+                        <ExpandableCell
+                          value={row.q4Variance || ''}
+                          readOnly
+                          cellTitle="Q4 Variance"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllReportingCells}
+                          minRows={1}
+                          placeholder="No variance"
+                          onOpenExpandModal={openCellExpandModal}
+                          className="font-bold text-slate-700 bg-white"
+                        />
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-rose-50/5">
-                        <textarea 
-                          rows={3} 
-                          value={row.q4Corrective || ''} 
+                        <ExpandableCell
+                          value={row.q4Corrective || ''}
                           disabled={!isQuarterActive('q4') || isFieldDisabled(row.q4Variance)}
-                          onChange={(e) => handleCellChange(row.id, 'q4Corrective', e.target.value)} 
-                          title={!isQuarterActive('q4') ? getQuarterLockNotice('q4') : undefined}
-                          className={`w-full p-1 focus:ring-1 focus:ring-rose-300 rounded text-[11px] transition-colors ${!isQuarterActive('q4') || isFieldDisabled(row.q4Variance) ? 'bg-slate-100 border-slate-200 text-slate-450 cursor-not-allowed italic font-normal' : 'bg-white border-slate-200 text-slate-800'}`} 
-                          placeholder={!isQuarterActive('q4') ? "Locked for this period" : isFieldDisabled(row.q4Variance) ? "No variance detected." : "Q4 Corrective..."} 
+                          onChange={(val) => handleCellChange(row.id, 'q4Corrective', val)}
+                          cellTitle="Q4 Corrective Measure"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllReportingCells}
+                          minRows={2}
+                          placeholder={!isQuarterActive('q4') ? "Locked for this period" : isFieldDisabled(row.q4Variance) ? "No variance detected." : "Q4 Corrective..."}
+                          onOpenExpandModal={openCellExpandModal}
+                          className={!isQuarterActive('q4') || isFieldDisabled(row.q4Variance) ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed italic font-normal' : 'bg-white border-slate-200 text-slate-800'}
                         />
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-rose-100/10 text-center">
@@ -5222,6 +5578,7 @@ Timestamp: ${new Date().toLocaleString()}
                           onChange={(val) => handleCellChange(row.id, 'submitter', val)}
                           roleType="submitter"
                           activeTenantId={activeTenantId}
+                          isFitAll={isFitAllReportingCells}
                         />
                       </td>
 
@@ -5232,6 +5589,7 @@ Timestamp: ${new Date().toLocaleString()}
                           onChange={(val) => handleCellChange(row.id, 'approver', val)}
                           roleType="approver"
                           activeTenantId={activeTenantId}
+                          isFitAll={isFitAllReportingCells}
                         />
                       </td>
 
@@ -5242,6 +5600,7 @@ Timestamp: ${new Date().toLocaleString()}
                           onChange={(val) => handleCellChange(row.id, 'reviewer', val)}
                           roleType="reviewer"
                           activeTenantId={activeTenantId}
+                          isFitAll={isFitAllReportingCells}
                         />
                       </td>
 
@@ -5252,16 +5611,21 @@ Timestamp: ${new Date().toLocaleString()}
                           onChange={(val) => handleCellChange(row.id, 'internalAudit', val)}
                           roleType="internal_audit"
                           activeTenantId={activeTenantId}
+                          isFitAll={isFitAllReportingCells}
                         />
                       </td>
 
                       <td className="p-2 text-center text-[10px] text-slate-500">
-                        <input
-                          type="text"
+                        <ExpandableCell
                           value={row.score || ''}
-                          onChange={(e) => handleCellChange(row.id, 'score', e.target.value)}
-                          className="w-16 mx-auto bg-white border border-slate-200 p-1 rounded font-bold text-center font-mono focus:ring-1 focus:ring-indigo-300"
+                          onChange={(val) => handleCellChange(row.id, 'score', val)}
+                          cellTitle="Score"
+                          refNum={row.refNum}
+                          isFitAll={isFitAllReportingCells}
+                          minRows={1}
                           placeholder="Score"
+                          onOpenExpandModal={openCellExpandModal}
+                          className="font-bold text-center font-mono"
                         />
                       </td>
                     </tr>
@@ -5845,6 +6209,12 @@ Timestamp: ${new Date().toLocaleString()}
           </div>
         </div>
       )}
+
+      {/* Expandable Cell Full Inspector / Editor Modal */}
+      <CellExpandModal
+        modalState={cellModal}
+        onClose={() => setCellModal(m => ({ ...m, isOpen: false }))}
+      />
 
     </div>
   );

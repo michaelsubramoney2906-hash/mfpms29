@@ -1098,12 +1098,13 @@
     "jobFunction": "Systems Specialist",
     "department": "Mzansi Flow Operations",
     "source": "manual",
-    "role": "Standard User",
+    "role": "Global Administrator",
     "tenantId": "global",
     "manager": "Mike",
     "directorate": "Mzansi Flow Operations",
     "reportTo": "Mike",
-    "level": "L3 Specialist"
+    "level": "L3 Specialist",
+    "systemRole": "Global Administrator"
   },
   {
     "id": "f10b1ed6-2d47-40f7-833f-6770a090ed44",
@@ -4676,6 +4677,20 @@
     "level": "1"
   },
   {
+    "id": "f60af742-7b20-4eae-93ff-6ae7877fce6a",
+    "fullName": "Noluthando Zulu",
+    "email": "zulune@nkangaladm.gov.za",
+    "jobFunction": "PMS Officer",
+    "department": "Performance Management Unit",
+    "source": "azure_ad",
+    "role": "tenant_user",
+    "tenantId": "nkangala_auto",
+    "manager": "Yena Khuboni",
+    "directorate": "Office of the Municipal Manager",
+    "reportTo": "Yena Khuboni",
+    "level": "4"
+  },
+  {
     "id": "ae55a23b-f0f2-4311-8576-b8b81938b655",
     "fullName": "Riaan Van Zyl",
     "email": "VanzylR@nkangaladm.gov.za",
@@ -4786,20 +4801,6 @@
     "directorate": "",
     "reportTo": "",
     "level": "1"
-  },
-  {
-    "id": "f60af742-7b20-4eae-93ff-6ae7877fce6a",
-    "fullName": "Noluthando Zulu",
-    "email": "zulune@nkangaladm.gov.za",
-    "jobFunction": "PMS Officer",
-    "department": "Performance Management Unit",
-    "source": "azure_ad",
-    "role": "tenant_user",
-    "tenantId": "nkangala_auto",
-    "manager": "Yena Khuboni",
-    "directorate": "Office of the Municipal Manager",
-    "reportTo": "Yena Khuboni",
-    "level": "4"
   },
   {
     "id": "6d8e15af-4b2c-4467-8fd9-6f8e24ff5d96",
@@ -9568,7 +9569,7 @@
     "jobFunction": "Secretary Technical Services",
     "department": "Corporate Services",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
     "manager": "SM Tseka",
     "directorate": "Technical",

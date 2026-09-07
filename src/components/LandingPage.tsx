@@ -27,6 +27,7 @@ export function LandingPage({ onLogin }: LandingPageProps) {
     'mike@massivedynamixdistributors.com',
     'audrey@mzansiflow.co.za',
     'delphine@mzansiflow.co.za',
+    'bonganim@mzansiflow.co.za',
     'qiniso@mzansiflow.co.za',
     'marlan@mzansiflow.co.za'
   ];
@@ -38,7 +39,8 @@ export function LandingPage({ onLogin }: LandingPageProps) {
     'audrey@mzansiflow.co.za',
     'marlan@mzansiflow.co.za',
     'qiniso@mzansiflow.co.za',
-    'delphine@mzansiflow.co.za'
+    'delphine@mzansiflow.co.za',
+    'bonganim@mzansiflow.co.za'
   ];
   const isPasswordRequired = PASSWORD_REQUIRED_EMAILS.includes(email.trim().toLowerCase());
   const [password, setPassword] = useState('');
@@ -114,13 +116,13 @@ export function LandingPage({ onLogin }: LandingPageProps) {
       email: lowerEmail,
       role: userRole as any,
       tenantId: isGlobalAdmin ? undefined : (internalProfile?.tenantId || internalProfile?.tenant_id || selectedTenant),
-      fullName: internalProfile?.fullName || internalProfile?.full_name || lowerEmail.split('@')[0],
-      jobFunction: internalProfile?.jobFunction || internalProfile?.job_function,
-      department: internalProfile?.department,
+      fullName: internalProfile?.fullName || internalProfile?.full_name || (lowerEmail.includes('delphine') ? 'Delphine' : lowerEmail.includes('bongani') ? 'Bongani M.' : lowerEmail.split('@')[0]),
+      jobFunction: isGlobalAdmin ? 'Global Administrator' : (internalProfile?.jobFunction || internalProfile?.job_function || 'Department Manager'),
+      department: internalProfile?.department || (isGlobalAdmin ? 'Administration' : undefined),
       manager: internalProfile?.manager,
       reportTo: internalProfile?.reportTo,
-      level: internalProfile?.level,
-      systemRole: internalProfile?.systemRole || internalProfile?.role || 'Standard User',
+      level: internalProfile?.level || (isGlobalAdmin ? 'L1 Executive' : undefined),
+      systemRole: isGlobalAdmin ? 'Global Administrator' : (internalProfile?.systemRole || internalProfile?.role || 'Standard User'),
       portalMode: portalMode
     };
 

@@ -17,6 +17,7 @@ interface AzureADPickerProps {
   placeholder?: string;
   activeTenantId: string;
   size?: 'sm' | 'md';
+  isFitAll?: boolean;
 }
 
 export const FIXED_REVIEWERS = [
@@ -102,7 +103,8 @@ export const AzureADPicker = React.memo(function AzureADPicker({
   roleType, 
   placeholder, 
   activeTenantId, 
-  size = 'md' 
+  size = 'md',
+  isFitAll = false
 }: AzureADPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -191,17 +193,18 @@ export const AzureADPicker = React.memo(function AzureADPicker({
       {/* Target Trigger Button */}
       <div 
         onClick={() => setIsOpen(!isOpen)}
+        title={resolvedDisplayName || placeholder || `Select ${roleType}...`}
         className={`flex items-center justify-between cursor-pointer border rounded-lg px-2.5 py-1.5 transition-all text-left bg-white shadow-sm hover:border-sky-400 select-none ${
           value ? 'border-slate-200 text-slate-800' : 'border-dashed border-slate-300 text-slate-400 hover:bg-slate-50'
         } ${size === 'sm' ? 'text-[11px]' : 'text-xs'}`}
       >
-        <div className="flex items-center gap-2 truncate">
+        <div className={`flex items-center gap-2 ${isFitAll ? 'min-w-0' : 'truncate'}`}>
           <div className="w-4 h-4 rounded-md bg-sky-500/10 text-sky-600 flex items-center justify-center shrink-0">
             <svg viewBox="0 0 24 24" className="w-2.5 h-2.5 fill-current">
               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
             </svg>
           </div>
-          <span className="truncate font-medium font-sans">
+          <span className={`font-medium font-sans ${isFitAll ? 'break-words whitespace-normal leading-tight' : 'truncate'}`}>
             {resolvedDisplayName || placeholder || `Select ${roleType}...`}
           </span>
         </div>
