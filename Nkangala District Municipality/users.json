@@ -4676,20 +4676,6 @@
     "level": "1"
   },
   {
-    "id": "6d8e15af-4b2c-4467-8fd9-6f8e24ff5d96",
-    "fullName": "Trudie Van Niekerk",
-    "email": "vanniekerkt@nkangaladm.gov.za",
-    "jobFunction": "Divisioanl Manager: Budget & Expenditure",
-    "department": "Finance Services",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "AS Msiza",
-    "directorate": "Finance",
-    "reportTo": "",
-    "level": "2"
-  },
-  {
     "id": "ae55a23b-f0f2-4311-8576-b8b81938b655",
     "fullName": "Riaan Van Zyl",
     "email": "VanzylR@nkangaladm.gov.za",
@@ -4814,6 +4800,20 @@
     "directorate": "Office of the Municipal Manager",
     "reportTo": "Yena Khuboni",
     "level": "4"
+  },
+  {
+    "id": "6d8e15af-4b2c-4467-8fd9-6f8e24ff5d96",
+    "fullName": "Trudie Van Niekerk",
+    "email": "vanniekerkt@nkangaladm.gov.za",
+    "jobFunction": "Divisioanl Manager: Budget & Expenditure",
+    "department": "Finance Services",
+    "source": "azure_ad",
+    "role": "tenant_user",
+    "tenantId": "nkangala_auto",
+    "manager": "AS Msiza",
+    "directorate": "Finance",
+    "reportTo": "",
+    "level": "2"
   },
   {
     "id": "5cb09328-f074-4cad-bc4f-08840d1e4a08",

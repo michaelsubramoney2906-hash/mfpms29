@@ -1563,7 +1563,7 @@ CRITICAL SCOPE & ZERO-VARIANCE EXTRACTION MANDATES:
         }
 
         // Determine correct role - Nkangala users are restricted sandbox, never global systems admins
-        const defaultRole = (normalizedEmail === 'audrey@mzansiflow.co.za' || normalizedEmail === 'mike@mzansiflow.co.za' || normalizedEmail === 'delphine@mzansiflow.co.za' || normalizedEmail.includes('massivedynamixdistributors.com'))
+        const defaultRole = (normalizedEmail === 'audrey@mzansiflow.co.za' || normalizedEmail === 'mike@mzansiflow.co.za' || normalizedEmail.includes('massivedynamixdistributors.com'))
           ? 'Global Administrator'
           : (isSystemAdmin && !isNkangalaUser)
             ? 'Systems Administrator'
@@ -2796,7 +2796,6 @@ CRITICAL SCOPE & ZERO-VARIANCE EXTRACTION MANDATES:
       return [
         { id: '1', fullName: 'Mike', email: 'mike@mzansiflow.co.za', systemRole: 'admin', role: 'admin' },
         { id: '2', fullName: 'Audrey', email: 'audrey@mzansiflow.co.za', systemRole: 'admin', role: 'admin' },
-        { id: '3', fullName: 'Delphine', email: 'delphine@mzansiflow.co.za', systemRole: 'admin', role: 'admin' },
         { id: '4', fullName: 'Qiniso', email: 'qiniso@mzansiflow.co.za', systemRole: 'admin', role: 'admin' },
         { id: '5', fullName: 'Marlan', email: 'marlan@mzansiflow.co.za', systemRole: 'admin', role: 'admin' }
       ];
@@ -2880,7 +2879,7 @@ CRITICAL SCOPE & ZERO-VARIANCE EXTRACTION MANDATES:
     }
 
     // In case we don't have the global admins seeded in Supabase yet, let's inject them for now
-    const adminEmails = ['mike@mzansiflow.co.za', 'audrey@mzansiflow.co.za', 'delphine@mzansiflow.co.za', 'qiniso@mzansiflow.co.za', 'marlan@mzansiflow.co.za'];
+    const adminEmails = ['mike@mzansiflow.co.za', 'audrey@mzansiflow.co.za', 'qiniso@mzansiflow.co.za', 'marlan@mzansiflow.co.za'];
     const missingAdmins = adminEmails.filter(e => !formatted.some(f => f.email === e));
     if (missingAdmins.length > 0) {
       missingAdmins.forEach(email => {
@@ -7804,7 +7803,6 @@ User Request: ${prompt}`;
           { email: 'bonagni@mzansiflow.co.za', fullName: 'Bonagni', role: 'Systems Administrator' },
           { email: 'qiniso@mzansiflow.co.za', fullName: 'Qiniso', role: 'Systems Administrator' },
           { email: 'marlan@mzansiflow.co.za', fullName: 'Marlan', role: 'Systems Administrator' },
-          { email: 'delphine@mzansiflow.co.za', fullName: 'Delphine', role: 'Global Administrator' }
         ];
 
         let seededAny = false;

@@ -5,7 +5,7 @@
   "jobFunction": "Divisioanl Manager: Budget & Expenditure",
   "department": "Finance Services",
   "source": "azure_ad",
-  "role": "Standard User",
+  "role": "tenant_user",
   "tenantId": "nkangala_auto",
   "manager": "AS Msiza",
   "directorate": "Finance",

@@ -150,7 +150,24 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId }: JSCMod
       }
     };
     if (userEmail) fetchCompetencies();
-    return () => { active = false; };
+      const currentMonth = new Date().getMonth(); // 0-11
+  let isTimeLocked = false;
+  let activePeriodStr = "";
+  if (selectedQuarter === 'q1') {
+    isTimeLocked = !(currentMonth >= 6 && currentMonth <= 8);
+    activePeriodStr = "July - September";
+  } else if (selectedQuarter === 'q2') {
+    isTimeLocked = !(currentMonth >= 9 && currentMonth <= 11);
+    activePeriodStr = "October - December";
+  } else if (selectedQuarter === 'q3') {
+    isTimeLocked = !(currentMonth >= 0 && currentMonth <= 2);
+    activePeriodStr = "January - March";
+  } else if (selectedQuarter === 'q4') {
+    isTimeLocked = !(currentMonth >= 3 && currentMonth <= 5);
+    activePeriodStr = "April - June";
+  }
+
+  return () => { active = false; };
   }, [activeTenantId, userEmail]);
 
   const handleSaveToDatabase = async (updatedRows: CompetencyRow[]) => {
@@ -295,6 +312,19 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId }: JSCMod
       </div>
 
       {/* Main Table */}
+
+      {isTimeLocked ? (
+        <div className="bg-rose-50 border border-rose-200 text-rose-800 rounded-lg p-3 text-xs flex items-center gap-2 font-medium mb-4 mx-4">
+          <span className="text-base">🔒</span>
+          <span>This evaluation section is strictly time-locked. It is only active during its reporting period: <strong>{activePeriodStr}</strong>.</span>
+        </div>
+      ) : (
+        <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg p-3 text-xs flex items-center gap-2 font-medium mb-4 mx-4">
+          <span className="text-base">✅</span>
+          <span>This evaluation section is currently active ({activePeriodStr}).</span>
+        </div>
+      )}
+
       <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm flex flex-col">
         {loading ? (
           <div className="py-12 text-center text-xs font-bold text-slate-500 flex items-center justify-center gap-2">
@@ -325,7 +355,7 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId }: JSCMod
                 ) : (
                   rows.map(row => {
                     const qData = row[selectedQuarter] || { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', internalAuditorScore: 0, internalAuditorComments: '', dpmcScore: 0, dpmcComments: '', status: 'draft' };
-                    const isLocked = qData.status === 'pending_approval' || qData.status === 'approved' || qData.status === 'audited' || qData.status === 'moderated';
+                    const isLocked = qData.status === 'pending_approval' || qData.status === 'approved' || qData.status === 'audited' || qData.status === 'moderated' || isTimeLocked;
 
                     return (
                       <tr key={row.id} className="border-b border-gray-150 hover:bg-gray-50 transition duration-100 group">

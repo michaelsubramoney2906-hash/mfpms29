@@ -385,6 +385,36 @@ interface Props {
 }
 
 export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
+  const currentMonth = new Date().getMonth(); // 0-11
+  const isQ1TimeLocked = !(currentMonth >= 6 && currentMonth <= 8);
+  const q1ActivePeriod = "July - September";
+  const isQ2TimeLocked = !(currentMonth >= 9 && currentMonth <= 11);
+  const q2ActivePeriod = "October - December";
+  const isMidtermTimeLocked = !(currentMonth >= 0 && currentMonth <= 5);
+  const midtermActivePeriod = "January - June (Post-Q2)";
+  const isQ3TimeLocked = !(currentMonth >= 0 && currentMonth <= 2);
+  const q3ActivePeriod = "January - March";
+  const isQ4TimeLocked = !(currentMonth >= 3 && currentMonth <= 5);
+  const q4ActivePeriod = "April - June";
+  const isAnnualTimeLocked = !(currentMonth >= 6 && currentMonth <= 8);
+  const annualActivePeriod = "July - September (Post-Q4)";
+
+  const renderTimeLockBanner = (isLocked, periodName) => {
+    if (isLocked) {
+      return (
+        <div className="bg-rose-50 border border-rose-200 text-rose-800 rounded-lg p-3 text-xs flex items-center gap-2 font-medium mb-3">
+          <span className="text-base">🔒</span>
+          <span>This evaluation section is strictly time-locked. It is only active during its reporting period: <strong>{periodName}</strong>.</span>
+        </div>
+      );
+    }
+    return (
+      <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg p-3 text-xs flex items-center gap-2 font-medium mb-3">
+        <span className="text-base">✅</span>
+        <span>This evaluation section is currently active ({periodName}).</span>
+      </div>
+    );
+  };
   const [evalPhase, setEvalPhase] = useState<'kpi_self' | 'jsc_self' | 'jsc_manager' | 'jsc_reporting'>('kpi_self');
   const [loading, setLoading] = useState(true);
   const [pplanData, setPplanData] = useState<{ metadata: any, items: any[] }>({ metadata: {}, items: [] });
@@ -1497,6 +1527,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                   <div className="bg-slate-50/40 p-4 rounded-xl border border-slate-150/70">
                     {currentTab === 'q1' && (
                       <div className="space-y-4">
+                        {renderTimeLockBanner(isQ1TimeLocked, q1ActivePeriod)}
                         {kpi.q1Locked && (
                           <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-3 text-xs flex items-center gap-2 font-medium">
                             <span className="text-base">🔒</span>
@@ -1518,7 +1549,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                               step="0.1"
                               value={kpi.q1Score || ''}
                               onChange={(e) => updateItem(kpi.id, 'q1Score', e.target.value)}
-                              disabled={kpiIsReadOnly || kpi.q1Locked}
+                              disabled={kpiIsReadOnly || kpi.q1Locked || isQ1TimeLocked}
                               placeholder="e.g. 3.5"
                               className="w-full px-3 py-2 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-semibold text-stone-900 shadow-xs outline-none disabled:bg-slate-50 disabled:text-slate-400"
                             />
@@ -1530,7 +1561,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                               type="text"
                               value={kpi.q1Actual || ''}
                               onChange={(e) => updateItem(kpi.id, 'q1Actual', e.target.value)}
-                              disabled={kpiIsReadOnly || kpi.q1Locked}
+                              disabled={kpiIsReadOnly || kpi.q1Locked || isQ1TimeLocked}
                               placeholder="Describe actual results achieved in Q1..."
                               className="w-full px-3 py-2 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-semibold text-stone-900 shadow-xs outline-none disabled:bg-slate-50 disabled:text-slate-400"
                             />
@@ -1542,7 +1573,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                               type="text"
                               value={kpi.q1ActualExpense || ''}
                               onChange={(e) => updateItem(kpi.id, 'q1ActualExpense', e.target.value)}
-                              disabled={kpiIsReadOnly || kpi.q1Locked}
+                              disabled={kpiIsReadOnly || kpi.q1Locked || isQ1TimeLocked}
                               placeholder="e.g. R 45,000"
                               className="w-full px-3 py-2 bg-emerald-50/30 border border-emerald-200 focus:border-emerald-600 rounded-lg text-xs font-bold text-emerald-900 shadow-xs outline-none disabled:bg-slate-50 disabled:text-slate-400"
                             />
@@ -1564,7 +1595,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                               rows={2}
                               value={kpi.q1Comment || ''}
                               onChange={(e) => updateItem(kpi.id, 'q1Comment', e.target.value)}
-                              disabled={kpiIsReadOnly || kpi.q1Locked || calculateVariance(kpi.q1Target, kpi.q1Actual) === '0'}
+                              disabled={kpiIsReadOnly || kpi.q1Locked || isQ1TimeLocked || calculateVariance(kpi.q1Target, kpi.q1Actual) === '0'}
                               placeholder={calculateVariance(kpi.q1Target, kpi.q1Actual) === '0' ? "No variance - locked for comments" : "Provide variance explanation commentary..."}
                               className={`w-full px-3 py-1.5 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-medium text-stone-900 outline-none disabled:bg-slate-50 disabled:text-slate-400 ${calculateVariance(kpi.q1Target, kpi.q1Actual) === '0' ? 'opacity-60' : ''}`}
                             />
@@ -1576,7 +1607,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                               rows={2}
                               value={kpi.q1Corrective || ''}
                               onChange={(e) => updateItem(kpi.id, 'q1Corrective', e.target.value)}
-                              disabled={kpiIsReadOnly || kpi.q1Locked || calculateVariance(kpi.q1Target, kpi.q1Actual) === '0'}
+                              disabled={kpiIsReadOnly || kpi.q1Locked || isQ1TimeLocked || calculateVariance(kpi.q1Target, kpi.q1Actual) === '0'}
                               placeholder={calculateVariance(kpi.q1Target, kpi.q1Actual) === '0' ? "No variance - locked for corrective measures" : "Provide corrective action details..."}
                               className={`w-full px-3 py-1.5 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-medium text-stone-900 outline-none disabled:bg-slate-50 disabled:text-slate-400 ${calculateVariance(kpi.q1Target, kpi.q1Actual) === '0' ? 'opacity-60' : ''}`}
                             />
@@ -1595,7 +1626,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                              files={kpi.q1PoeDocs || []}
                              setFiles={(filesVal) => updateItem(kpi.id, 'q1PoeDocs', filesVal)}
                              currentUser={currentUser}
-                             disabled={kpiIsReadOnly || kpi.q1Locked}
+                             disabled={kpiIsReadOnly || kpi.q1Locked || isQ1TimeLocked}
                              poeStatus={kpi.q1PoeStatus}
                              poeFeedback={kpi.q1PoeFeedback}
                           />
@@ -1605,6 +1636,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
 
                     {currentTab === 'q2' && (
                       <div className="space-y-4">
+                        {renderTimeLockBanner(isQ2TimeLocked, q2ActivePeriod)}
                         {kpi.q2Locked && (
                           <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-3 text-xs flex items-center gap-2 font-medium">
                             <span className="text-base">🔒</span>
@@ -1626,7 +1658,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                               step="0.1"
                               value={kpi.q2Score || ''}
                               onChange={(e) => updateItem(kpi.id, 'q2Score', e.target.value)}
-                              disabled={kpiIsReadOnly || kpi.q2Locked}
+                              disabled={kpiIsReadOnly || kpi.q2Locked || isQ2TimeLocked}
                               placeholder="e.g. 3.5"
                               className="w-full px-3 py-2 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-semibold text-stone-900 shadow-xs outline-none disabled:bg-slate-50 disabled:text-slate-400"
                             />
@@ -1638,7 +1670,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                               type="text"
                               value={kpi.q2Actual || ''}
                               onChange={(e) => updateItem(kpi.id, 'q2Actual', e.target.value)}
-                              disabled={kpiIsReadOnly || kpi.q2Locked}
+                              disabled={kpiIsReadOnly || kpi.q2Locked || isQ2TimeLocked}
                               placeholder="Describe actual results achieved in Q2..."
                               className="w-full px-3 py-2 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-semibold text-stone-900 shadow-xs outline-none disabled:bg-slate-50 disabled:text-slate-400"
                             />
@@ -1650,7 +1682,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                               type="text"
                               value={kpi.q2ActualExpense || ''}
                               onChange={(e) => updateItem(kpi.id, 'q2ActualExpense', e.target.value)}
-                              disabled={kpiIsReadOnly || kpi.q2Locked}
+                              disabled={kpiIsReadOnly || kpi.q2Locked || isQ2TimeLocked}
                               placeholder="e.g. R 45,000"
                               className="w-full px-3 py-2 bg-emerald-50/30 border border-emerald-200 focus:border-emerald-600 rounded-lg text-xs font-bold text-emerald-900 shadow-xs outline-none disabled:bg-slate-50 disabled:text-slate-400"
                             />
@@ -1672,7 +1704,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                               rows={2}
                               value={kpi.q2Comment || ''}
                               onChange={(e) => updateItem(kpi.id, 'q2Comment', e.target.value)}
-                              disabled={kpiIsReadOnly || kpi.q2Locked || calculateVariance(kpi.q2Target, kpi.q2Actual) === '0'}
+                              disabled={kpiIsReadOnly || kpi.q2Locked || isQ2TimeLocked || calculateVariance(kpi.q2Target, kpi.q2Actual) === '0'}
                               placeholder={calculateVariance(kpi.q2Target, kpi.q2Actual) === '0' ? "No variance - locked for comments" : "Provide variance explanation commentary..."}
                               className={`w-full px-3 py-1.5 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-medium text-stone-900 outline-none disabled:bg-slate-50 disabled:text-slate-400 ${calculateVariance(kpi.q2Target, kpi.q2Actual) === '0' ? 'opacity-60' : ''}`}
                             />
@@ -1684,7 +1716,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                               rows={2}
                               value={kpi.q2Corrective || ''}
                               onChange={(e) => updateItem(kpi.id, 'q2Corrective', e.target.value)}
-                              disabled={kpiIsReadOnly || kpi.q2Locked || calculateVariance(kpi.q2Target, kpi.q2Actual) === '0'}
+                              disabled={kpiIsReadOnly || kpi.q2Locked || isQ2TimeLocked || calculateVariance(kpi.q2Target, kpi.q2Actual) === '0'}
                               placeholder={calculateVariance(kpi.q2Target, kpi.q2Actual) === '0' ? "No variance - locked for corrective measures" : "Provide corrective action details..."}
                               className={`w-full px-3 py-1.5 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-medium text-stone-900 outline-none disabled:bg-slate-50 disabled:text-slate-400 ${calculateVariance(kpi.q2Target, kpi.q2Actual) === '0' ? 'opacity-60' : ''}`}
                             />
@@ -1702,7 +1734,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                             files={kpi.q2PoeDocs || []}
                             setFiles={(filesVal) => updateItem(kpi.id, 'q2PoeDocs', filesVal)}
                             currentUser={currentUser}
-                            disabled={kpiIsReadOnly || kpi.q2Locked}
+                            disabled={kpiIsReadOnly || kpi.q2Locked || isQ2TimeLocked}
                             poeStatus={kpi.q2PoeStatus}
                             poeFeedback={kpi.q2PoeFeedback}
                           />
@@ -1712,6 +1744,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
 
                     {currentTab === 'midtermjs' && (
                       <div className="space-y-4">
+                        {renderTimeLockBanner(isMidtermTimeLocked, midtermActivePeriod)}
                         <div className="flex items-start gap-2 text-[10px] text-slate-500 font-sans">
                           <span className="font-extrabold text-slate-700 shrink-0 uppercase">Midterm Performance Goal Target:</span>
                           <span className="font-bold text-slate-900">{kpi.midtermTarget || 'No Midterm Target Specified'}</span>
@@ -1727,7 +1760,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                               step="0.1"
                               value={kpi.midtermScore || ''}
                               onChange={(e) => updateItem(kpi.id, 'midtermScore', e.target.value)}
-                              disabled={kpiIsReadOnly}
+                              disabled={kpiIsReadOnly || isMidtermTimeLocked}
                               placeholder="e.g. 3.5"
                               className="w-full px-3 py-2 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-semibold text-stone-900 shadow-xs outline-none"
                             />
@@ -1739,7 +1772,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                               type="text"
                               value={kpi.midtermActual || ''}
                               onChange={(e) => updateItem(kpi.id, 'midtermActual', e.target.value)}
-                              disabled={kpiIsReadOnly}
+                              disabled={kpiIsReadOnly || isMidtermTimeLocked}
                               placeholder="Describe actual results achieved for midterm review..."
                               className="w-full px-3 py-2 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-semibold text-stone-900 shadow-xs outline-none"
                             />
@@ -1751,7 +1784,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                               type="text"
                               value={kpi.midtermActualExpense || ''}
                               onChange={(e) => updateItem(kpi.id, 'midtermActualExpense', e.target.value)}
-                              disabled={kpiIsReadOnly}
+                              disabled={kpiIsReadOnly || isMidtermTimeLocked}
                               placeholder="e.g. R 45,000"
                               className="w-full px-3 py-2 bg-emerald-50/30 border border-emerald-200 focus:border-emerald-600 rounded-lg text-xs font-bold text-emerald-900 shadow-xs outline-none"
                             />
@@ -1803,7 +1836,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                             files={kpi.midtermPoeDocs || []}
                             setFiles={(filesVal) => updateItem(kpi.id, 'midtermPoeDocs', filesVal)}
                             currentUser={currentUser}
-                            disabled={kpiIsReadOnly}
+                            disabled={kpiIsReadOnly || isMidtermTimeLocked}
                             poeStatus={kpi.midtermPoeStatus}
                             poeFeedback={kpi.midtermPoeFeedback}
                           />
@@ -1813,6 +1846,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
 
                     {currentTab === 'q3' && (
                       <div className="space-y-4">
+                        {renderTimeLockBanner(isQ3TimeLocked, q3ActivePeriod)}
                         {kpi.q3Locked && (
                           <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-3 text-xs flex items-center gap-2 font-medium">
                             <span className="text-base">🔒</span>
@@ -1834,7 +1868,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                               step="0.1"
                               value={kpi.q3Score || ''}
                               onChange={(e) => updateItem(kpi.id, 'q3Score', e.target.value)}
-                              disabled={kpiIsReadOnly || kpi.q3Locked}
+                              disabled={kpiIsReadOnly || kpi.q3Locked || isQ3TimeLocked}
                               placeholder="e.g. 3.5"
                               className="w-full px-3 py-2 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-semibold text-stone-900 shadow-xs outline-none disabled:bg-slate-50 disabled:text-slate-400"
                             />
@@ -1846,7 +1880,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                               type="text"
                               value={kpi.q3Actual || ''}
                               onChange={(e) => updateItem(kpi.id, 'q3Actual', e.target.value)}
-                              disabled={kpiIsReadOnly || kpi.q3Locked}
+                              disabled={kpiIsReadOnly || kpi.q3Locked || isQ3TimeLocked}
                               placeholder="Describe actual results achieved in Q3..."
                               className="w-full px-3 py-2 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-semibold text-stone-900 shadow-xs outline-none disabled:bg-slate-50 disabled:text-slate-400"
                             />
@@ -1858,7 +1892,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                               type="text"
                               value={kpi.q3ActualExpense || ''}
                               onChange={(e) => updateItem(kpi.id, 'q3ActualExpense', e.target.value)}
-                              disabled={kpiIsReadOnly || kpi.q3Locked}
+                              disabled={kpiIsReadOnly || kpi.q3Locked || isQ3TimeLocked}
                               placeholder="e.g. R 45,000"
                               className="w-full px-3 py-2 bg-emerald-50/30 border border-emerald-200 focus:border-emerald-600 rounded-lg text-xs font-bold text-emerald-900 shadow-xs outline-none disabled:bg-slate-50 disabled:text-slate-400"
                             />
@@ -1880,7 +1914,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                               rows={2}
                               value={kpi.q3Comment || ''}
                               onChange={(e) => updateItem(kpi.id, 'q3Comment', e.target.value)}
-                              disabled={kpiIsReadOnly || kpi.q3Locked || calculateVariance(kpi.q3Target, kpi.q3Actual) === '0'}
+                              disabled={kpiIsReadOnly || kpi.q3Locked || isQ3TimeLocked || calculateVariance(kpi.q3Target, kpi.q3Actual) === '0'}
                               placeholder={calculateVariance(kpi.q3Target, kpi.q3Actual) === '0' ? "No variance - locked for comments" : "Provide variance explanation commentary..."}
                               className={`w-full px-3 py-1.5 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-medium text-stone-900 outline-none disabled:bg-slate-50 disabled:text-slate-400 ${calculateVariance(kpi.q3Target, kpi.q3Actual) === '0' ? 'opacity-60' : ''}`}
                             />
@@ -1892,7 +1926,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                               rows={2}
                               value={kpi.q3Corrective || ''}
                               onChange={(e) => updateItem(kpi.id, 'q3Corrective', e.target.value)}
-                              disabled={kpiIsReadOnly || kpi.q3Locked || calculateVariance(kpi.q3Target, kpi.q3Actual) === '0'}
+                              disabled={kpiIsReadOnly || kpi.q3Locked || isQ3TimeLocked || calculateVariance(kpi.q3Target, kpi.q3Actual) === '0'}
                               placeholder={calculateVariance(kpi.q3Target, kpi.q3Actual) === '0' ? "No variance - locked for corrective measures" : "Provide corrective action details..."}
                               className={`w-full px-3 py-1.5 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-medium text-stone-900 outline-none disabled:bg-slate-50 disabled:text-slate-400 ${calculateVariance(kpi.q3Target, kpi.q3Actual) === '0' ? 'opacity-60' : ''}`}
                             />
@@ -1910,7 +1944,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                             files={kpi.q3PoeDocs || []}
                             setFiles={(filesVal) => updateItem(kpi.id, 'q3PoeDocs', filesVal)}
                             currentUser={currentUser}
-                            disabled={kpiIsReadOnly || kpi.q3Locked}
+                            disabled={kpiIsReadOnly || kpi.q3Locked || isQ3TimeLocked}
                             poeStatus={kpi.q3PoeStatus}
                             poeFeedback={kpi.q3PoeFeedback}
                           />
@@ -1920,6 +1954,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
 
                     {currentTab === 'q4' && (
                       <div className="space-y-4">
+                        {renderTimeLockBanner(isQ4TimeLocked, q4ActivePeriod)}
                         {kpi.q4Locked && (
                           <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-3 text-xs flex items-center gap-2 font-medium">
                             <span className="text-base">🔒</span>
@@ -1941,7 +1976,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                               step="0.1"
                               value={kpi.q4Score || ''}
                               onChange={(e) => updateItem(kpi.id, 'q4Score', e.target.value)}
-                              disabled={kpiIsReadOnly || kpi.q4Locked}
+                              disabled={kpiIsReadOnly || kpi.q4Locked || isQ4TimeLocked}
                               placeholder="e.g. 3.5"
                               className="w-full px-3 py-2 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-semibold text-stone-900 shadow-xs outline-none disabled:bg-slate-50 disabled:text-slate-400"
                             />
@@ -1953,7 +1988,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                               type="text"
                               value={kpi.q4Actual || ''}
                               onChange={(e) => updateItem(kpi.id, 'q4Actual', e.target.value)}
-                              disabled={kpiIsReadOnly || kpi.q4Locked}
+                              disabled={kpiIsReadOnly || kpi.q4Locked || isQ4TimeLocked}
                               placeholder="Describe actual results achieved in Q4..."
                               className="w-full px-3 py-2 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-semibold text-stone-900 shadow-xs outline-none disabled:bg-slate-50 disabled:text-slate-400"
                             />
@@ -1965,7 +2000,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                               type="text"
                               value={kpi.q4ActualExpense || ''}
                               onChange={(e) => updateItem(kpi.id, 'q4ActualExpense', e.target.value)}
-                              disabled={kpiIsReadOnly || kpi.q4Locked}
+                              disabled={kpiIsReadOnly || kpi.q4Locked || isQ4TimeLocked}
                               placeholder="e.g. R 45,000"
                               className="w-full px-3 py-2 bg-emerald-50/30 border border-emerald-200 focus:border-emerald-600 rounded-lg text-xs font-bold text-emerald-900 shadow-xs outline-none disabled:bg-slate-50 disabled:text-slate-400"
                             />
@@ -1987,7 +2022,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                               rows={2}
                               value={kpi.q4Comment || ''}
                               onChange={(e) => updateItem(kpi.id, 'q4Comment', e.target.value)}
-                              disabled={kpiIsReadOnly || kpi.q4Locked || calculateVariance(kpi.q4Target, kpi.q4Actual) === '0'}
+                              disabled={kpiIsReadOnly || kpi.q4Locked || isQ4TimeLocked || calculateVariance(kpi.q4Target, kpi.q4Actual) === '0'}
                               placeholder={calculateVariance(kpi.q4Target, kpi.q4Actual) === '0' ? "No variance - locked for comments" : "Provide variance explanation commentary..."}
                               className={`w-full px-3 py-1.5 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-medium text-stone-900 outline-none disabled:bg-slate-50 disabled:text-slate-400 ${calculateVariance(kpi.q4Target, kpi.q4Actual) === '0' ? 'opacity-60' : ''}`}
                             />
@@ -1999,7 +2034,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                               rows={2}
                               value={kpi.q4Corrective || ''}
                               onChange={(e) => updateItem(kpi.id, 'q4Corrective', e.target.value)}
-                              disabled={kpiIsReadOnly || kpi.q4Locked || calculateVariance(kpi.q4Target, kpi.q4Actual) === '0'}
+                              disabled={kpiIsReadOnly || kpi.q4Locked || isQ4TimeLocked || calculateVariance(kpi.q4Target, kpi.q4Actual) === '0'}
                               placeholder={calculateVariance(kpi.q4Target, kpi.q4Actual) === '0' ? "No variance - locked for corrective measures" : "Provide corrective action details..."}
                               className={`w-full px-3 py-1.5 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-medium text-stone-900 outline-none disabled:bg-slate-50 disabled:text-slate-400 ${calculateVariance(kpi.q4Target, kpi.q4Actual) === '0' ? 'opacity-60' : ''}`}
                             />
@@ -2078,7 +2113,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                             files={kpi.q4PoeDocs || []}
                             setFiles={(filesVal) => updateItem(kpi.id, 'q4PoeDocs', filesVal)}
                             currentUser={currentUser}
-                            disabled={kpiIsReadOnly || kpi.q4Locked}
+                            disabled={kpiIsReadOnly || kpi.q4Locked || isQ4TimeLocked}
                             poeStatus={kpi.q4PoeStatus}
                             poeFeedback={kpi.q4PoeFeedback}
                           />
@@ -2088,6 +2123,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
 
                     {currentTab === 'annual' && (
                       <div className="space-y-4">
+                        {renderTimeLockBanner(isAnnualTimeLocked, annualActivePeriod)}
                         <div className="bg-sky-50 border border-sky-200 text-sky-900 rounded-xl p-3 text-xs flex items-center justify-between font-bold">
                           <div className="flex items-center gap-2">
                             <span className="text-base">📅</span>
@@ -2105,7 +2141,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                               type="text"
                               value={kpi.annualActual || ''}
                               onChange={(e) => updateItem(kpi.id, 'annualActual', e.target.value)}
-                              disabled={kpiIsReadOnly}
+                              disabled={kpiIsReadOnly || isAnnualTimeLocked}
                               placeholder="Describe total annual actual results achieved..."
                               className="w-full px-3 py-2 bg-white border border-slate-250 focus:border-sky-600 rounded-lg text-xs font-semibold text-stone-900 shadow-xs outline-none"
                             />
@@ -2120,7 +2156,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                                 updateItem(kpi.id, 'annualActualExpense', e.target.value);
                                 updateItem(kpi.id, 'annualActualExp', e.target.value);
                               }}
-                              disabled={kpiIsReadOnly}
+                              disabled={kpiIsReadOnly || isAnnualTimeLocked}
                               placeholder="e.g. R 180,000"
                               className="w-full px-3 py-2 bg-emerald-50/30 border border-emerald-200 focus:border-emerald-600 rounded-lg text-xs font-bold text-emerald-900 shadow-xs outline-none"
                             />
@@ -2142,7 +2178,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                               rows={2}
                               value={kpi.annualVariance || ''}
                               onChange={(e) => updateItem(kpi.id, 'annualVariance', e.target.value)}
-                              disabled={kpiIsReadOnly}
+                              disabled={kpiIsReadOnly || isAnnualTimeLocked}
                               placeholder="Provide annual variance explanation commentary..."
                               className="w-full px-3 py-1.5 bg-white border border-slate-250 focus:border-sky-600 rounded-lg text-xs font-medium text-stone-900 outline-none"
                             />
@@ -2154,7 +2190,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                               rows={2}
                               value={kpi.annualCorrective || ''}
                               onChange={(e) => updateItem(kpi.id, 'annualCorrective', e.target.value)}
-                              disabled={kpiIsReadOnly}
+                              disabled={kpiIsReadOnly || isAnnualTimeLocked}
                               placeholder="Provide annual corrective action details..."
                               className="w-full px-3 py-1.5 bg-white border border-slate-250 focus:border-sky-600 rounded-lg text-xs font-medium text-stone-900 outline-none"
                             />
