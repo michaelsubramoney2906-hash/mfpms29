@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { 
   FileText, ArrowRight, CheckCircle, AlertTriangle, AlertCircle, 
   Send, RefreshCw, Layers, Database, Search, ChevronRight, 
-  Clock, Plus, ShieldCheck, Check, MessageSquare, Info
+  Clock, Plus, ShieldCheck, Check, MessageSquare, Info, Lock
 } from 'lucide-react';
 import type { User } from '../../types';
 import { SdbipRow } from './SDBIP';
+import { isQuarterInReportingPeriod, getQuarterLockNotice } from '../../utils/reportingPeriods';
 
 interface OPMSSubmitterProps {
   currentUser: User;
@@ -493,9 +494,18 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                 
                 <div className="p-3 space-y-3">
                   {/* Q1 Section */}
-                  <div className="bg-slate-900/80 p-2.5 rounded-lg border border-slate-850/60 grid grid-cols-1 md:grid-cols-2 gap-2">
-                    <div className="col-span-2 text-[11px] font-bold text-slate-400 border-b border-slate-800 pb-1 flex justify-between">
+                  <div className={`p-2.5 rounded-lg border grid grid-cols-1 md:grid-cols-2 gap-2 transition-colors ${!isQuarterInReportingPeriod('q1') ? 'bg-slate-950/60 border-slate-850 opacity-80' : 'bg-slate-900/80 border-slate-850/60'}`}>
+                    <div className="col-span-2 text-[11px] font-bold text-slate-400 border-b border-slate-800 pb-1 flex justify-between items-center">
                       <span>1st Quarter (Q1) Target: <strong className="text-white">{selectedKpi.q1 || '0'}</strong></span>
+                      {!isQuarterInReportingPeriod('q1') ? (
+                        <span title={getQuarterLockNotice('q1')} className="text-[9px] font-mono text-slate-400 bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded flex items-center gap-1">
+                          <Lock className="w-2.5 h-2.5 text-amber-500/80" /> Q1 Locked
+                        </span>
+                      ) : (
+                        <span className="text-[9px] font-mono text-emerald-400 bg-emerald-950/50 border border-emerald-800/40 px-1.5 py-0.5 rounded flex items-center gap-1">
+                          <Check className="w-2.5 h-2.5" /> Q1 Active
+                        </span>
+                      )}
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] text-slate-500 font-bold uppercase">Actual progress</label>
@@ -503,9 +513,10 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                         type="text"
                         value={q1Actual}
                         onChange={(e) => setQ1Actual(e.target.value)}
-                        disabled={(selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
-                        placeholder="Log performance..."
-                        className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded p-1.5 text-xs text-white"
+                        disabled={!isQuarterInReportingPeriod('q1') || (selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
+                        placeholder={!isQuarterInReportingPeriod('q1') ? "Locked for this period" : "Log performance..."}
+                        title={!isQuarterInReportingPeriod('q1') ? getQuarterLockNotice('q1') : undefined}
+                        className={`w-full border rounded p-1.5 text-xs ${!isQuarterInReportingPeriod('q1') ? 'bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic' : 'bg-slate-950 border-slate-800 focus:border-indigo-500 text-white'}`}
                       />
                     </div>
                     <div className="space-y-1">
@@ -514,9 +525,10 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                         type="text"
                         value={q1Variance}
                         onChange={(e) => setQ1Variance(e.target.value)}
-                        disabled={(selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
-                        placeholder="Why targets differ..."
-                        className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded p-1.5 text-xs text-white"
+                        disabled={!isQuarterInReportingPeriod('q1') || (selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
+                        placeholder={!isQuarterInReportingPeriod('q1') ? "Locked for this period" : "Why targets differ..."}
+                        title={!isQuarterInReportingPeriod('q1') ? getQuarterLockNotice('q1') : undefined}
+                        className={`w-full border rounded p-1.5 text-xs ${!isQuarterInReportingPeriod('q1') ? 'bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic' : 'bg-slate-950 border-slate-800 focus:border-indigo-500 text-white'}`}
                       />
                     </div>
                     <div className="col-span-2 space-y-1">
@@ -525,17 +537,27 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                         type="text"
                         value={q1Corrective}
                         onChange={(e) => setQ1Corrective(e.target.value)}
-                        disabled={(selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
-                        placeholder="Mitigations for gaps..."
-                        className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded p-1.5 text-xs text-white"
+                        disabled={!isQuarterInReportingPeriod('q1') || (selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
+                        placeholder={!isQuarterInReportingPeriod('q1') ? "Locked for this period" : "Mitigations for gaps..."}
+                        title={!isQuarterInReportingPeriod('q1') ? getQuarterLockNotice('q1') : undefined}
+                        className={`w-full border rounded p-1.5 text-xs ${!isQuarterInReportingPeriod('q1') ? 'bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic' : 'bg-slate-950 border-slate-800 focus:border-indigo-500 text-white'}`}
                       />
                     </div>
                   </div>
 
                   {/* Q2 Section */}
-                  <div className="bg-slate-900/80 p-2.5 rounded-lg border border-slate-850/60 grid grid-cols-1 md:grid-cols-2 gap-2">
-                    <div className="col-span-2 text-[11px] font-bold text-slate-400 border-b border-slate-800 pb-1">
+                  <div className={`p-2.5 rounded-lg border grid grid-cols-1 md:grid-cols-2 gap-2 transition-colors ${!isQuarterInReportingPeriod('q2') ? 'bg-slate-950/60 border-slate-850 opacity-80' : 'bg-slate-900/80 border-slate-850/60'}`}>
+                    <div className="col-span-2 text-[11px] font-bold text-slate-400 border-b border-slate-800 pb-1 flex justify-between items-center">
                       <span>2nd Quarter (Q2) Target: <strong className="text-white">{selectedKpi.q2 || '0'}</strong></span>
+                      {!isQuarterInReportingPeriod('q2') ? (
+                        <span title={getQuarterLockNotice('q2')} className="text-[9px] font-mono text-slate-400 bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded flex items-center gap-1">
+                          <Lock className="w-2.5 h-2.5 text-amber-500/80" /> Q2 Locked
+                        </span>
+                      ) : (
+                        <span className="text-[9px] font-mono text-emerald-400 bg-emerald-950/50 border border-emerald-800/40 px-1.5 py-0.5 rounded flex items-center gap-1">
+                          <Check className="w-2.5 h-2.5" /> Q2 Active
+                        </span>
+                      )}
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] text-slate-500 font-bold uppercase">Actual progress</label>
@@ -543,9 +565,10 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                         type="text"
                         value={q2Actual}
                         onChange={(e) => setQ2Actual(e.target.value)}
-                        disabled={(selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
-                        placeholder="Log performance..."
-                        className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded p-1.5 text-xs text-white"
+                        disabled={!isQuarterInReportingPeriod('q2') || (selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
+                        placeholder={!isQuarterInReportingPeriod('q2') ? "Locked for this period" : "Log performance..."}
+                        title={!isQuarterInReportingPeriod('q2') ? getQuarterLockNotice('q2') : undefined}
+                        className={`w-full border rounded p-1.5 text-xs ${!isQuarterInReportingPeriod('q2') ? 'bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic' : 'bg-slate-950 border-slate-800 focus:border-indigo-500 text-white'}`}
                       />
                     </div>
                     <div className="space-y-1">
@@ -554,9 +577,10 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                         type="text"
                         value={q2Variance}
                         onChange={(e) => setQ2Variance(e.target.value)}
-                        disabled={(selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
-                        placeholder="Why targets differ..."
-                        className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded p-1.5 text-xs text-white"
+                        disabled={!isQuarterInReportingPeriod('q2') || (selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
+                        placeholder={!isQuarterInReportingPeriod('q2') ? "Locked for this period" : "Why targets differ..."}
+                        title={!isQuarterInReportingPeriod('q2') ? getQuarterLockNotice('q2') : undefined}
+                        className={`w-full border rounded p-1.5 text-xs ${!isQuarterInReportingPeriod('q2') ? 'bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic' : 'bg-slate-950 border-slate-800 focus:border-indigo-500 text-white'}`}
                       />
                     </div>
                     <div className="col-span-2 space-y-1">
@@ -565,17 +589,27 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                         type="text"
                         value={q2Corrective}
                         onChange={(e) => setQ2Corrective(e.target.value)}
-                        disabled={(selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
-                        placeholder="Mitigations for gaps..."
-                        className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded p-1.5 text-xs text-white"
+                        disabled={!isQuarterInReportingPeriod('q2') || (selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
+                        placeholder={!isQuarterInReportingPeriod('q2') ? "Locked for this period" : "Mitigations for gaps..."}
+                        title={!isQuarterInReportingPeriod('q2') ? getQuarterLockNotice('q2') : undefined}
+                        className={`w-full border rounded p-1.5 text-xs ${!isQuarterInReportingPeriod('q2') ? 'bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic' : 'bg-slate-950 border-slate-800 focus:border-indigo-500 text-white'}`}
                       />
                     </div>
                   </div>
 
                   {/* Q3 Section */}
-                  <div className="bg-slate-900/80 p-2.5 rounded-lg border border-slate-850/60 grid grid-cols-1 md:grid-cols-2 gap-2">
-                    <div className="col-span-2 text-[11px] font-bold text-slate-400 border-b border-slate-800 pb-1">
+                  <div className={`p-2.5 rounded-lg border grid grid-cols-1 md:grid-cols-2 gap-2 transition-colors ${!isQuarterInReportingPeriod('q3') ? 'bg-slate-950/60 border-slate-850 opacity-80' : 'bg-slate-900/80 border-slate-850/60'}`}>
+                    <div className="col-span-2 text-[11px] font-bold text-slate-400 border-b border-slate-800 pb-1 flex justify-between items-center">
                       <span>3rd Quarter (Q3) Target: <strong className="text-white">{selectedKpi.q3 || '0'}</strong></span>
+                      {!isQuarterInReportingPeriod('q3') ? (
+                        <span title={getQuarterLockNotice('q3')} className="text-[9px] font-mono text-slate-400 bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded flex items-center gap-1">
+                          <Lock className="w-2.5 h-2.5 text-amber-500/80" /> Q3 Locked
+                        </span>
+                      ) : (
+                        <span className="text-[9px] font-mono text-emerald-400 bg-emerald-950/50 border border-emerald-800/40 px-1.5 py-0.5 rounded flex items-center gap-1">
+                          <Check className="w-2.5 h-2.5" /> Q3 Active
+                        </span>
+                      )}
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] text-slate-500 font-bold uppercase">Actual progress</label>
@@ -583,9 +617,10 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                         type="text"
                         value={q3Actual}
                         onChange={(e) => setQ3Actual(e.target.value)}
-                        disabled={(selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
-                        placeholder="Log performance..."
-                        className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded p-1.5 text-xs text-white"
+                        disabled={!isQuarterInReportingPeriod('q3') || (selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
+                        placeholder={!isQuarterInReportingPeriod('q3') ? "Locked for this period" : "Log performance..."}
+                        title={!isQuarterInReportingPeriod('q3') ? getQuarterLockNotice('q3') : undefined}
+                        className={`w-full border rounded p-1.5 text-xs ${!isQuarterInReportingPeriod('q3') ? 'bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic' : 'bg-slate-950 border-slate-800 focus:border-indigo-500 text-white'}`}
                       />
                     </div>
                     <div className="space-y-1">
@@ -594,9 +629,10 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                         type="text"
                         value={q3Variance}
                         onChange={(e) => setQ3Variance(e.target.value)}
-                        disabled={(selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
-                        placeholder="Why targets differ..."
-                        className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded p-1.5 text-xs text-white"
+                        disabled={!isQuarterInReportingPeriod('q3') || (selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
+                        placeholder={!isQuarterInReportingPeriod('q3') ? "Locked for this period" : "Why targets differ..."}
+                        title={!isQuarterInReportingPeriod('q3') ? getQuarterLockNotice('q3') : undefined}
+                        className={`w-full border rounded p-1.5 text-xs ${!isQuarterInReportingPeriod('q3') ? 'bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic' : 'bg-slate-950 border-slate-800 focus:border-indigo-500 text-white'}`}
                       />
                     </div>
                     <div className="col-span-2 space-y-1">
@@ -605,17 +641,27 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                         type="text"
                         value={q3Corrective}
                         onChange={(e) => setQ3Corrective(e.target.value)}
-                        disabled={(selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
-                        placeholder="Mitigations for gaps..."
-                        className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded p-1.5 text-xs text-white"
+                        disabled={!isQuarterInReportingPeriod('q3') || (selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
+                        placeholder={!isQuarterInReportingPeriod('q3') ? "Locked for this period" : "Mitigations for gaps..."}
+                        title={!isQuarterInReportingPeriod('q3') ? getQuarterLockNotice('q3') : undefined}
+                        className={`w-full border rounded p-1.5 text-xs ${!isQuarterInReportingPeriod('q3') ? 'bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic' : 'bg-slate-950 border-slate-800 focus:border-indigo-500 text-white'}`}
                       />
                     </div>
                   </div>
 
                   {/* Q4 Section */}
-                  <div className="bg-slate-900/80 p-2.5 rounded-lg border border-slate-850/60 grid grid-cols-1 md:grid-cols-2 gap-2">
-                    <div className="col-span-2 text-[11px] font-bold text-slate-400 border-b border-slate-800 pb-1">
+                  <div className={`p-2.5 rounded-lg border grid grid-cols-1 md:grid-cols-2 gap-2 transition-colors ${!isQuarterInReportingPeriod('q4') ? 'bg-slate-950/60 border-slate-850 opacity-80' : 'bg-slate-900/80 border-slate-850/60'}`}>
+                    <div className="col-span-2 text-[11px] font-bold text-slate-400 border-b border-slate-800 pb-1 flex justify-between items-center">
                       <span>4th Quarter (Q4) Target: <strong className="text-white">{selectedKpi.q4 || '0'}</strong></span>
+                      {!isQuarterInReportingPeriod('q4') ? (
+                        <span title={getQuarterLockNotice('q4')} className="text-[9px] font-mono text-slate-400 bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded flex items-center gap-1">
+                          <Lock className="w-2.5 h-2.5 text-amber-500/80" /> Q4 Locked
+                        </span>
+                      ) : (
+                        <span className="text-[9px] font-mono text-emerald-400 bg-emerald-950/50 border border-emerald-800/40 px-1.5 py-0.5 rounded flex items-center gap-1">
+                          <Check className="w-2.5 h-2.5" /> Q4 Active
+                        </span>
+                      )}
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] text-slate-500 font-bold uppercase">Actual progress</label>
@@ -623,9 +669,10 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                         type="text"
                         value={q4Actual}
                         onChange={(e) => setQ4Actual(e.target.value)}
-                        disabled={(selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
-                        placeholder="Log performance..."
-                        className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded p-1.5 text-xs text-white"
+                        disabled={!isQuarterInReportingPeriod('q4') || (selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
+                        placeholder={!isQuarterInReportingPeriod('q4') ? "Locked for this period" : "Log performance..."}
+                        title={!isQuarterInReportingPeriod('q4') ? getQuarterLockNotice('q4') : undefined}
+                        className={`w-full border rounded p-1.5 text-xs ${!isQuarterInReportingPeriod('q4') ? 'bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic' : 'bg-slate-950 border-slate-800 focus:border-indigo-500 text-white'}`}
                       />
                     </div>
                     <div className="space-y-1">
@@ -634,9 +681,10 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                         type="text"
                         value={q4Variance}
                         onChange={(e) => setQ4Variance(e.target.value)}
-                        disabled={(selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
-                        placeholder="Why targets differ..."
-                        className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded p-1.5 text-xs text-white"
+                        disabled={!isQuarterInReportingPeriod('q4') || (selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
+                        placeholder={!isQuarterInReportingPeriod('q4') ? "Locked for this period" : "Why targets differ..."}
+                        title={!isQuarterInReportingPeriod('q4') ? getQuarterLockNotice('q4') : undefined}
+                        className={`w-full border rounded p-1.5 text-xs ${!isQuarterInReportingPeriod('q4') ? 'bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic' : 'bg-slate-950 border-slate-800 focus:border-indigo-500 text-white'}`}
                       />
                     </div>
                     <div className="col-span-2 space-y-1">
@@ -645,9 +693,10 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                         type="text"
                         value={q4Corrective}
                         onChange={(e) => setQ4Corrective(e.target.value)}
-                        disabled={(selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
-                        placeholder="Mitigations for gaps..."
-                        className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded p-1.5 text-xs text-white"
+                        disabled={!isQuarterInReportingPeriod('q4') || (selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
+                        placeholder={!isQuarterInReportingPeriod('q4') ? "Locked for this period" : "Mitigations for gaps..."}
+                        title={!isQuarterInReportingPeriod('q4') ? getQuarterLockNotice('q4') : undefined}
+                        className={`w-full border rounded p-1.5 text-xs ${!isQuarterInReportingPeriod('q4') ? 'bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic' : 'bg-slate-950 border-slate-800 focus:border-indigo-500 text-white'}`}
                       />
                     </div>
                   </div>

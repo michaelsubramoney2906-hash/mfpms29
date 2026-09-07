@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Logo, cn } from './Branding';
 import { modules, tenants } from '../data';
 import type { User, Module } from '../types';
-import { ChevronDown, LogOut, ShieldCheck, ChevronRight, LayoutGrid, Calendar as CalendarIcon, Bell, ArrowLeft } from 'lucide-react';
+import { ChevronDown, LogOut, ShieldCheck, ChevronRight, LayoutGrid, Calendar as CalendarIcon, Bell, ArrowLeft, Layers } from 'lucide-react';
 import { UserManagement } from './UserManagement';
 import { SharePoint } from './SharePoint';
 import { APR } from './APR/APR';
@@ -885,6 +885,20 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                         const targetSub = ipmsModule.subModules?.find(s => s.id === (subId || 'appg')) || { id: subId || 'appg', name: 'Annual Performance Planner Grid', icon: activeSubModule.icon };
                         setActiveModule(ipmsModule);
                         handleSubModuleSelect(targetSub);
+                      }
+                    }}
+                    onNavigateToSDBIP={(tab) => {
+                      if (tab) {
+                        sessionStorage.setItem('sdbip_active_tab', tab);
+                      }
+                      const opmsModule = modules.find(m => m.id === 'opms');
+                      if (opmsModule) {
+                        const sdbipSub = opmsModule.subModules?.find(s => s.id === 'sdbip-tl') || { id: 'sdbip-tl', name: 'SDBIP Top Layer', icon: Layers };
+                        setActiveModule(opmsModule);
+                        handleSubModuleSelect(sdbipSub);
+                        setTimeout(() => {
+                          window.dispatchEvent(new CustomEvent('sdbip:switch_tab', { detail: { tab, refresh: true } }));
+                        }, 100);
                       }
                     }}
                  />

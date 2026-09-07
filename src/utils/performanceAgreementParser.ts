@@ -153,13 +153,22 @@ export async function callServerAiExtraction(params: {
     body: JSON.stringify(params)
   });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || `Server extraction failed with status ${response.status}`);
+  const rawText = await response.text();
+  let data: any = null;
+  try {
+    data = JSON.parse(rawText);
+  } catch (_parseErr) {
+    if (!response.ok) {
+      throw new Error(`Server extraction failed with status ${response.status}`);
+    }
+    throw new Error(`Server returned non-JSON response (${response.status}): ${rawText.slice(0, 100)}`);
   }
 
-    const data = await response.json();
-  if (data.success && Array.isArray(data.items)) {
+  if (!response.ok) {
+    throw new Error(data?.error || `Server extraction failed with status ${response.status}`);
+  }
+
+  if (data && data.success && Array.isArray(data.items)) {
     return data.items.map((it: any, idx: number) => {
       const functionalKpa = String(it['functional kpa'] || it.functionalKpa || it.kpa || 'Functional Performance Area').trim();
       const kpiDescription = it['kpi description'] ?? 

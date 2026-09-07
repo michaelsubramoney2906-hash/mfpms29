@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import mammoth from 'mammoth';
-import { Layers, Info, CheckCircle, Upload, Download, ArrowRight, Shield, ShieldCheck, AlertTriangle, HelpCircle, Check, CheckSquare, FileText, Plus, Trash2, Database, FolderArchive, AlertCircle, Sparkles, Send, Inbox, Bell, Eye, Lock, RefreshCw, XCircle, Clock, Maximize2, Minimize2 } from 'lucide-react';
+import { Layers, Info, CheckCircle, Upload, Download, ArrowRight, Shield, ShieldCheck, AlertTriangle, HelpCircle, Check, CheckSquare, FileText, Plus, Trash2, Database, FolderArchive, AlertCircle, Sparkles, Send, Inbox, Bell, Eye, Lock, RefreshCw, XCircle, Clock, Maximize2, Minimize2, Calendar, CalendarDays, ShieldAlert } from 'lucide-react';
 import type { User } from '../../types';
 import { SDBIPDraftingSuite } from './SDBIPDraftingSuite';
 import { WordProcessor } from './WordProcessor';
 import { DraftingSuiteTab } from '../APR/APR';
 import { AzureADPicker } from './AzureADPicker';
 import { SDBIPPagination } from './SDBIPPagination';
+import { isQuarterInReportingPeriod, getQuarterLockNotice, REPORTING_PERIOD_CONFIGS, getCurrentMunicipalQuarter, ReportingPhase } from '../../utils/reportingPeriods';
 
 interface SDBIPProps {
   currentUser: User;
@@ -251,6 +252,12 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
   const [showAllKpisInDesk, setShowAllKpisInDesk] = useState(true);
   const [isTableExpanded, setIsTableExpanded] = useState(false);
 
+  // Municipal Reporting Period & Calendar Temporal Control
+  const [periodOverride, setPeriodOverride] = useState<string>('auto');
+  const isQuarterActive = (phase: string): boolean => {
+    return isQuarterInReportingPeriod(phase as any, periodOverride);
+  };
+
   // Performance pagination states
   const [tablePage, setTablePage] = useState(1);
   const [tablePageSize, setTablePageSize] = useState<number | 'all'>(50);
@@ -267,6 +274,29 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
   const lastUserEditTimeRef = React.useRef<number>(0);
 
   const currentUserDisplayName = currentUser.fullName || currentUser.email.split('@')[0];
+
+  React.useEffect(() => {
+    const handleSwitchTab = (e: any) => {
+      const tab = e?.detail?.tab || sessionStorage.getItem('sdbip_active_tab');
+      if (tab === 'table' || tab === 'reporting' || tab === 'brief' || tab === 'drafting') {
+        setActiveTab(tab);
+        sessionStorage.removeItem('sdbip_active_tab');
+      }
+      if (e?.detail?.refresh) {
+        pullSdbipTopLayerData();
+      }
+    };
+    window.addEventListener('sdbip:switch_tab', handleSwitchTab);
+    const saved = sessionStorage.getItem('sdbip_active_tab');
+    if (saved === 'table' || saved === 'reporting' || saved === 'brief' || saved === 'drafting') {
+      setActiveTab(saved);
+      sessionStorage.removeItem('sdbip_active_tab');
+      pullSdbipTopLayerData();
+    }
+    return () => {
+      window.removeEventListener('sdbip:switch_tab', handleSwitchTab);
+    };
+  }, []);
 
   React.useEffect(() => {
     const mySubmissions = rows;
@@ -964,6 +994,14 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
   };
 
   const updateWorkflowState = async (rowId: string, phase: string, status: 'draft' | 'pending_review' | 'pending_approval' | 'approved' | 'completed' | 'pending_audit', updates: Partial<SdbipWorkflow>, notifMessage?: string, notifTarget?: string | string[]) => {
+    // Municipal Calendar Guard: Verify active reporting period
+    if (!isQuarterActive(phase)) {
+      const lockNotice = getQuarterLockNotice(phase as any);
+      setSuccessToast(`Reporting Period Restricted: ${lockNotice} Unless you are in the actual period, you cannot report or transition workflow controls.`);
+      setTimeout(() => setSuccessToast(null), 5000);
+      return;
+    }
+
     let targetRowRefNum = '';
     let targetRowKpi = '';
     const currentUserDisplayName = currentUser.fullName || currentUser.email;
@@ -1234,6 +1272,39 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
   };
 
   const handleCellChange = (rowId: string, field: keyof SdbipRow, value: any) => {
+    // Temporal verification guard for SDBIP quarter reporting fields
+    const q1Fields = ['q1', 'q1Expenditure', 'q1PoeDesc', 'q1Actual', 'q1Corrective'];
+    const q2Fields = ['q2', 'q2Expenditure', 'q2PoeDesc', 'q2Actual', 'q2Corrective'];
+    const midTermFields = ['midTerm', 'midTermTarget', 'midTermExpenditure', 'midTermPoeDesc', 'midTermActual', 'midTermCorrective'];
+    const q3Fields = ['q3', 'q3Expenditure', 'q3PoeDesc', 'q3Actual', 'q3Corrective'];
+    const q4Fields = ['q4', 'q4Expenditure', 'q4PoeDesc', 'q4Actual', 'q4Corrective'];
+
+    if (q1Fields.includes(field as string) && !isQuarterActive('q1')) {
+      setSuccessToast(`Reporting Locked: ${getQuarterLockNotice('q1')} Unless you are in the actual period, you cannot report.`);
+      setTimeout(() => setSuccessToast(null), 4000);
+      return;
+    }
+    if (q2Fields.includes(field as string) && !isQuarterActive('q2')) {
+      setSuccessToast(`Reporting Locked: ${getQuarterLockNotice('q2')} Unless you are in the actual period, you cannot report.`);
+      setTimeout(() => setSuccessToast(null), 4000);
+      return;
+    }
+    if (midTermFields.includes(field as string) && !isQuarterActive('midTerm')) {
+      setSuccessToast(`Reporting Locked: ${getQuarterLockNotice('midTerm')} Unless you are in the actual period, you cannot report.`);
+      setTimeout(() => setSuccessToast(null), 4000);
+      return;
+    }
+    if (q3Fields.includes(field as string) && !isQuarterActive('q3')) {
+      setSuccessToast(`Reporting Locked: ${getQuarterLockNotice('q3')} Unless you are in the actual period, you cannot report.`);
+      setTimeout(() => setSuccessToast(null), 4000);
+      return;
+    }
+    if (q4Fields.includes(field as string) && !isQuarterActive('q4')) {
+      setSuccessToast(`Reporting Locked: ${getQuarterLockNotice('q4')} Unless you are in the actual period, you cannot report.`);
+      setTimeout(() => setSuccessToast(null), 4000);
+      return;
+    }
+
     const updated = rows.map(r => {
       if (r.id === rowId) {
         let updatedRow = { ...r, [field]: value };
@@ -1281,6 +1352,11 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
   };
 
   const triggerUploadModal = (rowId: string, refNum: string, quarter: 'q1' | 'q2' | 'midTerm' | 'q3' | 'q4' | 'general' = 'general') => {
+    if (quarter !== 'general' && !isQuarterActive(quarter)) {
+      setSuccessToast(`Upload Locked: ${getQuarterLockNotice(quarter)} Unless you are in the actual period, you cannot upload or edit POE.`);
+      setTimeout(() => setSuccessToast(null), 4000);
+      return;
+    }
     setPoeModal({ isOpen: true, rowId, refNum, quarter });
     const suffix = quarter !== 'general' ? `_${quarter}` : '';
     setPoeFileName(`poe_evidence_ref_${refNum.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()}${suffix}.pdf`);
@@ -1745,6 +1821,11 @@ Timestamp: ${new Date().toLocaleString()}
   };
 
   const clearQuarterPoe = (rowId: string, quarter: 'q1' | 'q2' | 'midTerm' | 'q3' | 'q4') => {
+    if (!isQuarterActive(quarter)) {
+      setSuccessToast(`Action Locked: ${getQuarterLockNotice(quarter)} Unless you are in the actual period, you cannot modify POE.`);
+      setTimeout(() => setSuccessToast(null), 4000);
+      return;
+    }
     const targetRow = rows.find(r => r.id === rowId);
     if (targetRow) {
       let filesToRemove: string[] = [];
@@ -1904,109 +1985,124 @@ Timestamp: ${new Date().toLocaleString()}
           </span>
         )}
 
-        {/* Interactive Transition Buttons */}
-        <div className="flex flex-col gap-1 w-full max-w-[130px] mt-1">
-          {status === 'draft' && (
-            <div className="flex flex-col gap-1 w-full">
-              <button
-                onClick={() => {
-                  const approverName = row.approver || 'Approver';
-                  updateWorkflowState(
-                    row.id, 
-                    phase, 
-                    'pending_approval', 
-                    { submittedBy: submitterName, submittedAt: new Date().toLocaleDateString() },
-                    `KPI ${row.refNum} (${phaseLabel}) submitted to you for executive approval.`,
-                    approverName
-                  );
-                }}
-                className="px-2 py-1 bg-amber-600 hover:bg-amber-700 text-[10px] text-white font-bold rounded flex items-center justify-center gap-1 transition shadow-sm cursor-pointer"
-                title="Submit this KPI to the Executive Approver"
-              >
-                <Send className="w-2.5 h-2.5" /> Push to Approver
-              </button>
+        {/* Interactive Transition Buttons or Locked Status */}
+        {!isQuarterActive(phase) ? (
+          <div 
+            className="flex flex-col items-center gap-0.5 w-full max-w-[135px] mt-1 bg-slate-100/90 border border-slate-200 p-1.5 rounded text-center shadow-2xs cursor-not-allowed group/lock" 
+            title={getQuarterLockNotice(phase as ReportingPhase)}
+          >
+            <div className="flex items-center justify-center gap-1 text-[9px] font-bold text-slate-500">
+              <Lock className="w-2.5 h-2.5 text-slate-400" />
+              <span>Locked</span>
             </div>
-          )}
+            <span className="text-[8px] text-slate-400 font-medium leading-tight">
+              {REPORTING_PERIOD_CONFIGS[phase as ReportingPhase]?.monthsLabel || 'Outside Period'}
+            </span>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1 w-full max-w-[130px] mt-1">
+            {status === 'draft' && (
+              <div className="flex flex-col gap-1 w-full">
+                <button
+                  onClick={() => {
+                    const approverName = row.approver || 'Approver';
+                    updateWorkflowState(
+                      row.id, 
+                      phase, 
+                      'pending_approval', 
+                      { submittedBy: submitterName, submittedAt: new Date().toLocaleDateString() },
+                      `KPI ${row.refNum} (${phaseLabel}) submitted to you for executive approval.`,
+                      approverName
+                    );
+                  }}
+                  className="px-2 py-1 bg-amber-600 hover:bg-amber-700 text-[10px] text-white font-bold rounded flex items-center justify-center gap-1 transition shadow-sm cursor-pointer"
+                  title="Submit this KPI to the Executive Approver"
+                >
+                  <Send className="w-2.5 h-2.5" /> Push to Approver
+                </button>
+              </div>
+            )}
 
-          {status === 'pending_approval' && (
-            <div className="flex flex-col gap-1 w-full">
-              <button
-                onClick={() => {
-                  const reviewerName = row.reviewer || 'Reviewer';
-                  const submitterNameVal = row.submitter || 'Submitter';
-                  updateWorkflowState(
-                    row.id,
-                    phase,
-                    'pending_review',
-                    { approvedBy: submitterName, approvedAt: new Date().toLocaleDateString(), comments: 'Approved by executive.' },
-                    `KPI ${row.refNum} (${phaseLabel}) approved by Executive and pushed to Reviewer for final sign-off.`,
-                    [reviewerName, submitterNameVal]
-                  );
-                }}
-                className="px-2 py-1 bg-indigo-600 hover:bg-indigo-700 text-[10px] text-white font-bold rounded flex items-center justify-center gap-1 transition shadow-sm cursor-pointer"
-                title="Approve & Push to Reviewer"
-              >
-                <Check className="w-2.5 h-2.5" /> Push to Reviewer
-              </button>
-              <button
-                onClick={() => {
-                  updateWorkflowState(
-                    row.id,
-                    phase,
-                    'draft',
-                    { approvedBy: submitterName, comments: 'Returned by executive approver.' },
-                    `Executive approver returned KPI ${row.refNum} to submitter.`,
-                    row.submitter || 'Submitter'
-                  );
-                }}
-                className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-[9px] font-medium rounded flex items-center justify-center gap-1 transition cursor-pointer"
-                title="Send back to Submitter"
-              >
-                <XCircle className="w-2.5 h-2.5" /> Send Back
-              </button>
-            </div>
-          )}
+            {status === 'pending_approval' && (
+              <div className="flex flex-col gap-1 w-full">
+                <button
+                  onClick={() => {
+                    const reviewerName = row.reviewer || 'Reviewer';
+                    const submitterNameVal = row.submitter || 'Submitter';
+                    updateWorkflowState(
+                      row.id, 
+                      phase, 
+                      'pending_review', 
+                      { approvedBy: submitterName, approvedAt: new Date().toLocaleDateString(), comments: 'Approved by executive.' },
+                      `KPI ${row.refNum} (${phaseLabel}) approved by Executive and pushed to Reviewer for final sign-off.`,
+                      [reviewerName, submitterNameVal]
+                    );
+                  }}
+                  className="px-2 py-1 bg-indigo-600 hover:bg-indigo-700 text-[10px] text-white font-bold rounded flex items-center justify-center gap-1 transition shadow-sm cursor-pointer"
+                  title="Approve & Push to Reviewer"
+                >
+                  <Check className="w-2.5 h-2.5" /> Push to Reviewer
+                </button>
+                <button
+                  onClick={() => {
+                    updateWorkflowState(
+                      row.id, 
+                      phase, 
+                      'draft', 
+                      { approvedBy: submitterName, comments: 'Returned by executive approver.' },
+                      `Executive approver returned KPI ${row.refNum} to submitter.`,
+                      row.submitter || 'Submitter'
+                    );
+                  }}
+                  className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-[9px] font-medium rounded flex items-center justify-center gap-1 transition cursor-pointer"
+                  title="Send back to Submitter"
+                >
+                  <XCircle className="w-2.5 h-2.5" /> Send Back
+                </button>
+              </div>
+            )}
 
-          {status === 'pending_review' && (
-            <div className="flex flex-col gap-1 w-full">
-              <button
-                onClick={() => {
-                  const auditorName = row.internalAudit || 'Internal Auditor';
-                  updateWorkflowState(
-                    row.id,
-                    phase,
-                    'pending_audit',
-                    { reviewedBy: submitterName, comments: 'Pushed to Internal Audit.' },
-                    `KPI ${row.refNum} (${phaseLabel}) pushed to Internal Audit desk.`,
-                    auditorName
-                  );
-                }}
-                className="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-[10px] text-white font-bold rounded flex items-center justify-center gap-1 transition shadow-sm cursor-pointer"
-                title="Push to Internal Audit Desk"
-              >
-                <ShieldCheck className="w-2.5 h-2.5" /> Push to Audit
-              </button>
-              <button
-                onClick={() => {
-                  const submitterNameVal = row.submitter || 'Submitter';
-                  const approverNameVal = row.approver || 'Approver';
-                  updateWorkflowState(
-                    row.id,
-                    phase,
-                    'pending_approval',
-                    { reviewedBy: submitterName, comments: 'Reviewer requested corrections.' },
-                    `Reviewer returned KPI ${row.refNum} to Executive Approver.`,
-                    [approverNameVal, submitterNameVal]
-                  );
-                }}
-                className="px-2 py-0.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[9px] font-medium rounded flex items-center justify-center gap-1 transition cursor-pointer"
-                title="Send back to Approver"
-              >
-                <XCircle className="w-2.5 h-2.5" /> Send Back
-              </button>
-            </div>
-          )}
-        </div>
+            {status === 'pending_review' && (
+              <div className="flex flex-col gap-1 w-full">
+                <button
+                  onClick={() => {
+                    const auditorName = row.internalAudit || 'Internal Auditor';
+                    updateWorkflowState(
+                      row.id, 
+                      phase, 
+                      'pending_audit', 
+                      { reviewedBy: submitterName, comments: 'Pushed to Internal Audit.' },
+                      `KPI ${row.refNum} (${phaseLabel}) pushed to Internal Audit desk.`,
+                      auditorName
+                    );
+                  }}
+                  className="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-[10px] text-white font-bold rounded flex items-center justify-center gap-1 transition shadow-sm cursor-pointer"
+                  title="Push to Internal Audit Desk"
+                >
+                  <ShieldCheck className="w-2.5 h-2.5" /> Push to Audit
+                </button>
+                <button
+                  onClick={() => {
+                    const submitterNameVal = row.submitter || 'Submitter';
+                    const approverNameVal = row.approver || 'Approver';
+                    updateWorkflowState(
+                      row.id, 
+                      phase, 
+                      'pending_approval', 
+                      { reviewedBy: submitterName, comments: 'Reviewer requested corrections.' },
+                      `Reviewer returned KPI ${row.refNum} to Executive Approver.`,
+                      [approverNameVal, submitterNameVal]
+                    );
+                  }}
+                  className="px-2 py-0.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[9px] font-medium rounded flex items-center justify-center gap-1 transition cursor-pointer"
+                  title="Send back to Approver"
+                >
+                  <XCircle className="w-2.5 h-2.5" /> Send Back
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     );
   };
@@ -2080,6 +2176,107 @@ Timestamp: ${new Date().toLocaleString()}
           </div>
         )}
 
+        {/* Municipal Reporting Calendar & Temporal Controls Banner */}
+        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-900/50 rounded-2xl p-4 md:p-5 text-white shadow-xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-80 h-full bg-indigo-500/10 blur-3xl pointer-events-none"></div>
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative z-10">
+            <div className="space-y-1 max-w-2xl">
+              <div className="flex items-center gap-2">
+                <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full flex items-center gap-1.5 font-mono">
+                  <CalendarDays className="w-3.5 h-3.5 text-indigo-400" />
+                  MFMA Statutory Municipal Calendar
+                </span>
+                {periodOverride !== 'auto' ? (
+                  <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <ShieldAlert className="w-3 h-3 text-amber-400" />
+                    Simulated / Override Mode
+                  </span>
+                ) : (
+                  <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                    Strict Real-Time Enforcement
+                  </span>
+                )}
+              </div>
+              <h3 className="text-sm md:text-base font-black text-white tracking-tight flex items-center gap-2">
+                Municipal Performance Reporting Window & Temporal Access Controls
+              </h3>
+              <p className="text-[11px] text-slate-300 leading-relaxed">
+                South African MFMA Section 52 & Section 72 statutory regulations dictate that performance achievements, expenditure, and Portfolio of Evidence (POE) records may only be reported during each quarter's designated municipal window. Periods outside their active cycle remain locked to prevent non-compliant submissions.
+              </p>
+            </div>
+
+            {/* Simulation / Override Mode Selector */}
+            <div className="flex flex-col sm:flex-row lg:flex-col items-start lg:items-end gap-2 shrink-0">
+              <div className="flex items-center gap-2 bg-slate-950/80 border border-slate-800 p-1.5 rounded-xl">
+                <span className="text-[10px] font-bold text-slate-400 uppercase font-mono px-2">Cycle Mode:</span>
+                <select
+                  value={periodOverride}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setPeriodOverride(val);
+                    if (val !== 'auto' && val !== 'all_open') {
+                      setWorkflowPhase(val as any);
+                    }
+                  }}
+                  className="bg-slate-900 border border-indigo-700/50 text-indigo-200 text-xs font-bold rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                >
+                  <option value="auto">Auto: Real-Time Municipal Calendar (Strict)</option>
+                  <option value="q1">Simulate Q1 (July – September)</option>
+                  <option value="q2">Simulate Q2 (October – December)</option>
+                  <option value="midTerm">Simulate Mid-Term Sec 72 (October – January)</option>
+                  <option value="q3">Simulate Q3 (January – March)</option>
+                  <option value="q4">Simulate Q4 (April – June)</option>
+                  <option value="annual">Simulate Annual APR (July – August)</option>
+                  <option value="all_open">Auditor / Super-Admin Override (All Periods Open)</option>
+                </select>
+              </div>
+              <span className="text-[10px] text-indigo-300/80 font-mono">
+                Current Active Cycle: <strong className="text-white">{REPORTING_PERIOD_CONFIGS[getCurrentMunicipalQuarter()].title}</strong>
+              </span>
+            </div>
+          </div>
+
+          {/* Period Cycle Cards Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 pt-4 border-t border-indigo-900/40 mt-4">
+            {(['q1', 'q2', 'midTerm', 'q3', 'q4', 'annual'] as const).map((phaseKey) => {
+              const config = REPORTING_PERIOD_CONFIGS[phaseKey];
+              const active = isQuarterActive(phaseKey);
+              const isSelected = workflowPhase === phaseKey;
+
+              return (
+                <div
+                  key={phaseKey}
+                  onClick={() => setWorkflowPhase(phaseKey)}
+                  className={`p-2.5 rounded-xl border transition-all cursor-pointer select-none flex flex-col justify-between ${
+                    isSelected 
+                      ? 'bg-indigo-600/30 border-indigo-400 shadow-md ring-1 ring-indigo-400' 
+                      : active 
+                        ? 'bg-slate-900/60 border-emerald-500/40 hover:bg-slate-850' 
+                        : 'bg-slate-950/50 border-slate-800/80 hover:bg-slate-900/40 opacity-75'
+                  }`}
+                  title={active ? `${config.title} is currently ACTIVE for reporting` : getQuarterLockNotice(phaseKey)}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-mono text-xs font-black text-white">{config.shortTitle}</span>
+                    {active ? (
+                      <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-400 bg-emerald-950/60 px-1.5 py-0.2 rounded border border-emerald-800/50">
+                        <Check className="w-2.5 h-2.5" /> OPEN
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[9px] font-bold text-slate-400 bg-slate-900 px-1.5 py-0.2 rounded border border-slate-800">
+                        <Lock className="w-2.5 h-2.5" /> LOCKED
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[10px] text-slate-300 font-medium truncate">{config.monthsLabel}</div>
+                  <div className="text-[9px] text-slate-400 truncate mt-0.5">{active ? 'Submissions enabled' : 'Period restricted'}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Workflow action desk panel */}
         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
           {/* Desk Header */}
@@ -2091,8 +2288,13 @@ Timestamp: ${new Date().toLocaleString()}
               <div>
                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                   SDBIP Reporting Workflow & Approval Desk
-                  <span className="bg-indigo-100 text-indigo-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
-                    Active Phase: {activeWorkflowPhaseLabel}
+                  <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1 ${
+                    isQuarterActive(workflowPhase) 
+                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' 
+                      : 'bg-amber-100 text-amber-900 border border-amber-200'
+                  }`}>
+                    {isQuarterActive(workflowPhase) ? <Check className="w-3 h-3 text-emerald-600" /> : <Lock className="w-3 h-3 text-amber-700" />}
+                    Phase: {activeWorkflowPhaseLabel} ({isQuarterActive(workflowPhase) ? 'Window Open' : 'Window Locked'})
                   </span>
                 </h3>
                 <p className="text-[10px] text-slate-500 font-medium">Push KPI reports from Submitter to Approver, then Reviewer, with automatic system notifications.</p>
@@ -2146,10 +2348,18 @@ Timestamp: ${new Date().toLocaleString()}
               {/* Active phase selection & role selection */}
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 pb-4">
                 <div className="space-y-1.5">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase font-mono tracking-wider block">Reporting Period Target</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase font-mono tracking-wider block">Reporting Period Target</span>
+                    {!isQuarterActive(workflowPhase) && (
+                      <span className="text-[9px] text-rose-600 bg-rose-50 border border-rose-200 font-bold px-1.5 py-0.2 rounded inline-flex items-center gap-1">
+                        <Lock className="w-2.5 h-2.5" /> Locked Window
+                      </span>
+                    )}
+                  </div>
                   <div className="inline-flex bg-slate-100 p-0.5 rounded-lg border border-slate-200/50">
                     {(['q1', 'q2', 'midTerm', 'q3', 'q4', 'annual'] as const).map((p) => {
                       const isActive = workflowPhase === p;
+                      const isPeriodOpen = isQuarterActive(p);
                       const label = 
                         p === 'q1' ? 'Q1' :
                         p === 'q2' ? 'Q2' :
@@ -2160,8 +2370,18 @@ Timestamp: ${new Date().toLocaleString()}
                         <button
                           key={p}
                           onClick={() => setWorkflowPhase(p)}
-                          className={`px-3 py-1 rounded-md text-xs font-bold cursor-pointer transition ${isActive ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                          title={!isPeriodOpen ? getQuarterLockNotice(p) : `${label} is Active`}
+                          className={`px-3 py-1 rounded-md text-xs font-bold cursor-pointer transition flex items-center gap-1.5 ${
+                            isActive 
+                              ? isPeriodOpen
+                                ? 'bg-indigo-600 text-white shadow-sm'
+                                : 'bg-slate-800 text-amber-300 shadow-sm' 
+                              : isPeriodOpen
+                                ? 'text-slate-700 hover:text-slate-950'
+                                : 'text-slate-400 hover:text-slate-600'
+                          }`}
                         >
+                          {!isPeriodOpen && <Lock className="w-3 h-3 opacity-60" />}
                           {label}
                         </button>
                       );
@@ -2403,14 +2623,15 @@ Timestamp: ${new Date().toLocaleString()}
                                 <td className="p-2 border-r border-slate-100 bg-teal-50/10" onClick={(e) => e.stopPropagation()}>
                                   <input 
                                     type="text"
-                                    disabled={!isOpex(row.budgetAllocation)}
+                                    disabled={!isOpex(row.budgetAllocation) || !isQuarterActive(workflowPhase)}
                                     value={isOpex(row.budgetAllocation) ? (getPhaseFieldValue(row, workflowPhase, 'exp') || '') : (() => {
                                       const total = parseBudgetNum(row.budgetAllocation);
                                       return total > 0 ? `R ${Math.round(total / 4).toLocaleString()}` : 'R 0';
                                     })()}
                                     onChange={(e) => handlePhaseFieldChange(row.id, workflowPhase, 'exp', e.target.value)}
-                                    className={`w-full bg-white border border-slate-200 p-1 rounded text-[11px] font-bold ${!isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-500 cursor-not-allowed border-slate-200' : 'text-slate-800'}`}
-                                    placeholder="Exp..."
+                                    title={!isQuarterActive(workflowPhase) ? getQuarterLockNotice(workflowPhase) : undefined}
+                                    className={`w-full border p-1 rounded text-[11px] font-bold ${!isQuarterActive(workflowPhase) || !isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white text-slate-800 border-slate-200'}`}
+                                    placeholder={!isQuarterActive(workflowPhase) ? "Locked" : "Exp..."}
                                   />
                                 </td>
 
@@ -2420,9 +2641,11 @@ Timestamp: ${new Date().toLocaleString()}
                                     <textarea 
                                       rows={2}
                                       value={getPhaseFieldValue(row, workflowPhase, 'poeDesc') || ''}
+                                      disabled={!isQuarterActive(workflowPhase)}
                                       onChange={(e) => handlePhaseFieldChange(row.id, workflowPhase, 'poeDesc', e.target.value)}
-                                      className="w-full bg-white border border-slate-200 p-1 focus:ring-1 focus:ring-indigo-300 rounded text-[10px]"
-                                      placeholder="POE Description..."
+                                      title={!isQuarterActive(workflowPhase) ? getQuarterLockNotice(workflowPhase) : undefined}
+                                      className={`w-full border p-1 rounded text-[10px] ${!isQuarterActive(workflowPhase) ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white border-slate-200 focus:ring-1 focus:ring-indigo-300'}`}
+                                      placeholder={!isQuarterActive(workflowPhase) ? "Locked for this period" : "POE Description..."}
                                     />
                                     {pData.poes && pData.poes.length > 0 && (
                                       <button
@@ -2437,8 +2660,10 @@ Timestamp: ${new Date().toLocaleString()}
                                     )}
                                     <div className="flex gap-1">
                                       <button 
+                                        disabled={!isQuarterActive(workflowPhase)}
                                         onClick={() => triggerUploadModal(row.id, row.refNum, workflowPhase as any)}
-                                        className="flex-1 py-0.5 text-[9px] font-bold rounded border bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                                        title={!isQuarterActive(workflowPhase) ? getQuarterLockNotice(workflowPhase) : "Upload/Edit POE"}
+                                        className={`flex-1 py-0.5 text-[9px] font-bold rounded border transition-colors flex items-center justify-center gap-1 ${!isQuarterActive(workflowPhase) ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 cursor-pointer'}`}
                                       >
                                         <Upload className="w-2 h-2" /> Upload
                                       </button>
@@ -2448,11 +2673,12 @@ Timestamp: ${new Date().toLocaleString()}
                                             <span className="text-[8px] text-rose-800 font-bold text-center leading-none">Delete?</span>
                                             <div className="flex gap-1 justify-center">
                                               <button
+                                                disabled={!isQuarterActive(workflowPhase)}
                                                 onClick={() => {
                                                   clearQuarterPoe(row.id, workflowPhase as any);
                                                   setConfirmDelete(null);
                                                 }}
-                                                className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[8px] font-bold cursor-pointer"
+                                                className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[8px] font-bold cursor-pointer hover:bg-rose-700 disabled:opacity-50"
                                               >
                                                 Yes
                                               </button>
@@ -2466,8 +2692,10 @@ Timestamp: ${new Date().toLocaleString()}
                                           </div>
                                         ) : (
                                           <button 
+                                            disabled={!isQuarterActive(workflowPhase)}
                                             onClick={() => setConfirmDelete({ rowId: row.id, type: workflowPhase as any })}
-                                            className="p-1 text-[9px] font-bold rounded border bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 transition-colors flex items-center justify-center cursor-pointer"
+                                            title={!isQuarterActive(workflowPhase) ? getQuarterLockNotice(workflowPhase) : "Delete POE"}
+                                            className={`p-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center ${!isQuarterActive(workflowPhase) ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 cursor-pointer'}`}
                                           >
                                             <Trash2 className="w-2.5 h-2.5" />
                                           </button>
@@ -2486,10 +2714,12 @@ Timestamp: ${new Date().toLocaleString()}
                                 <td className="p-2 border-r border-slate-100 bg-indigo-50/5 relative" onClick={(e) => e.stopPropagation()}>
                                   <textarea 
                                     rows={2} 
+                                    disabled={!isQuarterActive(workflowPhase)}
                                     value={getPhaseFieldValue(row, workflowPhase, 'actual') || ''} 
                                     onChange={(e) => handlePhaseFieldChange(row.id, workflowPhase, 'actual', e.target.value)} 
-                                    className="w-full bg-white border border-slate-200 p-1 focus:ring-1 focus:ring-indigo-300 rounded text-[11px]" 
-                                    placeholder="Actual..." 
+                                    title={!isQuarterActive(workflowPhase) ? getQuarterLockNotice(workflowPhase) : undefined}
+                                    className={`w-full border p-1 rounded text-[11px] ${!isQuarterActive(workflowPhase) ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white border-slate-200 focus:ring-1 focus:ring-indigo-300'}`} 
+                                    placeholder={!isQuarterActive(workflowPhase) ? "Locked for this period" : "Actual..."} 
                                   />
                                   {pData.actual && pData.target && pData.actual !== pData.target && (
                                     <div className="absolute top-1 right-1" title={`Target Discrepancy: Target is ${pData.target}, Actual is ${pData.actual}`}>
@@ -2508,10 +2738,11 @@ Timestamp: ${new Date().toLocaleString()}
                                   <textarea 
                                     rows={2} 
                                     value={getPhaseFieldValue(row, workflowPhase, 'corr') || ''} 
-                                    disabled={isFieldDisabled(getPhaseFieldValue(row, workflowPhase, 'var'))}
+                                    disabled={!isQuarterActive(workflowPhase) || isFieldDisabled(getPhaseFieldValue(row, workflowPhase, 'var'))}
                                     onChange={(e) => handlePhaseFieldChange(row.id, workflowPhase, 'corr', e.target.value)} 
-                                    className={`w-full p-1 focus:ring-1 focus:ring-indigo-300 rounded text-[11px] transition-colors ${isFieldDisabled(getPhaseFieldValue(row, workflowPhase, 'var')) ? 'bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed italic font-normal' : 'bg-white border-slate-200 text-slate-800'}`} 
-                                    placeholder={isFieldDisabled(getPhaseFieldValue(row, workflowPhase, 'var')) ? "No variance." : "Corrective..."} 
+                                    title={!isQuarterActive(workflowPhase) ? getQuarterLockNotice(workflowPhase) : undefined}
+                                    className={`w-full p-1 rounded text-[11px] transition-colors ${!isQuarterActive(workflowPhase) || isFieldDisabled(getPhaseFieldValue(row, workflowPhase, 'var')) ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed italic font-normal' : 'bg-white border-slate-200 text-slate-800 focus:ring-1 focus:ring-indigo-300'}`} 
+                                    placeholder={!isQuarterActive(workflowPhase) ? "Locked for this period" : isFieldDisabled(getPhaseFieldValue(row, workflowPhase, 'var')) ? "No variance." : "Corrective..."} 
                                   />
                                 </td>
 
@@ -2621,8 +2852,9 @@ Timestamp: ${new Date().toLocaleString()}
                                     </div>
                                     <div className="shrink-0 flex flex-col items-end gap-1.5 w-full md:w-auto">
                                       <span className="text-[10px] text-slate-400 font-bold">Executive Approver: {row.approver || 'None assigned'}</span>
-                                      {(!wf.status || wf.status === 'draft') && (
+                                       {(!wf.status || wf.status === 'draft') && (
                                         <button
+                                          disabled={!isQuarterActive(workflowPhase)}
                                           onClick={() => {
                                             if (!row.approver) {
                                               setSuccessToast("Please assign an Approver to this KPI first.");
@@ -2638,9 +2870,11 @@ Timestamp: ${new Date().toLocaleString()}
                                               row.approver
                                             );
                                           }}
-                                          className="w-full md:w-auto px-4 py-2 bg-amber-600 text-white hover:bg-amber-700 text-xs font-bold rounded-lg transition shadow-xs inline-flex items-center justify-center gap-1.5 cursor-pointer"
+                                          title={!isQuarterActive(workflowPhase) ? getQuarterLockNotice(workflowPhase) : "Submit for Approval"}
+                                          className={`w-full md:w-auto px-4 py-2 text-xs font-bold rounded-lg transition shadow-xs inline-flex items-center justify-center gap-1.5 ${!isQuarterActive(workflowPhase) ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed' : 'bg-amber-600 text-white hover:bg-amber-700 cursor-pointer'}`}
                                         >
-                                          <Send className="w-3.5 h-3.5" /> Push to Approver
+                                          {!isQuarterActive(workflowPhase) ? <Lock className="w-3.5 h-3.5 text-slate-400" /> : <Send className="w-3.5 h-3.5" />} 
+                                          <span>{!isQuarterActive(workflowPhase) ? 'Locked Period' : 'Push to Approver'}</span>
                                         </button>
                                       )}
                                     </div>
@@ -3636,22 +3870,24 @@ Timestamp: ${new Date().toLocaleString()}
                       </td>
 
                       {/* Q1 */}
-                      <td className="p-2 border-r border-slate-150">
+                      <td className={`p-2 border-r border-slate-150 ${!isQuarterActive('q1') ? 'bg-slate-50' : ''}`} title={!isQuarterActive('q1') ? getQuarterLockNotice('q1') : undefined}>
                         <input 
                           type="text" 
                           value={row.q1 || ''}
+                          disabled={!isQuarterActive('q1')}
                           onChange={(e) => handleCellChange(row.id, 'q1', e.target.value)}
-                          className="w-full bg-transparent border-0 p-1 focus:ring-1 focus:ring-indigo-300 rounded text-[11px]"
+                          className={`w-full bg-transparent border-0 p-1 rounded text-[11px] ${!isQuarterActive('q1') ? 'text-slate-400 cursor-not-allowed italic' : 'focus:ring-1 focus:ring-indigo-300'}`}
                         />
                       </td>
 
                       {/* Q2 */}
-                      <td className="p-2 border-r border-slate-150">
+                      <td className={`p-2 border-r border-slate-150 ${!isQuarterActive('q2') ? 'bg-slate-50' : ''}`} title={!isQuarterActive('q2') ? getQuarterLockNotice('q2') : undefined}>
                         <input 
                           type="text" 
                           value={row.q2 || ''}
+                          disabled={!isQuarterActive('q2')}
                           onChange={(e) => handleCellChange(row.id, 'q2', e.target.value)}
-                          className="w-full bg-transparent border-0 p-1 focus:ring-1 focus:ring-indigo-300 rounded text-[11px]"
+                          className={`w-full bg-transparent border-0 p-1 rounded text-[11px] ${!isQuarterActive('q2') ? 'text-slate-400 cursor-not-allowed italic' : 'focus:ring-1 focus:ring-indigo-300'}`}
                         />
                       </td>
 
@@ -3666,22 +3902,24 @@ Timestamp: ${new Date().toLocaleString()}
                       </td>
 
                       {/* Q3 */}
-                      <td className="p-2 border-r border-slate-150">
+                      <td className={`p-2 border-r border-slate-150 ${!isQuarterActive('q3') ? 'bg-slate-50' : ''}`} title={!isQuarterActive('q3') ? getQuarterLockNotice('q3') : undefined}>
                         <input 
                           type="text" 
                           value={row.q3 || ''}
+                          disabled={!isQuarterActive('q3')}
                           onChange={(e) => handleCellChange(row.id, 'q3', e.target.value)}
-                          className="w-full bg-transparent border-0 p-1 focus:ring-1 focus:ring-indigo-300 rounded text-[11px]"
+                          className={`w-full bg-transparent border-0 p-1 rounded text-[11px] ${!isQuarterActive('q3') ? 'text-slate-400 cursor-not-allowed italic' : 'focus:ring-1 focus:ring-indigo-300'}`}
                         />
                       </td>
 
                       {/* Q4 */}
-                      <td className="p-2 border-r border-slate-150">
+                      <td className={`p-2 border-r border-slate-150 ${!isQuarterActive('q4') ? 'bg-slate-50' : ''}`} title={!isQuarterActive('q4') ? getQuarterLockNotice('q4') : undefined}>
                         <input 
                           type="text" 
                           value={row.q4 || ''}
+                          disabled={!isQuarterActive('q4')}
                           onChange={(e) => handleCellChange(row.id, 'q4', e.target.value)}
-                          className="w-full bg-transparent border-0 p-1 focus:ring-1 focus:ring-indigo-300 rounded text-[11px]"
+                          className={`w-full bg-transparent border-0 p-1 rounded text-[11px] ${!isQuarterActive('q4') ? 'text-slate-400 cursor-not-allowed italic' : 'focus:ring-1 focus:ring-indigo-300'}`}
                         />
                       </td>
 
@@ -4113,6 +4351,21 @@ Timestamp: ${new Date().toLocaleString()}
                       {/* Active Workflow Status */}
                       <td className="p-2 border-r border-slate-150 text-center bg-indigo-50/10 min-w-[150px]">
                         {(() => {
+                          if (!isQuarterActive(workflowPhase)) {
+                            const notice = getQuarterLockNotice(workflowPhase);
+                            const pConfig = REPORTING_PERIOD_CONFIGS[workflowPhase as ReportingPhase];
+                            return (
+                              <div className="flex flex-col items-center gap-1 py-1 px-1 text-center bg-slate-50/80 rounded border border-dashed border-slate-200" title={notice}>
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[8px] font-bold uppercase bg-slate-100 text-slate-500 border-slate-200">
+                                  <Lock className="w-2.5 h-2.5 text-slate-400" /> Locked
+                                </span>
+                                <span className="text-[8px] text-slate-400 leading-tight font-medium">
+                                  {pConfig?.monthsLabel || 'Inactive period'}
+                                </span>
+                              </div>
+                            );
+                          }
+
                           const wf = row.workflows?.[workflowPhase] || { status: 'draft' };
                           const status = wf.status || 'draft';
                           const phaseLabel = workflowPhase === 'midTerm' ? 'Mid-Term' : workflowPhase === 'annual' ? 'Annual' : workflowPhase.toUpperCase();
@@ -4248,14 +4501,15 @@ Timestamp: ${new Date().toLocaleString()}
                       <td className="p-2 border-r border-slate-100 bg-teal-50/10">
                         <input 
                           type="text"
-                          disabled={!isOpex(row.budgetAllocation)}
+                          disabled={!isOpex(row.budgetAllocation) || !isQuarterActive('q1')}
                           value={isOpex(row.budgetAllocation) ? (row.q1Expenditure || '') : (() => {
                             const total = parseBudgetNum(row.budgetAllocation);
                             return total > 0 ? `R ${Math.round(total / 4).toLocaleString()}` : 'R 0';
                           })()}
                           onChange={(e) => handleCellChange(row.id, 'q1Expenditure', e.target.value)}
-                          className={`w-full bg-white border border-slate-200 p-1 rounded text-[11px] font-bold ${!isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-500 cursor-not-allowed border-slate-200' : 'text-slate-800'}`}
-                          placeholder="Q1 Exp..."
+                          title={!isQuarterActive('q1') ? getQuarterLockNotice('q1') : undefined}
+                          className={`w-full border p-1 rounded text-[11px] font-bold ${!isQuarterActive('q1') || !isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white text-slate-800 border-slate-200'}`}
+                          placeholder={!isQuarterActive('q1') ? "Locked" : "Q1 Exp..."}
                         />
                       </td>
 
@@ -4265,9 +4519,11 @@ Timestamp: ${new Date().toLocaleString()}
                           <textarea 
                             rows={2}
                             value={row.q1PoeDesc || ''}
+                            disabled={!isQuarterActive('q1')}
                             onChange={(e) => handleCellChange(row.id, 'q1PoeDesc', e.target.value)}
-                            className="w-full bg-white border border-slate-200 p-1 focus:ring-1 focus:ring-indigo-300 rounded text-[10px]"
-                            placeholder="Q1 POE Description..."
+                            title={!isQuarterActive('q1') ? getQuarterLockNotice('q1') : undefined}
+                            className={`w-full border p-1 rounded text-[10px] ${!isQuarterActive('q1') ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white border-slate-200 focus:ring-1 focus:ring-indigo-300'}`}
+                            placeholder={!isQuarterActive('q1') ? "Locked for this period" : "Q1 POE Description..."}
                           />
                           {row.q1Poes && row.q1Poes.length > 0 && (
                             <div 
@@ -4290,9 +4546,10 @@ Timestamp: ${new Date().toLocaleString()}
                               </button>
                             )}
                             <button 
+                              disabled={!isQuarterActive('q1')}
                               onClick={() => triggerUploadModal(row.id, row.refNum, 'q1')}
-                              className="flex-1 py-1 text-[9px] font-bold rounded border bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 transition-colors flex items-center justify-center gap-1 cursor-pointer"
-                              title="Upload/Edit POE"
+                              className={`flex-1 py-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center gap-1 ${!isQuarterActive('q1') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 cursor-pointer'}`}
+                              title={!isQuarterActive('q1') ? getQuarterLockNotice('q1') : "Upload/Edit POE"}
                             >
                               <Upload className="w-2.5 h-2.5" /> Upload/Edit
                             </button>
@@ -4302,11 +4559,12 @@ Timestamp: ${new Date().toLocaleString()}
                                   <span className="text-[8px] text-rose-800 font-bold text-center leading-none">Are you sure?</span>
                                   <div className="flex gap-1 justify-center">
                                     <button
+                                      disabled={!isQuarterActive('q1')}
                                       onClick={() => {
                                         clearQuarterPoe(row.id, 'q1');
                                         setConfirmDelete(null);
                                       }}
-                                      className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[8px] font-bold cursor-pointer hover:bg-rose-700"
+                                      className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[8px] font-bold cursor-pointer hover:bg-rose-700 disabled:opacity-50"
                                     >
                                       Yes
                                     </button>
@@ -4320,9 +4578,10 @@ Timestamp: ${new Date().toLocaleString()}
                                 </div>
                               ) : (
                                 <button 
+                                  disabled={!isQuarterActive('q1')}
                                   onClick={() => setConfirmDelete({ rowId: row.id, type: 'q1' })}
-                                  className="p-1 text-[9px] font-bold rounded border bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 transition-colors flex items-center justify-center cursor-pointer"
-                                  title="Delete POE and Description"
+                                  className={`p-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center ${!isQuarterActive('q1') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 cursor-pointer'}`}
+                                  title={!isQuarterActive('q1') ? getQuarterLockNotice('q1') : "Delete POE and Description"}
                                 >
                                   <Trash2 className="w-3 h-3" />
                                 </button>
@@ -4338,7 +4597,15 @@ Timestamp: ${new Date().toLocaleString()}
                       </td>
 
                       <td className="p-2 border-r border-slate-100 bg-indigo-50/5 relative group">
-                        <textarea rows={3} value={row.q1Actual || ''} onChange={(e) => handleCellChange(row.id, 'q1Actual', e.target.value)} className="w-full bg-white border border-slate-200 p-1 focus:ring-1 focus:ring-indigo-300 rounded text-[11px]" placeholder="Q1 Actual..." />
+                        <textarea 
+                          rows={3} 
+                          disabled={!isQuarterActive('q1')}
+                          value={row.q1Actual || ''} 
+                          onChange={(e) => handleCellChange(row.id, 'q1Actual', e.target.value)} 
+                          title={!isQuarterActive('q1') ? getQuarterLockNotice('q1') : undefined}
+                          className={`w-full border p-1 rounded text-[11px] ${!isQuarterActive('q1') ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white border-slate-200 focus:ring-1 focus:ring-indigo-300'}`} 
+                          placeholder={!isQuarterActive('q1') ? "Locked for this period" : "Q1 Actual..."} 
+                        />
                         {row.q1Actual && row.q1 && row.q1Actual !== row.q1 && (
                           <div className="absolute top-1 right-1">
                             <div className="relative group/tip">
@@ -4364,10 +4631,11 @@ Timestamp: ${new Date().toLocaleString()}
                         <textarea 
                           rows={3} 
                           value={row.q1Corrective || ''} 
-                          disabled={isFieldDisabled(row.q1Variance)}
+                          disabled={!isQuarterActive('q1') || isFieldDisabled(row.q1Variance)}
                           onChange={(e) => handleCellChange(row.id, 'q1Corrective', e.target.value)} 
-                          className={`w-full p-1 focus:ring-1 focus:ring-indigo-300 rounded text-[11px] transition-colors ${isFieldDisabled(row.q1Variance) ? 'bg-slate-50 border-slate-200 text-slate-450 cursor-not-allowed italic font-normal' : 'bg-white border-slate-200 text-slate-800'}`} 
-                          placeholder={isFieldDisabled(row.q1Variance) ? "No variance detected." : "Q1 Corrective..."} 
+                          title={!isQuarterActive('q1') ? getQuarterLockNotice('q1') : undefined}
+                          className={`w-full p-1 rounded text-[11px] transition-colors ${!isQuarterActive('q1') || isFieldDisabled(row.q1Variance) ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed italic font-normal' : 'bg-white border-slate-200 text-slate-800 focus:ring-1 focus:ring-indigo-300'}`} 
+                          placeholder={!isQuarterActive('q1') ? "Locked for this period" : isFieldDisabled(row.q1Variance) ? "No variance detected." : "Q1 Corrective..."} 
                         />
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-indigo-100/10 text-center">
@@ -4378,14 +4646,15 @@ Timestamp: ${new Date().toLocaleString()}
                       <td className="p-2 border-r border-slate-100 bg-teal-50/10">
                         <input 
                           type="text"
-                          disabled={!isOpex(row.budgetAllocation)}
+                          disabled={!isOpex(row.budgetAllocation) || !isQuarterActive('q2')}
                           value={isOpex(row.budgetAllocation) ? (row.q2Expenditure || '') : (() => {
                             const total = parseBudgetNum(row.budgetAllocation);
                             return total > 0 ? `R ${Math.round(total / 4).toLocaleString()}` : 'R 0';
                           })()}
                           onChange={(e) => handleCellChange(row.id, 'q2Expenditure', e.target.value)}
-                          className={`w-full bg-white border border-slate-200 p-1 rounded text-[11px] font-bold ${!isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-500 cursor-not-allowed border-slate-200' : 'text-slate-800'}`}
-                          placeholder="Q2 Exp..."
+                          title={!isQuarterActive('q2') ? getQuarterLockNotice('q2') : undefined}
+                          className={`w-full border p-1 rounded text-[11px] font-bold ${!isQuarterActive('q2') || !isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white text-slate-800 border-slate-200'}`}
+                          placeholder={!isQuarterActive('q2') ? "Locked" : "Q2 Exp..."}
                         />
                       </td>
 
@@ -4395,9 +4664,11 @@ Timestamp: ${new Date().toLocaleString()}
                           <textarea 
                             rows={2}
                             value={row.q2PoeDesc || ''}
+                            disabled={!isQuarterActive('q2')}
                             onChange={(e) => handleCellChange(row.id, 'q2PoeDesc', e.target.value)}
-                            className="w-full bg-white border border-slate-200 p-1 focus:ring-1 focus:ring-blue-300 rounded text-[10px]"
-                            placeholder="Q2 POE Description..."
+                            title={!isQuarterActive('q2') ? getQuarterLockNotice('q2') : undefined}
+                            className={`w-full border p-1 rounded text-[10px] ${!isQuarterActive('q2') ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white border-slate-200 focus:ring-1 focus:ring-blue-300'}`}
+                            placeholder={!isQuarterActive('q2') ? "Locked for this period" : "Q2 POE Description..."}
                           />
                           {row.q2Poes && row.q2Poes.length > 0 && (
                             <div 
@@ -4420,9 +4691,10 @@ Timestamp: ${new Date().toLocaleString()}
                               </button>
                             )}
                             <button 
+                              disabled={!isQuarterActive('q2')}
                               onClick={() => triggerUploadModal(row.id, row.refNum, 'q2')}
-                              className="flex-1 py-1 text-[9px] font-bold rounded border bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 transition-colors flex items-center justify-center gap-1 cursor-pointer"
-                              title="Upload/Edit POE"
+                              className={`flex-1 py-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center gap-1 ${!isQuarterActive('q2') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 cursor-pointer'}`}
+                              title={!isQuarterActive('q2') ? getQuarterLockNotice('q2') : "Upload/Edit POE"}
                             >
                               <Upload className="w-2.5 h-2.5" /> Upload/Edit
                             </button>
@@ -4432,11 +4704,12 @@ Timestamp: ${new Date().toLocaleString()}
                                   <span className="text-[8px] text-rose-800 font-bold text-center leading-none">Are you sure?</span>
                                   <div className="flex gap-1 justify-center">
                                     <button
+                                      disabled={!isQuarterActive('q2')}
                                       onClick={() => {
                                         clearQuarterPoe(row.id, 'q2');
                                         setConfirmDelete(null);
                                       }}
-                                      className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[8px] font-bold cursor-pointer hover:bg-rose-700"
+                                      className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[8px] font-bold cursor-pointer hover:bg-rose-700 disabled:opacity-50"
                                     >
                                       Yes
                                     </button>
@@ -4450,9 +4723,10 @@ Timestamp: ${new Date().toLocaleString()}
                                 </div>
                               ) : (
                                 <button 
+                                  disabled={!isQuarterActive('q2')}
                                   onClick={() => setConfirmDelete({ rowId: row.id, type: 'q2' })}
-                                  className="p-1 text-[9px] font-bold rounded border bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 transition-colors flex items-center justify-center cursor-pointer"
-                                  title="Delete POE and Description"
+                                  className={`p-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center ${!isQuarterActive('q2') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 cursor-pointer'}`}
+                                  title={!isQuarterActive('q2') ? getQuarterLockNotice('q2') : "Delete POE and Description"}
                                 >
                                   <Trash2 className="w-3 h-3" />
                                 </button>
@@ -4468,7 +4742,15 @@ Timestamp: ${new Date().toLocaleString()}
                       </td>
 
                       <td className="p-2 border-r border-slate-100 bg-blue-50/5 relative">
-                        <textarea rows={3} value={row.q2Actual || ''} onChange={(e) => handleCellChange(row.id, 'q2Actual', e.target.value)} className="w-full bg-white border border-slate-200 p-1 focus:ring-1 focus:ring-blue-300 rounded text-[11px]" placeholder="Q2 Actual..." />
+                        <textarea 
+                          rows={3} 
+                          disabled={!isQuarterActive('q2')}
+                          value={row.q2Actual || ''} 
+                          onChange={(e) => handleCellChange(row.id, 'q2Actual', e.target.value)} 
+                          title={!isQuarterActive('q2') ? getQuarterLockNotice('q2') : undefined}
+                          className={`w-full border p-1 rounded text-[11px] ${!isQuarterActive('q2') ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white border-slate-200 focus:ring-1 focus:ring-blue-300'}`} 
+                          placeholder={!isQuarterActive('q2') ? "Locked for this period" : "Q2 Actual..."} 
+                        />
                         {row.q2Actual && row.q2 && row.q2Actual !== row.q2 && (
                           <div className="absolute top-1 right-1">
                             <div className="relative group/tip">
@@ -4494,10 +4776,11 @@ Timestamp: ${new Date().toLocaleString()}
                         <textarea 
                           rows={3} 
                           value={row.q2Corrective || ''} 
-                          disabled={isFieldDisabled(row.q2Variance)}
+                          disabled={!isQuarterActive('q2') || isFieldDisabled(row.q2Variance)}
                           onChange={(e) => handleCellChange(row.id, 'q2Corrective', e.target.value)} 
-                          className={`w-full p-1 focus:ring-1 focus:ring-blue-300 rounded text-[11px] transition-colors ${isFieldDisabled(row.q2Variance) ? 'bg-slate-50 border-slate-200 text-slate-450 cursor-not-allowed italic font-normal' : 'bg-white border-slate-200 text-slate-800'}`} 
-                          placeholder={isFieldDisabled(row.q2Variance) ? "No variance detected." : "Q2 Corrective..."} 
+                          title={!isQuarterActive('q2') ? getQuarterLockNotice('q2') : undefined}
+                          className={`w-full p-1 focus:ring-1 focus:ring-blue-300 rounded text-[11px] transition-colors ${!isQuarterActive('q2') || isFieldDisabled(row.q2Variance) ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed italic font-normal' : 'bg-white border-slate-200 text-slate-800'}`} 
+                          placeholder={!isQuarterActive('q2') ? "Locked for this period" : isFieldDisabled(row.q2Variance) ? "No variance detected." : "Q2 Corrective..."} 
                         />
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-blue-100/10 text-center">
@@ -4508,14 +4791,15 @@ Timestamp: ${new Date().toLocaleString()}
                       <td className="p-2 border-r border-slate-100 bg-teal-50/10">
                         <input 
                           type="text"
-                          disabled={!isOpex(row.budgetAllocation)}
+                          disabled={!isOpex(row.budgetAllocation) || !isQuarterActive('midTerm')}
                           value={isOpex(row.budgetAllocation) ? (row.midTermExpenditure || '') : (() => {
                             const total = parseBudgetNum(row.budgetAllocation);
                             return total > 0 ? `R ${Math.round(total / 2).toLocaleString()}` : 'R 0';
                           })()}
                           onChange={(e) => handleCellChange(row.id, 'midTermExpenditure', e.target.value)}
-                          className={`w-full bg-white border border-slate-200 p-1 rounded text-[11px] font-bold ${!isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-500 cursor-not-allowed border-slate-200' : 'text-slate-800'}`}
-                          placeholder="Mid Term Exp..."
+                          title={!isQuarterActive('midTerm') ? getQuarterLockNotice('midTerm') : undefined}
+                          className={`w-full border p-1 rounded text-[11px] font-bold ${!isQuarterActive('midTerm') || !isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white text-slate-800 border-slate-200'}`}
+                          placeholder={!isQuarterActive('midTerm') ? "Locked" : "Mid Term Exp..."}
                         />
                       </td>
 
@@ -4525,9 +4809,11 @@ Timestamp: ${new Date().toLocaleString()}
                           <textarea 
                             rows={2}
                             value={row.midTermPoeDesc || ''}
+                            disabled={!isQuarterActive('midTerm')}
                             onChange={(e) => handleCellChange(row.id, 'midTermPoeDesc', e.target.value)}
-                            className="w-full bg-white border border-slate-200 p-1 focus:ring-1 focus:ring-emerald-300 rounded text-[10px]"
-                            placeholder="Mid Term POE Description..."
+                            title={!isQuarterActive('midTerm') ? getQuarterLockNotice('midTerm') : undefined}
+                            className={`w-full border p-1 rounded text-[10px] ${!isQuarterActive('midTerm') ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white border-slate-200 focus:ring-1 focus:ring-emerald-300'}`}
+                            placeholder={!isQuarterActive('midTerm') ? "Locked for this period" : "Mid Term POE Description..."}
                           />
                           {row.midTermPoes && row.midTermPoes.length > 0 && (
                             <div 
@@ -4550,9 +4836,10 @@ Timestamp: ${new Date().toLocaleString()}
                               </button>
                             )}
                             <button 
+                              disabled={!isQuarterActive('midTerm')}
                               onClick={() => triggerUploadModal(row.id, row.refNum, 'midTerm')}
-                              className="flex-1 py-1 text-[9px] font-bold rounded border bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100 transition-colors flex items-center justify-center gap-1 cursor-pointer"
-                              title="Upload/Edit POE"
+                              className={`flex-1 py-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center gap-1 ${!isQuarterActive('midTerm') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100 cursor-pointer'}`}
+                              title={!isQuarterActive('midTerm') ? getQuarterLockNotice('midTerm') : "Upload/Edit POE"}
                             >
                               <Upload className="w-2.5 h-2.5" /> Upload/Edit
                             </button>
@@ -4562,11 +4849,12 @@ Timestamp: ${new Date().toLocaleString()}
                                   <span className="text-[8px] text-rose-800 font-bold text-center leading-none">Are you sure?</span>
                                   <div className="flex gap-1 justify-center">
                                     <button
+                                      disabled={!isQuarterActive('midTerm')}
                                       onClick={() => {
                                         clearQuarterPoe(row.id, 'midTerm');
                                         setConfirmDelete(null);
                                       }}
-                                      className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[8px] font-bold cursor-pointer hover:bg-rose-700"
+                                      className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[8px] font-bold cursor-pointer hover:bg-rose-700 disabled:opacity-50"
                                     >
                                       Yes
                                     </button>
@@ -4580,9 +4868,10 @@ Timestamp: ${new Date().toLocaleString()}
                                 </div>
                               ) : (
                                 <button 
+                                  disabled={!isQuarterActive('midTerm')}
                                   onClick={() => setConfirmDelete({ rowId: row.id, type: 'midTerm' })}
-                                  className="p-1 text-[9px] font-bold rounded border bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 transition-colors flex items-center justify-center cursor-pointer"
-                                  title="Delete POE and Description"
+                                  className={`p-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center ${!isQuarterActive('midTerm') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 cursor-pointer'}`}
+                                  title={!isQuarterActive('midTerm') ? getQuarterLockNotice('midTerm') : "Delete POE and Description"}
                                 >
                                   <Trash2 className="w-3 h-3" />
                                 </button>
@@ -4625,10 +4914,11 @@ Timestamp: ${new Date().toLocaleString()}
                         <textarea 
                           rows={3} 
                           value={row.midTermCorrective || ''} 
-                          disabled={isFieldDisabled(row.midTermVariance)}
+                          disabled={!isQuarterActive('midTerm') || isFieldDisabled(row.midTermVariance)}
                           onChange={(e) => handleCellChange(row.id, 'midTermCorrective', e.target.value)} 
-                          className={`w-full p-1 focus:ring-1 focus:ring-emerald-300 rounded text-[11px] transition-colors ${isFieldDisabled(row.midTermVariance) ? 'bg-slate-55 border-slate-200 text-slate-450 cursor-not-allowed italic font-normal' : 'bg-white border-emerald-100 p-1 text-slate-800'}`} 
-                          placeholder={isFieldDisabled(row.midTermVariance) ? "No variance detected." : "Mid-Term Corrective..."} 
+                          title={!isQuarterActive('midTerm') ? getQuarterLockNotice('midTerm') : undefined}
+                          className={`w-full p-1 focus:ring-1 focus:ring-emerald-300 rounded text-[11px] transition-colors ${!isQuarterActive('midTerm') || isFieldDisabled(row.midTermVariance) ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed italic font-normal' : 'bg-white border-emerald-100 p-1 text-slate-800'}`} 
+                          placeholder={!isQuarterActive('midTerm') ? "Locked for this period" : isFieldDisabled(row.midTermVariance) ? "No variance detected." : "Mid-Term Corrective..."} 
                         />
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-emerald-100/10 text-center">
@@ -4639,14 +4929,15 @@ Timestamp: ${new Date().toLocaleString()}
                       <td className="p-2 border-r border-slate-100 bg-teal-50/10">
                         <input 
                           type="text"
-                          disabled={!isOpex(row.budgetAllocation)}
+                          disabled={!isOpex(row.budgetAllocation) || !isQuarterActive('q3')}
                           value={isOpex(row.budgetAllocation) ? (row.q3Expenditure || '') : (() => {
                             const total = parseBudgetNum(row.budgetAllocation);
                             return total > 0 ? `R ${Math.round(total / 4).toLocaleString()}` : 'R 0';
                           })()}
                           onChange={(e) => handleCellChange(row.id, 'q3Expenditure', e.target.value)}
-                          className={`w-full bg-white border border-slate-200 p-1 rounded text-[11px] font-bold ${!isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-500 cursor-not-allowed border-slate-200' : 'text-slate-800'}`}
-                          placeholder="Q3 Exp..."
+                          title={!isQuarterActive('q3') ? getQuarterLockNotice('q3') : undefined}
+                          className={`w-full border p-1 rounded text-[11px] font-bold ${!isQuarterActive('q3') || !isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white text-slate-800 border-slate-200'}`}
+                          placeholder={!isQuarterActive('q3') ? "Locked" : "Q3 Exp..."}
                         />
                       </td>
 
@@ -4656,9 +4947,11 @@ Timestamp: ${new Date().toLocaleString()}
                           <textarea 
                             rows={2}
                             value={row.q3PoeDesc || ''}
+                            disabled={!isQuarterActive('q3')}
                             onChange={(e) => handleCellChange(row.id, 'q3PoeDesc', e.target.value)}
-                            className="w-full bg-white border border-slate-200 p-1 focus:ring-1 focus:ring-amber-300 rounded text-[10px]"
-                            placeholder="Q3 POE Description..."
+                            title={!isQuarterActive('q3') ? getQuarterLockNotice('q3') : undefined}
+                            className={`w-full border p-1 rounded text-[10px] ${!isQuarterActive('q3') ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white border-slate-200 focus:ring-1 focus:ring-amber-300'}`}
+                            placeholder={!isQuarterActive('q3') ? "Locked for this period" : "Q3 POE Description..."}
                           />
                           {row.q3Poes && row.q3Poes.length > 0 && (
                             <div 
@@ -4681,9 +4974,10 @@ Timestamp: ${new Date().toLocaleString()}
                               </button>
                             )}
                             <button 
+                              disabled={!isQuarterActive('q3')}
                               onClick={() => triggerUploadModal(row.id, row.refNum, 'q3')}
-                              className="flex-1 py-1 text-[9px] font-bold rounded border bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100 transition-colors flex items-center justify-center gap-1 cursor-pointer"
-                              title="Upload/Edit POE"
+                              className={`flex-1 py-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center gap-1 ${!isQuarterActive('q3') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100 cursor-pointer'}`}
+                              title={!isQuarterActive('q3') ? getQuarterLockNotice('q3') : "Upload/Edit POE"}
                             >
                               <Upload className="w-2.5 h-2.5" /> Upload/Edit
                             </button>
@@ -4693,11 +4987,12 @@ Timestamp: ${new Date().toLocaleString()}
                                   <span className="text-[8px] text-rose-800 font-bold text-center leading-none">Are you sure?</span>
                                   <div className="flex gap-1 justify-center">
                                     <button
+                                      disabled={!isQuarterActive('q3')}
                                       onClick={() => {
                                         clearQuarterPoe(row.id, 'q3');
                                         setConfirmDelete(null);
                                       }}
-                                      className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[8px] font-bold cursor-pointer hover:bg-rose-700"
+                                      className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[8px] font-bold cursor-pointer hover:bg-rose-700 disabled:opacity-50"
                                     >
                                       Yes
                                     </button>
@@ -4711,9 +5006,10 @@ Timestamp: ${new Date().toLocaleString()}
                                 </div>
                               ) : (
                                 <button 
+                                  disabled={!isQuarterActive('q3')}
                                   onClick={() => setConfirmDelete({ rowId: row.id, type: 'q3' })}
-                                  className="p-1 text-[9px] font-bold rounded border bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 transition-colors flex items-center justify-center cursor-pointer"
-                                  title="Delete POE and Description"
+                                  className={`p-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center ${!isQuarterActive('q3') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 cursor-pointer'}`}
+                                  title={!isQuarterActive('q3') ? getQuarterLockNotice('q3') : "Delete POE and Description"}
                                 >
                                   <Trash2 className="w-3 h-3" />
                                 </button>
@@ -4729,7 +5025,15 @@ Timestamp: ${new Date().toLocaleString()}
                       </td>
 
                       <td className="p-2 border-r border-slate-100 bg-amber-50/5 relative text-slate-800">
-                        <textarea rows={3} value={row.q3Actual || ''} onChange={(e) => handleCellChange(row.id, 'q3Actual', e.target.value)} className="w-full bg-white border border-slate-200 p-1 focus:ring-1 focus:ring-amber-300 rounded text-[11px]" placeholder="Q3 Actual..." />
+                        <textarea 
+                          rows={3} 
+                          disabled={!isQuarterActive('q3')}
+                          value={row.q3Actual || ''} 
+                          onChange={(e) => handleCellChange(row.id, 'q3Actual', e.target.value)} 
+                          title={!isQuarterActive('q3') ? getQuarterLockNotice('q3') : undefined}
+                          className={`w-full border p-1 rounded text-[11px] ${!isQuarterActive('q3') ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white border-slate-200 focus:ring-1 focus:ring-amber-300'}`} 
+                          placeholder={!isQuarterActive('q3') ? "Locked for this period" : "Q3 Actual..."} 
+                        />
                         {row.q3Actual && row.q3 && row.q3Actual !== row.q3 && (
                           <div className="absolute top-1 right-1">
                             <div className="relative group/tip">
@@ -4755,10 +5059,11 @@ Timestamp: ${new Date().toLocaleString()}
                         <textarea 
                           rows={3} 
                           value={row.q3Corrective || ''} 
-                          disabled={isFieldDisabled(row.q3Variance)}
+                          disabled={!isQuarterActive('q3') || isFieldDisabled(row.q3Variance)}
                           onChange={(e) => handleCellChange(row.id, 'q3Corrective', e.target.value)} 
-                          className={`w-full p-1 focus:ring-1 focus:ring-amber-300 rounded text-[11px] transition-colors ${isFieldDisabled(row.q3Variance) ? 'bg-slate-50 border-slate-200 text-slate-455 cursor-not-allowed italic font-normal' : 'bg-white border-slate-200 text-slate-800'}`} 
-                          placeholder={isFieldDisabled(row.q3Variance) ? "No variance detected." : "Q3 Corrective..."} 
+                          title={!isQuarterActive('q3') ? getQuarterLockNotice('q3') : undefined}
+                          className={`w-full p-1 focus:ring-1 focus:ring-amber-300 rounded text-[11px] transition-colors ${!isQuarterActive('q3') || isFieldDisabled(row.q3Variance) ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed italic font-normal' : 'bg-white border-slate-200 text-slate-800'}`} 
+                          placeholder={!isQuarterActive('q3') ? "Locked for this period" : isFieldDisabled(row.q3Variance) ? "No variance detected." : "Q3 Corrective..."} 
                         />
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-amber-100/10 text-center">
@@ -4769,14 +5074,15 @@ Timestamp: ${new Date().toLocaleString()}
                       <td className="p-2 border-r border-slate-100 bg-teal-50/10">
                         <input 
                           type="text"
-                          disabled={!isOpex(row.budgetAllocation)}
+                          disabled={!isOpex(row.budgetAllocation) || !isQuarterActive('q4')}
                           value={isOpex(row.budgetAllocation) ? (row.q4Expenditure || '') : (() => {
                             const total = parseBudgetNum(row.budgetAllocation);
                             return total > 0 ? `R ${Math.round(total / 4).toLocaleString()}` : 'R 0';
                           })()}
                           onChange={(e) => handleCellChange(row.id, 'q4Expenditure', e.target.value)}
-                          className={`w-full bg-white border border-slate-200 p-1 rounded text-[11px] font-bold ${!isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-500 cursor-not-allowed border-slate-200' : 'text-slate-800'}`}
-                          placeholder="Q4 Exp..."
+                          title={!isQuarterActive('q4') ? getQuarterLockNotice('q4') : undefined}
+                          className={`w-full border p-1 rounded text-[11px] font-bold ${!isQuarterActive('q4') || !isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white text-slate-800 border-slate-200'}`}
+                          placeholder={!isQuarterActive('q4') ? "Locked" : "Q4 Exp..."}
                         />
                       </td>
 
@@ -4786,9 +5092,11 @@ Timestamp: ${new Date().toLocaleString()}
                           <textarea 
                             rows={2}
                             value={row.q4PoeDesc || ''}
+                            disabled={!isQuarterActive('q4')}
                             onChange={(e) => handleCellChange(row.id, 'q4PoeDesc', e.target.value)}
-                            className="w-full bg-white border border-slate-200 p-1 focus:ring-1 focus:ring-rose-300 rounded text-[10px]"
-                            placeholder="Q4 POE Description..."
+                            title={!isQuarterActive('q4') ? getQuarterLockNotice('q4') : undefined}
+                            className={`w-full border p-1 rounded text-[10px] ${!isQuarterActive('q4') ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white border-slate-200 focus:ring-1 focus:ring-rose-300'}`}
+                            placeholder={!isQuarterActive('q4') ? "Locked for this period" : "Q4 POE Description..."}
                           />
                           {row.q4Poes && row.q4Poes.length > 0 && (
                             <div 
@@ -4811,9 +5119,10 @@ Timestamp: ${new Date().toLocaleString()}
                               </button>
                             )}
                             <button 
+                              disabled={!isQuarterActive('q4')}
                               onClick={() => triggerUploadModal(row.id, row.refNum, 'q4')}
-                              className="flex-1 py-1 text-[9px] font-bold rounded border bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 transition-colors flex items-center justify-center gap-1 cursor-pointer"
-                              title="Upload/Edit POE"
+                              className={`flex-1 py-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center gap-1 ${!isQuarterActive('q4') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 cursor-pointer'}`}
+                              title={!isQuarterActive('q4') ? getQuarterLockNotice('q4') : "Upload/Edit POE"}
                             >
                               <Upload className="w-2.5 h-2.5" /> Upload/Edit
                             </button>
@@ -4823,11 +5132,12 @@ Timestamp: ${new Date().toLocaleString()}
                                   <span className="text-[8px] text-rose-800 font-bold text-center leading-none">Are you sure?</span>
                                   <div className="flex gap-1 justify-center">
                                     <button
+                                      disabled={!isQuarterActive('q4')}
                                       onClick={() => {
                                         clearQuarterPoe(row.id, 'q4');
                                         setConfirmDelete(null);
                                       }}
-                                      className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[8px] font-bold cursor-pointer hover:bg-rose-700"
+                                      className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[8px] font-bold cursor-pointer hover:bg-rose-700 disabled:opacity-50"
                                     >
                                       Yes
                                     </button>
@@ -4841,9 +5151,10 @@ Timestamp: ${new Date().toLocaleString()}
                                 </div>
                               ) : (
                                 <button 
+                                  disabled={!isQuarterActive('q4')}
                                   onClick={() => setConfirmDelete({ rowId: row.id, type: 'q4' })}
-                                  className="p-1 text-[9px] font-bold rounded border bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 transition-colors flex items-center justify-center cursor-pointer"
-                                  title="Delete POE and Description"
+                                  className={`p-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center ${!isQuarterActive('q4') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 cursor-pointer'}`}
+                                  title={!isQuarterActive('q4') ? getQuarterLockNotice('q4') : "Delete POE and Description"}
                                 >
                                   <Trash2 className="w-3 h-3" />
                                 </button>
@@ -4859,7 +5170,15 @@ Timestamp: ${new Date().toLocaleString()}
                       </td>
 
                       <td className="p-2 border-r border-slate-100 bg-rose-50/5 relative">
-                        <textarea rows={3} value={row.q4Actual || ''} onChange={(e) => handleCellChange(row.id, 'q4Actual', e.target.value)} className="w-full bg-white border border-slate-200 p-1 focus:ring-1 focus:ring-rose-300 rounded text-[11px]" placeholder="Q4 Actual..." />
+                        <textarea 
+                          rows={3} 
+                          disabled={!isQuarterActive('q4')}
+                          value={row.q4Actual || ''} 
+                          onChange={(e) => handleCellChange(row.id, 'q4Actual', e.target.value)} 
+                          title={!isQuarterActive('q4') ? getQuarterLockNotice('q4') : undefined}
+                          className={`w-full border p-1 rounded text-[11px] ${!isQuarterActive('q4') ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white border-slate-200 focus:ring-1 focus:ring-rose-300'}`} 
+                          placeholder={!isQuarterActive('q4') ? "Locked for this period" : "Q4 Actual..."} 
+                        />
                         {row.q4Actual && row.q4 && row.q4Actual !== row.q4 && (
                           <div className="absolute top-1 right-1">
                             <div className="relative group/tip">
@@ -4885,10 +5204,11 @@ Timestamp: ${new Date().toLocaleString()}
                         <textarea 
                           rows={3} 
                           value={row.q4Corrective || ''} 
-                          disabled={isFieldDisabled(row.q4Variance)}
+                          disabled={!isQuarterActive('q4') || isFieldDisabled(row.q4Variance)}
                           onChange={(e) => handleCellChange(row.id, 'q4Corrective', e.target.value)} 
-                          className={`w-full p-1 focus:ring-1 focus:ring-rose-300 rounded text-[11px] transition-colors ${isFieldDisabled(row.q4Variance) ? 'bg-slate-50 border-slate-200 text-slate-450 cursor-not-allowed italic font-normal' : 'bg-white border-slate-200 text-slate-800'}`} 
-                          placeholder={isFieldDisabled(row.q4Variance) ? "No variance detected." : "Q4 Corrective..."} 
+                          title={!isQuarterActive('q4') ? getQuarterLockNotice('q4') : undefined}
+                          className={`w-full p-1 focus:ring-1 focus:ring-rose-300 rounded text-[11px] transition-colors ${!isQuarterActive('q4') || isFieldDisabled(row.q4Variance) ? 'bg-slate-100 border-slate-200 text-slate-450 cursor-not-allowed italic font-normal' : 'bg-white border-slate-200 text-slate-800'}`} 
+                          placeholder={!isQuarterActive('q4') ? "Locked for this period" : isFieldDisabled(row.q4Variance) ? "No variance detected." : "Q4 Corrective..."} 
                         />
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-rose-100/10 text-center">

@@ -5,7 +5,7 @@ import {
   Copy, Check, ArrowRight, Table, Code2, RefreshCw, Trash2, 
   Layers, ShieldCheck, Filter, Edit3, Eye, FileSpreadsheet,
   FileCode, Cpu, HelpCircle, CheckSquare, Square, Zap, Info, Play,
-  Save, Plus, Database
+  Save, Plus, Database, Landmark
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { 
@@ -18,11 +18,13 @@ import {
   extractKPIsFromPastedContent,
   resolveKpaCode 
 } from '../utils/performanceAgreementParser';
+import { SDBIPExtractionEngine } from './SDBIPExtractionEngine';
 
 interface ExtractionEngineProps {
   currentUser: User;
   activeTenantId: string;
   onNavigateToIPMS?: (subModuleId?: string) => void;
+  onNavigateToSDBIP?: (tab?: 'table' | 'reporting') => void;
 }
 
 const SAMPLE_PERFORMANCE_PLAN_TEXT = `Annexure A - Annual Performance Plan & Scorecard
@@ -46,7 +48,8 @@ KPA 2: Municipal Institutional Development and Transformation
 KPI No. | Key Performance Indicators | Weight | Baseline | Annual Target | 1st Quarter Planned Target | 2nd Quarter Planned Target | 3rd Quarter Planned Target | 4th Quarter Planned Target | POE | Total Budget Allocated
 MIDT-01 | Percentage of Workplace Skills Plan (WSP) municipal employee training and capacity building initiatives executed | 10 | 85% training executed in 2023/24 | 95% planned WSP skills training programs executed | 20% training programs executed | 45% training programs executed | 75% training programs executed | 95% training programs executed | Signed training attendance registers, accredited training certificates, and annual LGSETA compliance submissions | R 1,800,000`;
 
-export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS }: ExtractionEngineProps) {
+export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS, onNavigateToSDBIP }: ExtractionEngineProps) {
+  const [engineMode, setEngineMode] = useState<'performance_plan' | 'sdbip_top_layer'>('performance_plan');
   const [extractedItems, setExtractedItems] = useState<ExtractedMappedKPI[]>([]);
   const [sourceFileName, setSourceFileName] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
@@ -614,9 +617,113 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
     return itemKpa === kpaFilter;
   });
 
+  if (engineMode === 'sdbip_top_layer') {
+    return (
+      <div id="extraction_engine_container" className="flex flex-col h-full bg-slate-900 text-slate-100 overflow-hidden">
+        {/* Top Engine Mode Selector Bar */}
+        <div className="bg-slate-950 border-b border-slate-800 px-6 py-2.5 flex flex-wrap items-center justify-between gap-3 shrink-0">
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Engine:</span>
+            <div className="inline-flex p-1 bg-slate-900 border border-slate-700/60 rounded-xl">
+              <button
+                id="btn-switch-to-ipms"
+                type="button"
+                onClick={() => setEngineMode('performance_plan')}
+                className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition cursor-pointer flex items-center gap-1.5"
+              >
+                <Cpu className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Individual Performance Plan (IPMS)</span>
+              </button>
+              <button
+                id="btn-switch-to-sdbip-active"
+                type="button"
+                className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 text-white shadow-sm flex items-center gap-1.5 cursor-default"
+              >
+                <Landmark className="w-3.5 h-3.5 text-emerald-200" />
+                <span>SDBIP Top Layer &amp; Reporting Engine</span>
+                <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 ml-1">
+                  Active
+                </span>
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-emerald-400 font-semibold flex items-center gap-1">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              Target: SDBIP Top Layer &amp; Reporting Table ONLY
+            </span>
+            <button
+              type="button"
+              onClick={() => setEngineMode('performance_plan')}
+              className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-bold rounded-lg border border-slate-700 transition cursor-pointer"
+            >
+              Switch to IPMS Engine
+            </button>
+          </div>
+        </div>
+
+        {/* Dedicated SDBIP Extraction & Data Mapping Engine */}
+        <div className="flex-1 overflow-hidden">
+          <SDBIPExtractionEngine
+            currentUser={currentUser}
+            activeTenantId={activeTenantId}
+            onNavigateToSDBIP={onNavigateToSDBIP}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div id="extraction_engine_container" className="flex flex-col h-full bg-slate-900 text-slate-100 p-6 overflow-y-auto space-y-6">
       
+      {/* TOP ENGINE MODE SELECTOR BAR */}
+      <div className="bg-slate-950 border border-slate-800/80 rounded-xl px-5 py-2.5 flex flex-wrap items-center justify-between gap-3 shrink-0 shadow-sm">
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Engine:</span>
+          <div className="inline-flex p-1 bg-slate-900 border border-slate-700/60 rounded-xl">
+            <button
+              id="btn-switch-to-ipms-active"
+              type="button"
+              className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white shadow-sm flex items-center gap-1.5 cursor-default"
+            >
+              <Cpu className="w-3.5 h-3.5 text-indigo-200" />
+              <span>Individual Performance Plan (IPMS)</span>
+              <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-indigo-950/80 text-indigo-300 border border-indigo-400/40 ml-1">
+                Active
+              </span>
+            </button>
+            <button
+              id="btn-switch-to-sdbip-separate"
+              type="button"
+              onClick={() => setEngineMode('sdbip_top_layer')}
+              className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition cursor-pointer flex items-center gap-1.5"
+            >
+              <Landmark className="w-3.5 h-3.5 text-emerald-400" />
+              <span>SDBIP Top Layer &amp; Reporting Engine</span>
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-950/50 text-emerald-400 border border-emerald-600/30 ml-1">
+                SDBIP ONLY
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* Separate Extraction Button */}
+        <div className="flex items-center gap-2">
+          <button
+            id="btn-quick-extract-sdbip-separate"
+            type="button"
+            onClick={() => setEngineMode('sdbip_top_layer')}
+            className="px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white rounded-xl text-xs font-black flex items-center gap-2 transition shadow-lg shadow-emerald-600/30 cursor-pointer"
+          >
+            <Landmark className="w-3.5 h-3.5 text-emerald-200" />
+            <span>Extract SDBIP Top Layer &amp; Reporting</span>
+            <ArrowRight className="w-3.5 h-3.5 text-emerald-200" />
+          </button>
+        </div>
+      </div>
+
       {/* HEADER BANNER */}
       <div className="bg-gradient-to-r from-indigo-950 via-slate-900 to-slate-950 border border-indigo-800/40 rounded-2xl p-6 shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20"></div>
@@ -644,6 +751,17 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            {/* Separate SDBIP Extraction Button right in header banner */}
+            <button
+              id="btn-header-extract-sdbip"
+              type="button"
+              onClick={() => setEngineMode('sdbip_top_layer')}
+              className="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white rounded-xl text-xs font-black flex items-center gap-2 transition shadow-lg shadow-emerald-600/30 cursor-pointer"
+            >
+              <Landmark className="w-4 h-4 text-emerald-300" />
+              <span>Extract SDBIP Top Layer</span>
+            </button>
+
             {extractedItems.length > 0 && (
               <div className="flex items-center gap-2">
                 {/* DUAL LAYER EXTRACT BUTTONS */}
@@ -729,14 +847,45 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
             accept=".pdf,.docx,.xlsx,.xls,.csv,.json"
             className="hidden"
           />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isProcessing}
-            className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl flex items-center gap-2 shadow-lg shadow-indigo-600/20 disabled:opacity-50 transition cursor-pointer"
-          >
-            {isProcessing ? <RefreshCw className="w-5 h-5 animate-spin" /> : <FileText className="w-5 h-5" />}
-            {isProcessing ? 'Extracting Data...' : 'Select File to Extract'}
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isProcessing}
+              className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl flex items-center gap-2 shadow-lg shadow-indigo-600/20 disabled:opacity-50 transition cursor-pointer"
+            >
+              {isProcessing ? <RefreshCw className="w-5 h-5 animate-spin" /> : <FileText className="w-5 h-5" />}
+              {isProcessing ? 'Extracting Data...' : 'Select File to Extract'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setEngineMode('sdbip_top_layer')}
+              className="px-5 py-3 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white font-bold rounded-xl flex items-center gap-2 shadow-lg shadow-emerald-600/20 transition cursor-pointer"
+            >
+              <Landmark className="w-5 h-5 text-emerald-300" />
+              <span>Extract SDBIP Top Layer Document Instead</span>
+            </button>
+          </div>
+
+          {/* SDBIP Dedicated Engine Notice Card */}
+          <div className="mt-6 p-4 bg-emerald-950/40 border border-emerald-500/40 rounded-xl flex items-center justify-between gap-4 max-w-xl text-left">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+                <Landmark className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-white">Extracting an SDBIP Top Layer Scorecard?</h4>
+                <p className="text-[11px] text-emerald-300/80 mt-0.5">Use the separate SDBIP engine to map directly &amp; solely to SDBIP Top Layer &amp; Reporting tables.</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setEngineMode('sdbip_top_layer')}
+              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-lg transition shrink-0 cursor-pointer flex items-center gap-1 shadow-xs"
+            >
+              <span>Switch Engine</span>
+              <ArrowRight className="w-3 h-3" />
+            </button>
+          </div>
         </div>
       )}
 
