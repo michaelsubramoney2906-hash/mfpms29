@@ -37,28 +37,12 @@ export function LandingPage({ onLogin }: LandingPageProps) {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [overridePassword, setOverridePassword] = useState('8655M9sznnes01*');
 
-  const [users, setUsers] = useState<any[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-
   useEffect(() => {
     fetch('/api/config/manager-password')
       .then(res => res.ok ? res.json() : ({} as any))
       .then((data: any) => {
         if (data && data.managerOverridePassword) {
           setOverridePassword(data.managerOverridePassword);
-        }
-      })
-      .catch(console.error);
-  }, []);
-
-  useEffect(() => {
-    fetch('/api/tenant/nkangala_auto/users')
-      .then(res => res.ok ? res.json() : [])
-      .then(data => {
-        if (Array.isArray(data)) {
-          // Sort alphabetically
-          const sorted = data.sort((a, b) => (a.fullName || '').localeCompare(b.fullName || ''));
-          setUsers(sorted);
         }
       })
       .catch(console.error);
@@ -318,21 +302,18 @@ export function LandingPage({ onLogin }: LandingPageProps) {
 
             <form onSubmit={handleLogin} className="space-y-6">
               <div>
-                <label className="block text-xs font-bold text-gray-900 mb-2 uppercase tracking-wide">Manager / Override Email</label>
+                <label className="block text-xs font-bold text-gray-900 mb-2 uppercase tracking-wide">
+                  Work Email Address <span className="text-red-500">*</span>
+                </label>
                 <input 
                   type="email" 
-                  list="user-list"
+                  autoComplete="off"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="mike@mzansiflow.co.za"
+                  placeholder="e.g. name@nkangaladm.gov.za"
                   className="w-full px-4 py-3 bg-transparent border-b-2 border-gray-200 focus:border-green-600 transition-colors outline-none font-medium text-gray-900 rounded-none"
                 />
-                <datalist id="user-list">
-                  {users.map((u, idx) => (
-                    <option key={u.id || `${u.email}-${idx}`} value={u.email}>{u.fullName}</option>
-                  ))}
-                </datalist>
               </div>
 
               <div className="space-y-2 mt-4">
