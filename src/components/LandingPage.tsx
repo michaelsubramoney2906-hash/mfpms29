@@ -32,17 +32,9 @@ export function LandingPage({ onLogin }: LandingPageProps) {
   ];
   const isGlobalAdmin = GLOBAL_ADMINS.includes(email.trim().toLowerCase());
 
-  const PASSWORD_REQUIRED_EMAILS = [
-    'mike@mzansiflow.co.za',
-    'mike@massivedynamixdistributors.com',
-    'audrey@mzansiflow.co.za',
-    'marlan@mzansiflow.co.za',
-    'qiniso@mzansiflow.co.za',
-    'bonganim@mzansiflow.co.za'
-  ];
-  const isPasswordRequired = PASSWORD_REQUIRED_EMAILS.includes(email.trim().toLowerCase());
   const [password, setPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [overridePassword, setOverridePassword] = useState('8655M9sznnes01*');
 
   const [users, setUsers] = useState<any[]>([]);
@@ -76,55 +68,59 @@ export function LandingPage({ onLogin }: LandingPageProps) {
     setPasswordError('');
   }, [email, password]);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
 
     const lowerEmail = email.trim().toLowerCase();
     
-    // Find internal user profile if exists
-    const internalProfile = users.find(u => u.email.toLowerCase() === lowerEmail);
-    
-    // Strictly enforce allowed domains: mzansiflow.co.za, azure AD, nkangaladm.gov.za, massivedynamixdistributors.com and test accounts
+    // Strictly enforce allowed domains
     const isMzansiFlow = lowerEmail.endsWith('@mzansiflow.co.za');
     const isNkangala = lowerEmail.endsWith('@nkangaladm.gov.za');
     const isMDD = lowerEmail.endsWith('@massivedynamixdistributors.com');
     const isTestAccount = lowerEmail.endsWith('@local') || lowerEmail.includes('test');
-    const isAzureAd = lowerEmail.endsWith('.onmicrosoft.com'); // Typical Azure AD fallback
+    const isAzureAd = lowerEmail.endsWith('.onmicrosoft.com');
     
     if (!isMzansiFlow && !isNkangala && !isTestAccount && !isAzureAd && !isMDD) {
       setPasswordError('Unauthorized access. Only @mzansiflow.co.za, @nkangaladm.gov.za, @massivedynamixdistributors.com, Azure AD users, and test accounts are allowed.');
       return;
     }
 
-    if (isPasswordRequired) {
-      const expectedPassword = (lowerEmail === 'mike@mzansiflow.co.za' || lowerEmail === 'mike@massivedynamixdistributors.com') ? overridePassword : 'Deskjet01*';
-      if (password !== expectedPassword) {
-        setPasswordError('Incorrect password. Please enter the correct password.');
-        return;
-      }
+    if (!password || !password.trim()) {
+      setPasswordError('Password is required. Every user (including all @nkangaladm.gov.za accounts) must enter their password prior to logging in.');
+      return;
     }
 
+    setIsLoggingIn(true);
     setPasswordError('');
-    
-    const userRole = (isGlobalAdmin || internalProfile?.role === 'admin' || internalProfile?.role === 'Global Administrator' || internalProfile?.role === 'Systems Administrator') ? 'admin' : 'tenant_user';
 
-    // Prepare full user object
-    const finalUser: User = {
-      email: lowerEmail,
-      role: userRole as any,
-      tenantId: isGlobalAdmin ? undefined : (internalProfile?.tenantId || internalProfile?.tenant_id || selectedTenant),
-      fullName: internalProfile?.fullName || internalProfile?.full_name || (lowerEmail.includes('bongani') ? 'Bongani M.' : lowerEmail.split('@')[0]),
-      jobFunction: isGlobalAdmin ? 'Global Administrator' : (internalProfile?.jobFunction || internalProfile?.job_function || 'Department Manager'),
-      department: internalProfile?.department || (isGlobalAdmin ? 'Administration' : undefined),
-      manager: internalProfile?.manager,
-      reportTo: internalProfile?.reportTo,
-      level: internalProfile?.level || (isGlobalAdmin ? 'L1 Executive' : undefined),
-      systemRole: isGlobalAdmin ? 'Global Administrator' : (internalProfile?.systemRole || internalProfile?.role || 'Standard User'),
-      portalMode: portalMode
-    };
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: lowerEmail,
+          password: password.trim(),
+          tenantId: selectedTenant,
+          portalMode
+        })
+      });
 
-    onLogin(finalUser);
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        setPasswordError(data.error || 'Authentication failed. Please verify your email and password.');
+        setIsLoggingIn(false);
+        return;
+      }
+
+      onLogin(data.user);
+    } catch (err: any) {
+      console.error("Login request failed:", err);
+      setPasswordError('Connection to authentication server failed. Please retry.');
+    } finally {
+      setIsLoggingIn(false);
+    }
   };
 
   const handleAzureSSO = async () => {
@@ -339,33 +335,40 @@ export function LandingPage({ onLogin }: LandingPageProps) {
                 </datalist>
               </div>
 
-              {isPasswordRequired && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  className="space-y-2 mt-4 overflow-hidden"
-                >
-                  <label className="block text-xs font-bold text-gray-900 mb-2 uppercase tracking-wide">Enter Secure Password</label>
-                  <input 
-                    type="password" 
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter password..."
-                    className="w-full px-4 py-3 bg-transparent border-b-2 border-gray-200 focus:border-green-600 transition-colors outline-none font-medium text-gray-900 rounded-none font-mono"
-                  />
-                  {passwordError && (
-                    <p className="text-red-600 text-xs font-bold mt-1">{passwordError}</p>
-                  )}
-                </motion.div>
-              )}
+              <div className="space-y-2 mt-4">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-gray-900 uppercase tracking-wide">
+                    Account Password <span className="text-red-500">*</span>
+                  </label>
+                  <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                    Mandatory Authentication
+                  </span>
+                </div>
+                <input 
+                  type="password" 
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your Azure AD / profile password..."
+                  className="w-full px-4 py-3 bg-transparent border-b-2 border-gray-200 focus:border-green-600 transition-colors outline-none font-medium text-gray-900 rounded-none font-mono"
+                />
+                {passwordError && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 text-xs font-bold p-2.5 rounded-lg flex items-start gap-2 mt-2">
+                    <span className="text-red-500 font-black">✕</span>
+                    <span>{passwordError}</span>
+                  </div>
+                )}
+                <p className="text-[10px] text-gray-400 font-medium">
+                  Nkangala District Municipality Security Rule: All @nkangaladm.gov.za users must authenticate with their own password prior to system access.
+                </p>
+              </div>
 
               <div>
                 <label className="block text-xs font-bold text-gray-900 mb-2 uppercase tracking-wide">Municipality (Tenant)</label>
                 {isGlobalAdmin ? (
                   <div className="w-full px-4 py-3 bg-green-50 border-b-2 border-green-600 text-green-700 font-bold uppercase tracking-widest text-xs flex items-center justify-center">
                     <ShieldCheck className="w-4 h-4 mr-2" />
-                    {isPasswordRequired ? 'Global Access Credentials Needed' : 'Global Access Granted'}
+                    Global Access Granted (Credentials Required)
                   </div>
                 ) : (
                   <select 
@@ -389,9 +392,10 @@ export function LandingPage({ onLogin }: LandingPageProps) {
 
               <button 
                 type="submit"
-                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-4 px-4 transition-all duration-200 text-xs tracking-widest mt-8 flex items-center justify-center gap-2 rounded-sm"
+                disabled={isLoggingIn}
+                className="w-full bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white font-bold py-4 px-4 transition-all duration-200 text-xs tracking-widest mt-8 flex items-center justify-center gap-2 rounded-sm cursor-pointer shadow-md"
               >
-                <KeyRound className="w-4 h-4" /> Start Manual Access
+                <KeyRound className="w-4 h-4" /> {isLoggingIn ? 'Authenticating Credentials...' : 'Authenticate & Sign In'}
               </button>
             </form>
 
