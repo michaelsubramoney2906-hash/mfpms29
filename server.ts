@@ -2065,6 +2065,19 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
     }
   });
 
+  // App version endpoint for real-time cache-free deployment detection
+  const APP_DEPLOY_TIMESTAMP = process.env.APP_VERSION || Date.now().toString();
+  app.get("/api/version", (req: any, res: any) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.json({
+      version: APP_DEPLOY_TIMESTAMP,
+      env: process.env.NODE_ENV || 'development',
+      time: new Date().toISOString()
+    });
+  });
+
   // Enforced credential verification login endpoint
   app.post("/api/auth/login", async (req: any, res: any) => {
     try {
@@ -8465,19 +8478,28 @@ User Request: ${prompt}`;
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath, {
+    // 1. Static hashed assets (safe to cache indefinitely because the filename hash changes on every build)
+    app.use('/assets', express.static(path.join(distPath, 'assets'), {
       maxAge: '1y',
-      immutable: true,
+      immutable: true
+    }));
+
+    // 2. All other public static files
+    app.use(express.static(distPath, {
       setHeaders: (res, filePath) => {
         if (filePath.endsWith('.html')) {
-          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-        } else {
-          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+          res.setHeader('Pragma', 'no-cache');
+          res.setHeader('Expires', '0');
         }
       }
     }));
 
+    // 3. Fallback index.html with strict zero-cache headers
     app.get('*', (req, res) => {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

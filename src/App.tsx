@@ -15,6 +15,50 @@ import type { User } from './types';
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
 
+  // Live auto-update listener: checks for new deployments and applies updates automatically without manual cache clearing
+  useEffect(() => {
+    let initialVersion: string | null = null;
+
+    const checkAppVersion = async () => {
+      try {
+        const res = await fetch(`/api/version?_t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache, no-store' }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.version) {
+            if (!initialVersion) {
+              initialVersion = data.version;
+            } else if (data.version !== initialVersion) {
+              console.log('[System] New version detected:', data.version, 'Refreshing client automatically...');
+              window.location.reload();
+            }
+          }
+        }
+      } catch (err) {
+        // Silently ignore network blips
+      }
+    };
+
+    // Check on startup, periodically every 30s, and whenever the user returns to the tab
+    checkAppVersion();
+    const versionInterval = setInterval(checkAppVersion, 30000);
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        checkAppVersion();
+      }
+    };
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', checkAppVersion);
+
+    return () => {
+      clearInterval(versionInterval);
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', checkAppVersion);
+    };
+  }, []);
+
   useEffect(() => {
     performanceLogger.init();
     const userStr = localStorage.getItem('currentUser');
