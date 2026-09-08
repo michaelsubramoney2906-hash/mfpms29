@@ -380,9 +380,10 @@ export const modules: Module[] = [
     name: 'Administrator',
     icon: Shield,
     subModules: [
-      { id: 'al', name: 'Audit Logs', icon: FileText },
-      { id: 'scp', name: 'System control panel', icon: Settings },
+      { id: 'perf', name: 'Performance & Bottlenecks', icon: Activity },
       { id: 'um', name: 'User Management', icon: Users },
+      { id: 'scp', name: 'System control panel', icon: Settings },
+      { id: 'al', name: 'Audit Logs', icon: FileText },
       { id: 'tl', name: 'Tickets ledger', icon: Ticket },
       { id: 'admin-chat', name: 'Global Chat', icon: MessageSquare },
     ]

@@ -58,6 +58,7 @@ import { SpeakersSuite } from './SpeakersSuite';
 import { WardCommittees } from './WardCommittees';
 import { PublicParticipation } from './PublicParticipation';
 import { MzansiFlowAcademy } from './MzansiFlowAcademy';
+import { PerformanceMonitor } from './Admin/PerformanceMonitor';
 import { RiskManagement } from './RiskManagement';
 import { ExtractionEngine } from './ExtractionEngine';
 import { FredExtractionAgent } from './FredExtractionAgent';
@@ -668,7 +669,11 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
             onUnlock={(id) => setUnlockedModules(prev => [...prev, id])}
             onClose={() => setActiveSubModule(null)}
           >
-            {activeSubModule.id === 'um' ? (
+            {activeSubModule.id === 'perf' ? (
+            <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
+              <PerformanceMonitor currentUser={fullUserProfile} activeTenantId={activeTenantId} />
+            </div>
+          ) : activeSubModule.id === 'um' ? (
             <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
               <UserManagement currentUser={fullUserProfile} activeTenantId={activeTenantId} onImpersonate={onImpersonate} />
             </div>

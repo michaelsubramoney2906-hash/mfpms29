@@ -556,6 +556,13 @@ async function startServer() {
   app.use(express.json({ limit: '250mb' }));
   app.use(express.urlencoded({ limit: '250mb', extended: true }));
 
+  // Cross-Browser Performance & Security Headers
+  app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-DNS-Prefetch-Control', 'on');
+    next();
+  });
+
   // Health check endpoints for Cloud Run / Nginx / Load Balancer probes
   app.get("/api/health", (req, res) => {
     res.status(200).json({ status: "ok", port: PORT, timestamp: new Date().toISOString() });
@@ -1888,6 +1895,171 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       }
 
       res.json({ sessions: finalSessions });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // --- PERFORMANCE LOGGING & BOTTLENECK TELEMETRY SYSTEM ---
+  interface ServerPerformanceLogEntry {
+    id: string;
+    type: string;
+    name: string;
+    duration: number;
+    timestamp: string;
+    status: any;
+    isBottleneck: boolean;
+    severity: string;
+    details?: any;
+    url?: string;
+    method?: string;
+    userEmail?: string;
+    tenantId?: string;
+  }
+
+  const serverPerfLogsBuffer: ServerPerformanceLogEntry[] = [];
+  const MAX_SERVER_PERF_LOGS = 1000;
+  let perfLogsDirty = false;
+
+  // Background async persistence of performance telemetry to Supabase
+  setInterval(async () => {
+    if (!perfLogsDirty || serverPerfLogsBuffer.length === 0) return;
+    try {
+      const supabase = getSupabase();
+      if (!supabase) return;
+      const recentSnapshot = serverPerfLogsBuffer.slice(-200);
+      await supabase.from('messages').upsert({
+        id: 'system_performance_telemetry',
+        tenant_id: 'global',
+        sender_id: 'performance_monitor',
+        sender_email: 'telemetry@system.local',
+        sender_name: 'Performance Telemetry Engine',
+        content: JSON.stringify({
+          updatedAt: new Date().toISOString(),
+          totalLogs: serverPerfLogsBuffer.length,
+          recentLogs: recentSnapshot
+        }),
+        created_at: new Date().toISOString()
+      });
+      perfLogsDirty = false;
+    } catch (e: any) {
+      // Non-blocking background sync
+    }
+  }, 25000);
+
+  // 1. Diagnostic Benchmark endpoint
+  app.get("/api/admin/performance-benchmark", (req: any, res: any) => {
+    const memory = process.memoryUsage();
+    res.json({
+      status: "ok",
+      serverTimestamp: Date.now(),
+      uptimeSeconds: Math.round(process.uptime()),
+      heapUsedMb: Math.round((memory.heapUsed / (1024 * 1024)) * 10) / 10,
+      rssMb: Math.round((memory.rss / (1024 * 1024)) * 10) / 10,
+      activeConnections: activeSessionsMap.size
+    });
+  });
+
+  // 2. Receive batch performance logs from clients
+  app.post("/api/admin/performance-logs", (req: any, res: any) => {
+    try {
+      const { events, userEmail, tenantId } = req.body || {};
+      if (Array.isArray(events)) {
+        for (const evt of events) {
+          serverPerfLogsBuffer.push({
+            id: evt.id || `srv_perf_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+            type: evt.type || 'interaction',
+            name: evt.name || 'Unknown Action',
+            duration: Number(evt.duration) || 0,
+            timestamp: evt.timestamp || new Date().toISOString(),
+            status: evt.status ?? 200,
+            isBottleneck: Boolean(evt.isBottleneck),
+            severity: evt.severity || 'normal',
+            details: evt.details,
+            url: evt.url,
+            method: evt.method,
+            userEmail: evt.userEmail || userEmail || 'anonymous',
+            tenantId: evt.tenantId || tenantId || 'default'
+          });
+        }
+
+        while (serverPerfLogsBuffer.length > MAX_SERVER_PERF_LOGS) {
+          serverPerfLogsBuffer.shift();
+        }
+        perfLogsDirty = true;
+      }
+      res.json({ success: true, count: serverPerfLogsBuffer.length });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // 3. Query aggregated performance logs & bottlenecks
+  app.get("/api/admin/performance-logs", async (req: any, res: any) => {
+    try {
+      const memory = process.memoryUsage();
+      const logs = [...serverPerfLogsBuffer];
+      const bottlenecks = logs.filter(l => l.isBottleneck);
+
+      const interactionLogs = logs.filter(l => l.type === 'interaction');
+      const apiLogs = logs.filter(l => l.type === 'api');
+
+      const avgInteractionMs = interactionLogs.length > 0
+        ? Math.round(interactionLogs.reduce((a, b) => a + b.duration, 0) / interactionLogs.length)
+        : 0;
+
+      const avgApiMs = apiLogs.length > 0
+        ? Math.round(apiLogs.reduce((a, b) => a + b.duration, 0) / apiLogs.length)
+        : 0;
+
+      // Group endpoints
+      const endpointMap = new Map<string, { count: number; totalDuration: number; maxDuration: number; bottlenecks: number; errors: number }>();
+      for (const e of apiLogs) {
+        const key = e.name;
+        const curr = endpointMap.get(key) || { count: 0, totalDuration: 0, maxDuration: 0, bottlenecks: 0, errors: 0 };
+        curr.count++;
+        curr.totalDuration += e.duration;
+        curr.maxDuration = Math.max(curr.maxDuration, e.duration);
+        if (e.isBottleneck) curr.bottlenecks++;
+        if (typeof e.status === 'number' && e.status >= 400) curr.errors++;
+        endpointMap.set(key, curr);
+      }
+
+      const endpointStats = Array.from(endpointMap.entries()).map(([url, stats]) => ({
+        url,
+        count: stats.count,
+        avgDuration: Math.round(stats.totalDuration / stats.count),
+        maxDuration: stats.maxDuration,
+        bottlenecks: stats.bottlenecks,
+        errors: stats.errors
+      })).sort((a, b) => b.avgDuration - a.avgDuration);
+
+      res.json({
+        totalEvents: logs.length,
+        bottlenecksCount: bottlenecks.length,
+        avgInteractionMs,
+        avgApiMs,
+        serverUptime: Math.round(process.uptime()),
+        serverMemoryMb: Math.round((memory.heapUsed / (1024 * 1024)) * 10) / 10,
+        recentLogs: logs.slice(-100).reverse(),
+        bottlenecks: bottlenecks.slice(-50).reverse(),
+        endpointStats
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // 4. Clear performance logs
+  app.post("/api/admin/performance-logs/clear", async (req: any, res: any) => {
+    try {
+      serverPerfLogsBuffer.length = 0;
+      perfLogsDirty = true;
+      const supabase = getSupabase();
+      if (supabase) {
+        await supabase.from('messages').delete().eq('id', 'system_performance_telemetry');
+      }
+      res.json({ success: true, message: "Performance logs cleared successfully" });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -8155,7 +8327,17 @@ User Request: ${prompt}`;
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
+    app.use(express.static(distPath, {
+      maxAge: '1y',
+      immutable: true,
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.html')) {
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        } else {
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        }
+      }
+    }));
 
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));

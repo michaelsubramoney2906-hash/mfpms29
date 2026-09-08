@@ -9,16 +9,20 @@ import { Dashboard } from './components/Dashboard';
 import { NEDAPortal } from './components/NEDAPortal';
 import { SecurityShield } from './components/SecurityShield';
 import { FinancialYearProvider } from './context/FinancialYearContext';
+import { performanceLogger } from './utils/performanceLogger';
 import type { User } from './types';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
+    performanceLogger.init();
     const userStr = localStorage.getItem('currentUser');
     if (userStr && !user && userStr !== 'undefined' && userStr !== '[object Object]') {
       try {
-        setUser(JSON.parse(userStr));
+        const parsed = JSON.parse(userStr);
+        setUser(parsed);
+        performanceLogger.setUserContext(parsed.email, parsed.tenantId);
       } catch (e) {
         console.error("Failed to parse currentUser from localStorage", e);
         localStorage.removeItem('currentUser');
@@ -26,16 +30,17 @@ export default function App() {
     }
   }, []);
 
-
   const handleSetUser = (u: User | null) => {
     if (u) {
       if (!u.loginTime) {
         u.loginTime = new Date().toISOString();
       }
       localStorage.setItem('currentUser', JSON.stringify(u));
+      performanceLogger.setUserContext(u.email, u.tenantId);
     } else {
       localStorage.removeItem('currentUser');
       sessionStorage.removeItem('originalAdminUser');
+      performanceLogger.setUserContext('anonymous', 'default');
     }
     setUser(u);
   };

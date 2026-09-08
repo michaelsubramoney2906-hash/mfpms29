@@ -4,9 +4,10 @@ import { tenants } from '../data';
 import { 
   Users, UserPlus, FileSpreadsheet, Key, ShieldCheck, 
   RefreshCw, CheckCircle2, AlertTriangle, Upload, 
-  Search, KeyRound, Edit, PenTool, Monitor, Globe
+  Search, KeyRound, Edit, PenTool, Monitor, Globe, Activity
 } from 'lucide-react';
 import { cn } from './Branding';
+import { PerformanceMonitor } from './Admin/PerformanceMonitor';
 
 interface UserManagementProps {
   currentUser: User;
@@ -24,7 +25,7 @@ const DIRECTORATES = [
 ];
 
 export function UserManagement({ currentUser, activeTenantId, onImpersonate }: UserManagementProps) {
-  const [activeTab, setActiveTab] = useState<'list' | 'manual' | 'azure' | 'sessions'>('list');
+  const [activeTab, setActiveTab] = useState<'list' | 'manual' | 'azure' | 'sessions' | 'perf'>('list');
   const [users, setUsers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [azureConfig, setAzureConfig] = useState({
@@ -1008,6 +1009,12 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate }: U
         >
           <Monitor className="w-4 h-4 text-green-600" /> Active Logins & Supervision
         </button>
+        <button 
+          onClick={() => setActiveTab('perf')}
+          className={`flex items-center gap-2 px-6 py-4 border-b-2 font-bold text-sm transition-colors ${activeTab === 'perf' ? 'border-emerald-600 text-emerald-700 bg-white rounded-t-xl shadow-[0_-2px_10px_-5px_rgba(0,0,0,0.05)]' : 'border-transparent text-gray-500 hover:text-gray-900'}`}
+        >
+          <Activity className="w-4 h-4 text-emerald-600" /> Performance & Bottlenecks
+        </button>
       </div>
 
       <div className="p-8 flex-1 overflow-y-auto hide-scrollbar">
@@ -1722,6 +1729,13 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate }: U
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {/* Tab 5: Performance & Bottlenecks */}
+        {activeTab === 'perf' && (
+          <div className="rounded-2xl overflow-hidden min-h-[600px]">
+            <PerformanceMonitor currentUser={currentUser} activeTenantId={activeTenantId} />
           </div>
         )}
       </div>
