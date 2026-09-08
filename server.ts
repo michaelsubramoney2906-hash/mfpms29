@@ -3,8 +3,13 @@ import compression from "compression";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import http from "http";
+import https from "https";
 import { Server as SocketIOServer } from "socket.io";
 import fs from "fs";
+
+// Optimize global socket pools for high concurrency (500+ simultaneous users)
+http.globalAgent.maxSockets = Infinity;
+https.globalAgent.maxSockets = Infinity;
 
 import { createClient } from "@supabase/supabase-js";
 import { GoogleGenAI, Type } from "@google/genai";
@@ -13,7 +18,67 @@ import * as XLSX from "xlsx";
 import { NKANGALA_HARDCODED_DATA } from "./fred_hardcoded_data";
 import { ensureAllSdbipKpis } from "./src/sdbip_catalog";
 
-const SUPABASE_TIMEOUT_MS = 3500;
+const SUPABASE_TIMEOUT_MS = 15000;
+
+// High-Concurrency In-Memory Micro-Cache and Single-Flight Request Coalescer
+interface CacheEntry<T = any> {
+  data: T;
+  timestamp: number;
+}
+const memoryCache = new Map<string, CacheEntry>();
+const inFlightRequests = new Map<string, Promise<any>>();
+
+export function getCached<T>(key: string, ttlMs: number): T | null {
+  const entry = memoryCache.get(key);
+  if (entry && (Date.now() - entry.timestamp < ttlMs)) {
+    return entry.data as T;
+  }
+  return null;
+}
+
+export function setCached<T>(key: string, data: T): void {
+  memoryCache.set(key, { data, timestamp: Date.now() });
+}
+
+export function invalidateCacheKey(key: string): void {
+  memoryCache.delete(key);
+}
+
+export function invalidateCachePrefix(prefix: string): void {
+  for (const k of Array.from(memoryCache.keys())) {
+    if (k.startsWith(prefix)) {
+      memoryCache.delete(k);
+    }
+  }
+}
+
+export async function fetchWithCoalescing<T>(
+  key: string,
+  ttlMs: number,
+  fetcher: () => Promise<T>
+): Promise<T> {
+  const cached = getCached<T>(key, ttlMs);
+  if (cached !== null) {
+    return cached;
+  }
+
+  if (inFlightRequests.has(key)) {
+    return inFlightRequests.get(key)! as Promise<T>;
+  }
+
+  const promise = (async () => {
+    try {
+      const result = await fetcher();
+      setCached(key, result);
+      return result;
+    } finally {
+      inFlightRequests.delete(key);
+    }
+  })();
+
+  inFlightRequests.set(key, promise);
+  return promise;
+}
 
 async function resilientSupabaseFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const controller = new AbortController();
@@ -478,7 +543,14 @@ async function startServer() {
   const app = express();
   app.use(compression());
   const server = http.createServer(app);
-  const io = new SocketIOServer(server, { cors: { origin: "*" }, maxHttpBufferSize: 2.5e8 });
+
+  // Optimize server keep-alive and timeout configuration for high concurrent load
+  server.keepAliveTimeout = 65000;
+  server.headersTimeout = 66000;
+  server.maxHeadersCount = 2000;
+  server.requestTimeout = 30000;
+
+  const io = new SocketIOServer(server, { cors: { origin: "*" }, maxHttpBufferSize: 2.5e8, pingTimeout: 60000, pingInterval: 25000 });
   const PORT = 3000;
 
   app.use(express.json({ limit: '250mb' }));
@@ -1731,57 +1803,58 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
     }
   });
 
-  app.get("/api/auth/kickoff-status", async (req: any, res: any) => {
+  // High-performance in-memory active sessions store with background async persistence
+  const activeSessionsMap = new Map<string, any>();
+  let activeSessionsDirty = false;
+
+  // Background non-blocking sync of active sessions to Supabase
+  setInterval(async () => {
+    if (!activeSessionsDirty || activeSessionsMap.size === 0) return;
     try {
       const supabase = getSupabase();
-      const { data, error } = await supabase
-        .from('messages')
-        .select('content')
-        .eq('id', 'system_session_kickoff')
-        .maybeSingle();
-
-      if (error) {
-        return res.json({ kickoffTime: null });
-      }
-
-      if (data && data.content) {
-        try {
-          const parsed = JSON.parse(data.content);
-          return res.json({ kickoffTime: parsed.kickoffTime || null });
-        } catch (e) {
-          return res.json({ kickoffTime: null });
+      if (!supabase) return;
+      
+      const now = Date.now();
+      const limitTime = now - 5 * 60 * 1000;
+      const snapshot: Record<string, any> = {};
+      for (const [key, session] of activeSessionsMap.entries()) {
+        if (new Date(session.lastActiveAt).getTime() >= limitTime) {
+          snapshot[key] = session;
+        } else {
+          activeSessionsMap.delete(key);
         }
       }
-      return res.json({ kickoffTime: null });
-    } catch (err: any) {
-      return res.json({ kickoffTime: null });
+
+      await supabase.from('messages').upsert({
+        id: 'online_user_sessions_store',
+        tenant_id: 'global',
+        sender_id: 'session_tracker',
+        sender_email: 'admin@system.local',
+        sender_name: 'Session Tracker System',
+        content: JSON.stringify(snapshot),
+        created_at: new Date().toISOString()
+      });
+      activeSessionsDirty = false;
+    } catch (e: any) {
+      // Non-blocking
     }
+  }, 20000);
+
+  app.get("/api/auth/kickoff-status", (req: any, res: any) => {
+    // Guarantees zero unrequested session kickoffs across all concurrent users
+    res.json({ kickoffTime: null });
   });
 
-  app.post("/api/auth/ping", async (req: any, res: any) => {
+  app.post("/api/auth/ping", (req: any, res: any) => {
     try {
       const { email, tenantId, fullName, userId, documentId, activePage } = req.body;
       if (!email) return res.status(400).json({ error: "Missing email" });
       
       const clientIp = (req.headers["x-forwarded-for"] as string || req.headers["x-real-ip"] as string || req.ip || req.socket?.remoteAddress || "").split(",")[0].trim();
-      const supabase = getSupabase();
-      if (!supabase) return res.status(500).json({ error: "Database client generic failure" });
-      
-      const { data: recordMsg } = await supabase
-        .from('messages')
-        .select('content')
-        .eq('id', 'online_user_sessions_store')
-        .maybeSingle();
-        
-      let sessions: Record<string, any> = {};
-      if (recordMsg && recordMsg.content) {
-        try {
-          sessions = JSON.parse(recordMsg.content);
-        } catch (je) {}
-      }
-      
       const now = new Date().toISOString();
-      sessions[email.toLowerCase()] = {
+      const emailKey = email.toLowerCase().trim();
+
+      activeSessionsMap.set(emailKey, {
         userId: userId || email,
         email: email,
         fullName: fullName || email.split('@')[0],
@@ -1791,62 +1864,28 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
         userAgent: req.headers["user-agent"] || "",
         documentId: documentId || 'Annual_Report_v1_Draft',
         activePage: activePage !== undefined ? activePage : 1
-      };
-      
-      // Filter out elements inactive for more than 3 minutes to keep real-time sessions precise
-      const limitTime = Date.now() - 3 * 60 * 1000;
-      for (const key of Object.keys(sessions)) {
-        if (new Date(sessions[key].lastActiveAt).getTime() < limitTime) {
-          delete sessions[key];
-        }
-      }
-      
-      await supabase.from('messages').upsert({
-        id: 'online_user_sessions_store',
-        tenant_id: 'global',
-        sender_id: 'session_tracker',
-        sender_email: 'admin@system.local',
-        sender_name: 'Session Tracker System',
-        content: JSON.stringify(sessions),
-        created_at: now
       });
-      
+      activeSessionsDirty = true;
+
       res.json({ success: true });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
   });
 
-  app.get("/api/tenant/:tenantId/active-sessions", async (req: any, res: any) => {
+  app.get("/api/tenant/:tenantId/active-sessions", (req: any, res: any) => {
     try {
-      const supabase = getSupabase();
-      if (!supabase) return res.status(500).json({ error: "Database client generic failure" });
-
-      const { data: recordMsg } = await supabase
-        .from('messages')
-        .select('content')
-        .eq('id', 'online_user_sessions_store')
-        .maybeSingle();
-
-      let sessions: Record<string, any> = {};
-      if (recordMsg && recordMsg.content) {
-        try {
-          sessions = JSON.parse(recordMsg.content);
-        } catch (je) {}
-      }
-
       const limitTime = Date.now() - 3 * 60 * 1000;
-      const activeList = Object.values(sessions).filter((s: any) => {
-        return new Date(s.lastActiveAt).getTime() >= limitTime;
-      });
-
-      const finalSessions = activeList.map((realS: any) => {
-        return {
-          ...realS,
-          documentId: realS.documentId || 'Annual_Report_v1_Draft',
-          activePage: realS.activePage !== undefined ? realS.activePage : 1
-        };
-      });
+      const finalSessions: any[] = [];
+      for (const s of activeSessionsMap.values()) {
+        if (new Date(s.lastActiveAt).getTime() >= limitTime) {
+          finalSessions.push({
+            ...s,
+            documentId: s.documentId || 'Annual_Report_v1_Draft',
+            activePage: s.activePage !== undefined ? s.activePage : 1
+          });
+        }
+      }
 
       res.json({ sessions: finalSessions });
     } catch (err: any) {
@@ -3138,42 +3177,41 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
   });
 
   // Global in-memory cache for consolidated users
-  let usersCacheMap: Record<string, { data: any[]; timestamp: number }> = {};
   const USERS_CACHE_TTL_MS = 30000; // 30 seconds cache TTL
 
   function invalidateUsersCache() {
-    usersCacheMap = {};
+    invalidateCachePrefix('consolidated_users_');
   }
 
   // Consolidated Helper to get all users across the entire organization (combines Supabase & Disk)
   async function getConsolidatedUsersList(tenantId: string = 'nkangala_auto', forceRefresh = false): Promise<any[]> {
-    const now = Date.now();
-    const cacheKey = tenantId || 'nkangala_auto';
-    if (!forceRefresh && usersCacheMap[cacheKey] && (now - usersCacheMap[cacheKey].timestamp < USERS_CACHE_TTL_MS)) {
-      return usersCacheMap[cacheKey].data;
+    const cacheKey = `consolidated_users_${tenantId || 'nkangala_auto'}`;
+    if (forceRefresh) {
+      invalidateCacheKey(cacheKey);
     }
 
-    const supabase = getSupabase();
-    if (!supabase) return [];
+    return fetchWithCoalescing(cacheKey, USERS_CACHE_TTL_MS, async () => {
+      const supabase = getSupabase();
+      if (!supabase) return [];
 
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .range(0, 5000);
-      
-    if (error && error.code !== '42P01') {
-      throw error;
-    }
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .range(0, 5000);
+        
+      if (error && error.code !== '42P01') {
+        throw error;
+      }
 
-    if (error && error.code === '42P01') {
-      // Table doesn't exist, mock fallback
-      return [
-        { id: '1', fullName: 'Mike', email: 'mike@mzansiflow.co.za', systemRole: 'admin', role: 'admin' },
-        { id: '2', fullName: 'Audrey', email: 'audrey@mzansiflow.co.za', systemRole: 'admin', role: 'admin' },
-        { id: '4', fullName: 'Qiniso', email: 'qiniso@mzansiflow.co.za', systemRole: 'admin', role: 'admin' },
-        { id: '5', fullName: 'Marlan', email: 'marlan@mzansiflow.co.za', systemRole: 'admin', role: 'admin' }
-      ];
-    }
+      if (error && error.code === '42P01') {
+        // Table doesn't exist, mock fallback
+        return [
+          { id: '1', fullName: 'Mike', email: 'mike@mzansiflow.co.za', systemRole: 'admin', role: 'admin' },
+          { id: '2', fullName: 'Audrey', email: 'audrey@mzansiflow.co.za', systemRole: 'admin', role: 'admin' },
+          { id: '4', fullName: 'Qiniso', email: 'qiniso@mzansiflow.co.za', systemRole: 'admin', role: 'admin' },
+          { id: '5', fullName: 'Marlan', email: 'marlan@mzansiflow.co.za', systemRole: 'admin', role: 'admin' }
+        ];
+      }
     
     let extraMap: Record<string, any> = {};
     try {
@@ -3521,14 +3559,9 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
     });
 
     const sanitizedFormatted = formatted.filter((u: any) => (u.email || '').toLowerCase().trim() !== 'delphine@mzansiflow.co.za');
-
-    usersCacheMap[cacheKey] = {
-      data: sanitizedFormatted,
-      timestamp: Date.now()
-    };
-
     return sanitizedFormatted;
-  }
+  });
+}
 
   // 5. Get users
   app.get("/api/tenant/:tenantId/users", async (req, res) => {
@@ -4615,39 +4648,44 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
   // 14. Fetch SDBIP for a tenant (including 2nd & 3rd layer SDBIP23)
   app.get(["/api/tenant/:tenantId/sdbip", "/api/tenant/:tenantId/sdbip23"], async (req, res) => {
     const { tenantId } = req.params;
+    const cacheKey = `sdbip_${tenantId}`;
     try {
-      const supabase = getSupabase();
-      let documentIds = [`sdbip23_${tenantId}`, `sdbip_${tenantId}`];
-      if (tenantId === 'tenant-229' || tenantId === 'nkangala_auto' || tenantId === 'nkangala' || tenantId === 'default') {
-        documentIds = ['sdbip23_tenant-229', 'sdbip_tenant-229', 'sdbip23_nkangala_auto', 'sdbip_nkangala_auto', 'sdbip23_global', 'sdbip_global'];
-      } else if (tenantId !== 'global') {
-        documentIds.push(`sdbip23_${tenantId}`);
-        documentIds.push(`sdbip_${tenantId}`);
-        documentIds.push('sdbip23_global');
-        documentIds.push('sdbip_global');
-      }
+      const items = await fetchWithCoalescing(cacheKey, 20000, async () => {
+        const supabase = getSupabase();
+        let documentIds = [`sdbip23_${tenantId}`, `sdbip_${tenantId}`];
+        if (tenantId === 'tenant-229' || tenantId === 'nkangala_auto' || tenantId === 'nkangala' || tenantId === 'default') {
+          documentIds = ['sdbip23_tenant-229', 'sdbip_tenant-229', 'sdbip23_nkangala_auto', 'sdbip_nkangala_auto', 'sdbip23_global', 'sdbip_global'];
+        } else if (tenantId !== 'global') {
+          documentIds.push(`sdbip23_${tenantId}`);
+          documentIds.push(`sdbip_${tenantId}`);
+          documentIds.push('sdbip23_global');
+          documentIds.push('sdbip_global');
+        }
 
-      for (const docId of documentIds) {
-        const { data, error } = await supabase
-          .from('messages')
-          .select('content')
-          .eq('id', docId)
-          .maybeSingle();
+        for (const docId of documentIds) {
+          const { data } = await supabase
+            .from('messages')
+            .select('content')
+            .eq('id', docId)
+            .maybeSingle();
 
-        if (data && data.content) {
-          try {
-            const parsed = JSON.parse(data.content);
-            const itemsArray = Array.isArray(parsed) ? parsed : (parsed?.items || []);
-            if (Array.isArray(itemsArray) && itemsArray.length > 0) {
-              return res.json({ items: itemsArray });
+          if (data && data.content) {
+            try {
+              const parsed = JSON.parse(data.content);
+              const itemsArray = Array.isArray(parsed) ? parsed : (parsed?.items || []);
+              if (Array.isArray(itemsArray) && itemsArray.length > 0) {
+                return itemsArray;
+              }
+            } catch (parseErr) {
+              console.error("Error parsing sdbip JSON:", parseErr);
             }
-          } catch (parseErr) {
-            console.error("Error parsing sdbip JSON:", parseErr);
           }
         }
-      }
 
-      return res.json({ items: [] });
+        return [];
+      });
+
+      return res.json({ items });
     } catch (err: any) {
       console.error("SDBIP load exception:", err);
       res.status(500).json({ error: err.message });
@@ -4681,7 +4719,8 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
           });
       }
       
-      // Invalidate users cache to make sure UI is updated
+      // Invalidate SDBIP and users cache
+      invalidateCachePrefix('sdbip_');
       invalidateUsersCache();
       res.json({ success: true });
     } catch (err: any) {
@@ -8131,26 +8170,10 @@ User Request: ${prompt}`;
     }
   });
 
-  // Synchronize Nkangala District Municipality folder on startup and set kickoff timestamp
+  // Synchronize Nkangala District Municipality folder on startup
   try {
     const supabase = getSupabase();
     (async () => {
-      try {
-        const currentISO = new Date().toISOString();
-        await supabase.from('messages').upsert({
-          id: 'system_session_kickoff',
-          tenant_id: 'global',
-          sender_id: 'system',
-          sender_email: 'system@local',
-          sender_name: 'System Administrator',
-          content: JSON.stringify({ kickoffTime: currentISO }),
-          created_at: currentISO
-        });
-        console.log(`---- SET SYSTEM SESSION KICKOFF ON STARTUP: ${currentISO} ----`);
-      } catch (kickoffErr: any) {
-        console.log("Error inside startup session kickoff routine:", kickoffErr.message);
-      }
-
       try {
         const localList = getTenantsList();
         if (localList.length > 0) {

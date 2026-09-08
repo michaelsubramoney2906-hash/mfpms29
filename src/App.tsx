@@ -43,37 +43,8 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
 
-    const checkKickoff = async () => {
-      try {
-        const res = await fetch('/api/auth/kickoff-status');
-        if (res.ok) {
-          const contentType = res.headers.get("content-type");
-          if (contentType && contentType.toLowerCase().includes("application/json")) {
-            try {
-              const data = await res.json();
-              // Only kick off if there is an explicit admin kickoff timestamp that occurred strictly AFTER the user's loginTime
-              if (data && data.kickoffTime && user.loginTime) {
-                const kickoffTs = new Date(data.kickoffTime).getTime();
-                const userLoginTs = new Date(user.loginTime).getTime();
-                
-                // Allow a 10-second buffer to prevent race conditions during initial login
-                if (!isNaN(kickoffTs) && !isNaN(userLoginTs) && kickoffTs > (userLoginTs + 10000)) {
-                  console.log("Automatically kicking off user session - admin kickoff event detected post-login.");
-                  handleSetUser(null);
-                }
-              }
-            } catch (jsonErr) {
-              console.warn("Unable to parse kickoff response as JSON:", jsonErr);
-            }
-          }
-        }
-      } catch (err) {
-        // Log as warning rather than error to prevent environment failures during transient network drops or server restarts
-        console.warn("Failed to verify active kickoff status:", err);
-      }
-    };
-
     const pingSession = async () => {
+      if (document.hidden) return;
       try {
         await fetch('/api/auth/ping', {
           method: 'POST',
@@ -81,24 +52,18 @@ export default function App() {
           body: JSON.stringify({
             email: user.email,
             tenantId: user.tenantId,
-            fullName: user.email.split('@')[0],
+            fullName: user.fullName || user.email.split('@')[0],
             userId: user.email
           })
         });
       } catch (err) {}
     };
 
-    checkKickoff();
     pingSession();
-
-    const interval = setInterval(checkKickoff, 3000);
-    const pingInterval = setInterval(pingSession, 15000);
-    window.addEventListener('focus', checkKickoff);
+    const pingInterval = setInterval(pingSession, 45000);
 
     return () => {
-      clearInterval(interval);
       clearInterval(pingInterval);
-      window.removeEventListener('focus', checkKickoff);
     };
   }, [user]);
 

@@ -5,7 +5,7 @@
   "jobFunction": "Secretary Technical Services",
   "department": "Corporate Services",
   "source": "azure_ad",
-  "role": "Standard User",
+  "role": "tenant_user",
   "tenantId": "nkangala_auto",
   "manager": "SM Tseka",
   "directorate": "Technical",
