@@ -2112,7 +2112,6 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
         'mike@mzansiflow.co.za',
         'mike@massivedynamixdistributors.com',
         'audrey@mzansiflow.co.za',
-        'delphine@mzansiflow.co.za',
         'bonganim@mzansiflow.co.za',
         'qiniso@mzansiflow.co.za',
         'marlan@mzansiflow.co.za'
@@ -2299,7 +2298,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
         }
 
         // Determine correct role - Nkangala users are restricted sandbox, never global systems admins
-        const defaultRole = (normalizedEmail === 'audrey@mzansiflow.co.za' || normalizedEmail === 'delphine@mzansiflow.co.za' || normalizedEmail === 'mike@mzansiflow.co.za' || normalizedEmail === 'bonganim@mzansiflow.co.za' || normalizedEmail.includes('massivedynamixdistributors.com'))
+        const defaultRole = (normalizedEmail === 'audrey@mzansiflow.co.za' || normalizedEmail === 'mike@mzansiflow.co.za' || normalizedEmail === 'bonganim@mzansiflow.co.za' || normalizedEmail.includes('massivedynamixdistributors.com'))
           ? 'Global Administrator'
           : (isSystemAdmin && !isNkangalaUser)
             ? 'Systems Administrator'
@@ -3531,7 +3530,6 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
         return [
           { id: '1', fullName: 'Mike', email: 'mike@mzansiflow.co.za', systemRole: 'admin', role: 'admin' },
           { id: '2', fullName: 'Audrey', email: 'audrey@mzansiflow.co.za', systemRole: 'admin', role: 'admin' },
-          { id: '3', fullName: 'Delphine', email: 'delphine@mzansiflow.co.za', systemRole: 'admin', role: 'admin' },
           { id: '4', fullName: 'Qiniso', email: 'qiniso@mzansiflow.co.za', systemRole: 'admin', role: 'admin' },
           { id: '5', fullName: 'Marlan', email: 'marlan@mzansiflow.co.za', systemRole: 'admin', role: 'admin' }
         ];
@@ -3619,7 +3617,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
     }
 
     // In case we don't have the global admins seeded in Supabase yet, let's inject them for now
-    const adminEmails = ['mike@mzansiflow.co.za', 'audrey@mzansiflow.co.za', 'delphine@mzansiflow.co.za', 'bonganim@mzansiflow.co.za', 'qiniso@mzansiflow.co.za', 'marlan@mzansiflow.co.za'];
+    const adminEmails = ['mike@mzansiflow.co.za', 'audrey@mzansiflow.co.za', 'bonganim@mzansiflow.co.za', 'qiniso@mzansiflow.co.za', 'marlan@mzansiflow.co.za'];
     const missingAdmins = adminEmails.filter(e => !formatted.some(f => f.email === e));
     if (missingAdmins.length > 0) {
       missingAdmins.forEach(email => {
@@ -3882,7 +3880,8 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       }
     });
 
-    return formatted;
+    const sanitizedFormatted = formatted.filter((u: any) => (u.email || '').toLowerCase().trim() !== 'delphine@mzansiflow.co.za');
+    return sanitizedFormatted;
   });
 }
 
@@ -8548,11 +8547,17 @@ User Request: ${prompt}`;
           return;
         }
 
+        // Remove delphine@mzansiflow.co.za from database users if present
+        try {
+          await supabase.from('users').delete().ilike('email', 'delphine@mzansiflow.co.za');
+        } catch (delErr) {
+          console.error('Error removing delphine from users table:', delErr);
+        }
+
         const seedUsers = [
           { email: 'mike@mzansiflow.co.za', fullName: 'Mike', role: 'Global Administrator' },
           { email: 'mike@massivedynamixdistributors.com', fullName: 'Mike', role: 'Global Administrator' },
           { email: 'audrey@mzansiflow.co.za', fullName: 'Audrey', role: 'Global Administrator' },
-          { email: 'delphine@mzansiflow.co.za', fullName: 'Delphine', role: 'Global Administrator' },
           { email: 'bonganim@mzansiflow.co.za', fullName: 'Bongani M.', role: 'Global Administrator' },
           { email: 'bonagni@mzansiflow.co.za', fullName: 'Bonagni', role: 'Global Administrator' },
           { email: 'qiniso@mzansiflow.co.za', fullName: 'Qiniso', role: 'Systems Administrator' },

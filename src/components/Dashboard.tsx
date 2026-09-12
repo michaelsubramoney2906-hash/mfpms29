@@ -499,7 +499,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
     user.systemRole === 'Global Administrator' || 
     user.systemRole === 'Systems Administrator' ||
     user.systemRole === 'admin' ||
-    ['mike@mzansiflow.co.za', 'audrey@mzansiflow.co.za', 'delphine@mzansiflow.co.za', 'mike@massivedynamixdistributors.com'].includes((user.email || '').toLowerCase().trim());
+    ['mike@mzansiflow.co.za', 'audrey@mzansiflow.co.za', 'mike@massivedynamixdistributors.com'].includes((user.email || '').toLowerCase().trim());
 
   const displayedModules = modules.filter(mod => {
     if (mod.id === 'admin') {

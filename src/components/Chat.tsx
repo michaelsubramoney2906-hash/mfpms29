@@ -49,7 +49,6 @@ const AVATAR_PRESETS = [
 const mockMzansiFlowUsers: ChatUser[] = [
   { id: 'mf-u1', fullName: 'Mike', email: 'mike@massivedynamixdistributors.com', department: 'Executive Director', role: 'Global Admin', source: 'system' },
   { id: 'mf-u2', fullName: 'Audrey', email: 'audrey@mzansiflow.co.za', department: 'Operations Manager', role: 'Global Admin', source: 'system' },
-  { id: 'mf-u3', fullName: 'Delphine', email: 'delphine@mzansiflow.co.za', department: 'Operations / Quality Assurance', role: 'Global Admin', source: 'system' },
   { id: 'mf-u4', fullName: 'Qiniso', email: 'qiniso@mzansiflow.co.za', department: 'Solutions Architect', role: 'Global Admin', source: 'system' },
   { id: 'mf-u5', fullName: 'Marlan', email: 'marlan@mzansiflow.co.za', department: 'Project Coordinator', role: 'Global Admin', source: 'system' }
 ];

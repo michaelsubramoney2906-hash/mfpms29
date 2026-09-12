@@ -67,7 +67,6 @@ export function RestrictedModuleWrapper({ currentUser, item, unlockedModules, on
   const isAuthorizedAdmin = [
     'mike@mzansiflow.co.za',
     'audrey@mzansiflow.co.za',
-    'delphine@mzansiflow.co.za',
     'mike@massivedynamixdistributors.com'
   ].includes(userEmail);
 
