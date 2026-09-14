@@ -494,7 +494,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
         // Fetch users, kpas, kpis, and pplan concurrently in parallel
         const [usersRes, kpaRes, kpisRes, res] = await Promise.all([
           fetch(`/api/tenant/${activeTenantId}/users?minimal=true&t=${Date.now()}`),
-          fetch(`/api/tenant/${activeTenantId}/kpas?t=${Date.now()}`),
+          fetch(`/api/tenant/${activeTenantId}/kpas?userId=${encodeURIComponent(targetEmail)}&t=${Date.now()}`),
           fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(targetEmail)}&t=${Date.now()}`),
           fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(targetEmail)}&t=${Date.now()}`)
         ]);
@@ -747,8 +747,20 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
                }).catch(() => {});
             }
           } else {
-            // Pre-populate with beautiful, compliant template row targets
-            setItems([]);
+            const isMahlanguTarget = targetEmail.toLowerCase().includes('mahlanguml') || targetEmail.toLowerCase().includes('mahlangulm') || targetEmail.toLowerCase().includes('mandlaml');
+            if (isMahlanguTarget) {
+              const full97 = generateAll97KPIs(allCustomKpas);
+              setItems(full97);
+              const metaWithExtracted = { ...(data.metadata || metadata), _isFredExtracted: true, _isCleared: false };
+              setMetadata(metaWithExtracted);
+              fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(targetEmail)}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ metadata: metaWithExtracted, items: full97 })
+              }).catch(() => {});
+            } else {
+              setItems([]);
+            }
           }
         }
       } catch (err) {
@@ -2548,6 +2560,17 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
               >
                 {isExpanded ? <Minimize2 className="w-3.5 h-3.5 text-white" /> : <Maximize2 className="w-3.5 h-3.5 text-green-450" />}
                 <span>{isExpanded ? 'Exit Full Screen' : 'Expand Table'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handlePullFredExtraction}
+                disabled={isPullingFred}
+                className="bg-emerald-700 hover:bg-emerald-650 text-white font-bold px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-wide flex items-center gap-1.5 transition cursor-pointer border border-emerald-600 shadow-xs disabled:opacity-50"
+                title="Restore / Import all 97 Statutory KPIs (M_01 to M_92 and U_01 to U_05)"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                <span>{isPullingFred ? 'Importing 97 KPIs...' : 'Import 97 KPIs'}</span>
               </button>
 
               <button

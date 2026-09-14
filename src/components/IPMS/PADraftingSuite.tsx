@@ -149,7 +149,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
   const isMandlaMahlangu = React.useMemo(() => {
     if (!currentUser) return false;
     const email = (currentUser.email || '').toLowerCase().trim();
-    return email === 'mandlaml@nkangaladm.gov.za' || email === 'mahlanguml@nkangaladm.gov.za';
+    return email === 'mandlaml@nkangaladm.gov.za' || email === 'mahlanguml@nkangaladm.gov.za' || email === 'mahlangulm@nkangaladm.gov.za';
   }, [currentUser]);
 
   // Checks if the logged-in user is Yena Khuboni
