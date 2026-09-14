@@ -95,7 +95,21 @@ interface DashboardProps {
 
 export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
   const { financialYear, isPriorYear, getEffectiveYearForModule } = useFinancialYear();
-  const [activeModule, setActiveModule] = useState<Module>(modules[0]);
+  const userEmail = (user.email || '').toLowerCase().trim();
+  const isCommandCenterAuthorized = [
+    'audrey@mzansiflow.co.za',
+    'qiniso@mzansiflow.co.za',
+    'delphine@mzansiflow.co.za',
+    'mike@mzansiflow.co.za',
+    'marlan@mzansiflow.co.za',
+    'mike@massivedynamixdistributors.com'
+  ].includes(userEmail);
+
+  const initialModule = isCommandCenterAuthorized 
+    ? modules[0] 
+    : (modules.find(m => m.id === 'ipms') || modules[1]);
+
+  const [activeModule, setActiveModule] = useState<Module>(initialModule);
   const [activeSubModule, setActiveSubModule] = useState<any>(null);
   const [unlockedModules, setUnlockedModules] = useState<string[]>([]);
   const [fullUserProfile, setFullUserProfile] = useState<User>(user);
@@ -521,6 +535,9 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
     ['mike@mzansiflow.co.za', 'audrey@mzansiflow.co.za', 'delphine@mzansiflow.co.za', 'mike@massivedynamixdistributors.com'].includes((user.email || '').toLowerCase().trim());
 
   const displayedModules = modules.filter(mod => {
+    if (mod.id === 'dashboard') {
+      return isCommandCenterAuthorized;
+    }
     if (mod.id === 'admin') {
       return isSystemsOrGlobalAdmin;
     }
@@ -528,10 +545,13 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
   });
 
   useEffect(() => {
-    if (activeModule && activeModule.id === 'admin' && !isSystemsOrGlobalAdmin) {
-      setActiveModule(modules[0]);
+    if (activeModule && activeModule.id === 'dashboard' && !isCommandCenterAuthorized) {
+      setActiveModule(modules.find(m => m.id === 'ipms') || modules[1]);
     }
-  }, [activeModule, isSystemsOrGlobalAdmin]);
+    if (activeModule && activeModule.id === 'admin' && !isSystemsOrGlobalAdmin) {
+      setActiveModule(displayedModules[0] || modules[0]);
+    }
+  }, [activeModule, isCommandCenterAuthorized, isSystemsOrGlobalAdmin]);
 
   return (
     <div className="min-h-screen bg-transparent flex flex-col font-sans overflow-hidden">

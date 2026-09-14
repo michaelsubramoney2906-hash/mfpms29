@@ -116,8 +116,11 @@ export function MikeCommandCenter({ currentUser, activeTenantId }: MikeCommandCe
     if (isManualRefresh) setIsRefreshing(true);
     const targetTenant = activeTenantId || currentUser?.tenantId || 'tenant-229';
     try {
-      const res = await fetch(`/api/tenant/${encodeURIComponent(targetTenant)}/command-center-matrix?force=${isManualRefresh ? 'true' : 'false'}&t=${Date.now()}`, {
-        signal
+      const res = await fetch(`/api/tenant/${encodeURIComponent(targetTenant)}/command-center-matrix?force=${isManualRefresh ? 'true' : 'false'}&t=${Date.now()}&userEmail=${encodeURIComponent(currentUser?.email || '')}`, {
+        signal,
+        headers: {
+          'x-user-email': currentUser?.email || ''
+        }
       });
       if (res.ok) {
         const data = await res.json();
@@ -144,16 +147,16 @@ export function MikeCommandCenter({ currentUser, activeTenantId }: MikeCommandCe
         setTimeout(() => setIsRefreshing(false), 500);
       }
     }
-  }, [activeTenantId, currentUser?.tenantId]);
+  }, [activeTenantId, currentUser?.tenantId, currentUser?.email]);
 
-  // Initial load and live real-time polling every 10 seconds
+  // Initial load and live real-time polling every 6 seconds for fresh telemetry
   useEffect(() => {
     const controller = new AbortController();
     fetchMatrix(false, controller.signal);
     
     const interval = setInterval(() => {
       fetchMatrix(false, controller.signal);
-    }, 10000);
+    }, 6000);
 
     return () => {
       controller.abort();
@@ -260,13 +263,13 @@ export function MikeCommandCenter({ currentUser, activeTenantId }: MikeCommandCe
       <div className="mb-6 relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-800 pb-6">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 uppercase tracking-widest flex items-center gap-1.5">
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 uppercase tracking-widest flex items-center gap-1.5 font-mono">
               <Zap className="w-3 h-3 text-cyan-400 animate-pulse" />
-              Real-Time Command Matrix • Mike Exclusive
+              Real-Time Command Matrix • Executive Governance Stream
             </span>
           </div>
           <h2 className="text-2xl lg:text-3xl font-black text-white uppercase tracking-tight flex items-center gap-3">
-            <Activity className="w-7 h-7 text-cyan-400" />
+            <Activity className="w-7 h-7 text-cyan-400 animate-pulse" />
             Municipality Command Center
           </h2>
           <p className="text-slate-400 text-xs mt-1 font-mono tracking-wider">
@@ -949,3 +952,5 @@ export function MikeCommandCenter({ currentUser, activeTenantId }: MikeCommandCe
     </div>
   );
 }
+
+export const MunicipalityCommandCenter = MikeCommandCenter;

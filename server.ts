@@ -5038,13 +5038,30 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
   app.get("/api/tenant/:tenantId/command-center-matrix", async (req, res) => {
     const { tenantId: rawTenantId } = req.params;
     try {
+      const authUserEmail = ((req.headers['x-user-email'] as string) || (req.query.userEmail as string) || '').toLowerCase().trim();
+      const COMMAND_CENTER_AUTHORIZED_EMAILS = [
+        'audrey@mzansiflow.co.za',
+        'qiniso@mzansiflow.co.za',
+        'delphine@mzansiflow.co.za',
+        'mike@mzansiflow.co.za',
+        'marlan@mzansiflow.co.za',
+        'mike@massivedynamixdistributors.com'
+      ];
+
+      // Enforce authorization for command center matrix
+      if (authUserEmail && !COMMAND_CENTER_AUTHORIZED_EMAILS.includes(authUserEmail)) {
+        return res.status(403).json({
+          error: "Forbidden: The Municipality Command Center matrix is viewable on authorized profiles only: audrey@mzansiflow.co.za, qiniso@mzansiflow.co.za, delphine@mzansiflow.co.za, mike@mzansiflow.co.za, marlan@mzansiflow.co.za"
+        });
+      }
+
       const supabase = getSupabase();
       const tenantId = (!rawTenantId || rawTenantId === 'global' || rawTenantId === 'undefined' || rawTenantId === 'null') ? 'tenant-229' : rawTenantId;
       const forceRefresh = req.query.force === 'true';
 
-      // Check cache if not forcing refresh
+      // Check cache if not forcing refresh (6s real-time streaming TTL)
       if (!forceRefresh && commandCenterMatrixCache && commandCenterMatrixCache.tenantId === tenantId) {
-        if (Date.now() - commandCenterMatrixCache.timestamp < 30000) {
+        if (Date.now() - commandCenterMatrixCache.timestamp < 6000) {
           return res.json(commandCenterMatrixCache.data);
         }
       }
