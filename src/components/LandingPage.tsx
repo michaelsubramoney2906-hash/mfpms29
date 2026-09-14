@@ -26,6 +26,7 @@ export function LandingPage({ onLogin }: LandingPageProps) {
     'mike@mzansiflow.co.za',
     'mike@massivedynamixdistributors.com',
     'audrey@mzansiflow.co.za',
+    'delphine@mzansiflow.co.za',
     'bonganim@mzansiflow.co.za',
     'qiniso@mzansiflow.co.za',
     'marlan@mzansiflow.co.za'
