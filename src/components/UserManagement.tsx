@@ -4,10 +4,12 @@ import { tenants } from '../data';
 import { 
   Users, UserPlus, FileSpreadsheet, Key, ShieldCheck, 
   RefreshCw, CheckCircle2, AlertTriangle, Upload, 
-  Search, KeyRound, Edit, PenTool, Monitor, Globe, Activity
+  Search, KeyRound, Edit, PenTool, Monitor, Globe, Activity,
+  Database, Play
 } from 'lucide-react';
 import { cn } from './Branding';
 import { PerformanceMonitor } from './Admin/PerformanceMonitor';
+import { NkangalaBatchRestorationPanel } from './Admin/NkangalaBatchRestorationPanel';
 
 interface UserManagementProps {
   currentUser: User;
@@ -25,7 +27,7 @@ const DIRECTORATES = [
 ];
 
 export function UserManagement({ currentUser, activeTenantId, onImpersonate }: UserManagementProps) {
-  const [activeTab, setActiveTab] = useState<'list' | 'manual' | 'azure' | 'sessions' | 'perf'>('list');
+  const [activeTab, setActiveTab] = useState<'list' | 'manual' | 'azure' | 'sessions' | 'perf' | 'reprocess'>('list');
   const [users, setUsers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [azureConfig, setAzureConfig] = useState({
@@ -1015,6 +1017,12 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate }: U
         >
           <Activity className="w-4 h-4 text-emerald-600" /> Performance & Bottlenecks
         </button>
+        <button 
+          onClick={() => setActiveTab('reprocess')}
+          className={`flex items-center gap-2 px-6 py-4 border-b-2 font-bold text-sm transition-colors ${activeTab === 'reprocess' ? 'border-emerald-600 text-emerald-700 bg-white rounded-t-xl shadow-[0_-2px_10px_-5px_rgba(0,0,0,0.05)]' : 'border-transparent text-gray-500 hover:text-gray-900'}`}
+        >
+          <Database className="w-4 h-4 text-emerald-600" /> Batch Restore 4 Pillars (KPAs, KPIs, PDPs, JSCs)
+        </button>
       </div>
 
       <div className="p-8 flex-1 overflow-y-auto hide-scrollbar">
@@ -1024,6 +1032,15 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate }: U
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-bold text-gray-900">Current Directory</h2>
               <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('reprocess')}
+                  className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-bold transition-all shadow-sm cursor-pointer"
+                  title="Batch Reprocess Nkangala Profiles to restore KPAs, KPIs, PDPs, and JSCs"
+                >
+                  <Database className="w-4 h-4" />
+                  <span>Batch Reprocess 4-Pillars</span>
+                </button>
                 <button
                   type="button"
                   onClick={async () => {
@@ -1736,6 +1753,16 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate }: U
         {activeTab === 'perf' && (
           <div className="rounded-2xl overflow-hidden min-h-[600px]">
             <PerformanceMonitor currentUser={currentUser} activeTenantId={activeTenantId} />
+          </div>
+        )}
+
+        {/* Tab 6: Nkangala Batch Restoration */}
+        {activeTab === 'reprocess' && (
+          <div className="rounded-2xl overflow-hidden min-h-[650px] h-full">
+            <NkangalaBatchRestorationPanel 
+              currentUser={currentUser} 
+              activeTenantId={activeTenantId} 
+            />
           </div>
         )}
       </div>

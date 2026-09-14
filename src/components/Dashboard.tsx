@@ -60,6 +60,7 @@ import { PublicParticipation } from './PublicParticipation';
 import { MzansiFlowAcademy } from './MzansiFlowAcademy';
 import { PerformanceMonitor } from './Admin/PerformanceMonitor';
 import { AuditLogs } from './Admin/AuditLogs';
+import { SystemControlPanel } from './Admin/SystemControlPanel';
 import { logUserAccess } from '../utils/auditLogger';
 import { RiskManagement } from './RiskManagement';
 import { ExtractionEngine } from './ExtractionEngine';
@@ -719,6 +720,10 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
           ) : activeSubModule.id === 'um' ? (
             <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
               <UserManagement currentUser={fullUserProfile} activeTenantId={activeTenantId} onImpersonate={onImpersonate} />
+            </div>
+          ) : activeSubModule.id === 'scp' ? (
+            <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
+              <SystemControlPanel currentUser={fullUserProfile} activeTenantId={activeTenantId} />
             </div>
           ) : activeSubModule.id === 'sharepoint' || activeSubModule.id === 'sharepoint-drives' || activeSubModule.id === 'sharepoint-nkangala' || activeSubModule.id === 'sharepoint-mzansiflow' || activeSubModule.id === 'chat' || activeSubModule.id === 'ca' || activeSubModule.id === 'hds' || activeSubModule.id === 'admin-chat' ? (
              <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">

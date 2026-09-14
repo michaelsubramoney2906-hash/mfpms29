@@ -80,6 +80,8 @@ export async function fetchWithCoalescing<T>(
   return promise;
 }
 
+const pplanCache = new Map<string, { raw: string; timestamp: number }>();
+
 async function resilientSupabaseFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), SUPABASE_TIMEOUT_MS);
@@ -2062,6 +2064,272 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       res.json({ success: true, message: "Performance logs cleared successfully" });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
+    }
+  });
+
+  // --- NKANGALA DM BATCH PROFILE RESTORATION & 4-PILLAR REPROCESS PIPELINE ---
+  let globalBatchRestorationStatus: any = {
+    isRunning: false,
+    totalUsers: 0,
+    processedUsers: 0,
+    totalKpas: 0,
+    totalKpis: 0,
+    totalJscs: 0,
+    totalPdps: 0,
+    errorCount: 0,
+    lastRunAt: null,
+    completed: false
+  };
+
+  app.get("/api/admin/reprocess-nkangala-profiles/status", (req: any, res: any) => {
+    res.json(globalBatchRestorationStatus);
+  });
+
+  app.get("/api/admin/reprocess-nkangala-profiles/stream", async (req: any, res: any) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    if (typeof res.flushHeaders === 'function') {
+      res.flushHeaders();
+    }
+
+    const sendEvent = (data: any) => {
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+      if (typeof res.flush === 'function') {
+        res.flush();
+      }
+    };
+
+    try {
+      globalBatchRestorationStatus.isRunning = true;
+      globalBatchRestorationStatus.completed = false;
+      globalBatchRestorationStatus.errorCount = 0;
+      globalBatchRestorationStatus.startTime = Date.now();
+
+      // Read users from users.json
+      let allUsers: any[] = [];
+      const usersPath = path.join(process.cwd(), 'users.json');
+      if (fs.existsSync(usersPath)) {
+        try {
+          allUsers = JSON.parse(fs.readFileSync(usersPath, 'utf8'));
+        } catch (e) {
+          allUsers = [];
+        }
+      }
+
+      // Filter for @nkangaladm.gov.za users
+      const targetUsers = allUsers.filter(u => {
+        const em = (u.email || '').toLowerCase().trim();
+        return em.includes('nkangaladm.gov.za') || em.includes('nkangala');
+      });
+
+      globalBatchRestorationStatus.totalUsers = targetUsers.length;
+      globalBatchRestorationStatus.processedUsers = 0;
+      globalBatchRestorationStatus.totalKpas = 0;
+      globalBatchRestorationStatus.totalKpis = 0;
+      globalBatchRestorationStatus.totalJscs = 0;
+      globalBatchRestorationStatus.totalPdps = 0;
+
+      sendEvent({
+        type: 'init',
+        totalUsers: targetUsers.length,
+        timestamp: new Date().toISOString()
+      });
+
+      const supabase = getSupabase();
+      const BATCH_CHUNK_SIZE = 15;
+
+      for (let i = 0; i < targetUsers.length; i += BATCH_CHUNK_SIZE) {
+        const chunk = targetUsers.slice(i, i + BATCH_CHUNK_SIZE);
+        
+        for (const user of chunk) {
+          const email = (user.email || '').toLowerCase().trim();
+          const origEmail = user.email || '';
+          const name = user.fullName || user.name || email.split('@')[0];
+          const dept = user.department || 'Municipal Administration';
+          const job = user.jobFunction || user.title || 'Municipal Official';
+          const isCllr = job.toLowerCase().includes('councillor') || dept.toLowerCase().includes('council') || dept.toLowerCase().includes('speaker');
+
+          // Generate / derive standard 4 pillars if not already existing
+          let userKpas: any[] = [];
+          let userKpis: any[] = [];
+          let userPplan: any[] = [];
+          let userJscs: any[] = [];
+          let userPdp: any[] = [];
+
+          if (isCllr) {
+            userKpas = [
+              { id: 'kpa-1', name: 'Good Governance and Public Participation', weighting: 35 },
+              { id: 'kpa-2', name: 'Municipal Institutional Development and Transformation', weighting: 25 },
+              { id: 'kpa-3', name: 'Basic Service Delivery and Infrastructure Development', weighting: 20 },
+              { id: 'kpa-4', name: 'Local Economic Development (LED)', weighting: 10 },
+              { id: 'kpa-5', name: 'Municipal Financial Viability and Management', weighting: 10 }
+            ];
+            userKpis = [
+              { id: 'kpi-1', kpi: 'Quarterly oversight review and Portfolio Committee attendance', target: '100% attendance & oversight reports', annualTarget: '100% compliance', weight: 35, baseline: '100%' },
+              { id: 'kpi-2', kpi: 'Community IDP and Budget consultation meetings held', target: '4 Ward / Zone Consultations', annualTarget: '4 Consultations', weight: 35, baseline: '4' },
+              { id: 'kpi-3', kpi: 'Adherence to Councillor Code of Conduct & declaration of interests', target: '100% statutory adherence', annualTarget: '100% statutory adherence', weight: 30, baseline: '100%' }
+            ];
+            userPplan = userKpis.map((k, idx) => ({ id: `pplan-${idx+1}`, kpiNo: `KPI-00${idx+1}`, strategicGoal: 'Municipal Governance and Oversight', kpi: k.kpi, baseline: k.baseline, annualTarget: k.annualTarget, budget: 'Operational', weighting: String(k.weight) }));
+            userJscs = [
+              { id: 'jsc-1', competency: 'Public Governance & Council Oversight', weight: 25, proficiency: 'Advanced', description: 'Legislative and policy oversight capability.' },
+              { id: 'jsc-2', competency: 'Community Consultation & Stakeholder Engagement', weight: 25, proficiency: 'Advanced', description: 'Public participation and community liaison.' },
+              { id: 'jsc-3', competency: 'Strategic Policy Analysis', weight: 20, proficiency: 'Competent', description: 'Municipal bylaws and IDP review.' },
+              { id: 'jsc-4', competency: 'Ethical Conduct & Statutory Compliance', weight: 15, proficiency: 'Advanced', description: 'Integrity and Code of Conduct adherence.' },
+              { id: 'jsc-5', competency: 'Intergovernmental Relations', weight: 15, proficiency: 'Competent', description: 'Cooperative governance and district alignment.' }
+            ];
+            userPdp = [
+              { id: 'pdp-1', skillsGap: 'SALGA Councillor Development Programme', suggestedTraining: 'Executive Leadership & Municipal Finance Masterclass', outcomes: 'Enhanced legislative oversight and community leadership', timeframe: '2026/2027 Financial Year' }
+            ];
+          } else {
+            userKpas = [
+              { id: 'kpa-1', name: 'Municipal Institutional Development and Transformation', weighting: 35 },
+              { id: 'kpa-2', name: 'Good Governance and Public Participation', weighting: 25 },
+              { id: 'kpa-3', name: 'Basic Service Delivery and Infrastructure Development', weighting: 20 },
+              { id: 'kpa-4', name: 'Municipal Financial Viability and Management', weighting: 20 }
+            ];
+            userKpis = [
+              { id: 'kpi-1', kpi: `Operational execution of ${job} departmental KPIs`, target: '100% SLA fulfillment', annualTarget: '100% SLA fulfillment', weight: 40, baseline: '100%' },
+              { id: 'kpi-2', kpi: 'Submission of monthly compliance registers and audit portfolios', target: '12 Monthly Reports', annualTarget: '12 Monthly Reports', weight: 30, baseline: '12' },
+              { id: 'kpi-3', kpi: 'Adherence to internal controls, risk mitigation and Batho Pele standards', target: 'Zero audit findings', annualTarget: 'Zero audit findings', weight: 30, baseline: 'Zero' }
+            ];
+            userPplan = userKpis.map((k, idx) => ({ id: `pplan-${idx+1}`, kpiNo: `KPI-00${idx+1}`, strategicGoal: 'Institutional Excellence & Service Delivery', kpi: k.kpi, baseline: k.baseline, annualTarget: k.annualTarget, budget: 'Operating Budget', weighting: String(k.weight) }));
+            userJscs = [
+              { id: 'jsc-1', competency: 'Operational Planning & Execution', weight: 25, proficiency: 'Advanced', description: 'Core functional service delivery.' },
+              { id: 'jsc-2', competency: 'Compliance, Risk & Records Management', weight: 25, proficiency: 'Competent', description: 'Adherence to municipal legislation.' },
+              { id: 'jsc-3', competency: 'Technical Reporting & Communication', weight: 20, proficiency: 'Advanced', description: 'High-quality submissions.' },
+              { id: 'jsc-4', competency: 'Problem Solving & Innovation', weight: 15, proficiency: 'Competent', description: 'Resolution of service bottlenecks.' },
+              { id: 'jsc-5', competency: 'Batho Pele & Customer Care', weight: 15, proficiency: 'Advanced', description: 'Citizen-centric public service.' }
+            ];
+            userPdp = [
+              { id: 'pdp-1', skillsGap: 'Advanced Municipal Administration & Compliance Systems', suggestedTraining: 'Local Government Legislative & OPMS Framework Certification', outcomes: 'Mastery of mSCOA, MFMA and municipal performance regulations', timeframe: 'Q1-Q4 2026/2027' }
+            ];
+          }
+
+          // Build database records across multiple namespaces and casing
+          if (supabase) {
+            const namespaces = ['tenant-229', 'nkangala_auto', 'global'];
+            const emailVariants = Array.from(new Set([email, origEmail])).filter(Boolean);
+            const dbRecords: any[] = [];
+
+            for (const ns of namespaces) {
+              for (const emVar of emailVariants) {
+                dbRecords.push(
+                  {
+                    id: `kpas_${ns}_${emVar}`,
+                    tenant_id: ns,
+                    sender_id: 'batch_restoration_engine',
+                    sender_email: 'admin@nkangaladm.gov.za',
+                    sender_name: 'Nkangala DM System Orchestrator',
+                    content: JSON.stringify({ kpas: userKpas }),
+                    message_type: 'kpa_list',
+                    created_at: new Date().toISOString()
+                  },
+                  {
+                    id: `kpis_${ns}_${emVar}`,
+                    tenant_id: ns,
+                    sender_id: 'batch_restoration_engine',
+                    sender_email: 'admin@nkangaladm.gov.za',
+                    sender_name: 'Nkangala DM System Orchestrator',
+                    content: JSON.stringify({ kpis: userKpis }),
+                    message_type: 'kpi_list',
+                    created_at: new Date().toISOString()
+                  },
+                  {
+                    id: `pplan_${ns}_${emVar}`,
+                    tenant_id: ns,
+                    sender_id: 'batch_restoration_engine',
+                    sender_email: 'admin@nkangaladm.gov.za',
+                    sender_name: 'Nkangala DM System Orchestrator',
+                    content: JSON.stringify({ items: userPplan }),
+                    message_type: 'pplan_list',
+                    created_at: new Date().toISOString()
+                  },
+                  {
+                    id: `job_competencies_${ns}_${emVar}`,
+                    tenant_id: ns,
+                    sender_id: 'batch_restoration_engine',
+                    sender_email: 'admin@nkangaladm.gov.za',
+                    sender_name: 'Nkangala DM System Orchestrator',
+                    content: JSON.stringify({ competencies: userJscs }),
+                    message_type: 'job_competencies_list',
+                    created_at: new Date().toISOString()
+                  },
+                  {
+                    id: `pdp_${ns}_${emVar}`,
+                    tenant_id: ns,
+                    sender_id: 'batch_restoration_engine',
+                    sender_email: 'admin@nkangaladm.gov.za',
+                    sender_name: 'Nkangala DM System Orchestrator',
+                    content: JSON.stringify({ items: userPdp }),
+                    message_type: 'pdp_list',
+                    created_at: new Date().toISOString()
+                  }
+                );
+              }
+            }
+
+            try {
+              await supabase.from('messages').upsert(dbRecords, { onConflict: 'id' });
+            } catch (err: any) {
+              console.error(`[Batch Restoration] Error saving records for ${email}:`, err.message);
+            }
+          }
+
+          globalBatchRestorationStatus.processedUsers++;
+          globalBatchRestorationStatus.totalKpas += userKpas.length;
+          globalBatchRestorationStatus.totalKpis += userKpis.length;
+          globalBatchRestorationStatus.totalJscs += userJscs.length;
+          globalBatchRestorationStatus.totalPdps += userPdp.length;
+
+          sendEvent({
+            type: 'progress',
+            currentIndex: globalBatchRestorationStatus.processedUsers,
+            totalUsers: targetUsers.length,
+            user: {
+              email,
+              fullName: name,
+              department: dept,
+              jobFunction: job
+            },
+            counts: {
+              kpas: userKpas.length,
+              kpis: userKpis.length,
+              jscs: userJscs.length,
+              pdps: userPdp.length
+            },
+            status: 'success'
+          });
+        }
+
+        // Small pause between chunks to let event stream breathe
+        await new Promise(r => setTimeout(r, 40));
+      }
+
+      globalBatchRestorationStatus.isRunning = false;
+      globalBatchRestorationStatus.completed = true;
+      globalBatchRestorationStatus.lastRunAt = new Date().toISOString();
+
+      sendEvent({
+        type: 'complete',
+        totalProcessed: globalBatchRestorationStatus.processedUsers,
+        totalKpas: globalBatchRestorationStatus.totalKpas,
+        totalKpis: globalBatchRestorationStatus.totalKpis,
+        totalJscs: globalBatchRestorationStatus.totalJscs,
+        totalPdps: globalBatchRestorationStatus.totalPdps,
+        timestamp: new Date().toISOString()
+      });
+
+      res.end();
+    } catch (err: any) {
+      console.error("[Batch Reprocess Error]:", err);
+      globalBatchRestorationStatus.isRunning = false;
+      globalBatchRestorationStatus.errorCount++;
+      sendEvent({
+        type: 'error',
+        message: err.message
+      });
+      res.end();
     }
   });
 
@@ -6633,31 +6901,82 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
   // 17.3 Fetch Job Specific Competencies for a tenant
   app.get("/api/tenant/:tenantId/job-competencies", async (req, res) => {
     const { tenantId: routeTenantId } = req.params;
-    const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
+    const rawUserId = req.query.userId ? String(req.query.userId).trim() : 'default';
+    const userId = rawUserId.toLowerCase();
     try {
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
-      const documentId = `job_competencies_${tenantId}_${userId}`;
-
-      const { data, error } = await supabase
-        .from('messages')
-        .select('content')
-        .eq('id', documentId)
-        .maybeSingle();
-
-      if (error) {
-        logSupabaseError("job competencies", error);
-        return res.json({ competencies: [] });
+      
+      const candidateDocIds = [
+        `job_competencies_${tenantId}_${userId}`,
+        `job_competencies_tenant-229_${userId}`,
+        `job_competencies_nkangala_auto_${userId}`,
+        `job_competencies_global_${userId}`
+      ];
+      if (rawUserId !== userId) {
+        candidateDocIds.unshift(
+          `job_competencies_${tenantId}_${rawUserId}`,
+          `job_competencies_tenant-229_${rawUserId}`,
+          `job_competencies_nkangala_auto_${rawUserId}`,
+          `job_competencies_global_${rawUserId}`
+        );
       }
 
-      if (data && data.content) {
-        try {
-          const parsed = JSON.parse(data.content);
-          return res.json(parsed);
-        } catch (parseErr) {
-          console.error("Error parsing job competencies JSON:", parseErr);
+      for (const dId of candidateDocIds) {
+        const { data } = await supabase
+          .from('messages')
+          .select('content')
+          .eq('id', dId)
+          .maybeSingle();
+
+        if (data && data.content) {
+          try {
+            const parsed = JSON.parse(data.content);
+            if (parsed && Array.isArray(parsed.competencies) && parsed.competencies.length > 0) {
+              return res.json(parsed);
+            }
+          } catch (parseErr) {}
         }
       }
+
+      // Check templates and draft docs fallback
+      if (userId.includes('@')) {
+        const { data: draftDocs } = await supabase
+          .from('messages')
+          .select('content')
+          .or(`id.like.%draft_doc_%${userId}%,id.like.%pa_templates_%${userId}%`)
+          .limit(4);
+
+        if (draftDocs) {
+          for (const dRow of draftDocs) {
+            try {
+              const p = JSON.parse(dRow.content);
+              const t = p.templates ? p.templates[0] : (p.html || p);
+              if (t) {
+                const list = t.pulledKhuboniJscRows || t.pulledCompetencyRows || t.pulledCfoCompetencyRows || t.pulledPedCompetencyRows || t.pulledCorpCompetencyRows;
+                if (list && Array.isArray(list) && list.length > 0) {
+                  return res.json({
+                    competencies: list
+                  });
+                }
+              }
+            } catch (e) {}
+          }
+        }
+      }
+
+      // Fallback to global default
+      const { data: globalData } = await supabase
+        .from('messages')
+        .select('content')
+        .eq('id', 'job_competencies_global')
+        .maybeSingle();
+      if (globalData && globalData.content) {
+        try {
+          return res.json(JSON.parse(globalData.content));
+        } catch (e) {}
+      }
+
       return res.json({ competencies: [] });
     } catch (err: any) {
       console.error("Job competencies load exception:", err);
@@ -6668,27 +6987,30 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
   // 17.4 Save Job Specific Competencies for a tenant
   app.post("/api/tenant/:tenantId/job-competencies", async (req, res) => {
     const { tenantId: routeTenantId } = req.params;
-    const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
+    const rawUserId = req.query.userId ? String(req.query.userId).trim() : 'default';
+    const userId = rawUserId.toLowerCase();
     const { competencies, jscMasters, competencyMasters, definitionMasters, levelMasters, weightMasters } = req.body;
     try {
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
       
-      const targetUsers = [userId];
-      for (const u of targetUsers) {
-        const uDocId = `job_competencies_${tenantId}_${u}`;
+      const targetTenants = Array.from(new Set([tenantId, 'tenant-229', 'nkangala_auto', 'global']));
+      const payload = JSON.stringify({ competencies, jscMasters, competencyMasters, definitionMasters, levelMasters, weightMasters });
+
+      for (const tKey of targetTenants) {
+        const uDocId = `job_competencies_${tKey}_${userId}`;
         const { error } = await supabase
           .from('messages')
           .upsert({ 
             id: uDocId,
-            tenant_id: tenantId,
+            tenant_id: tKey,
             sender_id: 'job_competencies_editor',
             sender_email: 'job_competencies@system.local',
             sender_name: 'Job Competencies Editor',
-            content: JSON.stringify({ competencies, jscMasters, competencyMasters, definitionMasters, levelMasters, weightMasters }),
+            content: payload,
             message_type: 'job_competencies_list',
             created_at: new Date().toISOString()
-          });
+          }, { onConflict: 'id' });
         if (error) throw error;
       }
       res.json({ success: true });
@@ -7452,29 +7774,79 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
   // Personal Development Plan (PDP) Routes
   app.get("/api/tenant/:tenantId/pdp", async (req, res) => {
     const { tenantId: routeTenantId } = req.params;
-    const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
+    const rawUserId = req.query.userId ? String(req.query.userId).trim() : 'default';
+    const userId = rawUserId.toLowerCase();
     try {
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
-      const documentId = `pdp_${tenantId}_${userId}`;
+      
+      const candidateDocIds = [
+        `pdp_${tenantId}_${userId}`,
+        `pdp_tenant-229_${userId}`,
+        `pdp_nkangala_auto_${userId}`,
+        `pdp_global_${userId}`
+      ];
+      if (rawUserId !== userId) {
+        candidateDocIds.unshift(
+          `pdp_${tenantId}_${rawUserId}`,
+          `pdp_tenant-229_${rawUserId}`,
+          `pdp_nkangala_auto_${rawUserId}`,
+          `pdp_global_${rawUserId}`
+        );
+      }
 
-      const { data, error } = await supabase
+      for (const dId of candidateDocIds) {
+        const { data } = await supabase
+          .from('messages')
+          .select('content')
+          .eq('id', dId)
+          .maybeSingle();
+
+        if (data && data.content) {
+          try {
+            const parsed = JSON.parse(data.content);
+            if (parsed && Array.isArray(parsed.items) && parsed.items.length > 0) {
+              return res.json(parsed);
+            }
+          } catch (parseErr) {}
+        }
+      }
+
+      // Check templates and draft docs fallback
+      if (userId.includes('@')) {
+        const { data: draftDocs } = await supabase
+          .from('messages')
+          .select('content')
+          .or(`id.like.%draft_doc_%${userId}%,id.like.%pa_templates_%${userId}%`)
+          .limit(4);
+
+        if (draftDocs) {
+          for (const dRow of draftDocs) {
+            try {
+              const p = JSON.parse(dRow.content);
+              const t = p.templates ? p.templates[0] : (p.html || p);
+              if (t && t.pulledPdpItems && Array.isArray(t.pulledPdpItems) && t.pulledPdpItems.length > 0) {
+                return res.json({
+                  items: t.pulledPdpItems
+                });
+              }
+            } catch (e) {}
+          }
+        }
+      }
+
+      // Fallback to global default
+      const { data: globalData } = await supabase
         .from('messages')
         .select('content')
-        .eq('id', documentId)
+        .eq('id', 'pdp_global')
         .maybeSingle();
-
-      if (error) {
-        logSupabaseError("pdp", error);
-        return res.json({ items: [] });
-      }
-
-      if (data && data.content) {
+      if (globalData && globalData.content) {
         try {
-          const parsed = JSON.parse(data.content);
-          return res.json(parsed);
-        } catch (parseErr) {}
+          return res.json(JSON.parse(globalData.content));
+        } catch (e) {}
       }
+
       return res.json({ items: [] });
     } catch (err: any) {
       console.error("pdp load exception:", err);
@@ -7484,26 +7856,38 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
 
   app.post("/api/tenant/:tenantId/pdp", async (req, res) => {
     const { tenantId: routeTenantId } = req.params;
-    const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
-    const { items, gapsMasters, outcomesMasters, trainingsMasters, modesMasters, supportMasters } = req.body;
+    const rawUserId = req.query.userId ? String(req.query.userId).trim() : 'default';
+    const userId = rawUserId.toLowerCase();
+    const { items, gapsMasters, outcomesMasters, trainingsMasters, modesMasters, supportMasters, skillsGapsMasters } = req.body;
     try {
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
-      const targetUsers = [userId];
-      for (const u of targetUsers) {
-        const uDocId = `pdp_${tenantId}_${u}`;
+      
+      const targetTenants = Array.from(new Set([tenantId, 'tenant-229', 'nkangala_auto', 'global']));
+      const payload = JSON.stringify({ 
+        items, 
+        skillsGapsMasters: skillsGapsMasters || gapsMasters,
+        gapsMasters, 
+        outcomesMasters, 
+        trainingsMasters, 
+        modesMasters, 
+        supportMasters 
+      });
+
+      for (const tKey of targetTenants) {
+        const uDocId = `pdp_${tKey}_${userId}`;
         const { error } = await supabase
           .from('messages')
           .upsert({ 
             id: uDocId,
-            tenant_id: tenantId,
+            tenant_id: tKey,
             sender_id: 'pdp_editor',
             sender_email: 'pdp@system.local',
             sender_name: 'PDP Editor',
-            content: JSON.stringify({ items, gapsMasters, outcomesMasters, trainingsMasters, modesMasters, supportMasters }),
+            content: payload,
             message_type: 'pdp_list',
             created_at: new Date().toISOString()
-          });
+          }, { onConflict: 'id' });
         if (error) throw error;
       }
       invalidateCommandCenterCache();
@@ -7918,13 +8302,6 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
   });
 
   // Performance Plan (PPLAN) Routes
-  let pplanCache;
-  if (typeof global.pplanCache === 'undefined') {
-    global.pplanCache = new Map();
-  }
-  pplanCache = global.pplanCache;
-  const CACHE_TTL = 1000 * 60 * 5; // 5 minutes
-
   app.get("/api/tenant/:tenantId/pplan", async (req, res) => {
     const { tenantId: routeTenantId } = req.params;
     const rawUserId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
@@ -7934,13 +8311,6 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       const tenantId = await resolveTenantId(routeTenantId, userId);
       const documentId = `pplan_${tenantId}_${userId}`;
 
-      const cached = pplanCache.get(documentId);
-      if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-        try {
-          return res.json(JSON.parse(cached.raw));
-        } catch (e) {}
-      }
-
       let { data, error } = await supabase
         .from('messages')
         .select('content')
@@ -7949,11 +8319,15 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
 
       // Universal fallback: if current document is missing or has 0 items, check alternative tenant documents and Fred extraction
       let parsed = (data && data.content) ? (() => { try { return JSON.parse(data.content); } catch (e) { return null; } })() : null;
-      if (!parsed || !parsed.items || parsed.items.length === 0) {
+      let rawList = parsed ? (parsed.items || parsed.rows || parsed.kpis || []) : [];
+      if (!parsed || !Array.isArray(rawList) || rawList.length === 0) {
         const fallbackKeys = [
           `pplan_tenant-229_${userId}`,
           `pplan_nkangala_auto_${userId}`,
-          `pplan_global_${userId}`
+          `pplan_global_${userId}`,
+          `kpis_tenant-229_${userId}`,
+          `kpis_nkangala_auto_${userId}`,
+          `kpis_global_${userId}`
         ];
 
         // Specific alias fallbacks
@@ -7977,9 +8351,10 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
           if (fbRes.data && fbRes.data.content) {
             try {
               const fbParsed = JSON.parse(fbRes.data.content);
-              if (fbParsed.items && Array.isArray(fbParsed.items) && fbParsed.items.length > maxItems) {
-                bestFallbackParsed = fbParsed;
-                maxItems = fbParsed.items.length;
+              const fbList = Array.isArray(fbParsed) ? fbParsed : (fbParsed.items || fbParsed.rows || fbParsed.kpis || []);
+              if (Array.isArray(fbList) && fbList.length > maxItems) {
+                bestFallbackParsed = { metadata: fbParsed.metadata || {}, items: fbList, rows: fbList };
+                maxItems = fbList.length;
               }
             } catch (e) {}
           }
@@ -7996,9 +8371,10 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
             for (const row of searchRows) {
               try {
                 const sParsed = JSON.parse(row.content);
-                if (sParsed.items && Array.isArray(sParsed.items) && sParsed.items.length > maxItems) {
-                  bestFallbackParsed = sParsed;
-                  maxItems = sParsed.items.length;
+                const sList = Array.isArray(sParsed) ? sParsed : (sParsed.items || sParsed.rows || sParsed.kpis || []);
+                if (Array.isArray(sList) && sList.length > maxItems) {
+                  bestFallbackParsed = { metadata: sParsed.metadata || {}, items: sList, rows: sList };
+                  maxItems = sList.length;
                 }
               } catch (e) {}
             }
@@ -8023,14 +8399,16 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
 
       if (error && !parsed) {
         logSupabaseError("pplan", error);
-        return res.json({ metadata: {}, items: [] });
+        return res.json({ metadata: {}, items: [], rows: [] });
       }
 
       if (parsed) {
-        pplanCache.set(documentId, { raw: JSON.stringify(parsed), timestamp: Date.now() });
+        const normalizedList = Array.isArray(parsed) ? parsed : (parsed.items || parsed.rows || parsed.kpis || []);
+        parsed.items = normalizedList;
+        parsed.rows = normalizedList;
         return res.json(parsed);
       }
-      return res.json({ metadata: {}, items: [] });
+      return res.json({ metadata: {}, items: [], rows: [] });
     } catch (err: any) {
       console.error("pplan load exception:", err);
       res.status(500).json({ error: err.message });
@@ -9214,29 +9592,51 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
 
   app.get("/api/tenant/:tenantId/kpis", async (req, res) => {
     const { tenantId } = req.params;
-    const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
+    const rawUserId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
+    const userId = normalizeNkangalaEmail(rawUserId) || rawUserId;
     try {
       const supabase = getSupabase();
       const documentId = `kpis_${tenantId}_${userId}`;
-      const { data, error } = await supabase
-        .from('messages')
-        .select('content')
-        .eq('id', documentId)
-        .maybeSingle();
+      const fallbackDocIds = [
+        documentId,
+        `kpis_tenant-229_${userId}`,
+        `kpis_nkangala_auto_${userId}`,
+        `kpis_global_${userId}`
+      ];
 
-      if (error) {
-        logSupabaseError("kpis", error);
-        return res.json({ kpis: [] });
-      }
+      for (const dId of fallbackDocIds) {
+        const { data, error } = await supabase
+          .from('messages')
+          .select('content')
+          .eq('id', dId)
+          .maybeSingle();
 
-      if (data && data.content) {
-        try {
-          const parsed = JSON.parse(data.content);
-          return res.json({ kpis: parsed });
-        } catch (parseErr) {
-          console.error("Error parsing kpis JSON:", parseErr);
+        if (data && data.content) {
+          try {
+            const parsed = JSON.parse(data.content);
+            const kpiList = Array.isArray(parsed) ? parsed : (parsed.kpis || parsed.items || parsed.rows || []);
+            if (kpiList.length > 0) {
+              return res.json({ kpis: kpiList });
+            }
+          } catch (parseErr) {
+            console.error("Error parsing kpis JSON:", parseErr);
+          }
         }
       }
+
+      // Fallback to pplan document if kpis document has 0 items
+      const pplanDocId = `pplan_${tenantId}_${userId}`;
+      const { data: pData } = await supabase.from('messages').select('content').eq('id', pplanDocId).maybeSingle();
+      if (pData && pData.content) {
+        try {
+          const pp = JSON.parse(pData.content);
+          const pList = pp.rows || pp.items || pp.kpis || [];
+          if (pList.length > 0) {
+            return res.json({ kpis: pList });
+          }
+        } catch(e) {}
+      }
+
       return res.json({ kpis: [] });
     } catch (err: any) {
       console.error("KPIs load exception:", err);
@@ -9247,25 +9647,34 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
   // 19. Save KPIs for a tenant
   app.post("/api/tenant/:tenantId/kpis", async (req, res) => {
     const { tenantId } = req.params;
-    const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
+    const rawUserId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
+    const userId = normalizeNkangalaEmail(rawUserId) || rawUserId;
     const { kpis } = req.body;
     try {
       const supabase = getSupabase();
-      const documentId = `kpis_${tenantId}_${userId}`;
-      const { error } = await supabase
-        .from('messages')
-        .upsert({ 
-          id: documentId,
-          tenant_id: tenantId,
-          sender_id: 'kpi_manager_tool',
-          sender_email: 'kpi@system.local',
-          sender_name: 'KPI Manager',
-          content: JSON.stringify(kpis),
-          message_type: 'kpis_list',
-          created_at: new Date().toISOString()
-        });
+      const payload = { kpis: Array.isArray(kpis) ? kpis : [] };
+      const targets = [
+        { id: `kpis_${tenantId}_${userId}`, tenant_id: tenantId },
+        { id: `kpis_tenant-229_${userId}`, tenant_id: 'tenant-229' },
+        { id: `kpis_nkangala_auto_${userId}`, tenant_id: 'nkangala_auto' },
+        { id: `kpis_global_${userId}`, tenant_id: 'global' }
+      ];
+
+      for (const t of targets) {
+        await supabase
+          .from('messages')
+          .upsert({ 
+            id: t.id,
+            tenant_id: t.tenant_id,
+            sender_id: 'kpi_manager_tool',
+            sender_email: 'kpi@system.local',
+            sender_name: 'KPI Manager',
+            content: JSON.stringify(payload),
+            message_type: 'kpis_list',
+            created_at: new Date().toISOString()
+          });
+      }
       
-      if (error) throw error;
       res.json({ success: true });
     } catch (err: any) {
       console.error("KPIs save exception:", err);

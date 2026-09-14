@@ -12787,5 +12787,21 @@
     "level": "1",
     "signatureType": "draw",
     "managerEmail": ""
+  },
+  {
+    "id": "maekoat-nkangala-id-2026",
+    "fullName": "A.T. Maeko",
+    "email": "maekoat@nkangaladm.gov.za",
+    "jobFunction": "Municipal Administration Officer",
+    "department": "Corporate Services",
+    "source": "azure_ad",
+    "role": "Standard User",
+    "tenantId": "tenant-229",
+    "manager": "General Manager: Corporate Services",
+    "directorate": "Corporate",
+    "reportTo": "",
+    "level": "2",
+    "signatureType": "draw",
+    "managerEmail": ""
   }
 ]
