@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Activity, Users, FileText, CheckCircle, TrendingUp, AlertTriangle, Shield, Clock, Database, Layers, BarChart3 } from 'lucide-react';
 import type { User } from '../types';
 import { FinancialYearSwitcher } from './FinancialYearSwitcher';
+import { MikeCommandCenter } from './CommandCenter/MikeCommandCenter';
 
 interface DashboardOverviewProps {
   currentUser: User;
@@ -9,6 +10,13 @@ interface DashboardOverviewProps {
 }
 
 export function DashboardOverview({ currentUser, activeTenantId }: DashboardOverviewProps) {
+  const userEmail = (currentUser?.email || '').toLowerCase().trim();
+  const isMike = userEmail === 'mike@mzansiflow.co.za' || userEmail === 'mike@massivedynamixdistributors.com';
+
+  if (isMike) {
+    return <MikeCommandCenter currentUser={currentUser} activeTenantId={activeTenantId} />;
+  }
+
   const [stats, setStats] = useState({
     employees: 0,
     pplanItems: 0,

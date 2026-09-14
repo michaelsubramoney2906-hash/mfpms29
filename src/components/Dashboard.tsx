@@ -59,6 +59,8 @@ import { WardCommittees } from './WardCommittees';
 import { PublicParticipation } from './PublicParticipation';
 import { MzansiFlowAcademy } from './MzansiFlowAcademy';
 import { PerformanceMonitor } from './Admin/PerformanceMonitor';
+import { AuditLogs } from './Admin/AuditLogs';
+import { logUserAccess } from '../utils/auditLogger';
 import { RiskManagement } from './RiskManagement';
 import { ExtractionEngine } from './ExtractionEngine';
 import { FredExtractionAgent } from './FredExtractionAgent';
@@ -492,6 +494,23 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
       }
     }
     setActiveSubModule(sub);
+    
+    // Log user sub-module access to Supabase in real-time (excludes mike@mzansiflow.co.za)
+    if (fullUserProfile && fullUserProfile.email) {
+      logUserAccess({
+        email: fullUserProfile.email,
+        fullName: fullUserProfile.fullName,
+        tenantId: activeTenantId || fullUserProfile.tenantId,
+        role: fullUserProfile.role || fullUserProfile.systemRole,
+        department: fullUserProfile.department,
+        action: 'Sub-Module Navigation',
+        moduleId: activeModule.id,
+        moduleName: activeModule.name,
+        subModuleId: sub.id,
+        subModuleName: sub.name,
+        details: `User navigated to ${sub.name} in ${activeModule.name}`
+      }).catch(() => {});
+    }
   };
 
   const isSystemsOrGlobalAdmin = 
@@ -672,6 +691,10 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
             {activeSubModule.id === 'perf' ? (
             <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
               <PerformanceMonitor currentUser={fullUserProfile} activeTenantId={activeTenantId} />
+            </div>
+          ) : activeSubModule.id === 'al' || activeSubModule.id === 'slat' ? (
+            <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
+              <AuditLogs currentUser={fullUserProfile} activeTenantId={activeTenantId} />
             </div>
           ) : activeSubModule.id === 'um' ? (
             <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
