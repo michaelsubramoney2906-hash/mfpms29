@@ -5,6 +5,7 @@ import {
   ChevronRight, BarChart2, TrendingUp, Settings, Keyboard,
   ArrowUp, ArrowDown, Sparkles, RefreshCw, AlertTriangle, GraduationCap
 } from 'lucide-react';
+import { diagnosePillarDiscrepancy } from '../../utils/diagnosticLogger';
 
 interface PersonalDevelopmentPlanProps {
   currentUser: {
@@ -156,7 +157,9 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId }: Persona
         if (!res.ok) throw new Error("Failed to load server state");
         const data = await res.json();
         if (active && data) {
+          let loadedPdpList: any[] = [];
           if (Array.isArray(data.items)) {
+            loadedPdpList = data.items;
             setItems(data.items);
           }
           if (Array.isArray(data.skillsGapsMasters)) {
@@ -171,6 +174,12 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId }: Persona
           if (Array.isArray(data.supportMasters)) {
             setSupportMasters(data.supportMasters);
           }
+
+          diagnosePillarDiscrepancy('PDPs', loadedPdpList, loadedPdpList.length, {
+            userEmail: targetEmail,
+            tenantId: activeTenantId,
+            caller: 'PersonalDevelopmentPlan.tsx'
+          });
         }
       } catch (err) {
         console.warn("Could not find previous PDP plans or table failed to load, keeping system defaults:", err);

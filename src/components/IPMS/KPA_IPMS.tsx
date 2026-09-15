@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Flag, Trash2, CheckCircle, Database, HelpCircle, ArrowRight, Save, LayoutTemplate, Sparkles, Server, Plus, X, Edit2 } from 'lucide-react';
 import type { User } from '../../types';
+import { diagnosePillarDiscrepancy } from '../../utils/diagnosticLogger';
 
 interface KPAIPMSProps {
   currentUser: User;
@@ -175,8 +176,10 @@ export function KPAIPMS({ currentUser, activeTenantId }: KPAIPMSProps) {
 
       if (res.ok) {
         const data = await res.json();
+        let loadedKpasList: any[] = [];
         if (data) {
           if (Array.isArray(data.kpas)) {
+            loadedKpasList = data.kpas;
             setKpas(data.kpas);
           } else {
             setKpas([]);
@@ -188,8 +191,17 @@ export function KPAIPMS({ currentUser, activeTenantId }: KPAIPMSProps) {
               ['2', 'Municipal Financial viability and management', 'AG Unqualified Audit & mSCOA Integration', '35%'],
               ['3', 'Basic Service Delivery', 'Infrastructure Operations & Core Grid Stability', '40%']
             ]);
+            if (loadedKpasList.length === 0 && Array.isArray(data.customKpaTable.rows)) {
+              loadedKpasList = data.customKpaTable.rows;
+            }
           }
         }
+
+        diagnosePillarDiscrepancy('KPAs', loadedKpasList, loadedKpasList.length, {
+          userEmail: targetEmail,
+          tenantId: activeTenantId,
+          caller: 'KPA_IPMS.tsx'
+        });
       }
     } catch (err) {
       console.error("Failed to load KPAs:", err);
