@@ -184,16 +184,23 @@ export function KPAIPMS({ currentUser, activeTenantId }: KPAIPMSProps) {
           } else {
             setKpas([]);
           }
-          if (data.customKpaTable) {
+          if (data.customKpaTable && Array.isArray(data.customKpaTable.rows) && data.customKpaTable.rows.length > 0) {
             setTableHeaders(data.customKpaTable.headers || ['KPA No', 'National KPA', 'Functional Area KPA', 'Weighting']);
-            setTableRows(data.customKpaTable.rows || [
-              ['1', 'Good Governance & Institutional Transformation', 'Clean Ward Committees & Public Participation', '25%'],
-              ['2', 'Municipal Financial viability and management', 'AG Unqualified Audit & mSCOA Integration', '35%'],
-              ['3', 'Basic Service Delivery', 'Infrastructure Operations & Core Grid Stability', '40%']
-            ]);
-            if (loadedKpasList.length === 0 && Array.isArray(data.customKpaTable.rows)) {
+            setTableRows(data.customKpaTable.rows);
+            if (loadedKpasList.length === 0) {
               loadedKpasList = data.customKpaTable.rows;
             }
+          } else if (Array.isArray(data.kpas) && data.kpas.length > 0) {
+            const dynamicRows = data.kpas.map((k: any, idx: number) => {
+              if (typeof k === 'string') {
+                const parts = k.split(':');
+                const num = parts.length > 1 ? parts[0].replace(/[^0-9]/g, '') || String(idx + 1) : String(idx + 1);
+                const title = parts.length > 1 ? parts.slice(1).join(':').trim() : k.trim();
+                return [num, title, title, `${Math.round(100 / data.kpas.length)}%`];
+              }
+              return [String(idx + 1), k.title || k.name || `KPA ${idx + 1}`, k.functionalArea || k.description || '', `${k.weighting || Math.round(100 / data.kpas.length)}%`];
+            });
+            setTableRows(dynamicRows);
           }
         }
 

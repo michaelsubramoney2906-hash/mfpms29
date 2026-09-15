@@ -5390,88 +5390,129 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
   });
 
 
+  // Helper to comprehensively resolve all performance pillar data for a user across Supabase records
+  async function resolveUserPillarData(supabase: any, tenantId: string, rawUserEmail: string) {
+    if (!rawUserEmail || rawUserEmail === 'default') {
+      return { kpis: [], pplan: null, kpas: [], customKpaTable: null, jscs: [], pdp: [] };
+    }
+    const email = String(rawUserEmail).toLowerCase().trim();
+    const cleanEmail = email.replace(/^auto_/, '');
+    const userPart = cleanEmail.split('@')[0];
+
+    // Specific alias mappings for known username variants
+    let aliasParts = [cleanEmail, userPart];
+    if (userPart.includes('mahlanguml') || userPart.includes('mahlangulm') || userPart.includes('mandlaml')) {
+      aliasParts.push('mahlanguml', 'mahlangulm', 'mandlaml');
+    }
+
+    // Build OR condition for case-insensitive ilike query across candidate IDs
+    const orFilters = aliasParts.map(p => `id.ilike.%${p}%`).join(',');
+
+    const { data: rows, error } = await supabase
+      .from('messages')
+      .select('id, message_type, content')
+      .or(orFilters);
+
+    if (error || !rows || rows.length === 0) {
+      return { kpis: [], pplan: null, kpas: [], customKpaTable: null, jscs: [], pdp: [] };
+    }
+
+    let bestPplan: any = null;
+    let bestKpis: any[] = [];
+    let bestKpas: any[] = [];
+    let customKpaTable: any = null;
+    let bestJscs: any[] = [];
+    let bestPdps: any[] = [];
+
+    for (const row of rows) {
+      try {
+        const p = JSON.parse(row.content);
+        const rowIdLower = row.id.toLowerCase();
+
+        // 1. PPLAN / KPIs
+        if (rowIdLower.includes('pplan') || rowIdLower.includes('kpi') || rowIdLower.includes('draft_doc') || rowIdLower.includes('pa_templates')) {
+          const items = p.items || p.rows || p.kpis || p.pulledPplanItems || p.html?.pulledPplanItems || p.html?.pulledFilteredPplanItems;
+          if (Array.isArray(items) && items.length > (bestPplan?.items?.length || 0)) {
+            bestPplan = {
+              metadata: p.metadata || (p.html ? { municipalityName: p.html.municipalityName, employeeName: p.html.employeeName } : {}),
+              items: items,
+              rows: items
+            };
+          }
+          const kList = p.kpis || p.items || p.rows || p.html?.kpis;
+          if (Array.isArray(kList) && kList.length > bestKpis.length) {
+            bestKpis = kList;
+          }
+        }
+
+        // 2. KPAs
+        if (rowIdLower.includes('kpa') || rowIdLower.includes('draft_doc') || rowIdLower.includes('pa_templates')) {
+          const kpaArr = p.kpas || p.html?.customTables?.find((t: any) => t.headers && t.headers.some((h: any) => String(h).toLowerCase().includes('kpa')))?.rows;
+          if (Array.isArray(kpaArr) && kpaArr.length > bestKpas.length) {
+            bestKpas = kpaArr;
+          }
+          if (p.customKpaTable) {
+            customKpaTable = p.customKpaTable;
+          } else if (p.html?.customTables) {
+            const ct = p.html.customTables.find((t: any) => t.headers && t.headers.some((h: any) => String(h).toLowerCase().includes('kpa')));
+            if (ct) customKpaTable = ct;
+          }
+        }
+
+        // 3. JSCs (Job Specific Competencies)
+        if (rowIdLower.includes('competenc') || rowIdLower.includes('jsc') || rowIdLower.includes('draft_doc') || rowIdLower.includes('pa_templates')) {
+          const compArr = p.competencies || p.rows || p.pulledCompetencyRows || p.html?.pulledCompetencyRows || p.html?.pulledCfoCompetencyRows || p.html?.pulledPedCompetencyRows || p.html?.pulledCorpCompetencyRows || p.html?.pulledKhuboniJscRows;
+          if (Array.isArray(compArr) && compArr.length > bestJscs.length) {
+            bestJscs = compArr;
+          }
+        }
+
+        // 4. PDP (Personal Development Plan)
+        if (rowIdLower.includes('pdp') || rowIdLower.includes('draft_doc') || rowIdLower.includes('pa_templates')) {
+          const pdpArr = p.items || p.pulledPdpItems || p.html?.pulledPdpItems || p.pdpCustomTable?.rows;
+          if (Array.isArray(pdpArr) && pdpArr.length > bestPdps.length) {
+            bestPdps = pdpArr;
+          }
+        }
+      } catch (e) {}
+    }
+
+    // Cross-pollinate KPIs from PPlan if KPI array is empty
+    if (bestKpis.length === 0 && bestPplan?.items?.length > 0) {
+      bestKpis = bestPplan.items;
+    }
+    if (!bestPplan && bestKpis.length > 0) {
+      bestPplan = { metadata: {}, items: bestKpis, rows: bestKpis };
+    }
+
+    return {
+      pplan: bestPplan,
+      kpis: bestKpis,
+      kpas: bestKpas,
+      customKpaTable,
+      jscs: bestJscs,
+      pdp: bestPdps
+    };
+  }
+
   // 12. Fetch KPAs for a tenant
   app.get("/api/tenant/:tenantId/kpas", async (req, res) => {
     const { tenantId } = req.params;
     const rawUserId = req.query.userId ? String(req.query.userId).trim() : 'default';
-    const userId = rawUserId.toLowerCase();
     try {
       const supabase = getSupabase();
 
-      // 1. If user is specified and not 'default', check user-specific KPA documents first
-      if (userId && userId !== 'default') {
-        const userDocIds = [
-          `kpas_${tenantId}_${userId}`,
-          `kpas_tenant-229_${userId}`,
-          `kpas_nkangala_auto_${userId}`,
-          `kpas_global_${userId}`
-        ];
-        if (rawUserId !== userId) {
-          userDocIds.unshift(
-            `kpas_${tenantId}_${rawUserId}`,
-            `kpas_tenant-229_${rawUserId}`,
-            `kpas_nkangala_auto_${rawUserId}`,
-            `kpas_global_${rawUserId}`
-          );
-        }
-
-        for (const uDocId of userDocIds) {
-          const { data: uData } = await supabase.from('messages').select('content').eq('id', uDocId).maybeSingle();
-          if (uData && uData.content) {
-            try {
-              const uParsed = JSON.parse(uData.content);
-              if (uParsed && ((uParsed.kpas && uParsed.kpas.length > 0) || uParsed.customKpaTable)) {
-                return res.json({
-                  kpas: uParsed.kpas || [],
-                  customKpaTable: uParsed.customKpaTable || null
-                });
-              }
-            } catch (e) {}
-          }
-        }
-
-        // Live fallback to draft_doc if user-specific KPA doc is missing
-        if (userId.includes('@')) {
-          const { data: draftDocs } = await supabase
-            .from('messages')
-            .select('content')
-            .like('id', `%draft_doc_%${userId}%`)
-            .limit(3);
-
-          if (draftDocs) {
-            for (const dRow of draftDocs) {
-              try {
-                const dp = JSON.parse(dRow.content);
-                const dh = dp.html || dp;
-                const ct = dh.customTables ? dh.customTables.find((t: any) => t.headers && t.headers.some((h: string) => String(h).toLowerCase().includes('kpa'))) : null;
-                if (ct && ct.rows) {
-                  const kpasList: string[] = [];
-                  ct.rows.forEach((r: any[], idx: number) => {
-                    const numVal = r[0] ? String(r[0]).trim() : String(idx + 1);
-                    if (numVal.toLowerCase() === 'total') return;
-                    const titleVal = r[1] ? String(r[1]).trim() : '';
-                    if (titleVal) {
-                      let formatted = titleVal;
-                      if (!formatted.toLowerCase().startsWith('kpa ') && /^[0-9]+/.test(numVal)) {
-                        formatted = `KPA ${numVal}: ${titleVal}`;
-                      }
-                      if (!kpasList.includes(formatted)) kpasList.push(formatted);
-                    }
-                  });
-                  if (kpasList.length > 0) {
-                    return res.json({
-                      kpas: kpasList,
-                      customKpaTable: ct
-                    });
-                  }
-                }
-              } catch (e) {}
-            }
-          }
+      if (rawUserId && rawUserId !== 'default') {
+        const resolved = await resolveUserPillarData(supabase, tenantId, rawUserId);
+        if (resolved.kpas && resolved.kpas.length > 0) {
+          return res.json({
+            kpas: resolved.kpas,
+            customKpaTable: resolved.customKpaTable || null
+          });
         }
       }
 
-      // 2. Check tenant default KPA document and fallbacks
+      // Check tenant default KPA document and fallbacks
       const defaultDocIds = [
         `kpas_${tenantId}_default`,
         `kpas_tenant-229_default`,
@@ -5480,7 +5521,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       ];
 
       for (const dId of defaultDocIds) {
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from('messages')
           .select('content')
           .eq('id', dId)
@@ -7130,6 +7171,15 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
       
+      if (rawUserId && rawUserId !== 'default') {
+        const resolved = await resolveUserPillarData(supabase, tenantId, rawUserId);
+        if (resolved.jscs && resolved.jscs.length > 0) {
+          return res.json({
+            competencies: resolved.jscs
+          });
+        }
+      }
+
       const candidateDocIds = [
         `job_competencies_${tenantId}_${userId}`,
         `job_competencies_tenant-229_${userId}`,
@@ -7159,32 +7209,6 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
               return res.json(parsed);
             }
           } catch (parseErr) {}
-        }
-      }
-
-      // Check templates and draft docs fallback
-      if (userId.includes('@')) {
-        const { data: draftDocs } = await supabase
-          .from('messages')
-          .select('content')
-          .or(`id.like.%draft_doc_%${userId}%,id.like.%pa_templates_%${userId}%`)
-          .limit(4);
-
-        if (draftDocs) {
-          for (const dRow of draftDocs) {
-            try {
-              const p = JSON.parse(dRow.content);
-              const t = p.templates ? p.templates[0] : (p.html || p);
-              if (t) {
-                const list = t.pulledKhuboniJscRows || t.pulledCompetencyRows || t.pulledCfoCompetencyRows || t.pulledPedCompetencyRows || t.pulledCorpCompetencyRows;
-                if (list && Array.isArray(list) && list.length > 0) {
-                  return res.json({
-                    competencies: list
-                  });
-                }
-              }
-            } catch (e) {}
-          }
         }
       }
 
@@ -8003,6 +8027,15 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
       
+      if (rawUserId && rawUserId !== 'default') {
+        const resolved = await resolveUserPillarData(supabase, tenantId, rawUserId);
+        if (resolved.pdp && resolved.pdp.length > 0) {
+          return res.json({
+            items: resolved.pdp
+          });
+        }
+      }
+
       const candidateDocIds = [
         `pdp_${tenantId}_${userId}`,
         `pdp_tenant-229_${userId}`,
@@ -8032,29 +8065,6 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
               return res.json(parsed);
             }
           } catch (parseErr) {}
-        }
-      }
-
-      // Check templates and draft docs fallback
-      if (userId.includes('@')) {
-        const { data: draftDocs } = await supabase
-          .from('messages')
-          .select('content')
-          .or(`id.like.%draft_doc_%${userId}%,id.like.%pa_templates_%${userId}%`)
-          .limit(4);
-
-        if (draftDocs) {
-          for (const dRow of draftDocs) {
-            try {
-              const p = JSON.parse(dRow.content);
-              const t = p.templates ? p.templates[0] : (p.html || p);
-              if (t && t.pulledPdpItems && Array.isArray(t.pulledPdpItems) && t.pulledPdpItems.length > 0) {
-                return res.json({
-                  items: t.pulledPdpItems
-                });
-              }
-            } catch (e) {}
-          }
         }
       }
 
@@ -8532,6 +8542,17 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
     try {
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
+
+      if (rawUserId && rawUserId !== 'default') {
+        const resolved = await resolveUserPillarData(supabase, tenantId, rawUserId);
+        if (resolved.pplan && resolved.pplan.items && resolved.pplan.items.length > 0) {
+          return res.json(resolved.pplan);
+        }
+        if (resolved.kpis && resolved.kpis.length > 0) {
+          return res.json({ metadata: {}, items: resolved.kpis, rows: resolved.kpis });
+        }
+      }
+
       const documentId = `pplan_${tenantId}_${userId}`;
 
       let { data, error } = await supabase
@@ -8580,27 +8601,6 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
                 maxItems = fbList.length;
               }
             } catch (e) {}
-          }
-        }
-
-        // Also search by user email pattern if still not found
-        if (!bestFallbackParsed && userId.includes('@')) {
-          const { data: searchRows } = await supabase
-            .from('messages')
-            .select('content')
-            .like('id', `%pplan_%${userId}%`);
-
-          if (searchRows) {
-            for (const row of searchRows) {
-              try {
-                const sParsed = JSON.parse(row.content);
-                const sList = Array.isArray(sParsed) ? sParsed : (sParsed.items || sParsed.rows || sParsed.kpis || []);
-                if (Array.isArray(sList) && sList.length > maxItems) {
-                  bestFallbackParsed = { metadata: sParsed.metadata || {}, items: sList, rows: sList };
-                  maxItems = sList.length;
-                }
-              } catch (e) {}
-            }
           }
         }
 
@@ -9819,6 +9819,17 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
     const userId = normalizeNkangalaEmail(rawUserId) || rawUserId;
     try {
       const supabase = getSupabase();
+
+      if (rawUserId && rawUserId !== 'default') {
+        const resolved = await resolveUserPillarData(supabase, tenantId, rawUserId);
+        if (resolved.kpis && resolved.kpis.length > 0) {
+          return res.json({ kpis: resolved.kpis });
+        }
+        if (resolved.pplan && resolved.pplan.items && resolved.pplan.items.length > 0) {
+          return res.json({ kpis: resolved.pplan.items });
+        }
+      }
+
       const documentId = `kpis_${tenantId}_${userId}`;
       const fallbackDocIds = [
         documentId,
@@ -9828,7 +9839,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       ];
 
       for (const dId of fallbackDocIds) {
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from('messages')
           .select('content')
           .eq('id', dId)
