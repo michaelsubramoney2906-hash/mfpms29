@@ -5,10 +5,9 @@ import {
   Check, X, ArrowRight, ShieldCheck, Sparkles, Filter, 
   ChevronRight, Terminal, UserCheck, AlertTriangle, ExternalLink,
   LayoutGrid, Activity, Eye, ArrowUpRight, CheckSquare, Target,
-  Briefcase, GraduationCap, Bug
+  Briefcase, GraduationCap
 } from 'lucide-react';
 import { User } from '../../types';
-import { verifyPillarCounts, PillarDiagnosticReport } from '../../utils/diagnosticLogger';
 
 interface ProcessLog {
   id: string;
@@ -288,37 +287,17 @@ export function NkangalaBatchRestorationPanel({
         pdpRes.ok ? pdpRes.json() : { items: [] }
       ]);
 
-      const inspectedKpas = kpas.kpas || [];
-      const inspectedKpis = kpis.kpis || [];
-      const inspectedPplan = pplan.items || pplan.rows || [];
-      const inspectedJscs = jsc.competencies || [];
-      const inspectedPdp = pdp.items || [];
-
       setSelectedUserInspection({
         email: emailToInspect,
         name: userName || emailToInspect.split('@')[0],
         department: dept || 'Nkangala DM',
         jobFunction: job || 'Municipal Official',
-        kpas: inspectedKpas,
-        kpis: inspectedKpis,
-        pplan: inspectedPplan,
-        jscs: inspectedJscs,
-        pdp: inspectedPdp
+        kpas: kpas.kpas || [],
+        kpis: kpis.kpis || [],
+        pplan: pplan.items || pplan.rows || [],
+        jscs: jsc.competencies || [],
+        pdp: pdp.items || []
       });
-
-      // Run DB vs UI diagnostic verification & log to console
-      verifyPillarCounts({
-        userEmail: emailToInspect,
-        tenantId: activeTenantId,
-        callerSource: 'Nkangala Batch Restoration Inspector',
-        uiCounts: {
-          kpas: inspectedKpas,
-          kpis: inspectedKpis.length > 0 ? inspectedKpis : inspectedPplan,
-          jscs: inspectedJscs,
-          pdps: inspectedPdp
-        },
-        forceGroupOpen: true
-      }).catch(err => console.error("Diagnostic execution error:", err));
     } catch (e) {
       console.error("Inspection error:", e);
     } finally {
@@ -743,47 +722,21 @@ export function NkangalaBatchRestorationPanel({
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    {onImpersonate && (
                       <button
-                        onClick={() => {
-                          verifyPillarCounts({
-                            userEmail: selectedUserInspection.email,
-                            tenantId: activeTenantId,
-                            callerSource: 'Inspector Diagnostic Button',
-                            uiCounts: {
-                              kpas: selectedUserInspection.kpas,
-                              kpis: selectedUserInspection.kpis.length > 0 ? selectedUserInspection.kpis : selectedUserInspection.pplan,
-                              jscs: selectedUserInspection.jscs,
-                              pdps: selectedUserInspection.pdp
-                            },
-                            forceGroupOpen: true
-                          }).then(rep => {
-                            console.log("%c[DIAGNOSTIC VERIFICATION COMPLETE]%c Detailed 4-pillar audit report generated above.", "background: #1e293b; color: #38bdf8; font-weight: bold; padding: 2px 6px; border-radius: 4px;", "color: #94a3b8;");
-                          });
-                        }}
-                        className="bg-slate-800 hover:bg-slate-700 text-cyan-300 font-bold text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 transition-all border border-slate-700 shadow-md shrink-0 cursor-pointer"
-                        title="Run DB vs UI count diagnostic check and print discrepancy table to console"
+                        onClick={() => handleImpersonateUser(
+                          selectedUserInspection.email, 
+                          selectedUserInspection.name, 
+                          selectedUserInspection.department, 
+                          selectedUserInspection.jobFunction
+                        )}
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 transition-all shadow-md shrink-0 cursor-pointer"
+                        title="Switch to this official's active session and view IPMS scorecard"
                       >
-                        <Bug className="w-3.5 h-3.5 text-cyan-400" />
-                        <span>Run Diagnostics</span>
+                        <UserCheck className="w-3.5 h-3.5" />
+                        <span>Impersonate</span>
                       </button>
-
-                      {onImpersonate && (
-                        <button
-                          onClick={() => handleImpersonateUser(
-                            selectedUserInspection.email, 
-                            selectedUserInspection.name, 
-                            selectedUserInspection.department, 
-                            selectedUserInspection.jobFunction
-                          )}
-                          className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 transition-all shadow-md shrink-0 cursor-pointer"
-                          title="Switch to this official's active session and view IPMS scorecard"
-                        >
-                          <UserCheck className="w-3.5 h-3.5" />
-                          <span>Impersonate</span>
-                        </button>
-                      )}
-                    </div>
+                    )}
                   </div>
 
                   {/* Inspector Tabs */}

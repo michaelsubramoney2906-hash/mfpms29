@@ -10,7 +10,6 @@ import {
   ChevronRight, BarChart2, TrendingUp, Calculator, Settings, Keyboard,
   ArrowUp, ArrowDown, Sparkles, RefreshCw, AlertTriangle
 } from 'lucide-react';
-import { diagnosePillarDiscrepancy } from '../../utils/diagnosticLogger';
 
 interface JobSpecificCompetenciesProps {
   currentUser: {
@@ -285,9 +284,7 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId }: JobSpec
         }
         const data = await res.json();
         if (active && data) {
-          let loadedJscsList: any[] = [];
           if (Array.isArray(data.competencies)) {
-            loadedJscsList = data.competencies;
             setRows(data.competencies.map(ensureQuarterlyData));
           }
           if (Array.isArray(data.jscMasters)) {
@@ -305,12 +302,6 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId }: JobSpec
           if (Array.isArray(data.weightMasters)) {
             setWeightMasters(data.weightMasters);
           }
-
-          diagnosePillarDiscrepancy('JSCs', loadedJscsList, loadedJscsList.length, {
-            userEmail: selectedUserEmail,
-            tenantId: activeTenantId,
-            caller: 'JobSpecificCompetencies.tsx'
-          });
         }
       } catch (err) {
         console.warn("Could not find previous competencies or table failed to load, keeping system defaults:", err);

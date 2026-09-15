@@ -6,7 +6,6 @@ import {
 } from 'lucide-react';
 import type { User } from '../../types';
 import { OfficeDocumentViewer } from './OfficeDocumentViewer';
-import { diagnosePillarDiscrepancy } from '../../utils/diagnosticLogger';
 
 export interface PoeDocument {
   id: string;
@@ -483,12 +482,10 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
       }
 
       // 1. Fetch KPI register
-      let loadedKpis: any[] = [];
       const kpiRes = await fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(targetEmail)}&t=${Date.now()}`);
       if (kpiRes.ok) {
         const data = await kpiRes.json();
         if (data && Array.isArray(data.kpis)) {
-          loadedKpis = data.kpis;
           setKpis(data.kpis);
         } else {
           setKpis([]);
@@ -496,25 +493,15 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
       }
 
       // 2. Fetch Performance Plan
-      let loadedPplan: any[] = [];
       const planRes = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${targetEmail}&t=${Date.now()}`);
       if (planRes.ok) {
         const data = await planRes.json();
         if (data && Array.isArray(data.items)) {
-          loadedPplan = data.items;
           setPplanData(data);
         } else {
           setPplanData({ metadata: data.metadata || {}, items: [] });
         }
       }
-
-      // Run diagnostic verification for KPIs
-      const effectiveKpis = loadedKpis.length > 0 ? loadedKpis : loadedPplan;
-      diagnosePillarDiscrepancy('KPIs', effectiveKpis, effectiveKpis.length, {
-        userEmail: targetEmail,
-        tenantId: activeTenantId,
-        caller: 'KPI_IPMS.tsx'
-      });
     } catch (err) {
       console.error("Failed to load KPI page data:", err);
     } finally {

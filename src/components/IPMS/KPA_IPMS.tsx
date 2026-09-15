@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Flag, Trash2, CheckCircle, Database, HelpCircle, ArrowRight, Save, LayoutTemplate, Sparkles, Server, Plus, X, Edit2 } from 'lucide-react';
 import type { User } from '../../types';
-import { diagnosePillarDiscrepancy } from '../../utils/diagnosticLogger';
 
 interface KPAIPMSProps {
   currentUser: User;
@@ -176,39 +175,21 @@ export function KPAIPMS({ currentUser, activeTenantId }: KPAIPMSProps) {
 
       if (res.ok) {
         const data = await res.json();
-        let loadedKpasList: any[] = [];
         if (data) {
           if (Array.isArray(data.kpas)) {
-            loadedKpasList = data.kpas;
             setKpas(data.kpas);
           } else {
             setKpas([]);
           }
-          if (data.customKpaTable && Array.isArray(data.customKpaTable.rows) && data.customKpaTable.rows.length > 0) {
+          if (data.customKpaTable) {
             setTableHeaders(data.customKpaTable.headers || ['KPA No', 'National KPA', 'Functional Area KPA', 'Weighting']);
-            setTableRows(data.customKpaTable.rows);
-            if (loadedKpasList.length === 0) {
-              loadedKpasList = data.customKpaTable.rows;
-            }
-          } else if (Array.isArray(data.kpas) && data.kpas.length > 0) {
-            const dynamicRows = data.kpas.map((k: any, idx: number) => {
-              if (typeof k === 'string') {
-                const parts = k.split(':');
-                const num = parts.length > 1 ? parts[0].replace(/[^0-9]/g, '') || String(idx + 1) : String(idx + 1);
-                const title = parts.length > 1 ? parts.slice(1).join(':').trim() : k.trim();
-                return [num, title, title, `${Math.round(100 / data.kpas.length)}%`];
-              }
-              return [String(idx + 1), k.title || k.name || `KPA ${idx + 1}`, k.functionalArea || k.description || '', `${k.weighting || Math.round(100 / data.kpas.length)}%`];
-            });
-            setTableRows(dynamicRows);
+            setTableRows(data.customKpaTable.rows || [
+              ['1', 'Good Governance & Institutional Transformation', 'Clean Ward Committees & Public Participation', '25%'],
+              ['2', 'Municipal Financial viability and management', 'AG Unqualified Audit & mSCOA Integration', '35%'],
+              ['3', 'Basic Service Delivery', 'Infrastructure Operations & Core Grid Stability', '40%']
+            ]);
           }
         }
-
-        diagnosePillarDiscrepancy('KPAs', loadedKpasList, loadedKpasList.length, {
-          userEmail: targetEmail,
-          tenantId: activeTenantId,
-          caller: 'KPA_IPMS.tsx'
-        });
       }
     } catch (err) {
       console.error("Failed to load KPAs:", err);
