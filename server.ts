@@ -2151,241 +2151,6 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       const supabase = getSupabase();
       const BATCH_CHUNK_SIZE = 15;
 
-      // Load master libraries from files if available
-      let masterKpisList: any[] = [];
-      const kpisPath = path.join(process.cwd(), 'kpis.json');
-      const pplanPath = path.join(process.cwd(), 'pplan.json');
-      if (fs.existsSync(kpisPath)) {
-        try {
-          const parsed = JSON.parse(fs.readFileSync(kpisPath, 'utf8'));
-          masterKpisList = parsed.kpis || parsed.items || [];
-        } catch (e) {}
-      } else if (fs.existsSync(pplanPath)) {
-        try {
-          const parsed = JSON.parse(fs.readFileSync(pplanPath, 'utf8'));
-          masterKpisList = parsed.items || parsed.rows || [];
-        } catch (e) {}
-      }
-
-      const defaultMasterKpas = [
-        { id: 'kpa-1', name: 'Good Governance and Public Participation', weighting: 25, title: 'Good Governance & Public Participation', nationalKpa: 'GOOD GOVERNANCE AND PUBLIC PARTICIPATION' },
-        { id: 'kpa-2', name: 'Municipal Financial Viability and Management', weighting: 20, title: 'Municipal Financial Viability', nationalKpa: 'MUNICIPAL FINANCIAL VIABILITY AND MANAGEMENT' },
-        { id: 'kpa-3', name: 'Basic Service Delivery and Infrastructure Development', weighting: 20, title: 'Basic Service Delivery', nationalKpa: 'BASIC SERVICE DELIVERY AND INFRASTRUCTURE DEVELOPMENT' },
-        { id: 'kpa-4', name: 'Facilitation of Performance Management and Quality Assurance of Work Plans', weighting: 15, title: 'Performance Management & Quality Assurance', nationalKpa: 'FACILITATION OF PERFORMANCE MANAGEMENT AND QUALITY ASSURANCE OF WORK PLANS' },
-        { id: 'kpa-5', name: 'Development and Implementation of Performance Management Framework', weighting: 10, title: 'PMS Framework Development', nationalKpa: 'DEVELOPMENT AND IMPLEMENTATION OF PERFORMANCE MANAGEMENT FRAMEWORK' },
-        { id: 'kpa-6', name: 'Municipal Institutional Development and Transformation', weighting: 10, title: 'Institutional Transformation', nationalKpa: 'MUNICIPAL INSTITUTIONAL DEVELOPMENT AND TRANSFORMATION' }
-      ];
-
-      const defaultMasterJscs = [
-        {
-          id: 'jsc-1',
-          jscNo: 'CORE-1',
-          competency: 'Strategic Direction and Leadership',
-          proficiency: 'Advanced',
-          weight: 10,
-          definition: {
-            mainText: 'Provides and directs a clear vision for the institution in accordance with the IDP, council policies and statutory priorities.',
-            subsections: ['Sets strategic service delivery milestones', 'Aligns departmental operations with municipal IDP']
-          },
-          description: 'Provides and directs a clear vision for the institution in accordance with the IDP.'
-        },
-        {
-          id: 'jsc-2',
-          jscNo: 'CORE-2',
-          competency: 'People Management and Empowerment',
-          proficiency: 'Advanced',
-          weight: 10,
-          definition: {
-            mainText: 'Demonstrates capability to lead, develop, motivate and manage performance of staff members and team units.',
-            subsections: ['Drives individual accountability and performance reviews', 'Facilitates staff skills development']
-          },
-          description: 'Capability to lead, develop, motivate and manage performance of staff members.'
-        },
-        {
-          id: 'jsc-3',
-          jscNo: 'CORE-3',
-          competency: 'Program and Project Management',
-          proficiency: 'Competent',
-          weight: 10,
-          definition: {
-            mainText: 'Plans, coordinates, executes and monitors capital and operational municipal projects within scope and budget.',
-            subsections: ['Project lifecycle oversight', 'Contract and SLA management']
-          },
-          description: 'Plans, coordinates, executes and monitors capital and operational municipal projects.'
-        },
-        {
-          id: 'jsc-4',
-          jscNo: 'CORE-4',
-          competency: 'Financial Management and mSCOA Adherence',
-          proficiency: 'Competent',
-          weight: 10,
-          definition: {
-            mainText: 'Ensures strict adherence to the MFMA, mSCOA accounting standards, internal financial controls and budget allocations.',
-            subsections: ['Expenditure and requisition verification', 'Audit readiness and risk mitigation']
-          },
-          description: 'Ensures strict adherence to the MFMA, mSCOA accounting standards, and budget controls.'
-        },
-        {
-          id: 'jsc-5',
-          jscNo: 'CORE-5',
-          competency: 'Change Leadership and Institutional Transformation',
-          proficiency: 'Competent',
-          weight: 5,
-          definition: {
-            mainText: 'Champions administrative modernization, process optimization, and cultural change across municipal operations.',
-            subsections: ['Drives institutional modernization', 'Overcomes operational resistance']
-          },
-          description: 'Champions administrative modernization, process optimization, and cultural change.'
-        },
-        {
-          id: 'jsc-6',
-          jscNo: 'CORE-6',
-          competency: 'Governance Leadership, Ethics & Council Oversight',
-          proficiency: 'Advanced',
-          weight: 10,
-          definition: {
-            mainText: 'Enforces statutory compliance, Councillor and Official Codes of Conduct, and transparent risk governance.',
-            subsections: ['Legislative compliance and reporting', 'Zero tolerance for ethical violations']
-          },
-          description: 'Enforces statutory compliance, Code of Conduct, and transparent governance.'
-        },
-        {
-          id: 'jsc-7',
-          jscNo: 'CORE-7',
-          competency: 'Moral Competence and Ethical Conduct',
-          proficiency: 'Advanced',
-          weight: 10,
-          definition: {
-            mainText: 'Maintains high personal integrity, fraud prevention standards, and unbiased public service execution.',
-            subsections: ['Strict anti-corruption adherence', 'Declaration of private interests and transparency']
-          },
-          description: 'Maintains high personal integrity, fraud prevention, and unbiased public service.'
-        },
-        {
-          id: 'jsc-8',
-          jscNo: 'CORE-8',
-          competency: 'Planning and Organizing / Operational Execution',
-          proficiency: 'Advanced',
-          weight: 10,
-          definition: {
-            mainText: 'Organizes daily workflow, establishes priorities, and meets operational Service Delivery milestones on schedule.',
-            subsections: ['Workplan execution and timeline tracking', 'Resource allocation and operational rigor']
-          },
-          description: 'Organizes daily workflow, establishes priorities, and meets operational milestones.'
-        },
-        {
-          id: 'jsc-9',
-          jscNo: 'CORE-9',
-          competency: 'Analysis, Innovation and Problem Solving',
-          proficiency: 'Competent',
-          weight: 5,
-          definition: {
-            mainText: 'Diagnoses operational bottlenecks, applies critical thinking, and innovates service delivery solutions.',
-            subsections: ['Root cause diagnostic capabilities', 'Continuous improvement of municipal processes']
-          },
-          description: 'Diagnoses operational bottlenecks and innovates service delivery solutions.'
-        },
-        {
-          id: 'jsc-10',
-          jscNo: 'CORE-10',
-          competency: 'Knowledge and Information Management / Digital Systems',
-          proficiency: 'Competent',
-          weight: 5,
-          definition: {
-            mainText: 'Utilizes e-PMS, document management repositories, cloud compliance databases, and POPIA privacy guidelines.',
-            subsections: ['Electronic records archiving', 'Data integrity and information security']
-          },
-          description: 'Utilizes e-PMS, document management, cloud compliance, and POPIA guidelines.'
-        },
-        {
-          id: 'jsc-11',
-          jscNo: 'CORE-11',
-          competency: 'Communication, Stakeholder Engagement & Technical Reporting',
-          proficiency: 'Advanced',
-          weight: 10,
-          definition: {
-            mainText: 'Delivers clear, structured compliance documentation, Council portfolio submissions, and stakeholder consultation.',
-            subsections: ['High-impact written technical reports', 'Intergovernmental and community engagement']
-          },
-          description: 'Delivers clear compliance documentation, portfolio submissions, and stakeholder consultation.'
-        },
-        {
-          id: 'jsc-12',
-          jscNo: 'CORE-12',
-          competency: 'Results and Quality Focus (Batho Pele Customer Care)',
-          proficiency: 'Advanced',
-          weight: 5,
-          definition: {
-            mainText: 'Focuses relentlessly on service excellence, citizen satisfaction, and uncompromising adherence to Batho Pele principles.',
-            subsections: ['Public service customer care standards', 'Prompt resolution of citizen service queries']
-          },
-          description: 'Focuses relentlessly on service excellence, citizen satisfaction, and Batho Pele principles.'
-        }
-      ];
-
-      const defaultMasterPdps = [
-        {
-          id: 'pdp-1',
-          skillsGap: 'SALGA Local Government Legislative, MFMA & OPME/PMDS Regulatory Compliance Frameworks',
-          outcomes: 'Mastery of Section 57/56 municipal performance regulations, statutory compliance, and quarterly scorecards',
-          suggestedTraining: 'Accredited Municipal Governance & Individual Performance Management Masterclass',
-          modeOfDelivery: 'Accredited Executive Seminar / SALGA Workshop',
-          timeFrame: 'Q1-Q2 2026/2027 Financial Year',
-          workOpportunity: 'Direct alignment of departmental KPIs to SDBIP and drafting of performance agreements',
-          supportPerson: 'Municipal Manager / Head of Corporate Services / PMS Coordinator'
-        },
-        {
-          id: 'pdp-2',
-          skillsGap: 'Municipal Financial Management (MFMA), mSCOA Compliance & Budget Control',
-          outcomes: 'In-depth understanding of municipal budget cycles, expenditure monitoring, and clean audit requirements',
-          suggestedTraining: 'mSCOA & MFMA Financial Management for Non-Financial Managers',
-          modeOfDelivery: 'National Treasury / SALGA Certified Training',
-          timeFrame: 'Q2 2026/2027',
-          workOpportunity: 'Departmental budget monitoring, procurement requisition verification, and financial reporting',
-          supportPerson: 'Chief Financial Officer / Senior Budget Manager'
-        },
-        {
-          id: 'pdp-3',
-          skillsGap: 'Integrated Performance Planning, SDBIP Automation & Portfolio of Evidence (POE) Quality Assurance',
-          outcomes: 'Standardization of quarterly POE verification, automated variance reporting, and compliance audit trail',
-          suggestedTraining: 'Advanced IPMS & SDBIP Audit Readiness & Evidence Portfolio Masterclass',
-          modeOfDelivery: 'Online Portal / Municipal Training Academy',
-          timeFrame: 'Q2-Q3 2026/2027',
-          workOpportunity: 'Quarterly portfolio of evidence collation, verification, and audit committee defense',
-          supportPerson: 'PMS Manager / Internal Audit'
-        },
-        {
-          id: 'pdp-4',
-          skillsGap: 'Strategic Project Management, Infrastructure Implementation & Contract Administration',
-          outcomes: 'Enhanced capability in executing municipal infrastructure projects, SLA monitoring, and milestone delivery',
-          suggestedTraining: 'Municipal Infrastructure Project Management (MIPM) & Contract Oversight Certification',
-          modeOfDelivery: 'Blended Learning / Engineering & Project Management Institute',
-          timeFrame: 'Q3 2026/2027',
-          workOpportunity: 'Supervision of capital/operating projects and service provider performance evaluations',
-          supportPerson: 'General Manager: Technical Services / PMU Manager'
-        },
-        {
-          id: 'pdp-5',
-          skillsGap: 'Digital Governance, Electronic Records Management & Cybersecurity Compliance',
-          outcomes: 'Secure utilization of municipal e-PMS, POPIA compliance, cloud records retention, and digital signature workflows',
-          suggestedTraining: 'Enterprise Information Management & POPIA/Cybersecurity Compliance for Municipalities',
-          modeOfDelivery: 'Interactive Digital Workshop',
-          timeFrame: 'Q3-Q4 2026/2027',
-          workOpportunity: 'Electronic document management, automated leave capturing, and cloud compliance reporting',
-          supportPerson: 'Manager: ICT & Enterprise Architecture'
-        },
-        {
-          id: 'pdp-6',
-          skillsGap: 'Batho Pele Customer Service Excellence, Citizen Stakeholder Engagement & Conflict Resolution',
-          outcomes: 'Enhanced community engagement, responsive public service delivery, and prompt resolution of service queries',
-          suggestedTraining: 'Batho Pele Public Service Transformation & Stakeholder Dispute Resolution Workshop',
-          modeOfDelivery: 'SALGA / Public Service Leadership Workshop',
-          timeFrame: 'Q4 2026/2027',
-          workOpportunity: 'Community ward committee consultation, customer service charter monitoring, and public liaison',
-          supportPerson: 'Director: Community Development Services / Speaker’s Office'
-        }
-      ];
-
       for (let i = 0; i < targetUsers.length; i += BATCH_CHUNK_SIZE) {
         const chunk = targetUsers.slice(i, i + BATCH_CHUNK_SIZE);
         
@@ -2395,49 +2160,63 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
           const name = user.fullName || user.name || email.split('@')[0];
           const dept = user.department || 'Municipal Administration';
           const job = user.jobFunction || user.title || 'Municipal Official';
+          const isCllr = job.toLowerCase().includes('councillor') || dept.toLowerCase().includes('council') || dept.toLowerCase().includes('speaker');
 
-          // Assign the full comprehensive suite of all 17 KPIs, 6 KPAs, 12 JSCs, and 6 PDP goals
-          const userKpas = [...defaultMasterKpas];
-          const userKpis = masterKpisList.length > 0 ? [...masterKpisList] : [
-            { id: 'kpi-metric-17', kpiNo: '17', kpi: '% of individual performance scorecards calculated for 2025-2026 assessment period by 30 June 2027', baseline: '100%', baselineYear: '2026/27', annualTarget: '100%', annualRequiredPoe: '% of individual performance scorecards calculated for 2025-2026 assessment period by 30 June 2027', budget: 'OPEX', q1Target: 'N/A', q2Target: 'N/A', midtermTarget: 'N/A', q3Target: 'N/A', q4Target: '100%', weighting: '10', kpa: 'Facilitation of Performance Management and Quality Assurance' },
-            { id: 'kpi-metric-16', kpiNo: '16', kpi: '% of Annual Individual Performance assessment facilitated of employees (Level 4-12) for 2025-2026 assessment period by 31 March 2027', baseline: '100%', baselineYear: '2026/27', annualTarget: '100%', annualRequiredPoe: 'Annual Assessment Report', budget: 'OPEX', q1Target: 'N/A', q2Target: 'N/A', midtermTarget: 'N/A', q3Target: '100%', q4Target: 'N/A', weighting: '11', kpa: 'Performance Management Administration' },
-            { id: 'kpi-metric-15', kpiNo: '15', kpi: '% of Annual individual performance reports and POEs analysed and evaluated for 2025-2026 assessment period (Level 4-12) by 30 December 2026', baseline: '100%', baselineYear: '2026/27', annualTarget: '100%', annualRequiredPoe: 'Evaluation Report and Analysis Summary', budget: 'OPEX', q1Target: 'N/A', q2Target: '100%', midtermTarget: '100%', q3Target: 'N/A', q4Target: 'N/A', weighting: '10', kpa: 'Performance Management Administration' },
-            { id: 'kpi-metric-14', kpiNo: '14', kpi: '% of requisitions prepared and submitted to finance by 30 June 2027', baseline: '4', baselineYear: '2026/27', annualTarget: '4', annualRequiredPoe: 'Copy of requisitions prepared', budget: 'OPEX', q1Target: '100%', q2Target: '100%', midtermTarget: '100%', q3Target: '100%', q4Target: '100%', weighting: '4', kpa: 'Municipal Financial Viability and Management' },
-            { id: 'kpi-metric-13', kpiNo: '13', kpi: 'Number of Agendas & Minutes prepared for OPME & PMDS Unit meetings by 30 June 2027', baseline: '4', baselineYear: '2026/27', annualTarget: '4', annualRequiredPoe: 'Copy of Agendas, attendance register & Signed Minutes', budget: 'OPEX', q1Target: '1', q2Target: '1', midtermTarget: '2', q3Target: '1', q4Target: '1', weighting: '2', kpa: 'Good Governance and Public Participation' },
-            { id: 'kpi-metric-12', kpiNo: '12', kpi: 'Number of quarterly OPME & PMDS Trainings conducted by 30 June 2027', baseline: '4', baselineYear: '2026/27', annualTarget: '4', annualRequiredPoe: 'Signed memo, invitation and attendance registers', budget: 'OPEX', q1Target: '1', q2Target: '1', midtermTarget: '2', q3Target: '1', q4Target: '1', weighting: '5', kpa: 'Facilitation of Performance Management and Quality Assurance' },
-            { id: 'kpi-metric-11', kpiNo: '11', kpi: 'Number of email communication sent to all NDM Staff for quarterly regarding Individual Performance Reporting by 30 June 2027', baseline: '4', baselineYear: '2026/27', annualTarget: '4', annualRequiredPoe: 'Proof of Email communication', budget: 'OPEX', q1Target: '1', q2Target: '1', midtermTarget: '2', q3Target: '1', q4Target: '1', weighting: '4', kpa: 'Good Governance and Public Participation' },
-            { id: 'kpi-metric-10', kpiNo: '10', kpi: 'Develop Annual Assessment schedule for all staff and submit draft to PMS Coordinator by 30 September 2026', baseline: '1', baselineYear: '2026/27', annualTarget: '1', annualRequiredPoe: 'Proof of submission of the draft Annual Assessment schedule', budget: 'OPEX', q1Target: '1', q2Target: 'N/A', midtermTarget: '1', q3Target: 'N/A', q4Target: 'N/A', weighting: '4', kpa: 'Performance Management Administration' },
-            { id: 'kpi-metric-09', kpiNo: '09', kpi: '% of signed adjusted performance agreements analysed and evaluated by 30 June 2027', baseline: '100%', baselineYear: '2026/27', annualTarget: '100%', annualRequiredPoe: 'Signed Adjusted Performance agreement compliance register', budget: 'OPEX', q1Target: 'N/A', q2Target: 'N/A', midtermTarget: 'N/A', q3Target: 'N/A', q4Target: '100%', weighting: '3', kpa: 'Facilitation of Performance Work-Plans' },
-            { id: 'kpi-metric-08', kpiNo: '08', kpi: 'Review of the PMDS Draft Policy by 31 March 2027', baseline: '1', baselineYear: '2026/27', annualTarget: '1', annualRequiredPoe: 'Attendance register & Copy of the Draft Reviewed Policy', budget: 'OPEX', q1Target: 'N/A', q2Target: 'N/A', midtermTarget: 'N/A', q3Target: '1', q4Target: 'N/A', weighting: '7', kpa: 'Development and Implementation of PMS Framework' },
-            { id: 'kpi-metric-07', kpiNo: '07', kpi: '% of signed performance agreements analysed and evaluated by 30 September 2026', baseline: '100%', baselineYear: '2026/27', annualTarget: '100%', annualRequiredPoe: 'Performance Agreement Compliance certificate', budget: 'OPEX', q1Target: '100%', q2Target: 'N/A', midtermTarget: '100%', q3Target: 'N/A', q4Target: 'N/A', weighting: '4', kpa: 'Facilitation of Performance Management and Quality Assurance' },
-            { id: 'kpi-metric-06', kpiNo: '06', kpi: 'Revise Performance Agreement template in line with the regulations and OPME & PMDS policy by 30 June 2027', baseline: '1', baselineYear: '2026/27', annualTarget: '1', annualRequiredPoe: 'Copy of the reviewed performance agreement template', budget: 'OPEX', q1Target: 'N/A', q2Target: 'N/A', midtermTarget: 'N/A', q3Target: 'N/A', q4Target: '1', weighting: '7', kpa: 'Development and Implementation of PMS Framework' },
-            { id: 'kpi-metric-05', kpiNo: '05', kpi: 'Percentage of leave requests captured on the system within prescribed timeframes by 30 June 2027', baseline: '100%', baselineYear: '2026/27', annualTarget: '100%', annualRequiredPoe: 'Compliance certificate from Corporate Services', budget: 'OPEX', q1Target: '100%', q2Target: '100%', midtermTarget: '100%', q3Target: '100%', q4Target: '100%', weighting: '5', kpa: 'Municipal Institutional Development and Transformation' },
-            { id: 'kpi-metric-04', kpiNo: '04', kpi: 'Submission of 2025/2026 Annual performance evaluation on E-PMS by 29 August 2026', baseline: '1', baselineYear: '2026/27', annualTarget: '1', annualRequiredPoe: 'Compliance certificate from OPME & PMDS Unit', budget: 'OPEX', q1Target: '1', q2Target: 'N/A', midtermTarget: '1', q3Target: 'N/A', q4Target: 'N/A', weighting: '5', kpa: 'Performance Management Administration' },
-            { id: 'kpi-metric-03', kpiNo: '03', kpi: 'Number of self-assessment reports compiled and submitted to Supervisor per quarter', baseline: '4', baselineYear: '2026/27', annualTarget: '4', annualRequiredPoe: 'Quarterly Compliance certificate from OPME & PMDS Unit', budget: 'OPEX', q1Target: '1', q2Target: '1', midtermTarget: '2', q3Target: '1', q4Target: '1', weighting: '5', kpa: 'Good Governance and Public Participation' },
-            { id: 'kpi-metric-02', kpiNo: '02', kpi: 'Compile and sign the annual performance agreement for the 2026/2027 financial year and submit by 30 July 2026', baseline: '1', baselineYear: '2026/27', annualTarget: '1', annualRequiredPoe: 'Compliance certificate from OPME & PMDS Unit', budget: 'OPEX', q1Target: '1', q2Target: 'N/A', midtermTarget: '1', q3Target: 'N/A', q4Target: 'N/A', weighting: '5', kpa: 'Facilitation of Performance Management and Quality Assurance' },
-            { id: 'kpi-metric-01', kpiNo: 'M_21', kpi: 'Attain clean audit opinion by 31 December 2026', baseline: '1 (Unqualified with matters)', baselineYear: '2026/27', annualTarget: '1 Clean Audit', annualRequiredPoe: 'AG’s Audit Report', budget: 'OPEX', q1Target: 'N/A', q2Target: '1 Clean audit', midtermTarget: '1 Clean audit Report', q3Target: 'N/A', q4Target: 'N/A', weighting: '9', kpa: 'Municipal Financial Viability and Management' }
-          ];
+          // Generate / derive standard 4 pillars if not already existing
+          let userKpas: any[] = [];
+          let userKpis: any[] = [];
+          let userPplan: any[] = [];
+          let userJscs: any[] = [];
+          let userPdp: any[] = [];
 
-          const userPplan = userKpis.map((k: any, idx: number) => ({
-            id: k.id || `pplan-${idx+1}`,
-            kpiNo: k.kpiNo || `KPI-00${idx+1}`,
-            strategicGoal: k.strategicGoal || 'Institutional Excellence & Service Delivery',
-            kpi: k.kpi || '',
-            baseline: k.baseline || '100%',
-            annualTarget: k.annualTarget || '100%',
-            budget: k.budget || 'OPEX',
-            weighting: String(k.weighting || k.weight || '5'),
-            q1Target: k.q1Target || 'N/A',
-            q2Target: k.q2Target || 'N/A',
-            midtermTarget: k.midtermTarget || 'N/A',
-            q3Target: k.q3Target || 'N/A',
-            q4Target: k.q4Target || 'N/A',
-            annualRequiredPoe: k.annualRequiredPoe || k.poe || 'Statutory Compliance Register',
-            kpa: k.kpa || 'Good Governance and Institutional Transformation'
-          }));
-
-          const userJscs = [...defaultMasterJscs];
-          const userPdp = [...defaultMasterPdps];
+          if (isCllr) {
+            userKpas = [
+              { id: 'kpa-1', name: 'Good Governance and Public Participation', weighting: 35 },
+              { id: 'kpa-2', name: 'Municipal Institutional Development and Transformation', weighting: 25 },
+              { id: 'kpa-3', name: 'Basic Service Delivery and Infrastructure Development', weighting: 20 },
+              { id: 'kpa-4', name: 'Local Economic Development (LED)', weighting: 10 },
+              { id: 'kpa-5', name: 'Municipal Financial Viability and Management', weighting: 10 }
+            ];
+            userKpis = [
+              { id: 'kpi-1', kpi: 'Quarterly oversight review and Portfolio Committee attendance', target: '100% attendance & oversight reports', annualTarget: '100% compliance', weight: 35, baseline: '100%' },
+              { id: 'kpi-2', kpi: 'Community IDP and Budget consultation meetings held', target: '4 Ward / Zone Consultations', annualTarget: '4 Consultations', weight: 35, baseline: '4' },
+              { id: 'kpi-3', kpi: 'Adherence to Councillor Code of Conduct & declaration of interests', target: '100% statutory adherence', annualTarget: '100% statutory adherence', weight: 30, baseline: '100%' }
+            ];
+            userPplan = userKpis.map((k, idx) => ({ id: `pplan-${idx+1}`, kpiNo: `KPI-00${idx+1}`, strategicGoal: 'Municipal Governance and Oversight', kpi: k.kpi, baseline: k.baseline, annualTarget: k.annualTarget, budget: 'Operational', weighting: String(k.weight) }));
+            userJscs = [
+              { id: 'jsc-1', competency: 'Public Governance & Council Oversight', weight: 25, proficiency: 'Advanced', description: 'Legislative and policy oversight capability.' },
+              { id: 'jsc-2', competency: 'Community Consultation & Stakeholder Engagement', weight: 25, proficiency: 'Advanced', description: 'Public participation and community liaison.' },
+              { id: 'jsc-3', competency: 'Strategic Policy Analysis', weight: 20, proficiency: 'Competent', description: 'Municipal bylaws and IDP review.' },
+              { id: 'jsc-4', competency: 'Ethical Conduct & Statutory Compliance', weight: 15, proficiency: 'Advanced', description: 'Integrity and Code of Conduct adherence.' },
+              { id: 'jsc-5', competency: 'Intergovernmental Relations', weight: 15, proficiency: 'Competent', description: 'Cooperative governance and district alignment.' }
+            ];
+            userPdp = [
+              { id: 'pdp-1', skillsGap: 'SALGA Councillor Development Programme', suggestedTraining: 'Executive Leadership & Municipal Finance Masterclass', outcomes: 'Enhanced legislative oversight and community leadership', timeframe: '2026/2027 Financial Year' }
+            ];
+          } else {
+            userKpas = [
+              { id: 'kpa-1', name: 'Municipal Institutional Development and Transformation', weighting: 35 },
+              { id: 'kpa-2', name: 'Good Governance and Public Participation', weighting: 25 },
+              { id: 'kpa-3', name: 'Basic Service Delivery and Infrastructure Development', weighting: 20 },
+              { id: 'kpa-4', name: 'Municipal Financial Viability and Management', weighting: 20 }
+            ];
+            userKpis = [
+              { id: 'kpi-1', kpi: `Operational execution of ${job} departmental KPIs`, target: '100% SLA fulfillment', annualTarget: '100% SLA fulfillment', weight: 40, baseline: '100%' },
+              { id: 'kpi-2', kpi: 'Submission of monthly compliance registers and audit portfolios', target: '12 Monthly Reports', annualTarget: '12 Monthly Reports', weight: 30, baseline: '12' },
+              { id: 'kpi-3', kpi: 'Adherence to internal controls, risk mitigation and Batho Pele standards', target: 'Zero audit findings', annualTarget: 'Zero audit findings', weight: 30, baseline: 'Zero' }
+            ];
+            userPplan = userKpis.map((k, idx) => ({ id: `pplan-${idx+1}`, kpiNo: `KPI-00${idx+1}`, strategicGoal: 'Institutional Excellence & Service Delivery', kpi: k.kpi, baseline: k.baseline, annualTarget: k.annualTarget, budget: 'Operating Budget', weighting: String(k.weight) }));
+            userJscs = [
+              { id: 'jsc-1', competency: 'Operational Planning & Execution', weight: 25, proficiency: 'Advanced', description: 'Core functional service delivery.' },
+              { id: 'jsc-2', competency: 'Compliance, Risk & Records Management', weight: 25, proficiency: 'Competent', description: 'Adherence to municipal legislation.' },
+              { id: 'jsc-3', competency: 'Technical Reporting & Communication', weight: 20, proficiency: 'Advanced', description: 'High-quality submissions.' },
+              { id: 'jsc-4', competency: 'Problem Solving & Innovation', weight: 15, proficiency: 'Competent', description: 'Resolution of service bottlenecks.' },
+              { id: 'jsc-5', competency: 'Batho Pele & Customer Care', weight: 15, proficiency: 'Advanced', description: 'Citizen-centric public service.' }
+            ];
+            userPdp = [
+              { id: 'pdp-1', skillsGap: 'Advanced Municipal Administration & Compliance Systems', suggestedTraining: 'Local Government Legislative & OPMS Framework Certification', outcomes: 'Mastery of mSCOA, MFMA and municipal performance regulations', timeframe: 'Q1-Q4 2026/2027' }
+            ];
+          }
 
           // Build database records across multiple namespaces and casing
           if (supabase) {
@@ -2454,8 +2233,8 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
                     sender_id: 'batch_restoration_engine',
                     sender_email: 'admin@nkangaladm.gov.za',
                     sender_name: 'Nkangala DM System Orchestrator',
-                    content: JSON.stringify({ kpas: userKpas, customKpaTable: { headers: ['KPA No', 'National KPA', 'Functional Area KPA', 'Weighting'], rows: userKpas.map((kp, i) => [String(i+1), kp.name, kp.title || kp.name, `${kp.weighting}%`]) } }),
-                    message_type: 'kpas_list',
+                    content: JSON.stringify({ kpas: userKpas }),
+                    message_type: 'kpa_list',
                     created_at: new Date().toISOString()
                   },
                   {
@@ -2464,8 +2243,8 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
                     sender_id: 'batch_restoration_engine',
                     sender_email: 'admin@nkangaladm.gov.za',
                     sender_name: 'Nkangala DM System Orchestrator',
-                    content: JSON.stringify({ kpis: userKpis, items: userKpis }),
-                    message_type: 'kpis_list',
+                    content: JSON.stringify({ kpis: userKpis }),
+                    message_type: 'kpi_list',
                     created_at: new Date().toISOString()
                   },
                   {
@@ -2474,7 +2253,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
                     sender_id: 'batch_restoration_engine',
                     sender_email: 'admin@nkangaladm.gov.za',
                     sender_name: 'Nkangala DM System Orchestrator',
-                    content: JSON.stringify({ metadata: { lastPushedFromTemplate: new Date().toISOString(), pushedBy: 'Nkangala Master System Engine' }, items: userPplan, rows: userPplan }),
+                    content: JSON.stringify({ items: userPplan }),
                     message_type: 'pplan_list',
                     created_at: new Date().toISOString()
                   },
@@ -2484,8 +2263,8 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
                     sender_id: 'batch_restoration_engine',
                     sender_email: 'admin@nkangaladm.gov.za',
                     sender_name: 'Nkangala DM System Orchestrator',
-                    content: JSON.stringify({ competencies: userJscs, lastPushedFromTemplate: new Date().toISOString() }),
-                    message_type: 'job_specific_competencies',
+                    content: JSON.stringify({ competencies: userJscs }),
+                    message_type: 'job_competencies_list',
                     created_at: new Date().toISOString()
                   },
                   {
@@ -2494,7 +2273,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
                     sender_id: 'batch_restoration_engine',
                     sender_email: 'admin@nkangaladm.gov.za',
                     sender_name: 'Nkangala DM System Orchestrator',
-                    content: JSON.stringify({ items: userPdp, pdps: userPdp, lastPushedFromTemplate: new Date().toISOString() }),
+                    content: JSON.stringify({ items: userPdp }),
                     message_type: 'pdp_list',
                     created_at: new Date().toISOString()
                   }
@@ -5390,129 +5169,88 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
   });
 
 
-  // Helper to comprehensively resolve all performance pillar data for a user across Supabase records
-  async function resolveUserPillarData(supabase: any, tenantId: string, rawUserEmail: string) {
-    if (!rawUserEmail || rawUserEmail === 'default') {
-      return { kpis: [], pplan: null, kpas: [], customKpaTable: null, jscs: [], pdp: [] };
-    }
-    const email = String(rawUserEmail).toLowerCase().trim();
-    const cleanEmail = email.replace(/^auto_/, '');
-    const userPart = cleanEmail.split('@')[0];
-
-    // Specific alias mappings for known username variants
-    let aliasParts = [cleanEmail, userPart];
-    if (userPart.includes('mahlanguml') || userPart.includes('mahlangulm') || userPart.includes('mandlaml')) {
-      aliasParts.push('mahlanguml', 'mahlangulm', 'mandlaml');
-    }
-
-    // Build OR condition for case-insensitive ilike query across candidate IDs
-    const orFilters = aliasParts.map(p => `id.ilike.%${p}%`).join(',');
-
-    const { data: rows, error } = await supabase
-      .from('messages')
-      .select('id, message_type, content')
-      .or(orFilters);
-
-    if (error || !rows || rows.length === 0) {
-      return { kpis: [], pplan: null, kpas: [], customKpaTable: null, jscs: [], pdp: [] };
-    }
-
-    let bestPplan: any = null;
-    let bestKpis: any[] = [];
-    let bestKpas: any[] = [];
-    let customKpaTable: any = null;
-    let bestJscs: any[] = [];
-    let bestPdps: any[] = [];
-
-    for (const row of rows) {
-      try {
-        const p = JSON.parse(row.content);
-        const rowIdLower = row.id.toLowerCase();
-
-        // 1. PPLAN / KPIs
-        if (rowIdLower.includes('pplan') || rowIdLower.includes('kpi') || rowIdLower.includes('draft_doc') || rowIdLower.includes('pa_templates')) {
-          const items = p.items || p.rows || p.kpis || p.pulledPplanItems || p.html?.pulledPplanItems || p.html?.pulledFilteredPplanItems;
-          if (Array.isArray(items) && items.length > (bestPplan?.items?.length || 0)) {
-            bestPplan = {
-              metadata: p.metadata || (p.html ? { municipalityName: p.html.municipalityName, employeeName: p.html.employeeName } : {}),
-              items: items,
-              rows: items
-            };
-          }
-          const kList = p.kpis || p.items || p.rows || p.html?.kpis;
-          if (Array.isArray(kList) && kList.length > bestKpis.length) {
-            bestKpis = kList;
-          }
-        }
-
-        // 2. KPAs
-        if (rowIdLower.includes('kpa') || rowIdLower.includes('draft_doc') || rowIdLower.includes('pa_templates')) {
-          const kpaArr = p.kpas || p.html?.customTables?.find((t: any) => t.headers && t.headers.some((h: any) => String(h).toLowerCase().includes('kpa')))?.rows;
-          if (Array.isArray(kpaArr) && kpaArr.length > bestKpas.length) {
-            bestKpas = kpaArr;
-          }
-          if (p.customKpaTable) {
-            customKpaTable = p.customKpaTable;
-          } else if (p.html?.customTables) {
-            const ct = p.html.customTables.find((t: any) => t.headers && t.headers.some((h: any) => String(h).toLowerCase().includes('kpa')));
-            if (ct) customKpaTable = ct;
-          }
-        }
-
-        // 3. JSCs (Job Specific Competencies)
-        if (rowIdLower.includes('competenc') || rowIdLower.includes('jsc') || rowIdLower.includes('draft_doc') || rowIdLower.includes('pa_templates')) {
-          const compArr = p.competencies || p.rows || p.pulledCompetencyRows || p.html?.pulledCompetencyRows || p.html?.pulledCfoCompetencyRows || p.html?.pulledPedCompetencyRows || p.html?.pulledCorpCompetencyRows || p.html?.pulledKhuboniJscRows;
-          if (Array.isArray(compArr) && compArr.length > bestJscs.length) {
-            bestJscs = compArr;
-          }
-        }
-
-        // 4. PDP (Personal Development Plan)
-        if (rowIdLower.includes('pdp') || rowIdLower.includes('draft_doc') || rowIdLower.includes('pa_templates')) {
-          const pdpArr = p.items || p.pulledPdpItems || p.html?.pulledPdpItems || p.pdpCustomTable?.rows;
-          if (Array.isArray(pdpArr) && pdpArr.length > bestPdps.length) {
-            bestPdps = pdpArr;
-          }
-        }
-      } catch (e) {}
-    }
-
-    // Cross-pollinate KPIs from PPlan if KPI array is empty
-    if (bestKpis.length === 0 && bestPplan?.items?.length > 0) {
-      bestKpis = bestPplan.items;
-    }
-    if (!bestPplan && bestKpis.length > 0) {
-      bestPplan = { metadata: {}, items: bestKpis, rows: bestKpis };
-    }
-
-    return {
-      pplan: bestPplan,
-      kpis: bestKpis,
-      kpas: bestKpas,
-      customKpaTable,
-      jscs: bestJscs,
-      pdp: bestPdps
-    };
-  }
-
   // 12. Fetch KPAs for a tenant
   app.get("/api/tenant/:tenantId/kpas", async (req, res) => {
     const { tenantId } = req.params;
     const rawUserId = req.query.userId ? String(req.query.userId).trim() : 'default';
+    const userId = rawUserId.toLowerCase();
     try {
       const supabase = getSupabase();
 
-      if (rawUserId && rawUserId !== 'default') {
-        const resolved = await resolveUserPillarData(supabase, tenantId, rawUserId);
-        if (resolved.kpas && resolved.kpas.length > 0) {
-          return res.json({
-            kpas: resolved.kpas,
-            customKpaTable: resolved.customKpaTable || null
-          });
+      // 1. If user is specified and not 'default', check user-specific KPA documents first
+      if (userId && userId !== 'default') {
+        const userDocIds = [
+          `kpas_${tenantId}_${userId}`,
+          `kpas_tenant-229_${userId}`,
+          `kpas_nkangala_auto_${userId}`,
+          `kpas_global_${userId}`
+        ];
+        if (rawUserId !== userId) {
+          userDocIds.unshift(
+            `kpas_${tenantId}_${rawUserId}`,
+            `kpas_tenant-229_${rawUserId}`,
+            `kpas_nkangala_auto_${rawUserId}`,
+            `kpas_global_${rawUserId}`
+          );
+        }
+
+        for (const uDocId of userDocIds) {
+          const { data: uData } = await supabase.from('messages').select('content').eq('id', uDocId).maybeSingle();
+          if (uData && uData.content) {
+            try {
+              const uParsed = JSON.parse(uData.content);
+              if (uParsed && ((uParsed.kpas && uParsed.kpas.length > 0) || uParsed.customKpaTable)) {
+                return res.json({
+                  kpas: uParsed.kpas || [],
+                  customKpaTable: uParsed.customKpaTable || null
+                });
+              }
+            } catch (e) {}
+          }
+        }
+
+        // Live fallback to draft_doc if user-specific KPA doc is missing
+        if (userId.includes('@')) {
+          const { data: draftDocs } = await supabase
+            .from('messages')
+            .select('content')
+            .like('id', `%draft_doc_%${userId}%`)
+            .limit(3);
+
+          if (draftDocs) {
+            for (const dRow of draftDocs) {
+              try {
+                const dp = JSON.parse(dRow.content);
+                const dh = dp.html || dp;
+                const ct = dh.customTables ? dh.customTables.find((t: any) => t.headers && t.headers.some((h: string) => String(h).toLowerCase().includes('kpa'))) : null;
+                if (ct && ct.rows) {
+                  const kpasList: string[] = [];
+                  ct.rows.forEach((r: any[], idx: number) => {
+                    const numVal = r[0] ? String(r[0]).trim() : String(idx + 1);
+                    if (numVal.toLowerCase() === 'total') return;
+                    const titleVal = r[1] ? String(r[1]).trim() : '';
+                    if (titleVal) {
+                      let formatted = titleVal;
+                      if (!formatted.toLowerCase().startsWith('kpa ') && /^[0-9]+/.test(numVal)) {
+                        formatted = `KPA ${numVal}: ${titleVal}`;
+                      }
+                      if (!kpasList.includes(formatted)) kpasList.push(formatted);
+                    }
+                  });
+                  if (kpasList.length > 0) {
+                    return res.json({
+                      kpas: kpasList,
+                      customKpaTable: ct
+                    });
+                  }
+                }
+              } catch (e) {}
+            }
+          }
         }
       }
 
-      // Check tenant default KPA document and fallbacks
+      // 2. Check tenant default KPA document and fallbacks
       const defaultDocIds = [
         `kpas_${tenantId}_default`,
         `kpas_tenant-229_default`,
@@ -5521,7 +5259,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       ];
 
       for (const dId of defaultDocIds) {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('messages')
           .select('content')
           .eq('id', dId)
@@ -5736,13 +5474,13 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
         if (doc.content) {
           try {
             const p = JSON.parse(doc.content);
-            if (doc.message_type === 'pplan_list' || doc.message_type === 'kpis_list' || doc.message_type === 'kpi_list') {
-              count = Array.isArray(p?.items) ? p.items.length : (Array.isArray(p?.kpis) ? p.kpis.length : (Array.isArray(p?.rows) ? p.rows.length : (Array.isArray(p) ? p.length : 0)));
+            if (doc.message_type === 'pplan_list' || doc.message_type === 'kpis_list') {
+              count = Array.isArray(p?.items) ? p.items.length : (Array.isArray(p) ? p.length : 0);
             } else if (doc.message_type === 'job_specific_competencies' || doc.message_type === 'job_competencies_list') {
-              count = Array.isArray(p?.competencies) ? p.competencies.length : (Array.isArray(p?.items) ? p.items.length : (Array.isArray(p) ? p.length : 0));
+              count = Array.isArray(p?.competencies) ? p.competencies.length : (Array.isArray(p) ? p.length : 0);
             } else if (doc.message_type === 'pdp_list') {
-              count = Array.isArray(p?.items) ? p.items.length : (Array.isArray(p?.pdps) ? p.pdps.length : (Array.isArray(p) ? p.length : 0));
-            } else if (doc.message_type === 'kpas_list' || doc.message_type === 'kpa_list') {
+              count = Array.isArray(p?.items) ? p.items.length : (Array.isArray(p) ? p.length : 0);
+            } else if (doc.message_type === 'kpas_list') {
               count = Array.isArray(p?.kpas) ? p.kpas.length : (p?.customKpaTable?.rows ? p.customKpaTable.rows.length : (Array.isArray(p) ? p.length : 0));
             } else if (doc.message_type === 'drafting_suite_doc') {
               let h = p;
@@ -7171,15 +6909,6 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
       
-      if (rawUserId && rawUserId !== 'default') {
-        const resolved = await resolveUserPillarData(supabase, tenantId, rawUserId);
-        if (resolved.jscs && resolved.jscs.length > 0) {
-          return res.json({
-            competencies: resolved.jscs
-          });
-        }
-      }
-
       const candidateDocIds = [
         `job_competencies_${tenantId}_${userId}`,
         `job_competencies_tenant-229_${userId}`,
@@ -7209,6 +6938,32 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
               return res.json(parsed);
             }
           } catch (parseErr) {}
+        }
+      }
+
+      // Check templates and draft docs fallback
+      if (userId.includes('@')) {
+        const { data: draftDocs } = await supabase
+          .from('messages')
+          .select('content')
+          .or(`id.like.%draft_doc_%${userId}%,id.like.%pa_templates_%${userId}%`)
+          .limit(4);
+
+        if (draftDocs) {
+          for (const dRow of draftDocs) {
+            try {
+              const p = JSON.parse(dRow.content);
+              const t = p.templates ? p.templates[0] : (p.html || p);
+              if (t) {
+                const list = t.pulledKhuboniJscRows || t.pulledCompetencyRows || t.pulledCfoCompetencyRows || t.pulledPedCompetencyRows || t.pulledCorpCompetencyRows;
+                if (list && Array.isArray(list) && list.length > 0) {
+                  return res.json({
+                    competencies: list
+                  });
+                }
+              }
+            } catch (e) {}
+          }
         }
       }
 
@@ -8027,15 +7782,6 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
       
-      if (rawUserId && rawUserId !== 'default') {
-        const resolved = await resolveUserPillarData(supabase, tenantId, rawUserId);
-        if (resolved.pdp && resolved.pdp.length > 0) {
-          return res.json({
-            items: resolved.pdp
-          });
-        }
-      }
-
       const candidateDocIds = [
         `pdp_${tenantId}_${userId}`,
         `pdp_tenant-229_${userId}`,
@@ -8065,6 +7811,29 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
               return res.json(parsed);
             }
           } catch (parseErr) {}
+        }
+      }
+
+      // Check templates and draft docs fallback
+      if (userId.includes('@')) {
+        const { data: draftDocs } = await supabase
+          .from('messages')
+          .select('content')
+          .or(`id.like.%draft_doc_%${userId}%,id.like.%pa_templates_%${userId}%`)
+          .limit(4);
+
+        if (draftDocs) {
+          for (const dRow of draftDocs) {
+            try {
+              const p = JSON.parse(dRow.content);
+              const t = p.templates ? p.templates[0] : (p.html || p);
+              if (t && t.pulledPdpItems && Array.isArray(t.pulledPdpItems) && t.pulledPdpItems.length > 0) {
+                return res.json({
+                  items: t.pulledPdpItems
+                });
+              }
+            } catch (e) {}
+          }
         }
       }
 
@@ -8542,17 +8311,6 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
     try {
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
-
-      if (rawUserId && rawUserId !== 'default') {
-        const resolved = await resolveUserPillarData(supabase, tenantId, rawUserId);
-        if (resolved.pplan && resolved.pplan.items && resolved.pplan.items.length > 0) {
-          return res.json(resolved.pplan);
-        }
-        if (resolved.kpis && resolved.kpis.length > 0) {
-          return res.json({ metadata: {}, items: resolved.kpis, rows: resolved.kpis });
-        }
-      }
-
       const documentId = `pplan_${tenantId}_${userId}`;
 
       let { data, error } = await supabase
@@ -8601,6 +8359,27 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
                 maxItems = fbList.length;
               }
             } catch (e) {}
+          }
+        }
+
+        // Also search by user email pattern if still not found
+        if (!bestFallbackParsed && userId.includes('@')) {
+          const { data: searchRows } = await supabase
+            .from('messages')
+            .select('content')
+            .like('id', `%pplan_%${userId}%`);
+
+          if (searchRows) {
+            for (const row of searchRows) {
+              try {
+                const sParsed = JSON.parse(row.content);
+                const sList = Array.isArray(sParsed) ? sParsed : (sParsed.items || sParsed.rows || sParsed.kpis || []);
+                if (Array.isArray(sList) && sList.length > maxItems) {
+                  bestFallbackParsed = { metadata: sParsed.metadata || {}, items: sList, rows: sList };
+                  maxItems = sList.length;
+                }
+              } catch (e) {}
+            }
           }
         }
 
@@ -9819,17 +9598,6 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
     const userId = normalizeNkangalaEmail(rawUserId) || rawUserId;
     try {
       const supabase = getSupabase();
-
-      if (rawUserId && rawUserId !== 'default') {
-        const resolved = await resolveUserPillarData(supabase, tenantId, rawUserId);
-        if (resolved.kpis && resolved.kpis.length > 0) {
-          return res.json({ kpis: resolved.kpis });
-        }
-        if (resolved.pplan && resolved.pplan.items && resolved.pplan.items.length > 0) {
-          return res.json({ kpis: resolved.pplan.items });
-        }
-      }
-
       const documentId = `kpis_${tenantId}_${userId}`;
       const fallbackDocIds = [
         documentId,
@@ -9839,7 +9607,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       ];
 
       for (const dId of fallbackDocIds) {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('messages')
           .select('content')
           .eq('id', dId)
