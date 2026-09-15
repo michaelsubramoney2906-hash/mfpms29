@@ -10,9 +10,11 @@ import { NkangalaBatchRestorationPanel } from './NkangalaBatchRestorationPanel';
 interface SystemControlPanelProps {
   currentUser: User;
   activeTenantId: string;
+  onImpersonate?: (user: User) => void;
+  onNavigateToCommandCenter?: () => void;
 }
 
-export function SystemControlPanel({ currentUser, activeTenantId }: SystemControlPanelProps) {
+export function SystemControlPanel({ currentUser, activeTenantId, onImpersonate, onNavigateToCommandCenter }: SystemControlPanelProps) {
   const [activeTab, setActiveTab] = useState<'batch-sync' | 'db-health' | 'security'>('batch-sync');
   const [clearingCache, setClearingCache] = useState(false);
   const [cacheStatus, setCacheStatus] = useState<string | null>(null);
@@ -79,6 +81,8 @@ export function SystemControlPanel({ currentUser, activeTenantId }: SystemContro
           <NkangalaBatchRestorationPanel 
             currentUser={currentUser} 
             activeTenantId={activeTenantId} 
+            onImpersonate={onImpersonate}
+            onNavigateToCommandCenter={onNavigateToCommandCenter}
           />
         )}
 

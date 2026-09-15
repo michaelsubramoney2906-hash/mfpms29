@@ -158,9 +158,18 @@ export function MikeCommandCenter({ currentUser, activeTenantId }: MikeCommandCe
       fetchMatrix(false, controller.signal);
     }, 6000);
 
+    const handleForceRefresh = () => {
+      fetchMatrix(true);
+    };
+
+    window.addEventListener('command-center-force-refresh', handleForceRefresh);
+    window.addEventListener('nkangala-batch-restoration-complete', handleForceRefresh);
+
     return () => {
       controller.abort();
       clearInterval(interval);
+      window.removeEventListener('command-center-force-refresh', handleForceRefresh);
+      window.removeEventListener('nkangala-batch-restoration-complete', handleForceRefresh);
     };
   }, [fetchMatrix]);
 

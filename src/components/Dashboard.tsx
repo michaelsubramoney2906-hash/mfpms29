@@ -719,11 +719,29 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
             </div>
           ) : activeSubModule.id === 'um' ? (
             <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
-              <UserManagement currentUser={fullUserProfile} activeTenantId={activeTenantId} onImpersonate={onImpersonate} />
+              <UserManagement 
+                currentUser={fullUserProfile} 
+                activeTenantId={activeTenantId} 
+                onImpersonate={onImpersonate} 
+                onNavigateToCommandCenter={() => {
+                  setActiveModule(modules[0]);
+                  setActiveSubModule(null);
+                  window.dispatchEvent(new CustomEvent('command-center-force-refresh'));
+                }}
+              />
             </div>
           ) : activeSubModule.id === 'scp' ? (
             <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
-              <SystemControlPanel currentUser={fullUserProfile} activeTenantId={activeTenantId} />
+              <SystemControlPanel 
+                currentUser={fullUserProfile} 
+                activeTenantId={activeTenantId} 
+                onImpersonate={onImpersonate}
+                onNavigateToCommandCenter={() => {
+                  setActiveModule(modules[0]);
+                  setActiveSubModule(null);
+                  window.dispatchEvent(new CustomEvent('command-center-force-refresh'));
+                }}
+              />
             </div>
           ) : activeSubModule.id === 'sharepoint' || activeSubModule.id === 'sharepoint-drives' || activeSubModule.id === 'sharepoint-nkangala' || activeSubModule.id === 'sharepoint-mzansiflow' || activeSubModule.id === 'chat' || activeSubModule.id === 'ca' || activeSubModule.id === 'hds' || activeSubModule.id === 'admin-chat' ? (
              <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">

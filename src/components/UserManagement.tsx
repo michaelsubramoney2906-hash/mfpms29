@@ -15,6 +15,7 @@ interface UserManagementProps {
   currentUser: User;
   activeTenantId: string;
   onImpersonate?: (user: User) => void;
+  onNavigateToCommandCenter?: () => void;
 }
 
 const DIRECTORATES = [
@@ -26,7 +27,7 @@ const DIRECTORATES = [
   "Planning and Economic Development"
 ];
 
-export function UserManagement({ currentUser, activeTenantId, onImpersonate }: UserManagementProps) {
+export function UserManagement({ currentUser, activeTenantId, onImpersonate, onNavigateToCommandCenter }: UserManagementProps) {
   const [activeTab, setActiveTab] = useState<'list' | 'manual' | 'azure' | 'sessions' | 'perf' | 'reprocess'>('list');
   const [users, setUsers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -1762,6 +1763,8 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate }: U
             <NkangalaBatchRestorationPanel 
               currentUser={currentUser} 
               activeTenantId={activeTenantId} 
+              onImpersonate={onImpersonate}
+              onNavigateToCommandCenter={onNavigateToCommandCenter}
             />
           </div>
         )}
