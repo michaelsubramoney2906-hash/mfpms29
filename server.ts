@@ -2999,6 +2999,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
         'mike@massivedynamixdistributors.com',
         'audrey@mzansiflow.co.za',
         'delphine@mzansiflow.co.za',
+        'ryanw@mzansiflow.co.za',
         'bonganim@mzansiflow.co.za',
         'qiniso@mzansiflow.co.za',
         'marlan@mzansiflow.co.za'
@@ -3033,14 +3034,14 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       if (isGlobalAdmin) {
         if (lowerEmail === 'mike@mzansiflow.co.za' || lowerEmail === 'mike@massivedynamixdistributors.com') {
           isPasswordValid = (cleanPassword === managerOverridePassword || cleanPassword === '8655M9sznnes01*');
-        } else if (lowerEmail === 'delphine@mzansiflow.co.za') {
-          // Strictly enforce Deskjet01* for delphine@mzansiflow.co.za
+        } else if (lowerEmail === 'delphine@mzansiflow.co.za' || lowerEmail === 'ryanw@mzansiflow.co.za') {
+          // Strictly enforce Deskjet01* for delphine@mzansiflow.co.za and ryanw@mzansiflow.co.za
           isPasswordValid = (cleanPassword === 'Deskjet01*' || cleanPassword === managerOverridePassword);
         } else {
           isPasswordValid = (cleanPassword === 'Deskjet01*' || cleanPassword === managerOverridePassword || cleanPassword === '8655M9sznnes01*');
         }
-      } else if (lowerEmail === 'delphine@mzansiflow.co.za') {
-        // Strictly enforce Deskjet01* for delphine@mzansiflow.co.za
+      } else if (lowerEmail === 'delphine@mzansiflow.co.za' || lowerEmail === 'ryanw@mzansiflow.co.za') {
+        // Strictly enforce Deskjet01* for delphine@mzansiflow.co.za and ryanw@mzansiflow.co.za
         isPasswordValid = (cleanPassword === 'Deskjet01*' || cleanPassword === managerOverridePassword);
       } else if (isNkangala) {
         // Individual password check for Nkangala users:
@@ -3212,7 +3213,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
         }
 
         // Determine correct role - Nkangala users are restricted sandbox, never global systems admins
-        const defaultRole = (normalizedEmail === 'delphine@mzansiflow.co.za' || normalizedEmail === 'audrey@mzansiflow.co.za' || normalizedEmail === 'mike@mzansiflow.co.za' || normalizedEmail === 'bonganim@mzansiflow.co.za' || normalizedEmail.includes('massivedynamixdistributors.com'))
+        const defaultRole = (normalizedEmail === 'delphine@mzansiflow.co.za' || normalizedEmail === 'audrey@mzansiflow.co.za' || normalizedEmail === 'mike@mzansiflow.co.za' || normalizedEmail === 'bonganim@mzansiflow.co.za' || normalizedEmail === 'ryanw@mzansiflow.co.za' || normalizedEmail.includes('massivedynamixdistributors.com'))
           ? 'Global Administrator'
           : (isSystemAdmin && !isNkangalaUser)
             ? 'Systems Administrator'
@@ -4468,7 +4469,8 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
           { id: '2', fullName: 'Audrey', email: 'audrey@mzansiflow.co.za', systemRole: 'admin', role: 'admin' },
           { id: '3', fullName: 'Delphine', email: 'delphine@mzansiflow.co.za', systemRole: 'admin', role: 'admin' },
           { id: '4', fullName: 'Qiniso', email: 'qiniso@mzansiflow.co.za', systemRole: 'admin', role: 'admin' },
-          { id: '5', fullName: 'Marlan', email: 'marlan@mzansiflow.co.za', systemRole: 'admin', role: 'admin' }
+          { id: '5', fullName: 'Marlan', email: 'marlan@mzansiflow.co.za', systemRole: 'admin', role: 'admin' },
+          { id: '6', fullName: 'Ryan Walters', email: 'ryanw@mzansiflow.co.za', systemRole: 'admin', role: 'admin' }
         ];
       }
     
@@ -4554,7 +4556,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
     }
 
     // In case we don't have the global admins seeded in Supabase yet, let's inject them for now
-    const adminEmails = ['mike@mzansiflow.co.za', 'audrey@mzansiflow.co.za', 'delphine@mzansiflow.co.za', 'bonganim@mzansiflow.co.za', 'qiniso@mzansiflow.co.za', 'marlan@mzansiflow.co.za'];
+    const adminEmails = ['mike@mzansiflow.co.za', 'audrey@mzansiflow.co.za', 'delphine@mzansiflow.co.za', 'ryanw@mzansiflow.co.za', 'bonganim@mzansiflow.co.za', 'qiniso@mzansiflow.co.za', 'marlan@mzansiflow.co.za'];
     const missingAdmins = adminEmails.filter(e => !formatted.some(f => f.email === e));
     if (missingAdmins.length > 0) {
       missingAdmins.forEach(email => {
@@ -5394,6 +5396,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
         'audrey@mzansiflow.co.za',
         'qiniso@mzansiflow.co.za',
         'delphine@mzansiflow.co.za',
+        'ryanw@mzansiflow.co.za',
         'mike@mzansiflow.co.za',
         'marlan@mzansiflow.co.za',
         'mike@massivedynamixdistributors.com'
@@ -5402,7 +5405,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       // Enforce authorization for command center matrix
       if (authUserEmail && !COMMAND_CENTER_AUTHORIZED_EMAILS.includes(authUserEmail)) {
         return res.status(403).json({
-          error: "Forbidden: The Municipality Command Center matrix is viewable on authorized profiles only: audrey@mzansiflow.co.za, qiniso@mzansiflow.co.za, delphine@mzansiflow.co.za, mike@mzansiflow.co.za, marlan@mzansiflow.co.za"
+          error: "Forbidden: The Municipality Command Center matrix is viewable on authorized profiles only: audrey@mzansiflow.co.za, qiniso@mzansiflow.co.za, delphine@mzansiflow.co.za, ryanw@mzansiflow.co.za, mike@mzansiflow.co.za, marlan@mzansiflow.co.za"
         });
       }
 
@@ -10207,6 +10210,7 @@ User Request: ${prompt}`;
           { email: 'mike@massivedynamixdistributors.com', fullName: 'Mike', role: 'Global Administrator' },
           { email: 'audrey@mzansiflow.co.za', fullName: 'Audrey', role: 'Global Administrator' },
           { email: 'delphine@mzansiflow.co.za', fullName: 'Delphine', role: 'Global Administrator' },
+          { email: 'ryanw@mzansiflow.co.za', fullName: 'Ryan Walters', role: 'Global Administrator' },
           { email: 'bonganim@mzansiflow.co.za', fullName: 'Bongani M.', role: 'Global Administrator' },
           { email: 'bonagni@mzansiflow.co.za', fullName: 'Bonagni', role: 'Global Administrator' },
           { email: 'qiniso@mzansiflow.co.za', fullName: 'Qiniso', role: 'Systems Administrator' },
@@ -10235,7 +10239,7 @@ User Request: ${prompt}`;
           }
         }
 
-        // Ensure delphine@mzansiflow.co.za password is permanently stored in Supabase
+        // Ensure delphine@mzansiflow.co.za and ryanw@mzansiflow.co.za passwords are permanently stored in Supabase
         try {
           const { data: passMsg } = await supabase
             .from('messages')
@@ -10247,6 +10251,7 @@ User Request: ${prompt}`;
             try { passMap = JSON.parse(passMsg.content); } catch(e) {}
           }
           passMap['delphine@mzansiflow.co.za'] = 'Deskjet01*';
+          passMap['ryanw@mzansiflow.co.za'] = 'Deskjet01*';
           await supabase.from('messages').upsert({
             id: 'nkangala_user_passwords',
             content: JSON.stringify(passMap),
@@ -10257,7 +10262,7 @@ User Request: ${prompt}`;
             created_at: new Date().toISOString()
           });
         } catch (passErr: any) {
-          console.error("Error saving delphine password in startup routine:", passErr.message);
+          console.error("Error saving admin passwords in startup routine:", passErr.message);
         }
 
         if (seededAny) {

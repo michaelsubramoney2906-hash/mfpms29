@@ -101,6 +101,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
     'audrey@mzansiflow.co.za',
     'qiniso@mzansiflow.co.za',
     'delphine@mzansiflow.co.za',
+    'ryanw@mzansiflow.co.za',
     'mike@mzansiflow.co.za',
     'marlan@mzansiflow.co.za',
     'mike@massivedynamixdistributors.com'
@@ -533,7 +534,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
     user.systemRole === 'Global Administrator' || 
     user.systemRole === 'Systems Administrator' ||
     user.systemRole === 'admin' ||
-    ['mike@mzansiflow.co.za', 'audrey@mzansiflow.co.za', 'delphine@mzansiflow.co.za', 'mike@massivedynamixdistributors.com'].includes((user.email || '').toLowerCase().trim());
+    ['mike@mzansiflow.co.za', 'audrey@mzansiflow.co.za', 'delphine@mzansiflow.co.za', 'ryanw@mzansiflow.co.za', 'mike@massivedynamixdistributors.com'].includes((user.email || '').toLowerCase().trim());
 
   const displayedModules = modules.filter(mod => {
     if (mod.id === 'dashboard') {

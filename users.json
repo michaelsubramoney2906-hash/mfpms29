@@ -224,6 +224,22 @@
     "managerEmail": ""
   },
   {
+    "id": "dujmcfd4uvl",
+    "fullName": "Ryan Walters",
+    "email": "ryanw@mzansiflow.co.za",
+    "jobFunction": "Global Administrator",
+    "department": "MzansiFlow Workspace",
+    "source": "manual",
+    "role": "Global Administrator",
+    "tenantId": "global",
+    "manager": "",
+    "directorate": "MzansiFlow Corporate",
+    "reportTo": "Mike",
+    "level": "1",
+    "signatureType": "draw",
+    "managerEmail": ""
+  },
+  {
     "id": "f9337765-d708-4aaf-9b1a-05b85c41e692",
     "fullName": "FinanceWC",
     "email": "FinanceWC@nkangaladm.gov.za",

@@ -51,7 +51,8 @@ const mockMzansiFlowUsers: ChatUser[] = [
   { id: 'mf-u2', fullName: 'Audrey', email: 'audrey@mzansiflow.co.za', department: 'Operations Manager', role: 'Global Admin', source: 'system' },
   { id: 'mf-u3', fullName: 'Delphine', email: 'delphine@mzansiflow.co.za', department: 'Executive Services', role: 'Global Admin', source: 'system' },
   { id: 'mf-u4', fullName: 'Qiniso', email: 'qiniso@mzansiflow.co.za', department: 'Solutions Architect', role: 'Global Admin', source: 'system' },
-  { id: 'mf-u5', fullName: 'Marlan', email: 'marlan@mzansiflow.co.za', department: 'Project Coordinator', role: 'Global Admin', source: 'system' }
+  { id: 'mf-u5', fullName: 'Marlan', email: 'marlan@mzansiflow.co.za', department: 'Project Coordinator', role: 'Global Admin', source: 'system' },
+  { id: 'mf-u6', fullName: 'Ryan Walters', email: 'ryanw@mzansiflow.co.za', department: 'Executive Services', role: 'Global Admin', source: 'system' }
 ];
 
 const mockNkangalaUsers: ChatUser[] = [

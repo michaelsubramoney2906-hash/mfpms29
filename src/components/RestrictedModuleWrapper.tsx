@@ -68,6 +68,7 @@ export function RestrictedModuleWrapper({ currentUser, item, unlockedModules, on
     'mike@mzansiflow.co.za',
     'audrey@mzansiflow.co.za',
     'delphine@mzansiflow.co.za',
+    'ryanw@mzansiflow.co.za',
     'mike@massivedynamixdistributors.com'
   ].includes(userEmail);
 

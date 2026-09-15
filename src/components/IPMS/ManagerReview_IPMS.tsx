@@ -351,7 +351,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
         });
 
         // Developer override only for test system developer accounts (mike@mzansiflow.co.za / mike@massivedynamixdistributors.com)
-        const isSystemDeveloper = ['mike@mzansiflow.co.za', 'mike@massivedynamixdistributors.com', 'audrey@mzansiflow.co.za', 'delphine@mzansiflow.co.za'].includes(managerEmail);
+        const isSystemDeveloper = ['mike@mzansiflow.co.za', 'mike@massivedynamixdistributors.com', 'audrey@mzansiflow.co.za', 'delphine@mzansiflow.co.za', 'ryanw@mzansiflow.co.za'].includes(managerEmail);
 
         // Filter team plans strictly to this manager's subordinates
         let myTeamPlans = plans.filter((p: any) => {
