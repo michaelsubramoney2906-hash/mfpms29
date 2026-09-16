@@ -5434,6 +5434,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
             .select('id, tenant_id, sender_email, sender_name, message_type, content, created_at')
             .in('message_type', [
               'drafting_suite_doc', 
+              'pa_templates',
               'pplan_list', 
               'job_specific_competencies', 
               'job_competencies_list', 
@@ -5485,23 +5486,32 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
               count = Array.isArray(p?.items) ? p.items.length : (Array.isArray(p) ? p.length : 0);
             } else if (doc.message_type === 'kpas_list') {
               count = Array.isArray(p?.kpas) ? p.kpas.length : (p?.customKpaTable?.rows ? p.customKpaTable.rows.length : (Array.isArray(p) ? p.length : 0));
-            } else if (doc.message_type === 'drafting_suite_doc') {
+            } else if (doc.message_type === 'drafting_suite_doc' || doc.message_type === 'pa_templates') {
               let h = p;
-              if (typeof p?.html === 'string' && (p.html.startsWith('{') || p.html.startsWith('['))) {
+              if (Array.isArray(p?.templates)) {
+                h = p.templates[0];
+              } else if (p?.template) {
+                h = p.template;
+              } else if (typeof p?.html === 'string' && (p.html.startsWith('{') || p.html.startsWith('['))) {
                 try { h = JSON.parse(p.html); } catch(e) {}
               } else if (p?.html && typeof p.html === 'object') {
                 h = p.html;
               }
               const pplan = h?.pulledFilteredPplanItems || h?.pulledPplanItems;
-              count = Array.isArray(pplan) ? pplan.length : (Array.isArray(h?.dynamicSections) ? h.dynamicSections.length : 1);
+              count = Array.isArray(pplan) ? pplan.length : (Array.isArray(h?.dynamicSections) ? h.dynamicSections.length : 0);
               if (Array.isArray(h?.customTables)) {
-                const kpaTable = h.customTables.find((t: any) => Array.isArray(t?.headers) && t.headers.some((hdr: any) => String(hdr).toLowerCase().includes('kpa')));
+                const kpaTable = h.customTables.find((t: any) => Array.isArray(t?.headers) && t.headers.some((hdr: any) => String(hdr).toLowerCase().includes('kpa') || String(hdr).toLowerCase().includes('key performance')));
                 if (Array.isArray(kpaTable?.rows)) {
-                  extra.kpaCount = kpaTable.rows.filter((r: any) => r[0] && String(r[0]).trim() !== 'Total').length;
+                  extra.kpaCount = kpaTable.rows.filter((r: any) => r && (r[0] || r[1]) && String(r[0] || r[1]).trim().toLowerCase() !== 'total').length;
                 }
               }
-              if (Array.isArray(h?.pulledCompetencyRows)) {
-                extra.jscCount = h.pulledCompetencyRows.length;
+              const jscRows = h?.pulledKhuboniJscRows || h?.pulledCompetencyRows || h?.pulledCorpCompetencyRows || h?.pulledCfoCompetencyRows || h?.pulledPedCompetencyRows || h?.pulledJscRows;
+              if (Array.isArray(jscRows)) {
+                extra.jscCount = jscRows.length;
+              }
+              const pdpRows = h?.pulledPdpItems || h?.pdpCustomTable;
+              if (Array.isArray(pdpRows)) {
+                extra.pdpCount = pdpRows.length;
               }
             } else if (doc.message_type === 'ipms_progress') {
               extra.completedSteps = Array.isArray(p?.completedSteps) ? p.completedSteps : [];
@@ -5580,17 +5590,18 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
             for (const docId of paPrefixes) {
               const lowerId = docId.toLowerCase();
               if (parsedDocsById.has(lowerId)) {
-                hasPA = true;
                 const pdoc = parsedDocsById.get(lowerId)!;
                 if (pdoc.count > paCount) paCount = pdoc.count;
-                if (pdoc.extra?.kpaCount && !hasKPA) {
-                  hasKPA = true;
+                if (pdoc.extra?.kpaCount && pdoc.extra.kpaCount > kpaCount) {
                   kpaCount = pdoc.extra.kpaCount;
                 }
-                if (pdoc.extra?.jscCount && !hasJSC) {
-                  hasJSC = true;
+                if (pdoc.extra?.jscCount && pdoc.extra.jscCount > jscCount) {
                   jscCount = pdoc.extra.jscCount;
                 }
+                if (pdoc.extra?.pdpCount && pdoc.extra.pdpCount > pdpCount) {
+                  pdpCount = pdoc.extra.pdpCount;
+                }
+                hasPA = true;
                 break;
               }
             }
@@ -5598,7 +5609,6 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
           }
           if (hasPA) break;
         }
-        if (hasPA && paCount === 0) paCount = 1;
 
         // 2. Check JSC (Job Specific Competencies)
         for (const k of userKeys) {
@@ -5611,17 +5621,16 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
             for (const docId of jscPrefixes) {
               const lowerId = docId.toLowerCase();
               if (parsedDocsById.has(lowerId)) {
-                hasJSC = true;
                 const pdoc = parsedDocsById.get(lowerId)!;
                 if (pdoc.count > jscCount) jscCount = pdoc.count;
                 break;
               }
             }
-            if (hasJSC) break;
+            if (jscCount > 0) break;
           }
-          if (hasJSC) break;
+          if (jscCount > 0) break;
         }
-        if (hasJSC && jscCount === 0) jscCount = 1;
+        hasJSC = jscCount > 0;
 
         // 3. Check KPAs (strictly per-user)
         for (const k of userKeys) {
@@ -5633,17 +5642,16 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
             for (const docId of kpaPrefixes) {
               const lowerId = docId.toLowerCase();
               if (parsedDocsById.has(lowerId)) {
-                hasKPA = true;
                 const pdoc = parsedDocsById.get(lowerId)!;
                 if (pdoc.count > kpaCount) kpaCount = pdoc.count;
                 break;
               }
             }
-            if (hasKPA) break;
+            if (kpaCount > 0) break;
           }
-          if (hasKPA) break;
+          if (kpaCount > 0) break;
         }
-        if (hasKPA && kpaCount === 0) kpaCount = 1;
+        hasKPA = kpaCount > 0;
 
         // 4. Check KPIs (strictly per-user)
         for (const k of userKeys) {
@@ -5656,17 +5664,16 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
             for (const docId of kpiPrefixes) {
               const lowerId = docId.toLowerCase();
               if (parsedDocsById.has(lowerId)) {
-                hasKPI = true;
                 const pdoc = parsedDocsById.get(lowerId)!;
                 if (pdoc.count > kpiCount) kpiCount = pdoc.count;
                 break;
               }
             }
-            if (hasKPI) break;
+            if (kpiCount > 0) break;
           }
-          if (hasKPI) break;
+          if (kpiCount > 0) break;
         }
-        if (hasKPI && kpiCount === 0) kpiCount = 1;
+        hasKPI = kpiCount > 0;
 
         // 5. Check PDP (Personal Development Plan - strictly per-user)
         for (const k of userKeys) {
@@ -5678,17 +5685,16 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
             for (const docId of pdpPrefixes) {
               const lowerId = docId.toLowerCase();
               if (parsedDocsById.has(lowerId)) {
-                hasPDP = true;
                 const pdoc = parsedDocsById.get(lowerId)!;
                 if (pdoc.count > pdpCount) pdpCount = pdoc.count;
                 break;
               }
             }
-            if (hasPDP) break;
+            if (pdpCount > 0) break;
           }
-          if (hasPDP) break;
+          if (pdpCount > 0) break;
         }
-        if (hasPDP && pdpCount === 0) pdpCount = 1;
+        hasPDP = pdpCount > 0;
 
         // 6. Check workflow completed steps from ipms_progress
         for (const k of userKeys) {
@@ -5696,22 +5702,10 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
             const progKey = `ipms_progress_${t}_${k}`.toLowerCase().replace(/@/g, '_');
             if (parsedDocsById.has(progKey)) {
               const steps: string[] = parsedDocsById.get(progKey)?.extra?.completedSteps || [];
-              if (steps.includes('ipms-kpa')) {
-                hasKPA = true;
-                if (kpaCount === 0) kpaCount = 1;
-              }
-              if (steps.includes('jsc')) {
-                hasJSC = true;
-                if (jscCount === 0) jscCount = 1;
-              }
-              if (steps.includes('ipms-kpi') || steps.includes('pplan')) {
-                hasKPI = true;
-                if (kpiCount === 0) kpiCount = 1;
-              }
-              if (steps.includes('pdp')) {
-                hasPDP = true;
-                if (pdpCount === 0) pdpCount = 1;
-              }
+              if (steps.includes('ipms-kpa')) hasKPA = true;
+              if (steps.includes('jsc')) hasJSC = true;
+              if (steps.includes('ipms-kpi') || steps.includes('pplan')) hasKPI = true;
+              if (steps.includes('pdp')) hasPDP = true;
             }
           }
         }
@@ -5729,6 +5723,13 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
           hasPDP = true;
           pdpCount = pdpCount > 0 ? pdpCount : 2; // 2 Core Developmental Goals
         }
+
+        // Strictly evaluate active state based on genuine items
+        hasPA = paCount > 0 || hasPA;
+        hasJSC = jscCount > 0;
+        hasKPA = kpaCount > 0;
+        hasKPI = kpiCount > 0;
+        hasPDP = pdpCount > 0;
 
         const activeModulesCount = (hasPA ? 1 : 0) + (hasJSC ? 1 : 0) + (hasKPA ? 1 : 0) + (hasKPI ? 1 : 0) + (hasPDP ? 1 : 0);
         const complianceScore = Math.round((activeModulesCount / 5) * 100);
