@@ -5569,7 +5569,94 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
         let hasPDP = false;
         let pdpCount = 0;
 
-        // 1. Check Performance Agreement (PA)
+        // 1. Module Resolution: Check dedicated user documents first (authoritative from Supabase)
+        let foundPdpDoc = false;
+        for (const k of userKeys) {
+          for (const t of tenantCandidates) {
+            const pdpPrefixes = [
+              `pdp_${t}_${k}`,
+              `pdp_${k}`
+            ];
+            for (const docId of pdpPrefixes) {
+              const lowerId = docId.toLowerCase();
+              if (parsedDocsById.has(lowerId)) {
+                const pdoc = parsedDocsById.get(lowerId)!;
+                pdpCount = pdoc.count;
+                foundPdpDoc = true;
+                break;
+              }
+            }
+            if (foundPdpDoc) break;
+          }
+          if (foundPdpDoc) break;
+        }
+
+        let foundKpaDoc = false;
+        for (const k of userKeys) {
+          for (const t of tenantCandidates) {
+            const kpaPrefixes = [
+              `kpas_${t}_${k}`,
+              `kpas_${k}`
+            ];
+            for (const docId of kpaPrefixes) {
+              const lowerId = docId.toLowerCase();
+              if (parsedDocsById.has(lowerId)) {
+                const pdoc = parsedDocsById.get(lowerId)!;
+                kpaCount = pdoc.count;
+                foundKpaDoc = true;
+                break;
+              }
+            }
+            if (foundKpaDoc) break;
+          }
+          if (foundKpaDoc) break;
+        }
+
+        let foundJscDoc = false;
+        for (const k of userKeys) {
+          for (const t of tenantCandidates) {
+            const jscPrefixes = [
+              `job_competencies_${t}_${k}`,
+              `jsc_draft_${t}_${k}`,
+              `job_competencies_${k}`
+            ];
+            for (const docId of jscPrefixes) {
+              const lowerId = docId.toLowerCase();
+              if (parsedDocsById.has(lowerId)) {
+                const pdoc = parsedDocsById.get(lowerId)!;
+                jscCount = pdoc.count;
+                foundJscDoc = true;
+                break;
+              }
+            }
+            if (foundJscDoc) break;
+          }
+          if (foundJscDoc) break;
+        }
+
+        let foundKpiDoc = false;
+        for (const k of userKeys) {
+          for (const t of tenantCandidates) {
+            const kpiPrefixes = [
+              `kpis_${t}_${k}`,
+              `pplan_${t}_${k}`,
+              `sdbip23_${t}_${k}`
+            ];
+            for (const docId of kpiPrefixes) {
+              const lowerId = docId.toLowerCase();
+              if (parsedDocsById.has(lowerId)) {
+                const pdoc = parsedDocsById.get(lowerId)!;
+                kpiCount = pdoc.count;
+                foundKpiDoc = true;
+                break;
+              }
+            }
+            if (foundKpiDoc) break;
+          }
+          if (foundKpiDoc) break;
+        }
+
+        // 2. Fallback to Performance Agreement / Drafting Suite templates only if dedicated docs were absent
         for (const k of userKeys) {
           for (const t of tenantCandidates) {
             const paPrefixes = [
@@ -5591,14 +5678,14 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
               const lowerId = docId.toLowerCase();
               if (parsedDocsById.has(lowerId)) {
                 const pdoc = parsedDocsById.get(lowerId)!;
-                if (pdoc.count > paCount) paCount = pdoc.count;
-                if (pdoc.extra?.kpaCount && pdoc.extra.kpaCount > kpaCount) {
+                if (!foundKpiDoc && pdoc.count > kpiCount) kpiCount = pdoc.count;
+                if (!foundKpaDoc && pdoc.extra?.kpaCount && pdoc.extra.kpaCount > kpaCount) {
                   kpaCount = pdoc.extra.kpaCount;
                 }
-                if (pdoc.extra?.jscCount && pdoc.extra.jscCount > jscCount) {
+                if (!foundJscDoc && pdoc.extra?.jscCount && pdoc.extra.jscCount > jscCount) {
                   jscCount = pdoc.extra.jscCount;
                 }
-                if (pdoc.extra?.pdpCount && pdoc.extra.pdpCount > pdpCount) {
+                if (!foundPdpDoc && pdoc.extra?.pdpCount && pdoc.extra.pdpCount > pdpCount) {
                   pdpCount = pdoc.extra.pdpCount;
                 }
                 hasPA = true;
@@ -5610,118 +5697,25 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
           if (hasPA) break;
         }
 
-        // 2. Check JSC (Job Specific Competencies)
-        for (const k of userKeys) {
-          for (const t of tenantCandidates) {
-            const jscPrefixes = [
-              `job_competencies_${t}_${k}`,
-              `jsc_draft_${t}_${k}`,
-              `job_competencies_${k}`
-            ];
-            for (const docId of jscPrefixes) {
-              const lowerId = docId.toLowerCase();
-              if (parsedDocsById.has(lowerId)) {
-                const pdoc = parsedDocsById.get(lowerId)!;
-                if (pdoc.count > jscCount) jscCount = pdoc.count;
-                break;
-              }
-            }
-            if (jscCount > 0) break;
-          }
-          if (jscCount > 0) break;
-        }
+        paCount = kpiCount;
+        hasPA = hasPA || paCount > 0;
         hasJSC = jscCount > 0;
-
-        // 3. Check KPAs (strictly per-user)
-        for (const k of userKeys) {
-          for (const t of tenantCandidates) {
-            const kpaPrefixes = [
-              `kpas_${t}_${k}`,
-              `kpas_${k}`
-            ];
-            for (const docId of kpaPrefixes) {
-              const lowerId = docId.toLowerCase();
-              if (parsedDocsById.has(lowerId)) {
-                const pdoc = parsedDocsById.get(lowerId)!;
-                if (pdoc.count > kpaCount) kpaCount = pdoc.count;
-                break;
-              }
-            }
-            if (kpaCount > 0) break;
-          }
-          if (kpaCount > 0) break;
-        }
         hasKPA = kpaCount > 0;
-
-        // 4. Check KPIs (strictly per-user)
-        for (const k of userKeys) {
-          for (const t of tenantCandidates) {
-            const kpiPrefixes = [
-              `pplan_${t}_${k}`,
-              `kpis_${t}_${k}`,
-              `sdbip23_${t}_${k}`
-            ];
-            for (const docId of kpiPrefixes) {
-              const lowerId = docId.toLowerCase();
-              if (parsedDocsById.has(lowerId)) {
-                const pdoc = parsedDocsById.get(lowerId)!;
-                if (pdoc.count > kpiCount) kpiCount = pdoc.count;
-                break;
-              }
-            }
-            if (kpiCount > 0) break;
-          }
-          if (kpiCount > 0) break;
-        }
         hasKPI = kpiCount > 0;
-
-        // 5. Check PDP (Personal Development Plan - strictly per-user)
-        for (const k of userKeys) {
-          for (const t of tenantCandidates) {
-            const pdpPrefixes = [
-              `pdp_${t}_${k}`,
-              `pdp_${k}`
-            ];
-            for (const docId of pdpPrefixes) {
-              const lowerId = docId.toLowerCase();
-              if (parsedDocsById.has(lowerId)) {
-                const pdoc = parsedDocsById.get(lowerId)!;
-                if (pdoc.count > pdpCount) pdpCount = pdoc.count;
-                break;
-              }
-            }
-            if (pdpCount > 0) break;
-          }
-          if (pdpCount > 0) break;
-        }
         hasPDP = pdpCount > 0;
 
-        // 6. Check workflow completed steps from ipms_progress
+        // 3. Check workflow completed steps from ipms_progress
         for (const k of userKeys) {
           for (const t of tenantCandidates) {
             const progKey = `ipms_progress_${t}_${k}`.toLowerCase().replace(/@/g, '_');
             if (parsedDocsById.has(progKey)) {
               const steps: string[] = parsedDocsById.get(progKey)?.extra?.completedSteps || [];
-              if (steps.includes('ipms-kpa')) hasKPA = true;
-              if (steps.includes('jsc')) hasJSC = true;
-              if (steps.includes('ipms-kpi') || steps.includes('pplan')) hasKPI = true;
-              if (steps.includes('pdp')) hasPDP = true;
+              if (steps.includes('ipms-kpa') && kpaCount === 0) hasKPA = true;
+              if (steps.includes('jsc') && jscCount === 0) hasJSC = true;
+              if ((steps.includes('ipms-kpi') || steps.includes('pplan')) && kpiCount === 0) hasKPI = true;
+              if (steps.includes('pdp') && pdpCount === 0) hasPDP = true;
             }
           }
-        }
-
-        // Dedicated resolution for Municipal Manager (Mandla L. Mahlangu / Ludwig M. Mahlangu)
-        if (isMahlangu) {
-          hasPA = true;
-          paCount = paCount > 21 ? paCount : 97; // All 97 Statutory KPIs in Municipal Manager Performance Plan
-          hasJSC = true;
-          jscCount = jscCount > 0 ? jscCount : 12; // 12 Job Specific Competencies
-          hasKPA = true;
-          kpaCount = kpaCount > 0 ? kpaCount : 7; // 7 Strategic KPAs in Table 0
-          hasKPI = true;
-          kpiCount = kpiCount > 21 ? kpiCount : 97; // All 97 Statutory KPIs
-          hasPDP = true;
-          pdpCount = pdpCount > 0 ? pdpCount : 2; // 2 Core Developmental Goals
         }
 
         // Strictly evaluate active state based on genuine items
@@ -7811,7 +7805,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
         if (data && data.content) {
           try {
             const parsed = JSON.parse(data.content);
-            if (parsed && Array.isArray(parsed.items) && parsed.items.length > 0) {
+            if (parsed && Array.isArray(parsed.items)) {
               return res.json(parsed);
             }
           } catch (parseErr) {}
