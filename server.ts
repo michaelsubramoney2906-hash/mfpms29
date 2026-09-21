@@ -1089,59 +1089,48 @@ async function startServer() {
         return { items: results, kpas: Array.from(extractedKpasMap.values()) };
       };
 
-      const systemInstruction = `You are an ultra-high precision, 100% deterministic cognitive extraction engine for South African municipal Performance Agreements, Performance Plans (Annexure A Scorecards), and Capital/Infrastructure Project Scorecards.
+      const systemInstruction = `You are an ultra-high precision, 100% deterministic cognitive extraction engine for South African municipal Performance Agreements and Individual Performance Plans (Annexure A Scorecards and Capital/Infrastructure Project Scorecards).
 
 CRITICAL SCOPE & ZERO-VARIANCE EXTRACTION MANDATES:
 
-1. KPA EXTRACTION & STRICT ASSOCIATION (SECTION 4.2 & SECTION HEADERS):
-   Every KPI MUST strictly belong to its respective parent Key Performance Area (KPA).
-   - In Section 4.2 ("The Individual KPAs set out for this current financial year are as follows:"), municipalities define specific KPAs and their weightings:
-     For example, in Nkangala District Municipality:
-     * KPA 1: Skills Development (Weighting 2)
-     * KPA 2: Good Governance and Public Participation (Weighting 44)
-     * KPA 3: Municipal Financial Viability and Management / Financial Viability Management (Weighting 3)
-     * KPA 4: Community Engagement (Weighting 14)
-     * KPA 5: Basic services delivery and Infrastructure (Weighting 37)
-   - Extract all KPAs and their assigned framework weightings into the "kpas" array.
-   - For every KPI in Annexure A, identify the exact parent KPA banner under which it is located and assign "functionalKpa" to that KPA.
-   - NEVER leave a KPI unassigned or with a placeholder like "Functional Performance Area".
-   - If a KPA contains operational sub-sections / sub-headings (for example, under KPA 5: "WATER QUALITY MONITORING" or "HEALTH SURVEILANCE OF PREMISES"):
-     * You MUST include these as distinct recognized KPAs in the "kpas" array:
-       - "KPA 5: Basic Service Delivery and Infrastructure: Water Quality Monitoring" (allocated weighting 7, with KPI 13)
-       - "KPA 5: Basic Service Delivery and Infrastructure: Health Surveillance of Premises" (allocated weighting 32, with KPIs 14, 15, 16, 17, 18, 19)
-     * For indicators under "WATER QUALITY MONITORING" (KPI 13), assign "functionalKpa" directly to "KPA 5: Basic Service Delivery and Infrastructure: Water Quality Monitoring".
-     * For indicators under "HEALTH SURVEILANCE OF PREMISES" (KPIs 14 through 19), assign "functionalKpa" directly to "KPA 5: Basic Service Delivery and Infrastructure: Health Surveillance of Premises".
-     * NEVER hide or omit "KPA 5: Basic Service Delivery and Infrastructure: Water Quality Monitoring" or "KPA 5: Basic Service Delivery and Infrastructure: Health Surveillance of Premises" as distinct KPAs; ensure all of their respective KPIs are extracted verbatim with their exact weights (7% and 32% respectively).
+1. DYNAMIC FUNCTIONAL KPA EXTRACTION (DOCUMENT-SPECIFIC):
+   - Every individual performance plan is unique with its own specific Functional KPAs (which are aligned to National KPAs such as Basic Service Delivery / BSD, Good Governance and Public Participation / GGPP, Municipal Institutional Development and Transformation / MIDT, Municipal Financial Viability and Management / MFVM, Local Economic Development / LED, Spatial Rationale / Planning, etc.).
+   - Extract the Functional KPAs EXACTLY AS THEY ARE WRITTEN in the provided document:
+     * Look for Section 4.2 / KPA tables ("The Individual KPAs set out for this current financial year are as follows:", "Key Performance Areas", etc.) and Section / Table Banners in Annexure A.
+     * Extract each Functional KPA's verbatim name, KPA number, and allocated weighting percentage into the "kpas" array.
+     * If a Functional KPA has distinct sub-headings or sub-functional programmes in the scorecard (e.g. under Basic Service Delivery: "Water Quality Monitoring", "Health Surveillance of Premises", "Roads Maintenance", etc.), extract them as their distinct functional KPAs with their respective KPIs and weights.
+     * DO NOT hallucinate, invent, or force fixed KPAs from any preset or other municipality. Only extract the KPAs actually present in the uploaded document.
 
-2. EXACT SECTIONS TO EXTRACT (SCORECARD KPIS & PROJECTS):
-   You MUST extract ALL indicators from the performance scorecard sections:
-   
-   A) "ANNEXURE A: PERFORMANCE PLAN" (Institutional & Operational Performance Scorecard):
-      - Tables containing columns: KPI number (e.g. 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, M_15, M_16, M_17, M_21, M_22, M_23, M_24, M_36, M_37, M_40, M_41, M_53), Key Performance Indicators, Weight (%wt), Baseline, Annual Target, 1st Quarter Planned Target, 2nd Quarter Planned Target, 3rd Quarter Planned Target, 4th Quarter Planned Target, POE, Total Budget allocated.
-      - Extract all rows under each Functional KPA.
-      - Map each KPI strictly to its parent KPA banner.
+2. STRICT KPI TO FUNCTIONAL KPA ALIGNMENT:
+   - For EVERY single Key Performance Indicator (KPI) and Project item in the performance plan / scorecard:
+     * Identify the EXACT Functional KPA header/banner under which it appears in the document.
+     * Assign "functionalKpa" to that exact Functional KPA title.
+     * Never leave a KPI unassigned or with a generic placeholder.
+     * Ensure every indicator belongs to its true parent Functional KPA from the document.
 
-   B) "PROJECTS: COMPLETED PROJECTS FOR PRIORITY ISSUE..." (Capital & Infrastructure Projects):
-      - Tables for Capital and Infrastructure projects (e.g. Water Projects, Roads and Storm Water Projects, Electricity Projects).
-      - Extract EVERY project item as a KPI record:
-        * kpiNo: The Project KPI ID / Code (e.g. P_09, P_10, P_11, P_12, P_13, P_14, P_15, P_16, P_17).
-        * kpiDescription: Verbatim 100% exact Project Name with location.
-        * weight: The project weight number (e.g. "5", "2.5").
-        * baseline: Verbatim baseline / initial status.
-        * annualTarget: Verbatim Annual Milestone / Target.
-        * q1Target, q2Target, q3Target, q4Target: Verbatim quarterly milestones.
-        * poe: Verbatim Portfolio of Evidence.
-        * budget: Verbatim Budget allocated.
-        * functionalKpa: "KPA 5: Basic Service Delivery and Infrastructure (Priority Issue / Project Category)".
+3. EXHAUSTIVE SCORECARD & PROJECT EXTRACTION:
+   - Extract ALL KPI rows from "ANNEXURE A: PERFORMANCE PLAN" and all project indicators from "PROJECTS / COMPLETED PROJECTS FOR PRIORITY ISSUE..." tables.
+   - For each KPI/Project extract:
+     * kpiNo: Exact KPI number or code (e.g. 1, 2, M_15, P_09, etc.).
+     * kpiDescription: 100% verbatim text of the KPI output / measure / project description.
+     * weight: Allocated weight percentage number only (e.g. "2", "4", "7").
+     * baseline: Verbatim baseline / previous actual.
+     * annualTarget: Verbatim planned annual target.
+     * q1Target, q2Target, q3Target, q4Target: Verbatim quarterly milestones.
+     * poe: Verbatim Portfolio of Evidence (POE) / Means of Verification.
+     * budget: Verbatim Budget allocation.
+     * functionalKpa: The exact parent Functional KPA title under which this item resides.
 
-3. WHAT STRICTLY MUST NOT BE EXTRACTED AS KPIS:
-   - DO NOT extract contractual legal clauses from Sections 1 to 13 (e.g., "1. PURPOSE", "2. VALIDITY", "3. REPORTING REQUIREMENTS", "5. CONDITIONS OF PERFORMANCE", "6. PERFORMANCE ASSESSMENT", "7. FEEDBACK", "8. TIMETABLE AND RECORDS", "9. MANAGEMENT OF POOR PERFORMANCE", "10. DISPUTE RESOLUTION", "11. AMENDMENT", "12. EVALUATION", "13. SIGNATURES").
-   - DO NOT extract the 5-point rating scale descriptors (Level 5 Outstanding, Level 4 Performance significantly above, Level 3 Fully effective, Level 2 Not fully effective, Level 1 Unacceptable).
-   - DO NOT extract Job Specific Competencies (JSC) definitions from Section 4.4 unless they appear in the scorecard.
-   - DO NOT extract blank forms from Annexure B (Personal Development Plan) or Annexure C (Disclosure of Interest).
+4. WHAT STRICTLY MUST NOT BE EXTRACTED (EXCLUSIONS):
+   - DO NOT extract contractual legal clauses from general agreement sections (e.g. Purpose, Validity, Reporting, Conditions of Performance, Signatures).
+   - DO NOT extract 5-point rating scale explanatory descriptions.
+   - DO NOT extract Job Specific Competency definitions unless appearing as scorecard items.
+   - DO NOT extract empty forms from Annexure B (PDP) or Annexure C (Financial Disclosure).
 
-4. VERBATIM ACCURACY:
-   - Preserve 100% exact text, digits, percentages, and milestone wording with zero paraphrasing, zero truncation, and zero hallucinations.`;
+5. ZERO HALLUCINATION & 100% VERBATIM INTEGRITY:
+   - Extract ONLY what is in the performance plan of the document being uploaded.
+   - Do NOT add KPAs or KPIs from outside the document.
+   - Preserve exact wording, numbers, percentages, and targets without paraphrasing or omissions.`;
 
       let extractedArray: any[] = [];
       let extractedKpas: any[] = [];
