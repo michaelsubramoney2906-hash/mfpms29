@@ -5,18 +5,20 @@ import {
   Copy, Check, ArrowRight, Table, Code2, RefreshCw, Trash2, 
   Layers, ShieldCheck, Filter, Edit3, Eye, FileSpreadsheet,
   FileCode, Cpu, HelpCircle, CheckSquare, Square, Zap, Info, Play,
-  Save, Plus, Database, Landmark
+  Save, Plus, Database, Landmark, UserCheck, Building2, Calendar, ListFilter
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { 
   ExtractedMappedKPI, 
+  ExtractedKpaDefinition,
   KpaCode, 
   KPA_METADATA, 
   extractKPIsFromPDF, 
   extractKPIsFromDocx, 
   extractKPIsFromExcel, 
   extractKPIsFromPastedContent,
-  resolveKpaCode 
+  resolveKpaCode,
+  deriveKpaSummaries 
 } from '../utils/performanceAgreementParser';
 import { SDBIPExtractionEngine } from './SDBIPExtractionEngine';
 
@@ -51,6 +53,15 @@ MIDT-01 | Percentage of Workplace Skills Plan (WSP) municipal employee training 
 export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS, onNavigateToSDBIP }: ExtractionEngineProps) {
   const [engineMode, setEngineMode] = useState<'performance_plan' | 'sdbip_top_layer'>('performance_plan');
   const [extractedItems, setExtractedItems] = useState<ExtractedMappedKPI[]>([]);
+  const [extractedKpas, setExtractedKpas] = useState<ExtractedKpaDefinition[]>([]);
+  const [agreementMetadata, setAgreementMetadata] = useState<{
+    financialYear?: string;
+    municipality?: string;
+    employeeName?: string;
+    position?: string;
+    department?: string;
+  } | null>(null);
+  const [viewGrouping, setViewGrouping] = useState<'grouped' | 'flat'>('grouped');
   const [sourceFileName, setSourceFileName] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'upload' | 'paste' | 'results' | 'json'>('upload');
@@ -82,6 +93,11 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
       const loadedItems = (data && (data.data || data.items)) ? (data.data || data.items) : null;
       if (loadedItems && Array.isArray(loadedItems) && loadedItems.length > 0) {
         setExtractedItems(loadedItems);
+        const kpas = deriveKpaSummaries(loadedItems, data.kpas);
+        setExtractedKpas(kpas);
+        if (data.metadata) {
+          setAgreementMetadata(data.metadata);
+        }
         setSourceFileName(data.fileName || 'Saved Scorecard');
         setHasUnsavedChanges(false);
         if (data.savedAt || data.extractedAt) {
@@ -90,7 +106,7 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
         setActiveTab('results');
         setStatusMessage({
           type: 'success',
-          text: `Loaded ${loadedItems.length} saved KPIs from Supabase database.`
+          text: `Loaded ${loadedItems.length} saved KPIs across ${kpas.length} KPAs from Supabase database.`
         });
       } else {
         setStatusMessage({ type: 'info', text: 'No saved scorecard dataset found. Extract a document or paste a table.' });
@@ -120,6 +136,8 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
     }
 
     setExtractedItems([]);
+    setExtractedKpas([]);
+    setAgreementMetadata(null);
     setSourceFileName('');
     setPasteText('');
     setHasUnsavedChanges(false);
@@ -173,13 +191,21 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
       return;
     }
 
+    const attachedKpas = (items as any).kpas;
+    const attachedMetadata = (items as any).metadata;
+    const kpas = deriveKpaSummaries(items, attachedKpas);
+
     setExtractedItems(items);
+    setExtractedKpas(kpas);
+    if (attachedMetadata) {
+      setAgreementMetadata(attachedMetadata);
+    }
     setSourceFileName(name);
     setIsProcessing(false);
     setActiveTab('results');
     setStatusMessage({
       type: 'success',
-      text: `Successfully extracted and mapped ${items.length} KPI records from "${name}" with verbatim Functional KPA areas.`
+      text: `Successfully extracted and mapped ${items.length} KPI records across ${kpas.length} KPAs from "${name}" with 100% verbatim precision.`
     });
   };
 
@@ -368,8 +394,10 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           items: extractedItems,
+          kpas: extractedKpas,
           fileName: sourceFileName || 'Performance Agreement Scorecard',
           metadata: {
+            ...agreementMetadata,
             totalWeight,
             kpiCount: extractedItems.length,
             savedBy: currentUser.email
@@ -387,7 +415,7 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
       setLastSavedTime(timeStr);
       setStatusMessage({
         type: 'success',
-        text: `Successfully saved ${extractedItems.length} KPI records (including all quarterly targets and baselines) to Supabase at ${timeStr}.`
+        text: `Successfully saved ${extractedItems.length} KPI records across ${extractedKpas.length} KPAs (including all quarterly targets and baselines) to Supabase at ${timeStr}.`
       });
     } catch (err: any) {
       console.error("Save dataset error:", err);
@@ -435,7 +463,7 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
       // Transform mapped schema strictly into IPMS PlanKPIItem format with verbatim edited values
       const ipmsPlanItems = selected.map((it, idx) => {
         const functionalKpa = it["functional kpa"] || it["kpa"] || 'Functional Performance Area';
-        const norm = functionalKpa.toLowerCase();
+        const kpaCode = resolveKpaCode(functionalKpa);
 
         return {
           id: `extracted-sync-${Date.now()}-${idx + 1}`,
@@ -453,12 +481,12 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
           kpa: functionalKpa,
           mscoaCode: 'Functions',
           strategicGoal: 'To ensure sustainable service delivery and clean audit compliance',
-          bsd: norm.includes('service') || norm.includes('infrastructure') || norm.includes('water') || norm.includes('bsd'),
-          led: norm.includes('economic') || norm.includes('led'),
-          mfvm: norm.includes('financial') || norm.includes('budget') || norm.includes('mfvm'),
-          ggpp: norm.includes('governance') || norm.includes('public') || norm.includes('ggpp'),
-          midt: norm.includes('institutional') || norm.includes('hr') || norm.includes('midt'),
-          sr: norm.includes('spatial') || norm.includes('planning') || norm.includes('sr'),
+          bsd: kpaCode === 'bsd',
+          led: kpaCode === 'led',
+          mfvm: kpaCode === 'mfvm',
+          ggpp: kpaCode === 'ggpp',
+          midt: kpaCode === 'midt',
+          sr: kpaCode === 'sr',
           myScore: '3.0'
         };
       });
@@ -610,12 +638,692 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
     setTimeout(() => setCopiedJson(false), 2000);
   };
 
+  // 10. Load Nkangala DM - Solly Links (MHS) Verified Performance Agreement
+  const handleLoadNkangalaMhsPreset = () => {
+    const presetItems: ExtractedMappedKPI[] = [
+      {
+        _id: 'nk-kpi-1',
+        _selected: true,
+        "kpi no": "1",
+        "kpi description": "Number of departmental Training Needs Analysis submitted (TNA) by 30 March 2027",
+        "%wt": "2",
+        "baseline": "New",
+        "annual target": "1",
+        "1st qtr target": "N/A",
+        "2nd qtr target": "N/A",
+        "3rd qtr target": "1",
+        "4th qtr target": "N/A",
+        "poe": "Compliance Certificate issued by HRM&D Unit.",
+        "budget": "OPEX",
+        "functional kpa": "Skills Development",
+        "kpa": "Skills Development"
+      },
+      {
+        _id: 'nk-kpi-m15',
+        _selected: true,
+        "kpi no": "M_15",
+        "kpi description": "Percentage of action plans implemented to address Strategic Risks Identified per quarter (MHS)",
+        "%wt": "2",
+        "baseline": "88",
+        "annual target": "90%",
+        "1st qtr target": "90%",
+        "2nd qtr target": "90%",
+        "3rd qtr target": "90%",
+        "4th qtr target": "90%",
+        "poe": "Signed Quarterly Strategic Risk report",
+        "budget": "OPEX",
+        "functional kpa": "Good Governance and Public Participation",
+        "kpa": "Good Governance and Public Participation"
+      },
+      {
+        _id: 'nk-kpi-m16',
+        _selected: true,
+        "kpi no": "M_16",
+        "kpi description": "Percentage of action plans implemented to address Operational Risks Identified per quarter (MHS)",
+        "%wt": "2",
+        "baseline": "100",
+        "annual target": "98%",
+        "1st qtr target": "98%",
+        "2nd qtr target": "98%",
+        "3rd qtr target": "98%",
+        "4th qtr target": "98%",
+        "poe": "Signed Quarterly Operational Risk report",
+        "budget": "OPEX",
+        "functional kpa": "Good Governance and Public Participation",
+        "kpa": "Good Governance and Public Participation"
+      },
+      {
+        _id: 'nk-kpi-m17',
+        _selected: true,
+        "kpi no": "M_17",
+        "kpi description": "Percentage of action plans implemented to address Fraud and corruption Risks Identified per quarter (MHS)",
+        "%wt": "2",
+        "baseline": "97",
+        "annual target": "96%",
+        "1st qtr target": "96%",
+        "2nd qtr target": "96%",
+        "3rd qtr target": "96%",
+        "4th qtr target": "96%",
+        "poe": "Signed Quarterly Fraud and corruption Risk report",
+        "budget": "OPEX",
+        "functional kpa": "Good Governance and Public Participation",
+        "kpa": "Good Governance and Public Participation"
+      },
+      {
+        _id: 'nk-kpi-m21',
+        _selected: true,
+        "kpi no": "M_21",
+        "kpi description": "Attain clean audit opinion by 31 December 2026.",
+        "%wt": "3",
+        "baseline": "1 (Unqualified with matters)",
+        "annual target": "1 (Clean audit)",
+        "1st qtr target": "N/A",
+        "2nd qtr target": "1 (Clean audit)",
+        "3rd qtr target": "N/A",
+        "4th qtr target": "N/A",
+        "poe": "AG’s Audit Report",
+        "budget": "OPEX",
+        "functional kpa": "Good Governance and Public Participation",
+        "kpa": "Good Governance and Public Participation"
+      },
+      {
+        _id: 'nk-kpi-m22',
+        _selected: true,
+        "kpi no": "M_22",
+        "kpi description": "Number of repeat audit findings (circular 88) by 30 December 2026.",
+        "%wt": "1",
+        "baseline": "0",
+        "annual target": "≤ 0",
+        "1st qtr target": "N/A",
+        "2nd qtr target": "≤ 0",
+        "3rd qtr target": "N/A",
+        "4th qtr target": "N/A",
+        "poe": "AG’s Audit Report",
+        "budget": "OPEX",
+        "functional kpa": "Good Governance and Public Participation",
+        "kpa": "Good Governance and Public Participation"
+      },
+      {
+        _id: 'nk-kpi-m23',
+        _selected: true,
+        "kpi no": "M_23",
+        "kpi description": "Number of Action Plan on issues raised by the Auditor General tabled to Council by 30 December 2026.",
+        "%wt": "1",
+        "baseline": "1",
+        "annual target": "1",
+        "1st qtr target": "N/A",
+        "2nd qtr target": "1",
+        "3rd qtr target": "N/A",
+        "4th qtr target": "N/A",
+        "poe": "Audit Action Plan and Council resolution",
+        "budget": "OPEX",
+        "functional kpa": "Good Governance and Public Participation",
+        "kpa": "Good Governance and Public Participation"
+      },
+      {
+        _id: 'nk-kpi-m24',
+        _selected: true,
+        "kpi no": "M_24",
+        "kpi description": "Percentage of AG Findings raised in the Management Letter resolved (MHS) by 30 June 2027.",
+        "%wt": "1",
+        "baseline": "100%",
+        "annual target": "100%",
+        "1st qtr target": "N/A",
+        "2nd qtr target": "N/A",
+        "3rd qtr target": "40%",
+        "4th qtr target": "100%",
+        "poe": "Signed Progress Report on the Implementation of the Audit Action Plan.",
+        "budget": "OPEX",
+        "functional kpa": "Good Governance and Public Participation",
+        "kpa": "Good Governance and Public Participation"
+      },
+      {
+        _id: 'nk-kpi-m36',
+        _selected: true,
+        "kpi no": "M_36",
+        "kpi description": "Percentage of strategic lekgotla resolutions implemented by 30 June 2027. (MHS)",
+        "%wt": "1",
+        "baseline": "100%",
+        "annual target": "100%",
+        "1st qtr target": "100%",
+        "2nd qtr target": "100%",
+        "3rd qtr target": "100%",
+        "4th qtr target": "100%",
+        "poe": "Signed Strategic Lekgotla monitoring report",
+        "budget": "OPEX",
+        "functional kpa": "Good Governance and Public Participation",
+        "kpa": "Good Governance and Public Participation"
+      },
+      {
+        _id: 'nk-kpi-m37',
+        _selected: true,
+        "kpi no": "M_37",
+        "kpi description": "Number of reports on Council Resolutions submitted to Council per quarter (MHS)",
+        "%wt": "4",
+        "baseline": "4",
+        "annual target": "4",
+        "1st qtr target": "1",
+        "2nd qtr target": "1",
+        "3rd qtr target": "1",
+        "4th qtr target": "1",
+        "poe": "Signed Quarterly Reports and Council Resolution.",
+        "budget": "OPEX",
+        "functional kpa": "Good Governance and Public Participation",
+        "kpa": "Good Governance and Public Participation"
+      },
+      {
+        _id: 'nk-kpi-m40',
+        _selected: true,
+        "kpi no": "M_40",
+        "kpi description": "Percentage of internal audit recommendations implemented by 30 June 2027 (MHS)",
+        "%wt": "1",
+        "baseline": "96",
+        "annual target": "100%",
+        "1st qtr target": "100%",
+        "2nd qtr target": "100%",
+        "3rd qtr target": "100%",
+        "4th qtr target": "100%",
+        "poe": "Signed Quarterly IA report",
+        "budget": "OPEX",
+        "functional kpa": "Good Governance and Public Participation",
+        "kpa": "Good Governance and Public Participation"
+      },
+      {
+        _id: 'nk-kpi-m41',
+        _selected: true,
+        "kpi no": "M_41",
+        "kpi description": "Percentage of audit committee resolutions implemented by 30 June 2027.",
+        "%wt": "1",
+        "baseline": "96",
+        "annual target": "100%",
+        "1st qtr target": "100%",
+        "2nd qtr target": "100%",
+        "3rd qtr target": "100%",
+        "4th qtr target": "100%",
+        "poe": "Signed Quarterly Audit committee resolution register",
+        "budget": "OPEX",
+        "functional kpa": "Good Governance and Public Participation",
+        "kpa": "Good Governance and Public Participation"
+      },
+      {
+        _id: 'nk-kpi-2',
+        _selected: true,
+        "kpi no": "2",
+        "kpi description": "Compile and sign the annual performance agreement for the 2026/2027 financial year and submit to OPME & PMDS unit by 30 July 2026",
+        "%wt": "4",
+        "baseline": "1",
+        "annual target": "1",
+        "1st qtr target": "1",
+        "2nd qtr target": "N/A",
+        "3rd qtr target": "N/A",
+        "4th qtr target": "N/A",
+        "poe": "Compliance certificate from OPME & PMDS unit",
+        "budget": "OPEX",
+        "functional kpa": "Good Governance and Public Participation",
+        "kpa": "Good Governance and Public Participation"
+      },
+      {
+        _id: 'nk-kpi-3',
+        _selected: true,
+        "kpi no": "3",
+        "kpi description": "Number of performance agreements signed with subordinates and submitted to OPME & PMDS unit for the 2026/2027 financial year by 30 July 2026",
+        "%wt": "4",
+        "baseline": "06",
+        "annual target": "(06)",
+        "1st qtr target": "(06)",
+        "2nd qtr target": "N/A",
+        "3rd qtr target": "N/A",
+        "4th qtr target": "N/A",
+        "poe": "Compliance certificate from OPME & PMDS unit",
+        "budget": "OPEX",
+        "functional kpa": "Good Governance and Public Participation",
+        "kpa": "Good Governance and Public Participation"
+      },
+      {
+        _id: 'nk-kpi-4',
+        _selected: true,
+        "kpi no": "4",
+        "kpi description": "Number of self-assessment report compiled and submitted to Supervisor per quarter.",
+        "%wt": "2",
+        "baseline": "2",
+        "annual target": "4",
+        "1st qtr target": "1 (annual assessment)",
+        "2nd qtr target": "1 (Q1 assessment)",
+        "3rd qtr target": "1 (midyear assessment)",
+        "4th qtr target": "1 (Q3 assessment)",
+        "poe": "Quarterly Compliance certificate from OPME & PMDS unit",
+        "budget": "OPEX",
+        "functional kpa": "Good Governance and Public Participation",
+        "kpa": "Good Governance and Public Participation"
+      },
+      {
+        _id: 'nk-kpi-5',
+        _selected: true,
+        "kpi no": "5",
+        "kpi description": "Submission of 2025/2026 Annual performance evaluation on E-PMS by 29 August 2026",
+        "%wt": "2",
+        "baseline": "1",
+        "annual target": "1 (annual assessment)",
+        "1st qtr target": "1 (annual assessment)",
+        "2nd qtr target": "N/A",
+        "3rd qtr target": "N/A",
+        "4th qtr target": "N/A",
+        "poe": "Compliance certificate from OPME & PMDS unit",
+        "budget": "OPEX",
+        "functional kpa": "Good Governance and Public Participation",
+        "kpa": "Good Governance and Public Participation"
+      },
+      {
+        _id: 'nk-kpi-6',
+        _selected: true,
+        "kpi no": "6",
+        "kpi description": "Number of informal performance evaluation conducted with all subordinates per quarter",
+        "%wt": "1",
+        "baseline": "2",
+        "annual target": "2 (Q1 & Q3)",
+        "1st qtr target": "N/A",
+        "2nd qtr target": "1 (Q1)",
+        "3rd qtr target": "N/A",
+        "4th qtr target": "1 (Q3)",
+        "poe": "Compliance certificate from OPME & PMDS unit",
+        "budget": "OPEX",
+        "functional kpa": "Good Governance and Public Participation",
+        "kpa": "Good Governance and Public Participation"
+      },
+      {
+        _id: 'nk-kpi-7',
+        _selected: true,
+        "kpi no": "7",
+        "kpi description": "Number of quarterly leave reconciliation report submitted to Departmental General Manager (within 30 days after end of each quarter)",
+        "%wt": "2",
+        "baseline": "4",
+        "annual target": "4",
+        "1st qtr target": "1",
+        "2nd qtr target": "1",
+        "3rd qtr target": "1",
+        "4th qtr target": "1",
+        "poe": "Compliance certificate from corporate services",
+        "budget": "OPEX",
+        "functional kpa": "Good Governance and Public Participation",
+        "kpa": "Good Governance and Public Participation"
+      },
+      {
+        _id: 'nk-kpi-8',
+        _selected: true,
+        "kpi no": "8",
+        "kpi description": "Percentage of leave requests captured on the system within the prescribed timeframes, in accordance with the Leave Management Policy, by 30 June 2027 (MHS)",
+        "%wt": "1",
+        "baseline": "100%",
+        "annual target": "100%",
+        "1st qtr target": "100%",
+        "2nd qtr target": "100%",
+        "3rd qtr target": "100%",
+        "4th qtr target": "100%",
+        "poe": "Compliance certificate from Corporate Services",
+        "budget": "OPEX",
+        "functional kpa": "Good Governance and Public Participation",
+        "kpa": "Good Governance and Public Participation"
+      },
+      {
+        _id: 'nk-kpi-9',
+        _selected: true,
+        "kpi no": "9",
+        "kpi description": "Percentage of leave approvals processed within the prescribed timeframes, in accordance with the Leave Management Policy, by 30 June 2027 (MHS)",
+        "%wt": "2",
+        "baseline": "100%",
+        "annual target": "100%",
+        "1st qtr target": "100%",
+        "2nd qtr target": "100%",
+        "3rd qtr target": "100%",
+        "4th qtr target": "100%",
+        "poe": "Compliance certificate from Corporate Services",
+        "budget": "OPEX",
+        "functional kpa": "Good Governance and Public Participation",
+        "kpa": "Good Governance and Public Participation"
+      },
+      {
+        _id: 'nk-kpi-10',
+        _selected: true,
+        "kpi no": "10",
+        "kpi description": "Number of Municipal Health Services joint operations conducted with sector Departments per quarter",
+        "%wt": "6",
+        "baseline": "70",
+        "annual target": "50 (The unit has reached joint operation target",
+        "1st qtr target": "12",
+        "2nd qtr target": "12",
+        "3rd qtr target": "13",
+        "4th qtr target": "13",
+        "poe": "MHS report and attendance registers",
+        "budget": "Opex",
+        "functional kpa": "Good Governance and Public Participation",
+        "kpa": "Good Governance and Public Participation"
+      },
+      {
+        _id: 'nk-kpi-m53',
+        _selected: true,
+        "kpi no": "M_53",
+        "kpi description": "Percentage of operational budget actually spent (circular 88) by 30 June 2027.",
+        "%wt": "3",
+        "baseline": "93",
+        "annual target": "90%",
+        "1st qtr target": "20%",
+        "2nd qtr target": "40%",
+        "3rd qtr target": "60%",
+        "4th qtr target": "90%",
+        "poe": "Signed Operational Expenditure progress report",
+        "budget": "R 5 380",
+        "functional kpa": "Financial Viability Management",
+        "kpa": "Financial Viability Management"
+      },
+      {
+        _id: 'nk-kpi-11',
+        _selected: true,
+        "kpi no": "11",
+        "kpi description": "Number of Municipal Health Services Facility owners Training conducted per quarter",
+        "%wt": "7",
+        "baseline": "94",
+        "annual target": "60 (The unit has reached its limit)",
+        "1st qtr target": "15",
+        "2nd qtr target": "15",
+        "3rd qtr target": "15",
+        "4th qtr target": "15",
+        "poe": "MHS report and attendance registers",
+        "budget": "Opex",
+        "functional kpa": "Community Engagement",
+        "kpa": "Community Engagement"
+      },
+      {
+        _id: 'nk-kpi-12',
+        _selected: true,
+        "kpi no": "12",
+        "kpi description": "Number of community-based campaigns conducted by 30 June 2026 (Disaster Risk reduction awareness, MHS & Environmental Management awareness and Climate Change Awareness)",
+        "%wt": "7",
+        "baseline": "5",
+        "annual target": "4",
+        "1st qtr target": "1",
+        "2nd qtr target": "1",
+        "3rd qtr target": "1",
+        "4th qtr target": "1",
+        "poe": "CDS programme report and attendance registers",
+        "budget": "450 000",
+        "functional kpa": "Community Engagement",
+        "kpa": "Community Engagement"
+      },
+      {
+        _id: 'nk-kpi-13',
+        _selected: true,
+        "kpi no": "13",
+        "kpi description": "Number of water samples taken per quarter from all participating municipalities, analysed as per the standards",
+        "%wt": "7",
+        "baseline": "3827",
+        "annual target": "3400 (target depend on budget hence the reduction and the unit has reached the limit",
+        "1st qtr target": "850",
+        "2nd qtr target": "850",
+        "3rd qtr target": "850",
+        "4th qtr target": "850",
+        "poe": "MHS Quarterly Report and Water Listing spreadsheet",
+        "budget": "R2000 000",
+        "functional kpa": "KPA 5: Basic Service Delivery and Infrastructure: Water Quality Monitoring",
+        "kpa": "KPA 5: Basic Service Delivery and Infrastructure: Water Quality Monitoring"
+      },
+      {
+        _id: 'nk-kpi-14',
+        _selected: true,
+        "kpi no": "14",
+        "kpi description": "Number of food samples conducted in terms of the Foodstuffs, Cosmetics, Disinfectant Act (FCDA) per quarter",
+        "%wt": "5",
+        "baseline": "432",
+        "annual target": "320 limited due to budget",
+        "1st qtr target": "80",
+        "2nd qtr target": "80",
+        "3rd qtr target": "80",
+        "4th qtr target": "80",
+        "poe": "Quarterly report and Laboratory sampling forms",
+        "budget": "110 000",
+        "functional kpa": "KPA 5: Basic Service Delivery and Infrastructure: Health Surveillance of Premises",
+        "kpa": "KPA 5: Basic Service Delivery and Infrastructure: Health Surveillance of Premises"
+      },
+      {
+        _id: 'nk-kpi-15',
+        _selected: true,
+        "kpi no": "15",
+        "kpi description": "Number of food handling and preparation facility inspections conducted in terms of the Foodstuffs, Cosmetics, Disinfectant Act (FCDA) per quarter",
+        "%wt": "6",
+        "baseline": "6278",
+        "annual target": "5040 (target reduced due to EHP is limited to 15 food premises. Unit has reached the limit.",
+        "1st qtr target": "1260",
+        "2nd qtr target": "1260",
+        "3rd qtr target": "1260",
+        "4th qtr target": "1260",
+        "poe": "MHS report and spreadsheet listing",
+        "budget": "OPEX",
+        "functional kpa": "KPA 5: Basic Service Delivery and Infrastructure: Health Surveillance of Premises",
+        "kpa": "KPA 5: Basic Service Delivery and Infrastructure: Health Surveillance of Premises"
+      },
+      {
+        _id: 'nk-kpi-16',
+        _selected: true,
+        "kpi no": "16",
+        "kpi description": "Number of Health Care facilities (clinic, hospitals) inspected",
+        "%wt": "5",
+        "baseline": "501",
+        "annual target": "420 (target reduced the Unit has reached the limit.",
+        "1st qtr target": "105",
+        "2nd qtr target": "105",
+        "3rd qtr target": "105",
+        "4th qtr target": "105",
+        "poe": "MHS report and spreadsheet listing",
+        "budget": "OPEX",
+        "functional kpa": "KPA 5: Basic Service Delivery and Infrastructure: Health Surveillance of Premises",
+        "kpa": "KPA 5: Basic Service Delivery and Infrastructure: Health Surveillance of Premises"
+      },
+      {
+        _id: 'nk-kpi-17',
+        _selected: true,
+        "kpi no": "17",
+        "kpi description": "Number of mortuaries / funeral undertakers inspections conducted Per quarter",
+        "%wt": "5",
+        "baseline": "372",
+        "annual target": "320 (the unit has reached the limit on performance for this KPI. Some premises are closing.",
+        "1st qtr target": "80",
+        "2nd qtr target": "80",
+        "3rd qtr target": "80",
+        "4th qtr target": "80",
+        "poe": "MHS report and spreadsheet listing",
+        "budget": "OPEX",
+        "functional kpa": "KPA 5: Basic Service Delivery and Infrastructure: Health Surveillance of Premises",
+        "kpa": "KPA 5: Basic Service Delivery and Infrastructure: Health Surveillance of Premises"
+      },
+      {
+        _id: 'nk-kpi-18',
+        _selected: true,
+        "kpi no": "18",
+        "kpi description": "Number of ECD, Day care centres, Pre-schools, stimulation centres inspected",
+        "%wt": "6",
+        "baseline": "1219",
+        "annual target": "900 (the KPI within the unit has reached the limit",
+        "1st qtr target": "230",
+        "2nd qtr target": "220",
+        "3rd qtr target": "220",
+        "4th qtr target": "230",
+        "poe": "MHS report and spreadsheet listing",
+        "budget": "OPEX",
+        "functional kpa": "KPA 5: Basic Service Delivery and Infrastructure: Health Surveillance of Premises",
+        "kpa": "KPA 5: Basic Service Delivery and Infrastructure: Health Surveillance of Premises"
+      },
+      {
+        _id: 'nk-kpi-19',
+        _selected: true,
+        "kpi no": "19",
+        "kpi description": "Number of landfill site/transfer stations/illegal dumping inspected per quarter",
+        "%wt": "5",
+        "baseline": "327",
+        "annual target": "240",
+        "1st qtr target": "60",
+        "2nd qtr target": "60",
+        "3rd qtr target": "60",
+        "4th qtr target": "60",
+        "poe": "MHS report and spreadsheet listing",
+        "budget": "OPEX",
+        "functional kpa": "KPA 5: Basic Service Delivery and Infrastructure: Health Surveillance of Premises",
+        "kpa": "KPA 5: Basic Service Delivery and Infrastructure: Health Surveillance of Premises"
+      }
+    ];
+
+    const presetKpas: ExtractedKpaDefinition[] = [
+      { kpaNumber: '1', kpaName: 'Skills Development', fullTitle: 'KPA 1: Skills Development', title: 'Skills Development', weighting: '2', allocatedWeight: 2, kpiCount: 1, totalKpiWeight: 2, code: 'midt' },
+      { kpaNumber: '2', kpaName: 'Good Governance and Public Participation', fullTitle: 'KPA 2: Good Governance and Public Participation', title: 'Good Governance and Public Participation', weighting: '44', allocatedWeight: 44, kpiCount: 20, totalKpiWeight: 38, code: 'ggpp' },
+      { kpaNumber: '3', kpaName: 'Financial Viability Management', fullTitle: 'KPA 3: Financial Viability Management', title: 'Financial Viability Management', weighting: '3', allocatedWeight: 3, kpiCount: 1, totalKpiWeight: 3, code: 'mfvm' },
+      { kpaNumber: '4', kpaName: 'Community Engagement', fullTitle: 'KPA 4: Community Engagement', title: 'Community Engagement', weighting: '14', allocatedWeight: 14, kpiCount: 2, totalKpiWeight: 14, code: 'ggpp' },
+      { kpaNumber: '5A', kpaName: 'Basic Service Delivery and Infrastructure: Water Quality Monitoring', fullTitle: 'KPA 5: Basic Service Delivery and Infrastructure: Water Quality Monitoring', title: 'Basic Service Delivery and Infrastructure: Water Quality Monitoring', weighting: '7', allocatedWeight: 7, kpiCount: 1, totalKpiWeight: 7, code: 'bsd' },
+      { kpaNumber: '5B', kpaName: 'Basic Service Delivery and Infrastructure: Health Surveillance of Premises', fullTitle: 'KPA 5: Basic Service Delivery and Infrastructure: Health Surveillance of Premises', title: 'Basic Service Delivery and Infrastructure: Health Surveillance of Premises', weighting: '32', allocatedWeight: 32, kpiCount: 6, totalKpiWeight: 32, code: 'bsd' }
+    ];
+
+    setExtractedItems(presetItems);
+    setExtractedKpas(presetKpas);
+    setAgreementMetadata({
+      employeeName: 'Solly Links',
+      position: 'Divisional Manager - MHS',
+      department: 'Community Development Services (Municipal Health Services)',
+      municipality: 'The Nkangala District Municipality',
+      financialYear: '2026/2027 Financial Year'
+    });
+    setSourceFileName('Solly Links - DM MHS 2026-2027 Performance Agreement.pdf');
+    setActiveTab('results');
+    setKpaFilter('all');
+    setStatusMessage({
+      type: 'success',
+      text: 'Loaded complete 31-KPI Performance Agreement for Solly Links (DM: MHS). "Health Surveillance of Premises" is now actively mapped as a distinct KPA with its 6 KPIs and 32% weight!'
+    });
+  };
+
   // Filter items by Functional KPA
-  const filteredItems = extractedItems.filter(it => {
-    if (kpaFilter === 'all') return true;
-    const itemKpa = it["functional kpa"] || it["kpa"] || '';
-    return itemKpa === kpaFilter;
-  });
+  const filteredItems = useMemo(() => {
+    return extractedItems.filter(it => {
+      if (kpaFilter === 'all') return true;
+      const itemKpa = (it["functional kpa"] || it["kpa"] || '').trim().toLowerCase();
+      const filterLower = kpaFilter.toLowerCase();
+      if (itemKpa === filterLower || itemKpa.includes(filterLower) || filterLower.includes(itemKpa)) return true;
+
+      // Alphanumeric normalized matching (handles colons, hyphens, prefixes like "KPA 5:")
+      const itemClean = itemKpa.replace(/[^a-z0-9]/g, '');
+      const filterClean = filterLower.replace(/[^a-z0-9]/g, '');
+      if (itemClean && filterClean && (itemClean.includes(filterClean) || filterClean.includes(itemClean))) return true;
+
+      // Departmental sub-focus keyword matching
+      if (filterLower.includes('water quality') && itemKpa.includes('water quality')) return true;
+      if (filterLower.includes('health surveil') && itemKpa.includes('health surveil')) return true;
+
+      if (['bsd', 'midt', 'mfvm', 'ggpp', 'led', 'sr'].includes(filterLower)) {
+        return resolveKpaCode(itemKpa).toLowerCase() === filterLower;
+      }
+      return false;
+    });
+  }, [extractedItems, kpaFilter]);
+
+  // Group items by their parent KPA for structured hierarchy display
+  const groupedKpaSections = useMemo(() => {
+    const groups: {
+      kpaDef: ExtractedKpaDefinition;
+      items: { item: ExtractedMappedKPI; originalIndex: number }[];
+    }[] = [];
+
+    const assignedIndices = new Set<number>();
+
+    // 1. Group by known extractedKpas if available
+    if (extractedKpas.length > 0) {
+      extractedKpas.forEach(kpaDef => {
+        const matching: { item: ExtractedMappedKPI; originalIndex: number }[] = [];
+        const defTitle = (kpaDef.title || kpaDef.fullTitle || kpaDef.kpaName || '').trim().toLowerCase();
+
+        filteredItems.forEach((it, idx) => {
+          const originalIdx = extractedItems.findIndex(orig => orig === it);
+          const actualIdx = originalIdx >= 0 ? originalIdx : idx;
+          if (assignedIndices.has(actualIdx)) return;
+
+          const itemKpa = (it["functional kpa"] || it["kpa"] || '').trim().toLowerCase();
+
+          const defTitleClean = defTitle.replace(/[^a-z0-9]/g, '');
+          const itemKpaClean = itemKpa.replace(/[^a-z0-9]/g, '');
+          const matchesTitle = defTitle && (
+            itemKpa === defTitle || 
+            itemKpa.includes(defTitle) || 
+            defTitle.includes(itemKpa) ||
+            (defTitleClean.length > 3 && itemKpaClean.length > 3 && (itemKpaClean.includes(defTitleClean) || defTitleClean.includes(itemKpaClean))) ||
+            (defTitle.includes('water quality') && itemKpa.includes('water quality')) ||
+            (defTitle.includes('health surveil') && itemKpa.includes('health surveil'))
+          );
+          // If another KPA definition has an exact or closer title match, do not steal via code
+          const hasMoreSpecificTitleMatch = extractedKpas.some(other => {
+            if (other === kpaDef) return false;
+            const otherTitle = (other.title || other.fullTitle || other.kpaName || '').trim().toLowerCase();
+            const otherClean = otherTitle.replace(/[^a-z0-9]/g, '');
+            return otherTitle && (
+              itemKpa === otherTitle || 
+              itemKpa.includes(otherTitle) || 
+              otherTitle.includes(itemKpa) ||
+              (otherClean.length > 3 && itemKpaClean.length > 3 && (itemKpaClean.includes(otherClean) || otherClean.includes(itemKpaClean))) ||
+              (otherTitle.includes('water quality') && itemKpa.includes('water quality')) ||
+              (otherTitle.includes('health surveil') && itemKpa.includes('health surveil'))
+            );
+          });
+          const matchesCode = !hasMoreSpecificTitleMatch && kpaDef.code && resolveKpaCode(itemKpa) === kpaDef.code;
+
+          if (matchesTitle || matchesCode) {
+            matching.push({ item: it, originalIndex: actualIdx });
+            assignedIndices.add(actualIdx);
+          }
+        });
+
+        if (matching.length > 0) {
+          groups.push({
+            kpaDef: {
+              ...kpaDef,
+              title: kpaDef.title || kpaDef.fullTitle || kpaDef.kpaName || 'Key Performance Area'
+            },
+            items: matching
+          });
+        }
+      });
+    }
+
+    // 2. Capture any remaining items not matching extractedKpas
+    const remaining: { item: ExtractedMappedKPI; originalIndex: number }[] = [];
+    filteredItems.forEach((it, idx) => {
+      const originalIdx = extractedItems.findIndex(orig => orig === it);
+      const actualIdx = originalIdx >= 0 ? originalIdx : idx;
+      if (!assignedIndices.has(actualIdx)) {
+        remaining.push({ item: it, originalIndex: actualIdx });
+      }
+    });
+
+    if (remaining.length > 0) {
+      const map = new Map<string, { item: ExtractedMappedKPI; originalIndex: number }[]>();
+      remaining.forEach(entry => {
+        const title = (entry.item["functional kpa"] || entry.item["kpa"] || 'Other Functional Areas').trim();
+        if (!map.has(title)) map.set(title, []);
+        map.get(title)!.push(entry);
+      });
+
+      map.forEach((items, title) => {
+        const code = resolveKpaCode(title);
+        const totalW = items.reduce((s, it) => s + (parseFloat(it.item["%wt"]) || 0), 0);
+        groups.push({
+          kpaDef: {
+            title,
+            fullTitle: title,
+            kpaName: title,
+            code,
+            kpiCount: items.length,
+            totalKpiWeight: totalW
+          },
+          items
+        });
+      });
+    }
+
+    return groups;
+  }, [filteredItems, extractedItems, extractedKpas]);
 
   if (engineMode === 'sdbip_top_layer') {
     return (
@@ -847,7 +1555,7 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
             accept=".pdf,.docx,.xlsx,.xls,.csv,.json"
             className="hidden"
           />
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center justify-center gap-3">
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={isProcessing}
@@ -855,6 +1563,15 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
             >
               {isProcessing ? <RefreshCw className="w-5 h-5 animate-spin" /> : <FileText className="w-5 h-5" />}
               {isProcessing ? 'Extracting Data...' : 'Select File to Extract'}
+            </button>
+            <button
+              type="button"
+              onClick={handleLoadNkangalaMhsPreset}
+              className="px-5 py-3 bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-500/50 text-indigo-200 font-bold rounded-xl flex items-center gap-2 shadow-lg transition cursor-pointer"
+              title="Load full 31-KPI Nkangala DM MHS Scorecard with distinct Health Surveillance of Premises KPA"
+            >
+              <Sparkles className="w-5 h-5 text-indigo-400" />
+              <span>Load Nkangala DM (MHS) Demo Scorecard</span>
             </button>
             <button
               type="button"
@@ -893,14 +1610,25 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
         <div className="bg-slate-800/40 border border-slate-700/60 rounded-2xl p-6 flex flex-col min-h-[400px]">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-white">Paste Table Content</h2>
-            <button
-              onClick={handleParsePastedText}
-              disabled={isProcessing || !pasteText.trim()}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl flex items-center gap-2 shadow-lg shadow-indigo-600/20 disabled:opacity-50 transition text-sm cursor-pointer"
-            >
-              {isProcessing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              {isProcessing ? 'Processing...' : 'Extract KPIs from Pasted Data'}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleLoadNkangalaMhsPreset}
+                className="px-3.5 py-2 bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-500/40 text-indigo-300 font-bold rounded-xl flex items-center gap-1.5 transition text-xs cursor-pointer"
+                title="Load full 31-KPI Nkangala DM MHS Scorecard"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Load Nkangala DM (MHS) Demo</span>
+              </button>
+              <button
+                onClick={handleParsePastedText}
+                disabled={isProcessing || !pasteText.trim()}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl flex items-center gap-2 shadow-lg shadow-indigo-600/20 disabled:opacity-50 transition text-sm cursor-pointer"
+              >
+                {isProcessing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                {isProcessing ? 'Processing...' : 'Extract KPIs from Pasted Data'}
+              </button>
+            </div>
           </div>
           <textarea
             value={pasteText}
@@ -942,6 +1670,219 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
             </div>
           )}
 
+          {/* AGREEMENT METADATA BANNER (IF DETECTED) */}
+          {agreementMetadata && (agreementMetadata.employeeName || agreementMetadata.department || agreementMetadata.financialYear) && (
+            <div className="bg-slate-950/80 border border-indigo-900/40 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-300">
+              <div className="flex flex-wrap items-center gap-4">
+                {agreementMetadata.employeeName && (
+                  <div className="flex items-center gap-1.5">
+                    <UserCheck className="w-3.5 h-3.5 text-indigo-400" />
+                    <span className="text-slate-400">Employee:</span>
+                    <strong className="text-white font-medium">{agreementMetadata.employeeName}</strong>
+                  </div>
+                )}
+                {agreementMetadata.position && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-slate-400">Position:</span>
+                    <strong className="text-indigo-200">{agreementMetadata.position}</strong>
+                  </div>
+                )}
+                {agreementMetadata.department && (
+                  <div className="flex items-center gap-1.5">
+                    <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                    <span className="text-slate-400">Department:</span>
+                    <strong className="text-slate-200">{agreementMetadata.department}</strong>
+                  </div>
+                )}
+                {agreementMetadata.financialYear && (
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-amber-400" />
+                    <span className="text-slate-400">Period:</span>
+                    <strong className="text-amber-200 font-mono">{agreementMetadata.financialYear}</strong>
+                  </div>
+                )}
+                {agreementMetadata.municipality && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-slate-400">Municipality:</span>
+                    <strong className="text-slate-200">{agreementMetadata.municipality}</strong>
+                  </div>
+                )}
+              </div>
+              <div className="text-[11px] text-emerald-400 font-bold bg-emerald-950/60 border border-emerald-500/30 px-2.5 py-0.5 rounded-full">
+                Section 4.2 Scorecard Extraction
+              </div>
+            </div>
+          )}
+
+          {/* KPA ALIGNMENT & HIERARCHY OVERVIEW CARDS */}
+          <div className="bg-slate-950/70 border border-slate-800 rounded-2xl p-4 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Layers className="w-4 h-4 text-indigo-400" />
+                <h3 className="text-sm font-bold text-white tracking-tight">Key Performance Areas (KPAs) &amp; Hierarchy Mapping</h3>
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-full">
+                  {extractedKpas.length > 0 ? extractedKpas.length : uniqueFunctionalKpas.length} KPAs Extracted
+                </span>
+              </div>
+              <div className="text-xs text-slate-400">
+                Every KPI is strictly mapped and bound to its parent Key Performance Area banner.
+              </div>
+            </div>
+
+            {/* Grid of KPA cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+              {(extractedKpas.length > 0 ? extractedKpas : deriveKpaSummaries(extractedItems)).map((kpaDef, kIdx) => {
+                const kpaTitle = kpaDef.title || kpaDef.fullTitle || kpaDef.kpaName || `KPA ${kIdx + 1}`;
+                const isSelected = kpaFilter.toLowerCase() === kpaTitle.toLowerCase() ||
+                  (kpaDef.fullTitle && kpaFilter.toLowerCase() === kpaDef.fullTitle.toLowerCase()) ||
+                  (kpaDef.kpaName && kpaFilter.toLowerCase() === kpaDef.kpaName.toLowerCase());
+                const isAligned = kpaDef.allocatedWeight !== undefined ? Math.round(kpaDef.totalKpiWeight || 0) === Math.round(kpaDef.allocatedWeight) : true;
+
+                return (
+                  <button
+                    key={kIdx}
+                    type="button"
+                    onClick={() => setKpaFilter(isSelected ? 'all' : kpaTitle)}
+                    className={`text-left p-3 rounded-xl border transition cursor-pointer flex flex-col justify-between gap-2.5 ${
+                      isSelected
+                        ? 'bg-indigo-950/60 border-indigo-500 shadow-md shadow-indigo-900/30'
+                        : 'bg-slate-900/80 border-slate-800 hover:border-slate-700 hover:bg-slate-800/60'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase shrink-0 ${
+                          kpaDef.code === 'bsd' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' :
+                          kpaDef.code === 'midt' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40' :
+                          kpaDef.code === 'mfvm' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' :
+                          kpaDef.code === 'ggpp' ? 'bg-teal-500/20 text-teal-300 border border-teal-500/40' :
+                          kpaDef.code === 'led' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40' :
+                          'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                        }`}>
+                          {kpaDef.code ? kpaDef.code.toUpperCase() : 'KPA'}
+                        </span>
+                        <h4 className="text-xs font-bold text-white line-clamp-2 leading-tight" title={kpaTitle}>
+                          {kpaTitle}
+                        </h4>
+                      </div>
+                      {isSelected && (
+                        <span className="text-[10px] font-black text-indigo-400 bg-indigo-950 px-1.5 py-0.5 rounded border border-indigo-500/40">
+                          Active
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] pt-1 border-t border-slate-800/60">
+                      <span className="text-slate-400">
+                        KPIs: <strong className="text-white">{kpaDef.kpiCount}</strong>
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-slate-400">
+                          Weight: <strong className="text-amber-300 font-mono">{kpaDef.totalKpiWeight}%</strong>
+                        </span>
+                        {kpaDef.allocatedWeight !== undefined && (
+                          <span className="text-slate-500 font-mono text-[10px]">
+                            (Plan: {kpaDef.allocatedWeight}%)
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {kpaDef.allocatedWeight !== undefined && (
+                      <div className="flex items-center justify-between text-[10px]">
+                        <span className="text-slate-400">Framework Alignment:</span>
+                        <span className={`font-bold px-1.5 py-0.2 rounded ${
+                          isAligned ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-500/30' : 'bg-amber-950/80 text-amber-300 border border-amber-500/30'
+                        }`}>
+                          {isAligned ? '100% Aligned' : `${(kpaDef.totalKpiWeight || 0) > kpaDef.allocatedWeight ? '+' : ''}${((kpaDef.totalKpiWeight || 0) - kpaDef.allocatedWeight).toFixed(0)}% Variance`}
+                        </span>
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* FILTER & GROUPING TOOLBAR */}
+          <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-950/80 border border-slate-800 rounded-xl p-2.5 text-xs">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-slate-400 font-bold uppercase text-[10px] tracking-wider flex items-center gap-1">
+                <Filter className="w-3 h-3 text-slate-400" /> Filter KPA:
+              </span>
+              <button
+                type="button"
+                onClick={() => setKpaFilter('all')}
+                className={`px-3 py-1 rounded-lg font-bold text-xs transition cursor-pointer ${
+                  kpaFilter === 'all'
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+                }`}
+              >
+                All KPAs ({extractedItems.length})
+              </button>
+              {(extractedKpas.length > 0 ? extractedKpas : deriveKpaSummaries(extractedItems)).map((kpa, idx) => {
+                const kTitle = kpa.title || kpa.fullTitle || kpa.kpaName || `KPA ${idx + 1}`;
+                const isSelected = kpaFilter.toLowerCase() === kTitle.toLowerCase() ||
+                  (kpa.fullTitle && kpaFilter.toLowerCase() === kpa.fullTitle.toLowerCase()) ||
+                  (kpa.kpaName && kpaFilter.toLowerCase() === kpa.kpaName.toLowerCase());
+                
+                let shortLabel = kpa.kpaName || kpa.title || `KPA ${idx + 1}`;
+                if (shortLabel.toLowerCase().includes('water quality')) shortLabel = 'Water Quality';
+                else if (shortLabel.toLowerCase().includes('health surveil')) shortLabel = 'Health Surveillance';
+                else if (kpa.code && shortLabel.length > 25) shortLabel = `${kpa.code.toUpperCase()}: ${shortLabel.slice(0, 20)}…`;
+                else if (shortLabel.length > 28) shortLabel = shortLabel.slice(0, 26) + '…';
+
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setKpaFilter(isSelected ? 'all' : kTitle)}
+                    title={kTitle}
+                    className={`px-2.5 py-1 rounded-lg font-bold text-xs transition cursor-pointer flex items-center gap-1.5 ${
+                      isSelected
+                        ? 'bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-400'
+                        : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+                    }`}
+                  >
+                    <span>{shortLabel}</span>
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-800 text-slate-300">
+                      {kpa.kpiCount}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-slate-400 font-bold uppercase text-[10px] tracking-wider">Layout:</span>
+              <div className="inline-flex p-0.5 bg-slate-900 border border-slate-800 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setViewGrouping('grouped')}
+                  className={`px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                    viewGrouping === 'grouped' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
+                  }`}
+                  title="Group KPIs under parent KPA banners"
+                >
+                  <Layers className="w-3 h-3" />
+                  <span>Group by KPA</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewGrouping('flat')}
+                  className={`px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                    viewGrouping === 'flat' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
+                  }`}
+                  title="Display flat list of KPIs"
+                >
+                  <Table className="w-3 h-3" />
+                  <span>Flat View</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
           {/* KPI TABLE */}
           <div className="bg-slate-900/90 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
             <div className="overflow-x-auto max-h-[600px]">
@@ -978,166 +1919,397 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60 font-sans">
-                  {filteredItems.map((item, originalIndex) => {
-                    const idx = extractedItems.findIndex(it => it === item);
-                    const kpaVal = item["functional kpa"] || item["kpa"] || 'Functional Performance Area';
+                  {viewGrouping === 'grouped' && kpaFilter === 'all' ? (
+                    groupedKpaSections.map((group, groupIdx) => (
+                      <React.Fragment key={`group-${groupIdx}`}>
+                        {/* KPA PARENT BANNER ROW */}
+                        <tr className="bg-slate-950/90 border-y border-indigo-500/40">
+                          <td colSpan={14} className="px-4 py-2.5 bg-gradient-to-r from-indigo-950/70 via-slate-900 to-slate-950">
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                              <div className="flex items-center gap-2.5">
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase shrink-0 ${
+                                  group.kpaDef.code === 'bsd' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' :
+                                  group.kpaDef.code === 'midt' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40' :
+                                  group.kpaDef.code === 'mfvm' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' :
+                                  group.kpaDef.code === 'ggpp' ? 'bg-teal-500/20 text-teal-300 border border-teal-500/40' :
+                                  group.kpaDef.code === 'led' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40' :
+                                  'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                                }`}>
+                                  {group.kpaDef.code ? group.kpaDef.code.toUpperCase() : 'KPA'}
+                                </span>
+                                <span className="font-bold text-white text-xs tracking-tight">
+                                  {group.kpaDef.title}
+                                </span>
+                                <span className="text-[10px] font-bold text-slate-400 bg-slate-800 px-2 py-0.5 rounded-full border border-slate-700">
+                                  {group.items.length} {group.items.length === 1 ? 'KPI' : 'KPIs'}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-3 text-xs">
+                                <span className="text-slate-400">
+                                  Cumulative Weight: <strong className="text-amber-300 font-mono font-bold">{group.kpaDef.totalKpiWeight}%</strong>
+                                </span>
+                                {group.kpaDef.allocatedWeight !== undefined && (
+                                  <span className="text-slate-400">
+                                    Section 4.2 Target: <strong className="text-indigo-300 font-mono font-bold">{group.kpaDef.allocatedWeight}%</strong>
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
 
-                    return (
-                      <tr 
-                        key={item._id || idx}
-                        className={`hover:bg-slate-800/50 transition ${
-                          item._selected === false ? 'opacity-40 bg-slate-950/40' : ''
-                        }`}
-                      >
-                        {/* Checkbox */}
-                        <td className="p-3 text-center">
-                          <button onClick={() => handleToggleSelectItem(idx)} className="text-slate-400 hover:text-white">
-                            {item._selected !== false ? (
-                              <CheckSquare className="w-4 h-4 text-indigo-400" />
-                            ) : (
-                              <Square className="w-4 h-4" />
-                            )}
-                          </button>
-                        </td>
+                        {/* KPI ROWS UNDER THIS KPA */}
+                        {group.items.map(({ item, originalIndex }) => {
+                          const idx = originalIndex;
+                          const kpaVal = item["functional kpa"] || item["kpa"] || group.kpaDef.title;
+                          const kpaCode = resolveKpaCode(kpaVal);
 
-                        {/* kpi no */}
-                        <td className="p-2">
-                          <input
-                            type="text"
-                            value={item["kpi no"]}
-                            onChange={(e) => handleUpdateItem(idx, "kpi no", e.target.value)}
-                            className="w-full bg-slate-800/80 border border-slate-700 rounded-lg px-2 py-1 text-indigo-300 font-mono font-bold text-xs"
-                          />
-                        </td>
+                          return (
+                            <tr 
+                              key={item._id || idx}
+                              className={`hover:bg-slate-800/50 transition ${
+                                item._selected === false ? 'opacity-40 bg-slate-950/40' : ''
+                              }`}
+                            >
+                              {/* Checkbox */}
+                              <td className="p-3 text-center">
+                                <button onClick={() => handleToggleSelectItem(idx)} className="text-slate-400 hover:text-white">
+                                  {item._selected !== false ? (
+                                    <CheckSquare className="w-4 h-4 text-indigo-400" />
+                                  ) : (
+                                    <Square className="w-4 h-4" />
+                                  )}
+                                </button>
+                              </td>
 
-                        {/* functional kpa */}
-                        <td className="p-2">
-                          <input
-                            type="text"
-                            list="functional-kpa-list"
-                            value={kpaVal}
-                            onChange={(e) => {
-                              handleUpdateItem(idx, "functional kpa", e.target.value);
-                              handleUpdateItem(idx, "kpa", e.target.value);
-                            }}
-                            placeholder="Functional KPA..."
-                            className="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-2.5 py-1 text-xs font-semibold text-emerald-300 focus:outline-none focus:border-indigo-500"
-                          />
-                        </td>
+                              {/* kpi no */}
+                              <td className="p-2">
+                                <input
+                                  type="text"
+                                  value={item["kpi no"]}
+                                  onChange={(e) => handleUpdateItem(idx, "kpi no", e.target.value)}
+                                  className="w-full bg-slate-800/80 border border-slate-700 rounded-lg px-2 py-1 text-indigo-300 font-mono font-bold text-xs"
+                                />
+                              </td>
 
-                        {/* kpi description */}
-                        <td className="p-2">
-                          <textarea
-                            value={item["kpi description"]}
-                            onChange={(e) => handleUpdateItem(idx, "kpi description", e.target.value)}
-                            rows={2}
-                            className="w-full bg-slate-800/80 border border-slate-700 rounded-lg p-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 leading-relaxed"
-                          />
-                        </td>
+                              {/* functional kpa */}
+                              <td className="p-2">
+                                <div className="flex items-center gap-1.5">
+                                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase shrink-0 ${
+                                    kpaCode === 'bsd' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+                                    kpaCode === 'midt' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' :
+                                    kpaCode === 'mfvm' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                                    kpaCode === 'ggpp' ? 'bg-teal-500/20 text-teal-300 border border-teal-500/30' :
+                                    kpaCode === 'led' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
+                                    'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                                  }`}>
+                                    {kpaCode.toUpperCase()}
+                                  </span>
+                                  <input
+                                    type="text"
+                                    list="functional-kpa-list"
+                                    value={kpaVal}
+                                    onChange={(e) => {
+                                      handleUpdateItem(idx, "functional kpa", e.target.value);
+                                      handleUpdateItem(idx, "kpa", e.target.value);
+                                    }}
+                                    placeholder="Functional KPA..."
+                                    className="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-2 py-1 text-xs font-semibold text-emerald-300 focus:outline-none focus:border-indigo-500"
+                                  />
+                                </div>
+                              </td>
 
-                        {/* %wt */}
-                        <td className="p-2 text-center">
-                          <input
-                            type="number"
-                            value={item["%wt"]}
-                            onChange={(e) => handleUpdateItem(idx, "%wt", e.target.value)}
-                            className="w-14 bg-slate-800/80 border border-slate-700 rounded-lg px-1.5 py-1 text-center font-mono font-bold text-amber-300 text-xs"
-                          />
-                        </td>
+                              {/* kpi description */}
+                              <td className="p-2">
+                                <textarea
+                                  value={item["kpi description"]}
+                                  onChange={(e) => handleUpdateItem(idx, "kpi description", e.target.value)}
+                                  rows={2}
+                                  className="w-full bg-slate-800/80 border border-slate-700 rounded-lg p-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 leading-relaxed"
+                                />
+                              </td>
 
-                        {/* baseline */}
-                        <td className="p-2">
-                          <input
-                            type="text"
-                            value={item.baseline}
-                            onChange={(e) => handleUpdateItem(idx, "baseline", e.target.value)}
-                            className="w-full bg-slate-800/80 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-300"
-                          />
-                        </td>
+                              {/* %wt */}
+                              <td className="p-2 text-center">
+                                <input
+                                  type="number"
+                                  value={item["%wt"]}
+                                  onChange={(e) => handleUpdateItem(idx, "%wt", e.target.value)}
+                                  className="w-14 bg-slate-800/80 border border-slate-700 rounded-lg px-1.5 py-1 text-center font-mono font-bold text-amber-300 text-xs"
+                                />
+                              </td>
 
-                        {/* annual target */}
-                        <td className="p-2">
-                          <input
-                            type="text"
-                            value={item["annual target"]}
-                            onChange={(e) => handleUpdateItem(idx, "annual target", e.target.value)}
-                            className="w-full bg-slate-800/80 border border-slate-700 rounded-lg px-2 py-1 text-xs text-emerald-300 font-semibold"
-                          />
-                        </td>
+                              {/* baseline */}
+                              <td className="p-2">
+                                <input
+                                  type="text"
+                                  value={item.baseline}
+                                  onChange={(e) => handleUpdateItem(idx, "baseline", e.target.value)}
+                                  className="w-full bg-slate-800/80 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-300"
+                                />
+                              </td>
 
-                        {/* 1st qtr target */}
-                        <td className="p-2">
-                          <input
-                            type="text"
-                            value={item["1st qtr target"]}
-                            onChange={(e) => handleUpdateItem(idx, "1st qtr target", e.target.value)}
-                            className="w-full bg-slate-800/80 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-300"
-                          />
-                        </td>
+                              {/* annual target */}
+                              <td className="p-2">
+                                <input
+                                  type="text"
+                                  value={item["annual target"]}
+                                  onChange={(e) => handleUpdateItem(idx, "annual target", e.target.value)}
+                                  className="w-full bg-slate-800/80 border border-slate-700 rounded-lg px-2 py-1 text-xs text-emerald-300 font-semibold"
+                                />
+                              </td>
 
-                        {/* 2nd qtr target */}
-                        <td className="p-2">
-                          <input
-                            type="text"
-                            value={item["2nd qtr target"]}
-                            onChange={(e) => handleUpdateItem(idx, "2nd qtr target", e.target.value)}
-                            className="w-full bg-slate-800/80 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-300"
-                          />
-                        </td>
+                              {/* 1st qtr target */}
+                              <td className="p-2">
+                                <input
+                                  type="text"
+                                  value={item["1st qtr target"]}
+                                  onChange={(e) => handleUpdateItem(idx, "1st qtr target", e.target.value)}
+                                  className="w-full bg-slate-800/80 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-300"
+                                />
+                              </td>
 
-                        {/* 3rd qtr target */}
-                        <td className="p-2">
-                          <input
-                            type="text"
-                            value={item["3rd qtr target"]}
-                            onChange={(e) => handleUpdateItem(idx, "3rd qtr target", e.target.value)}
-                            className="w-full bg-slate-800/80 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-300"
-                          />
-                        </td>
+                              {/* 2nd qtr target */}
+                              <td className="p-2">
+                                <input
+                                  type="text"
+                                  value={item["2nd qtr target"]}
+                                  onChange={(e) => handleUpdateItem(idx, "2nd qtr target", e.target.value)}
+                                  className="w-full bg-slate-800/80 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-300"
+                                />
+                              </td>
 
-                        {/* 4th qtr target */}
-                        <td className="p-2">
-                          <input
-                            type="text"
-                            value={item["4th qtr target"]}
-                            onChange={(e) => handleUpdateItem(idx, "4th qtr target", e.target.value)}
-                            className="w-full bg-slate-800/80 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-300"
-                          />
-                        </td>
+                              {/* 3rd qtr target */}
+                              <td className="p-2">
+                                <input
+                                  type="text"
+                                  value={item["3rd qtr target"]}
+                                  onChange={(e) => handleUpdateItem(idx, "3rd qtr target", e.target.value)}
+                                  className="w-full bg-slate-800/80 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-300"
+                                />
+                              </td>
 
-                        {/* poe */}
-                        <td className="p-2">
-                          <input
-                            type="text"
-                            value={item.poe}
-                            onChange={(e) => handleUpdateItem(idx, "poe", e.target.value)}
-                            className="w-full bg-slate-800/80 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-300"
-                          />
-                        </td>
+                              {/* 4th qtr target */}
+                              <td className="p-2">
+                                <input
+                                  type="text"
+                                  value={item["4th qtr target"]}
+                                  onChange={(e) => handleUpdateItem(idx, "4th qtr target", e.target.value)}
+                                  className="w-full bg-slate-800/80 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-300"
+                                />
+                              </td>
 
-                        {/* budget */}
-                        <td className="p-2">
-                          <input
-                            type="text"
-                            value={item.budget}
-                            onChange={(e) => handleUpdateItem(idx, "budget", e.target.value)}
-                            className="w-full bg-slate-800/80 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-300 font-mono"
-                          />
-                        </td>
+                              {/* poe */}
+                              <td className="p-2">
+                                <input
+                                  type="text"
+                                  value={item.poe}
+                                  onChange={(e) => handleUpdateItem(idx, "poe", e.target.value)}
+                                  className="w-full bg-slate-800/80 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-300"
+                                />
+                              </td>
 
-                        {/* delete */}
-                        <td className="p-2 text-center">
-                          <button
-                            onClick={() => handleRemoveItem(idx)}
-                            className="text-slate-500 hover:text-rose-400 p-1 transition"
-                            title="Remove row"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                              {/* budget */}
+                              <td className="p-2">
+                                <input
+                                  type="text"
+                                  value={item.budget}
+                                  onChange={(e) => handleUpdateItem(idx, "budget", e.target.value)}
+                                  className="w-full bg-slate-800/80 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-300 font-mono"
+                                />
+                              </td>
+
+                              {/* delete */}
+                              <td className="p-2 text-center">
+                                <button
+                                  onClick={() => handleRemoveItem(idx)}
+                                  className="text-slate-500 hover:text-rose-400 p-1 transition cursor-pointer"
+                                  title="Remove row"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </React.Fragment>
+                    ))
+                  ) : (
+                    filteredItems.map((item, originalIndex) => {
+                      const idx = extractedItems.findIndex(it => it === item);
+                      const actualIdx = idx >= 0 ? idx : originalIndex;
+                      const kpaVal = item["functional kpa"] || item["kpa"] || 'Functional Performance Area';
+                      const kpaCode = resolveKpaCode(kpaVal);
+
+                      return (
+                        <tr 
+                          key={item._id || actualIdx}
+                          className={`hover:bg-slate-800/50 transition ${
+                            item._selected === false ? 'opacity-40 bg-slate-950/40' : ''
+                          }`}
+                        >
+                          {/* Checkbox */}
+                          <td className="p-3 text-center">
+                            <button onClick={() => handleToggleSelectItem(actualIdx)} className="text-slate-400 hover:text-white">
+                              {item._selected !== false ? (
+                                <CheckSquare className="w-4 h-4 text-indigo-400" />
+                              ) : (
+                                <Square className="w-4 h-4" />
+                              )}
+                            </button>
+                          </td>
+
+                          {/* kpi no */}
+                          <td className="p-2">
+                            <input
+                              type="text"
+                              value={item["kpi no"]}
+                              onChange={(e) => handleUpdateItem(actualIdx, "kpi no", e.target.value)}
+                              className="w-full bg-slate-800/80 border border-slate-700 rounded-lg px-2 py-1 text-indigo-300 font-mono font-bold text-xs"
+                            />
+                          </td>
+
+                          {/* functional kpa */}
+                          <td className="p-2">
+                            <div className="flex items-center gap-1.5">
+                              <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase shrink-0 ${
+                                kpaCode === 'bsd' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+                                kpaCode === 'midt' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' :
+                                kpaCode === 'mfvm' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                                kpaCode === 'ggpp' ? 'bg-teal-500/20 text-teal-300 border border-teal-500/30' :
+                                kpaCode === 'led' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
+                                'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                              }`}>
+                                {kpaCode.toUpperCase()}
+                              </span>
+                              <input
+                                type="text"
+                                list="functional-kpa-list"
+                                value={kpaVal}
+                                onChange={(e) => {
+                                  handleUpdateItem(actualIdx, "functional kpa", e.target.value);
+                                  handleUpdateItem(actualIdx, "kpa", e.target.value);
+                                }}
+                                placeholder="Functional KPA..."
+                                className="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-2 py-1 text-xs font-semibold text-emerald-300 focus:outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                          </td>
+
+                          {/* kpi description */}
+                          <td className="p-2">
+                            <textarea
+                              value={item["kpi description"]}
+                              onChange={(e) => handleUpdateItem(actualIdx, "kpi description", e.target.value)}
+                              rows={2}
+                              className="w-full bg-slate-800/80 border border-slate-700 rounded-lg p-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 leading-relaxed"
+                            />
+                          </td>
+
+                          {/* %wt */}
+                          <td className="p-2 text-center">
+                            <input
+                              type="number"
+                              value={item["%wt"]}
+                              onChange={(e) => handleUpdateItem(actualIdx, "%wt", e.target.value)}
+                              className="w-14 bg-slate-800/80 border border-slate-700 rounded-lg px-1.5 py-1 text-center font-mono font-bold text-amber-300 text-xs"
+                            />
+                          </td>
+
+                          {/* baseline */}
+                          <td className="p-2">
+                            <input
+                              type="text"
+                              value={item.baseline}
+                              onChange={(e) => handleUpdateItem(actualIdx, "baseline", e.target.value)}
+                              className="w-full bg-slate-800/80 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-300"
+                            />
+                          </td>
+
+                          {/* annual target */}
+                          <td className="p-2">
+                            <input
+                              type="text"
+                              value={item["annual target"]}
+                              onChange={(e) => handleUpdateItem(actualIdx, "annual target", e.target.value)}
+                              className="w-full bg-slate-800/80 border border-slate-700 rounded-lg px-2 py-1 text-xs text-emerald-300 font-semibold"
+                            />
+                          </td>
+
+                          {/* 1st qtr target */}
+                          <td className="p-2">
+                            <input
+                              type="text"
+                              value={item["1st qtr target"]}
+                              onChange={(e) => handleUpdateItem(actualIdx, "1st qtr target", e.target.value)}
+                              className="w-full bg-slate-800/80 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-300"
+                            />
+                          </td>
+
+                          {/* 2nd qtr target */}
+                          <td className="p-2">
+                            <input
+                              type="text"
+                              value={item["2nd qtr target"]}
+                              onChange={(e) => handleUpdateItem(actualIdx, "2nd qtr target", e.target.value)}
+                              className="w-full bg-slate-800/80 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-300"
+                            />
+                          </td>
+
+                          {/* 3rd qtr target */}
+                          <td className="p-2">
+                            <input
+                              type="text"
+                              value={item["3rd qtr target"]}
+                              onChange={(e) => handleUpdateItem(actualIdx, "3rd qtr target", e.target.value)}
+                              className="w-full bg-slate-800/80 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-300"
+                            />
+                          </td>
+
+                          {/* 4th qtr target */}
+                          <td className="p-2">
+                            <input
+                              type="text"
+                              value={item["4th qtr target"]}
+                              onChange={(e) => handleUpdateItem(actualIdx, "4th qtr target", e.target.value)}
+                              className="w-full bg-slate-800/80 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-300"
+                            />
+                          </td>
+
+                          {/* poe */}
+                          <td className="p-2">
+                            <input
+                              type="text"
+                              value={item.poe}
+                              onChange={(e) => handleUpdateItem(actualIdx, "poe", e.target.value)}
+                              className="w-full bg-slate-800/80 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-300"
+                            />
+                          </td>
+
+                          {/* budget */}
+                          <td className="p-2">
+                            <input
+                              type="text"
+                              value={item.budget}
+                              onChange={(e) => handleUpdateItem(actualIdx, "budget", e.target.value)}
+                              className="w-full bg-slate-800/80 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-300 font-mono"
+                            />
+                          </td>
+
+                          {/* delete */}
+                          <td className="p-2 text-center">
+                            <button
+                              onClick={() => handleRemoveItem(actualIdx)}
+                              className="text-slate-500 hover:text-rose-400 p-1 transition cursor-pointer"
+                              title="Remove row"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>

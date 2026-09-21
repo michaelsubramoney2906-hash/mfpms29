@@ -16,6 +16,18 @@ if (typeof window !== 'undefined') {
 
 export type KpaCode = 'bsd' | 'led' | 'mfvm' | 'ggpp' | 'midt' | 'sr';
 
+export interface ExtractedKpaDefinition {
+  kpaNumber?: string;
+  kpaName?: string;
+  fullTitle?: string;
+  title?: string;
+  weighting?: string;
+  allocatedWeight?: number;
+  kpiCount?: number;
+  totalKpiWeight?: number;
+  code?: KpaCode;
+}
+
 export interface ExtractedMappedKPI {
   "kpi no": string;
   "kpi description": string;
@@ -78,31 +90,245 @@ export const KPA_METADATA: Record<KpaCode, { name: string; fullTitle: string; co
 /**
  * Accurately maps contextual heading, section text, or KPI description
  * to one of the strict abbreviated KPA codes: [bsd, led, mfvm, ggpp, midt, sr]
+ * Prioritizes semantic wording over arbitrary numbers.
  */
 export function resolveKpaCode(text: string): KpaCode {
   const norm = (text || '').toLowerCase().trim();
 
-  // Direct code match
-  if (norm === 'bsd' || norm.includes('kpa 1') || norm.includes('basic service') || norm.includes('infrastructure') || norm.includes('water') || norm.includes('electricity') || norm.includes('sanitation') || norm.includes('roads') || norm.includes('refuse') || norm.includes('civil') || norm.includes('engineering')) {
-    return 'bsd';
-  }
-  if (norm === 'midt' || norm.includes('kpa 2') || norm.includes('institutional development') || norm.includes('transformation') || norm.includes('human resources') || norm.includes('hr') || norm.includes('skills development') || norm.includes('wsp') || norm.includes('workplace skills') || norm.includes('ict') || norm.includes('pmds')) {
+  // 1. Direct code match
+  if (norm === 'bsd') return 'bsd';
+  if (norm === 'midt') return 'midt';
+  if (norm === 'led') return 'led';
+  if (norm === 'mfvm') return 'mfvm';
+  if (norm === 'ggpp') return 'ggpp';
+  if (norm === 'sr') return 'sr';
+
+  // 2. High-priority semantic wording matching (domain semantics take precedence over arbitrary numbers)
+  if (
+    norm.includes('skill') ||
+    norm.includes('training') ||
+    norm.includes('institutional development') ||
+    norm.includes('transformation') ||
+    norm.includes('human resources') ||
+    norm.includes('hr') ||
+    norm.includes('workplace skills') ||
+    norm.includes('wsp') ||
+    norm.includes('ict') ||
+    norm.includes('pmds')
+  ) {
     return 'midt';
   }
-  if (norm === 'led' || norm.includes('kpa 3') || norm.includes('local economic') || norm.includes('economic development') || norm.includes('job creation') || norm.includes('epwp') || norm.includes('smme') || norm.includes('tourism') || norm.includes('agriculture') || norm.includes('agrarian')) {
-    return 'led';
-  }
-  if (norm === 'mfvm' || norm.includes('kpa 4') || norm.includes('financial viability') || norm.includes('financial management') || norm.includes('budget') || norm.includes('mscoa') || norm.includes('revenue') || norm.includes('expenditure') || norm.includes('mfma') || norm.includes('audit') || norm.includes('debtor') || norm.includes('supply chain') || norm.includes('scm')) {
+
+  if (
+    norm.includes('financial viability') ||
+    norm.includes('financial management') ||
+    norm.includes('viability management') ||
+    norm.includes('budget') ||
+    norm.includes('mscoa') ||
+    norm.includes('revenue') ||
+    norm.includes('expenditure') ||
+    norm.includes('mfma') ||
+    norm.includes('debtor') ||
+    norm.includes('supply chain') ||
+    norm.includes('scm') ||
+    norm.includes('billing')
+  ) {
     return 'mfvm';
   }
-  if (norm === 'ggpp' || norm.includes('kpa 5') || norm.includes('good governance') || norm.includes('public participation') || norm.includes('ward committee') || norm.includes('council') || norm.includes('mpac') || norm.includes('risk management') || norm.includes('internal audit') || norm.includes('community consultation') || norm.includes('oversight')) {
+
+  if (
+    norm.includes('basic service') ||
+    norm.includes('infrastructure') ||
+    norm.includes('water') ||
+    norm.includes('electricity') ||
+    norm.includes('sanitation') ||
+    norm.includes('roads') ||
+    norm.includes('refuse') ||
+    norm.includes('civil') ||
+    norm.includes('engineering') ||
+    norm.includes('health surveillance') ||
+    norm.includes('food sample') ||
+    norm.includes('environmental health') ||
+    norm.includes('waste')
+  ) {
+    return 'bsd';
+  }
+
+  if (
+    norm.includes('good governance') ||
+    norm.includes('public participation') ||
+    norm.includes('community engagement') ||
+    norm.includes('ward committee') ||
+    norm.includes('council') ||
+    norm.includes('mpac') ||
+    norm.includes('risk management') ||
+    norm.includes('internal audit') ||
+    norm.includes('community consultation') ||
+    norm.includes('oversight') ||
+    norm.includes('audit committee') ||
+    norm.includes('fraud') ||
+    norm.includes('corruption')
+  ) {
     return 'ggpp';
   }
-  if (norm === 'sr' || norm.includes('kpa 6') || norm.includes('spatial rationale') || norm.includes('spatial planning') || norm.includes('spluma') || norm.includes('town planning') || norm.includes('gis') || norm.includes('land use') || norm.includes('human settlements') || norm.includes('housing')) {
+
+  if (
+    norm.includes('local economic') ||
+    norm.includes('economic development') ||
+    norm.includes('job creation') ||
+    norm.includes('epwp') ||
+    norm.includes('smme') ||
+    norm.includes('tourism') ||
+    norm.includes('agriculture') ||
+    norm.includes('agrarian')
+  ) {
+    return 'led';
+  }
+
+  if (
+    norm.includes('spatial rationale') ||
+    norm.includes('spatial planning') ||
+    norm.includes('spluma') ||
+    norm.includes('town planning') ||
+    norm.includes('gis') ||
+    norm.includes('land use') ||
+    norm.includes('human settlements') ||
+    norm.includes('housing')
+  ) {
     return 'sr';
   }
 
+  // 3. Fallback to standard COGTA numbering if no semantic match
+  if (norm.includes('kpa 1')) return 'bsd';
+  if (norm.includes('kpa 2')) return 'midt';
+  if (norm.includes('kpa 3')) return 'led';
+  if (norm.includes('kpa 4')) return 'mfvm';
+  if (norm.includes('kpa 5')) return 'ggpp';
+  if (norm.includes('kpa 6')) return 'sr';
+
   return 'ggpp'; // Default municipal fallback
+}
+
+/**
+ * Calculates roll-up summaries for each KPA, comparing against framework weighting
+ */
+export function deriveKpaSummaries(
+  items: ExtractedMappedKPI[],
+  predefinedKpas?: ExtractedKpaDefinition[]
+): ExtractedKpaDefinition[] {
+  const statsMap = new Map<string, { count: number; weight: number }>();
+
+  items.forEach(it => {
+    const kpaName = (it['functional kpa'] || it['kpa'] || 'Functional Performance Area').trim();
+    const w = parseFloat(it['%wt'] || '0') || 0;
+    const existing = statsMap.get(kpaName) || { count: 0, weight: 0 };
+    existing.count += 1;
+    existing.weight = Math.round((existing.weight + w) * 100) / 100;
+    statsMap.set(kpaName, existing);
+  });
+
+  if (predefinedKpas && predefinedKpas.length > 0) {
+    const matchedKpaNames = new Set<string>();
+
+    const mappedPredefined = predefinedKpas.map((kpa, idx) => {
+      let matchedCount = 0;
+      let matchedWeight = 0;
+      const targetNorm = (kpa.kpaName || '').toLowerCase().trim();
+      const fullNorm = (kpa.fullTitle || '').toLowerCase().trim();
+
+      for (const [kpaName, stats] of statsMap.entries()) {
+        const kNorm = kpaName.toLowerCase().trim();
+
+        // Keep sub-KPAs distinct (e.g. Basic Service Delivery and Infrastructure: Water Quality Monitoring / Health Surveillance of Premises)
+        // rather than collapsing them into generic "basic service delivery" parent
+        const isGenericBsd = (targetNorm.includes('basic service') || fullNorm.includes('basic service')) &&
+          !targetNorm.includes('water quality') && !targetNorm.includes('health surveil') &&
+          !fullNorm.includes('water quality') && !fullNorm.includes('health surveil');
+        const isSubBsd = (kNorm.includes('health surveil') || kNorm.includes('water quality')) &&
+          !targetNorm.includes('water quality') && !targetNorm.includes('health surveil');
+        if (isGenericBsd && isSubBsd) {
+          continue;
+        }
+
+        if (
+          kNorm === targetNorm ||
+          kNorm === fullNorm ||
+          kNorm.includes(targetNorm) ||
+          targetNorm.includes(kNorm) ||
+          kNorm.includes(fullNorm) ||
+          fullNorm.includes(kNorm)
+        ) {
+          matchedCount += stats.count;
+          matchedWeight = Math.round((matchedWeight + stats.weight) * 100) / 100;
+          matchedKpaNames.add(kpaName);
+        }
+      }
+
+      const allocW = kpa.allocatedWeight !== undefined ? kpa.allocatedWeight : (kpa.weighting ? parseFloat(kpa.weighting) : undefined);
+      return {
+        ...kpa,
+        title: kpa.title || kpa.fullTitle || kpa.kpaName || `KPA ${idx + 1}`,
+        code: kpa.code || resolveKpaCode(kpa.fullTitle || kpa.kpaName || kpa.title || ''),
+        allocatedWeight: isNaN(allocW as number) ? undefined : allocW,
+        kpiCount: matchedCount,
+        totalKpiWeight: matchedWeight
+      };
+    });
+
+    // Capture any functional KPAs present in items that were NOT matched by predefined KPAs
+    // (e.g. "Health Surveillance of Premises", "Water Quality Monitoring")
+    const extraKpas: ExtractedKpaDefinition[] = [];
+    for (const [kpaName, stats] of statsMap.entries()) {
+      if (!matchedKpaNames.has(kpaName)) {
+        const isHealth = kpaName.toLowerCase().includes('health surveil');
+        const isWater = kpaName.toLowerCase().includes('water quality');
+        const numMatch = kpaName.match(/KPA\s*(\d+[A-Za-z]?)/i);
+        const kpaNum = numMatch ? numMatch[1] : (isHealth ? '5B' : isWater ? '5A' : `${mappedPredefined.length + extraKpas.length + 1}`);
+        const cleanName = kpaName.replace(/^KPA\s*\d+[A-Za-z]?\s*[:.\-–]\s*/i, '').trim();
+        
+        extraKpas.push({
+          kpaNumber: kpaNum,
+          kpaName: cleanName || kpaName,
+          fullTitle: kpaName,
+          title: cleanName || kpaName,
+          weighting: String(stats.weight),
+          allocatedWeight: stats.weight,
+          kpiCount: stats.count,
+          totalKpiWeight: stats.weight,
+          code: resolveKpaCode(kpaName)
+        });
+      }
+    }
+
+    // Combine and keep active KPAs
+    const combined = [...mappedPredefined, ...extraKpas];
+    // Filter out parent KPAs with 0 items if their sub-programmes are separately present with counts
+    return combined.filter(kpa => (kpa.kpiCount || 0) > 0 || (kpa.allocatedWeight && !extraKpas.some(e => e.code === kpa.code)));
+  }
+
+  // Synthesize from items
+  const result: ExtractedKpaDefinition[] = [];
+  let idx = 1;
+  for (const [kpaName, stats] of statsMap.entries()) {
+    const isHealth = kpaName.toLowerCase().includes('health surveil');
+    const isWater = kpaName.toLowerCase().includes('water quality');
+    const numMatch = kpaName.match(/KPA\s*(\d+[A-Za-z]?)/i);
+    const kpaNum = numMatch ? numMatch[1] : (isHealth ? '5B' : isWater ? '5A' : String(idx));
+    const cleanName = kpaName.replace(/^KPA\s*\d+[A-Za-z]?\s*[:.\-–]\s*/i, '').trim();
+    result.push({
+      kpaNumber: kpaNum,
+      kpaName: cleanName || kpaName,
+      fullTitle: kpaName,
+      title: cleanName || kpaName,
+      weighting: String(stats.weight),
+      allocatedWeight: stats.weight,
+      kpiCount: stats.count,
+      totalKpiWeight: stats.weight,
+      code: resolveKpaCode(kpaName)
+    });
+    idx++;
+  }
+  return result;
 }
 
 /**
@@ -169,7 +395,7 @@ export async function callServerAiExtraction(params: {
   }
 
   if (data && data.success && Array.isArray(data.items)) {
-    return data.items.map((it: any, idx: number) => {
+    const formattedList: ExtractedMappedKPI[] = data.items.map((it: any, idx: number) => {
       const functionalKpa = String(it['functional kpa'] || it.functionalKpa || it.kpa || 'Functional Performance Area').trim();
       const kpiDescription = it['kpi description'] ?? 
         it.kpiDescription ?? 
@@ -219,6 +445,14 @@ export async function callServerAiExtraction(params: {
         "kpa": functionalKpa
       };
     });
+
+    if (data.kpas && Array.isArray(data.kpas)) {
+      (formattedList as any).kpas = data.kpas;
+    }
+    if (data.metadata) {
+      (formattedList as any).metadata = data.metadata;
+    }
+    return formattedList;
   }
 
   return [];
@@ -786,7 +1020,29 @@ function parseMatrixToMappedKPIs(matrix: string[][], contextHint?: string): Extr
       continue;
     }
 
-    // Check if this row is a KPA Section Banner or Projects Section Banner
+    // First check for departmental sub-focus banners or combined KPA 5 banners (e.g. Water Quality Monitoring, Health Surveillance)
+    const upperRow = rowText.toUpperCase();
+    if (
+      upperRow.includes('WATER QUALITY MONITORING') ||
+      upperRow.includes('HEALTH SURVEILANCE OF PREMISES') ||
+      upperRow.includes('HEALTH SURVEILLANCE OF PREMISES') ||
+      upperRow.includes('HEALTH SURVEILANCE') ||
+      upperRow.includes('HEALTH SURVEILLANCE') ||
+      upperRow.includes('FOOD CONTROL') ||
+      upperRow.includes('WASTE MANAGEMENT')
+    ) {
+      if (upperRow.includes('HEALTH SURVEIL')) {
+        currentFunctionalKpa = 'KPA 5: Basic Service Delivery and Infrastructure: Health Surveillance of Premises';
+      } else if (upperRow.includes('WATER QUALITY')) {
+        currentFunctionalKpa = 'KPA 5: Basic Service Delivery and Infrastructure: Water Quality Monitoring';
+      } else {
+        const cleanSub = rowText.replace(/^[-*#\s|]+/, '').trim();
+        currentFunctionalKpa = `KPA 5: Basic Service Delivery and Infrastructure: ${cleanSub}`;
+      }
+      continue;
+    }
+
+    // Check if this row is a general KPA Section Banner or Projects Section Banner
     if (
       rowText.toLowerCase().includes('kpa 1:') ||
       rowText.toLowerCase().includes('kpa 2:') ||
@@ -905,6 +1161,28 @@ function parseRawTextLines(text: string): ExtractedMappedKPI[] {
       insideScorecardOrProjects = true;
     }
 
+    const upperLine = line.toUpperCase();
+    if (
+      upperLine.includes('WATER QUALITY MONITORING') ||
+      upperLine.includes('HEALTH SURVEILANCE OF PREMISES') ||
+      upperLine.includes('HEALTH SURVEILLANCE OF PREMISES') ||
+      upperLine.includes('HEALTH SURVEILANCE') ||
+      upperLine.includes('HEALTH SURVEILLANCE') ||
+      upperLine.includes('FOOD CONTROL') ||
+      upperLine.includes('WASTE MANAGEMENT')
+    ) {
+      if (upperLine.includes('HEALTH SURVEIL')) {
+        currentFunctionalKpa = 'KPA 5: Basic Service Delivery and Infrastructure: Health Surveillance of Premises';
+      } else if (upperLine.includes('WATER QUALITY')) {
+        currentFunctionalKpa = 'KPA 5: Basic Service Delivery and Infrastructure: Water Quality Monitoring';
+      } else {
+        const cleanSub = line.replace(/^[-*#\s|]+/, '').trim();
+        currentFunctionalKpa = `KPA 5: Basic Service Delivery and Infrastructure: ${cleanSub}`;
+      }
+      insideScorecardOrProjects = true;
+      continue;
+    }
+
     if (
       line.toLowerCase().includes('kpa 1:') ||
       line.toLowerCase().includes('kpa 2:') ||
@@ -931,28 +1209,30 @@ function parseRawTextLines(text: string): ExtractedMappedKPI[] {
       continue;
     }
 
-    // Only match actual KPI codes (M_11, M_15, P_09, P_10, etc.)
-    const match = line.match(/^([M|P]_\d+|[A-Z]{2,5}[-_]\d+|\bKPI\s*\d+)\s*[:.\-–\t\s](.+)$/i);
+    // Match KPI codes (M_11, M_15, P_09, P_10, KPI 1, or numeric index 1..99 followed by delimiter)
+    const match = line.match(/^([M|P]_\d+|[A-Z]{2,5}[-_]\d+|\bKPI\s*\d+|\b\d{1,2}\b)\s*[:.\-–\t\s|](.+)$/i);
     if (match && (insideScorecardOrProjects || currentFunctionalKpa !== 'Functional Performance Area')) {
       const kpiNo = match[1].trim();
       const kpiDesc = match[2].trim();
-      items.push({
-        _id: `raw-${Date.now()}-${items.length + 1}`,
-        _selected: true,
-        "kpi no": kpiNo,
-        "kpi description": kpiDesc,
-        "%wt": "",
-        "baseline": "",
-        "annual target": "",
-        "1st qtr target": "",
-        "2nd qtr target": "",
-        "3rd qtr target": "",
-        "4th qtr target": "",
-        "poe": "",
-        "budget": "",
-        "functional kpa": currentFunctionalKpa,
-        "kpa": currentFunctionalKpa
-      });
+      if (kpiDesc.length > 3 && !kpiDesc.toLowerCase().startsWith('financial year') && !kpiDesc.toLowerCase().startsWith('page')) {
+        items.push({
+          _id: `raw-${Date.now()}-${items.length + 1}`,
+          _selected: true,
+          "kpi no": kpiNo,
+          "kpi description": kpiDesc,
+          "%wt": "",
+          "baseline": "",
+          "annual target": "",
+          "1st qtr target": "",
+          "2nd qtr target": "",
+          "3rd qtr target": "",
+          "4th qtr target": "",
+          "poe": "",
+          "budget": "",
+          "functional kpa": currentFunctionalKpa,
+          "kpa": currentFunctionalKpa
+        });
+      }
     }
   }
 
