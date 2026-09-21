@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   FileBadge, Shield, Info, BookOpen, Clock, CheckCircle, Plus, Trash2, 
   Edit2, Check, ArrowRight, Save, Layout, HelpCircle, FileText, 
@@ -81,12 +81,13 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId }: Persona
 
   // Table Interaction Focus States
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+  const [selectedRowIndex, setSelectedRowIndex] = useState<number>(0);
   const [selectedField, setSelectedField] = useState<keyof PDPItem | null>(null);
 
   // 1. Core Spreadsheet Row State
   const [items, setItems] = useState<PDPItem[]>([
     {
-      id: 'pdp-1',
+      id: 'pdp-row-1',
       skillsGap: 'Asset Lifecycle Risk Calculation Standards',
       outcomes: 'Produce full GRAP-17 asset registry sheets matching compliance benchmarks within Auditing Q2 timeline.',
       suggestedTraining: 'Advanced Municipal Infrastructure Asset Management Program',
@@ -96,7 +97,7 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId }: Persona
       supportPerson: 'Chief Financial Officer'
     },
     {
-      id: 'pdp-2',
+      id: 'pdp-row-2',
       skillsGap: 'Supply Chain Bid Specification Compliance',
       outcomes: 'Formulate robust bid evaluation scores free of technical specification disputes for 100% of upcoming capital tenders.',
       suggestedTraining: 'Ethics & Bid Committees Regulatory Compliance Frameworks',
@@ -106,6 +107,11 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId }: Persona
       supportPerson: 'Director: Supply Chain Management'
     }
   ]);
+
+  const itemsRef = useRef<PDPItem[]>(items);
+  useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
 
   // 2. Sidebar Master Lists States (with default records)
   const [skillsGapsMasters, setSkillsGapsMasters] = useState<GapMaster[]>([
@@ -157,7 +163,22 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId }: Persona
         const data = await res.json();
         if (active && data) {
           if (Array.isArray(data.items)) {
-            setItems(data.items);
+            const normalized = data.items.map((row: any, idx: number) => ({
+              id: row.id || `pdp-row-${idx}-${Date.now()}`,
+              skillsGap: row.skillsGap || row.gap || row.competency || row.title || '',
+              outcomes: row.outcomes || row.outcome || row.measurableIndicators || '',
+              suggestedTraining: row.suggestedTraining || row.training || row.intervention || '',
+              modeOfDelivery: row.modeOfDelivery || row.mode || row.delivery || '',
+              timeFrame: row.timeFrame || row.timeframe || row.period || '',
+              workOpportunity: row.workOpportunity || row.opportunity || row.practice || '',
+              supportPerson: row.supportPerson || row.support || row.mentor || ''
+            }));
+            setItems(normalized);
+            itemsRef.current = normalized;
+            if (normalized.length > 0) {
+              setSelectedRowIndex(0);
+              setSelectedRowId(normalized[0].id);
+            }
           }
           if (Array.isArray(data.skillsGapsMasters)) {
             setSkillsGapsMasters(data.skillsGapsMasters);
@@ -184,7 +205,7 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId }: Persona
 
   // Save changes to Supabase
   const handleSaveToDatabase = async (
-    currentItemsList = items,
+    currentItemsList?: PDPItem[],
     cmGaps = skillsGapsMasters,
     cmTrainings = trainingsMasters,
     cmModes = modesMasters,
@@ -195,8 +216,12 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId }: Persona
       setSyncStatus('saving');
       setSaving(true);
       
+      const listToSave = currentItemsList !== undefined 
+        ? currentItemsList 
+        : (itemsRef.current && itemsRef.current.length > 0 ? itemsRef.current : items);
+
       const payload = { 
-        items: currentItemsList,
+        items: listToSave,
         skillsGapsMasters: cmGaps,
         trainingsMasters: cmTrainings,
         modesMasters: cmModes,
@@ -231,8 +256,8 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId }: Persona
   };
 
   // Main UI Action triggers for standard spreadsheet rows
-  const handleAddNewRow = () => {
-    const freshRowID = `pdp-row-${Date.now()}`;
+  const handleAddNewRow = (insertAfterIndex?: number) => {
+    const freshRowID = `pdp-row-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
     const fresh: PDPItem = {
       id: freshRowID,
       skillsGap: '',
@@ -243,14 +268,26 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId }: Persona
       workOpportunity: '',
       supportPerson: ''
     };
-    const updated = [...items, fresh];
+    let updated: PDPItem[];
+    if (typeof insertAfterIndex === 'number' && insertAfterIndex >= 0 && insertAfterIndex < items.length) {
+      updated = [
+        ...items.slice(0, insertAfterIndex + 1),
+        fresh,
+        ...items.slice(insertAfterIndex + 1)
+      ];
+      setSelectedRowIndex(insertAfterIndex + 1);
+    } else {
+      updated = [...items, fresh];
+      setSelectedRowIndex(updated.length - 1);
+    }
     setItems(updated);
+    itemsRef.current = updated;
     setSelectedRowId(freshRowID);
     setSelectedField('skillsGap');
     handleSaveToDatabase(updated);
   };
 
-  const handleDeleteRow = (id: string) => {
+  const handleDeleteRow = (targetIdx: number) => {
     if (items.length <= 1) {
       // Keep at least one placeholder row
       const cleared = [{
@@ -264,11 +301,18 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId }: Persona
         supportPerson: ''
       }];
       setItems(cleared);
+      itemsRef.current = cleared;
+      setSelectedRowIndex(0);
+      setSelectedRowId(cleared[0].id);
       handleSaveToDatabase(cleared);
       return;
     }
-    const updated = items.filter(r => r.id !== id);
+    const updated = items.filter((_, idx) => idx !== targetIdx);
     setItems(updated);
+    itemsRef.current = updated;
+    const nextIdx = Math.min(targetIdx, updated.length - 1);
+    setSelectedRowIndex(nextIdx);
+    setSelectedRowId(updated[nextIdx]?.id || null);
     handleSaveToDatabase(updated);
   };
 
@@ -281,17 +325,21 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId }: Persona
     list[idx] = list[targetIdx];
     list[targetIdx] = temp;
     setItems(list);
+    itemsRef.current = list;
+    setSelectedRowIndex(targetIdx);
+    setSelectedRowId(list[targetIdx]?.id || null);
     handleSaveToDatabase(list);
   };
 
-  const handleRowInputChange = (rowId: string, field: keyof PDPItem, value: any) => {
-    const updated = items.map(r => {
-      if (r.id === rowId) {
+  const handleRowInputChange = (rowIndex: number, field: keyof PDPItem, value: any) => {
+    const updated = items.map((r, idx) => {
+      if (idx === rowIndex) {
         return { ...r, [field]: value };
       }
       return r;
     });
     setItems(updated);
+    itemsRef.current = updated;
   };
 
   // Left Sidebar Master Register controllers (Section A - D)
@@ -323,12 +371,37 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId }: Persona
   };
 
   const postGapToActiveCell = (name: string) => {
-    if (!selectedRowId) {
-      alert("Please click in a cell or input in the table workspace first.");
+    const targetIdx = selectedRowIndex ?? 0;
+    let currentList = itemsRef.current && itemsRef.current.length > 0 ? itemsRef.current : items;
+    if (currentList.length === 0) {
+      const freshRowID = `pdp-row-${Date.now()}`;
+      currentList = [{
+        id: freshRowID,
+        skillsGap: name,
+        outcomes: '',
+        suggestedTraining: '',
+        modeOfDelivery: '',
+        timeFrame: '',
+        workOpportunity: '',
+        supportPerson: ''
+      }];
+      setItems(currentList);
+      itemsRef.current = currentList;
+      setSelectedRowIndex(0);
+      setSelectedRowId(freshRowID);
+      handleSaveToDatabase(currentList);
       return;
     }
-    handleRowInputChange(selectedRowId, 'skillsGap', name);
-    handleSaveToDatabase();
+    const safeIdx = Math.min(Math.max(0, targetIdx), currentList.length - 1);
+    const updated = currentList.map((r, idx) => {
+      if (idx === safeIdx) {
+        return { ...r, skillsGap: name };
+      }
+      return r;
+    });
+    setItems(updated);
+    itemsRef.current = updated;
+    handleSaveToDatabase(updated);
   };
 
   // Section B: Suggested Trainings
@@ -358,12 +431,37 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId }: Persona
   };
 
   const postTrainingToActiveCell = (name: string) => {
-    if (!selectedRowId) {
-      alert("Please click in a cell or input in the table workspace first.");
+    const targetIdx = selectedRowIndex ?? 0;
+    let currentList = itemsRef.current && itemsRef.current.length > 0 ? itemsRef.current : items;
+    if (currentList.length === 0) {
+      const freshRowID = `pdp-row-${Date.now()}`;
+      currentList = [{
+        id: freshRowID,
+        skillsGap: '',
+        outcomes: '',
+        suggestedTraining: name,
+        modeOfDelivery: '',
+        timeFrame: '',
+        workOpportunity: '',
+        supportPerson: ''
+      }];
+      setItems(currentList);
+      itemsRef.current = currentList;
+      setSelectedRowIndex(0);
+      setSelectedRowId(freshRowID);
+      handleSaveToDatabase(currentList);
       return;
     }
-    handleRowInputChange(selectedRowId, 'suggestedTraining', name);
-    handleSaveToDatabase();
+    const safeIdx = Math.min(Math.max(0, targetIdx), currentList.length - 1);
+    const updated = currentList.map((r, idx) => {
+      if (idx === safeIdx) {
+        return { ...r, suggestedTraining: name };
+      }
+      return r;
+    });
+    setItems(updated);
+    itemsRef.current = updated;
+    handleSaveToDatabase(updated);
   };
 
   // Section C: Modes of Delivery
@@ -393,12 +491,37 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId }: Persona
   };
 
   const postModeToActiveCell = (name: string) => {
-    if (!selectedRowId) {
-      alert("Please click in a cell or input in the table workspace first.");
+    const targetIdx = selectedRowIndex ?? 0;
+    let currentList = itemsRef.current && itemsRef.current.length > 0 ? itemsRef.current : items;
+    if (currentList.length === 0) {
+      const freshRowID = `pdp-row-${Date.now()}`;
+      currentList = [{
+        id: freshRowID,
+        skillsGap: '',
+        outcomes: '',
+        suggestedTraining: '',
+        modeOfDelivery: name,
+        timeFrame: '',
+        workOpportunity: '',
+        supportPerson: ''
+      }];
+      setItems(currentList);
+      itemsRef.current = currentList;
+      setSelectedRowIndex(0);
+      setSelectedRowId(freshRowID);
+      handleSaveToDatabase(currentList);
       return;
     }
-    handleRowInputChange(selectedRowId, 'modeOfDelivery', name);
-    handleSaveToDatabase();
+    const safeIdx = Math.min(Math.max(0, targetIdx), currentList.length - 1);
+    const updated = currentList.map((r, idx) => {
+      if (idx === safeIdx) {
+        return { ...r, modeOfDelivery: name };
+      }
+      return r;
+    });
+    setItems(updated);
+    itemsRef.current = updated;
+    handleSaveToDatabase(updated);
   };
 
   // Section D: Support Persons
@@ -430,12 +553,37 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId }: Persona
   };
 
   const postSupportToActiveCell = (name: string) => {
-    if (!selectedRowId) {
-      alert("Please click in a cell or input in the table workspace first.");
+    const targetIdx = selectedRowIndex ?? 0;
+    let currentList = itemsRef.current && itemsRef.current.length > 0 ? itemsRef.current : items;
+    if (currentList.length === 0) {
+      const freshRowID = `pdp-row-${Date.now()}`;
+      currentList = [{
+        id: freshRowID,
+        skillsGap: '',
+        outcomes: '',
+        suggestedTraining: '',
+        modeOfDelivery: '',
+        timeFrame: '',
+        workOpportunity: '',
+        supportPerson: name
+      }];
+      setItems(currentList);
+      itemsRef.current = currentList;
+      setSelectedRowIndex(0);
+      setSelectedRowId(freshRowID);
+      handleSaveToDatabase(currentList);
       return;
     }
-    handleRowInputChange(selectedRowId, 'supportPerson', name);
-    handleSaveToDatabase();
+    const safeIdx = Math.min(Math.max(0, targetIdx), currentList.length - 1);
+    const updated = currentList.map((r, idx) => {
+      if (idx === safeIdx) {
+        return { ...r, supportPerson: name };
+      }
+      return r;
+    });
+    setItems(updated);
+    itemsRef.current = updated;
+    handleSaveToDatabase(updated);
   };
 
   // Export Managers for Word, Excel & PDF
@@ -1112,8 +1260,8 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId }: Persona
                   </span>
                 </div>
                 <button 
-                  onClick={handleAddNewRow}
-                  className="bg-[#0078D4] hover:bg-[#106ebe] text-white font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1 shadow-sm transition"
+                  onClick={() => handleAddNewRow()}
+                  className="bg-[#0078D4] hover:bg-[#106ebe] text-white font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1 shadow-sm transition cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" /> Add Priority Gap Row
                 </button>
@@ -1137,7 +1285,7 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId }: Persona
                   </thead>
                   <tbody className="divide-y divide-gray-150">
                     {items.map((row, rIdx) => {
-                      const isRowFocused = selectedRowId === row.id;
+                      const isRowFocused = selectedRowIndex === rIdx || selectedRowId === row.id;
                       return (
                         <tr 
                           key={row.id || `pdp-row-${rIdx}`} 
@@ -1176,8 +1324,9 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId }: Persona
                           <td className="py-2.5 px-2">
                             <textarea 
                               value={row.skillsGap || ''}
-                              onChange={(e) => handleRowInputChange(row.id, 'skillsGap', e.target.value)}
+                              onChange={(e) => handleRowInputChange(rIdx, 'skillsGap', e.target.value)}
                               onFocus={() => {
+                                setSelectedRowIndex(rIdx);
                                 setSelectedRowId(row.id);
                                 setSelectedField('skillsGap');
                               }}
@@ -1194,8 +1343,9 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId }: Persona
                           <td className="py-2.5 px-2">
                             <textarea 
                               value={row.outcomes || ''}
-                              onChange={(e) => handleRowInputChange(row.id, 'outcomes', e.target.value)}
+                              onChange={(e) => handleRowInputChange(rIdx, 'outcomes', e.target.value)}
                               onFocus={() => {
+                                setSelectedRowIndex(rIdx);
                                 setSelectedRowId(row.id);
                                 setSelectedField('outcomes');
                               }}
@@ -1212,8 +1362,9 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId }: Persona
                           <td className="py-2.5 px-2">
                             <textarea 
                               value={row.suggestedTraining || ''}
-                              onChange={(e) => handleRowInputChange(row.id, 'suggestedTraining', e.target.value)}
+                              onChange={(e) => handleRowInputChange(rIdx, 'suggestedTraining', e.target.value)}
                               onFocus={() => {
+                                setSelectedRowIndex(rIdx);
                                 setSelectedRowId(row.id);
                                 setSelectedField('suggestedTraining');
                               }}
@@ -1231,8 +1382,9 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId }: Persona
                             <input 
                               type="text" 
                               value={row.modeOfDelivery || ''}
-                              onChange={(e) => handleRowInputChange(row.id, 'modeOfDelivery', e.target.value)}
+                              onChange={(e) => handleRowInputChange(rIdx, 'modeOfDelivery', e.target.value)}
                               onFocus={() => {
+                                setSelectedRowIndex(rIdx);
                                 setSelectedRowId(row.id);
                                 setSelectedField('modeOfDelivery');
                               }}
@@ -1250,8 +1402,9 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId }: Persona
                             <input 
                               type="text" 
                               value={row.timeFrame || ''}
-                              onChange={(e) => handleRowInputChange(row.id, 'timeFrame', e.target.value)}
+                              onChange={(e) => handleRowInputChange(rIdx, 'timeFrame', e.target.value)}
                               onFocus={() => {
+                                setSelectedRowIndex(rIdx);
                                 setSelectedRowId(row.id);
                                 setSelectedField('timeFrame');
                               }}
@@ -1268,8 +1421,9 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId }: Persona
                           <td className="py-2.5 px-2">
                             <textarea 
                               value={row.workOpportunity || ''}
-                              onChange={(e) => handleRowInputChange(row.id, 'workOpportunity', e.target.value)}
+                              onChange={(e) => handleRowInputChange(rIdx, 'workOpportunity', e.target.value)}
                               onFocus={() => {
+                                setSelectedRowIndex(rIdx);
                                 setSelectedRowId(row.id);
                                 setSelectedField('workOpportunity');
                               }}
@@ -1287,8 +1441,9 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId }: Persona
                             <input 
                               type="text" 
                               value={row.supportPerson || ''}
-                              onChange={(e) => handleRowInputChange(row.id, 'supportPerson', e.target.value)}
+                              onChange={(e) => handleRowInputChange(rIdx, 'supportPerson', e.target.value)}
                               onFocus={() => {
+                                setSelectedRowIndex(rIdx);
                                 setSelectedRowId(row.id);
                                 setSelectedField('supportPerson');
                               }}
@@ -1301,15 +1456,24 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId }: Persona
                             />
                           </td>
 
-                          {/* 9. Erase row action */}
+                          {/* 9. Actions: Insert Row + Delete Row */}
                           <td className="py-4 px-2 text-center select-none">
-                            <button 
-                              onClick={() => handleDeleteRow(row.id)}
-                              className="text-red-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition"
-                              title="Delete Row"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            <div className="flex items-center justify-center gap-1">
+                              <button 
+                                onClick={() => handleAddNewRow(rIdx)}
+                                className="text-emerald-500 hover:text-emerald-700 p-1.5 rounded-lg hover:bg-emerald-50 transition cursor-pointer"
+                                title={`Insert new row below Row ${rIdx + 1}`}
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteRow(rIdx)}
+                                className="text-red-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition cursor-pointer"
+                                title={`Delete Row ${rIdx + 1}`}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );

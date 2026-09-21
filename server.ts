@@ -5465,6 +5465,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
           kpaCount?: number;
           jscCount?: number;
           kpiCount?: number;
+          pdpCount?: number;
           completedSteps?: string[];
         };
         created_at?: string;
