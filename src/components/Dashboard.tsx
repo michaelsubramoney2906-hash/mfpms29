@@ -476,7 +476,8 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                             email.includes('khuboni') ||
                             email.includes('mike@massivedynamixdistributors.com');
 
-      const isBypassAll = isGlobalOrSystemAdmin || isPMSTeam || isManagerUser;
+      const isDirectAccess = sub.id === 'ipms-evaluation' || sub.id === 'pplan' || sub.id === 'pdp' || sub.id === 'pa' || sub.id === 'jsc' || sub.id === 'ccomp' || sub.id === 'ipms-kpi' || sub.id === 'ipms-kpa' || sub.id === 'organogram' || sub.id === 'ipms-inbox' || sub.id === 'review-timetable' || sub.id === 'performance-assessment';
+      const isBypassAll = isGlobalOrSystemAdmin || isPMSTeam || isManagerUser || isDirectAccess;
 
       if (!isBypassAll) {
         const filteredSteps = getFilteredSteps();

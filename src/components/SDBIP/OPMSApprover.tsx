@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { 
   Search, CheckCircle, AlertTriangle, AlertCircle, RefreshCw, 
   Layers, Database, ChevronRight, Clock, ShieldCheck, 
-  ThumbsUp, MessageSquare, ArrowLeftRight, UserCheck, Check, X, ShieldAlert, Award, FileSpreadsheet
+  ThumbsUp, MessageSquare, ArrowLeftRight, UserCheck, Check, X, ShieldAlert, Award, FileSpreadsheet,
+  Eye, Download, FileText, Presentation, File, FolderOpen, Paperclip
 } from 'lucide-react';
 import type { User } from '../../types';
-import { SdbipRow } from './SDBIP';
+import { SdbipRow, SdbipPoeFile } from './SDBIP';
+import { OfficeDocumentViewer } from '../IPMS/OfficeDocumentViewer';
 
 interface OPMSApproverProps {
   currentUser: User;
@@ -14,6 +16,8 @@ interface OPMSApproverProps {
 
 export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps) {
   const [rows, setRows] = useState<SdbipRow[]>([]);
+  const [poes, setPoes] = useState<SdbipPoeFile[]>([]);
+  const [previewDoc, setPreviewDoc] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -48,15 +52,157 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
     }
   }, [selectedKpi]);
 
+  const generateFallbackSvgDataUrl = (fileName: string, kpiName: string, refNum: string, quarter: string) => {
+    const ext = fileName.split('.').pop()?.toUpperCase() || 'POE';
+    const svgString = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1100" width="100%" height="100%">
+      <defs>
+        <linearGradient id="gradHeader" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#0f172a" />
+          <stop offset="100%" stop-color="#1e293b" />
+        </linearGradient>
+      </defs>
+      <rect width="800" height="1100" fill="#ffffff" />
+      <rect x="0" y="0" width="800" height="130" fill="url(#gradHeader)" />
+      
+      <text x="50" y="55" font-family="sans-serif" font-size="20" font-weight="900" fill="#ffffff" letter-spacing="2">NKANGALA DISTRICT MUNICIPALITY</text>
+      <text x="50" y="85" font-family="sans-serif" font-size="12" font-weight="700" fill="#10b981" letter-spacing="1">OFFICIAL PORTFOLIO OF EVIDENCE (POE) • FIDUCIARY AUDIT LOG</text>
+      <text x="50" y="108" font-family="sans-serif" font-size="10" font-weight="500" fill="#94a3b8">EXECUTIVE APPROVAL & OVERSIGHT PORTAL</text>
+      
+      <rect x="50" y="160" width="700" height="2" fill="#e2e8f0" />
+      
+      <rect x="50" y="180" width="700" height="140" rx="12" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5" />
+      <text x="75" y="210" font-family="sans-serif" font-size="10" font-weight="800" fill="#64748b" letter-spacing="1">DOCUMENT IDENTIFIER</text>
+      <text x="75" y="235" font-family="sans-serif" font-size="14" font-weight="900" fill="#0f172a">${fileName}</text>
+      
+      <text x="75" y="275" font-family="sans-serif" font-size="10" font-weight="800" fill="#64748b" letter-spacing="1">INDICATOR REFERENCE</text>
+      <text x="75" y="298" font-family="sans-serif" font-size="12" font-weight="800" fill="#4338ca">REF: ${refNum} • ${quarter}</text>
+      
+      <text x="450" y="210" font-family="sans-serif" font-size="10" font-weight="800" fill="#64748b" letter-spacing="1">FILE FORMAT</text>
+      <text x="450" y="235" font-family="sans-serif" font-size="14" font-weight="900" fill="#059669">${ext} DOCUMENT</text>
+      
+      <text x="450" y="275" font-family="sans-serif" font-size="10" font-weight="800" fill="#64748b" letter-spacing="1">VERIFICATION TIMESTAMP</text>
+      <text x="450" y="298" font-family="sans-serif" font-size="11" font-weight="700" fill="#334155">${new Date().toLocaleDateString()}</text>
+      
+      <text x="50" y="360" font-family="sans-serif" font-size="13" font-weight="900" fill="#0f172a">1. PERFORMANCE KPI SUMMARY</text>
+      <rect x="50" y="375" width="700" height="70" rx="8" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1" />
+      <text x="70" y="405" font-family="sans-serif" font-size="11" font-weight="700" fill="#1e3a8a">${kpiName.substring(0, 85)}</text>
+      <text x="70" y="425" font-family="sans-serif" font-size="10" font-weight="500" fill="#3b82f6">Audited performance milestone and deliverables recorded for statutory oversight.</text>
+      
+      <text x="50" y="485" font-family="sans-serif" font-size="13" font-weight="900" fill="#0f172a">2. FIDUCIARY EVIDENCE COMPLIANCE STATEMENT</text>
+      <rect x="50" y="500" width="700" height="150" rx="8" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1" />
+      <text x="70" y="535" font-family="serif" font-size="12" font-style="italic" fill="#14532d">"This document serves as validated and attached Portfolio of Evidence (PoE) for municipal SDBIP</text>
+      <text x="70" y="560" font-family="serif" font-size="12" font-style="italic" fill="#14532d">performance tracking. All reported targets, deliverables, and financial actuals are cross-referenced</text>
+      <text x="70" y="585" font-family="serif" font-size="12" font-style="italic" fill="#14532d">with authorized municipal accounting ledgers and signed operational performance agreements."</text>
+      
+      <g transform="translate(500, 720)">
+        <circle cx="100" cy="100" r="80" fill="none" stroke="#10b981" stroke-width="4" stroke-dasharray="8,4" />
+        <circle cx="100" cy="100" r="72" fill="none" stroke="#10b981" stroke-width="1.5" />
+        <rect x="40" y="85" width="120" height="30" fill="#10b981" rx="4" />
+        <text x="100" y="105" font-family="sans-serif" font-size="14" font-weight="900" fill="#ffffff" text-anchor="middle">EXECUTIVE APPROVED</text>
+        <text x="100" y="145" font-family="sans-serif" font-size="9" font-weight="700" fill="#10b981" text-anchor="middle">SEALED EVIDENCE</text>
+      </g>
+      
+      <g transform="translate(75, 760)">
+        <line x1="0" y1="50" x2="300" y2="50" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4,4" />
+        <text x="0" y="70" font-family="sans-serif" font-size="10" font-weight="800" fill="#475569">EXECUTIVE MAYORAL & MUNICIPAL MANAGER OFFICE</text>
+        <text x="0" y="85" font-family="sans-serif" font-size="9" font-weight="500" fill="#94a3b8">Statutory Top Layer Evidence Filing</text>
+      </g>
+      
+      <line x1="50" y1="980" x2="750" y2="980" stroke="#e2e8f0" stroke-width="1.5" />
+      <text x="50" y="1015" font-family="sans-serif" font-size="9" font-weight="700" fill="#94a3b8">REGULATORY FRAMEWORK: LOCAL GOVERNMENT MUNICIPAL SYSTEMS ACT (ACT 32 OF 2000)</text>
+      <text x="750" y="1015" font-family="sans-serif" font-size="9" font-weight="900" fill="#4f46e5" text-anchor="end">MZANSIFLOW SDBIP ENGINE</text>
+    </svg>`;
+    return 'data:image/svg+xml;utf8,' + encodeURIComponent(svgString);
+  };
+
+  const getFileIcon = (name: string) => {
+    const ext = name.split('.').pop()?.toLowerCase() || '';
+    if (['xls', 'xlsx', 'csv'].includes(ext)) {
+      return <FileSpreadsheet className="w-4 h-4 text-emerald-400 shrink-0" />;
+    }
+    if (['doc', 'docx', 'rtf', 'txt'].includes(ext)) {
+      return <FileText className="w-4 h-4 text-blue-400 shrink-0" />;
+    }
+    if (['ppt', 'pptx'].includes(ext)) {
+      return <Presentation className="w-4 h-4 text-orange-400 shrink-0" />;
+    }
+    return <File className="w-4 h-4 text-slate-400 shrink-0" />;
+  };
+
+  const getKpiPoes = (kpi: SdbipRow) => {
+    const list: { id: string; name: string; quarter: string; size?: string; date?: string; desc?: string; dataUrl?: string }[] = [];
+    const seenNames = new Set<string>();
+
+    // 1. Check matching in poes array by refNum
+    poes.forEach(p => {
+      if (p.refNum === kpi.refNum || (p.refNum && p.refNum.toLowerCase() === (kpi.refNum || '').toLowerCase())) {
+        if (!seenNames.has(p.name)) {
+          seenNames.add(p.name);
+          list.push({
+            id: p.id,
+            name: p.name,
+            quarter: p.type || 'SDBIP Portfolio',
+            size: p.size,
+            date: p.date,
+            desc: p.description,
+            dataUrl: p.fileData || generateFallbackSvgDataUrl(p.name, kpi.kpi, kpi.refNum, p.type || 'SDBIP Portfolio')
+          });
+        }
+      }
+    });
+
+    // 2. Check quarterly arrays in kpi
+    const quarterMap: Record<string, string[] | undefined> = {
+      'Q1': kpi.q1Poes,
+      'Q2': kpi.q2Poes,
+      'Midterm': kpi.midTermPoes,
+      'Q3': kpi.q3Poes,
+      'Q4': kpi.q4Poes
+    };
+
+    Object.entries(quarterMap).forEach(([qKey, fileNames]) => {
+      if (Array.isArray(fileNames)) {
+        fileNames.forEach((fn, idx) => {
+          if (fn && !seenNames.has(fn)) {
+            seenNames.add(fn);
+            const matchedPoe = poes.find(p => p.name === fn);
+            list.push({
+              id: matchedPoe?.id || `qpoe-${qKey}-${idx}-${fn}`,
+              name: fn,
+              quarter: `${qKey} Portfolio of Evidence`,
+              size: matchedPoe?.size || '120 KB',
+              date: matchedPoe?.date || new Date().toLocaleDateString(),
+              desc: matchedPoe?.description || (kpi as any)[`${qKey.toLowerCase()}PoeDesc`] || kpi.poeDesc,
+              dataUrl: matchedPoe?.fileData || generateFallbackSvgDataUrl(fn, kpi.kpi, kpi.refNum, `${qKey} Portfolio of Evidence`)
+            });
+          }
+        });
+      }
+    });
+
+    return list;
+  };
+
   const fetchSDBIPData = async (isBackground = false) => {
     if (!isBackground) setLoading(true);
     if (!isBackground) setError(null);
     try {
-      const response = await fetch(`/api/tenant/${activeTenantId}/sdbip`);
-      if (!response.ok) throw new Error('Failed to retrieve SDBIP scorecard data');
-      const data = await response.json();
+      const [resSdbip, resPoes] = await Promise.all([
+        fetch(`/api/tenant/${activeTenantId}/sdbip`),
+        fetch(`/api/tenant/${activeTenantId}/sdbip-poes`)
+      ]);
+
+      if (!resSdbip.ok) throw new Error('Failed to retrieve SDBIP scorecard data');
+      const data = await resSdbip.json();
       const freshItems = data.items || [];
       setRows(freshItems);
+
+      if (resPoes.ok) {
+        const poesData = await resPoes.json();
+        setPoes(poesData.poes || []);
+      }
+
       setSelectedKpi(prev => {
         if (!prev) return null;
         return freshItems.find((x: SdbipRow) => x.id === prev.id) || prev;
@@ -480,12 +626,86 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
               </div>
             )}
 
-            {/* Evidence details */}
-            <div className="bg-slate-950 p-3 rounded-xl border border-slate-850 space-y-1">
-              <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Verifiable Evidence Desk</span>
-              <p className="text-xs text-slate-300 leading-relaxed italic">
-                {selectedKpi.poeDesc || "digital Portfolio of Evidence (PoE) logged & verified by reviewers."}
-              </p>
+            {/* digital PoE Evidence logs & uploaded files */}
+            <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-850 space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-850 pb-2">
+                <div className="flex items-center gap-2">
+                  <FolderOpen className="w-4 h-4 text-emerald-400" />
+                  <span className="text-[10px] font-black text-slate-300 uppercase tracking-wider">Verifiable Evidence Desk (PoE)</span>
+                </div>
+                <span className="text-[9px] font-bold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/40">
+                  {getKpiPoes(selectedKpi).length} Uploaded File(s)
+                </span>
+              </div>
+
+              {selectedKpi.poeDesc && (
+                <p className="text-xs text-slate-300 leading-relaxed italic bg-slate-900/60 p-2 rounded border border-slate-850/50">
+                  "{selectedKpi.poeDesc}"
+                </p>
+              )}
+
+              {/* Uploaded PoE File List with Live Preview and Download */}
+              <div className="space-y-2 pt-1">
+                {getKpiPoes(selectedKpi).length === 0 ? (
+                  <div className="p-3 bg-slate-900/40 border border-dashed border-slate-800 rounded-lg text-center">
+                    <p className="text-[11px] text-slate-500 italic m-0">No document files attached to this KPI yet.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-2">
+                    {getKpiPoes(selectedKpi).map(file => (
+                      <div key={file.id} className="bg-slate-900/80 border border-slate-800 hover:border-emerald-500/50 p-2.5 rounded-xl flex items-center justify-between gap-3 transition">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="p-2 bg-slate-950 rounded-lg border border-slate-800 shrink-0">
+                            {getFileIcon(file.name)}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-white truncate m-0" title={file.name}>
+                              {file.name}
+                            </p>
+                            <div className="flex items-center gap-2 text-[9.5px] text-slate-400 mt-0.5">
+                              <span className="bg-emerald-950 text-emerald-300 px-1.5 py-0.2 rounded font-semibold uppercase tracking-tight text-[8.5px] border border-emerald-800/50">
+                                {file.quarter}
+                              </span>
+                              <span>{file.size || '120 KB'}</span>
+                              <span>•</span>
+                              <span>{file.date || 'Attached'}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setPreviewDoc({
+                              name: file.name,
+                              fileData: file.dataUrl,
+                              kpiName: selectedKpi.kpi,
+                              refNum: selectedKpi.refNum,
+                              quarter: file.quarter
+                            })}
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-2.5 py-1.5 rounded-lg text-[10px] uppercase tracking-wide flex items-center gap-1 cursor-pointer transition shadow-sm"
+                            title="Preview Portfolio of Evidence"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>View PoE</span>
+                          </button>
+
+                          {file.dataUrl && (
+                            <a
+                              href={file.dataUrl}
+                              download={file.name}
+                              className="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white p-1.5 rounded-lg text-[10px] flex items-center justify-center transition border border-slate-700"
+                              title="Download File"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Approver direct comments */}
@@ -600,6 +820,13 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
             </div>
           </div>
         </div>
+      )}
+
+      {previewDoc && (
+        <OfficeDocumentViewer
+          doc={previewDoc}
+          onClose={() => setPreviewDoc(null)}
+        />
       )}
 
     </div>

@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   FileText, ArrowRight, CheckCircle, AlertTriangle, AlertCircle, 
   Send, RefreshCw, Layers, Database, Search, ChevronRight, 
-  Clock, Plus, ShieldCheck, Check, MessageSquare, Info, Lock
+  Clock, Plus, ShieldCheck, Check, MessageSquare, Info, Lock,
+  Upload, Eye, Trash2, Paperclip, FileSpreadsheet, Presentation, Image as ImageIcon
 } from 'lucide-react';
 import type { User } from '../../types';
 import { SdbipRow } from './SDBIP';
 import { isQuarterInReportingPeriod, getQuarterLockNotice } from '../../utils/reportingPeriods';
+import { OfficeDocumentViewer, PoeDocument } from '../IPMS/OfficeDocumentViewer';
 
 interface OPMSSubmitterProps {
   currentUser: User;
@@ -21,6 +23,10 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
   const [selectedKpi, setSelectedKpi] = useState<SdbipRow | null>(null);
   const [kpaFilter, setKpaFilter] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [poes, setPoes] = useState<any[]>([]);
+  const [previewDoc, setPreviewDoc] = useState<PoeDocument | null>(null);
+  const [uploadingPoe, setUploadingPoe] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Editing states for selected KPI
   const [q1Actual, setQ1Actual] = useState('');
@@ -44,12 +50,15 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
 
   useEffect(() => {
     fetchSDBIPData(false);
+    fetchPoes();
     const interval = setInterval(() => {
       fetchSDBIPData(true);
+      fetchPoes();
     }, 4000);
 
     const handleFocus = () => {
       fetchSDBIPData(true);
+      fetchPoes();
     };
     window.addEventListener('focus', handleFocus);
 
@@ -58,6 +67,18 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
       window.removeEventListener('focus', handleFocus);
     };
   }, [activeTenantId]);
+
+  const fetchPoes = async () => {
+    try {
+      const res = await fetch(`/api/tenant/${activeTenantId}/sdbip-poes`);
+      if (res.ok) {
+        const data = await res.json();
+        setPoes(data.poes || []);
+      }
+    } catch (e) {
+      console.error("Error fetching POEs:", e);
+    }
+  };
 
   useEffect(() => {
     if (selectedKpi) {
@@ -119,6 +140,96 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
       if (!isBackground) setError(err.message || 'An error occurred while communicating with Supabase.');
     } finally {
       if (!isBackground) setLoading(false);
+    }
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0 || !selectedKpi) return;
+    
+    setUploadingPoe(true);
+    try {
+      const file = files[0];
+      const reader = new FileReader();
+      
+      reader.onload = async () => {
+        const dataUrl = reader.result as string;
+        const newPoeItem = {
+          id: `poe-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          refNum: selectedKpi.refNum,
+          name: file.name,
+          size: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
+          date: new Date().toISOString().split('T')[0],
+          fileData: dataUrl,
+          fileType: file.type || 'application/octet-stream',
+          uploadedBy: currentUser.email,
+          uploadedAt: new Date().toISOString()
+        };
+
+        const updatedPoes = [newPoeItem, ...poes.filter(p => !(p.refNum === selectedKpi.refNum && p.name === file.name))];
+        
+        await fetch(`/api/tenant/${activeTenantId}/sdbip-poes`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ poes: updatedPoes })
+        });
+
+        setPoes(updatedPoes);
+
+        // Also update the row's general or active quarter poes list
+        const updatedRows = rows.map(r => {
+          if (r.id === selectedKpi.id) {
+            const currentQ1Poes = r.q1Poes || [];
+            return {
+              ...r,
+              q1Poes: Array.from(new Set([...currentQ1Poes, file.name]))
+            };
+          }
+          return r;
+        });
+
+        setRows(updatedRows);
+        setSuccess(`Evidence document "${file.name}" uploaded and encrypted into Supabase Cloud Vault.`);
+        setTimeout(() => setSuccess(null), 4000);
+      };
+
+      reader.readAsDataURL(file);
+    } catch (err: any) {
+      console.error(err);
+      setError('Failed to upload POE document: ' + err.message);
+    } finally {
+      setUploadingPoe(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleOpenPoePreview = (file: any) => {
+    setPreviewDoc({
+      id: file.id,
+      name: file.name,
+      mimeType: file.fileType || 'application/octet-stream',
+      dataUrl: file.fileData,
+      uploadedAt: file.uploadedAt || file.date,
+      uploadedBy: file.uploadedBy || currentUser.fullName || currentUser.email,
+      kpiName: selectedKpi?.kpi,
+      quarter: 'General / Current Quarter'
+    });
+  };
+
+  const handleDeletePoe = async (poeId: string, fileName: string) => {
+    if (!selectedKpi) return;
+    try {
+      const updatedPoes = poes.filter(p => p.id !== poeId);
+      await fetch(`/api/tenant/${activeTenantId}/sdbip-poes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ poes: updatedPoes })
+      });
+      setPoes(updatedPoes);
+      setSuccess(`Document "${fileName}" removed.`);
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (e: any) {
+      setError('Failed to delete document: ' + e.message);
     }
   };
 
@@ -703,16 +814,103 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                 </div>
               </div>
 
-              {/* Portfolio of Evidence Detail */}
-              <div className="space-y-1 bg-slate-950/40 border border-slate-800 rounded-xl p-3">
-                <label className="text-[10px] font-black uppercase text-slate-400">Verifiable Portfolio of Evidence (PoE) Description</label>
+              {/* Portfolio of Evidence Detail & File Vault */}
+              <div className="space-y-2 bg-slate-950/40 border border-slate-800 rounded-xl p-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-1.5">
+                    <Paperclip className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Verifiable Portfolio of Evidence (PoE)</span>
+                  </label>
+                  <div>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileUpload}
+                      className="hidden"
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.png,.jpg,.jpeg,.webp,.svg,.txt"
+                    />
+                    <button
+                      type="button"
+                      disabled={uploadingPoe || (selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded text-[10px] font-bold flex items-center gap-1 transition cursor-pointer shadow-sm"
+                    >
+                      <Upload className="w-3 h-3" />
+                      <span>{uploadingPoe ? 'Uploading...' : 'Upload PoE File'}</span>
+                    </button>
+                  </div>
+                </div>
+
                 <textarea
                   value={poeDesc}
                   onChange={(e) => setPoeDesc(e.target.value)}
                   disabled={(selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
                   placeholder="Provide brief details on what evidence is available (e.g. 'Attendance Register file, Site Inspection photographs attached')."
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded p-2 text-xs text-white h-20 focus:outline-none resize-none"
+                  className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded p-2 text-xs text-white h-16 focus:outline-none resize-none"
                 />
+
+                {/* Attached PoE Files for this KPI */}
+                {(() => {
+                  const relevantPoes = poes.filter(p => p.refNum === selectedKpi.refNum);
+                  if (relevantPoes.length === 0) {
+                    return (
+                      <p className="text-[10px] text-slate-500 italic py-1">
+                        No files attached yet. Upload Word, Excel, PowerPoint, PDF or image evidence directly.
+                      </p>
+                    );
+                  }
+
+                  return (
+                    <div className="space-y-1.5 pt-1">
+                      <span className="text-[9px] font-black tracking-wider uppercase text-slate-400">Attached Evidence Files:</span>
+                      <div className="grid grid-cols-1 gap-1.5 max-h-40 overflow-y-auto pr-1">
+                        {relevantPoes.map((p) => {
+                          const ext = p.name.split('.').pop()?.toLowerCase();
+                          return (
+                            <div key={p.id} className="flex items-center justify-between p-2 bg-slate-900 border border-slate-800 rounded-lg text-xs hover:border-slate-700 transition">
+                              <div className="flex items-center gap-2 overflow-hidden">
+                                {ext === 'xlsx' || ext === 'xls' || ext === 'csv' ? (
+                                  <FileSpreadsheet className="w-4 h-4 text-emerald-400 shrink-0" />
+                                ) : ext === 'pptx' || ext === 'ppt' ? (
+                                  <Presentation className="w-4 h-4 text-amber-400 shrink-0" />
+                                ) : ext === 'png' || ext === 'jpg' || ext === 'jpeg' || ext === 'webp' || ext === 'svg' ? (
+                                  <ImageIcon className="w-4 h-4 text-rose-400 shrink-0" />
+                                ) : (
+                                  <FileText className="w-4 h-4 text-indigo-400 shrink-0" />
+                                )}
+                                <div className="truncate">
+                                  <span className="text-white font-medium block truncate text-[11px]">{p.name}</span>
+                                  <span className="text-[9px] text-slate-400">{p.size || 'Attached'} • {p.date || 'Today'}</span>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenPoePreview(p)}
+                                  className="px-2 py-1 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 rounded text-[10px] font-bold flex items-center gap-1 transition cursor-pointer"
+                                  title="View document on-screen without downloading"
+                                >
+                                  <Eye className="w-3 h-3" />
+                                  <span>View</span>
+                                </button>
+                                {(!((selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed')) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeletePoe(p.id, p.name)}
+                                    className="p-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded transition cursor-pointer"
+                                    title="Delete document"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Submitter specific comments */}
@@ -775,6 +973,13 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
         )}
 
       </div>
+
+      {previewDoc && (
+        <OfficeDocumentViewer
+          document={previewDoc}
+          onClose={() => setPreviewDoc(null)}
+        />
+      )}
     </div>
   );
 }

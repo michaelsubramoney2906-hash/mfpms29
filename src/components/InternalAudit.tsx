@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { 
   ShieldAlert, BookOpen, Search, FileText, CheckSquare, Activity, 
-  Users, Lock, Database, CheckCircle, AlertTriangle, XCircle, ChevronRight, Download, Send, RefreshCw
+  Users, Lock, Database, CheckCircle, AlertTriangle, XCircle, ChevronRight, Download, Send, RefreshCw,
+  Eye, Paperclip, FileSpreadsheet, Presentation, Image as ImageIcon
 } from 'lucide-react';
 import type { User } from '../types';
+import { OfficeDocumentViewer, PoeDocument } from './IPMS/OfficeDocumentViewer';
 
 interface InternalAuditProps {
   currentUser: User;
@@ -19,6 +21,20 @@ export function InternalAudit({ currentUser, activeTenantId }: InternalAuditProp
   const [success, setSuccess] = useState<string | null>(null);
   const [auditFilter, setAuditFilter] = useState<'ALL' | 'Pending Audit' | 'Submitted' | 'Reviewed' | 'Approved'>('ALL');
   const [auditSearchQuery, setAuditSearchQuery] = useState('');
+  const [poes, setPoes] = useState<any[]>([]);
+  const [previewDoc, setPreviewDoc] = useState<PoeDocument | null>(null);
+
+  const fetchPoes = async () => {
+    try {
+      const res = await fetch(`/api/tenant/${activeTenantId}/sdbip-poes`);
+      if (res.ok) {
+        const data = await res.json();
+        setPoes(data.poes || []);
+      }
+    } catch (e) {
+      console.error("Error fetching POEs in InternalAudit:", e);
+    }
+  };
 
   const fetchSdbip = (isBackground = false) => {
     if (!isBackground) setLoading(true);
@@ -47,12 +63,15 @@ export function InternalAudit({ currentUser, activeTenantId }: InternalAuditProp
 
   useEffect(() => {
     fetchSdbip(false);
+    fetchPoes();
     const interval = setInterval(() => {
       fetchSdbip(true);
+      fetchPoes();
     }, 4000);
 
     const handleFocus = () => {
       fetchSdbip(true);
+      fetchPoes();
     };
     window.addEventListener('focus', handleFocus);
 
@@ -494,6 +513,77 @@ export function InternalAudit({ currentUser, activeTenantId }: InternalAuditProp
                     </div>
                   </div>
 
+                  {/* Portfolio of Evidence Verification */}
+                  <div className="space-y-1.5 bg-indigo-50/50 p-3 rounded-xl border border-indigo-100">
+                    <label className="text-[10px] font-black uppercase text-indigo-900 flex items-center gap-1.5">
+                      <Paperclip className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>Portfolio of Evidence (PoE) Audit Desk</span>
+                    </label>
+                    {selectedAuditKpi.poeDesc || selectedAuditKpi.q1PoeDesc ? (
+                      <p className="text-xs text-slate-700 italic bg-white p-2 rounded border border-indigo-100">
+                        "{selectedAuditKpi.poeDesc || selectedAuditKpi.q1PoeDesc}"
+                      </p>
+                    ) : null}
+
+                    {(() => {
+                      const relevantPoes = poes.filter(p => p.refNum === selectedAuditKpi.refNum);
+                      if (relevantPoes.length === 0) {
+                        return (
+                          <p className="text-[10.5px] text-slate-400 italic">
+                            No files attached to this KPI.
+                          </p>
+                        );
+                      }
+
+                      return (
+                        <div className="space-y-1 pt-1">
+                          <span className="text-[9px] font-bold text-slate-500 uppercase">Attached Verification Documents:</span>
+                          <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
+                            {relevantPoes.map((p) => {
+                              const ext = p.name.split('.').pop()?.toLowerCase();
+                              return (
+                                <div key={p.id} className="flex items-center justify-between p-2 bg-white border border-indigo-100 rounded-lg text-xs">
+                                  <div className="flex items-center gap-2 overflow-hidden">
+                                    {ext === 'xlsx' || ext === 'xls' || ext === 'csv' ? (
+                                      <FileSpreadsheet className="w-4 h-4 text-emerald-600 shrink-0" />
+                                    ) : ext === 'pptx' || ext === 'ppt' ? (
+                                      <Presentation className="w-4 h-4 text-amber-600 shrink-0" />
+                                    ) : ext === 'png' || ext === 'jpg' || ext === 'jpeg' || ext === 'webp' || ext === 'svg' ? (
+                                      <ImageIcon className="w-4 h-4 text-rose-600 shrink-0" />
+                                    ) : (
+                                      <FileText className="w-4 h-4 text-indigo-600 shrink-0" />
+                                    )}
+                                    <span className="text-slate-800 font-semibold truncate text-[11px]">{p.name}</span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setPreviewDoc({
+                                        id: p.id,
+                                        name: p.name,
+                                        mimeType: p.fileType || 'application/octet-stream',
+                                        dataUrl: p.fileData,
+                                        uploadedAt: p.uploadedAt || p.date,
+                                        uploadedBy: p.uploadedBy || 'Submitter',
+                                        kpiName: selectedAuditKpi.kpi,
+                                        quarter: 'Audit Verification'
+                                      });
+                                    }}
+                                    className="px-2 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[10px] font-bold flex items-center gap-1 transition cursor-pointer shrink-0 ml-2"
+                                    title="View evidence without downloading"
+                                  >
+                                    <Eye className="w-3 h-3" />
+                                    <span>View</span>
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+
                   <div className="space-y-1">
                     <label className="text-[10px] font-black uppercase text-slate-500">Internal Audit Remarks / Queries</label>
                     <textarea
@@ -682,6 +772,13 @@ export function InternalAudit({ currentUser, activeTenantId }: InternalAuditProp
         )}
 
       </div>
+
+      {previewDoc && (
+        <OfficeDocumentViewer
+          document={previewDoc}
+          onClose={() => setPreviewDoc(null)}
+        />
+      )}
     </div>
   );
 }

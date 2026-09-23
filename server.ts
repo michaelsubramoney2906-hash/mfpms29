@@ -2191,9 +2191,12 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       const systemInstruction = `You are an expert South African Municipal Governance and Performance Management AI.
 Your sole mission is to extract Service Delivery and Budget Implementation Plan (SDBIP) Top Layer tables and SDBIP Top Layer Reporting tables with 100% verbatim fidelity, zero truncation, and zero hallucinations.
 
-Extract ALL rows and tables for the SDBIP Top Layer Scorecard and SDBIP Top Layer Reporting Scorecard across all pages.
+CRITICAL INSTRUCTION ON KPI CODES & PREFIXES:
+Extract ALL KPIs and indicators without exception across all sections, directorates, and tables.
+Whether the KPI reference codes start with 'M_' (e.g. M_01, M_1.2), 'P_' (e.g. P_01, P_LED_02), 'TL-' (e.g. TL-01, TL-12), 'KPA-' (e.g. KPA-1, KPA-5), numeric prefixes (e.g. 1.1, 1.2, 5.1), alphanumeric codes, or any other indicator prefix or naming convention, EVERY SINGLE KPI MUST BE EXTRACTED exactly as found in the source document without omitting, skipping, filtering, or modifying any KPI code, reference number, or description.
+
 For each SDBIP row, extract:
-- refNum: Exact KPI reference number / ID (e.g. TL-01, M_01, 1.1, BSD-01)
+- refNum: Exact KPI reference number / ID verbatim as written in source (e.g. M_01, P_02, TL-01, 1.1, BSD-01, etc.)
 - strategicObj: Verbatim Strategic Objective
 - kpas: Verbatim Key Performance Area (e.g. Basic Service Delivery and Infrastructure, Local Economic Development, Municipal Financial Viability, Good Governance and Public Participation, Institutional Development and Transformation, Spatial Rationale)
 - operationalActivity: Verbatim operational project or activity description

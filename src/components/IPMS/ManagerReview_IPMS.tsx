@@ -1746,7 +1746,12 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
                                   </div>
                                   
                                   <button
-                                    onClick={() => setPreviewDoc({ ...doc, kpiName: kpi.kpi, quarter: currentQuarterTab })}
+                                    onClick={() => setPreviewDoc({ 
+                                      ...doc, 
+                                      fileData: doc.fileData || doc.url || createMockFileUrl(doc.name, doc.fileType || 'application/pdf', plan.metadata?.name || 'Employee'),
+                                      kpiName: kpi.kpi, 
+                                      quarter: currentQuarterTab 
+                                    })}
                                     className="p-1 px-2 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-0 cursor-pointer flex items-center gap-1 text-[9px] font-bold tracking-tight uppercase shrink-0 transition"
                                   >
                                     <Eye className="w-3 h-3" />

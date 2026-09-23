@@ -360,8 +360,12 @@ export function parseSdbipTableFromText(rawText: string): ExtractedSdbipItem[] {
       continue;
     }
 
-    // Skip if this is a header repetition
-    if (cells[0].toLowerCase().includes('ref') || cells[0].toLowerCase().includes('kpi no') || cells[0].toLowerCase().includes('kpi number')) {
+    // Skip only if this cell is purely a header title
+    const firstCellLower = cells[0].toLowerCase().trim();
+    if (
+      ['ref', 'ref no', 'ref no.', 'ref #', 'kpi no', 'kpi no.', 'kpi number', 'indicator no', 'ref number'].includes(firstCellLower) ||
+      (firstCellLower.startsWith('ref') && firstCellLower.includes('indicator') && !firstCellLower.match(/\d/))
+    ) {
       continue;
     }
 
@@ -391,14 +395,29 @@ export function parseSdbipTableFromText(rawText: string): ExtractedSdbipItem[] {
     let q2Corrective = '';
     let q2Expenditure = '';
     let q2PoeDesc = '';
+    let midTermActual = '';
+    let midTermVariance = '';
+    let midTermCorrective = '';
+    let midTermExpenditure = '';
+    let midTermPoeDesc = '';
+    let q3Actual = '';
+    let q3Variance = '';
+    let q3Corrective = '';
+    let q3Expenditure = '';
+    let q3PoeDesc = '';
+    let q4Actual = '';
+    let q4Variance = '';
+    let q4Corrective = '';
+    let q4Expenditure = '';
+    let q4PoeDesc = '';
 
     if (headers.length > 0) {
       cells.forEach((cellVal, colIdx) => {
         const h = headers[colIdx] || '';
-        if (h.includes('ref') || h.includes('kpi no') || h.includes('number')) refNum = cellVal;
+        if (h.includes('ref') || h.includes('kpi no') || h.includes('kpi code') || h.includes('number')) refNum = cellVal;
         else if (h.includes('strategic') || h.includes('objective')) strategicObj = cellVal;
         else if (h.includes('activity') || h.includes('project')) operationalActivity = cellVal;
-        else if (h.includes('kpi') || h.includes('indicator') || h.includes('description')) kpi = cellVal;
+        else if (h.includes('kpi') || h.includes('indicator') || h.includes('description') || h.includes('output')) kpi = cellVal;
         else if (h.includes('uom') || h.includes('unit of measure') || h.includes('measurement')) uom = cellVal;
         else if (h.includes('mscoa') || h.includes('tracking')) mscoaTracking = cellVal;
         else if (h.includes('baseline')) baseline = cellVal;
@@ -420,6 +439,21 @@ export function parseSdbipTableFromText(rawText: string): ExtractedSdbipItem[] {
         else if (h.includes('q2 corrective')) q2Corrective = cellVal;
         else if (h.includes('q2 exp')) q2Expenditure = cellVal;
         else if (h.includes('q2 poe')) q2PoeDesc = cellVal;
+        else if (h.includes('mid') && h.includes('actual')) midTermActual = cellVal;
+        else if (h.includes('mid') && h.includes('variance')) midTermVariance = cellVal;
+        else if (h.includes('mid') && h.includes('corrective')) midTermCorrective = cellVal;
+        else if (h.includes('mid') && h.includes('exp')) midTermExpenditure = cellVal;
+        else if (h.includes('mid') && h.includes('poe')) midTermPoeDesc = cellVal;
+        else if (h.includes('q3 actual')) q3Actual = cellVal;
+        else if (h.includes('q3 variance')) q3Variance = cellVal;
+        else if (h.includes('q3 corrective')) q3Corrective = cellVal;
+        else if (h.includes('q3 exp')) q3Expenditure = cellVal;
+        else if (h.includes('q3 poe')) q3PoeDesc = cellVal;
+        else if (h.includes('q4 actual')) q4Actual = cellVal;
+        else if (h.includes('q4 variance')) q4Variance = cellVal;
+        else if (h.includes('q4 corrective')) q4Corrective = cellVal;
+        else if (h.includes('q4 exp')) q4Expenditure = cellVal;
+        else if (h.includes('q4 poe')) q4PoeDesc = cellVal;
       });
     } else {
       // Positional fallback
@@ -480,7 +514,22 @@ export function parseSdbipTableFromText(rawText: string): ExtractedSdbipItem[] {
         q2Variance: q2Variance.trim(),
         q2Corrective: q2Corrective.trim(),
         q2Expenditure: q2Expenditure.trim(),
-        q2PoeDesc: q2PoeDesc.trim()
+        q2PoeDesc: q2PoeDesc.trim(),
+        midTermActual: midTermActual.trim(),
+        midTermVariance: midTermVariance.trim(),
+        midTermCorrective: midTermCorrective.trim(),
+        midTermExpenditure: midTermExpenditure.trim(),
+        midTermPoeDesc: midTermPoeDesc.trim(),
+        q3Actual: q3Actual.trim(),
+        q3Variance: q3Variance.trim(),
+        q3Corrective: q3Corrective.trim(),
+        q3Expenditure: q3Expenditure.trim(),
+        q3PoeDesc: q3PoeDesc.trim(),
+        q4Actual: q4Actual.trim(),
+        q4Variance: q4Variance.trim(),
+        q4Corrective: q4Corrective.trim(),
+        q4Expenditure: q4Expenditure.trim(),
+        q4PoeDesc: q4PoeDesc.trim()
       });
     }
   }
