@@ -14,7 +14,7 @@ if (typeof window !== 'undefined') {
   }
 }
 
-export type KpaCode = 'bsd' | 'led' | 'mfvm' | 'ggpp' | 'midt' | 'sr';
+export type KpaCode = 'bsd' | 'led' | 'mfvm' | 'ggpp' | 'midt' | 'sr' | 'cs';
 
 export interface ExtractedKpaDefinition {
   kpaNumber?: string;
@@ -26,6 +26,8 @@ export interface ExtractedKpaDefinition {
   kpiCount?: number;
   totalKpiWeight?: number;
   code?: KpaCode;
+  kpaType?: 'functional' | 'national';
+  nationalKpaName?: string;
 }
 
 export interface ExtractedMappedKPI {
@@ -41,51 +43,101 @@ export interface ExtractedMappedKPI {
   "poe": string;
   "budget": string;
   "functional kpa": string;
+  "national kpa"?: string;
   "kpa": string;
+  kpaType?: 'functional' | 'national';
 
   // Internal UI metadata
   _id?: string;
   _selected?: boolean;
 }
 
-export const KPA_METADATA: Record<KpaCode, { name: string; fullTitle: string; color: string; badgeBg: string }> = {
+/**
+ * 7 Statutory National KPAs for South African Local Government
+ */
+export const NATIONAL_KPAS: Record<KpaCode, { code: KpaCode; name: string; fullTitle: string; color: string; badgeBg: string }> = {
   bsd: {
+    code: 'bsd',
     name: 'BSD',
-    fullTitle: 'KPA 1: Basic Service Delivery and Infrastructure Development',
+    fullTitle: 'Basic Service Delivery and Infrastructure Development',
     color: 'text-blue-700 dark:text-blue-300',
     badgeBg: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-700/50'
   },
-  midt: {
-    name: 'MIDT',
-    fullTitle: 'KPA 2: Municipal Institutional Development and Transformation',
-    color: 'text-emerald-700 dark:text-emerald-300',
-    badgeBg: 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-700/50'
-  },
   led: {
+    code: 'led',
     name: 'LED',
-    fullTitle: 'KPA 3: Local Economic Development',
+    fullTitle: 'Local Economic Development',
     color: 'text-amber-700 dark:text-amber-300',
     badgeBg: 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700/50'
   },
   mfvm: {
+    code: 'mfvm',
     name: 'MFVM',
-    fullTitle: 'KPA 4: Municipal Financial Viability and Management',
+    fullTitle: 'Municipal Financial Viability and Management',
     color: 'text-purple-700 dark:text-purple-300',
     badgeBg: 'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/40 dark:text-purple-300 dark:border-purple-700/50'
   },
   ggpp: {
+    code: 'ggpp',
     name: 'GGPP',
-    fullTitle: 'KPA 5: Good Governance and Public Participation',
+    fullTitle: 'Good Governance and Public Participation',
     color: 'text-rose-700 dark:text-rose-300',
     badgeBg: 'bg-rose-100 text-rose-800 border-rose-200 dark:bg-rose-900/40 dark:text-rose-300 dark:border-rose-700/50'
   },
+  midt: {
+    code: 'midt',
+    name: 'MIDT',
+    fullTitle: 'Municipal Institutional Development and Transformation',
+    color: 'text-emerald-700 dark:text-emerald-300',
+    badgeBg: 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-700/50'
+  },
   sr: {
+    code: 'sr',
     name: 'SR',
-    fullTitle: 'KPA 6: Spatial Rationale and Local Planning',
+    fullTitle: 'Spatial Rationale and Local Planning',
     color: 'text-cyan-700 dark:text-cyan-300',
     badgeBg: 'bg-cyan-100 text-cyan-800 border-cyan-200 dark:bg-cyan-900/40 dark:text-cyan-300 dark:border-cyan-700/50'
+  },
+  cs: {
+    code: 'cs',
+    name: 'CS',
+    fullTitle: 'Community Services and Social Development',
+    color: 'text-indigo-700 dark:text-indigo-300',
+    badgeBg: 'bg-indigo-100 text-indigo-800 border-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-300 dark:border-indigo-700/50'
   }
 };
+
+export const KPA_METADATA = NATIONAL_KPAS;
+
+/**
+ * Ensures verbatim functional KPA titles always start with the word 'KPA'
+ * (e.g. "KPA 1: Skills Development" or "KPA: Water Quality Monitoring")
+ */
+export function formatFunctionalKpaTitle(rawTitle: string, defaultNumber?: string | number): string {
+  const trimmed = (rawTitle || '').trim();
+  if (!trimmed) {
+    return defaultNumber ? `KPA ${defaultNumber}: Functional Performance Area` : 'KPA: Functional Performance Area';
+  }
+
+  // Strip trailing weight numbers like " 30" or " 15%"
+  let clean = trimmed.replace(/\s+\d{1,3}%?$/, '').trim();
+
+  // Detect explicit KPA number from the text
+  const numMatch = clean.match(/\bKPA\s*(\d+[A-Za-z]?)\b/i) || clean.match(/^(\d+[A-Za-z]?)\s*[:.\-–]/);
+  const kNum = numMatch ? numMatch[1] : (defaultNumber !== undefined && defaultNumber !== null && String(defaultNumber).trim() ? String(defaultNumber) : '');
+
+  // Strip redundant/nested prefixes like "1. KPA 1:", "KPA 1: 1. KPA 1:", "KPA 1: KPA 1:"
+  clean = clean.replace(/^(?:\d+\.\s*)?(?:KPA\s*\d+[A-Za-z]?\s*[:.\-–]\s*)*(?:\d+\.\s*)?(?:KPA\s*\d+[A-Za-z]?\s*[:.\-–]\s*)*/i, '').trim();
+
+  if (!clean) {
+    clean = 'Functional Performance Area';
+  }
+
+  if (kNum) {
+    return `KPA ${kNum}: ${clean}`;
+  }
+  return `KPA: ${clean}`;
+}
 
 /**
  * Accurately maps contextual heading, section text, or KPI description
@@ -102,8 +154,23 @@ export function resolveKpaCode(text: string): KpaCode {
   if (norm === 'mfvm') return 'mfvm';
   if (norm === 'ggpp') return 'ggpp';
   if (norm === 'sr') return 'sr';
+  if (norm === 'cs') return 'cs';
 
   // 2. High-priority semantic wording matching (domain semantics take precedence over arbitrary numbers)
+  if (
+    norm.includes('community service') ||
+    norm.includes('social service') ||
+    norm.includes('community development') ||
+    norm.includes('disaster management') ||
+    norm.includes('fire service') ||
+    norm.includes('traffic') ||
+    norm.includes('library') ||
+    norm.includes('parks') ||
+    norm.includes('cemetery')
+  ) {
+    return 'cs';
+  }
+
   if (
     norm.includes('skill') ||
     norm.includes('training') ||
@@ -216,115 +283,123 @@ export function deriveKpaSummaries(
   items: ExtractedMappedKPI[],
   predefinedKpas?: ExtractedKpaDefinition[]
 ): ExtractedKpaDefinition[] {
-  const statsMap = new Map<string, { count: number; weight: number }>();
-
-  items.forEach(it => {
-    const kpaName = (it['functional kpa'] || it['kpa'] || 'Functional Performance Area').trim();
-    const w = parseFloat(it['%wt'] || '0') || 0;
-    const existing = statsMap.get(kpaName) || { count: 0, weight: 0 };
-    existing.count += 1;
-    existing.weight = Math.round((existing.weight + w) * 100) / 100;
-    statsMap.set(kpaName, existing);
-  });
-
+  // 1. If predefined KPAs exist, first deduplicate them strictly by KPA Number / canonical identity
   if (predefinedKpas && predefinedKpas.length > 0) {
-    const matchedKpaNames = new Set<string>();
+    const dedupedMap = new Map<string, ExtractedKpaDefinition>();
 
-    const mappedPredefined = predefinedKpas.map((kpa, idx) => {
-      let matchedCount = 0;
-      let matchedWeight = 0;
-      const targetNorm = (kpa.kpaName || '').toLowerCase().trim();
-      const fullNorm = (kpa.fullTitle || '').toLowerCase().trim();
+    predefinedKpas.forEach((kpa, idx) => {
+      const rawTitle = kpa.title || kpa.fullTitle || kpa.kpaName || `KPA ${idx + 1}`;
+      const numMatch = rawTitle.match(/\bKPA\s*(\d+[A-Za-z]?)\b/i) || String(kpa.kpaNumber || '').match(/^(\d+[A-Za-z]?)$/);
+      const kpaNum = numMatch ? numMatch[1] : (kpa.kpaNumber ? String(kpa.kpaNumber) : String(idx + 1));
+      const formattedTitle = formatFunctionalKpaTitle(rawTitle, kpaNum);
+      const kpaCode = kpa.code || resolveKpaCode(formattedTitle);
+      const allocW = kpa.allocatedWeight !== undefined ? kpa.allocatedWeight : (kpa.weighting ? parseFloat(kpa.weighting) : undefined);
 
-      for (const [kpaName, stats] of statsMap.entries()) {
-        const kNorm = kpaName.toLowerCase().trim();
-
-        // Keep sub-KPAs distinct (e.g. Basic Service Delivery and Infrastructure: Water Quality Monitoring / Health Surveillance of Premises)
-        // rather than collapsing them into generic "basic service delivery" parent
-        const isGenericBsd = (targetNorm.includes('basic service') || fullNorm.includes('basic service')) &&
-          !targetNorm.includes('water quality') && !targetNorm.includes('health surveil') &&
-          !fullNorm.includes('water quality') && !fullNorm.includes('health surveil');
-        const isSubBsd = (kNorm.includes('health surveil') || kNorm.includes('water quality')) &&
-          !targetNorm.includes('water quality') && !targetNorm.includes('health surveil');
-        if (isGenericBsd && isSubBsd) {
-          continue;
-        }
-
-        if (
-          kNorm === targetNorm ||
-          kNorm === fullNorm ||
-          kNorm.includes(targetNorm) ||
-          targetNorm.includes(kNorm) ||
-          kNorm.includes(fullNorm) ||
-          fullNorm.includes(kNorm)
-        ) {
-          matchedCount += stats.count;
-          matchedWeight = Math.round((matchedWeight + stats.weight) * 100) / 100;
-          matchedKpaNames.add(kpaName);
+      const key = `kpa-${kpaNum.toLowerCase()}`;
+      if (!dedupedMap.has(key)) {
+        dedupedMap.set(key, {
+          ...kpa,
+          kpaNumber: kpaNum,
+          kpaName: formattedTitle.replace(/^KPA\s*\d+[A-Za-z]?\s*[:.\-–]\s*/i, '').trim(),
+          title: formattedTitle,
+          fullTitle: formattedTitle,
+          code: kpaCode,
+          allocatedWeight: isNaN(allocW as number) ? undefined : allocW,
+          weighting: allocW !== undefined ? String(allocW) : kpa.weighting,
+          kpiCount: 0,
+          totalKpiWeight: 0,
+          kpaType: 'functional' as const,
+          nationalKpaName: NATIONAL_KPAS[kpaCode]?.name || 'GGPP'
+        });
+      } else {
+        // Merge weight if duplicate had valid weight
+        const existing = dedupedMap.get(key)!;
+        if (existing.allocatedWeight === undefined && allocW !== undefined) {
+          existing.allocatedWeight = allocW;
+          existing.weighting = String(allocW);
         }
       }
-
-      const allocW = kpa.allocatedWeight !== undefined ? kpa.allocatedWeight : (kpa.weighting ? parseFloat(kpa.weighting) : undefined);
-      return {
-        ...kpa,
-        title: kpa.title || kpa.fullTitle || kpa.kpaName || `KPA ${idx + 1}`,
-        code: kpa.code || resolveKpaCode(kpa.fullTitle || kpa.kpaName || kpa.title || ''),
-        allocatedWeight: isNaN(allocW as number) ? undefined : allocW,
-        kpiCount: matchedCount,
-        totalKpiWeight: matchedWeight
-      };
     });
 
-    // Capture any functional KPAs present in items that were NOT matched by predefined KPAs
-    // (e.g. "Health Surveillance of Premises", "Water Quality Monitoring")
-    const extraKpas: ExtractedKpaDefinition[] = [];
-    for (const [kpaName, stats] of statsMap.entries()) {
-      if (!matchedKpaNames.has(kpaName)) {
-        const isHealth = kpaName.toLowerCase().includes('health surveil');
-        const isWater = kpaName.toLowerCase().includes('water quality');
-        const numMatch = kpaName.match(/KPA\s*(\d+[A-Za-z]?)/i);
-        const kpaNum = numMatch ? numMatch[1] : (isHealth ? '5B' : isWater ? '5A' : `${mappedPredefined.length + extraKpas.length + 1}`);
-        const cleanName = kpaName.replace(/^KPA\s*\d+[A-Za-z]?\s*[:.\-–]\s*/i, '').trim();
-        
-        extraKpas.push({
-          kpaNumber: kpaNum,
-          kpaName: cleanName || kpaName,
-          fullTitle: kpaName,
-          title: cleanName || kpaName,
-          weighting: String(stats.weight),
-          allocatedWeight: stats.weight,
-          kpiCount: stats.count,
-          totalKpiWeight: stats.weight,
-          code: resolveKpaCode(kpaName)
+    const canonicalKpas = Array.from(dedupedMap.values());
+
+    // 2. Assign each KPI item to EXACTLY ONE canonical KPA
+    items.forEach(it => {
+      const itemKpa = (it['functional kpa'] || it['kpa'] || '').trim();
+      const itemW = parseFloat(it['%wt'] || '0') || 0;
+
+      // Extract KPA number from item (e.g. "KPA 1", "KPA 2", etc.)
+      const itemNumMatch = itemKpa.match(/\bKPA\s*(\d+[A-Za-z]?)\b/i);
+      let matchedIndex = -1;
+
+      if (itemNumMatch) {
+        matchedIndex = canonicalKpas.findIndex(k => k.kpaNumber?.toLowerCase() === itemNumMatch[1].toLowerCase());
+      }
+
+      if (matchedIndex === -1 && itemKpa) {
+        const itemNorm = itemKpa.toLowerCase();
+        matchedIndex = canonicalKpas.findIndex(k => {
+          const kNorm = (k.kpaName || k.title || '').toLowerCase();
+          return kNorm.includes(itemNorm) || itemNorm.includes(kNorm);
         });
       }
-    }
 
-    // Combine and keep active KPAs
-    const combined = [...mappedPredefined, ...extraKpas];
-    // Filter out parent KPAs with 0 items if their sub-programmes are separately present with counts
-    return combined.filter(kpa => (kpa.kpiCount || 0) > 0 || (kpa.allocatedWeight && !extraKpas.some(e => e.code === kpa.code)));
+      if (matchedIndex === -1) {
+        // Fallback by National KPA code
+        const itemCode = resolveKpaCode(itemKpa || it['kpi description'] || '');
+        matchedIndex = canonicalKpas.findIndex(k => k.code === itemCode);
+      }
+
+      if (matchedIndex === -1 && canonicalKpas.length > 0) {
+        matchedIndex = 0; // Fallback to first KPA
+      }
+
+      if (matchedIndex !== -1) {
+        canonicalKpas[matchedIndex].kpiCount = (canonicalKpas[matchedIndex].kpiCount || 0) + 1;
+        canonicalKpas[matchedIndex].totalKpiWeight = Math.round(((canonicalKpas[matchedIndex].totalKpiWeight || 0) + itemW) * 100) / 100;
+      }
+    });
+
+    return canonicalKpas;
   }
 
-  // Synthesize from items
+  // 3. Fallback: Synthesize KPAs directly from extracted items
+  const statsMap = new Map<string, { count: number; weight: number }>();
+  items.forEach(it => {
+    const rawKpa = (it['functional kpa'] || it['kpa'] || 'Functional Performance Area').trim();
+    const w = parseFloat(it['%wt'] || '0') || 0;
+    
+    // Normalize to clean KPA title
+    const numMatch = rawKpa.match(/\bKPA\s*(\d+[A-Za-z]?)\b/i);
+    const kNum = numMatch ? numMatch[1] : '';
+    const cleanTitle = formatFunctionalKpaTitle(rawKpa, kNum);
+
+    const existing = statsMap.get(cleanTitle) || { count: 0, weight: 0 };
+    existing.count += 1;
+    existing.weight = Math.round((existing.weight + w) * 100) / 100;
+    statsMap.set(cleanTitle, existing);
+  });
+
   const result: ExtractedKpaDefinition[] = [];
   let idx = 1;
-  for (const [kpaName, stats] of statsMap.entries()) {
-    const isHealth = kpaName.toLowerCase().includes('health surveil');
-    const isWater = kpaName.toLowerCase().includes('water quality');
-    const numMatch = kpaName.match(/KPA\s*(\d+[A-Za-z]?)/i);
-    const kpaNum = numMatch ? numMatch[1] : (isHealth ? '5B' : isWater ? '5A' : String(idx));
-    const cleanName = kpaName.replace(/^KPA\s*\d+[A-Za-z]?\s*[:.\-–]\s*/i, '').trim();
+  for (const [kpaTitle, stats] of statsMap.entries()) {
+    const numMatch = kpaTitle.match(/\bKPA\s*(\d+[A-Za-z]?)\b/i);
+    const kpaNum = numMatch ? numMatch[1] : String(idx);
+    const cleanName = kpaTitle.replace(/^KPA\s*\d+[A-Za-z]?\s*[:.\-–]\s*/i, '').trim();
+    const kpaCode = resolveKpaCode(kpaTitle);
+
     result.push({
       kpaNumber: kpaNum,
-      kpaName: cleanName || kpaName,
-      fullTitle: kpaName,
-      title: cleanName || kpaName,
+      kpaName: cleanName || kpaTitle,
+      fullTitle: kpaTitle,
+      title: kpaTitle,
       weighting: String(stats.weight),
       allocatedWeight: stats.weight,
       kpiCount: stats.count,
       totalKpiWeight: stats.weight,
-      code: resolveKpaCode(kpaName)
+      code: kpaCode,
+      kpaType: 'functional',
+      nationalKpaName: NATIONAL_KPAS[kpaCode]?.name || 'GGPP'
     });
     idx++;
   }
@@ -452,10 +527,50 @@ export async function callServerAiExtraction(params: {
     if (data.metadata) {
       (formattedList as any).metadata = data.metadata;
     }
+    if (params.documentText) {
+      (formattedList as any).rawDocumentText = params.documentText;
+    }
     return formattedList;
   }
 
   return [];
+}
+
+/**
+ * Calls Server Automated Validation Service to cross-verify extracted KPIs with source document
+ */
+export async function validateExtractionIntegrity(params: {
+  documentText?: string;
+  fileName?: string;
+  fileBase64?: string;
+  mimeType?: string;
+  items: ExtractedMappedKPI[];
+  kpas?: ExtractedKpaDefinition[];
+  tenantId?: string;
+  userEmail?: string;
+  userName?: string;
+}): Promise<any> {
+  const response = await fetch('/api/validate-extraction-integrity', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(params)
+  });
+
+  const rawText = await response.text();
+  let data: any = null;
+  try {
+    data = JSON.parse(rawText);
+  } catch (_e) {
+    throw new Error(`Integrity validator returned non-JSON response (${response.status})`);
+  }
+
+  if (!response.ok) {
+    throw new Error(data?.error || `Validation failed with status ${response.status}`);
+  }
+
+  return data.report;
 }
 
 /**
@@ -940,11 +1055,11 @@ function parseMatrixToMappedKPIs(matrix: string[][], contextHint?: string): Extr
   }
 
   // Find column indices with robust keyword matching
-  let colKpiNo = compositeHeader.findIndex(h => h.includes('kpi ids') || h.includes('kpi id') || h.includes('kpi no') || h.includes('kpi number') || h.includes('project id') || h.includes('kpi ref') || h.includes('ref no') || h.includes('ref number') || h.includes('indicator no') || h === 'no' || h === 'no.' || h === '#' || h === 'ref');
-  let colKpiDesc = compositeHeader.findIndex(h => h.includes('project name') || h.includes('key performance indicator') || h.includes('kpi description') || h.includes('indicator') || h.includes('output') || h.includes('description') || h.includes('measure') || h.includes('activity') || h === 'kpi' || h === 'project');
+  let colKpiNo = compositeHeader.findIndex(h => h.includes('kpi number') || h.includes('kpi no') || h.includes('kpi ids') || h.includes('kpi id') || h.includes('project id') || h.includes('kpi ref') || h.includes('ref no') || h.includes('ref number') || h.includes('indicator no') || h === 'no' || h === 'no.' || h === '#' || h === 'ref');
+  let colKpiDesc = compositeHeader.findIndex(h => h.includes('key performance indicator') || h.includes('key performance indicators') || h.includes('kpi description') || h.includes('project name') || h.includes('indicator') || h.includes('output') || h.includes('description') || h.includes('measure') || h.includes('activity') || h === 'kpi' || h === 'project');
   let colLocation = compositeHeader.findIndex(h => h.includes('location') || h.includes('locatio') || h.includes('municipality') || h.includes('area'));
   let colWeight = compositeHeader.findIndex(h => h.includes('weight') || h.includes('%wt') || h.includes('weighting') || h.includes('%') || h.includes('wt'));
-  let colBaseline = compositeHeader.findIndex(h => h.includes('baseline') || h.includes('previous year') || h.includes('prior year') || h.includes('2023/24') || h.includes('2024/25 actual') || h.includes('actual baseline'));
+  let colBaseline = compositeHeader.findIndex(h => h.includes('baseline') || h.includes('baseline2025/2026') || h.includes('baseline 2025/2026') || h.includes('baseline2024/2025') || h.includes('baseline 2024/2025') || h.includes('previous year') || h.includes('prior year') || h.includes('2023/24') || h.includes('2024/25') || h.includes('2025/26') || h.includes('actual baseline'));
   
   // Target columns: exact pattern matching
   let colAnnualTarget = compositeHeader.findIndex(h => 
@@ -963,28 +1078,35 @@ function parseMatrixToMappedKPIs(matrix: string[][], contextHint?: string): Extr
   );
 
   let colQ1 = compositeHeader.findIndex(h => 
+    h.includes('1st quarter planned target') || h.includes('1st quarter planned') || h.includes('1st quarter target') || h.includes('1st qtr target') || h.includes('1st quarter') || h.includes('1st qtr') ||
     /\b(q1|q\s*1|1st\s*q|1st\s*quarter|quarter\s*1|quarter\s*01|first\s*quarter|qtr\s*1|qtr1|jul\s*[-–]\s*sep)\b/i.test(h) ||
-    h.includes('1st quarter target') || h.includes('1st quarter planned') || h.includes('1st qtr target') || h.includes('q1 target') || h.includes('q1 planned') || h.includes('quarter 1 target')
+    h.includes('q1 target') || h.includes('q1 planned') || h.includes('quarter 1 target')
   );
 
   let colQ2 = compositeHeader.findIndex(h => 
+    h.includes('2nd quarter planned target') || h.includes('2nd quarter planned') || h.includes('2nd quarter target') || h.includes('2nd qtr target') || h.includes('2nd quarter') || h.includes('2nd qtr') ||
     /\b(q2|q\s*2|2nd\s*q|2nd\s*quarter|quarter\s*2|quarter\s*02|second\s*quarter|qtr\s*2|qtr2|oct\s*[-–]\s*dec)\b/i.test(h) ||
-    h.includes('2nd quarter target') || h.includes('2nd quarter planned') || h.includes('2nd qtr target') || h.includes('q2 target') || h.includes('q2 planned') || h.includes('quarter 2 target')
+    h.includes('q2 target') || h.includes('q2 planned') || h.includes('quarter 2 target')
   );
 
   let colQ3 = compositeHeader.findIndex(h => 
+    h.includes('3rd quarter planned target') || h.includes('3rd quarter planned') || h.includes('3rd quarter target') || h.includes('3rd qtr target') || h.includes('3rd quarter') || h.includes('3rd qtr') ||
     /\b(q3|q\s*3|3rd\s*q|3rd\s*quarter|quarter\s*3|quarter\s*03|third\s*quarter|qtr\s*3|qtr3|jan\s*[-–]\s*mar)\b/i.test(h) ||
-    h.includes('3rd quarter target') || h.includes('3rd quarter planned') || h.includes('3rd qtr target') || h.includes('q3 target') || h.includes('q3 planned') || h.includes('quarter 3 target')
+    h.includes('q3 target') || h.includes('q3 planned') || h.includes('quarter 3 target')
   );
 
   let colQ4 = compositeHeader.findIndex(h => 
+    h.includes('4th quarter planned target') || h.includes('4th quarter planned') || h.includes('4th quarter target') || h.includes('4th qtr target') || h.includes('4th quarter') || h.includes('4th qtr') ||
     /\b(q4|q\s*4|4th\s*q|4th\s*quarter|quarter\s*4|quarter\s*04|fourth\s*quarter|qtr\s*4|qtr4|apr\s*[-–]\s*jun)\b/i.test(h) ||
-    h.includes('4th quarter target') || h.includes('4th quarter planned') || h.includes('4th qtr target') || h.includes('q4 target') || h.includes('q4 planned') || h.includes('quarter 4 target')
+    h.includes('q4 target') || h.includes('q4 planned') || h.includes('quarter 4 target')
   );
 
   let colPoe = compositeHeader.findIndex(h => h.includes('poe') || h.includes('portfolio of evidence') || h.includes('means of verification') || h.includes('evidence') || h.includes('verification'));
-  let colBudget = compositeHeader.findIndex(h => h.includes('total budget') || h.includes('total budget allocated') || h.includes('budget') || h.includes('allocation') || h.includes('financial') || h.includes('funding'));
-  let colFunctionalKpa = compositeHeader.findIndex(h => h.includes('functional kpa') || h.includes('functional area') || h.includes('kpa') || h.includes('key performance area') || h.includes('pillar') || h.includes('strategic objective') || h.includes('departmental kpa'));
+  let colBudget = compositeHeader.findIndex(h => h.includes('total budget allocated') || h.includes('total budget') || h.includes('budget') || h.includes('allocation') || h.includes('financial') || h.includes('funding'));
+  let colFunctionalKpa = compositeHeader.findIndex(h => 
+    /^(functional kpa|kpa name|kpa title|departmental kpa|kpa)$/i.test(h) || 
+    (h.includes('functional kpa') && !h.includes('indicator') && !h.includes('target') && !h.includes('weight') && !h.includes('objective'))
+  );
 
   // 3. Fallback Positional Resolution for Standard SDBIP / Scorecard Matrices
   if (colBaseline !== -1) {
@@ -1020,35 +1142,18 @@ function parseMatrixToMappedKPIs(matrix: string[][], contextHint?: string): Extr
       continue;
     }
 
-    // First check for departmental sub-focus banners or combined KPA 5 banners (e.g. Water Quality Monitoring, Health Surveillance)
-    const upperRow = rowText.toUpperCase();
-    if (
-      upperRow.includes('WATER QUALITY MONITORING') ||
-      upperRow.includes('HEALTH SURVEILANCE OF PREMISES') ||
-      upperRow.includes('HEALTH SURVEILLANCE OF PREMISES') ||
-      upperRow.includes('HEALTH SURVEILANCE') ||
-      upperRow.includes('HEALTH SURVEILLANCE') ||
-      upperRow.includes('FOOD CONTROL') ||
-      upperRow.includes('WASTE MANAGEMENT')
-    ) {
-      if (upperRow.includes('HEALTH SURVEIL')) {
-        currentFunctionalKpa = 'KPA 5: Basic Service Delivery and Infrastructure: Health Surveillance of Premises';
-      } else if (upperRow.includes('WATER QUALITY')) {
-        currentFunctionalKpa = 'KPA 5: Basic Service Delivery and Infrastructure: Water Quality Monitoring';
-      } else {
-        const cleanSub = rowText.replace(/^[-*#\s|]+/, '').trim();
-        currentFunctionalKpa = `KPA 5: Basic Service Delivery and Infrastructure: ${cleanSub}`;
+    // Check if this row is a general KPA Section Banner or Projects Section Banner
+    const kpaBannerMatch = rowText.match(/^[-*#\s|]*(?:KPA\s*(\d+[A-Za-z]?)\s*[:.\-–]\s*|Key\s*Performance\s*Area\s*(\d+[A-Za-z]?)\s*[:.\-–]\s*)(.+)$/i);
+    if (kpaBannerMatch) {
+      const kpaNum = kpaBannerMatch[1] || kpaBannerMatch[2] || '';
+      const rawKpaName = kpaBannerMatch[3].trim().replace(/\|.*$/, '').trim();
+      if (rawKpaName.length > 1 && !rawKpaName.toLowerCase().includes('kpi no') && !rawKpaName.toLowerCase().includes('kpi ids') && !rawKpaName.toLowerCase().includes('weight')) {
+        currentFunctionalKpa = kpaNum ? `KPA ${kpaNum}: ${rawKpaName}` : `KPA: ${rawKpaName}`;
       }
       continue;
     }
 
-    // Check if this row is a general KPA Section Banner or Projects Section Banner
     if (
-      rowText.toLowerCase().includes('kpa 1:') ||
-      rowText.toLowerCase().includes('kpa 2:') ||
-      rowText.toLowerCase().includes('kpa 3:') ||
-      rowText.toLowerCase().includes('kpa 4:') ||
-      rowText.toLowerCase().includes('kpa 5:') ||
       rowText.toLowerCase().includes('institution development') ||
       rowText.toLowerCase().includes('good governance') ||
       rowText.toLowerCase().includes('local economic') ||
@@ -1059,11 +1164,7 @@ function parseMatrixToMappedKPIs(matrix: string[][], contextHint?: string): Extr
     ) {
       const cleanBanner = rowText.replace(/^[-*#\s|]+/, '').replace(/^KPA\s*\d+\s*[:.\-–]\s*/i, '').trim();
       if (cleanBanner.length > 2 && !cleanBanner.toLowerCase().includes('kpi no') && !cleanBanner.toLowerCase().includes('kpi ids')) {
-        if (rowText.toLowerCase().includes('projects:') || rowText.toLowerCase().includes('completed projects for priority issue')) {
-          currentFunctionalKpa = 'KPA 5: Basic Service Delivery and Infrastructure (' + cleanBanner.replace(/^completed projects for priority issue\s*\d*[:.\-–\s]*/i, '').trim() + ')';
-        } else {
-          currentFunctionalKpa = cleanBanner;
-        }
+        currentFunctionalKpa = cleanBanner;
       }
       continue;
     }
@@ -1100,7 +1201,13 @@ function parseMatrixToMappedKPIs(matrix: string[][], contextHint?: string): Extr
       kpiDescVal = `${kpiDescVal} (Location: ${locationVal.trim()})`;
     }
 
-    const effectiveFunctionalKpa = String(rowKpaVal || currentFunctionalKpa || 'Functional Performance Area').trim();
+    // Only use rowKpaVal if it is a concise, valid KPA name (not a long narrative or project description)
+    let validatedRowKpa = '';
+    if (rowKpaVal && rowKpaVal.trim().length <= 70 && !rowKpaVal.includes('.') && rowKpaVal.split(/\s+/).length <= 8) {
+      validatedRowKpa = rowKpaVal.trim();
+    }
+
+    const effectiveFunctionalKpa = String(validatedRowKpa || currentFunctionalKpa || 'Functional Performance Area').trim();
 
     items.push({
       _id: `kpi-mapped-${Date.now()}-${items.length + 1}`,
@@ -1161,34 +1268,18 @@ function parseRawTextLines(text: string): ExtractedMappedKPI[] {
       insideScorecardOrProjects = true;
     }
 
-    const upperLine = line.toUpperCase();
-    if (
-      upperLine.includes('WATER QUALITY MONITORING') ||
-      upperLine.includes('HEALTH SURVEILANCE OF PREMISES') ||
-      upperLine.includes('HEALTH SURVEILLANCE OF PREMISES') ||
-      upperLine.includes('HEALTH SURVEILANCE') ||
-      upperLine.includes('HEALTH SURVEILLANCE') ||
-      upperLine.includes('FOOD CONTROL') ||
-      upperLine.includes('WASTE MANAGEMENT')
-    ) {
-      if (upperLine.includes('HEALTH SURVEIL')) {
-        currentFunctionalKpa = 'KPA 5: Basic Service Delivery and Infrastructure: Health Surveillance of Premises';
-      } else if (upperLine.includes('WATER QUALITY')) {
-        currentFunctionalKpa = 'KPA 5: Basic Service Delivery and Infrastructure: Water Quality Monitoring';
-      } else {
-        const cleanSub = line.replace(/^[-*#\s|]+/, '').trim();
-        currentFunctionalKpa = `KPA 5: Basic Service Delivery and Infrastructure: ${cleanSub}`;
+    const kpaBannerMatch = line.match(/^[-*#\s|]*(?:KPA\s*(\d+[A-Za-z]?)\s*[:.\-–]\s*|Key\s*Performance\s*Area\s*(\d+[A-Za-z]?)\s*[:.\-–]\s*)(.+)$/i);
+    if (kpaBannerMatch) {
+      const kpaNum = kpaBannerMatch[1] || kpaBannerMatch[2] || '';
+      const rawKpaName = kpaBannerMatch[3].trim().replace(/\|.*$/, '').trim();
+      if (rawKpaName.length > 1 && !rawKpaName.toLowerCase().includes('kpi no') && !rawKpaName.toLowerCase().includes('kpi ids') && !rawKpaName.toLowerCase().includes('weight')) {
+        currentFunctionalKpa = kpaNum ? `KPA ${kpaNum}: ${rawKpaName}` : `KPA: ${rawKpaName}`;
+        insideScorecardOrProjects = true;
       }
-      insideScorecardOrProjects = true;
       continue;
     }
 
     if (
-      line.toLowerCase().includes('kpa 1:') ||
-      line.toLowerCase().includes('kpa 2:') ||
-      line.toLowerCase().includes('kpa 3:') ||
-      line.toLowerCase().includes('kpa 4:') ||
-      line.toLowerCase().includes('kpa 5:') ||
       line.toLowerCase().includes('institution development') ||
       line.toLowerCase().includes('good governance') ||
       line.toLowerCase().includes('local economic') ||
@@ -1199,11 +1290,7 @@ function parseRawTextLines(text: string): ExtractedMappedKPI[] {
     ) {
       const cleanBanner = line.replace(/^[-*#\s|]+/, '').replace(/^KPA\s*\d+\s*[:.\-–]\s*/i, '').trim();
       if (cleanBanner.length > 2 && !cleanBanner.toLowerCase().includes('kpi no') && !cleanBanner.toLowerCase().includes('kpi ids') && !cleanBanner.toLowerCase().includes('weight')) {
-        if (line.toLowerCase().includes('projects:') || line.toLowerCase().includes('completed projects for priority issue')) {
-          currentFunctionalKpa = 'KPA 5: Basic Service Delivery and Infrastructure (' + cleanBanner.replace(/^completed projects for priority issue\s*\d*[:.\-–\s]*/i, '').trim() + ')';
-        } else {
-          currentFunctionalKpa = cleanBanner;
-        }
+        currentFunctionalKpa = cleanBanner;
         insideScorecardOrProjects = true;
       }
       continue;

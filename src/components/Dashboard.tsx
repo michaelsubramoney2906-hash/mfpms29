@@ -946,11 +946,12 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
              <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
                 <InternalAudit currentUser={fullUserProfile} activeTenantId={activeTenantId} />
              </div>
-          ) : activeSubModule.id === 'extraction-engine' ? (
+          ) : activeSubModule.id === 'extraction-engine' || activeSubModule.id === 'ipms-extraction' || activeSubModule.id === 'sdbip-extraction' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
                  <ExtractionEngine 
                     currentUser={fullUserProfile} 
                     activeTenantId={activeTenantId} 
+                    initialMode={activeSubModule.id === 'sdbip-extraction' ? 'sdbip_top_layer' : 'performance_plan'}
                     onNavigateToIPMS={(subId) => {
                       const ipmsModule = modules.find(m => m.id === 'ipms');
                       if (ipmsModule) {
@@ -963,7 +964,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                       if (tab) {
                         sessionStorage.setItem('sdbip_active_tab', tab);
                       }
-                      const opmsModule = modules.find(m => m.id === 'opms');
+                      const opmsModule = modules.find(m => m.id === 'opms-admin' || m.id === 'opms');
                       if (opmsModule) {
                         const sdbipSub = opmsModule.subModules?.find(s => s.id === 'sdbip-tl') || { id: 'sdbip-tl', name: 'SDBIP Top Layer', icon: Layers };
                         setActiveModule(opmsModule);

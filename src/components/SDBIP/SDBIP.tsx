@@ -195,6 +195,18 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
   const [isFitAllTopLayerCells, setIsFitAllTopLayerCells] = useState<boolean>(true);
   const [isFitAllReportingCells, setIsFitAllReportingCells] = useState<boolean>(true);
 
+  // Clear modal states for Top Layer Table and Reporting Table
+  const [clearTopLayerModal, setClearTopLayerModal] = useState<{
+    isOpen: boolean;
+    clearTarget: 'all' | 'filtered';
+  }>({ isOpen: false, clearTarget: 'all' });
+
+  const [clearReportingModal, setClearReportingModal] = useState<{
+    isOpen: boolean;
+    scope: 'all_quarters' | 'q1' | 'q2' | 'midTerm' | 'q3' | 'q4' | 'entire_table';
+  }>({ isOpen: false, scope: 'all_quarters' });
+  const [isClearing, setIsClearing] = useState(false);
+
   const openCellExpandModal = (title: string, value: string, onSave?: (v: string) => void, readOnly: boolean = false, subtitle?: string) => {
     setCellModal({
       isOpen: true,
@@ -1934,6 +1946,139 @@ Timestamp: ${new Date().toLocaleString()}
     saveRows(updated);
     setSuccessToast("SDBIP Row deleted successfully!");
     setTimeout(() => setSuccessToast(null), 3000);
+  };
+
+  const handleExecuteClearTopLayer = async (target: 'all' | 'filtered') => {
+    setIsClearing(true);
+    try {
+      if (target === 'all') {
+        setRows([]);
+        await saveRows([]);
+        setTablePage(1);
+        setReportingPage(1);
+        setSuccessToast("SDBIP Top Layer table cleared successfully. All records removed from database.");
+      } else {
+        const visibleIds = new Set(filteredRows.map(r => r.id));
+        const remaining = rows.filter(r => !visibleIds.has(r.id));
+        setRows(remaining);
+        await saveRows(remaining);
+        setTablePage(1);
+        setReportingPage(1);
+        setSuccessToast(`Successfully cleared ${visibleIds.size} filtered items from SDBIP Top Layer table.`);
+      }
+    } catch (err) {
+      console.error("Error clearing SDBIP top layer table:", err);
+      setSuccessToast("Failed to clear table. Please check network connection.");
+    } finally {
+      setIsClearing(false);
+      setClearTopLayerModal({ isOpen: false, clearTarget: 'all' });
+      setTimeout(() => setSuccessToast(null), 3500);
+    }
+  };
+
+  const handleExecuteClearReporting = async (scope: 'all_quarters' | 'q1' | 'q2' | 'midTerm' | 'q3' | 'q4' | 'entire_table') => {
+    setIsClearing(true);
+    try {
+      if (scope === 'entire_table') {
+        setRows([]);
+        await saveRows([]);
+        setTablePage(1);
+        setReportingPage(1);
+        setSuccessToast("All SDBIP Top Layer & Reporting records have been completely cleared.");
+      } else if (scope === 'all_quarters') {
+        const updated = rows.map(r => ({
+          ...r,
+          q1Actual: '',
+          q1Variance: '',
+          q1Corrective: '',
+          q1Expenditure: '',
+          q1Poes: [],
+          q1PoeDesc: '',
+          q2Actual: '',
+          q2Variance: '',
+          q2Corrective: '',
+          q2Expenditure: '',
+          q2Poes: [],
+          q2PoeDesc: '',
+          midTermActual: '',
+          midTermVariance: '',
+          midTermCorrective: '',
+          midTermExpenditure: '',
+          midTermPoes: [],
+          midTermPoeDesc: '',
+          q3Actual: '',
+          q3Variance: '',
+          q3Corrective: '',
+          q3Expenditure: '',
+          q3Poes: [],
+          q3PoeDesc: '',
+          q4Actual: '',
+          q4Variance: '',
+          q4Corrective: '',
+          q4Expenditure: '',
+          q4Poes: [],
+          q4PoeDesc: '',
+          ragStatus: undefined,
+          poeStatus: 'Not Uploaded',
+          workflows: {}
+        }));
+        setRows(updated);
+        await saveRows(updated);
+        setSuccessToast("All quarterly reporting data (actuals, variances, corrective actions, expenditures & evidence) cleared successfully.");
+      } else {
+        const quarterKey = scope;
+        const updated = rows.map(r => {
+          const u = { ...r };
+          if (quarterKey === 'q1') {
+            u.q1Actual = '';
+            u.q1Variance = '';
+            u.q1Corrective = '';
+            u.q1Expenditure = '';
+            u.q1Poes = [];
+            u.q1PoeDesc = '';
+          } else if (quarterKey === 'q2') {
+            u.q2Actual = '';
+            u.q2Variance = '';
+            u.q2Corrective = '';
+            u.q2Expenditure = '';
+            u.q2Poes = [];
+            u.q2PoeDesc = '';
+          } else if (quarterKey === 'midTerm') {
+            u.midTermActual = '';
+            u.midTermVariance = '';
+            u.midTermCorrective = '';
+            u.midTermExpenditure = '';
+            u.midTermPoes = [];
+            u.midTermPoeDesc = '';
+          } else if (quarterKey === 'q3') {
+            u.q3Actual = '';
+            u.q3Variance = '';
+            u.q3Corrective = '';
+            u.q3Expenditure = '';
+            u.q3Poes = [];
+            u.q3PoeDesc = '';
+          } else if (quarterKey === 'q4') {
+            u.q4Actual = '';
+            u.q4Variance = '';
+            u.q4Corrective = '';
+            u.q4Expenditure = '';
+            u.q4Poes = [];
+            u.q4PoeDesc = '';
+          }
+          return u;
+        });
+        setRows(updated);
+        await saveRows(updated);
+        setSuccessToast(`${quarterKey.toUpperCase()} reporting actuals, variances, and corrective actions cleared successfully.`);
+      }
+    } catch (err) {
+      console.error("Error clearing reporting data:", err);
+      setSuccessToast("Failed to clear reporting data. Please try again.");
+    } finally {
+      setIsClearing(false);
+      setClearReportingModal({ isOpen: false, scope: 'all_quarters' });
+      setTimeout(() => setSuccessToast(null), 3500);
+    }
   };
 
   const exportToCSV = () => {
@@ -3699,6 +3844,16 @@ Timestamp: ${new Date().toLocaleString()}
                 >
                   <Download className="w-3.5 h-3.5" /> Export CSV
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setClearTopLayerModal({ isOpen: true, clearTarget: filteredRows.length < rows.length ? 'filtered' : 'all' })}
+                  disabled={rows.length === 0}
+                  className="px-3 py-1.5 bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-300 text-rose-600 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition"
+                  title="Clear all or filtered SDBIP top layer table data"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                  <span>Clear Table</span>
+                </button>
               </div>
             </div>
 
@@ -4283,6 +4438,16 @@ Timestamp: ${new Date().toLocaleString()}
                 >
                   <Download className="w-3.5 h-3.5" /> Export reporting data
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setClearReportingModal({ isOpen: true, scope: 'all_quarters' })}
+                  disabled={rows.length === 0}
+                  className="px-3 py-1.5 bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-300 text-rose-600 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition"
+                  title="Clear quarterly reporting actuals, variances, or entire table"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                  <span>Clear Reporting Data</span>
+                </button>
               </div>
             </div>
 
@@ -4335,6 +4500,16 @@ Timestamp: ${new Date().toLocaleString()}
                       className="px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition"
                     >
                       <Download className="w-4 h-4" /> Export CSV
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setClearReportingModal({ isOpen: true, scope: 'all_quarters' })}
+                      disabled={rows.length === 0}
+                      className="px-4 py-2 bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-300 text-rose-600 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition shadow-xs"
+                      title="Clear quarterly reporting actuals, variances, or entire table"
+                    >
+                      <Trash2 className="w-4 h-4 text-rose-500" />
+                      <span>Clear Reporting</span>
                     </button>
                   </div>
                 </div>
@@ -6206,6 +6381,219 @@ Timestamp: ${new Date().toLocaleString()}
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* Clear Top Layer Modal */}
+      {clearTopLayerModal.isOpen && (
+        <div className="fixed inset-0 bg-black/60 z-[100000] flex items-center justify-center p-4 backdrop-blur-xs select-text">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl max-w-md w-full p-5 space-y-4 animate-fade-in text-slate-800">
+            <div className="flex items-start gap-3 border-b border-slate-100 pb-3">
+              <div className="p-2 bg-rose-50 border border-rose-100 rounded-xl text-rose-600 shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">
+                  Clear SDBIP Top Layer Table
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Choose the scope of Top Layer items to clear from the database.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2.5">
+              <label
+                onClick={() => setClearTopLayerModal(p => ({ ...p, clearTarget: 'all' }))}
+                className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition ${
+                  clearTopLayerModal.clearTarget === 'all'
+                    ? 'bg-rose-50/70 border-rose-300 ring-1 ring-rose-400/30'
+                    : 'bg-slate-50 border-slate-200 hover:bg-slate-100/70'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="clearTopLayerScope"
+                  checked={clearTopLayerModal.clearTarget === 'all'}
+                  onChange={() => setClearTopLayerModal(p => ({ ...p, clearTarget: 'all' }))}
+                  className="mt-0.5 text-rose-600 focus:ring-rose-500"
+                />
+                <div>
+                  <div className="text-xs font-black text-slate-900">Clear All Table Items ({rows.length} total)</div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">Wipes all Top Layer KPIs, targets, and baselines completely from Supabase.</div>
+                </div>
+              </label>
+
+              {filteredRows.length < rows.length && (
+                <label
+                  onClick={() => setClearTopLayerModal(p => ({ ...p, clearTarget: 'filtered' }))}
+                  className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition ${
+                    clearTopLayerModal.clearTarget === 'filtered'
+                      ? 'bg-rose-50/70 border-rose-300 ring-1 ring-rose-400/30'
+                      : 'bg-slate-50 border-slate-200 hover:bg-slate-100/70'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="clearTopLayerScope"
+                    checked={clearTopLayerModal.clearTarget === 'filtered'}
+                    onChange={() => setClearTopLayerModal(p => ({ ...p, clearTarget: 'filtered' }))}
+                    className="mt-0.5 text-rose-600 focus:ring-rose-500"
+                  />
+                  <div>
+                    <div className="text-xs font-black text-slate-900">Clear Filtered Items Only ({filteredRows.length} filtered)</div>
+                    <div className="text-[11px] text-slate-500 mt-0.5">Removes only the items currently matching your active search/filter criteria.</div>
+                  </div>
+                </label>
+              )}
+            </div>
+
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2 text-amber-900 text-xs">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <span className="text-[11px] leading-relaxed">
+                Warning: This action will permanently update the municipal Supabase persistent database.
+              </span>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setClearTopLayerModal({ isOpen: false, clearTarget: 'all' })}
+                disabled={isClearing}
+                className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl cursor-pointer transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleExecuteClearTopLayer(clearTopLayerModal.clearTarget)}
+                disabled={isClearing || rows.length === 0}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-black rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5 transition disabled:opacity-50"
+              >
+                {isClearing ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                <span>{isClearing ? 'Clearing...' : 'Confirm & Clear Table'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Clear Reporting Modal */}
+      {clearReportingModal.isOpen && (
+        <div className="fixed inset-0 bg-black/60 z-[100000] flex items-center justify-center p-4 backdrop-blur-xs select-text">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl max-w-lg w-full p-5 space-y-4 animate-fade-in text-slate-800">
+            <div className="flex items-start gap-3 border-b border-slate-100 pb-3">
+              <div className="p-2 bg-rose-50 border border-rose-100 rounded-xl text-rose-600 shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">
+                  Clear SDBIP Top Layer Reporting Data
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Select whether to clear quarterly actuals, specific quarters, or entire records.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
+              <label
+                onClick={() => setClearReportingModal(p => ({ ...p, scope: 'all_quarters' }))}
+                className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition ${
+                  clearReportingModal.scope === 'all_quarters'
+                    ? 'bg-rose-50/70 border-rose-300 ring-1 ring-rose-400/30'
+                    : 'bg-slate-50 border-slate-200 hover:bg-slate-100/70'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="clearReportingScope"
+                  checked={clearReportingModal.scope === 'all_quarters'}
+                  onChange={() => setClearReportingModal(p => ({ ...p, scope: 'all_quarters' }))}
+                  className="mt-0.5 text-rose-600 focus:ring-rose-500"
+                />
+                <div>
+                  <div className="text-xs font-black text-slate-900">Reset All Quarterly Reporting Actuals (Recommended)</div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">Clears Q1, Q2, Mid-Term, Q3 & Q4 actuals, variances, corrective actions, and expenditure while keeping KPIs and targets.</div>
+                </div>
+              </label>
+
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                {(['q1', 'q2', 'midTerm', 'q3', 'q4'] as const).map(q => {
+                  const qLabel = q === 'midTerm' ? 'Mid-Term (Q1+Q2)' : q.toUpperCase();
+                  const isSelected = clearReportingModal.scope === q;
+                  return (
+                    <label
+                      key={q}
+                      onClick={() => setClearReportingModal(p => ({ ...p, scope: q }))}
+                      className={`flex items-center gap-2.5 p-2.5 rounded-xl border cursor-pointer transition ${
+                        isSelected
+                          ? 'bg-rose-50/70 border-rose-300 ring-1 ring-rose-400/30'
+                          : 'bg-white border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="clearReportingScope"
+                        checked={isSelected}
+                        onChange={() => setClearReportingModal(p => ({ ...p, scope: q }))}
+                        className="text-rose-600 focus:ring-rose-500"
+                      />
+                      <span className="text-xs font-bold text-slate-800">Clear {qLabel} Only</span>
+                    </label>
+                  );
+                })}
+              </div>
+
+              <label
+                onClick={() => setClearReportingModal(p => ({ ...p, scope: 'entire_table' }))}
+                className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition mt-2 ${
+                  clearReportingModal.scope === 'entire_table'
+                    ? 'bg-rose-50/70 border-rose-300 ring-1 ring-rose-400/30'
+                    : 'bg-slate-50 border-slate-200 hover:bg-slate-100/70'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="clearReportingScope"
+                  checked={clearReportingModal.scope === 'entire_table'}
+                  onChange={() => setClearReportingModal(p => ({ ...p, scope: 'entire_table' }))}
+                  className="mt-0.5 text-rose-600 focus:ring-rose-500"
+                />
+                <div>
+                  <div className="text-xs font-black text-rose-900">Purge Entire SDBIP Table ({rows.length} records)</div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">Completely removes all records and KPI definitions from the database.</div>
+                </div>
+              </label>
+            </div>
+
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2 text-amber-900 text-xs">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <span className="text-[11px] leading-relaxed">
+                Changes will instantly be synchronized and committed to the Supabase backend.
+              </span>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setClearReportingModal({ isOpen: false, scope: 'all_quarters' })}
+                disabled={isClearing}
+                className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl cursor-pointer transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleExecuteClearReporting(clearReportingModal.scope)}
+                disabled={isClearing || rows.length === 0}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-black rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5 transition disabled:opacity-50"
+              >
+                {isClearing ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                <span>{isClearing ? 'Clearing...' : 'Confirm & Clear Reporting'}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

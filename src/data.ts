@@ -302,6 +302,7 @@ export const modules: Module[] = [
       { id: 'rep', name: 'Reports', icon: FileBarChart },
       { id: 'rm', name: 'Risk Management', icon: AlertTriangle },
       { id: 'sdbip-tl', name: 'SDBIP Top Layer', icon: Layers },
+      { id: 'sdbip-extraction', name: 'SDBIP Top Layer Extractor', icon: Landmark },
       { id: 'sdbip-23', name: '2nd & 3rd Layer SDBIP', icon: Database },
       { id: 'so', name: 'Strategic Objectives', icon: Target },
       { id: 'opms-submitter', name: 'Submitter', icon: FileText },
@@ -347,6 +348,7 @@ export const modules: Module[] = [
       { id: 'ipms-internal-audit', name: 'Internal Audit Review', icon: ShieldAlert },
       { id: 'ipms-dpmc', name: 'DPMC', icon: Users },
       { id: 'ipms-reports', name: 'Reports', icon: FileBarChart },
+      { id: 'ipms-extraction', name: 'Performance Plan Extractor', icon: Cpu },
       { id: 'sdbip-23', name: '2nd & 3rd Layer SDBIP', icon: Database },
     ]
   },
@@ -366,7 +368,8 @@ export const modules: Module[] = [
     name: 'More',
     icon: Box,
     subModules: [
-      { id: 'extraction-engine', name: 'Extraction & Data Mapping Engine', icon: Cpu },
+      { id: 'extraction-engine', name: 'Performance Plan Extractor (IPMS)', icon: Cpu },
+      { id: 'sdbip-extraction', name: 'SDBIP Top Layer Document Extractor', icon: Landmark },
       { id: 'ce', name: 'Calendar & Events', icon: Calendar },
       { id: 'ear', name: 'External Audit Room', icon: Search },
       { id: 'ia', name: 'Internal Audit', icon: ShieldAlert },

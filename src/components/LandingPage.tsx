@@ -316,6 +316,12 @@ export function LandingPage({ onLogin }: LandingPageProps) {
                   placeholder="e.g. name@nkangaladm.gov.za"
                   className="w-full px-4 py-3 bg-transparent border-b-2 border-gray-200 focus:border-green-600 transition-colors outline-none font-medium text-gray-900 rounded-none"
                 />
+                {email.toLowerCase().includes('nkangaladm.gov.za') && (
+                  <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-[11px] text-blue-900 flex items-center gap-2">
+                    <ShieldCheck className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
+                    <span><strong>Azure AD Directory Account:</strong> Enter your password below to authenticate.</span>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2 mt-4">
@@ -330,9 +336,10 @@ export function LandingPage({ onLogin }: LandingPageProps) {
                 <input 
                   type="password" 
                   required
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your Azure AD / profile password..."
+                  placeholder="Enter your Azure AD / municipal password..."
                   className="w-full px-4 py-3 bg-transparent border-b-2 border-gray-200 focus:border-green-600 transition-colors outline-none font-medium text-gray-900 rounded-none font-mono"
                 />
                 {passwordError && (

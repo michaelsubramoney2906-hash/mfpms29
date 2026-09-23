@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { User } from '../types';
 import { 
   FileText, Upload, CheckCircle2, AlertCircle, Sparkles, Download, 
@@ -18,13 +18,19 @@ import {
   extractKPIsFromExcel, 
   extractKPIsFromPastedContent,
   resolveKpaCode,
-  deriveKpaSummaries 
+  deriveKpaSummaries,
+  validateExtractionIntegrity
 } from '../utils/performanceAgreementParser';
 import { SDBIPExtractionEngine } from './SDBIPExtractionEngine';
+import { 
+  ExtractionValidationAuditModal, 
+  ExtractionValidationReport 
+} from './ExtractionValidationAuditModal';
 
 interface ExtractionEngineProps {
   currentUser: User;
   activeTenantId: string;
+  initialMode?: 'performance_plan' | 'sdbip_top_layer';
   onNavigateToIPMS?: (subModuleId?: string) => void;
   onNavigateToSDBIP?: (tab?: 'table' | 'reporting') => void;
 }
@@ -50,8 +56,14 @@ KPA 2: Municipal Institutional Development and Transformation
 KPI No. | Key Performance Indicators | Weight | Baseline | Annual Target | 1st Quarter Planned Target | 2nd Quarter Planned Target | 3rd Quarter Planned Target | 4th Quarter Planned Target | POE | Total Budget Allocated
 MIDT-01 | Percentage of Workplace Skills Plan (WSP) municipal employee training and capacity building initiatives executed | 10 | 85% training executed in 2023/24 | 95% planned WSP skills training programs executed | 20% training programs executed | 45% training programs executed | 75% training programs executed | 95% training programs executed | Signed training attendance registers, accredited training certificates, and annual LGSETA compliance submissions | R 1,800,000`;
 
-export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS, onNavigateToSDBIP }: ExtractionEngineProps) {
-  const [engineMode, setEngineMode] = useState<'performance_plan' | 'sdbip_top_layer'>('performance_plan');
+export function ExtractionEngine({ currentUser, activeTenantId, initialMode, onNavigateToIPMS, onNavigateToSDBIP }: ExtractionEngineProps) {
+  const [engineMode, setEngineMode] = useState<'performance_plan' | 'sdbip_top_layer'>(initialMode || 'performance_plan');
+
+  useEffect(() => {
+    if (initialMode && initialMode !== engineMode) {
+      setEngineMode(initialMode);
+    }
+  }, [initialMode]);
   const [extractedItems, setExtractedItems] = useState<ExtractedMappedKPI[]>([]);
   const [extractedKpas, setExtractedKpas] = useState<ExtractedKpaDefinition[]>([]);
   const [agreementMetadata, setAgreementMetadata] = useState<{
@@ -63,8 +75,9 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
   } | null>(null);
   const [viewGrouping, setViewGrouping] = useState<'grouped' | 'flat'>('grouped');
   const [sourceFileName, setSourceFileName] = useState<string>('');
+  const [rawDocumentText, setRawDocumentText] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'upload' | 'paste' | 'results' | 'json'>('upload');
+  const [activeTab, setActiveTab] = useState<'upload' | 'paste' | 'results' | 'validation' | 'json'>('upload');
   const [pasteText, setPasteText] = useState<string>('');
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
   const [copiedJson, setCopiedJson] = useState<boolean>(false);
@@ -76,6 +89,11 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
   const [syncSuccess, setSyncSuccess] = useState<boolean>(false);
   const [kpaFilter, setKpaFilter] = useState<string>('all');
   const [targetEmployeeEmail, setTargetEmployeeEmail] = useState<string>(currentUser?.email || '');
+
+  // Automated Validation Service State
+  const [validationReport, setValidationReport] = useState<ExtractionValidationReport | null>(null);
+  const [isValidating, setIsValidating] = useState<boolean>(false);
+  const [isValidationModalOpen, setIsValidationModalOpen] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -180,8 +198,58 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
     }, {} as Record<string, number>);
   }, [extractedItems]);
 
+  // Automated Validation Engine Trigger
+  const runIntegrityValidation = async (
+    itemsToValidate = extractedItems,
+    kpasToValidate = extractedKpas,
+    fileName = sourceFileName,
+    docText = rawDocumentText
+  ) => {
+    if (!itemsToValidate || itemsToValidate.length === 0) return;
+    setIsValidating(true);
+    try {
+      const report = await validateExtractionIntegrity({
+        documentText: docText || pasteText,
+        fileName: fileName || 'Performance_Agreement.pdf',
+        items: itemsToValidate,
+        kpas: kpasToValidate,
+        tenantId: activeTenantId,
+        userEmail: currentUser?.email,
+        userName: (currentUser as any)?.name || (currentUser as any)?.fullName || currentUser?.email || 'Municipal User'
+      });
+      setValidationReport(report);
+    } catch (valErr: any) {
+      console.warn("Integrity validation service error:", valErr);
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
+  const handleAutoFixItem = (kpiNo: string, newDescription: string) => {
+    setExtractedItems(prev => prev.map(it => {
+      if (it["kpi no"] === kpiNo) {
+        return { ...it, "kpi description": newDescription };
+      }
+      return it;
+    }));
+    setHasUnsavedChanges(true);
+    setStatusMessage({
+      type: 'success',
+      text: `KPI ${kpiNo} description was successfully aligned with source document text!`
+    });
+  };
+
+  const handleRemoveHallucinatedItem = (kpiNo: string) => {
+    setExtractedItems(prev => prev.filter(it => it["kpi no"] !== kpiNo));
+    setHasUnsavedChanges(true);
+    setStatusMessage({
+      type: 'info',
+      text: `Ungrounded KPI record ${kpiNo} removed.`
+    });
+  };
+
   // Handle results commit
-  const handleExtractedResult = (items: ExtractedMappedKPI[], name: string) => {
+  const handleExtractedResult = (items: ExtractedMappedKPI[], name: string, rawText?: string) => {
     if (!items || items.length === 0) {
       setStatusMessage({
         type: 'error',
@@ -193,10 +261,14 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
 
     const attachedKpas = (items as any).kpas;
     const attachedMetadata = (items as any).metadata;
+    const attachedDocText = rawText || (items as any).rawDocumentText || '';
     const kpas = deriveKpaSummaries(items, attachedKpas);
 
     setExtractedItems(items);
     setExtractedKpas(kpas);
+    if (attachedDocText) {
+      setRawDocumentText(attachedDocText);
+    }
     if (attachedMetadata) {
       setAgreementMetadata(attachedMetadata);
     }
@@ -207,6 +279,9 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
       type: 'success',
       text: `Successfully extracted and mapped ${items.length} KPI records across ${kpas.length} KPAs from "${name}" with 100% verbatim precision.`
     });
+
+    // Automatically run the background integrity & hallucination audit
+    runIntegrityValidation(items, kpas, name, attachedDocText);
   };
 
   // 1. Handle File Upload
@@ -975,6 +1050,27 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
         <button onClick={() => setActiveTab('results')} className={`flex-1 py-2 text-xs font-bold rounded-lg flex items-center justify-center gap-2 ${activeTab === 'results' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}>
           <Table className="w-4 h-4" /> Data Mapping
         </button>
+        <button 
+          onClick={() => {
+            setActiveTab('validation');
+            if (!validationReport && extractedItems.length > 0) {
+              runIntegrityValidation();
+            }
+          }} 
+          className={`flex-1 py-2 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 ${activeTab === 'validation' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+        >
+          <ShieldCheck className="w-4 h-4 text-emerald-400" /> 
+          <span>Integrity Audit</span>
+          {validationReport && (
+            <span className={`text-[9px] font-black px-1.5 py-0.2 rounded-full border ${
+              validationReport.overallIntegrityScore === 100
+                ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500/40'
+                : 'bg-amber-500/30 text-amber-300 border-amber-500/40'
+            }`}>
+              {validationReport.overallIntegrityScore}%
+            </span>
+          )}
+        </button>
         <button onClick={() => setActiveTab('json')} className={`flex-1 py-2 text-xs font-bold rounded-lg flex items-center justify-center gap-2 ${activeTab === 'json' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}>
           <Code2 className="w-4 h-4" /> JSON Schema
         </button>
@@ -1146,7 +1242,7 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
                 <Layers className="w-4 h-4 text-indigo-400" />
                 <h3 className="text-sm font-bold text-white tracking-tight">Key Performance Areas (KPAs) &amp; Hierarchy Mapping</h3>
                 <span className="text-[10px] font-bold uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-full">
-                  {extractedKpas.length > 0 ? extractedKpas.length : uniqueFunctionalKpas.length} KPAs Extracted
+                  {deriveKpaSummaries(extractedItems, extractedKpas).length} KPAs Extracted
                 </span>
               </div>
               <div className="text-xs text-slate-400">
@@ -1156,7 +1252,7 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
 
             {/* Grid of KPA cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-              {(extractedKpas.length > 0 ? extractedKpas : deriveKpaSummaries(extractedItems)).map((kpaDef, kIdx) => {
+              {deriveKpaSummaries(extractedItems, extractedKpas).map((kpaDef, kIdx) => {
                 const kpaTitle = kpaDef.title || kpaDef.fullTitle || kpaDef.kpaName || `KPA ${kIdx + 1}`;
                 const isSelected = kpaFilter.toLowerCase() === kpaTitle.toLowerCase() ||
                   (kpaDef.fullTitle && kpaFilter.toLowerCase() === kpaDef.fullTitle.toLowerCase()) ||
@@ -1244,9 +1340,9 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
                     : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
                 }`}
               >
-                All KPAs ({extractedItems.length})
+                All KPIs ({extractedItems.length})
               </button>
-              {(extractedKpas.length > 0 ? extractedKpas : deriveKpaSummaries(extractedItems)).map((kpa, idx) => {
+              {deriveKpaSummaries(extractedItems, extractedKpas).map((kpa, idx) => {
                 const kTitle = kpa.title || kpa.fullTitle || kpa.kpaName || `KPA ${idx + 1}`;
                 const isSelected = kpaFilter.toLowerCase() === kTitle.toLowerCase() ||
                   (kpa.fullTitle && kpaFilter.toLowerCase() === kpa.fullTitle.toLowerCase()) ||
@@ -1280,7 +1376,28 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-slate-400 font-bold uppercase text-[10px] tracking-wider">Layout:</span>
+              <button
+                type="button"
+                id="btn-trigger-integrity-audit-modal"
+                onClick={() => {
+                  setIsValidationModalOpen(true);
+                  if (!validationReport) {
+                    runIntegrityValidation();
+                  }
+                }}
+                className="px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                title="Cross-verify extracted KPIs against uploaded source document to ensure zero hallucinations"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Integrity &amp; Hallucination Audit</span>
+                {validationReport && (
+                  <span className="text-[10px] font-black bg-emerald-950 px-1.5 py-0.2 rounded-full border border-emerald-500/40 text-emerald-300">
+                    {validationReport.overallIntegrityScore}%
+                  </span>
+                )}
+              </button>
+
+              <span className="text-slate-400 font-bold uppercase text-[10px] tracking-wider ml-1">Layout:</span>
               <div className="inline-flex p-0.5 bg-slate-900 border border-slate-800 rounded-lg">
                 <button
                   type="button"
@@ -1786,7 +1903,176 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
         </div>
       )}
 
-      {/* 4. JSON SCHEMA VIEW TAB */}
+      {/* 4. INTEGRITY & VALIDATION AUDIT TAB */}
+      {activeTab === 'validation' && (
+        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-600/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center">
+                <ShieldCheck className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">Automated Grounding &amp; Data Integrity Verification</h3>
+                <p className="text-xs text-slate-400">
+                  Cross-checks extracted dataset against uploaded document text stream for 100% fidelity.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => runIntegrityValidation()}
+                disabled={isValidating || extractedItems.length === 0}
+                className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-bold rounded-xl flex items-center gap-1.5 transition disabled:opacity-50 cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isValidating ? 'animate-spin text-indigo-400' : 'text-slate-400'}`} />
+                <span>{isValidating ? 'Auditing...' : 'Re-Run Integrity Check'}</span>
+              </button>
+              <button
+                onClick={() => setIsValidationModalOpen(true)}
+                disabled={!validationReport}
+                className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition shadow-sm cursor-pointer disabled:opacity-50"
+              >
+                <Eye className="w-3.5 h-3.5" />
+                <span>Open Full Audit Inspector</span>
+              </button>
+            </div>
+          </div>
+
+          {isValidating && (
+            <div className="text-center py-12 space-y-3">
+              <RefreshCw className="w-8 h-8 text-indigo-400 animate-spin mx-auto" />
+              <div className="text-sm font-bold text-white">Running Multi-Tier Verbatim &amp; Grounding Analysis...</div>
+              <p className="text-xs text-slate-400">Comparing n-gram similarity, KPA bindings, and numerical weight totals.</p>
+            </div>
+          )}
+
+          {!isValidating && !validationReport && (
+            <div className="text-center py-12 space-y-3">
+              <ShieldCheck className="w-10 h-10 text-slate-600 mx-auto" />
+              <div className="text-sm font-bold text-slate-300">No Validation Audit Generated Yet</div>
+              <p className="text-xs text-slate-500 max-w-md mx-auto">
+                Upload or paste a scorecard document, then click "Run Integrity Check" to audit the extraction.
+              </p>
+              {extractedItems.length > 0 && (
+                <button
+                  onClick={() => runIntegrityValidation()}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold"
+                >
+                  Run Validation Audit Now
+                </button>
+              )}
+            </div>
+          )}
+
+          {!isValidating && validationReport && (
+            <div className="space-y-6">
+              {/* Executive Summary Metrics */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="p-4 bg-slate-950/80 border border-slate-800 rounded-xl">
+                  <div className="text-[10px] font-bold uppercase text-slate-400">Data Integrity Score</div>
+                  <div className={`text-2xl font-black mt-1 ${
+                    validationReport.overallIntegrityScore === 100 ? 'text-emerald-400' : 'text-amber-400'
+                  }`}>
+                    {validationReport.overallIntegrityScore}%
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-1">
+                    {validationReport.overallIntegrityScore === 100 ? '100% Grounded in source' : `${validationReport.summary.deviationsCount} deviations flagged`}
+                  </div>
+                </div>
+
+                <div className="p-4 bg-slate-950/80 border border-slate-800 rounded-xl">
+                  <div className="text-[10px] font-bold uppercase text-slate-400">Grounded Indicators</div>
+                  <div className="text-2xl font-black text-white mt-1">
+                    {validationReport.summary.perfectlyGroundedKpis} <span className="text-xs text-slate-500">/ {validationReport.summary.totalKpis}</span>
+                  </div>
+                  <div className="text-[11px] text-emerald-400 mt-1">
+                    Verbatim match in document text
+                  </div>
+                </div>
+
+                <div className="p-4 bg-slate-950/80 border border-slate-800 rounded-xl">
+                  <div className="text-[10px] font-bold uppercase text-slate-400">Hallucinations Flagged</div>
+                  <div className={`text-2xl font-black mt-1 ${
+                    validationReport.summary.potentialHallucinations === 0 ? 'text-emerald-400' : 'text-rose-400'
+                  }`}>
+                    {validationReport.summary.potentialHallucinations}
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-1">
+                    {validationReport.summary.potentialHallucinations === 0 ? 'Zero ungrounded items' : 'Manual inspection required'}
+                  </div>
+                </div>
+
+                <div className="p-4 bg-slate-950/80 border border-slate-800 rounded-xl">
+                  <div className="text-[10px] font-bold uppercase text-slate-400">Cumulative Weight</div>
+                  <div className={`text-2xl font-black font-mono mt-1 ${
+                    validationReport.summary.isWeightBalanced ? 'text-emerald-400' : 'text-amber-400'
+                  }`}>
+                    {validationReport.summary.totalExtractedWeight}%
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-1">
+                    {validationReport.summary.isWeightBalanced ? 'Balanced at 100%' : 'Weight discrepancy'}
+                  </div>
+                </div>
+              </div>
+
+              {/* KPI Grounding Breakdown Table */}
+              <div className="bg-slate-950/90 border border-slate-800 rounded-xl overflow-hidden">
+                <div className="p-3 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">KPI Indicator Grounding Status</h4>
+                  <button
+                    onClick={() => setIsValidationModalOpen(true)}
+                    className="text-indigo-400 hover:text-indigo-300 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>View Detailed Side-by-Side Analysis</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <div className="overflow-x-auto max-h-80">
+                  <table className="w-full text-left text-xs text-slate-300">
+                    <thead className="bg-slate-900 border-b border-slate-800 text-slate-400 font-bold uppercase text-[10px]">
+                      <tr>
+                        <th className="p-3">Ref</th>
+                        <th className="p-3">Functional KPA</th>
+                        <th className="p-3">Extracted Description</th>
+                        <th className="p-3 text-center">Weight</th>
+                        <th className="p-3 text-center">Grounding Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60">
+                      {validationReport.kpiDetails.map((kpi, kIdx) => (
+                        <tr key={`val-row-${kIdx}`} className="hover:bg-slate-900/40">
+                          <td className="p-3 font-mono font-bold text-white">{kpi.kpiNo}</td>
+                          <td className="p-3 font-medium text-indigo-300">{kpi.functionalKpa}</td>
+                          <td className="p-3 max-w-md line-clamp-1">{kpi.kpiDescription}</td>
+                          <td className="p-3 text-center font-mono font-bold text-amber-300">{kpi.weight}%</td>
+                          <td className="p-3 text-center">
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                              kpi.groundingStatus === 'VERIFIED_100_PERCENT'
+                                ? 'bg-emerald-950 text-emerald-300 border-emerald-500/40'
+                                : kpi.groundingStatus === 'EXACT_MATCH'
+                                ? 'bg-indigo-950 text-indigo-300 border-indigo-500/40'
+                                : kpi.groundingStatus === 'POTENTIAL_HALLUCINATION'
+                                ? 'bg-rose-950 text-rose-300 border-rose-500/40'
+                                : 'bg-amber-950 text-amber-300 border-amber-500/40'
+                            }`}>
+                              {kpi.groundingStatus === 'VERIFIED_100_PERCENT' ? '100% Verbatim' :
+                               kpi.groundingStatus === 'EXACT_MATCH' ? 'Exact Match' :
+                               kpi.groundingStatus === 'POTENTIAL_HALLUCINATION' ? 'Hallucination Alert' : 'Partial Grounding'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 5. JSON SCHEMA VIEW TAB */}
       {activeTab === 'json' && extractedItems.length > 0 && (
         <div className="bg-slate-800/40 border border-slate-700/60 rounded-2xl p-6 space-y-4">
           <div className="flex items-center justify-between">
@@ -1825,6 +2111,18 @@ export function ExtractionEngine({ currentUser, activeTenantId, onNavigateToIPMS
           </pre>
         </div>
       )}
+
+      {/* FULL EXTRACTION INTEGRITY AUDIT MODAL */}
+      <ExtractionValidationAuditModal
+        isOpen={isValidationModalOpen}
+        onClose={() => setIsValidationModalOpen(false)}
+        report={validationReport}
+        isValidating={isValidating}
+        onReValidate={() => runIntegrityValidation()}
+        rawDocumentText={rawDocumentText || pasteText}
+        onAutoFixItem={handleAutoFixItem}
+        onRemoveItem={handleRemoveHallucinatedItem}
+      />
 
     </div>
   );
