@@ -135,7 +135,7 @@ const mKpisCompact: { [key: string]: { desc: string; kpaIndex: number; uom?: str
   "M_92": { desc: "Number of climate change adaptation strategy training sessions held.", kpaIndex: 6, uom: "sessions", target: "4", base: "2" }
 };
 
-// Compact Departmental KPI definitions list (P_01 to P_18)
+// Compact Departmental KPI definitions list (P_01 to P_19)
 const pKpisCompact: { [key: string]: { desc: string; kpaIndex: number; uom?: string; target?: string; base?: string; q1?: string; q2?: string; mid?: string; q3?: string; q4?: string } } = {
   "P_01": { desc: "Percentage of departmental capital budget spent on service delivery projects.", kpaIndex: 4, uom: "% spent", target: "95%", base: "90%" },
   "P_02": { desc: "Number of community consultation meetings held to gather input on departmental projects.", kpaIndex: 5, uom: "meetings", target: "4", base: "2" },
@@ -154,7 +154,8 @@ const pKpisCompact: { [key: string]: { desc: string; kpaIndex: number; uom?: str
   "P_15": { desc: "Number of public awareness campaigns hosted by the department.", kpaIndex: 5, uom: "campaigns", target: "4", base: "2" },
   "P_16": { desc: "Percentage of departmental documents archived in the centralized DMS.", kpaIndex: 2, uom: "% archived", target: "100%", base: "95%" },
   "P_17": { desc: "Average number of days to process business license applications.", kpaIndex: 3, uom: "days", target: "5 days", base: "7 days" },
-  "P_18": { desc: "Percentage of departmental service standards published and met.", kpaIndex: 5, uom: "% standards met", target: "95%", base: "90%" }
+  "P_18": { desc: "Percentage of departmental service standards published and met.", kpaIndex: 5, uom: "% standards met", target: "95%", base: "90%" },
+  "P_19": { desc: "Percentage implementation of capital project management milestones within approved project schedule and budget.", kpaIndex: 1, uom: "% milestone completion", target: "100%", base: "90%" }
 };
 
 const getKpaName = (idx: number): string => {
@@ -239,7 +240,7 @@ function inflateItem(refCode: string, compact: { desc: string; kpaIndex: number;
   };
 }
 
-// Ensure all 110 SDBIP items (M_01..M_92, P_01..P_18) are fully represented and populated in the array
+// Ensure all 111 SDBIP items (M_01..M_92, P_01..P_19) are fully represented and populated in the array
 export function ensureAllSdbipKpis(extractedItems: any[]): SdbipCatalogItem[] {
   const result: SdbipCatalogItem[] = [];
   const normalizedExtractedMap = new Map<string, any>();
@@ -312,8 +313,8 @@ export function ensureAllSdbipKpis(extractedItems: any[]): SdbipCatalogItem[] {
     }
   }
 
-  // 2. Inflate P_01 to P_18
-  for (let i = 1; i <= 18; i++) {
+  // 2. Inflate P_01 to P_19
+  for (let i = 1; i <= 19; i++) {
     const code = `P_${String(i).padStart(2, '0')}`;
     const extracted = normalizedExtractedMap.get(code);
     const compactDef = pKpisCompact[code];

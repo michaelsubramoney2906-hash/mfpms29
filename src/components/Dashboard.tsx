@@ -63,8 +63,8 @@ import { AuditLogs } from './Admin/AuditLogs';
 import { SystemControlPanel } from './Admin/SystemControlPanel';
 import { logUserAccess } from '../utils/auditLogger';
 import { RiskManagement } from './RiskManagement';
-import { ExtractionEngine } from './ExtractionEngine';
 import { FredExtractionAgent } from './FredExtractionAgent';
+import { FredSuite } from './FredSuite';
 import { GuidedIPMSWorkflow, GUIDE_STEPS } from './IPMS/GuidedIPMSWorkflow';
 import { FinancialYearModal } from './FinancialYearModal';
 import { FinancialYearSwitcher } from './FinancialYearSwitcher';
@@ -943,20 +943,16 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
              <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
                 <IPMSInbox currentUser={fullUserProfile} activeTenantId={activeTenantId} />
              </div>
-          ) : activeSubModule.id === 'ia' ? (
-             <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
-                <InternalAudit currentUser={fullUserProfile} activeTenantId={activeTenantId} />
-             </div>
-          ) : activeSubModule.id === 'extraction-engine' || activeSubModule.id === 'ipms-extraction' || activeSubModule.id === 'sdbip-extraction' ? (
+          ) : activeSubModule.id === 'fred' || activeSubModule.id === 'fred-ipp' || activeSubModule.id === 'fred-performance-plan' || activeSubModule.id === 'fred-sdbip' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
-                 <ExtractionEngine 
+                 <FredSuite 
                     currentUser={fullUserProfile} 
                     activeTenantId={activeTenantId} 
-                    initialMode={activeSubModule.id === 'sdbip-extraction' ? 'sdbip_top_layer' : 'performance_plan'}
+                    initialSubModule={activeSubModule.id === 'fred-sdbip' ? 'sdbip' : 'performance-plan'}
                     onNavigateToIPMS={(subId) => {
                       const ipmsModule = modules.find(m => m.id === 'ipms');
                       if (ipmsModule) {
-                        const targetSub = ipmsModule.subModules?.find(s => s.id === (subId || 'appg')) || { id: subId || 'appg', name: 'Annual Performance Planner Grid', icon: activeSubModule.icon };
+                        const targetSub = ipmsModule.subModules?.find(s => s.id === (subId || 'appg')) || { id: subId || 'appg', name: 'Annual Performance Planner Grid', icon: Layers };
                         setActiveModule(ipmsModule);
                         handleSubModuleSelect(targetSub);
                       }
@@ -977,6 +973,10 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                     }}
                  />
               </div>
+          ) : activeSubModule.id === 'ia' ? (
+             <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
+                <InternalAudit currentUser={fullUserProfile} activeTenantId={activeTenantId} />
+             </div>
           ) : activeSubModule.id === 'ce' ? (
              <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
                 <CalendarEvents currentUser={fullUserProfile} activeTenantId={activeTenantId} />

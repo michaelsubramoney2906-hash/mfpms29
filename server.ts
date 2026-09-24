@@ -827,13 +827,16 @@ async function startServer() {
     return res.status(400).json({ error: "Fred Extraction Agent has been disabled to prevent automatic KPI modifications." });
   });
 
-  // Dedicated High-Efficiency, 100% Verbatim Performance Agreement & Scorecard Extraction Engine
-  app.post("/api/extract-performance-agreement", async (req, res) => {
+  // =========================================================================
+  // DEDICATED INDIVIDUAL PERFORMANCE PLAN (IPP) EXTRACTION SERVICE
+  // Strictly enforces a flat list schema with zero inference & zero hallucinations
+  // =========================================================================
+  const handleIPPExtraction = async (req: any, res: any) => {
     try {
       const { documentText, fileName, fileBase64, mimeType } = req.body;
       
       if (!documentText && !fileBase64) {
-        return res.status(400).json({ error: "Missing document text or file payload for extraction." });
+        return res.status(400).json({ error: "Missing document text or file payload for IPP extraction." });
       }
 
       // Verbatim heuristic fallback function without injecting fake / hallucinated defaults
@@ -1019,10 +1022,23 @@ async function startServer() {
             return 'GGPP';
           };
 
-          // If row is a tab or pipe separated table line
-          if (line.includes('\t') || line.includes('|')) {
+          // If row is a tab or pipe separated table line inside scorecard or with scorecard-like columns
+          if (insideScorecardOrProjects && (line.includes('\t') || line.includes('|'))) {
             const rawCells = (line.includes('\t') ? line.split('\t') : line.split('|')).map(c => c.trim()).filter(Boolean);
-            if (rawCells.length >= 2 && !rawCells[0].toLowerCase().includes('kpi number') && !rawCells[0].toLowerCase().includes('kpi ids') && !rawCells[0].toLowerCase().includes('key performance indicators') && !rawCells[0].toLowerCase().includes('project name') && !rawCells[0].toLowerCase().includes('indicator')) {
+            const firstCell = (rawCells[0] || '').toLowerCase();
+            if (
+              rawCells.length >= 2 && 
+              !firstCell.includes('kpi number') && 
+              !firstCell.includes('kpi ids') && 
+              !firstCell.includes('kpi no') &&
+              !firstCell.includes('key performance indicator') && 
+              !firstCell.includes('project name') && 
+              !firstCell.includes('indicator') &&
+              !firstCell.includes('weight') &&
+              !firstCell.includes('signature') &&
+              !firstCell.includes('core competency') &&
+              !firstCell.includes('job specific')
+            ) {
               
               let kpiNo = rawCells[0] || `KPI-${results.length + 1}`;
               let kpiDesc = rawCells[1] || '';
@@ -1079,31 +1095,34 @@ async function startServer() {
                 weight = rawCells[2] || '';
               }
 
-              const natKpa = resolveNationalKpaCode(currentFunctionalKpa);
-              results.push({
-                "kpi no": kpiNo,
-                "kpi description": kpiDesc,
-                "%wt": weight.replace('%', '').trim(),
-                "baseline": baseline,
-                "annual target": annualTarget,
-                "1st qtr target": q1,
-                "2nd qtr target": q2,
-                "3rd qtr target": q3,
-                "4th qtr target": q4,
-                "poe": poe,
-                "budget": budget,
-                "functional kpa": currentFunctionalKpa,
-                "national kpa": natKpa,
-                "kpa": currentFunctionalKpa,
-                kpaType: 'functional'
-              });
-              continue;
+              // Only accept if description exists and is not a header or signature artifact
+              if (kpiDesc && kpiDesc.length > 3 && !kpiDesc.toLowerCase().includes('signature') && !kpiDesc.toLowerCase().includes('assessment')) {
+                const natKpa = resolveNationalKpaCode(currentFunctionalKpa);
+                results.push({
+                  "kpi no": kpiNo,
+                  "kpi description": kpiDesc,
+                  "%wt": weight.replace('%', '').trim(),
+                  "baseline": baseline,
+                  "annual target": annualTarget,
+                  "1st qtr target": q1,
+                  "2nd qtr target": q2,
+                  "3rd qtr target": q3,
+                  "4th qtr target": q4,
+                  "poe": poe,
+                  "budget": budget,
+                  "functional kpa": currentFunctionalKpa,
+                  "national kpa": natKpa,
+                  "kpa": currentFunctionalKpa,
+                  kpaType: 'functional'
+                });
+                continue;
+              }
             }
           }
 
-          // If inside scorecard/projects and line matches specific KPI code pattern (e.g. M_11, M_15, P_09, KPI 1, or numeric 1..50)
-          const codeMatch = line.match(/^([M|P]_\d+|[A-Z]{2,5}[-_]\d+|\bKPI\s*\d+|\b\d{1,2}\b)\s*[:.\-–\t\s|](.+)$/i);
-          if (codeMatch && (insideScorecardOrProjects || currentFunctionalKpa !== 'Functional Performance Area')) {
+          // If inside scorecard/projects and line matches explicit KPI code pattern (e.g. M_11, P_09, BSD-01, KPI 1 - NOT bare clause numbers)
+          const codeMatch = line.match(/^([M|P]_\d+|[A-Z]{2,5}[-_]\d+|\bKPI\s*\d+)\s*[:.\-–\t\s|](.+)$/i);
+          if (codeMatch && insideScorecardOrProjects) {
             const natKpa = resolveNationalKpaCode(currentFunctionalKpa);
             results.push({
               "kpi no": codeMatch[1].trim(),
@@ -1127,59 +1146,46 @@ async function startServer() {
         return { items: results, kpas: Array.from(extractedKpasMap.values()) };
       };
 
-      const systemInstruction = `You are an ultra-high precision, 100% deterministic cognitive extraction engine for South African municipal Performance Agreements and Individual Performance Plans (Annexure A Scorecards and Capital/Infrastructure Project Scorecards).
+      const systemInstruction = `You are a dedicated, 100% deterministic extraction engine for South African municipal INDIVIDUAL PERFORMANCE PLANS and Performance Agreements (Annexure A Scorecards & Section 4.2 Framework).
 
-CRITICAL ZERO-HALLUCINATION & 100% VERBATIM MANDATES:
+CRITICAL DISTINCTION BETWEEN INDIVIDUAL PERFORMANCE PLAN vs SDBIP TOP LAYER:
+- An Individual Performance Plan contains FUNCTIONAL KPAs (defined specifically for the employee/directorate in Section 4.2 and Annexure A headings, e.g. "KPA 1: Technical Infrastructure", "KPA 2: Maintenance Operations", "KPA 3: Financial Governance") and individual employee KPIs.
+- It does NOT contain institutional SDBIP catalogs or generic 110-KPI lists.
+- Extract ONLY the Functional KPAs and KPIs that are physically printed in the source document.
 
-1. ABSOLUTE ZERO-HALLUCINATION & VERBATIM EXTRACTION:
+ABSOLUTE ZERO-HALLUCINATION & 1:1 EXACT COUNT RULES:
+1. EXACT 1:1 VERBATIM EXTRACTION:
    - Extract EVERY SINGLE LETTER, WORD, NUMBER, AND PUNCTUATION MARK verbatim word-for-word exactly as printed in the source document.
-   - You are strictly forbidden from altering, modifying, paraphrasing, summarizing, or extrapolating any text.
-   - Do NOT put a single letter out of place.
+   - You are strictly forbidden from altering, modifying, paraphrasing, summarizing, adding, or removing any text, letters, or numbers.
 
-2. STRICT BAN ON INJECTING/PREPENDING ROLE, POSITION, OR DEPARTMENT WORDS:
-   - NEVER prepend or inject the employee's job title, department, or position name (such as "Payroll", "Finance", "Municipal", "General") into KPA titles or KPI descriptions unless those exact words are literally part of the heading in the source text!
-   - EXAMPLES OF PROHIBITED MODIFICATIONS:
-     * If KPA 2 in Section 4.2 or Annexure A is written as "Information Verification", you MUST output "Information Verification" or "KPA 2: Information Verification". NEVER output "Payroll Information Verification"!
-     * If KPA 5 in Section 4.2 or Annexure A is written as "Reporting", you MUST output "Reporting" or "KPA 5: Reporting". NEVER output "Payroll Reporting"!
-     * Extract the EXACT text from the document headings and table cells without guessing or contextualizing.
+2. STRICT COUNT FIDELITY:
+   - If the source document scorecard contains 17 KPIs across 5 Functional KPAs, your output MUST contain EXACTLY 17 KPIs and 5 Functional KPAs.
+   - NEVER hallucinate, synthesize, or pull in KPIs from outside the document.
 
-3. DYNAMIC FUNCTIONAL KPA EXTRACTION (FROM SECTION 4.2 AND ANNEXURE A):
-   - In Individual Performance Plans (IPMS), extract the exact Functional KPAs as defined in Section 4.2 and as section banner headers in Annexure A.
-   - For every Functional KPA, format fullTitle as "KPA <number>: <verbatim name>" (e.g. "KPA 1: Information Management", "KPA 2: Information Verification", "KPA 5: Reporting").
-   - Extract Section 4.2 framework weights exactly as written (e.g. "20", "15", "30", etc.).
+3. FUNCTIONAL KPA EXTRACTION (FROM SECTION 4.2 & ANNEXURE A HEADINGS):
+   - Extract the exact Functional KPAs as defined in Section 4.2 and as section banner headings in Annexure A.
+   - Format fullTitle as "KPA <number>: <verbatim name>" (e.g. "KPA 1: Information Management", "KPA 2: Information Verification", "KPA 5: Reporting").
+   - Extract Section 4.2 framework weights exactly as written (e.g. "20", "15", "30").
 
-4. SEPARATION OF 7 STATUTORY NATIONAL KPAs:
-   - Map each Functional KPA to one of the 7 statutory National KPAs:
-     1. BSD: Basic Service Delivery and Infrastructure Development
-     2. LED: Local Economic Development
-     3. MFVM: Municipal Financial Viability and Management
-     4. GGPP: Good Governance and Public Participation
-     5. MIDT: Municipal Institutional Development and Transformation
-     6. SR: Spatial Rationale and Local Planning
-     7. CS: Community Services and Social Development
-
-5. EXHAUSTIVE SCORECARD & PROJECT EXTRACTION (1:1 VERBATIM FIELD MAPPING):
-   - Extract ALL KPI rows from "ANNEXURE A: PERFORMANCE PLAN" and all project indicators from "PROJECTS / COMPLETED PROJECTS FOR PRIORITY ISSUE..." tables.
-   - Follow this EXACT 1:1 verbatim field mapping:
-     * KPI Number -> kpiNo (Exact KPI number or code e.g. 1, 2, M_15, P_09, BSD-01).
-     * Key Performance Indicator -> kpiDescription (100% verbatim text of the KPI output / measure / project description).
-     * Weight -> weight (Allocated weight percentage number only e.g. "20", "15", "10").
-     * Baseline / Baseline 2025/2026 -> baseline (100% verbatim baseline or previous year actual).
-     * Annual Target -> annualTarget (100% verbatim planned annual target for the financial year).
-     * 1st Quarter Planned Target -> q1Target (100% verbatim 1st quarter planned target).
-     * 2nd Quarter Planned Target -> q2Target (100% verbatim 2nd quarter planned target).
-     * 3rd Quarter Planned Target -> q3Target (100% verbatim 3rd quarter planned target).
-     * 4th Quarter Planned Target -> q4Target (100% verbatim 4th quarter planned target).
-     * POE -> poe (100% verbatim Portfolio of Evidence / Means of Verification).
-     * Total Budget Allocated -> budget (100% verbatim total budget allocation e.g. OPEX, R2 000 000).
+4. SCORECARD KPI EXTRACTION (ANNEXURE A TABLE):
+   - Extract all KPI rows from the scorecard table:
+     * KPI Number -> kpiNo (Exact KPI number e.g. 1.1, 1.2, 1, 2, BSD-01, etc.)
+     * Key Performance Indicator -> kpiDescription (100% verbatim text of the KPI output / measure)
+     * Weight -> weight (Weight percentage number only e.g. "20", "15", "10")
+     * Baseline -> baseline (Verbatim baseline from source)
+     * Annual Target -> annualTarget (Verbatim planned annual target from source)
+     * 1st Quarter Planned Target -> q1Target (Verbatim 1st quarter planned target)
+     * 2nd Quarter Planned Target -> q2Target (Verbatim 2nd quarter planned target)
+     * 3rd Quarter Planned Target -> q3Target (Verbatim 3rd quarter planned target)
+     * 4th Quarter Planned Target -> q4Target (Verbatim 4th quarter planned target)
+     * POE -> poe (Verbatim Portfolio of Evidence / Means of Verification)
+     * Total Budget Allocated -> budget (Verbatim budget allocation)
      * functionalKpa: The exact parent Functional KPA title under which this item resides (starting with "KPA").
-     * nationalKpa: The statutory National KPA ("BSD", "LED", "MFVM", "GGPP", "MIDT", "SR", or "CS").
 
-6. WHAT STRICTLY MUST NOT BE EXTRACTED (EXCLUSIONS):
-   - DO NOT extract contractual legal clauses from general agreement sections (e.g. Purpose, Validity, Reporting, Conditions of Performance, Signatures).
+5. EXCLUSIONS (DO NOT EXTRACT AS KPIS):
+   - DO NOT extract contractual legal clauses (e.g. Purpose, Validity, Reporting, Conditions, Signatures).
    - DO NOT extract 5-point rating scale explanatory descriptions.
-   - DO NOT extract Job Specific Competency definitions unless appearing as scorecard items.
-   - DO NOT extract empty forms from Annexure B (PDP) or Annexure C (Financial Disclosure).`;
+   - DO NOT extract Job Specific Competencies or PDP items as KPIs (they are separate annexures).`;
 
       let extractedArray: any[] = [];
       let extractedKpas: any[] = [];
@@ -1216,7 +1222,7 @@ CRITICAL ZERO-HALLUCINATION & 100% VERBATIM MANDATES:
             }
 
             parts.push({
-              text: `Extract the Functional Key Performance Areas (KPAs) from Section 4.2 and ALL KPIs across all pages of Annexure A and Projects. Ensure EVERY Functional KPA starts with the word 'KPA' and is extracted verbatim from the source document, and map each to its statutory National KPA (BSD, LED, MFVM, GGPP, MIDT, SR, CS) with zero modifications, and zero hallucinations. Return as JSON conforming strictly to the schema.`
+              text: `Extract the Functional Key Performance Areas (KPAs) from Section 4.2 / Annexure A headings and the exact KPIs from the scorecard table. Ensure EVERY Functional KPA starts with the word 'KPA' and is extracted verbatim from the source document. Extract ONLY what is printed in the document with 1:1 verbatim accuracy and zero hallucinations. Return as JSON conforming strictly to the schema.`
             });
 
             contents = [{ role: 'user', parts }];
@@ -1226,7 +1232,7 @@ CRITICAL ZERO-HALLUCINATION & 100% VERBATIM MANDATES:
                 role: 'user',
                 parts: [
                   {
-                    text: `SOURCE DOCUMENT CONTENT (FILENAME: ${fileName || 'Performance Agreement'}):\n${documentText}\n\nExtract the Functional Key Performance Areas (KPAs) from Section 4.2 and ALL KPIs from Annexure A and Projects. Ensure EVERY Functional KPA starts with the word 'KPA' and is extracted verbatim from the source document, and map each to its statutory National KPA (BSD, LED, MFVM, GGPP, MIDT, SR, CS) with zero modifications, and zero hallucinations. Return as JSON conforming strictly to the schema.`
+                    text: `SOURCE DOCUMENT CONTENT (FILENAME: ${fileName || 'Performance Agreement'}):\n${documentText}\n\nExtract the Functional Key Performance Areas (KPAs) from Section 4.2 / Annexure A headings and ALL KPIs from the Annexure A Scorecard table. Ensure EVERY Functional KPA starts with the word 'KPA' and is extracted verbatim from the source document. Extract ONLY what is in the document with zero modifications and zero hallucinations. Return as JSON conforming strictly to the schema.`
                   }
                 ]
               }
@@ -1243,7 +1249,7 @@ CRITICAL ZERO-HALLUCINATION & 100% VERBATIM MANDATES:
                     }
                   },
                   {
-                    text: `Extract all Functional KPAs (prefixed with 'KPA') and ALL KPIs from this document with 100% verbatim accuracy, and align each to its statutory National KPA (BSD, LED, MFVM, GGPP, MIDT, SR, CS).`
+                    text: `Extract all Functional KPAs (prefixed with 'KPA') and ALL KPIs from this document with 100% verbatim accuracy. Extract ONLY what is physically present in the document.`
                   }
                 ]
               }
@@ -1260,7 +1266,7 @@ CRITICAL ZERO-HALLUCINATION & 100% VERBATIM MANDATES:
                 responseMimeType: "application/json",
                 responseSchema: {
                   type: Type.OBJECT,
-                  description: "Structured extraction of Functional KPAs, National KPAs, and KPIs from the Performance Agreement",
+                  description: "Structured extraction of Functional KPAs and Scorecard KPIs from the Individual Performance Plan",
                   properties: {
                     agreementMetadata: {
                       type: Type.OBJECT,
@@ -1274,28 +1280,27 @@ CRITICAL ZERO-HALLUCINATION & 100% VERBATIM MANDATES:
                     },
                     kpas: {
                       type: Type.ARRAY,
-                      description: "Functional Key Performance Areas defined in Section 4.2 or scorecard banners with their allocated weightings and National KPA mapping",
+                      description: "Functional Key Performance Areas defined in Section 4.2 or scorecard banners with their allocated weightings",
                       items: {
                         type: Type.OBJECT,
                         properties: {
                           kpaNumber: { type: Type.STRING, description: "KPA number e.g. 1, 2, 3, 4, 5" },
-                          kpaName: { type: Type.STRING, description: "Verbatim Functional KPA title e.g. Skills Development" },
-                          fullTitle: { type: Type.STRING, description: "Full title with KPA prefix e.g. KPA 1: Skills Development" },
-                          weighting: { type: Type.STRING, description: "Framework weighting percentage e.g. 2, 44, 3, 14, 37" },
-                          nationalKpa: { type: Type.STRING, description: "One of the 7 National KPAs: BSD, LED, MFVM, GGPP, MIDT, SR, CS" }
+                          kpaName: { type: Type.STRING, description: "Verbatim Functional KPA title e.g. Technical Infrastructure Operations" },
+                          fullTitle: { type: Type.STRING, description: "Full title with KPA prefix e.g. KPA 1: Technical Infrastructure Operations" },
+                          weighting: { type: Type.STRING, description: "Framework weighting percentage e.g. 20, 30, 15" }
                         },
                         required: ["kpaName", "weighting"]
                       }
                     },
                     kpis: {
                       type: Type.ARRAY,
-                      description: "Exhaustive array of all Key Performance Indicators from the scorecard, each strictly assigned to its parent Functional KPA and National KPA",
+                      description: "Exhaustive array of all Key Performance Indicators from the scorecard, each strictly assigned to its parent Functional KPA",
                       items: {
                         type: Type.OBJECT,
                         properties: {
-                          kpiNo: { type: Type.STRING, description: "Exact KPI Number or Identifier e.g. 1, 2, M_15, M_16, BSD-01" },
+                          kpiNo: { type: Type.STRING, description: "Exact KPI Number or Identifier e.g. 1.1, 1.2, 1, 2, BSD-01" },
                           kpiDescription: { type: Type.STRING, description: "Verbatim 100% exact text of the KPI Description / Measure / Output" },
-                          weight: { type: Type.STRING, description: "Weighting percentage number only e.g. 2, 4, 6, 7" },
+                          weight: { type: Type.STRING, description: "Weighting percentage number only e.g. 10, 15, 20" },
                           baseline: { type: Type.STRING, description: "Verbatim baseline or previous year actual" },
                           annualTarget: { type: Type.STRING, description: "Verbatim Planned Annual Target for the financial year" },
                           q1Target: { type: Type.STRING, description: "Verbatim 1st Quarter planned target (Q1)" },
@@ -1303,9 +1308,8 @@ CRITICAL ZERO-HALLUCINATION & 100% VERBATIM MANDATES:
                           q3Target: { type: Type.STRING, description: "Verbatim 3rd Quarter planned target (Q3)" },
                           q4Target: { type: Type.STRING, description: "Verbatim 4th Quarter planned target (Q4)" },
                           poe: { type: Type.STRING, description: "Verbatim Portfolio of Evidence / Means of Verification" },
-                          budget: { type: Type.STRING, description: "Verbatim Budget allocation e.g. OPEX, R2000 000" },
-                          functionalKpa: { type: Type.STRING, description: "The verbatim parent Functional KPA title from the source, starting with 'KPA' (e.g. KPA 1: Skills Development)" },
-                          nationalKpa: { type: Type.STRING, description: "The statutory National KPA: BSD, LED, MFVM, GGPP, MIDT, SR, or CS" }
+                          budget: { type: Type.STRING, description: "Verbatim Budget allocation e.g. OPEX, R2 000 000" },
+                          functionalKpa: { type: Type.STRING, description: "The verbatim parent Functional KPA title from the source, starting with 'KPA' (e.g. KPA 1: Technical Infrastructure Operations)" }
                         },
                         required: ["kpiNo", "kpiDescription", "functionalKpa"]
                       }
@@ -1588,14 +1592,19 @@ CRITICAL ZERO-HALLUCINATION & 100% VERBATIM MANDATES:
         metadata: agreementMetadata,
         fileName: fileName || 'Document',
         verbatimAccuracy: '100%',
-        zeroHallucinations: true
+        zeroHallucinations: true,
+        target: 'ipp_flat_list'
       });
 
     } catch (err: any) {
-      console.error("[/api/extract-performance-agreement Error]:", err);
-      return res.status(500).json({ error: err.message || "Failed to perform AI document extraction" });
+      console.error("[IPP Extraction Error]:", err);
+      return res.status(500).json({ error: err.message || "Failed to perform IPP document extraction" });
     }
-  });
+  };
+
+  // Dedicated endpoints for Individual Performance Plans (IPP)
+  app.post("/api/extract-ipp", handleIPPExtraction);
+  app.post("/api/extract-performance-agreement", handleIPPExtraction);
 
   // =========================================================================
   // AUTOMATED EXTRACTION INTEGRITY & HALLUCINATION VALIDATION SERVICE
@@ -9674,77 +9683,8 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
         }
       }
 
-      // Automatically map Performance Plan items to the 2nd/3rd Layer SDBIP table
-      if (items && Array.isArray(items)) {
-        const sdbipId = `sdbip23_${tenantId}`;
-        const { data: sdbipData, error: sdbipGetError } = await supabase
-          .from('messages')
-          .select('content')
-          .eq('id', sdbipId)
-          .maybeSingle();
-        let sdbipItems = [];
-        if (!sdbipGetError && sdbipData && sdbipData.content) {
-          try {
-            const parsed = JSON.parse(sdbipData.content);
-            sdbipItems = parsed.items || [];
-          } catch(e) {}
-        }
-        
-        items.forEach((pplanItem) => {
-          const existing = sdbipItems.find((s) => s.id === pplanItem.id);
-          const sdbipRow = {
-            id: pplanItem.id,
-            refNum: pplanItem.kpiNo || 'Unassigned',
-            strategicObj: pplanItem.strategicGoal || 'Departmental Alignment',
-            bsd: pplanItem.bsd ? 'Y' : 'N',
-            led: pplanItem.led ? 'Y' : 'N',
-            mfvm: pplanItem.mfvm ? 'Y' : 'N',
-            ggpp: pplanItem.ggpp ? 'Y' : 'N',
-            midt: pplanItem.midt ? 'Y' : 'N',
-            sr: pplanItem.sr ? 'Y' : 'N',
-            kpas: pplanItem.kpa || 'KPA 1: Service Delivery and Infrastructure Alignment',
-            operationalActivity: 'Operational Target Action implementation',
-            kpi: pplanItem.kpi || 'Detail not provided',
-            compliance: pplanItem.review ? 'compliant' : 'non-compliant',
-            uom: 'Operational measure as per evaluation evidence',
-            mscoaTracking: 'Departmental budget non-financial vector',
-            baseline: pplanItem.baseline || '-',
-            annualTarget: pplanItem.annualTarget || '-',
-            budgetAllocation: pplanItem.budget || 'R0.00',
-            q1: pplanItem.q1Target ?? pplanItem.q1 ?? pplanItem.annualTarget ?? '-',
-            q2: pplanItem.q2Target ?? pplanItem.q2 ?? pplanItem.annualTarget ?? '-',
-            q3: pplanItem.q3Target ?? pplanItem.q3 ?? pplanItem.annualTarget ?? '-',
-            q4: pplanItem.q4Target ?? pplanItem.q4 ?? pplanItem.annualTarget ?? '-',
-            weight: pplanItem.weighting || '10',
-            responsibleUnit: 'Assigned User Ward',
-            evaluationUser: decodeURIComponent(userId) || 'Employee',
-            reviewManager: 'Line Supervisor',
-            poeStatus: pplanItem.poeStatus || (existing ? existing.poeStatus : "Not Uploaded"),
-            q1PoeDocs: pplanItem.q1PoeDocs || (existing ? existing.q1PoeDocs : []),
-            q2PoeDocs: pplanItem.q2PoeDocs || (existing ? existing.q2PoeDocs : []),
-            q3PoeDocs: pplanItem.q3PoeDocs || (existing ? existing.q3PoeDocs : []),
-            q4PoeDocs: pplanItem.q4PoeDocs || (existing ? existing.q4PoeDocs : [])
-          };
-          if (existing) { 
-            Object.assign(existing, sdbipRow);
-          } else { 
-            sdbipItems.push(sdbipRow);
-          }
-        });
-        
-        await supabase
-          .from('messages')
-          .upsert({
-            id: sdbipId,
-            tenant_id: tenantId,
-            sender_id: 'auto_sync',
-            sender_email: 'sync@sdbip.node',
-            sender_name: 'PPLAN Sync',
-            content: JSON.stringify({ items: sdbipItems }),
-            message_type: 'sdbip23_list',
-            created_at: new Date().toISOString()
-          });
-      }
+      // Individual Performance Plan saves strictly and exclusively to the user's pplan document.
+      // Strict zero cross-contamination: Never inject or map IPP items into SDBIP top-layer or reporting tables.
       res.json({ success: true });
     } catch (err) {
       console.error("pplan save exception:", err);
@@ -9831,7 +9771,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       let parts: any[] = [];
       let docxHtml = "";
       
-      const extractionPrompt = "You are an AI assistant processing a Performance Agreement document. Extract the following information EXACTLY based on the document: 1. SDBIP 2nd/3rd layer operational indicators and targets (kpi, weights, quarters, poe). 2. Job Specific Competencies (name, description, weight, requiredRating, etc.). 3. Personal Development Plan (PDP) items. IMPORTANT: The SDBIP often contains over 110 KPIs. Specifically, you MUST find and extract EVERY KPI from M_01 all the way through to M_92, and from P_01 all the way through to P_18, as well as ALL KPAs. You MUST extract EVERY SINGLE ONE of them exhaustively without truncation. Do not stop early.";
+      const extractionPrompt = "You are an expert AI assistant processing an Individual Performance Agreement document. Extract the following information EXACTLY and ONLY based on what is literally written in the document: 1. Individual Scorecard indicators and targets (kpi description, weight, baseline, annual target, quarters Q1-Q4, poe, budget) strictly from Annexure A / Performance Plan / Projects table. 2. Job Specific Competencies (name, description, weight, requiredRating, etc.). 3. Personal Development Plan (PDP) items. CRITICAL: Extract ONLY the indicators and items that are actually present in the provided document. NEVER invent, hallucinate, duplicate, or synthesize items from external catalogs or lists. If the agreement has 5 KPIs, extract exactly 5. If it has 12 KPIs, extract exactly 12.";
 
       // Override mimeType with magic bytes if mismatch
       let activeMimeType = mimeType;
@@ -10267,61 +10207,6 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
                   items: planItems 
                 }),
                 message_type: 'pplan_list',
-                created_at: new Date().toISOString()
-              });
-
-            // Automatically map Performance Plan items to the 2nd/3rd Layer SDBIP table for this tenant
-            const sdbipId = `sdbip23_${tenantId}`;
-            const { data: sdbipData, error: sdbipGetError } = await supabase
-              .from('messages')
-              .select('content')
-              .eq('id', sdbipId)
-              .maybeSingle();
-
-            let sdbipItems: any[] = [];
-            if (!sdbipGetError && sdbipData && sdbipData.content) {
-              try {
-                const parsed = JSON.parse(sdbipData.content);
-                sdbipItems = parsed.items || [];
-              } catch(e) {}
-            }
-            
-            planItems.forEach((pplanItem: any) => {
-              const existingIdx = sdbipItems.findIndex((s: any) => s.id === pplanItem.id);
-              const sdbipRow = {
-                id: pplanItem.id,
-                refNum: pplanItem.kpiNo || 'Unassigned',
-                kpi: pplanItem.kpi || '',
-                weight: pplanItem.weighting || 0,
-                baseline: pplanItem.baseline || '',
-                target: pplanItem.annualTarget || '',
-                q1: pplanItem.q1Target || '',
-                q2: pplanItem.q2Target || '',
-                q3: pplanItem.q3Target || '',
-                q4: pplanItem.q4Target || '',
-                poe: pplanItem.poe || '',
-                budget: pplanItem.budget || '',
-                kpa: pplanItem.kpa || '',
-                owner: u,
-                status: 'Adopted'
-              };
-              if (existingIdx !== -1) {
-                sdbipItems[existingIdx] = { ...sdbipItems[existingIdx], ...sdbipRow };
-              } else {
-                sdbipItems.push(sdbipRow);
-              }
-            });
-
-            await supabase
-              .from('messages')
-              .upsert({
-                id: sdbipId,
-                tenant_id: tenantId,
-                sender_id: 'sdbip_system',
-                sender_email: 'sdbip@system.local',
-                sender_name: 'SDBIP Master Engine',
-                content: JSON.stringify({ items: sdbipItems }),
-                message_type: 'sdbip23_list',
                 created_at: new Date().toISOString()
               });
           }

@@ -35,7 +35,8 @@ const SUBMODULE_TO_PARENT_MAP: Record<string, string> = {
   'sharepoint-drives': 'sharepoint', 'sharepoint-nkangala': 'sharepoint', 'sharepoint-mzansiflow': 'sharepoint',
 
   // More
-  'extraction-engine': 'more', 'ce': 'more', 'ear': 'more', 'fbi': 'more', 'fea': 'more',
+  'fred': 'more', 'fred-ipp': 'more', 'fred-performance-plan': 'more', 'fred-sdbip': 'more',
+  'ce': 'more', 'ear': 'more', 'fbi': 'more', 'fea': 'more',
   'ia': 'more', 'psa': 'more', 'mfa': 'more', 'slat': 'more'
 };
 

@@ -25,7 +25,7 @@ export interface ExtractedKpaDefinition {
   allocatedWeight?: number;
   kpiCount?: number;
   totalKpiWeight?: number;
-  code?: KpaCode;
+  code?: KpaCode | 'functional' | string;
   kpaType?: 'functional' | 'national';
   nationalKpaName?: string;
 }
@@ -283,52 +283,37 @@ export function deriveKpaSummaries(
   items: ExtractedMappedKPI[],
   predefinedKpas?: ExtractedKpaDefinition[]
 ): ExtractedKpaDefinition[] {
-  // 1. If predefined KPAs exist, first deduplicate them strictly by KPA Number / canonical identity
+  // 1. If predefined KPAs exist, preserve them 1:1 as defined in Section 4.2 of the agreement
   if (predefinedKpas && predefinedKpas.length > 0) {
-    const dedupedMap = new Map<string, ExtractedKpaDefinition>();
-
-    predefinedKpas.forEach((kpa, idx) => {
+    const canonicalKpas: ExtractedKpaDefinition[] = predefinedKpas.map((kpa, idx) => {
       const rawTitle = kpa.title || kpa.fullTitle || kpa.kpaName || `KPA ${idx + 1}`;
       const numMatch = rawTitle.match(/\bKPA\s*(\d+[A-Za-z]?)\b/i) || String(kpa.kpaNumber || '').match(/^(\d+[A-Za-z]?)$/);
       const kpaNum = numMatch ? numMatch[1] : (kpa.kpaNumber ? String(kpa.kpaNumber) : String(idx + 1));
-      const formattedTitle = formatFunctionalKpaTitle(rawTitle, kpaNum);
-      const kpaCode = kpa.code || resolveKpaCode(formattedTitle);
+      const cleanName = rawTitle.replace(/^KPA\s*\d+[A-Za-z]?\s*[:.\-–]\s*/i, '').trim();
+      const formattedTitle = formatFunctionalKpaTitle(cleanName || rawTitle, kpaNum);
       const allocW = kpa.allocatedWeight !== undefined ? kpa.allocatedWeight : (kpa.weighting ? parseFloat(kpa.weighting) : undefined);
 
-      const key = `kpa-${kpaNum.toLowerCase()}`;
-      if (!dedupedMap.has(key)) {
-        dedupedMap.set(key, {
-          ...kpa,
-          kpaNumber: kpaNum,
-          kpaName: formattedTitle.replace(/^KPA\s*\d+[A-Za-z]?\s*[:.\-–]\s*/i, '').trim(),
-          title: formattedTitle,
-          fullTitle: formattedTitle,
-          code: kpaCode,
-          allocatedWeight: isNaN(allocW as number) ? undefined : allocW,
-          weighting: allocW !== undefined ? String(allocW) : kpa.weighting,
-          kpiCount: 0,
-          totalKpiWeight: 0,
-          kpaType: 'functional' as const,
-          nationalKpaName: NATIONAL_KPAS[kpaCode]?.name || 'GGPP'
-        });
-      } else {
-        // Merge weight if duplicate had valid weight
-        const existing = dedupedMap.get(key)!;
-        if (existing.allocatedWeight === undefined && allocW !== undefined) {
-          existing.allocatedWeight = allocW;
-          existing.weighting = String(allocW);
-        }
-      }
+      return {
+        ...kpa,
+        kpaNumber: kpaNum,
+        kpaName: cleanName || rawTitle,
+        title: formattedTitle,
+        fullTitle: formattedTitle,
+        code: kpa.code || 'functional',
+        allocatedWeight: isNaN(allocW as number) ? undefined : allocW,
+        weighting: allocW !== undefined ? String(allocW) : (kpa.weighting || ''),
+        kpiCount: 0,
+        totalKpiWeight: 0,
+        kpaType: 'functional' as const
+      };
     });
 
-    const canonicalKpas = Array.from(dedupedMap.values());
-
-    // 2. Assign each KPI item to EXACTLY ONE canonical KPA
+    // Assign each KPI item to its parent Functional KPA
     items.forEach(it => {
       const itemKpa = (it['functional kpa'] || it['kpa'] || '').trim();
       const itemW = parseFloat(it['%wt'] || '0') || 0;
 
-      // Extract KPA number from item (e.g. "KPA 1", "KPA 2", etc.)
+      // Match by exact KPA number first
       const itemNumMatch = itemKpa.match(/\bKPA\s*(\d+[A-Za-z]?)\b/i);
       let matchedIndex = -1;
 
@@ -336,6 +321,7 @@ export function deriveKpaSummaries(
         matchedIndex = canonicalKpas.findIndex(k => k.kpaNumber?.toLowerCase() === itemNumMatch[1].toLowerCase());
       }
 
+      // Match by substring in name
       if (matchedIndex === -1 && itemKpa) {
         const itemNorm = itemKpa.toLowerCase();
         matchedIndex = canonicalKpas.findIndex(k => {
@@ -344,14 +330,9 @@ export function deriveKpaSummaries(
         });
       }
 
-      if (matchedIndex === -1) {
-        // Fallback by National KPA code
-        const itemCode = resolveKpaCode(itemKpa || it['kpi description'] || '');
-        matchedIndex = canonicalKpas.findIndex(k => k.code === itemCode);
-      }
-
+      // Fallback to first KPA if not matched
       if (matchedIndex === -1 && canonicalKpas.length > 0) {
-        matchedIndex = 0; // Fallback to first KPA
+        matchedIndex = 0;
       }
 
       if (matchedIndex !== -1) {
@@ -363,13 +344,12 @@ export function deriveKpaSummaries(
     return canonicalKpas;
   }
 
-  // 3. Fallback: Synthesize KPAs directly from extracted items
+  // 2. Synthesize KPAs directly from extracted items if no Section 4.2 table was present
   const statsMap = new Map<string, { count: number; weight: number }>();
   items.forEach(it => {
     const rawKpa = (it['functional kpa'] || it['kpa'] || 'Functional Performance Area').trim();
     const w = parseFloat(it['%wt'] || '0') || 0;
     
-    // Normalize to clean KPA title
     const numMatch = rawKpa.match(/\bKPA\s*(\d+[A-Za-z]?)\b/i);
     const kNum = numMatch ? numMatch[1] : '';
     const cleanTitle = formatFunctionalKpaTitle(rawKpa, kNum);
@@ -386,7 +366,6 @@ export function deriveKpaSummaries(
     const numMatch = kpaTitle.match(/\bKPA\s*(\d+[A-Za-z]?)\b/i);
     const kpaNum = numMatch ? numMatch[1] : String(idx);
     const cleanName = kpaTitle.replace(/^KPA\s*\d+[A-Za-z]?\s*[:.\-–]\s*/i, '').trim();
-    const kpaCode = resolveKpaCode(kpaTitle);
 
     result.push({
       kpaNumber: kpaNum,
@@ -397,9 +376,8 @@ export function deriveKpaSummaries(
       allocatedWeight: stats.weight,
       kpiCount: stats.count,
       totalKpiWeight: stats.weight,
-      code: kpaCode,
-      kpaType: 'functional',
-      nationalKpaName: NATIONAL_KPAS[kpaCode]?.name || 'GGPP'
+      code: 'functional',
+      kpaType: 'functional'
     });
     idx++;
   }
@@ -438,7 +416,7 @@ export function arrayBufferToBase64(buffer: ArrayBuffer | Uint8Array): string {
 }
 
 /**
- * Call Server AI Extraction Engine with 100% Verbatim Accuracy
+ * Call Server IPP Extraction Engine with 100% Verbatim Accuracy & Flat-List Schema
  */
 export async function callServerAiExtraction(params: {
   documentText?: string;
@@ -446,13 +424,24 @@ export async function callServerAiExtraction(params: {
   mimeType?: string;
   fileName?: string;
 }): Promise<ExtractedMappedKPI[]> {
-  const response = await fetch('/api/extract-performance-agreement', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(params)
-  });
+  let response: Response;
+  try {
+    response = await fetch('/api/extract-ipp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(params)
+    });
+  } catch (_netErr) {
+    response = await fetch('/api/extract-performance-agreement', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(params)
+    });
+  }
 
   const rawText = await response.text();
   let data: any = null;
@@ -1296,12 +1285,12 @@ function parseRawTextLines(text: string): ExtractedMappedKPI[] {
       continue;
     }
 
-    // Match KPI codes (M_11, M_15, P_09, P_10, KPI 1, or numeric index 1..99 followed by delimiter)
-    const match = line.match(/^([M|P]_\d+|[A-Z]{2,5}[-_]\d+|\bKPI\s*\d+|\b\d{1,2}\b)\s*[:.\-–\t\s|](.+)$/i);
-    if (match && (insideScorecardOrProjects || currentFunctionalKpa !== 'Functional Performance Area')) {
+    // Match explicit KPI codes (M_11, M_15, P_09, P_10, KPI 1, BSD-01, MFVM-02) inside scorecard/projects
+    const match = line.match(/^([M|P]_\d+|[A-Z]{2,5}[-_]\d+|\bKPI\s*\d+)\s*[:.\-–\t\s|](.+)$/i);
+    if (match && insideScorecardOrProjects) {
       const kpiNo = match[1].trim();
       const kpiDesc = match[2].trim();
-      if (kpiDesc.length > 3 && !kpiDesc.toLowerCase().startsWith('financial year') && !kpiDesc.toLowerCase().startsWith('page')) {
+      if (kpiDesc.length > 3 && !kpiDesc.toLowerCase().startsWith('financial year') && !kpiDesc.toLowerCase().startsWith('page') && !kpiDesc.toLowerCase().includes('signature')) {
         items.push({
           _id: `raw-${Date.now()}-${items.length + 1}`,
           _selected: true,

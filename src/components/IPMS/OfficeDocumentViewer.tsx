@@ -20,7 +20,8 @@ export interface PoeDocument {
 }
 
 interface OfficeDocumentViewerProps {
-  doc: PoeDocument;
+  doc?: PoeDocument;
+  document?: PoeDocument;
   onClose: () => void;
 }
 
@@ -51,8 +52,9 @@ export interface ParsedSlide {
   elements: ParsedSlideElement[];
 }
 
-export function OfficeDocumentViewer({ doc, onClose }: OfficeDocumentViewerProps) {
-  const extension = doc.name.split('.').pop()?.toLowerCase() || '';
+export function OfficeDocumentViewer({ doc, document: propDocument, onClose }: OfficeDocumentViewerProps) {
+  const targetDoc = doc || propDocument;
+  const extension = targetDoc?.name.split('.').pop()?.toLowerCase() || '';
   const isExcel = ['xls', 'xlsx', 'csv'].includes(extension);
   const isWord = ['doc', 'docx', 'rtf', 'txt'].includes(extension);
   const isPowerPoint = ['ppt', 'pptx'].includes(extension);
@@ -66,7 +68,7 @@ export function OfficeDocumentViewer({ doc, onClose }: OfficeDocumentViewerProps
   const [activePptSlideIdx, setActivePptSlideIdx] = useState(0);
 
   useEffect(() => {
-    if (!doc.dataUrl) {
+    if (!targetDoc?.dataUrl) {
       setLoading(false);
       return;
     }
@@ -80,10 +82,10 @@ export function OfficeDocumentViewer({ doc, onClose }: OfficeDocumentViewerProps
     const parseFile = async () => {
       try {
         let arrayBuffer: ArrayBuffer;
-        if (doc.dataUrl!.startsWith('data:')) {
-          arrayBuffer = dataURLToArrayBuffer(doc.dataUrl!);
+        if (targetDoc.dataUrl!.startsWith('data:')) {
+          arrayBuffer = dataURLToArrayBuffer(targetDoc.dataUrl!);
         } else {
-          const res = await fetch(doc.dataUrl!);
+          const res = await fetch(targetDoc.dataUrl!);
           if (!res.ok) throw new Error(`HTTP error fetching document: ${res.statusText}`);
           arrayBuffer = await res.arrayBuffer();
         }
@@ -95,7 +97,7 @@ export function OfficeDocumentViewer({ doc, onClose }: OfficeDocumentViewerProps
           } else {
             // Fallback for .doc, .rtf, .txt
             try {
-              const base64 = doc.dataUrl!.split(',')[1] || doc.dataUrl!;
+              const base64 = targetDoc.dataUrl!.split(',')[1] || targetDoc.dataUrl!;
               const decoded = decodeURIComponent(escape(window.atob(base64)));
               if (decoded && (decoded.includes('{') || decoded.includes('html') || decoded.length > 5)) {
                 setRenderedWordHtml(`<pre class="font-mono text-xs whitespace-pre-wrap text-slate-800">${decoded}</pre>`);
@@ -281,7 +283,9 @@ export function OfficeDocumentViewer({ doc, onClose }: OfficeDocumentViewerProps
     };
 
     parseFile();
-  }, [doc.dataUrl, doc.name, isWord, isExcel, isPowerPoint, extension]);
+  }, [targetDoc?.dataUrl, targetDoc?.name, isWord, isExcel, isPowerPoint, extension]);
+
+  if (!targetDoc) return null;
 
   // Helper to format file size
   const formatSize = (bytes?: number) => {
@@ -293,24 +297,24 @@ export function OfficeDocumentViewer({ doc, onClose }: OfficeDocumentViewerProps
 
   // Safe file download
   const handleDownload = () => {
-    if (!doc.dataUrl) {
+    if (!targetDoc.dataUrl) {
       alert("No data available to download.");
       return;
     }
     const link = document.createElement('a');
-    link.href = doc.dataUrl;
-    link.download = doc.name;
+    link.href = targetDoc.dataUrl;
+    link.download = targetDoc.name;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
   // Metadata variables
-  const kpiTitle = doc.kpiName || "Municipal Service Delivery Target";
-  const quarterName = doc.quarter || "Quarterly Evaluation Cycle";
-  const uploader = doc.uploadedBy || "Senior Performance Officer";
-  const uploadedDate = doc.uploadedAt 
-    ? new Date(doc.uploadedAt).toLocaleDateString() 
+  const kpiTitle = targetDoc.kpiName || "Municipal Service Delivery Target";
+  const quarterName = targetDoc.quarter || "Quarterly Evaluation Cycle";
+  const uploader = targetDoc.uploadedBy || "Senior Performance Officer";
+  const uploadedDate = targetDoc.uploadedAt 
+    ? new Date(targetDoc.uploadedAt).toLocaleDateString() 
     : new Date().toLocaleDateString();
 
   return (
