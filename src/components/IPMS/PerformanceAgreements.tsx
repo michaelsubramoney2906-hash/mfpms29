@@ -48,6 +48,7 @@ export const calculateVariance = (target?: string, actual?: string): string => {
 
 interface CompactPoeUploaderProps {
   label: string;
+  poeDescription?: string;
   files: PoeDocument[];
   onUpload: (newDocs: PoeDocument[]) => void;
   onRemove: (id: string) => void;
@@ -56,6 +57,7 @@ interface CompactPoeUploaderProps {
 
 export function CompactPoeUploader({
   label,
+  poeDescription,
   files,
   onUpload,
   onRemove,
@@ -104,7 +106,10 @@ export function CompactPoeUploader({
   return (
     <div className="mt-1.5 pt-1.5 border-t border-slate-200/60 w-full text-left">
       <div className="flex items-center justify-between gap-1 mb-1">
-        <span className="text-[8px] font-extrabold text-slate-500 uppercase tracking-tight">{label}:</span>
+        <span className="text-[8px] font-extrabold text-slate-500 uppercase tracking-tight flex items-center gap-1">
+          <Lock className="w-2.5 h-2.5 text-amber-600 shrink-0" />
+          {label} (Locked):
+        </span>
         {!disabled && (
           <label htmlFor={fileInputId} className="flex items-center gap-0.5 text-[8px] font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer bg-indigo-50 hover:bg-indigo-100 px-1 py-0.5 rounded transition">
             <Upload className="w-2 h-2" />
@@ -119,6 +124,16 @@ export function CompactPoeUploader({
           </label>
         )}
       </div>
+
+      {/* Locked Unique POE Description per KPI */}
+      {poeDescription ? (
+        <div className="mb-1.5 p-1 bg-amber-50/70 border border-amber-200/80 rounded text-[8px] text-slate-700 leading-snug">
+          <span className="font-semibold text-slate-800 select-text break-words line-clamp-3 hover:line-clamp-none" title={poeDescription}>
+            {poeDescription}
+          </span>
+        </div>
+      ) : null}
+
       {files && files.length > 0 ? (
         <div className="flex flex-col gap-1 max-h-[60px] overflow-y-auto">
           {files.map((file) => (
@@ -279,6 +294,7 @@ interface PlanKPIItem {
   // Quarterly POEs
   q1Poe?: string;
   q2Poe?: string;
+  midtermPoe?: string;
   q3Poe?: string;
   q4Poe?: string;
   annualRequiredPoe?: string;
@@ -734,6 +750,21 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
           }
 
           if (currentItems.length > 0) {
+            // Propagate unique POE across all quarters and lock
+            currentItems = currentItems.map(it => {
+              const poeDesc = (it.poe || it.annualRequiredPoe || it.q1Poe || it.q2Poe || it.midtermPoe || it.q3Poe || it.q4Poe || (it.kpi ? `Signed verification report and approved evidence portfolio for: ${it.kpi}` : 'Signed verification report and evidence portfolio files')).trim();
+              return {
+                ...it,
+                poe: poeDesc,
+                annualRequiredPoe: poeDesc,
+                q1Poe: poeDesc,
+                q2Poe: poeDesc,
+                midtermPoe: poeDesc,
+                q3Poe: poeDesc,
+                q4Poe: poeDesc
+              };
+            });
+
             setItems(currentItems);
             
             // Keep the database in perfect alignment
@@ -989,6 +1020,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
         const flags = getNationalKpaFlags(topic.kpaIndex);
         const kpaName = getStandardKpa(topic.kpaIndex);
         const strategicGoal = getStrategicGoal(topic.kpaIndex);
+        const uniquePoe = `Signed verification report and approved portfolio of evidence for: ${it.desc}`;
         kpiList.push({
           id: `pplan-fred-kpi-${it.code}-${Math.random()}`,
           strategicGoal: strategicGoal,
@@ -1010,8 +1042,13 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
           q2Target: it.q2 || "Submit review reports",
           q3Target: it.q3 || "Submit review reports",
           q4Target: it.q4 || "Submit review reports",
-          q1Poe: '', q2Poe: '', q3Poe: '', q4Poe: '',
-          poe: "Oversight reports, verification files and quarterly dashboard submissions.",
+          poe: uniquePoe,
+          annualRequiredPoe: uniquePoe,
+          q1Poe: uniquePoe,
+          q2Poe: uniquePoe,
+          midtermPoe: uniquePoe,
+          q3Poe: uniquePoe,
+          q4Poe: uniquePoe,
           weighting: "10",
           myScore: "3.0"
         });
@@ -1147,6 +1184,8 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
           const q3Locked = hasGrid ? !q3Codes.includes(codeUpper) : false;
           const q4Locked = hasGrid ? !q4Codes.includes(codeUpper) : false;
 
+          const extractedPoe = e.poe || stdCatalogItem?.poe || `Signed verification report and approved evidence portfolio for: ${e.description || stdCatalogItem?.kpi || 'KPI'}`;
+
           return {
             id: stdCatalogItem ? stdCatalogItem.id : `pplan-fred-extra-${e.code}-${idx}-${Math.random()}`,
             strategicGoal: stdCatalogItem?.strategicGoal || "General Departmental Objective Alignment",
@@ -1172,11 +1211,13 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
             q2Locked,
             q3Locked,
             q4Locked,
-            q1Poe: stdCatalogItem?.q1Poe || '',
-            q2Poe: stdCatalogItem?.q2Poe || '',
-            q3Poe: stdCatalogItem?.q3Poe || '',
-            q4Poe: stdCatalogItem?.q4Poe || '',
-            poe: stdCatalogItem?.poe || "Standard verification files",
+            poe: extractedPoe,
+            annualRequiredPoe: extractedPoe,
+            q1Poe: extractedPoe,
+            q2Poe: extractedPoe,
+            midtermPoe: extractedPoe,
+            q3Poe: extractedPoe,
+            q4Poe: extractedPoe,
             weighting: e.weighting || stdCatalogItem?.weighting || "10",
             myScore: stdCatalogItem?.myScore || "3.0"
           };
@@ -1184,6 +1225,20 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
       } else {
         finalKpiItems = baseCatalog;
       }
+
+      finalKpiItems = finalKpiItems.map(it => {
+        const uniquePoe = (it.poe || it.annualRequiredPoe || it.q1Poe || it.q2Poe || it.midtermPoe || it.q3Poe || it.q4Poe || `Signed verification report and approved evidence portfolio for: ${it.kpi || it.kpiNo}`).trim();
+        return {
+          ...it,
+          poe: uniquePoe,
+          annualRequiredPoe: uniquePoe,
+          q1Poe: uniquePoe,
+          q2Poe: uniquePoe,
+          midtermPoe: uniquePoe,
+          q3Poe: uniquePoe,
+          q4Poe: uniquePoe
+        };
+      });
 
       finalKpiItems.sort((a, b) => {
         const aCode = a.kpiNo || '';
@@ -1232,9 +1287,25 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
   };
 
   const handleRowChange = (id: string, key: keyof PlanKPIItem, value: any) => {
+    // Locked quarterly POE text fields cannot be edited directly
+    if (key === 'q1Poe' || key === 'q2Poe' || key === 'q3Poe' || key === 'q4Poe' || key === 'midtermPoe') {
+      return;
+    }
+
     const updatedItems = items.map(item => {
       if (item.id === id) {
-        return { ...item, [key]: value };
+        const next = { ...item, [key]: value };
+        if (key === 'poe' || key === 'annualRequiredPoe') {
+          const desc = String(value || '').trim();
+          next.poe = desc;
+          next.annualRequiredPoe = desc;
+          next.q1Poe = desc;
+          next.q2Poe = desc;
+          next.midtermPoe = desc;
+          next.q3Poe = desc;
+          next.q4Poe = desc;
+        }
+        return next;
       }
       return item;
     });
@@ -1244,6 +1315,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
 
   const addRow = () => {
     const newId = `kpi-${Date.now()}`;
+    const defaultPoe = 'Signed verification report and approved portfolio of evidence files';
     const newItem: PlanKPIItem = {
       id: newId,
       strategicGoal: '',
@@ -1265,7 +1337,13 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
       q2Target: '',
       q3Target: '',
       q4Target: '',
-      poe: '',
+      poe: defaultPoe,
+      annualRequiredPoe: defaultPoe,
+      q1Poe: defaultPoe,
+      q2Poe: defaultPoe,
+      midtermPoe: defaultPoe,
+      q3Poe: defaultPoe,
+      q4Poe: defaultPoe,
       weighting: '20',
       myScore: '3.0',
       evaluation: currentUser?.fullName || '',
@@ -3032,6 +3110,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
                             {/* Compact 1st Qtr POE */}
                             <CompactPoeUploader
                               label="1st Qtr POE"
+                              poeDescription={item.q1Poe || item.annualRequiredPoe || item.poe || ''}
                               files={item.q1PoeDocs || []}
                               onUpload={(newDocs) => handleRowChange(item.id, 'q1PoeDocs', [...(item.q1PoeDocs || []), ...newDocs])}
                               onRemove={(docId) => handleRowChange(item.id, 'q1PoeDocs', (item.q1PoeDocs || []).filter(f => f.id !== docId))}
@@ -3159,6 +3238,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
                             {/* Compact 2nd Qtr POE */}
                             <CompactPoeUploader
                               label="2nd Qtr POE"
+                              poeDescription={item.q2Poe || item.annualRequiredPoe || item.poe || ''}
                               files={item.q2PoeDocs || []}
                               onUpload={(newDocs) => handleRowChange(item.id, 'q2PoeDocs', [...(item.q2PoeDocs || []), ...newDocs])}
                               onRemove={(docId) => handleRowChange(item.id, 'q2PoeDocs', (item.q2PoeDocs || []).filter(f => f.id !== docId))}
@@ -3278,6 +3358,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
                         {/* Compact Midterm POE */}
                         <CompactPoeUploader
                           label="Midterm POE"
+                          poeDescription={item.midtermPoe || item.annualRequiredPoe || item.poe || ''}
                           files={item.midtermPoeDocs || []}
                           onUpload={(newDocs) => handleRowChange(item.id, 'midtermPoeDocs', [...(item.midtermPoeDocs || []), ...newDocs])}
                           onRemove={(docId) => handleRowChange(item.id, 'midtermPoeDocs', (item.midtermPoeDocs || []).filter(f => f.id !== docId))}
@@ -3402,6 +3483,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
                             {/* Compact 3rd Qtr POE */}
                             <CompactPoeUploader
                               label="3rd Qtr POE"
+                              poeDescription={item.q3Poe || item.annualRequiredPoe || item.poe || ''}
                               files={item.q3PoeDocs || []}
                               onUpload={(newDocs) => handleRowChange(item.id, 'q3PoeDocs', [...(item.q3PoeDocs || []), ...newDocs])}
                               onRemove={(docId) => handleRowChange(item.id, 'q3PoeDocs', (item.q3PoeDocs || []).filter(f => f.id !== docId))}
@@ -3529,6 +3611,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
                             {/* Compact 4th Qtr POE */}
                             <CompactPoeUploader
                               label="4th Qtr POE"
+                              poeDescription={item.q4Poe || item.annualRequiredPoe || item.poe || ''}
                               files={item.q4PoeDocs || []}
                               onUpload={(newDocs) => handleRowChange(item.id, 'q4PoeDocs', [...(item.q4PoeDocs || []), ...newDocs])}
                               onRemove={(docId) => handleRowChange(item.id, 'q4PoeDocs', (item.q4PoeDocs || []).filter(f => f.id !== docId))}

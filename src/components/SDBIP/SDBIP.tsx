@@ -963,6 +963,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
   };
 
   const getPhaseData = (row: SdbipRow, phase: string) => {
+    const sourcePoe = row.poeDesc || row.poeStatus || row.q1PoeDesc || row.q2PoeDesc || row.midTermPoeDesc || row.q3PoeDesc || row.q4PoeDesc || '';
     switch (phase) {
       case 'q1':
         return {
@@ -971,7 +972,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
           variance: row.q1Variance || '',
           corrective: row.q1Corrective || '',
           expenditure: row.q1Expenditure || '',
-          poeDesc: row.q1PoeDesc || '',
+          poeDesc: row.q1PoeDesc || sourcePoe,
           poes: row.q1Poes || []
         };
       case 'q2':
@@ -981,7 +982,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
           variance: row.q2Variance || '',
           corrective: row.q2Corrective || '',
           expenditure: row.q2Expenditure || '',
-          poeDesc: row.q2PoeDesc || '',
+          poeDesc: row.q2PoeDesc || sourcePoe,
           poes: row.q2Poes || []
         };
       case 'midTerm':
@@ -991,7 +992,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
           variance: row.midTermVariance || '',
           corrective: row.midTermCorrective || '',
           expenditure: row.midTermExpenditure || '',
-          poeDesc: row.midTermPoeDesc || '',
+          poeDesc: row.midTermPoeDesc || sourcePoe,
           poes: row.midTermPoes || []
         };
       case 'q3':
@@ -1001,7 +1002,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
           variance: row.q3Variance || '',
           corrective: row.q3Corrective || '',
           expenditure: row.q3Expenditure || '',
-          poeDesc: row.q3PoeDesc || '',
+          poeDesc: row.q3PoeDesc || sourcePoe,
           poes: row.q3Poes || []
         };
       case 'q4':
@@ -1011,7 +1012,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
           variance: row.q4Variance || '',
           corrective: row.q4Corrective || '',
           expenditure: row.q4Expenditure || '',
-          poeDesc: row.q4PoeDesc || '',
+          poeDesc: row.q4PoeDesc || sourcePoe,
           poes: row.q4Poes || []
         };
       case 'annual':
@@ -1021,11 +1022,11 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
           variance: row.q4Variance || '',
           corrective: row.q4Corrective || '',
           expenditure: row.q4Expenditure || '',
-          poeDesc: row.q4PoeDesc || '',
+          poeDesc: row.q4PoeDesc || sourcePoe,
           poes: row.q4Poes || []
         };
       default:
-        return { target: '-', actual: '', variance: '', corrective: '', expenditure: '', poeDesc: '', poes: [] };
+        return { target: '-', actual: '', variance: '', corrective: '', expenditure: '', poeDesc: sourcePoe, poes: [] };
     }
   };
 
@@ -1308,12 +1309,20 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
   };
 
   const handleCellChange = (rowId: string, field: keyof SdbipRow, value: any) => {
+    // SDBIP source POE descriptions are strictly read-only and reflect verbatim across all quarters
+    const poeDescFields = ['q1PoeDesc', 'q2PoeDesc', 'midTermPoeDesc', 'q3PoeDesc', 'q4PoeDesc', 'poeDesc'];
+    if (poeDescFields.includes(field as string)) {
+      setSuccessToast('POE Description is locked and populated directly from the SDBIP source document for this KPI.');
+      setTimeout(() => setSuccessToast(null), 3500);
+      return;
+    }
+
     // Temporal verification guard for SDBIP quarter reporting fields
-    const q1Fields = ['q1', 'q1Expenditure', 'q1PoeDesc', 'q1Actual', 'q1Corrective'];
-    const q2Fields = ['q2', 'q2Expenditure', 'q2PoeDesc', 'q2Actual', 'q2Corrective'];
-    const midTermFields = ['midTerm', 'midTermTarget', 'midTermExpenditure', 'midTermPoeDesc', 'midTermActual', 'midTermCorrective'];
-    const q3Fields = ['q3', 'q3Expenditure', 'q3PoeDesc', 'q3Actual', 'q3Corrective'];
-    const q4Fields = ['q4', 'q4Expenditure', 'q4PoeDesc', 'q4Actual', 'q4Corrective'];
+    const q1Fields = ['q1', 'q1Expenditure', 'q1Actual', 'q1Corrective'];
+    const q2Fields = ['q2', 'q2Expenditure', 'q2Actual', 'q2Corrective'];
+    const midTermFields = ['midTerm', 'midTermTarget', 'midTermExpenditure', 'midTermActual', 'midTermCorrective'];
+    const q3Fields = ['q3', 'q3Expenditure', 'q3Actual', 'q3Corrective'];
+    const q4Fields = ['q4', 'q4Expenditure', 'q4Actual', 'q4Corrective'];
 
     if (q1Fields.includes(field as string) && !isQuarterActive('q1')) {
       setSuccessToast(`Reporting Locked: ${getQuarterLockNotice('q1')} Unless you are in the actual period, you cannot report.`);
@@ -1904,19 +1913,14 @@ Timestamp: ${new Date().toLocaleString()}
         const u = { ...r };
         if (quarter === 'q1') {
           u.q1Poes = [];
-          u.q1PoeDesc = '';
         } else if (quarter === 'q2') {
           u.q2Poes = [];
-          u.q2PoeDesc = '';
         } else if (quarter === 'midTerm') {
           u.midTermPoes = [];
-          u.midTermPoeDesc = '';
         } else if (quarter === 'q3') {
           u.q3Poes = [];
-          u.q3PoeDesc = '';
         } else if (quarter === 'q4') {
           u.q4Poes = [];
-          u.q4PoeDesc = '';
         }
 
         // Auto-reset status if no POE files are left attached
@@ -1925,7 +1929,7 @@ Timestamp: ${new Date().toLocaleString()}
         const midTermEmpty = !u.midTermPoes || u.midTermPoes.length === 0;
         const q3Empty = !u.q3Poes || u.q3Poes.length === 0;
         const q4Empty = !u.q4Poes || u.q4Poes.length === 0;
-        if (q1Empty && q2Empty && midTermEmpty && q3Empty && q4Empty && !u.poeDesc) {
+        if (q1Empty && q2Empty && midTermEmpty && q3Empty && q4Empty) {
           u.poeStatus = 'Not Uploaded';
         }
 
@@ -2599,33 +2603,34 @@ Timestamp: ${new Date().toLocaleString()}
               {/* Dynamic Helper Methods for Replica SDBIP Table */}
               {(() => {
                 const getPhaseFieldValue = (row: SdbipRow, phase: string, col: string): string => {
+                  const sourcePoe = row.poeDesc || row.poeStatus || row.q1PoeDesc || row.q2PoeDesc || row.midTermPoeDesc || row.q3PoeDesc || row.q4PoeDesc || '';
                   if (phase === 'q1') {
                     if (col === 'exp') return row.q1Expenditure || '';
-                    if (col === 'poeDesc') return row.q1PoeDesc || '';
+                    if (col === 'poeDesc') return row.q1PoeDesc || sourcePoe;
                     if (col === 'actual') return row.q1Actual || '';
                     if (col === 'var') return row.q1Variance || '';
                     if (col === 'corr') return row.q1Corrective || '';
                   } else if (phase === 'q2') {
                     if (col === 'exp') return row.q2Expenditure || '';
-                    if (col === 'poeDesc') return row.q2PoeDesc || '';
+                    if (col === 'poeDesc') return row.q2PoeDesc || sourcePoe;
                     if (col === 'actual') return row.q2Actual || '';
                     if (col === 'var') return row.q2Variance || '';
                     if (col === 'corr') return row.q2Corrective || '';
                   } else if (phase === 'midTerm') {
                     if (col === 'exp') return row.midTermExpenditure || '';
-                    if (col === 'poeDesc') return row.midTermPoeDesc || '';
+                    if (col === 'poeDesc') return row.midTermPoeDesc || sourcePoe;
                     if (col === 'actual') return row.midTermActual || '';
                     if (col === 'var') return row.midTermVariance || '';
                     if (col === 'corr') return row.midTermCorrective || '';
                   } else if (phase === 'q3') {
                     if (col === 'exp') return row.q3Expenditure || '';
-                    if (col === 'poeDesc') return row.q3PoeDesc || '';
+                    if (col === 'poeDesc') return row.q3PoeDesc || sourcePoe;
                     if (col === 'actual') return row.q3Actual || '';
                     if (col === 'var') return row.q3Variance || '';
                     if (col === 'corr') return row.q3Corrective || '';
                   } else if (phase === 'q4') {
                     if (col === 'exp') return row.q4Expenditure || '';
-                    if (col === 'poeDesc') return row.q4PoeDesc || '';
+                    if (col === 'poeDesc') return row.q4PoeDesc || sourcePoe;
                     if (col === 'actual') return row.q4Actual || '';
                     if (col === 'var') return row.q4Variance || '';
                     if (col === 'corr') return row.q4Corrective || '';
@@ -2810,11 +2815,11 @@ Timestamp: ${new Date().toLocaleString()}
                                     <textarea 
                                       rows={2}
                                       value={getPhaseFieldValue(row, workflowPhase, 'poeDesc') || ''}
-                                      disabled={!isQuarterActive(workflowPhase)}
-                                      onChange={(e) => handlePhaseFieldChange(row.id, workflowPhase, 'poeDesc', e.target.value)}
-                                      title={!isQuarterActive(workflowPhase) ? getQuarterLockNotice(workflowPhase) : undefined}
-                                      className={`w-full border p-1 rounded text-[10px] ${!isQuarterActive(workflowPhase) ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white border-slate-200 focus:ring-1 focus:ring-indigo-300'}`}
-                                      placeholder={!isQuarterActive(workflowPhase) ? "Locked for this period" : "POE Description..."}
+                                      disabled={true}
+                                      readOnly={true}
+                                      title="Source document POE description (non-editable across all quarters)"
+                                      className="w-full border p-1 rounded text-[10px] bg-slate-100/90 text-slate-700 cursor-not-allowed border-slate-200"
+                                      placeholder="Source Document POE Description..."
                                     />
                                     {pData.poes && pData.poes.length > 0 && (
                                       <button
@@ -4219,54 +4224,48 @@ Timestamp: ${new Date().toLocaleString()}
 
                       {/* POE Upload with full description and expandability */}
                       <td className="p-2 border-r border-indigo-200 text-center bg-indigo-50/40 min-w-[170px]">
-                        {(row.poeStatus?.includes('Uploaded')) || row.poeStatus === 'Attached' || row.poeDesc || (row.q1Poes && row.q1Poes.length > 0) ? (
-                          <div className="flex flex-col items-center gap-1.5 select-none">
-                            <span className="text-[10px] bg-emerald-100 text-emerald-800 font-black px-2 py-0.5 rounded-md border border-emerald-200">
-                              Uploaded - Cloud Vault
-                            </span>
-                            {row.poeDesc && (
-                              <div 
-                                className="text-[10px] text-slate-700 italic max-w-[220px] whitespace-pre-wrap break-words leading-relaxed cursor-pointer hover:text-indigo-600 transition" 
-                                title="Click to inspect POE details"
-                                onClick={() => openCellExpandModal("POE Description", row.poeDesc || '', undefined, true, `Ref: ${row.refNum}`)}
-                              >
-                                "{row.poeDesc}"
+                        {(() => {
+                          const topLayerPoe = (row.poeDesc || row.poeStatus || row.q1PoeDesc || row.q2PoeDesc || row.midTermPoeDesc || row.q3PoeDesc || row.q4PoeDesc || '').trim();
+                          const hasPoeDocs = (row.poeStatus?.includes('Uploaded')) || row.poeStatus === 'Attached' || (row.q1Poes && row.q1Poes.length > 0);
+                          return (
+                            <div className="flex flex-col items-center gap-1.5 select-none">
+                              {hasPoeDocs ? (
+                                <span className="text-[10px] bg-emerald-100 text-emerald-800 font-black px-2 py-0.5 rounded-md border border-emerald-200">
+                                  Uploaded - Cloud Vault
+                                </span>
+                              ) : (
+                                <span className="text-[9px] bg-slate-100 text-slate-700 font-bold px-2 py-0.5 rounded-md border border-slate-200">
+                                  Source Document POE
+                                </span>
+                              )}
+                              {topLayerPoe && (
+                                <div 
+                                  className="text-[10px] text-slate-700 italic max-w-[220px] whitespace-pre-wrap break-words leading-relaxed cursor-pointer hover:text-indigo-600 transition bg-white/80 p-1.5 rounded border border-slate-200 text-left shadow-2xs" 
+                                  title="Source Document POE Description (Non-editable across all quarters)"
+                                  onClick={() => openCellExpandModal("Source Document POE Description (Non-Editable)", topLayerPoe, undefined, true, `Ref: ${row.refNum}`)}
+                                >
+                                  "{topLayerPoe}"
+                                </div>
+                              )}
+                              <div className="flex items-center gap-1 mt-1">
+                                <button 
+                                  onClick={() => triggerViewPoeModal(row, 'general')}
+                                  className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[9px] font-extrabold cursor-pointer transition shadow-xs"
+                                  title="View POE document details & download"
+                                >
+                                  <Eye className="w-3 h-3" /> View POE
+                                </button>
+                                <button 
+                                  onClick={() => triggerUploadModal(row.id, row.refNum, 'general')}
+                                  className="inline-flex items-center gap-1 px-1.5 py-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded text-[9px] font-bold cursor-pointer transition"
+                                  title="Update POE files"
+                                >
+                                  <Upload className="w-3 h-3 text-indigo-600" /> Update
+                                </button>
                               </div>
-                            )}
-                            <div className="flex items-center gap-1 mt-1">
-                              <button 
-                                onClick={() => triggerViewPoeModal(row, 'general')}
-                                className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[9px] font-extrabold cursor-pointer transition shadow-xs"
-                                title="View POE document details & download"
-                              >
-                                <Eye className="w-3 h-3" /> View POE
-                              </button>
-                              <button 
-                                onClick={() => triggerUploadModal(row.id, row.refNum, 'general')}
-                                className="inline-flex items-center gap-1 px-1.5 py-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded text-[9px] font-bold cursor-pointer transition"
-                                title="Update POE files"
-                              >
-                                <Upload className="w-3 h-3 text-indigo-600" /> Update
-                              </button>
                             </div>
-                          </div>
-                        ) : (
-                          <div className="flex flex-col items-center gap-1">
-                            <button 
-                              onClick={() => triggerUploadModal(row.id, row.refNum, 'general')}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-indigo-600 text-white rounded-lg text-[10px] font-bold hover:bg-indigo-700 hover:scale-[1.02] duration-150 cursor-pointer shadow-xs"
-                            >
-                              <Upload className="w-3 h-3" /> Upload POE
-                            </button>
-                            <button 
-                              onClick={() => triggerViewPoeModal(row, 'general')}
-                              className="text-[9px] text-slate-500 hover:text-indigo-600 font-bold flex items-center gap-0.5 cursor-pointer"
-                              title="Inspect POE status"
-                            >
-                              <Eye className="w-2.5 h-2.5" /> View status
-                            </button>
-                          </div>
-                        )}
+                          );
+                        })()}
                       </td>
 
                       {/* Action columns */}
@@ -4899,18 +4898,23 @@ Timestamp: ${new Date().toLocaleString()}
                       {/* Q1 POE Column */}
                       <td className="p-2 border-r border-slate-100 bg-indigo-50/10">
                         <div className="space-y-2">
-                          <ExpandableCell
-                            value={row.q1PoeDesc || ''}
-                            disabled={!isQuarterActive('q1')}
-                            onChange={(val) => handleCellChange(row.id, 'q1PoeDesc', val)}
-                            cellTitle="Q1 POE Description"
-                            refNum={row.refNum}
-                            isFitAll={isFitAllReportingCells}
-                            minRows={2}
-                            placeholder={!isQuarterActive('q1') ? "Locked for this period" : "Q1 POE Description..."}
-                            onOpenExpandModal={openCellExpandModal}
-                            className={!isQuarterActive('q1') ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white border-slate-200'}
-                          />
+                          {(() => {
+                            const sourcePoe = (row.poeDesc || row.poeStatus || row.q1PoeDesc || row.q2PoeDesc || row.midTermPoeDesc || row.q3PoeDesc || row.q4PoeDesc || '').trim();
+                            return (
+                              <ExpandableCell
+                                value={row.q1PoeDesc || sourcePoe}
+                                disabled={true}
+                                onChange={() => {}}
+                                cellTitle="Q1 POE Description (Non-Editable Source Document POE)"
+                                refNum={row.refNum}
+                                isFitAll={isFitAllReportingCells}
+                                minRows={2}
+                                placeholder="Source Document POE Description..."
+                                onOpenExpandModal={openCellExpandModal}
+                                className="bg-slate-100/90 text-slate-700 border-slate-200 cursor-not-allowed"
+                              />
+                            );
+                          })()}
                           {row.q1Poes && row.q1Poes.length > 0 && (
                             <div 
                               onClick={() => triggerViewPoeModal(row, 'q1')}
@@ -5073,18 +5077,23 @@ Timestamp: ${new Date().toLocaleString()}
                       {/* Q2 POE Column */}
                       <td className="p-2 border-r border-slate-100 bg-blue-50/10">
                         <div className="space-y-2">
-                          <ExpandableCell
-                            value={row.q2PoeDesc || ''}
-                            disabled={!isQuarterActive('q2')}
-                            onChange={(val) => handleCellChange(row.id, 'q2PoeDesc', val)}
-                            cellTitle="Q2 POE Description"
-                            refNum={row.refNum}
-                            isFitAll={isFitAllReportingCells}
-                            minRows={2}
-                            placeholder={!isQuarterActive('q2') ? "Locked for this period" : "Q2 POE Description..."}
-                            onOpenExpandModal={openCellExpandModal}
-                            className={!isQuarterActive('q2') ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white border-slate-200'}
-                          />
+                          {(() => {
+                            const sourcePoe = (row.poeDesc || row.poeStatus || row.q1PoeDesc || row.q2PoeDesc || row.midTermPoeDesc || row.q3PoeDesc || row.q4PoeDesc || '').trim();
+                            return (
+                              <ExpandableCell
+                                value={row.q2PoeDesc || sourcePoe}
+                                disabled={true}
+                                onChange={() => {}}
+                                cellTitle="Q2 POE Description (Non-Editable Source Document POE)"
+                                refNum={row.refNum}
+                                isFitAll={isFitAllReportingCells}
+                                minRows={2}
+                                placeholder="Source Document POE Description..."
+                                onOpenExpandModal={openCellExpandModal}
+                                className="bg-slate-100/90 text-slate-700 border-slate-200 cursor-not-allowed"
+                              />
+                            );
+                          })()}
                           {row.q2Poes && row.q2Poes.length > 0 && (
                             <div 
                               onClick={() => triggerViewPoeModal(row, 'q2')}
@@ -5247,18 +5256,23 @@ Timestamp: ${new Date().toLocaleString()}
                       {/* Mid Term POE Column */}
                       <td className="p-2 border-r border-slate-100 bg-emerald-50/10">
                         <div className="space-y-2">
-                          <ExpandableCell
-                            value={row.midTermPoeDesc || ''}
-                            disabled={!isQuarterActive('midTerm')}
-                            onChange={(val) => handleCellChange(row.id, 'midTermPoeDesc', val)}
-                            cellTitle="Mid-Term POE Description"
-                            refNum={row.refNum}
-                            isFitAll={isFitAllReportingCells}
-                            minRows={2}
-                            placeholder={!isQuarterActive('midTerm') ? "Locked for this period" : "Mid Term POE Description..."}
-                            onOpenExpandModal={openCellExpandModal}
-                            className={!isQuarterActive('midTerm') ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white border-slate-200'}
-                          />
+                          {(() => {
+                            const sourcePoe = (row.poeDesc || row.poeStatus || row.q1PoeDesc || row.q2PoeDesc || row.midTermPoeDesc || row.q3PoeDesc || row.q4PoeDesc || '').trim();
+                            return (
+                              <ExpandableCell
+                                value={row.midTermPoeDesc || sourcePoe}
+                                disabled={true}
+                                onChange={() => {}}
+                                cellTitle="Mid-Term POE Description (Non-Editable Source Document POE)"
+                                refNum={row.refNum}
+                                isFitAll={isFitAllReportingCells}
+                                minRows={2}
+                                placeholder="Source Document POE Description..."
+                                onOpenExpandModal={openCellExpandModal}
+                                className="bg-slate-100/90 text-slate-700 border-slate-200 cursor-not-allowed"
+                              />
+                            );
+                          })()}
                           {row.midTermPoes && row.midTermPoes.length > 0 && (
                             <div 
                               onClick={() => triggerViewPoeModal(row, 'midTerm')}
@@ -5420,18 +5434,23 @@ Timestamp: ${new Date().toLocaleString()}
                       {/* Q3 POE Column */}
                       <td className="p-2 border-r border-slate-100 bg-amber-50/10">
                         <div className="space-y-2">
-                          <ExpandableCell
-                            value={row.q3PoeDesc || ''}
-                            disabled={!isQuarterActive('q3')}
-                            onChange={(val) => handleCellChange(row.id, 'q3PoeDesc', val)}
-                            cellTitle="Q3 POE Description"
-                            refNum={row.refNum}
-                            isFitAll={isFitAllReportingCells}
-                            minRows={2}
-                            placeholder={!isQuarterActive('q3') ? "Locked for this period" : "Q3 POE Description..."}
-                            onOpenExpandModal={openCellExpandModal}
-                            className={!isQuarterActive('q3') ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white border-slate-200'}
-                          />
+                          {(() => {
+                            const sourcePoe = (row.poeDesc || row.poeStatus || row.q1PoeDesc || row.q2PoeDesc || row.midTermPoeDesc || row.q3PoeDesc || row.q4PoeDesc || '').trim();
+                            return (
+                              <ExpandableCell
+                                value={row.q3PoeDesc || sourcePoe}
+                                disabled={true}
+                                onChange={() => {}}
+                                cellTitle="Q3 POE Description (Non-Editable Source Document POE)"
+                                refNum={row.refNum}
+                                isFitAll={isFitAllReportingCells}
+                                minRows={2}
+                                placeholder="Source Document POE Description..."
+                                onOpenExpandModal={openCellExpandModal}
+                                className="bg-slate-100/90 text-slate-700 border-slate-200 cursor-not-allowed"
+                              />
+                            );
+                          })()}
                           {row.q3Poes && row.q3Poes.length > 0 && (
                             <div 
                               onClick={() => triggerViewPoeModal(row, 'q3')}
@@ -5594,18 +5613,23 @@ Timestamp: ${new Date().toLocaleString()}
                       {/* Q4 POE Column */}
                       <td className="p-2 border-r border-slate-100 bg-rose-50/10">
                         <div className="space-y-2">
-                          <ExpandableCell
-                            value={row.q4PoeDesc || ''}
-                            disabled={!isQuarterActive('q4')}
-                            onChange={(val) => handleCellChange(row.id, 'q4PoeDesc', val)}
-                            cellTitle="Q4 POE Description"
-                            refNum={row.refNum}
-                            isFitAll={isFitAllReportingCells}
-                            minRows={2}
-                            placeholder={!isQuarterActive('q4') ? "Locked for this period" : "Q4 POE Description..."}
-                            onOpenExpandModal={openCellExpandModal}
-                            className={!isQuarterActive('q4') ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white border-slate-200'}
-                          />
+                          {(() => {
+                            const sourcePoe = (row.poeDesc || row.poeStatus || row.q1PoeDesc || row.q2PoeDesc || row.midTermPoeDesc || row.q3PoeDesc || row.q4PoeDesc || '').trim();
+                            return (
+                              <ExpandableCell
+                                value={row.q4PoeDesc || sourcePoe}
+                                disabled={true}
+                                onChange={() => {}}
+                                cellTitle="Q4 POE Description (Non-Editable Source Document POE)"
+                                refNum={row.refNum}
+                                isFitAll={isFitAllReportingCells}
+                                minRows={2}
+                                placeholder="Source Document POE Description..."
+                                onOpenExpandModal={openCellExpandModal}
+                                className="bg-slate-100/90 text-slate-700 border-slate-200 cursor-not-allowed"
+                              />
+                            );
+                          })()}
                           {row.q4Poes && row.q4Poes.length > 0 && (
                             <div 
                               onClick={() => triggerViewPoeModal(row, 'q4')}

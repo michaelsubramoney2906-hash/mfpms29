@@ -184,6 +184,7 @@ export function FredPerformancePlanExtractor({
       // total budget allocated R'000 -> budget
       const planItems = selected.map((it, idx) => {
         const functionalKpa = it["functional kpa"] || it["kpa"] || 'Functional Performance Area';
+        const poeVal = it["poe"] || it["portfolio of evidence"] || it["means of verification"] || '';
         
         return {
           id: `ipp-kpi-${Date.now()}-${idx + 1}`,
@@ -196,7 +197,13 @@ export function FredPerformancePlanExtractor({
           q2Target: it["2nd qtr target"] || '',
           q3Target: it["3rd qtr target"] || '',
           q4Target: it["4th qtr target"] || '',
-          poe: it["poe"] || '',
+          poe: poeVal,
+          annualRequiredPoe: poeVal,
+          q1Poe: poeVal,
+          q2Poe: poeVal,
+          midtermPoe: poeVal,
+          q3Poe: poeVal,
+          q4Poe: poeVal,
           budget: it["budget"] || 'R0.00',
           kpa: functionalKpa,
           mscoaCode: 'Operational',

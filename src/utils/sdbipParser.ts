@@ -173,36 +173,45 @@ export const SDBIP_DIRECTORATE_OPTIONS = [
  */
 export function getStandardSdbipScorecard(): ExtractedSdbipItem[] {
   const catalog = ensureAllSdbipKpis([]);
-  return catalog.map((item, idx) => ({
-    _id: `sdbip-std-${item.Ref_Number}-${idx + 1}`,
-    _selected: true,
-    refNum: item.Ref_Number,
-    strategicObj: item.SDBIP_Strategic_Objective || 'To provide sustainable municipal infrastructure and service delivery',
-    kpas: item.National_KPA,
-    bsd: item.BSD === 'X',
-    led: item.LED === 'X',
-    mfvm: item.MFVM === 'X',
-    ggpp: item.GGPP === 'X',
-    midt: item.MIDT === 'X',
-    sr: item.SR === 'X',
-    operationalActivity: item.Description || item.KPI,
-    kpi: item.KPI,
-    compliance: 'compliant',
-    uom: item.Unit_of_Measure || 'Percentage',
-    mscoaTracking: 'Core Municipal Vector',
-    baseline: item.Baseline || '0%',
-    annualTarget: item.Annual_Target || '100%',
-    budgetAllocation: item.Budget_Allocation || (item.Ref_Number.startsWith('M') ? "R 1,500,000" : "R 250,000"),
-    q1: item.Q1_Target || '25%',
-    q2: item.Q2_Target || '50%',
-    midTerm: item.Mid_Term_Target || '50%',
-    q3: item.Q3_Target || '75%',
-    q4: item.Q4_Target || item.Annual_Target || '100%',
-    responsibleUnit: item.Responsible_Owner || 'Technical Services',
-    submitter: item.Submitter || 'Departmental Submitter',
-    approver: item.Approver || 'Executive Manager',
-    poeStatus: item.POE_Description || 'Pending Evidence'
-  }));
+  return catalog.map((item, idx) => {
+    const poeDesc = item.POE_Description || 'Signed quarterly progress reports, project completion certificates, and verification registers';
+    return {
+      _id: `sdbip-std-${item.Ref_Number}-${idx + 1}`,
+      _selected: true,
+      refNum: item.Ref_Number,
+      strategicObj: item.SDBIP_Strategic_Objective || 'To provide sustainable municipal infrastructure and service delivery',
+      kpas: item.National_KPA,
+      bsd: item.BSD === 'X',
+      led: item.LED === 'X',
+      mfvm: item.MFVM === 'X',
+      ggpp: item.GGPP === 'X',
+      midt: item.MIDT === 'X',
+      sr: item.SR === 'X',
+      operationalActivity: item.Description || item.KPI,
+      kpi: item.KPI,
+      compliance: 'compliant',
+      uom: item.Unit_of_Measure || 'Percentage',
+      mscoaTracking: 'Core Municipal Vector',
+      baseline: item.Baseline || '0%',
+      annualTarget: item.Annual_Target || '100%',
+      budgetAllocation: item.Budget_Allocation || (item.Ref_Number.startsWith('M') ? "R 1,500,000" : "R 250,000"),
+      q1: item.Q1_Target || '25%',
+      q2: item.Q2_Target || '50%',
+      midTerm: item.Mid_Term_Target || '50%',
+      q3: item.Q3_Target || '75%',
+      q4: item.Q4_Target || item.Annual_Target || '100%',
+      responsibleUnit: item.Responsible_Owner || 'Technical Services',
+      submitter: item.Submitter || 'Departmental Submitter',
+      approver: item.Approver || 'Executive Manager',
+      poeStatus: poeDesc,
+      // Source POE description reflects verbatim across all four quarters (non-editable)
+      q1PoeDesc: poeDesc,
+      q2PoeDesc: poeDesc,
+      midTermPoeDesc: poeDesc,
+      q3PoeDesc: poeDesc,
+      q4PoeDesc: poeDesc
+    };
+  });
 }
 
 /**
@@ -240,36 +249,45 @@ export function sanitizeSdbipItems(rawItems: any[]): ExtractedSdbipItem[] {
   // run through ensureAllSdbipKpis to extract and consolidate into the canonical 111 KPIs (92 M_ + 19 P_)
   const catalogList = ensureAllSdbipKpis(validRows);
 
-  return catalogList.map((item, idx) => ({
-    _id: `sdbip-item-${item.Ref_Number}-${idx + 1}`,
-    _selected: true,
-    refNum: item.Ref_Number,
-    strategicObj: item.SDBIP_Strategic_Objective || 'To provide sustainable municipal infrastructure and service delivery',
-    kpas: item.National_KPA,
-    bsd: item.BSD === 'X',
-    led: item.LED === 'X',
-    mfvm: item.MFVM === 'X',
-    ggpp: item.GGPP === 'X',
-    midt: item.MIDT === 'X',
-    sr: item.SR === 'X',
-    operationalActivity: item.Description || item.KPI,
-    kpi: item.KPI,
-    compliance: 'compliant',
-    uom: item.Unit_of_Measure || 'Percentage',
-    mscoaTracking: 'Core Municipal Vector',
-    baseline: item.Baseline || '0%',
-    annualTarget: item.Annual_Target || '100%',
-    budgetAllocation: item.Budget_Allocation || (item.Ref_Number.startsWith('M') ? "R 1,500,000" : "R 250,000"),
-    q1: item.Q1_Target || '25%',
-    q2: item.Q2_Target || '50%',
-    midTerm: item.Mid_Term_Target || '50%',
-    q3: item.Q3_Target || '75%',
-    q4: item.Q4_Target || item.Annual_Target || '100%',
-    responsibleUnit: item.Responsible_Owner || 'Technical Services',
-    submitter: item.Submitter || 'Departmental Submitter',
-    approver: item.Approver || 'Executive Manager',
-    poeStatus: item.POE_Description || 'Pending Evidence'
-  }));
+  return catalogList.map((item, idx) => {
+    const poeDesc = item.POE_Description || 'Signed quarterly progress reports, verification registers and supporting compliance documents';
+    return {
+      _id: `sdbip-item-${item.Ref_Number}-${idx + 1}`,
+      _selected: true,
+      refNum: item.Ref_Number,
+      strategicObj: item.SDBIP_Strategic_Objective || 'To provide sustainable municipal infrastructure and service delivery',
+      kpas: item.National_KPA,
+      bsd: item.BSD === 'X',
+      led: item.LED === 'X',
+      mfvm: item.MFVM === 'X',
+      ggpp: item.GGPP === 'X',
+      midt: item.MIDT === 'X',
+      sr: item.SR === 'X',
+      operationalActivity: item.Description || item.KPI,
+      kpi: item.KPI,
+      compliance: 'compliant',
+      uom: item.Unit_of_Measure || 'Percentage',
+      mscoaTracking: 'Core Municipal Vector',
+      baseline: item.Baseline || '0%',
+      annualTarget: item.Annual_Target || '100%',
+      budgetAllocation: item.Budget_Allocation || (item.Ref_Number.startsWith('M') ? "R 1,500,000" : "R 250,000"),
+      q1: item.Q1_Target || '25%',
+      q2: item.Q2_Target || '50%',
+      midTerm: item.Mid_Term_Target || '50%',
+      q3: item.Q3_Target || '75%',
+      q4: item.Q4_Target || item.Annual_Target || '100%',
+      responsibleUnit: item.Responsible_Owner || 'Technical Services',
+      submitter: item.Submitter || 'Departmental Submitter',
+      approver: item.Approver || 'Executive Manager',
+      poeStatus: poeDesc,
+      // Source POE description reflects verbatim across all four quarters (non-editable)
+      q1PoeDesc: poeDesc,
+      q2PoeDesc: poeDesc,
+      midTermPoeDesc: poeDesc,
+      q3PoeDesc: poeDesc,
+      q4PoeDesc: poeDesc
+    };
+  });
 }
 
 /**
@@ -355,33 +373,36 @@ export async function callServerAiSDBIPExtraction(params: {
         reviewer: String(it.reviewer || '').trim(),
         approver: String(it.approver || '').trim(),
         internalAudit: String(it.internalAudit || '').trim(),
-        poeStatus: it.poeStatus || 'Pending Evidence',
+        poeStatus: (() => {
+          const p = String(it.poeStatus || it.POE_Description || it.poe || it.poeDescription || it.meansOfVerification || it.q1PoeDesc || it.q2PoeDesc || it.q3PoeDesc || it.q4PoeDesc || 'Signed quarterly progress reports and verification registers').trim();
+          return p;
+        })(),
         // Reporting fields
         q1Actual: String(it.q1Actual || '').trim(),
         q1Variance: String(it.q1Variance || '').trim(),
         q1Corrective: String(it.q1Corrective || '').trim(),
         q1Expenditure: String(it.q1Expenditure || '').trim(),
-        q1PoeDesc: String(it.q1PoeDesc || it.poe || '').trim(),
+        q1PoeDesc: String(it.q1PoeDesc || it.poeStatus || it.POE_Description || it.poe || it.poeDescription || it.meansOfVerification || 'Signed quarterly progress reports and verification registers').trim(),
         q2Actual: String(it.q2Actual || '').trim(),
         q2Variance: String(it.q2Variance || '').trim(),
         q2Corrective: String(it.q2Corrective || '').trim(),
         q2Expenditure: String(it.q2Expenditure || '').trim(),
-        q2PoeDesc: String(it.q2PoeDesc || '').trim(),
+        q2PoeDesc: String(it.q2PoeDesc || it.poeStatus || it.POE_Description || it.poe || it.poeDescription || it.meansOfVerification || 'Signed quarterly progress reports and verification registers').trim(),
         midTermActual: String(it.midTermActual || '').trim(),
         midTermVariance: String(it.midTermVariance || '').trim(),
         midTermCorrective: String(it.midTermCorrective || '').trim(),
         midTermExpenditure: String(it.midTermExpenditure || '').trim(),
-        midTermPoeDesc: String(it.midTermPoeDesc || '').trim(),
+        midTermPoeDesc: String(it.midTermPoeDesc || it.poeStatus || it.POE_Description || it.poe || it.poeDescription || it.meansOfVerification || 'Signed quarterly progress reports and verification registers').trim(),
         q3Actual: String(it.q3Actual || '').trim(),
         q3Variance: String(it.q3Variance || '').trim(),
         q3Corrective: String(it.q3Corrective || '').trim(),
         q3Expenditure: String(it.q3Expenditure || '').trim(),
-        q3PoeDesc: String(it.q3PoeDesc || '').trim(),
+        q3PoeDesc: String(it.q3PoeDesc || it.poeStatus || it.POE_Description || it.poe || it.poeDescription || it.meansOfVerification || 'Signed quarterly progress reports and verification registers').trim(),
         q4Actual: String(it.q4Actual || '').trim(),
         q4Variance: String(it.q4Variance || '').trim(),
         q4Corrective: String(it.q4Corrective || '').trim(),
         q4Expenditure: String(it.q4Expenditure || '').trim(),
-        q4PoeDesc: String(it.q4PoeDesc || '').trim(),
+        q4PoeDesc: String(it.q4PoeDesc || it.poeStatus || it.POE_Description || it.poe || it.poeDescription || it.meansOfVerification || 'Signed quarterly progress reports and verification registers').trim(),
       };
     });
   }
@@ -609,6 +630,7 @@ export function parseSdbipTableFromText(rawText: string): ExtractedSdbipItem[] {
     let q4Corrective = '';
     let q4Expenditure = '';
     let q4PoeDesc = '';
+    let mainPoe = '';
 
     if (headers.length > 0) {
       cells.forEach((cellVal, colIdx) => {
@@ -617,6 +639,7 @@ export function parseSdbipTableFromText(rawText: string): ExtractedSdbipItem[] {
         else if (h.includes('strategic') || h.includes('objective')) strategicObj = cellVal;
         else if (h.includes('activity') || h.includes('project')) operationalActivity = cellVal;
         else if (h.includes('kpi') || h.includes('indicator') || h.includes('description') || h.includes('output')) kpi = cellVal;
+        else if (h.includes('portfolio') || h.includes('evidence') || h === 'poe' || h.includes('poe description')) mainPoe = cellVal;
         else if (h.includes('uom') || h.includes('unit of measure') || h.includes('measurement')) uom = cellVal;
         else if (h.includes('mscoa') || h.includes('tracking')) mscoaTracking = cellVal;
         else if (h.includes('baseline')) baseline = cellVal;
@@ -683,6 +706,7 @@ export function parseSdbipTableFromText(rawText: string): ExtractedSdbipItem[] {
     }
 
     if (kpi && kpi.length > 3) {
+      const resolvedPoe = mainPoe.trim() || q1PoeDesc || q2PoeDesc || midTermPoeDesc || q3PoeDesc || q4PoeDesc || 'Signed quarterly progress reports, project completion certificates, and verification registers';
       items.push({
         _id: `sdbip-parsed-${Date.now()}-${items.length + 1}`,
         _selected: true,
@@ -703,32 +727,32 @@ export function parseSdbipTableFromText(rawText: string): ExtractedSdbipItem[] {
         q3: q3.trim(),
         q4: q4.trim(),
         responsibleUnit: responsibleUnit.trim() || 'Infrastructure Development & Technical Services',
-        poeStatus: 'Pending Evidence',
+        poeStatus: resolvedPoe,
         q1Actual: q1Actual.trim(),
         q1Variance: q1Variance.trim(),
         q1Corrective: q1Corrective.trim(),
         q1Expenditure: q1Expenditure.trim(),
-        q1PoeDesc: q1PoeDesc.trim(),
+        q1PoeDesc: resolvedPoe,
         q2Actual: q2Actual.trim(),
         q2Variance: q2Variance.trim(),
         q2Corrective: q2Corrective.trim(),
         q2Expenditure: q2Expenditure.trim(),
-        q2PoeDesc: q2PoeDesc.trim(),
+        q2PoeDesc: resolvedPoe,
         midTermActual: midTermActual.trim(),
         midTermVariance: midTermVariance.trim(),
         midTermCorrective: midTermCorrective.trim(),
         midTermExpenditure: midTermExpenditure.trim(),
-        midTermPoeDesc: midTermPoeDesc.trim(),
+        midTermPoeDesc: resolvedPoe,
         q3Actual: q3Actual.trim(),
         q3Variance: q3Variance.trim(),
         q3Corrective: q3Corrective.trim(),
         q3Expenditure: q3Expenditure.trim(),
-        q3PoeDesc: q3PoeDesc.trim(),
+        q3PoeDesc: resolvedPoe,
         q4Actual: q4Actual.trim(),
         q4Variance: q4Variance.trim(),
         q4Corrective: q4Corrective.trim(),
         q4Expenditure: q4Expenditure.trim(),
-        q4PoeDesc: q4PoeDesc.trim()
+        q4PoeDesc: resolvedPoe
       });
     }
   }

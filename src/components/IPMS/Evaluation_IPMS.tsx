@@ -1620,7 +1620,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                              label="1st Qtr Portfolio of Evidence"
                              placeholderRef="Evidence Reference: e.g. SCM signoff sheet, business model notes..."
                              quarterName="Q1"
-                             requiredPoeDescription={kpi.q1RequiredPoe}
+                             requiredPoeDescription={kpi.q1RequiredPoe || kpi.q1Poe || kpi.annualRequiredPoe || kpi.poe}
                              textValue={kpi.q1Poe || ''}
                              setTextValue={(val) => updateItem(kpi.id, 'q1Poe', val)}
                              files={kpi.q1PoeDocs || []}
@@ -1728,7 +1728,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                             label="2nd Qtr Portfolio of Evidence"
                             placeholderRef="Evidence Reference: e.g. Attendance register, technical approval..."
                             quarterName="Q2"
-                            requiredPoeDescription={kpi.q2RequiredPoe}
+                            requiredPoeDescription={kpi.q2RequiredPoe || kpi.q2Poe || kpi.annualRequiredPoe || kpi.poe}
                             textValue={kpi.q2Poe || ''}
                             setTextValue={(val) => updateItem(kpi.id, 'q2Poe', val)}
                             files={kpi.q2PoeDocs || []}
@@ -1938,7 +1938,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                             label="3rd Qtr Portfolio of Evidence"
                             placeholderRef="Evidence Reference: e.g. Audit ledger extract, completion certificate..."
                             quarterName="Q3"
-                            requiredPoeDescription={kpi.q3RequiredPoe}
+                            requiredPoeDescription={kpi.q3RequiredPoe || kpi.q3Poe || kpi.annualRequiredPoe || kpi.poe}
                             textValue={kpi.q3Poe || ''}
                             setTextValue={(val) => updateItem(kpi.id, 'q3Poe', val)}
                             files={kpi.q3PoeDocs || []}
@@ -2107,7 +2107,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                             label="4th Qtr Portfolio of Evidence"
                             placeholderRef="Evidence Reference: e.g. Closeout signoff reports, service verification..."
                             quarterName="Q4"
-                            requiredPoeDescription={kpi.q4RequiredPoe}
+                            requiredPoeDescription={kpi.q4RequiredPoe || kpi.q4Poe || kpi.annualRequiredPoe || kpi.poe}
                             textValue={kpi.q4Poe || ''}
                             setTextValue={(val) => updateItem(kpi.id, 'q4Poe', val)}
                             files={kpi.q4PoeDocs || []}

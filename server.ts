@@ -2222,6 +2222,7 @@ For each SDBIP row, extract:
 - q3: Verbatim 3rd Quarter planned target
 - q4: Verbatim 4th Quarter planned target
 - responsibleUnit: Directorate or Department responsible (e.g. Technical Services, Corporate Services, Financial Services, Office of MM)
+- Portfolio of Evidence (POE) / Means of Verification: Extract each KPI's specific Portfolio of Evidence (POE) or Means of Verification verbatim from the source document (e.g. 'Signed vacancy rate report (indicating the vacancy rate percentage)', 'Signed Blue Drop water quality test report', etc.). Populate this exact POE description into q1PoeDesc, q2PoeDesc, midTermPoeDesc, q3PoeDesc, and q4PoeDesc.
 - reporting fields (if present in the document or quarterly review table):
   - q1Actual, q1Variance, q1Corrective, q1Expenditure, q1PoeDesc
   - q2Actual, q2Variance, q2Corrective, q2Expenditure, q2PoeDesc
@@ -2445,32 +2446,35 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
           reviewer: String(it.reviewer || '').trim(),
           approver: String(it.approver || '').trim(),
           internalAudit: String(it.internalAudit || '').trim(),
-          poeStatus: it.poeStatus || 'Pending Evidence',
+          poeStatus: (() => {
+            const p = String(it.poeStatus || it.POE_Description || it.poe || it.poeDescription || it.meansOfVerification || it.q1PoeDesc || it.q2PoeDesc || it.q3PoeDesc || it.q4PoeDesc || 'Pending Evidence').trim();
+            return p;
+          })(),
           q1Actual: String(it.q1Actual || '').trim(),
           q1Variance: String(it.q1Variance || '').trim(),
           q1Corrective: String(it.q1Corrective || '').trim(),
           q1Expenditure: String(it.q1Expenditure || '').trim(),
-          q1PoeDesc: String(it.q1PoeDesc || '').trim(),
+          q1PoeDesc: String(it.q1PoeDesc || it.poeStatus || it.POE_Description || it.poe || it.poeDescription || it.meansOfVerification || '').trim(),
           q2Actual: String(it.q2Actual || '').trim(),
           q2Variance: String(it.q2Variance || '').trim(),
           q2Corrective: String(it.q2Corrective || '').trim(),
           q2Expenditure: String(it.q2Expenditure || '').trim(),
-          q2PoeDesc: String(it.q2PoeDesc || '').trim(),
+          q2PoeDesc: String(it.q2PoeDesc || it.poeStatus || it.POE_Description || it.poe || it.poeDescription || it.meansOfVerification || '').trim(),
           midTermActual: String(it.midTermActual || '').trim(),
           midTermVariance: String(it.midTermVariance || '').trim(),
           midTermCorrective: String(it.midTermCorrective || '').trim(),
           midTermExpenditure: String(it.midTermExpenditure || '').trim(),
-          midTermPoeDesc: String(it.midTermPoeDesc || '').trim(),
+          midTermPoeDesc: String(it.midTermPoeDesc || it.poeStatus || it.POE_Description || it.poe || it.poeDescription || it.meansOfVerification || '').trim(),
           q3Actual: String(it.q3Actual || '').trim(),
           q3Variance: String(it.q3Variance || '').trim(),
           q3Corrective: String(it.q3Corrective || '').trim(),
           q3Expenditure: String(it.q3Expenditure || '').trim(),
-          q3PoeDesc: String(it.q3PoeDesc || '').trim(),
+          q3PoeDesc: String(it.q3PoeDesc || it.poeStatus || it.POE_Description || it.poe || it.poeDescription || it.meansOfVerification || '').trim(),
           q4Actual: String(it.q4Actual || '').trim(),
           q4Variance: String(it.q4Variance || '').trim(),
           q4Corrective: String(it.q4Corrective || '').trim(),
           q4Expenditure: String(it.q4Expenditure || '').trim(),
-          q4PoeDesc: String(it.q4PoeDesc || '').trim()
+          q4PoeDesc: String(it.q4PoeDesc || it.poeStatus || it.POE_Description || it.poe || it.poeDescription || it.meansOfVerification || '').trim()
         };
       });
 
@@ -3108,11 +3112,27 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
               { id: 'kpa-5', name: 'Municipal Financial Viability and Management', weighting: 10 }
             ];
             userKpis = [
-              { id: 'kpi-1', kpi: 'Quarterly oversight review and Portfolio Committee attendance', target: '100% attendance & oversight reports', annualTarget: '100% compliance', weight: 35, baseline: '100%' },
-              { id: 'kpi-2', kpi: 'Community IDP and Budget consultation meetings held', target: '4 Ward / Zone Consultations', annualTarget: '4 Consultations', weight: 35, baseline: '4' },
-              { id: 'kpi-3', kpi: 'Adherence to Councillor Code of Conduct & declaration of interests', target: '100% statutory adherence', annualTarget: '100% statutory adherence', weight: 30, baseline: '100%' }
+              { id: 'kpi-1', kpi: 'Quarterly oversight review and Portfolio Committee attendance', target: '100% attendance & oversight reports', annualTarget: '100% compliance', weight: 35, baseline: '100%', poe: 'Signed Portfolio Committee attendance registers and quarterly oversight reports' },
+              { id: 'kpi-2', kpi: 'Community IDP and Budget consultation meetings held', target: '4 Ward / Zone Consultations', annualTarget: '4 Consultations', weight: 35, baseline: '4', poe: 'Signed community attendance registers and IDP/Budget consultation minutes' },
+              { id: 'kpi-3', kpi: 'Adherence to Councillor Code of Conduct & declaration of interests', target: '100% statutory adherence', annualTarget: '100% statutory adherence', weight: 30, baseline: '100%', poe: 'Signed Code of Conduct declaration form and register of financial interests' }
             ];
-            userPplan = userKpis.map((k, idx) => ({ id: `pplan-${idx+1}`, kpiNo: `KPI-00${idx+1}`, strategicGoal: 'Municipal Governance and Oversight', kpi: k.kpi, baseline: k.baseline, annualTarget: k.annualTarget, budget: 'Operational', weighting: String(k.weight) }));
+            userPplan = userKpis.map((k, idx) => ({ 
+              id: `pplan-${idx+1}`, 
+              kpiNo: `KPI-00${idx+1}`, 
+              strategicGoal: 'Municipal Governance and Oversight', 
+              kpi: k.kpi, 
+              baseline: k.baseline, 
+              annualTarget: k.annualTarget, 
+              budget: 'Operational', 
+              weighting: String(k.weight),
+              poe: k.poe,
+              annualRequiredPoe: k.poe,
+              q1Poe: k.poe,
+              q2Poe: k.poe,
+              midtermPoe: k.poe,
+              q3Poe: k.poe,
+              q4Poe: k.poe
+            }));
             userJscs = [
               { id: 'jsc-1', competency: 'Public Governance & Council Oversight', weight: 25, proficiency: 'Advanced', description: 'Legislative and policy oversight capability.' },
               { id: 'jsc-2', competency: 'Community Consultation & Stakeholder Engagement', weight: 25, proficiency: 'Advanced', description: 'Public participation and community liaison.' },
@@ -3131,11 +3151,27 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
               { id: 'kpa-4', name: 'Municipal Financial Viability and Management', weighting: 20 }
             ];
             userKpis = [
-              { id: 'kpi-1', kpi: `Operational execution of ${job} departmental KPIs`, target: '100% SLA fulfillment', annualTarget: '100% SLA fulfillment', weight: 40, baseline: '100%' },
-              { id: 'kpi-2', kpi: 'Submission of monthly compliance registers and audit portfolios', target: '12 Monthly Reports', annualTarget: '12 Monthly Reports', weight: 30, baseline: '12' },
-              { id: 'kpi-3', kpi: 'Adherence to internal controls, risk mitigation and Batho Pele standards', target: 'Zero audit findings', annualTarget: 'Zero audit findings', weight: 30, baseline: 'Zero' }
+              { id: 'kpi-1', kpi: `Operational execution of ${job} departmental KPIs`, target: '100% SLA fulfillment', annualTarget: '100% SLA fulfillment', weight: 40, baseline: '100%', poe: `Signed operational delivery output reports and verified functional KPI registers for ${job}` },
+              { id: 'kpi-2', kpi: 'Submission of monthly compliance registers and audit portfolios', target: '12 Monthly Reports', annualTarget: '12 Monthly Reports', weight: 30, baseline: '12', poe: 'Monthly compliance registers and verified quarterly audit portfolio submissions' },
+              { id: 'kpi-3', kpi: 'Adherence to internal controls, risk mitigation and Batho Pele standards', target: 'Zero audit findings', annualTarget: 'Zero audit findings', weight: 30, baseline: 'Zero', poe: 'Batho Pele service delivery inspection logs and internal control risk mitigation reports' }
             ];
-            userPplan = userKpis.map((k, idx) => ({ id: `pplan-${idx+1}`, kpiNo: `KPI-00${idx+1}`, strategicGoal: 'Institutional Excellence & Service Delivery', kpi: k.kpi, baseline: k.baseline, annualTarget: k.annualTarget, budget: 'Operating Budget', weighting: String(k.weight) }));
+            userPplan = userKpis.map((k, idx) => ({ 
+              id: `pplan-${idx+1}`, 
+              kpiNo: `KPI-00${idx+1}`, 
+              strategicGoal: 'Institutional Excellence & Service Delivery', 
+              kpi: k.kpi, 
+              baseline: k.baseline, 
+              annualTarget: k.annualTarget, 
+              budget: 'Operating Budget', 
+              weighting: String(k.weight),
+              poe: k.poe,
+              annualRequiredPoe: k.poe,
+              q1Poe: k.poe,
+              q2Poe: k.poe,
+              midtermPoe: k.poe,
+              q3Poe: k.poe,
+              q4Poe: k.poe
+            }));
             userJscs = [
               { id: 'jsc-1', competency: 'Operational Planning & Execution', weight: 25, proficiency: 'Advanced', description: 'Core functional service delivery.' },
               { id: 'jsc-2', competency: 'Compliance, Risk & Records Management', weight: 25, proficiency: 'Competent', description: 'Adherence to municipal legislation.' },
@@ -9303,6 +9339,38 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
     }
   });
 
+  // Performance Plan (PPLAN) Helper to propagate and lock unique POE descriptions per KPI across all 4 quarters
+  const sanitizePplanItem = (item: any, userEmail?: string): any => {
+    if (!item) return item;
+    let poeDesc = (
+      item.poe ||
+      item.annualRequiredPoe ||
+      item.q1Poe ||
+      item.q2Poe ||
+      item.midtermPoe ||
+      item.q3Poe ||
+      item.q4Poe ||
+      ''
+    ).toString().trim();
+
+    if (!poeDesc && item.kpi) {
+      poeDesc = `Signed verification report and evidence portfolio for: ${item.kpi}`;
+    } else if (!poeDesc) {
+      poeDesc = `Signed verification report and approved oversight portfolio files`;
+    }
+
+    return {
+      ...item,
+      poe: poeDesc,
+      annualRequiredPoe: poeDesc,
+      q1Poe: poeDesc,
+      q2Poe: poeDesc,
+      midtermPoe: poeDesc,
+      q3Poe: poeDesc,
+      q4Poe: poeDesc
+    };
+  };
+
   // Performance Plan (PPLAN) Routes
   app.get("/api/tenant/:tenantId/pplan", async (req, res) => {
     const { tenantId: routeTenantId } = req.params;
@@ -9405,9 +9473,10 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       }
 
       if (parsed) {
-        const normalizedList = Array.isArray(parsed) ? parsed : (parsed.items || parsed.rows || parsed.kpis || []);
-        parsed.items = normalizedList;
-        parsed.rows = normalizedList;
+        const rawItems = Array.isArray(parsed) ? parsed : (parsed.items || parsed.rows || parsed.kpis || []);
+        const sanitizedItems = rawItems.map((it: any) => sanitizePplanItem(it, userId));
+        parsed.items = sanitizedItems;
+        parsed.rows = sanitizedItems;
         return res.json(parsed);
       }
       return res.json({ metadata: {}, items: [], rows: [] });
@@ -9480,6 +9549,9 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
             try {
               const rawObj = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
               planObj = sanitizeHeavyPayload(rawObj);
+              if (planObj && Array.isArray(planObj.items)) {
+                planObj.items = planObj.items.map((it: any) => sanitizePplanItem(it, userId));
+              }
             } catch (e) {}
           }
 
@@ -9663,6 +9735,8 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
         ? ['tenant-229', 'nkangala_auto']
         : [tenantId];
 
+      const sanitizedItems = Array.isArray(items) ? items.map((it: any) => sanitizePplanItem(it, userId)) : [];
+
       for (const u of targetUsers) {
         for (const tId of syncTenants) {
           const uDocId = `pplan_${tId}_${u}`;
@@ -9674,7 +9748,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
               sender_id: 'pplan_editor_tool',
               sender_email: 'pplan@system.local',
               sender_name: 'PPLAN Editor',
-              content: JSON.stringify({ metadata, items }),
+              content: JSON.stringify({ metadata, items: sanitizedItems }),
               message_type: 'pplan_list',
               created_at: new Date().toISOString()
             });

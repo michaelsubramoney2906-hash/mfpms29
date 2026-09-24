@@ -285,6 +285,9 @@ export function FredSDBIPExtractor({
           r => r.refNum?.toLowerCase() === item.refNum?.toLowerCase() || r.id === item._id
         );
 
+        // Verbatim source document POE description reflects across all four quarters (non-editable)
+        const sourcePoe = (item.poeStatus || item.q1PoeDesc || item.q2PoeDesc || item.q3PoeDesc || item.q4PoeDesc || existing?.poeStatus || existing?.q1PoeDesc || 'Portfolio of Evidence required').trim();
+
         return {
           id: existing?.id || item._id || `sdbip-tl-${Date.now()}-${idx + 1}`,
           refNum: item.refNum || `M_${String(idx + 1).padStart(2, '0')}`,
@@ -313,33 +316,33 @@ export function FredSDBIPExtractor({
           responsibleUnit: item.responsibleUnit || 'Municipal Administration',
           evaluationUser: 'Municipal Official',
           reviewManager: 'Municipal Manager',
-          poeStatus: item.poeStatus || existing?.poeStatus || 'Pending',
-          // SDBIP Top Layer Reporting fields
+          poeStatus: sourcePoe,
+          // SDBIP Top Layer Reporting fields: Source POE reflects across all four quarters verbatim
           q1Actual: item.q1Actual || existing?.q1Actual || '',
           q1Variance: item.q1Variance || existing?.q1Variance || '',
           q1Corrective: item.q1Corrective || existing?.q1Corrective || '',
           q1Expenditure: item.q1Expenditure || existing?.q1Expenditure || '',
-          q1PoeDesc: item.q1PoeDesc || existing?.q1PoeDesc || '',
+          q1PoeDesc: sourcePoe,
           q2Actual: item.q2Actual || existing?.q2Actual || '',
           q2Variance: item.q2Variance || existing?.q2Variance || '',
           q2Corrective: item.q2Corrective || existing?.q2Corrective || '',
           q2Expenditure: item.q2Expenditure || existing?.q2Expenditure || '',
-          q2PoeDesc: item.q2PoeDesc || existing?.q2PoeDesc || '',
+          q2PoeDesc: sourcePoe,
           midTermActual: item.midTermActual || existing?.midTermActual || '',
           midTermVariance: item.midTermVariance || existing?.midTermVariance || '',
           midTermCorrective: item.midTermCorrective || existing?.midTermCorrective || '',
           midTermExpenditure: item.midTermExpenditure || existing?.midTermExpenditure || '',
-          midTermPoeDesc: item.midTermPoeDesc || existing?.midTermPoeDesc || '',
+          midTermPoeDesc: sourcePoe,
           q3Actual: item.q3Actual || existing?.q3Actual || '',
           q3Variance: item.q3Variance || existing?.q3Variance || '',
           q3Corrective: item.q3Corrective || existing?.q3Corrective || '',
           q3Expenditure: item.q3Expenditure || existing?.q3Expenditure || '',
-          q3PoeDesc: item.q3PoeDesc || existing?.q3PoeDesc || '',
+          q3PoeDesc: sourcePoe,
           q4Actual: item.q4Actual || existing?.q4Actual || '',
           q4Variance: item.q4Variance || existing?.q4Variance || '',
           q4Corrective: item.q4Corrective || existing?.q4Corrective || '',
           q4Expenditure: item.q4Expenditure || existing?.q4Expenditure || '',
-          q4PoeDesc: item.q4PoeDesc || existing?.q4PoeDesc || ''
+          q4PoeDesc: sourcePoe
         };
       });
 
@@ -762,7 +765,14 @@ export function FredSDBIPExtractor({
                   <th className="p-3 w-24">Q2 Target</th>
                   <th className="p-3 w-24">Q3 Target</th>
                   <th className="p-3 w-24">Q4 Target</th>
-                  <th className="p-3 min-w-[180px]">POE Evidence</th>
+                  <th className="p-3 min-w-[320px]">
+                    <div className="flex items-center gap-1.5">
+                      <span>POE Description</span>
+                      <span className="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-700/60 px-1.5 py-0.5 rounded font-mono">
+                        Q1–Q4 Verbatim
+                      </span>
+                    </div>
+                  </th>
                   <th className="p-3 min-w-[160px]">Responsible Unit</th>
                   <th className="p-3 w-12 text-center">Action</th>
                 </tr>
@@ -778,6 +788,7 @@ export function FredSDBIPExtractor({
                   filteredItems.map((item, idx) => {
                     const isSelected = item._selected !== false;
                     const isM = (item.refNum || '').toUpperCase().startsWith('M_');
+                    const resolvedPoe = item.poeStatus || item.q1PoeDesc || item.q2PoeDesc || item.q3PoeDesc || item.q4PoeDesc || 'Signed quarterly progress reports and verification registers';
 
                     return (
                       <tr
@@ -820,8 +831,18 @@ export function FredSDBIPExtractor({
                         <td className="p-3 text-slate-300 text-[11px]">{item.q2 || '-'}</td>
                         <td className="p-3 text-slate-300 text-[11px]">{item.q3 || '-'}</td>
                         <td className="p-3 text-slate-300 text-[11px]">{item.q4 || '-'}</td>
-                        <td className="p-3 text-slate-400 text-[11px]">
-                          <div className="line-clamp-2 hover:line-clamp-none">{item.poeStatus || '-'}</div>
+                        <td className="p-3">
+                          <div className="space-y-1.5">
+                            <div className="p-2 rounded bg-slate-900/90 border border-slate-750 text-slate-200 text-[11px] leading-relaxed select-text font-normal">
+                              {resolvedPoe}
+                            </div>
+                            <div className="flex items-center gap-1.5 text-[10px] text-emerald-400 font-medium">
+                              <span className="inline-flex items-center gap-0.5 bg-emerald-950/80 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-800/40 text-[9px] font-semibold">
+                                🔒 Locked / Read-Only
+                              </span>
+                              <span className="text-slate-400">Reflects across Q1, Q2, Q3, Q4 POE</span>
+                            </div>
+                          </div>
                         </td>
                         <td className="p-3 text-slate-400 text-[11px]">{item.responsibleUnit || '-'}</td>
                         <td className="p-3 text-center">
