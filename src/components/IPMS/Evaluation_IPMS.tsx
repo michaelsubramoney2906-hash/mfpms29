@@ -42,10 +42,11 @@ export const calculateProgressPercentage = (target?: string, actual?: string): n
   return 0;
 };
 
-export const calculateVariance = (target?: string, actual?: string): string => {
-  if (!target || !actual) return '0';
+export const hasVariance = (target?: string, actual?: string): boolean => {
+  if (!target || !actual || !target.toString().trim() || !actual.toString().trim()) return false;
   const cleanNum = (val: string) => {
-    const standardFormat = val.replace(/,/g, '').replace(/\s/g, '');
+    const trimmed = val.trim();
+    const standardFormat = trimmed.replace(/,/g, '').replace(/\s/g, '');
     const match = standardFormat.match(/-?\d+(\.\d+)?/);
     if (match) {
       const parsed = parseFloat(match[0]);
@@ -53,13 +54,38 @@ export const calculateVariance = (target?: string, actual?: string): string => {
     }
     return null;
   };
-  const tNum = cleanNum(target);
-  const aNum = cleanNum(actual);
+  const tNum = cleanNum(target.toString());
+  const aNum = cleanNum(actual.toString());
+  if (tNum !== null && aNum !== null) {
+    return Math.abs(tNum - aNum) > 0.0001;
+  }
+  const tNorm = target.toString().trim().toLowerCase();
+  const aNorm = actual.toString().trim().toLowerCase();
+  return tNorm !== aNorm;
+};
+
+export const calculateVariance = (target?: string, actual?: string): string => {
+  if (!target || !actual || !target.toString().trim() || !actual.toString().trim()) return '0';
+  const cleanNum = (val: string) => {
+    const standardFormat = val.toString().replace(/,/g, '').replace(/\s/g, '');
+    const match = standardFormat.match(/-?\d+(\.\d+)?/);
+    if (match) {
+      const parsed = parseFloat(match[0]);
+      return isNaN(parsed) ? null : parsed;
+    }
+    return null;
+  };
+  const tNum = cleanNum(target.toString());
+  const aNum = cleanNum(actual.toString());
   if (tNum !== null && aNum !== null) {
     const diff = tNum - aNum;
+    if (Math.abs(diff) < 0.0001) return '0';
     return Number(diff.toFixed(2)).toString();
   }
-  return '0';
+  const tNorm = target.toString().trim().toLowerCase();
+  const aNorm = actual.toString().trim().toLowerCase();
+  if (tNorm === aNorm) return '0';
+  return 'Variance (Target not met)';
 };
 
 interface QuarterPoeSelectorProps {

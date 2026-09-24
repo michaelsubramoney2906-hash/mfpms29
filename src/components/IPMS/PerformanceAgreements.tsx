@@ -26,10 +26,11 @@ const DUAL_LAYER_USERS = [
   'masanabol@nkangaladm.gov.za'
 ].map(e => e.toLowerCase());
 
-export const calculateVariance = (target?: string, actual?: string): string => {
-  if (!target || !actual) return '0';
+export const hasVariance = (target?: string, actual?: string): boolean => {
+  if (!target || !actual || !target.toString().trim() || !actual.toString().trim()) return false;
   const cleanNum = (val: string) => {
-    const standardFormat = val.replace(/,/g, '').replace(/\s/g, '');
+    const trimmed = val.trim();
+    const standardFormat = trimmed.replace(/,/g, '').replace(/\s/g, '');
     const match = standardFormat.match(/-?\d+(\.\d+)?/);
     if (match) {
       const parsed = parseFloat(match[0]);
@@ -37,13 +38,38 @@ export const calculateVariance = (target?: string, actual?: string): string => {
     }
     return null;
   };
-  const tNum = cleanNum(target);
-  const aNum = cleanNum(actual);
+  const tNum = cleanNum(target.toString());
+  const aNum = cleanNum(actual.toString());
+  if (tNum !== null && aNum !== null) {
+    return Math.abs(tNum - aNum) > 0.0001;
+  }
+  const tNorm = target.toString().trim().toLowerCase();
+  const aNorm = actual.toString().trim().toLowerCase();
+  return tNorm !== aNorm;
+};
+
+export const calculateVariance = (target?: string, actual?: string): string => {
+  if (!target || !actual || !target.toString().trim() || !actual.toString().trim()) return '0';
+  const cleanNum = (val: string) => {
+    const standardFormat = val.toString().replace(/,/g, '').replace(/\s/g, '');
+    const match = standardFormat.match(/-?\d+(\.\d+)?/);
+    if (match) {
+      const parsed = parseFloat(match[0]);
+      return isNaN(parsed) ? null : parsed;
+    }
+    return null;
+  };
+  const tNum = cleanNum(target.toString());
+  const aNum = cleanNum(actual.toString());
   if (tNum !== null && aNum !== null) {
     const diff = tNum - aNum;
+    if (Math.abs(diff) < 0.0001) return '0';
     return Number(diff.toFixed(2)).toString();
   }
-  return '0';
+  const tNorm = target.toString().trim().toLowerCase();
+  const aNorm = actual.toString().trim().toLowerCase();
+  if (tNorm === aNorm) return '0';
+  return 'Variance (Target not met)';
 };
 
 interface CompactPoeUploaderProps {
@@ -3147,13 +3173,28 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
 
                       {/* Q1 Corrective Column */}
                       <td className="p-1 border-r border-slate-205 min-w-[180px] bg-amber-50/15">
-                        <div className="text-[9.5px] font-medium text-slate-800 p-2 bg-white border border-slate-200/60 rounded max-h-[110px] overflow-y-auto leading-normal whitespace-normal break-words">
-                          {item.q1Corrective ? (
-                            <span className="font-semibold text-emerald-800">{item.q1Corrective}</span>
-                          ) : (
-                            <span className="text-slate-400 italic">No corrective action logged in self-evaluation</span>
-                          )}
-                        </div>
+                        {(() => {
+                          const isUnlocked = hasVariance(item.q1Target, item.q1Actual);
+                          return (
+                            <textarea
+                              rows={2}
+                              value={item.q1Corrective || ''}
+                              onChange={(e) => handleRowChange(item.id, 'q1Corrective', e.target.value)}
+                              disabled={!isUnlocked}
+                              onInput={(e) => {
+                                e.currentTarget.style.height = 'auto';
+                                e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
+                              }}
+                              placeholder={!isUnlocked ? "No variance - locked" : "1st Qtr Corrective Action..."}
+                              className={`w-full text-[9.5px] font-medium p-1 border rounded outline-none transition ${
+                                isUnlocked 
+                                  ? 'border-amber-300 bg-white text-emerald-900 focus:border-emerald-600 shadow-xs' 
+                                  : 'border-slate-200/50 text-slate-400 bg-slate-50/60 opacity-60 cursor-not-allowed italic'
+                              }`}
+                              style={{ minHeight: '35px', overflow: 'hidden' }}
+                            />
+                          );
+                        })()}
                       </td>
 
                       <td className={`p-1 border-r border-slate-205 min-w-[150px] ${item.q2Locked ? 'bg-slate-100/50 opacity-60' : ''}`}>
@@ -3275,13 +3316,28 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
 
                       {/* Q2 Corrective Column */}
                       <td className="p-1 border-r border-slate-205 min-w-[180px] bg-amber-50/15">
-                        <div className="text-[9.5px] font-medium text-slate-800 p-2 bg-white border border-slate-200/60 rounded max-h-[110px] overflow-y-auto leading-normal whitespace-normal break-words">
-                          {item.q2Corrective ? (
-                            <span className="font-semibold text-emerald-800">{item.q2Corrective}</span>
-                          ) : (
-                            <span className="text-slate-400 italic">No corrective action logged in self-evaluation</span>
-                          )}
-                        </div>
+                        {(() => {
+                          const isUnlocked = hasVariance(item.q2Target, item.q2Actual);
+                          return (
+                            <textarea
+                              rows={2}
+                              value={item.q2Corrective || ''}
+                              onChange={(e) => handleRowChange(item.id, 'q2Corrective', e.target.value)}
+                              disabled={!isUnlocked}
+                              onInput={(e) => {
+                                e.currentTarget.style.height = 'auto';
+                                e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
+                              }}
+                              placeholder={!isUnlocked ? "No variance - locked" : "2nd Qtr Corrective Action..."}
+                              className={`w-full text-[9.5px] font-medium p-1 border rounded outline-none transition ${
+                                isUnlocked 
+                                  ? 'border-amber-300 bg-white text-emerald-900 focus:border-emerald-600 shadow-xs' 
+                                  : 'border-slate-200/50 text-slate-400 bg-slate-50/60 opacity-60 cursor-not-allowed italic'
+                              }`}
+                              style={{ minHeight: '35px', overflow: 'hidden' }}
+                            />
+                          );
+                        })()}
                       </td>
 
                       <td className="p-1 border-r border-slate-205 min-w-[150px] bg-indigo-50/30">
@@ -3392,13 +3448,28 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
 
                       {/* Midterm Corrective Column */}
                       <td className="p-1 border-r border-slate-205 min-w-[180px] bg-amber-50/15">
-                        <div className="text-[9.5px] font-medium text-slate-800 p-2 bg-white border border-slate-200/60 rounded max-h-[110px] overflow-y-auto leading-normal whitespace-normal break-words">
-                          {item.midtermCorrective ? (
-                            <span className="font-semibold text-emerald-800">{item.midtermCorrective}</span>
-                          ) : (
-                            <span className="text-slate-400 italic">No corrective action logged in self-evaluation</span>
-                          )}
-                        </div>
+                        {(() => {
+                          const isUnlocked = hasVariance(item.midtermTarget, item.midtermActual);
+                          return (
+                            <textarea
+                              rows={2}
+                              value={item.midtermCorrective || ''}
+                              onChange={(e) => handleRowChange(item.id, 'midtermCorrective', e.target.value)}
+                              disabled={!isUnlocked}
+                              onInput={(e) => {
+                                e.currentTarget.style.height = 'auto';
+                                e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
+                              }}
+                              placeholder={!isUnlocked ? "No variance - locked" : "Midterm Corrective Action..."}
+                              className={`w-full text-[9.5px] font-medium p-1 border rounded outline-none transition ${
+                                isUnlocked 
+                                  ? 'border-amber-300 bg-white text-emerald-900 focus:border-emerald-600 shadow-xs' 
+                                  : 'border-slate-200/50 text-slate-400 bg-slate-50/60 opacity-60 cursor-not-allowed italic'
+                              }`}
+                              style={{ minHeight: '35px', overflow: 'hidden' }}
+                            />
+                          );
+                        })()}
                       </td>
 
                       <td className={`p-1 border-r border-slate-205 min-w-[150px] ${item.q3Locked ? 'bg-slate-100/50 opacity-60' : ''}`}>
@@ -3520,13 +3591,28 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
 
                       {/* Q3 Corrective Column */}
                       <td className="p-1 border-r border-slate-205 min-w-[180px] bg-amber-50/15">
-                        <div className="text-[9.5px] font-medium text-slate-800 p-2 bg-white border border-slate-200/60 rounded max-h-[110px] overflow-y-auto leading-normal whitespace-normal break-words">
-                          {item.q3Corrective ? (
-                            <span className="font-semibold text-emerald-800">{item.q3Corrective}</span>
-                          ) : (
-                            <span className="text-slate-400 italic">No corrective action logged in self-evaluation</span>
-                          )}
-                        </div>
+                        {(() => {
+                          const isUnlocked = hasVariance(item.q3Target, item.q3Actual);
+                          return (
+                            <textarea
+                              rows={2}
+                              value={item.q3Corrective || ''}
+                              onChange={(e) => handleRowChange(item.id, 'q3Corrective', e.target.value)}
+                              disabled={!isUnlocked}
+                              onInput={(e) => {
+                                e.currentTarget.style.height = 'auto';
+                                e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
+                              }}
+                              placeholder={!isUnlocked ? "No variance - locked" : "3rd Qtr Corrective Action..."}
+                              className={`w-full text-[9.5px] font-medium p-1 border rounded outline-none transition ${
+                                isUnlocked 
+                                  ? 'border-amber-300 bg-white text-emerald-900 focus:border-emerald-600 shadow-xs' 
+                                  : 'border-slate-200/50 text-slate-400 bg-slate-50/60 opacity-60 cursor-not-allowed italic'
+                              }`}
+                              style={{ minHeight: '35px', overflow: 'hidden' }}
+                            />
+                          );
+                        })()}
                       </td>
 
                       <td className={`p-1 border-r border-slate-205 min-w-[150px] ${item.q4Locked ? 'bg-slate-100/50 opacity-60' : ''}`}>
@@ -3648,13 +3734,28 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
 
                       {/* Q4 Corrective Column */}
                       <td className="p-1 border-r border-slate-205 min-w-[180px] bg-amber-50/15">
-                        <div className="text-[9.5px] font-medium text-slate-800 p-2 bg-white border border-slate-200/60 rounded max-h-[110px] overflow-y-auto leading-normal whitespace-normal break-words">
-                          {item.q4Corrective ? (
-                            <span className="font-semibold text-emerald-800">{item.q4Corrective}</span>
-                          ) : (
-                            <span className="text-slate-400 italic">No corrective action logged in self-evaluation</span>
-                          )}
-                        </div>
+                        {(() => {
+                          const isUnlocked = hasVariance(item.q4Target, item.q4Actual);
+                          return (
+                            <textarea
+                              rows={2}
+                              value={item.q4Corrective || ''}
+                              onChange={(e) => handleRowChange(item.id, 'q4Corrective', e.target.value)}
+                              disabled={!isUnlocked}
+                              onInput={(e) => {
+                                e.currentTarget.style.height = 'auto';
+                                e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
+                              }}
+                              placeholder={!isUnlocked ? "No variance - locked" : "4th Qtr Corrective Action..."}
+                              className={`w-full text-[9.5px] font-medium p-1 border rounded outline-none transition ${
+                                isUnlocked 
+                                  ? 'border-amber-300 bg-white text-emerald-900 focus:border-emerald-600 shadow-xs' 
+                                  : 'border-slate-200/50 text-slate-400 bg-slate-50/60 opacity-60 cursor-not-allowed italic'
+                              }`}
+                              style={{ minHeight: '35px', overflow: 'hidden' }}
+                            />
+                          );
+                        })()}
                       </td>
 
                       {/* Annual Actual Column */}
@@ -3709,18 +3810,28 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
 
                       {/* Annual Corrective Column */}
                       <td className="p-1 border-r border-slate-205 min-w-[180px] bg-amber-50/15">
-                        <textarea
-                          rows={2}
-                          value={item.annualCorrective || ''}
-                          onChange={(e) => handleRowChange(item.id, 'annualCorrective', e.target.value)}
-                          onInput={(e) => {
-                            e.currentTarget.style.height = 'auto';
-                            e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
-                          }}
-                          placeholder="Annual Corrective Action..."
-                          className="w-full text-[9.5px] font-medium bg-transparent p-1 focus:bg-white hover:bg-white border border-slate-200 rounded outline-none text-emerald-900"
-                          style={{ minHeight: '35px', overflow: 'hidden' }}
-                        />
+                        {(() => {
+                          const isUnlocked = hasVariance(item.annualTarget, item.annualActual || item.q4Actual);
+                          return (
+                            <textarea
+                              rows={2}
+                              value={item.annualCorrective || ''}
+                              onChange={(e) => handleRowChange(item.id, 'annualCorrective', e.target.value)}
+                              disabled={!isUnlocked}
+                              onInput={(e) => {
+                                e.currentTarget.style.height = 'auto';
+                                e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
+                              }}
+                              placeholder={!isUnlocked ? "No variance - locked" : "Annual Corrective Action..."}
+                              className={`w-full text-[9.5px] font-medium p-1 border rounded outline-none transition ${
+                                isUnlocked 
+                                  ? 'border-amber-300 bg-white text-emerald-900 focus:border-emerald-600 shadow-xs' 
+                                  : 'border-slate-200/50 text-slate-400 bg-slate-50/60 opacity-60 cursor-not-allowed italic'
+                              }`}
+                              style={{ minHeight: '35px', overflow: 'hidden' }}
+                            />
+                          );
+                        })()}
                       </td>
 
                       {/* Portfolio of Evidence */}

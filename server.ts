@@ -759,14 +759,15 @@ async function startServer() {
     
     // Resilient fallback list of valid models in case of high demand (503/429) or endpoint availability
     const fallbackModels = [
-      "gemini-3.1-flash-lite",
-      "gemini-flash-latest",
-      "gemini-3.8-flash"
+      "gemini-2.5-flash",
+      "gemini-2.5-pro",
+      "gemini-2.0-flash",
+      "gemini-1.5-flash"
     ];
     
-    // Ensure initial model is valid, prioritizing gemini-3.1-flash-lite for maximum availability and throughput
+    // Ensure initial model is valid, prioritizing gemini-2.5-flash for maximum quality, speed and schema compliance
     if (!params.model || !fallbackModels.includes(params.model)) {
-      params.model = "gemini-3.1-flash-lite";
+      params.model = "gemini-2.5-flash";
     }
 
     while (attempt < maxRetries) {
@@ -829,7 +830,7 @@ async function startServer() {
 
   // =========================================================================
   // DEDICATED INDIVIDUAL PERFORMANCE PLAN (IPP) EXTRACTION SERVICE
-  // Strictly enforces a flat list schema with zero inference & zero hallucinations
+  // Strictly isolates Annexure A Performance Plan with 100% count & verbatim fidelity
   // =========================================================================
   const handleIPPExtraction = async (req: any, res: any) => {
     try {
@@ -839,112 +840,150 @@ async function startServer() {
         return res.status(400).json({ error: "Missing document text or file payload for IPP extraction." });
       }
 
-      // Verbatim heuristic fallback function without injecting fake / hallucinated defaults
-      const extractHeuristicItems = (raw: string): { items: any[]; kpas: any[] } => {
-        const rawLines = (raw || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-        const results: any[] = [];
-        const extractedKpasMap: Map<string, any> = new Map();
-        let currentFunctionalKpa = 'Functional Performance Area';
-        let insideScorecardOrProjects = false;
-        let insideSection4_2 = false;
+      // Helper to strictly slice out ANNEXURE A: PERFORMANCE PLAN text block
+      const sliceAnnexureABlock = (raw: string): { annexureAText: string; section42Text: string } => {
+        if (!raw) return { annexureAText: '', section42Text: '' };
 
-        // Skip patterns for contractual text, rating scales, footers, etc.
-        const isIgnoredLine = (line: string): boolean => {
-          const lower = line.toLowerCase();
-          return (
-            lower.includes('page ') && lower.includes(' of ') ||
-            lower.includes("employee’s signature") || lower.includes("employee's signature") ||
-            lower.includes("supervisor’ signature") || lower.includes("supervisor' signature") ||
-            lower.includes("pms official’s signature") || lower.includes("pms official's signature") ||
-            lower.includes("annexure b: personal development plan") ||
-            lower.includes("annexure c: disclosure of interest") ||
-            lower.includes("whereby it is agreed as follows") ||
-            lower.includes("1. purpose") || lower.includes("2. validity of the agreement") ||
-            lower.includes("3. reporting requirements") ||
-            lower.includes("5. conditions of performance") || lower.includes("6. performance assessment") ||
-            lower.includes("7. feedback") || lower.includes("8. timetable and records") ||
-            lower.includes("9. management of poor performance") || lower.includes("10. dispute resolution") ||
-            lower.includes("11. amendment of agreement") || lower.includes("12. evaluation") ||
-            lower.includes("13. signatures of parties") ||
-            lower.includes("outstanding performance") && lower.includes("75-100") ||
-            lower.includes("fully effective") && lower.includes("51-64") ||
-            lower.includes("not fully effective") && lower.includes("31-50") ||
-            lower.includes("unacceptable performance") && lower.includes("less than") ||
-            lower.includes("performance significantly above") ||
-            lower.startsWith("level terminology description") ||
-            lower.startsWith("note: adherence to jsc") ||
-            lower.startsWith("note: weighting for one") ||
-            lower.startsWith("the municipal moderation committee consists of") ||
-            lower.startsWith("the departmental performance moderation")
-          );
-        };
+        // 1. Extract Section 4.2 framework text (for KPA weight definitions)
+        let section42Text = '';
+        const s42Match = raw.match(/(?:4\.2\s*(?:The\s*Individual\s*KPAs|The\s*KPA)|Individual\s*KPAs\s*[-–\s]*set\s*out)([\s\S]*?)(?:4\.3|4\.4|5\.\s*CONDITIONS|JOB\s*SPECIFIC\s*COMPETENCIES)/i);
+        if (s42Match) {
+          section42Text = s42Match[1];
+        }
 
-        for (let i = 0; i < rawLines.length; i++) {
-          const line = rawLines[i];
+        // 2. Locate the start of ANNEXURE A: PERFORMANCE PLAN
+        let annexureAStart = -1;
 
-          if (isIgnoredLine(line)) {
-            continue;
-          }
+        // Try exact section banner first
+        const bannerMatch = raw.match(/[-*#\s|]*ANNEXURE\s*A\s*[:.\-–\s]*\s*PERFORMANCE\s*PLAN/i) ||
+                           raw.match(/[-*#\s|]*PERFORMANCE\s*PLAN\s*[-–:]\s*\d{4}\/\d{4}/i);
+        if (bannerMatch && bannerMatch.index !== undefined) {
+          annexureAStart = bannerMatch.index;
+        }
 
-          // Section 4.2 detection: "The Individual KPAs set out for this current financial year are as follows:"
-          if (line.toLowerCase().includes('4.2') && (line.toLowerCase().includes('kpa') || line.toLowerCase().includes('individual kpas set out'))) {
-            insideSection4_2 = true;
-          }
-
-          // Extract Section 4.2 KPA table rows
-          if (insideSection4_2) {
-            if (line.toLowerCase().includes('total:') || line.toLowerCase().includes('total 100') || line.toLowerCase().includes('4.3') || line.toLowerCase().includes('4.4') || line.toLowerCase().includes('job specific competencies')) {
-              insideSection4_2 = false;
-            } else {
-              // Matches e.g.:
-              // "1. KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION 30"
-              // "2. KPA 2: PAYROLL INFORMATION VERIFICATION 15"
-              // "1. Skills Development | 20"
-              const kpaSectionMatch = line.match(/^(\d+)\.\s*(?:KPA\s*(\d+[A-Za-z]?)\s*[:.\-–]\s*)?(.*?)(?:[\t|]+|\s{2,}|\s+)(\d{1,3})%?$/i);
-              if (kpaSectionMatch) {
-                const kpaIndex = kpaSectionMatch[1].trim();
-                const kpaNum = kpaSectionMatch[2]?.trim() || kpaIndex;
-                let kpaName = kpaSectionMatch[3].trim().replace(/^[:.\-–\s]+/, '').replace(/[\t|]+.*$/, '').trim();
-                const kpaWeight = kpaSectionMatch[4].trim();
-
-                // If kpaName starts with KPA x:, strip that prefix for clean name
-                kpaName = kpaName.replace(/^KPA\s*\d+[A-Za-z]?\s*[:.\-–]\s*/i, '').trim();
-
-                if (kpaName && !kpaName.toLowerCase().includes('key performance area') && !kpaName.toLowerCase().includes('weighting')) {
-                  const fullTitle = `KPA ${kpaNum}: ${kpaName}`;
-                  const key = `kpa-${kpaNum.toLowerCase()}`;
-                  const existing = extractedKpasMap.get(key);
-                  extractedKpasMap.set(key, {
-                    kpaNumber: kpaNum,
-                    kpaName: existing?.kpaName && existing.kpaName.length > kpaName.length ? existing.kpaName : kpaName,
-                    fullTitle: existing?.fullTitle && existing.fullTitle.length > fullTitle.length ? existing.fullTitle : fullTitle,
-                    weighting: kpaWeight || existing?.weighting || ''
-                  });
-                }
+        // If not found, look for "ANNEXURE A" not followed by "of the New Staff Regulation"
+        if (annexureAStart === -1) {
+          const annMatches = Array.from(raw.matchAll(/ANNEXURE\s*A\b/gi));
+          for (const m of annMatches) {
+            if (m.index !== undefined) {
+              const snippet = raw.substring(m.index, m.index + 250).toLowerCase();
+              if (snippet.includes('performance plan') || snippet.includes('kpi number') || snippet.includes('team opme') || snippet.includes('name and surname')) {
+                annexureAStart = m.index;
+                break;
               }
             }
           }
+        }
 
-          // Detect start of Annexure A or Projects tables
+        // If still not found, locate the table header itself
+        if (annexureAStart === -1) {
+          const tableHeaderMatch = raw.match(/\bKPI\s*number\b[\s\S]{1,100}\bKey\s*Performance\s*Indicators\b/i);
+          if (tableHeaderMatch && tableHeaderMatch.index !== undefined) {
+            annexureAStart = tableHeaderMatch.index;
+          }
+        }
+
+        if (annexureAStart === -1) {
+          return { annexureAText: raw, section42Text };
+        }
+
+        const rawFromAnnexureA = raw.substring(annexureAStart);
+
+        // 3. Locate the end of Annexure A: Annexure B, PDP, Annexure C, or Certification signoff
+        const annexureAEnd = rawFromAnnexureA.search(/(?:ANNEXURE\s*B\b|PERSONAL\s*DEVELOPMENT\s*PLAN|ANNEXURE\s*C\b|DISCLOSURE\s*OF\s*INTEREST|I\/We,\s*the\s*undersigned\s*hereby\s*certify)/i);
+        const annexureAText = annexureAEnd !== -1 ? rawFromAnnexureA.substring(0, annexureAEnd) : rawFromAnnexureA;
+
+        return { annexureAText, section42Text };
+      };
+
+      const { annexureAText, section42Text } = sliceAnnexureABlock(documentText || '');
+
+      // Helper to map text to one of the 7 National KPAs
+      const resolveNationalKpaCode = (t: string): string => {
+        const l = (t || '').toLowerCase();
+        if (l.includes('skill') || l.includes('training') || l.includes('institutional') || l.includes('transformation') || l.includes('human resource') || l.includes('hr') || l.includes('wsp') || l.includes('pmds')) return 'MIDT';
+        if (l.includes('financial') || l.includes('budget') || l.includes('viability') || l.includes('revenue') || l.includes('expenditure') || l.includes('mfma') || l.includes('scm') || l.includes('debtor') || l.includes('billing') || l.includes('payroll')) return 'MFVM';
+        if (l.includes('basic service') || l.includes('water') || l.includes('sanitation') || l.includes('electricity') || l.includes('roads') || l.includes('refuse') || l.includes('infrastructure') || l.includes('health surveil') || l.includes('waste')) return 'BSD';
+        if (l.includes('economic') || l.includes('job creation') || l.includes('epwp') || l.includes('smme') || l.includes('tourism') || l.includes('agriculture')) return 'LED';
+        if (l.includes('spatial') || l.includes('spluma') || l.includes('town planning') || l.includes('gis') || l.includes('land use') || l.includes('human settlement')) return 'SR';
+        if (l.includes('community') || l.includes('social') || l.includes('disaster') || l.includes('fire') || l.includes('traffic') || l.includes('library')) return 'CS';
+        if (l.includes('governance') || l.includes('public participation') || l.includes('ward') || l.includes('council') || l.includes('mpac') || l.includes('audit') || l.includes('risk') || l.includes('report')) return 'GGPP';
+        if (l.includes('kpa 1')) return 'BSD';
+        if (l.includes('kpa 2')) return 'MIDT';
+        if (l.includes('kpa 3')) return 'LED';
+        if (l.includes('kpa 4')) return 'MFVM';
+        if (l.includes('kpa 5')) return 'GGPP';
+        if (l.includes('kpa 6')) return 'SR';
+        return 'GGPP';
+      };
+
+      // Verbatim heuristic extraction function operating strictly on isolated Annexure A table lines
+      const extractHeuristicItems = (targetText: string): { items: any[]; kpas: any[] } => {
+        const rawLines = (targetText || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        const results: any[] = [];
+        const extractedKpasMap: Map<string, any> = new Map();
+        let currentFunctionalKpa = 'Functional Performance Area';
+
+        // Extract Section 4.2 definitions if available
+        if (section42Text) {
+          const s42Lines = section42Text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+          for (const sLine of s42Lines) {
+            const kpaSectionMatch = sLine.match(/^(\d+)\.\s*(?:KPA\s*(\d+[A-Za-z]?)\s*[:.\-–]\s*)?(.*?)(?:[\t|]+|\s{2,}|\s+)(\d{1,3})%?$/i);
+            if (kpaSectionMatch) {
+              const kpaIndex = kpaSectionMatch[1].trim();
+              const kpaNum = kpaSectionMatch[2]?.trim() || kpaIndex;
+              let kpaName = kpaSectionMatch[3].trim().replace(/^[:.\-–\s]+/, '').replace(/[\t|]+.*$/, '').trim();
+              const kpaWeight = kpaSectionMatch[4].trim();
+              kpaName = kpaName.replace(/^KPA\s*\d+[A-Za-z]?\s*[:.\-–]\s*/i, '').trim();
+
+              if (kpaName && !kpaName.toLowerCase().includes('key performance area') && !kpaName.toLowerCase().includes('weighting')) {
+                const fullTitle = `KPA ${kpaNum}: ${kpaName}`;
+                extractedKpasMap.set(`kpa-${kpaNum.toLowerCase()}`, {
+                  kpaNumber: kpaNum,
+                  kpaName,
+                  fullTitle,
+                  weighting: kpaWeight || ''
+                });
+              }
+            }
+          }
+        }
+
+        let insideTable = false;
+
+        for (let i = 0; i < rawLines.length; i++) {
+          const line = rawLines[i];
+          const lower = line.toLowerCase();
+
+          // Skip page numbers, header cards, signatures
           if (
-            line.toLowerCase().includes('annexure a: performance plan') ||
-            line.toLowerCase().includes('annexure a -') ||
-            line.toLowerCase().includes('performance plan –') ||
-            line.toLowerCase().includes('projects: completed projects') ||
-            line.toLowerCase().includes('completed projects for priority issue')
+            lower.includes('page ') && lower.includes(' of ') ||
+            lower.startsWith('team ') || lower.startsWith('period ') || lower.startsWith('department ') ||
+            lower.startsWith('name and surname') || lower.startsWith('position ') || lower.startsWith('level ') ||
+            lower.includes('team member’s signature') || lower.includes("team member's signature") ||
+            lower.includes("employee’s signature") || lower.includes("employee's signature") ||
+            lower.includes("supervisor’ signature") || lower.includes("supervisor' signature") ||
+            lower.includes("pms official’s signature") || lower.includes("pms official's signature") ||
+            lower.includes("i/we, the undersigned") ||
+            lower.includes("annexure a: performance plan") || lower.includes("annexure a -")
           ) {
-            insideScorecardOrProjects = true;
-            insideSection4_2 = false;
+            continue;
           }
 
-          // Detect Functional KPA banner dynamically (strictly verbatim without any hardcoded department names)
+          // Table header detection
+          if (lower.includes('kpi number') || (lower.includes('kpi') && lower.includes('key performance indicator'))) {
+            insideTable = true;
+            continue;
+          }
+
+          // Detect Functional KPA banner dynamically (e.g. "KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION")
           const kpaBannerMatch = line.match(/^[-*#\s|]*(?:KPA\s*(\d+[A-Za-z]?)\s*[:.\-–]\s*|Key\s*Performance\s*Area\s*(\d+[A-Za-z]?)\s*[:.\-–]\s*)(.+)$/i);
           if (kpaBannerMatch) {
             const kpaNum = kpaBannerMatch[1] || kpaBannerMatch[2] || '';
             const rawKpaName = kpaBannerMatch[3].trim().replace(/\|.*$/, '').trim();
             if (rawKpaName.length > 1 && !rawKpaName.toLowerCase().includes('kpi number') && !rawKpaName.toLowerCase().includes('kpi no') && !rawKpaName.toLowerCase().includes('weight')) {
               currentFunctionalKpa = kpaNum ? `KPA ${kpaNum}: ${rawKpaName}` : `KPA: ${rawKpaName}`;
-              insideScorecardOrProjects = true;
+              insideTable = true;
 
               const key = kpaNum ? `kpa-${kpaNum.toLowerCase()}` : `kpa-${currentFunctionalKpa.toLowerCase()}`;
               const existing = extractedKpasMap.get(key);
@@ -956,91 +995,48 @@ async function startServer() {
                   weighting: ''
                 });
               } else {
-                // If existing only had shorter name or missing full title, enrich it
                 if (rawKpaName.length > (existing.kpaName || '').length) {
                   existing.kpaName = rawKpaName;
                   existing.fullTitle = currentFunctionalKpa;
                 }
               }
             }
-            if (!line.includes('\t') && !line.includes('|')) {
-              continue;
-            }
+            continue;
           }
 
-          // Generic statutory KPA banner fallback if without "KPA" prefix
-          if (
-            line.toLowerCase().includes('institution development') ||
-            line.toLowerCase().includes('good governance') ||
-            line.toLowerCase().includes('local economic development') ||
-            line.toLowerCase().includes('financial viability') ||
-            line.toLowerCase().includes('basic service delivery') ||
-            line.toLowerCase().includes('projects: completed projects') ||
-            line.toLowerCase().includes('completed projects for priority issue')
-          ) {
-            const cleanBanner = line.replace(/^[-*#\s|]+/, '').replace(/^KPA\s*\d+\s*[:.\-–]\s*/i, '').trim();
-            if (cleanBanner.length > 2 && !cleanBanner.toLowerCase().includes('kpi number') && !cleanBanner.toLowerCase().includes('kpi no') && !cleanBanner.toLowerCase().includes('weight')) {
-              const kpaNumPrefix = line.match(/KPA\s*(\d+[A-Za-z]?)/i);
-              if (kpaNumPrefix) {
-                currentFunctionalKpa = `KPA ${kpaNumPrefix[1]}: ${cleanBanner}`;
-              } else {
-                currentFunctionalKpa = `KPA: ${cleanBanner}`;
-              }
-              insideScorecardOrProjects = true;
-
-              if (!extractedKpasMap.has(currentFunctionalKpa.toLowerCase())) {
-                const numM = currentFunctionalKpa.match(/KPA\s*(\d+[A-Za-z]?)/i);
-                extractedKpasMap.set(currentFunctionalKpa.toLowerCase(), {
-                  kpaNumber: numM ? numM[1] : String(extractedKpasMap.size + 1),
-                  kpaName: cleanBanner,
-                  fullTitle: currentFunctionalKpa,
-                  weighting: ''
-                });
-              }
-            }
-            if (!line.includes('\t') && !line.includes('|')) {
-              continue;
-            }
+          // Sub-headers inside KPA (e.g. "WATER QUALITY MONITORING", "HEALTH SURVEILANCE OF PREMISES")
+          if (/^[-*#\s|]*(?:WATER\s*QUALITY\s*MONITORING|HEALTH\s*SURVEILANCE\s*OF\s*PREMISES|AIR\s*QUALITY\s*MONITORING|WASTE\s*MANAGEMENT)[-*#\s|]*$/i.test(line)) {
+            continue;
           }
 
-          // Helper to map text to one of the 7 National KPAs
-          const resolveNationalKpaCode = (t: string): string => {
-            const l = (t || '').toLowerCase();
-            if (l.includes('skill') || l.includes('training') || l.includes('institutional') || l.includes('transformation') || l.includes('human resource') || l.includes('hr') || l.includes('wsp') || l.includes('pmds')) return 'MIDT';
-            if (l.includes('financial') || l.includes('budget') || l.includes('viability') || l.includes('revenue') || l.includes('expenditure') || l.includes('mfma') || l.includes('scm') || l.includes('debtor') || l.includes('billing') || l.includes('payroll')) return 'MFVM';
-            if (l.includes('basic service') || l.includes('water') || l.includes('sanitation') || l.includes('electricity') || l.includes('roads') || l.includes('refuse') || l.includes('infrastructure') || l.includes('health surveil') || l.includes('waste')) return 'BSD';
-            if (l.includes('economic') || l.includes('job creation') || l.includes('epwp') || l.includes('smme') || l.includes('tourism') || l.includes('agriculture')) return 'LED';
-            if (l.includes('spatial') || l.includes('spluma') || l.includes('town planning') || l.includes('gis') || l.includes('land use') || l.includes('human settlement')) return 'SR';
-            if (l.includes('community') || l.includes('social') || l.includes('disaster') || l.includes('fire') || l.includes('traffic') || l.includes('library')) return 'CS';
-            if (l.includes('governance') || l.includes('public participation') || l.includes('ward') || l.includes('council') || l.includes('mpac') || l.includes('audit') || l.includes('risk') || l.includes('report')) return 'GGPP';
-            if (l.includes('kpa 1')) return 'BSD';
-            if (l.includes('kpa 2')) return 'MIDT';
-            if (l.includes('kpa 3')) return 'LED';
-            if (l.includes('kpa 4')) return 'MFVM';
-            if (l.includes('kpa 5')) return 'GGPP';
-            if (l.includes('kpa 6')) return 'SR';
-            return 'GGPP';
-          };
-
-          // If row is a tab or pipe separated table line inside scorecard or with scorecard-like columns
-          if (insideScorecardOrProjects && (line.includes('\t') || line.includes('|'))) {
+          // Parse table row (delimited by tabs or pipes)
+          if (line.includes('\t') || line.includes('|')) {
             const rawCells = (line.includes('\t') ? line.split('\t') : line.split('|')).map(c => c.trim()).filter(Boolean);
-            const firstCell = (rawCells[0] || '').toLowerCase();
-            if (
-              rawCells.length >= 2 && 
-              !firstCell.includes('kpi number') && 
-              !firstCell.includes('kpi ids') && 
-              !firstCell.includes('kpi no') &&
-              !firstCell.includes('key performance indicator') && 
-              !firstCell.includes('project name') && 
-              !firstCell.includes('indicator') &&
-              !firstCell.includes('weight') &&
-              !firstCell.includes('signature') &&
-              !firstCell.includes('core competency') &&
-              !firstCell.includes('job specific')
-            ) {
-              
-              let kpiNo = rawCells[0] || `KPI-${results.length + 1}`;
+            const firstCell = (rawCells[0] || '').trim();
+            const firstCellLower = firstCell.toLowerCase();
+
+            // Strict validation: First cell MUST be a valid KPI Number format (e.g. "M_21", "1", "2", "17", "1.1", "BSD-01")
+            const isValidKpiNo = /^(?:[M|P|U]_\d+|\d{1,3}(?:\.\d{1,2})?|[A-Z]{2,5}[-_]?\d+)$/i.test(firstCell);
+
+            const isExcludedWord = 
+              firstCellLower.includes('herein') ||
+              firstCellLower.includes('employee') ||
+              firstCellLower.includes('supervisor') ||
+              firstCellLower.includes('employer') ||
+              firstCellLower.includes('no.') ||
+              firstCellLower.includes('no') ||
+              firstCellLower.includes('kpi') ||
+              firstCellLower.includes('team') ||
+              firstCellLower.includes('department') ||
+              firstCellLower.includes('position') ||
+              firstCellLower.includes('level') ||
+              firstCellLower.includes('signature') ||
+              firstCellLower.includes('baseline') ||
+              firstCellLower.includes('target') ||
+              firstCellLower.includes('weight');
+
+            if (isValidKpiNo && !isExcludedWord && rawCells.length >= 2) {
+              let kpiNo = firstCell;
               let kpiDesc = rawCells[1] || '';
               let weight = '';
               let baseline = '';
@@ -1074,11 +1070,11 @@ async function startServer() {
               } else if (rawCells.length === 9) {
                 weight = rawCells[2] || '';
                 baseline = rawCells[3] || '';
-                q1 = rawCells[4] || '';
-                q2 = rawCells[5] || '';
-                q3 = rawCells[6] || '';
-                q4 = rawCells[7] || '';
-                poe = rawCells[8] || '';
+                annualTarget = rawCells[4] || '';
+                q1 = rawCells[5] || '';
+                q2 = rawCells[6] || '';
+                q3 = rawCells[7] || '';
+                q4 = rawCells[8] || '';
               } else if (rawCells.length === 8) {
                 weight = rawCells[2] || '';
                 baseline = rawCells[3] || '';
@@ -1095,8 +1091,8 @@ async function startServer() {
                 weight = rawCells[2] || '';
               }
 
-              // Only accept if description exists and is not a header or signature artifact
-              if (kpiDesc && kpiDesc.length > 3 && !kpiDesc.toLowerCase().includes('signature') && !kpiDesc.toLowerCase().includes('assessment')) {
+              // Only accept if description is genuine text
+              if (kpiDesc && kpiDesc.length > 3 && !kpiDesc.toLowerCase().includes('signature') && !kpiDesc.toLowerCase().includes('certify that the above')) {
                 const natKpa = resolveNationalKpaCode(currentFunctionalKpa);
                 results.push({
                   "kpi no": kpiNo,
@@ -1115,77 +1111,59 @@ async function startServer() {
                   "kpa": currentFunctionalKpa,
                   kpaType: 'functional'
                 });
-                continue;
+              }
+            } else if (results.length > 0 && !isExcludedWord) {
+              // Continuation text of multi-line cell belonging to the active KPI item
+              const lastItem = results[results.length - 1];
+              if (rawCells.length >= 2) {
+                if (rawCells[0] && rawCells[0].length > 1 && !/^\d+$/.test(rawCells[0])) {
+                  lastItem["kpi description"] = (lastItem["kpi description"] + ' ' + rawCells[0] + ' ' + (rawCells[1] || '')).replace(/\s+/g, ' ').trim();
+                } else if (rawCells[1]) {
+                  lastItem["kpi description"] = (lastItem["kpi description"] + ' ' + rawCells[1]).replace(/\s+/g, ' ').trim();
+                }
+                if (rawCells.length >= 3 && rawCells[2] && isNaN(parseFloat(rawCells[2]))) {
+                  lastItem["kpi description"] = (lastItem["kpi description"] + ' ' + rawCells[2]).replace(/\s+/g, ' ').trim();
+                }
+                const lastCell = rawCells[rawCells.length - 1];
+                if (lastCell && (lastCell.toLowerCase().includes('unit') || lastCell.toLowerCase().includes('report') || lastCell.toLowerCase().includes('services') || lastCell.toLowerCase().includes('certificate') || lastCell.toLowerCase().includes('register'))) {
+                  lastItem["poe"] = (lastItem["poe"] + ' ' + lastCell).replace(/\s+/g, ' ').trim();
+                }
+              } else if (rawCells.length === 1 && rawCells[0]) {
+                lastItem["kpi description"] = (lastItem["kpi description"] + ' ' + rawCells[0]).replace(/\s+/g, ' ').trim();
               }
             }
-          }
-
-          // If inside scorecard/projects and line matches explicit KPI code pattern (e.g. M_11, P_09, BSD-01, KPI 1 - NOT bare clause numbers)
-          const codeMatch = line.match(/^([M|P]_\d+|[A-Z]{2,5}[-_]\d+|\bKPI\s*\d+)\s*[:.\-–\t\s|](.+)$/i);
-          if (codeMatch && insideScorecardOrProjects) {
-            const natKpa = resolveNationalKpaCode(currentFunctionalKpa);
-            results.push({
-              "kpi no": codeMatch[1].trim(),
-              "kpi description": codeMatch[2].trim(),
-              "%wt": "",
-              "baseline": "",
-              "annual target": "",
-              "1st qtr target": "",
-              "2nd qtr target": "",
-              "3rd qtr target": "",
-              "4th qtr target": "",
-              "poe": "",
-              "budget": "",
-              "functional kpa": currentFunctionalKpa,
-              "national kpa": natKpa,
-              "kpa": currentFunctionalKpa,
-              kpaType: 'functional'
-            });
+          } else if (results.length > 0 && line.length > 2) {
+            const lower = line.toLowerCase();
+            if (!lower.includes('page ') && !lower.includes('signature') && !lower.includes('kpa ') && !lower.includes('annexure')) {
+              const lastItem = results[results.length - 1];
+              lastItem["kpi description"] = (lastItem["kpi description"] + ' ' + line).replace(/\s+/g, ' ').trim();
+            }
           }
         }
         return { items: results, kpas: Array.from(extractedKpasMap.values()) };
       };
 
-      const systemInstruction = `You are a dedicated, 100% deterministic extraction engine for South African municipal INDIVIDUAL PERFORMANCE PLANS and Performance Agreements (Annexure A Scorecards & Section 4.2 Framework).
+      const systemInstruction = `You are a dedicated, 100% deterministic, zero-hallucination extraction engine for South African municipal INDIVIDUAL PERFORMANCE PLANS in Performance Agreements.
 
-CRITICAL DISTINCTION BETWEEN INDIVIDUAL PERFORMANCE PLAN vs SDBIP TOP LAYER:
-- An Individual Performance Plan contains FUNCTIONAL KPAs (defined specifically for the employee/directorate in Section 4.2 and Annexure A headings, e.g. "KPA 1: Technical Infrastructure", "KPA 2: Maintenance Operations", "KPA 3: Financial Governance") and individual employee KPIs.
-- It does NOT contain institutional SDBIP catalogs or generic 110-KPI lists.
-- Extract ONLY the Functional KPAs and KPIs that are physically printed in the source document.
+CRITICAL RULE: ANNEXURE A (PERFORMANCE PLAN) IS THE ONLY PART OF THE DOCUMENT TO BE EXTRACTED:
+- The source document contains many sections: Preamble, Clauses 1 to 13 (Purpose, Validity, Reporting, Conditions, Assessment, Dispute Resolution, Signatures), Section 4.2 KPA table, Annexure B (Personal Development Plan / PDP), Annexure C (Financial Disclosures), Job Specific Competencies (JSC / CMC), Code of Conduct, or Appendices.
+- DO NOT extract any clauses, paragraphs, competencies, PDP items, or rating scales from other sections.
+- ONLY EXTRACT THE SCORECARD / PERFORMANCE PLAN TABLE(S) LOCATED IN "ANNEXURE A - PERFORMANCE PLAN" (irrespective of the user or employee).
+- Sometimes a performance plan contains 10 KPIs, sometimes 12 KPIs, sometimes 17 KPIs, sometimes 19 KPIs, and sometimes 100 KPIs. You must extract EXACTLY the number of KPI rows printed in the Annexure A table — no more, no less! Zero dreaming, zero hallucinating, zero adding KPIs, zero omitting KPIs.
 
-ABSOLUTE ZERO-HALLUCINATION & 1:1 EXACT COUNT RULES:
-1. EXACT 1:1 VERBATIM EXTRACTION:
-   - Extract EVERY SINGLE LETTER, WORD, NUMBER, AND PUNCTUATION MARK verbatim word-for-word exactly as printed in the source document.
-   - You are strictly forbidden from altering, modifying, paraphrasing, summarizing, adding, or removing any text, letters, or numbers.
-
-2. STRICT COUNT FIDELITY:
-   - If the source document scorecard contains 17 KPIs across 5 Functional KPAs, your output MUST contain EXACTLY 17 KPIs and 5 Functional KPAs.
-   - NEVER hallucinate, synthesize, or pull in KPIs from outside the document.
-
-3. FUNCTIONAL KPA EXTRACTION (FROM SECTION 4.2 & ANNEXURE A HEADINGS):
-   - Extract the exact Functional KPAs as defined in Section 4.2 and as section banner headings in Annexure A.
-   - Format fullTitle as "KPA <number>: <verbatim name>" (e.g. "KPA 1: Information Management", "KPA 2: Information Verification", "KPA 5: Reporting").
-   - Extract Section 4.2 framework weights exactly as written (e.g. "20", "15", "30").
-
-4. SCORECARD KPI EXTRACTION (ANNEXURE A TABLE):
-   - Extract all KPI rows from the scorecard table:
-     * KPI Number -> kpiNo (Exact KPI number e.g. 1.1, 1.2, 1, 2, BSD-01, etc.)
-     * Key Performance Indicator -> kpiDescription (100% verbatim text of the KPI output / measure)
-     * Weight -> weight (Weight percentage number only e.g. "20", "15", "10")
-     * Baseline -> baseline (Verbatim baseline from source)
-     * Annual Target -> annualTarget (Verbatim planned annual target from source)
-     * 1st Quarter Planned Target -> q1Target (Verbatim 1st quarter planned target)
-     * 2nd Quarter Planned Target -> q2Target (Verbatim 2nd quarter planned target)
-     * 3rd Quarter Planned Target -> q3Target (Verbatim 3rd quarter planned target)
-     * 4th Quarter Planned Target -> q4Target (Verbatim 4th quarter planned target)
-     * POE -> poe (Verbatim Portfolio of Evidence / Means of Verification)
-     * Total Budget Allocated -> budget (Verbatim budget allocation)
-     * functionalKpa: The exact parent Functional KPA title under which this item resides (starting with "KPA").
-
-5. EXCLUSIONS (DO NOT EXTRACT AS KPIS):
-   - DO NOT extract contractual legal clauses (e.g. Purpose, Validity, Reporting, Conditions, Signatures).
-   - DO NOT extract 5-point rating scale explanatory descriptions.
-   - DO NOT extract Job Specific Competencies or PDP items as KPIs (they are separate annexures).`;
+DATA TO EXTRACT FOR EVERY KPI ROW IN ANNEXURE A:
+1. functional KPA -> Parent Functional KPA (from Annexure A table banner or column, e.g. "KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION")
+2. KPI number -> Exact KPI Number (e.g. "M_21", "1", "2", "3", "1.1", "BSD-01")
+3. key performance indicator -> Verbatim description/output of the Key Performance Indicator
+4. weight -> % Weighting number (e.g. "9", "5", "10", "20")
+5. baseline -> Verbatim Baseline (e.g. "1 (Unqualified with matters)", "100%", "4")
+6. annual target -> Verbatim Planned Annual Target (e.g. "1 (Clean audit)", "100%")
+7. 1st quarter planned target -> Verbatim 1st Quarter Planned Target (e.g. "N/A", "1", "100%")
+8. 2nd quarter planned target -> Verbatim 2nd Quarter Planned Target (e.g. "1 (Clean audit)", "N/A", "100%")
+9. 3rd quarter planned target -> Verbatim 3rd Quarter Planned Target (e.g. "N/A", "1", "100%")
+10. 4th quarter planned target -> Verbatim 4th Quarter Planned Target (e.g. "N/A", "1", "100%")
+11. poe -> Verbatim Portfolio of Evidence (POE) description / Means of verification (e.g. "AG's Audit Report", "Compliance certificate from OPME & PMDS Unit")
+12. total budget allocated R'000 -> Verbatim Total Budget Allocated (e.g. "OPEX", "R 5 380", "450 000")`;
 
       let extractedArray: any[] = [];
       let extractedKpas: any[] = [];
@@ -1215,24 +1193,39 @@ ABSOLUTE ZERO-HALLUCINATION & 1:1 EXACT COUNT RULES:
               }
             ];
 
-            if (documentText && documentText.trim().length > 0) {
+            if (annexureAText && annexureAText.trim().length > 0) {
+              parts.push({
+                text: `Extracted Annexure A (Performance Plan Table Only):\n${annexureAText}\n\n${section42Text ? `Section 4.2 Framework Definitions:\n${section42Text}` : ''}`
+              });
+            } else if (documentText && documentText.trim().length > 0) {
               parts.push({
                 text: `Extracted Document Text Structure:\n${documentText}`
               });
             }
 
             parts.push({
-              text: `Extract the Functional Key Performance Areas (KPAs) from Section 4.2 / Annexure A headings and the exact KPIs from the scorecard table. Ensure EVERY Functional KPA starts with the word 'KPA' and is extracted verbatim from the source document. Extract ONLY what is printed in the document with 1:1 verbatim accuracy and zero hallucinations. Return as JSON conforming strictly to the schema.`
+              text: `CRITICAL INSTRUCTION: Extract ONLY the KPI rows physically present in the Annexure A Performance Plan table(s). Extract exactly: functional KPA, KPI number, key performance indicator, weight, baseline, annual target, 1st quarter planned target, 2nd quarter planned target, 3rd quarter planned target, 4th quarter planned target, poe, and total budget allocated R'000. Do NOT extract anything from any other section (no legal clauses, no rating matrices, no Annexure B PDP, no CMC/JSC). If the Annexure A table has 17 KPIs, return EXACTLY 17 items. If it has 12 KPIs, return EXACTLY 12 items. If it has 19 KPIs, return EXACTLY 19 items. Zero dreaming, zero adding data.`
             });
 
             contents = [{ role: 'user', parts }];
+          } else if (annexureAText && annexureAText.trim().length > 0) {
+            contents = [
+              {
+                role: 'user',
+                parts: [
+                  {
+                    text: `SOURCE ANNEXURE A (PERFORMANCE PLAN TABLE ONLY - FILENAME: ${fileName || 'Performance Agreement'}):\n${annexureAText}\n\n${section42Text ? `Section 4.2 Framework Definitions:\n${section42Text}` : ''}\n\nCRITICAL INSTRUCTION: Extract ONLY the KPI rows physically present in the Annexure A Performance Plan table(s). Extract exactly: functional KPA, KPI number, key performance indicator, weight, baseline, annual target, 1st quarter planned target, 2nd quarter planned target, 3rd quarter planned target, 4th quarter planned target, poe, and total budget allocated R'000. Do NOT extract anything from any other section (no legal clauses, no rating matrices, no Annexure B PDP, no CMC/JSC). If the Annexure A table has 17 KPIs, return EXACTLY 17 items. If it has 12 KPIs, return EXACTLY 12 items. If it has 19 KPIs, return EXACTLY 19 items. Zero dreaming, zero adding data.`
+                  }
+                ]
+              }
+            ];
           } else if (documentText && documentText.trim().length > 0) {
             contents = [
               {
                 role: 'user',
                 parts: [
                   {
-                    text: `SOURCE DOCUMENT CONTENT (FILENAME: ${fileName || 'Performance Agreement'}):\n${documentText}\n\nExtract the Functional Key Performance Areas (KPAs) from Section 4.2 / Annexure A headings and ALL KPIs from the Annexure A Scorecard table. Ensure EVERY Functional KPA starts with the word 'KPA' and is extracted verbatim from the source document. Extract ONLY what is in the document with zero modifications and zero hallucinations. Return as JSON conforming strictly to the schema.`
+                    text: `SOURCE DOCUMENT CONTENT (FILENAME: ${fileName || 'Performance Agreement'}):\n${documentText}\n\nCRITICAL INSTRUCTION: Locate "ANNEXURE A - PERFORMANCE PLAN" (or Section 4.2 framework). Extract ONLY the rows in the Annexure A Performance Plan table(s). Extract exactly: functional KPA, KPI number, key performance indicator, weight, baseline, annual target, 1st quarter planned target, 2nd quarter planned target, 3rd quarter planned target, 4th quarter planned target, poe, and total budget allocated R'000. Do NOT extract anything from any other section (no legal clauses, no rating matrices, no Annexure B PDP, no CMC/JSC). Zero dreaming, zero adding data.`
                   }
                 ]
               }
@@ -1249,7 +1242,7 @@ ABSOLUTE ZERO-HALLUCINATION & 1:1 EXACT COUNT RULES:
                     }
                   },
                   {
-                    text: `Extract all Functional KPAs (prefixed with 'KPA') and ALL KPIs from this document with 100% verbatim accuracy. Extract ONLY what is physically present in the document.`
+                    text: `CRITICAL INSTRUCTION: Locate "ANNEXURE A - PERFORMANCE PLAN". Extract ONLY the rows in the Annexure A Performance Plan table(s). Extract exactly: functional KPA, KPI number, key performance indicator, weight, baseline, annual target, 1st quarter planned target, 2nd quarter planned target, 3rd quarter planned target, 4th quarter planned target, poe, and total budget allocated R'000. Do NOT extract anything from any other section.`
                   }
                 ]
               }
@@ -1258,7 +1251,7 @@ ABSOLUTE ZERO-HALLUCINATION & 1:1 EXACT COUNT RULES:
 
           if (contents.length > 0) {
             const response = await generateContentWithRetry(ai, {
-              model: "gemini-3.1-flash-lite",
+              model: "gemini-2.5-flash",
               contents,
               config: {
                 systemInstruction,
@@ -1346,10 +1339,11 @@ ABSOLUTE ZERO-HALLUCINATION & 1:1 EXACT COUNT RULES:
         }
       }
 
-      // If AI extraction produced no items, fallback to heuristic extraction on document text
+      // If AI extraction produced no items, fallback to heuristic extraction strictly on isolated Annexure A text
       if (!extractedArray || extractedArray.length === 0) {
-        if (documentText && documentText.trim()) {
-          const heuristicResult = extractHeuristicItems(documentText);
+        const textToProcess = annexureAText && annexureAText.trim().length > 0 ? annexureAText : (documentText || '');
+        if (textToProcess && textToProcess.trim()) {
+          const heuristicResult = extractHeuristicItems(textToProcess);
           extractedArray = heuristicResult.items;
           if (!extractedKpas || extractedKpas.length === 0) {
             extractedKpas = heuristicResult.kpas;

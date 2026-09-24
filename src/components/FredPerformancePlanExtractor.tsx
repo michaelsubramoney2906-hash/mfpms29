@@ -344,31 +344,32 @@ export function FredPerformancePlanExtractor({
 
           {/* Action Push & Clear Buttons */}
           <div className="flex items-center gap-3 shrink-0">
+            <button
+              id="btn-clear-extractor-header"
+              type="button"
+              onClick={handleClearExtractor}
+              className="px-3.5 py-2.5 bg-slate-800/90 hover:bg-rose-950/70 text-slate-300 hover:text-rose-200 rounded-xl text-xs font-bold transition border border-slate-700 hover:border-rose-700/50 cursor-pointer flex items-center gap-1.5 shadow-sm"
+              title="Clear Extractor and reset workspace for next source document"
+            >
+              <Trash2 className="w-4 h-4 text-rose-400" />
+              <span>Clear Extractor</span>
+            </button>
+
             {extractedItems.length > 0 && (
-              <>
-                <button
-                  type="button"
-                  onClick={handleClearExtractor}
-                  className="px-3.5 py-2.5 bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl text-xs font-bold transition border border-slate-700 cursor-pointer flex items-center gap-1.5"
-                >
-                  <Trash2 className="w-4 h-4 text-rose-400" />
-                  <span>Reset Extractor</span>
-                </button>
-                <button
-                  id="btn-push-to-performance-plan"
-                  type="button"
-                  onClick={handlePushToPerformancePlan}
-                  disabled={isPushing || selectedCount === 0}
-                  className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl text-xs font-black flex items-center gap-2 transition shadow-lg shadow-indigo-600/30 disabled:opacity-50 cursor-pointer"
-                >
-                  {isPushing ? (
-                    <Loader2 className="w-4 h-4 animate-spin text-white" />
-                  ) : (
-                    <ArrowRight className="w-4 h-4 text-white" />
-                  )}
-                  <span>Push to Performance Plan ({selectedCount})</span>
-                </button>
-              </>
+              <button
+                id="btn-push-to-performance-plan"
+                type="button"
+                onClick={handlePushToPerformancePlan}
+                disabled={isPushing || selectedCount === 0}
+                className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl text-xs font-black flex items-center gap-2 transition shadow-lg shadow-indigo-600/30 disabled:opacity-50 cursor-pointer"
+              >
+                {isPushing ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                ) : (
+                  <ArrowRight className="w-4 h-4 text-white" />
+                )}
+                <span>Push to Performance Plan ({selectedCount})</span>
+              </button>
             )}
           </div>
         </div>
@@ -397,21 +398,33 @@ export function FredPerformancePlanExtractor({
 
       {/* Status Message */}
       {statusMessage && (
-        <div className={`p-4 rounded-xl text-sm flex items-start gap-3 border ${
+        <div className={`p-4 rounded-xl text-sm flex items-center justify-between gap-3 border ${
           statusMessage.type === 'error'
             ? 'bg-rose-950/40 border-rose-800/60 text-rose-200'
             : statusMessage.type === 'success'
             ? 'bg-emerald-950/40 border-emerald-800/60 text-emerald-200'
             : 'bg-indigo-950/40 border-indigo-800/60 text-indigo-200'
         }`}>
-          {statusMessage.type === 'error' ? (
-            <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
-          ) : statusMessage.type === 'success' ? (
-            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
-          ) : (
-            <Info className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
+          <div className="flex items-start gap-3">
+            {statusMessage.type === 'error' ? (
+              <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+            ) : statusMessage.type === 'success' ? (
+              <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+            ) : (
+              <Info className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
+            )}
+            <div className="font-medium">{statusMessage.text}</div>
+          </div>
+          {(extractedItems.length > 0 || sourceFileName) && (
+            <button
+              type="button"
+              onClick={handleClearExtractor}
+              className="px-3 py-1.5 bg-slate-900/90 hover:bg-rose-950/80 border border-slate-700 hover:border-rose-700 text-xs font-bold text-slate-300 hover:text-rose-200 rounded-lg transition shrink-0 flex items-center gap-1.5 cursor-pointer shadow-sm"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+              <span>Clear Extractor</span>
+            </button>
           )}
-          <div className="flex-1 font-medium">{statusMessage.text}</div>
         </div>
       )}
 
@@ -441,13 +454,26 @@ export function FredPerformancePlanExtractor({
               {isExtracting ? 'Extracting Verbatim Performance Plan...' : 'Upload Performance Agreement (PDF / DOCX / XLSX)'}
             </h3>
             <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
-              Drag & drop the signed Performance Agreement here, or click to browse. The engine will parse Section 4.2 Functional KPAs and Annexure A KPIs verbatim.
+              Drag & drop the signed Performance Agreement here, or click to browse. The engine extracts Functional KPAs (Section 4.2) and Scorecard KPIs (Annexure A) with 100% verbatim fidelity and zero dreaming.
             </p>
           </div>
           {sourceFileName && (
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-indigo-950/60 border border-indigo-700/50 text-indigo-300 text-xs font-semibold">
-              <FileText className="w-3.5 h-3.5" />
-              <span>Loaded: {sourceFileName}</span>
+            <div className="flex flex-wrap items-center justify-center gap-2.5 pt-1">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-indigo-950/60 border border-indigo-700/50 text-indigo-300 text-xs font-semibold">
+                <FileText className="w-3.5 h-3.5" />
+                <span>Loaded: {sourceFileName} ({extractedItems.length} KPIs)</span>
+              </div>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleClearExtractor();
+                }}
+                className="pointer-events-auto px-2.5 py-1 bg-rose-950/80 hover:bg-rose-900 text-rose-300 hover:text-white rounded-lg text-xs font-bold border border-rose-700/50 transition cursor-pointer flex items-center gap-1 shadow"
+              >
+                <Trash2 className="w-3 h-3 text-rose-400" />
+                <span>Clear Extractor</span>
+              </button>
             </div>
           )}
         </div>
@@ -477,7 +503,7 @@ export function FredPerformancePlanExtractor({
                 onChange={(e) => setFilterKpa(e.target.value)}
                 className="px-3 py-1.5 bg-slate-900 border border-slate-750 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
               >
-                <option value="all">All Functional KPAs ({extractedItems.length})</option>
+                <option value="all">All Functional KPAs ({extractedKpas.length} KPAs • {extractedItems.length} KPIs)</option>
                 {extractedKpas.map((k, idx) => (
                   <option key={idx} value={k.kpaName || k.fullTitle || `KPA ${idx + 1}`}>
                     {k.fullTitle || k.kpaName || `KPA ${idx + 1}`} ({k.weighting || ''}%)
@@ -500,6 +526,17 @@ export function FredPerformancePlanExtractor({
                 )}
                 <span>{extractedItems.every(i => i._selected !== false) ? 'Deselect All' : 'Select All'}</span>
               </button>
+
+              <button
+                type="button"
+                onClick={handleClearExtractor}
+                className="px-3 py-1.5 bg-slate-900 hover:bg-rose-950/70 text-slate-300 hover:text-rose-200 rounded-xl text-xs font-bold border border-slate-750 hover:border-rose-700/50 transition cursor-pointer flex items-center gap-1.5"
+                title="Clear all extracted items and reset extractor"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                <span>Clear Extractor</span>
+              </button>
+
               <span className="text-xs font-semibold text-slate-400">
                 Selected: <strong className="text-indigo-400">{selectedCount}</strong> of {extractedItems.length}
               </span>
@@ -654,25 +691,35 @@ export function FredPerformancePlanExtractor({
             </table>
           </div>
 
-          {/* Bottom Push Summary Bar */}
+          {/* Bottom Push & Clear Summary Bar */}
           <div className="flex flex-wrap items-center justify-between gap-4 pt-2 border-t border-slate-800/80">
             <div className="text-xs text-slate-400">
-              Showing <strong className="text-white">{filteredItems.length}</strong> KPIs extracted from source agreement. Click <strong className="text-indigo-400">Push to Performance Plan</strong> to sync directly into IPMS.
+              Showing <strong className="text-white">{filteredItems.length}</strong> verbatim KPIs extracted from source agreement. Click <strong className="text-indigo-400">Push to Performance Plan</strong> to sync into IPMS, or <strong className="text-rose-400">Clear Extractor</strong> after completion.
             </div>
-            <button
-              id="btn-bottom-push-to-performance-plan"
-              type="button"
-              onClick={handlePushToPerformancePlan}
-              disabled={isPushing || selectedCount === 0}
-              className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl text-xs font-black flex items-center gap-2 transition shadow-lg shadow-indigo-600/30 disabled:opacity-50 cursor-pointer"
-            >
-              {isPushing ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <ArrowRight className="w-4 h-4" />
-              )}
-              <span>Push {selectedCount} KPIs to Performance Plan</span>
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleClearExtractor}
+                className="px-4 py-2.5 bg-slate-900 hover:bg-rose-950/70 text-slate-300 hover:text-rose-200 rounded-xl text-xs font-bold border border-slate-750 hover:border-rose-700/50 transition cursor-pointer flex items-center gap-1.5 shadow"
+              >
+                <Trash2 className="w-4 h-4 text-rose-400" />
+                <span>Clear Extractor</span>
+              </button>
+              <button
+                id="btn-bottom-push-to-performance-plan"
+                type="button"
+                onClick={handlePushToPerformancePlan}
+                disabled={isPushing || selectedCount === 0}
+                className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl text-xs font-black flex items-center gap-2 transition shadow-lg shadow-indigo-600/30 disabled:opacity-50 cursor-pointer"
+              >
+                {isPushing ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <ArrowRight className="w-4 h-4" />
+                )}
+                <span>Push {selectedCount} KPIs to Performance Plan</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -409,60 +409,206 @@ export async function extractTextFromPDF(input: ArrayBuffer | Uint8Array): Promi
 }
 
 /**
- * Parses raw text lines strictly as a flat list of items
+ * Parses raw text lines strictly as a flat list of items from Annexure A
  */
 export function parseRawTextLines(text: string): ExtractedMappedKPI[] {
-  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (!text) return [];
+
+  // Strictly find start of Annexure A Performance Plan
+  let annexureAStart = -1;
+  const bannerMatch = text.match(/[-*#\s|]*ANNEXURE\s*A\s*[:.\-–\s]*\s*PERFORMANCE\s*PLAN/i) ||
+                     text.match(/[-*#\s|]*PERFORMANCE\s*PLAN\s*[-–:]\s*\d{4}\/\d{4}/i);
+  if (bannerMatch && bannerMatch.index !== undefined) {
+    annexureAStart = bannerMatch.index;
+  }
+
+  if (annexureAStart === -1) {
+    const annMatches = Array.from(text.matchAll(/ANNEXURE\s*A\b/gi));
+    for (const m of annMatches) {
+      if (m.index !== undefined) {
+        const snippet = text.substring(m.index, m.index + 250).toLowerCase();
+        if (snippet.includes('performance plan') || snippet.includes('kpi number') || snippet.includes('team opme') || snippet.includes('name and surname')) {
+          annexureAStart = m.index;
+          break;
+        }
+      }
+    }
+  }
+
+  if (annexureAStart === -1) {
+    const tableHeaderMatch = text.match(/\bKPI\s*number\b[\s\S]{1,100}\bKey\s*Performance\s*Indicators\b/i);
+    if (tableHeaderMatch && tableHeaderMatch.index !== undefined) {
+      annexureAStart = tableHeaderMatch.index;
+    }
+  }
+
+  if (annexureAStart === -1) {
+    return [];
+  }
+
+  const rawAnnexureA = text.substring(annexureAStart);
+  // Strictly find end of Annexure A
+  const endMatch = rawAnnexureA.search(/(?:ANNEXURE\s*B\b|PERSONAL\s*DEVELOPMENT\s*PLAN|ANNEXURE\s*C\b|DISCLOSURE\s*OF\s*INTEREST|I\/We,\s*the\s*undersigned\s*hereby\s*certify)/i);
+  const annexureAText = endMatch !== -1 ? rawAnnexureA.substring(0, endMatch) : rawAnnexureA;
+
+  const lines = annexureAText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   const items: ExtractedMappedKPI[] = [];
   let currentKpa = 'Functional Performance Area';
-  let insideScorecard = false;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    const lower = line.toLowerCase();
 
-    // Detect KPA Heading
+    // Skip metadata headers & signoffs
+    if (
+      lower.includes('page ') && lower.includes(' of ') ||
+      lower.startsWith('team ') || lower.startsWith('period ') || lower.startsWith('department ') ||
+      lower.startsWith('name and surname') || lower.startsWith('position ') || lower.startsWith('level ') ||
+      lower.includes("employee’s signature") || lower.includes("employee's signature") ||
+      lower.includes("supervisor’ signature") || lower.includes("supervisor' signature") ||
+      lower.includes("pms official’s signature") || lower.includes("pms official's signature") ||
+      lower.includes("annexure a: performance plan") || lower.includes("annexure a -")
+    ) {
+      continue;
+    }
+
+    // Detect KPA Heading banner (e.g. "KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION")
     const kpaBanner = line.match(/^[-*#\s|]*(?:KPA\s*(\d+[A-Za-z]?)\s*[:.\-–]\s*|Key\s*Performance\s*Area\s*(\d+[A-Za-z]?)\s*[:.\-–]\s*)(.+)$/i);
     if (kpaBanner) {
       const num = kpaBanner[1] || kpaBanner[2] || '';
       const name = kpaBanner[3].trim().replace(/\|.*$/, '').trim();
-      currentKpa = num ? `KPA ${num}: ${name}` : `KPA: ${name}`;
-      insideScorecard = true;
+      if (!name.toLowerCase().includes('kpi number') && !name.toLowerCase().includes('weight')) {
+        currentKpa = num ? `KPA ${num}: ${name}` : `KPA: ${name}`;
+      }
       continue;
     }
 
-    if (line.toLowerCase().includes('annexure a') || line.toLowerCase().includes('performance plan')) {
-      insideScorecard = true;
-    }
-
     // Table rows separated by tabs or pipes
-    if (insideScorecard && (line.includes('\t') || line.includes('|'))) {
-      const cells = (line.includes('\t') ? line.split('\t') : line.split('|')).map(c => c.trim()).filter(Boolean);
-      const first = (cells[0] || '').toLowerCase();
-      if (
-        cells.length >= 2 &&
-        !first.includes('kpi no') &&
-        !first.includes('kpi number') &&
-        !first.includes('indicator') &&
-        !first.includes('weight') &&
-        !first.includes('signature')
-      ) {
-        items.push({
-          _id: `ipp-raw-${Date.now()}-${items.length + 1}`,
-          _selected: true,
-          "kpi no": cells[0] || `KPI-${items.length + 1}`,
-          "kpi description": cells[1] || '',
-          "%wt": cells.length >= 3 ? normalizeWeight(cells[2]) : '',
-          "baseline": cells.length >= 4 ? cells[3] : '',
-          "annual target": cells.length >= 5 ? cells[4] : '',
-          "1st qtr target": cells.length >= 6 ? cells[5] : '',
-          "2nd qtr target": cells.length >= 7 ? cells[6] : '',
-          "3rd qtr target": cells.length >= 8 ? cells[7] : '',
-          "4th qtr target": cells.length >= 9 ? cells[8] : '',
-          "poe": cells.length >= 10 ? cells[9] : '',
-          "budget": cells.length >= 11 ? cells[10] : '',
-          "functional kpa": currentKpa,
-          "kpa": currentKpa
-        });
+    if (line.includes('\t') || line.includes('|')) {
+      const rawCells = (line.includes('\t') ? line.split('\t') : line.split('|')).map(c => c.trim()).filter(Boolean);
+      const firstCell = (rawCells[0] || '').trim();
+      const firstCellLower = firstCell.toLowerCase();
+
+      // Strict validation: First cell MUST be a valid KPI Number format (e.g. "M_21", "1", "2", "17", "1.1", "BSD-01")
+      const isValidKpiNo = /^(?:[M|P|U]_\d+|\d{1,3}(?:\.\d{1,2})?|[A-Z]{2,5}[-_]?\d+)$/i.test(firstCell);
+
+      const isExcludedWord = 
+        firstCellLower.includes('herein') ||
+        firstCellLower.includes('employee') ||
+        firstCellLower.includes('supervisor') ||
+        firstCellLower.includes('employer') ||
+        firstCellLower.includes('no.') ||
+        firstCellLower.includes('no') ||
+        firstCellLower.includes('kpi') ||
+        firstCellLower.includes('team') ||
+        firstCellLower.includes('department') ||
+        firstCellLower.includes('position') ||
+        firstCellLower.includes('level') ||
+        firstCellLower.includes('signature') ||
+        firstCellLower.includes('baseline') ||
+        firstCellLower.includes('target') ||
+        firstCellLower.includes('weight');
+
+      if (isValidKpiNo && !isExcludedWord && rawCells.length >= 2) {
+        const desc = rawCells[1] || '';
+        if (desc.length > 3 && !desc.toLowerCase().includes('signature') && !desc.toLowerCase().includes('certify')) {
+          let kpiNo = firstCell;
+          let weight = '';
+          let baseline = '';
+          let annualTarget = '';
+          let q1 = '';
+          let q2 = '';
+          let q3 = '';
+          let q4 = '';
+          let poe = '';
+          let budget = '';
+
+          if (rawCells.length >= 11) {
+            weight = rawCells[2] || '';
+            baseline = rawCells[3] || '';
+            annualTarget = rawCells[4] || '';
+            q1 = rawCells[5] || '';
+            q2 = rawCells[6] || '';
+            q3 = rawCells[7] || '';
+            q4 = rawCells[8] || '';
+            poe = rawCells[9] || '';
+            budget = rawCells[10] || '';
+          } else if (rawCells.length === 10) {
+            weight = rawCells[2] || '';
+            baseline = rawCells[3] || '';
+            annualTarget = rawCells[4] || '';
+            q1 = rawCells[5] || '';
+            q2 = rawCells[6] || '';
+            q3 = rawCells[7] || '';
+            q4 = rawCells[8] || '';
+            poe = rawCells[9] || '';
+          } else if (rawCells.length === 9) {
+            weight = rawCells[2] || '';
+            baseline = rawCells[3] || '';
+            annualTarget = rawCells[4] || '';
+            q1 = rawCells[5] || '';
+            q2 = rawCells[6] || '';
+            q3 = rawCells[7] || '';
+            q4 = rawCells[8] || '';
+          } else if (rawCells.length === 8) {
+            weight = rawCells[2] || '';
+            baseline = rawCells[3] || '';
+            annualTarget = rawCells[4] || '';
+            q1 = rawCells[5] || '';
+            q2 = rawCells[6] || '';
+            q3 = rawCells[7] || '';
+          } else if (rawCells.length === 6) {
+            weight = rawCells[2] || '';
+            baseline = rawCells[3] || '';
+            annualTarget = rawCells[4] || '';
+            poe = rawCells[5] || '';
+          } else if (rawCells.length === 3) {
+            weight = rawCells[2] || '';
+          }
+
+          items.push({
+            _id: `ipp-raw-${Date.now()}-${items.length + 1}`,
+            _selected: true,
+            "kpi no": kpiNo,
+            "kpi description": desc,
+            "%wt": normalizeWeight(weight),
+            "baseline": baseline,
+            "annual target": annualTarget,
+            "1st qtr target": q1,
+            "2nd qtr target": q2,
+            "3rd qtr target": q3,
+            "4th qtr target": q4,
+            "poe": poe,
+            "budget": budget,
+            "functional kpa": currentKpa,
+            "kpa": currentKpa
+          });
+        }
+      } else if (items.length > 0 && !isExcludedWord) {
+        // Continuation text of multi-line cell belonging to the active KPI item
+        const lastItem = items[items.length - 1];
+        if (rawCells.length >= 2) {
+          if (rawCells[0] && rawCells[0].length > 1 && !/^\d+$/.test(rawCells[0])) {
+            lastItem["kpi description"] = (lastItem["kpi description"] + ' ' + rawCells[0] + ' ' + (rawCells[1] || '')).replace(/\s+/g, ' ').trim();
+          } else if (rawCells[1]) {
+            lastItem["kpi description"] = (lastItem["kpi description"] + ' ' + rawCells[1]).replace(/\s+/g, ' ').trim();
+          }
+          if (rawCells.length >= 3 && rawCells[2] && isNaN(parseFloat(rawCells[2]))) {
+            lastItem["kpi description"] = (lastItem["kpi description"] + ' ' + rawCells[2]).replace(/\s+/g, ' ').trim();
+          }
+          const lastCell = rawCells[rawCells.length - 1];
+          if (lastCell && (lastCell.toLowerCase().includes('unit') || lastCell.toLowerCase().includes('report') || lastCell.toLowerCase().includes('services') || lastCell.toLowerCase().includes('certificate') || lastCell.toLowerCase().includes('register'))) {
+            lastItem["poe"] = (lastItem["poe"] + ' ' + lastCell).replace(/\s+/g, ' ').trim();
+          }
+        } else if (rawCells.length === 1 && rawCells[0]) {
+          lastItem["kpi description"] = (lastItem["kpi description"] + ' ' + rawCells[0]).replace(/\s+/g, ' ').trim();
+        }
+      }
+    } else if (items.length > 0 && line.length > 2) {
+      const lower = line.toLowerCase();
+      if (!lower.includes('page ') && !lower.includes('signature') && !lower.includes('kpa ') && !lower.includes('annexure')) {
+        const lastItem = items[items.length - 1];
+        lastItem["kpi description"] = (lastItem["kpi description"] + ' ' + line).replace(/\s+/g, ' ').trim();
       }
     }
   }
