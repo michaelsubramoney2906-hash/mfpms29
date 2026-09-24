@@ -9760,6 +9760,406 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
     }
   });
 
+  // Team Performance Plan (TEAM-PPLAN) Dedicated Routes - Completely separate from normal Performance Plan
+  app.get("/api/tenant/:tenantId/team-pplan", async (req, res) => {
+    const { tenantId: routeTenantId } = req.params;
+    const rawUserId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
+    const userId = normalizeNkangalaEmail(rawUserId) || rawUserId;
+    try {
+      const supabase = getSupabase();
+      const tenantId = await resolveTenantId(routeTenantId, userId);
+      const documentId = `team_pplan_${tenantId}_${userId}`;
+
+      let { data, error } = await supabase
+        .from('messages')
+        .select('content')
+        .eq('id', documentId)
+        .maybeSingle();
+
+      let parsed = (data && data.content) ? (() => { try { return JSON.parse(data.content); } catch (e) { return null; } })() : null;
+      let rawList = parsed ? (parsed.items || parsed.rows || parsed.kpis || []) : [];
+
+      if (!parsed || !Array.isArray(rawList) || rawList.length === 0) {
+        const fallbackKeys = [
+          `team_pplan_${tenantId}_all`,
+          `team_pplan_tenant-229_${userId}`,
+          `team_pplan_nkangala_auto_${userId}`,
+          `team_pplan_global_${userId}`,
+          `team_pplan_tenant-229_all`,
+          `team_pplan_nkangala_auto_all`,
+          `team_pplan_global_all`
+        ];
+
+        for (const fKey of fallbackKeys) {
+          if (fKey === documentId) continue;
+          const fbRes = await supabase.from('messages').select('content').eq('id', fKey).maybeSingle();
+          if (fbRes.data && fbRes.data.content) {
+            try {
+              const fbParsed = JSON.parse(fbRes.data.content);
+              const fbList = Array.isArray(fbParsed) ? fbParsed : (fbParsed.items || fbParsed.rows || fbParsed.kpis || []);
+              if (Array.isArray(fbList) && fbList.length > 0) {
+                return res.json({ metadata: fbParsed.metadata || {}, items: fbList, rows: fbList });
+              }
+            } catch (e) {}
+          }
+        }
+      }
+
+      if (!parsed) {
+        return res.json({ metadata: { name: 'Team Performance Plan', period: '2025/2026' }, items: [] });
+      }
+
+      res.json({ metadata: parsed.metadata || {}, items: rawList, rows: rawList });
+    } catch (err) {
+      console.error("team-pplan get exception:", err);
+      res.status(500).json({ error: err.message, items: [] });
+    }
+  });
+
+  app.post("/api/tenant/:tenantId/team-pplan", async (req, res) => {
+    const { tenantId: routeTenantId } = req.params;
+    const rawUserId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
+    const userId = normalizeNkangalaEmail(rawUserId) || rawUserId;
+    const { metadata, items } = req.body;
+    try {
+      const supabase = getSupabase();
+      const tenantId = await resolveTenantId(routeTenantId, userId);
+      
+      const targetUsers = [userId];
+      if (userId.includes('mahlanguml') || userId.includes('mahlangulm') || userId.includes('mandlaml')) {
+        if (!targetUsers.includes('mahlanguml@nkangaladm.gov.za')) targetUsers.push('mahlanguml@nkangaladm.gov.za');
+        if (!targetUsers.includes('mahlangulm@nkangaladm.gov.za')) targetUsers.push('mahlangulm@nkangaladm.gov.za');
+      }
+
+      const syncTenants = (tenantId === 'tenant-229' || tenantId === 'nkangala_auto' || userId.includes('@nkangaladm.gov.za'))
+        ? ['tenant-229', 'nkangala_auto']
+        : [tenantId];
+
+      const sanitizedItems = Array.isArray(items) ? items.map((it: any) => sanitizePplanItem(it, userId)) : [];
+
+      for (const u of targetUsers) {
+        for (const tId of syncTenants) {
+          const uDocId = `team_pplan_${tId}_${u}`;
+          await supabase
+            .from('messages')
+            .upsert({ 
+              id: uDocId,
+              tenant_id: tId,
+              sender_id: 'team_pplan_editor_tool',
+              sender_email: 'team_pplan@system.local',
+              sender_name: 'Team PPLAN Editor',
+              content: JSON.stringify({ metadata: metadata || { name: 'Team Performance Plan' }, items: sanitizedItems }),
+              message_type: 'team_pplan_list',
+              created_at: new Date().toISOString()
+            });
+
+          // Also save to generic team all snapshot for easy team-wide adoption
+          const allDocId = `team_pplan_${tId}_all`;
+          await supabase
+            .from('messages')
+            .upsert({ 
+              id: allDocId,
+              tenant_id: tId,
+              sender_id: 'team_pplan_editor_tool',
+              sender_email: 'team_pplan@system.local',
+              sender_name: 'Team PPLAN Editor',
+              content: JSON.stringify({ metadata: metadata || { name: 'Team Performance Plan' }, items: sanitizedItems }),
+              message_type: 'team_pplan_list',
+              created_at: new Date().toISOString()
+            });
+        }
+      }
+
+      res.json({ success: true, count: sanitizedItems.length });
+    } catch (err) {
+      console.error("team-pplan save exception:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Team JSC (Job Specific Competencies) Routes - Completely separate from normal JSC
+  app.get(["/api/tenant/:tenantId/team-jsc", "/api/tenant/:tenantId/team-job-competencies"], async (req, res) => {
+    const { tenantId: routeTenantId } = req.params;
+    const rawUserId = req.query.userId ? String(req.query.userId).trim() : 'default';
+    const userId = rawUserId.toLowerCase();
+    try {
+      const supabase = getSupabase();
+      const tenantId = await resolveTenantId(routeTenantId, userId);
+      
+      const candidateDocIds = [
+        `team_jsc_${tenantId}_${userId}`,
+        `team_jsc_${tenantId}_all`,
+        `team_jsc_tenant-229_${userId}`,
+        `team_jsc_nkangala_auto_${userId}`,
+        `team_jsc_tenant-229_all`,
+        `team_jsc_global_all`,
+        `team_jsc_global_${userId}`
+      ];
+
+      for (const dId of candidateDocIds) {
+        const { data } = await supabase
+          .from('messages')
+          .select('content')
+          .eq('id', dId)
+          .maybeSingle();
+
+        if (data && data.content) {
+          try {
+            const parsed = JSON.parse(data.content);
+            if (parsed && Array.isArray(parsed.competencies) && parsed.competencies.length > 0) {
+              return res.json(parsed);
+            }
+          } catch (parseErr) {}
+        }
+      }
+
+      return res.json({ competencies: [] });
+    } catch (err: any) {
+      console.error("Team Job competencies load exception:", err);
+      res.status(500).json({ error: err.message, competencies: [] });
+    }
+  });
+
+  app.post(["/api/tenant/:tenantId/team-jsc", "/api/tenant/:tenantId/team-job-competencies"], async (req, res) => {
+    const { tenantId: routeTenantId } = req.params;
+    const rawUserId = req.query.userId ? String(req.query.userId).trim() : 'default';
+    const userId = rawUserId.toLowerCase();
+    const { competencies, jscMasters, competencyMasters, definitionMasters, levelMasters, weightMasters } = req.body;
+    try {
+      const supabase = getSupabase();
+      const tenantId = await resolveTenantId(routeTenantId, userId);
+      
+      const targetTenants = Array.from(new Set([tenantId, 'tenant-229', 'nkangala_auto', 'global']));
+      const payload = JSON.stringify({ competencies, jscMasters, competencyMasters, definitionMasters, levelMasters, weightMasters });
+
+      for (const tKey of targetTenants) {
+        const uDocId = `team_jsc_${tKey}_${userId}`;
+        await supabase
+          .from('messages')
+          .upsert({ 
+            id: uDocId,
+            tenant_id: tKey,
+            sender_id: 'team_jsc_editor',
+            sender_email: 'team_jsc@system.local',
+            sender_name: 'Team JSC Editor',
+            content: payload,
+            message_type: 'team_jsc_list',
+            created_at: new Date().toISOString()
+          }, { onConflict: 'id' });
+
+        const allDocId = `team_jsc_${tKey}_all`;
+        await supabase
+          .from('messages')
+          .upsert({ 
+            id: allDocId,
+            tenant_id: tKey,
+            sender_id: 'team_jsc_editor',
+            sender_email: 'team_jsc@system.local',
+            sender_name: 'Team JSC Editor',
+            content: payload,
+            message_type: 'team_jsc_list',
+            created_at: new Date().toISOString()
+          }, { onConflict: 'id' });
+      }
+      res.json({ success: true, count: competencies ? competencies.length : 0 });
+    } catch (err: any) {
+      console.error("team-jsc save exception:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Team PDP (Personal Development Plans) Routes - Completely separate from normal PDP
+  app.get("/api/tenant/:tenantId/team-pdp", async (req, res) => {
+    const { tenantId: routeTenantId } = req.params;
+    const rawUserId = req.query.userId ? String(req.query.userId).trim() : 'default';
+    const userId = rawUserId.toLowerCase();
+    try {
+      const supabase = getSupabase();
+      const tenantId = await resolveTenantId(routeTenantId, userId);
+      
+      const candidateDocIds = [
+        `team_pdp_${tenantId}_${userId}`,
+        `team_pdp_${tenantId}_all`,
+        `team_pdp_tenant-229_${userId}`,
+        `team_pdp_nkangala_auto_${userId}`,
+        `team_pdp_tenant-229_all`,
+        `team_pdp_global_all`,
+        `team_pdp_global_${userId}`
+      ];
+
+      for (const dId of candidateDocIds) {
+        const { data } = await supabase
+          .from('messages')
+          .select('content')
+          .eq('id', dId)
+          .maybeSingle();
+
+        if (data && data.content) {
+          try {
+            const parsed = JSON.parse(data.content);
+            if (parsed && Array.isArray(parsed.items) && parsed.items.length > 0) {
+              return res.json(parsed);
+            }
+          } catch (parseErr) {}
+        }
+      }
+
+      return res.json({ items: [] });
+    } catch (err: any) {
+      console.error("team-pdp load exception:", err);
+      res.status(500).json({ error: err.message, items: [] });
+    }
+  });
+
+  app.post("/api/tenant/:tenantId/team-pdp", async (req, res) => {
+    const { tenantId: routeTenantId } = req.params;
+    const rawUserId = req.query.userId ? String(req.query.userId).trim() : 'default';
+    const userId = rawUserId.toLowerCase();
+    const { items, gapsMasters, outcomesMasters, trainingsMasters, modesMasters, supportMasters, skillsGapsMasters } = req.body;
+    try {
+      const supabase = getSupabase();
+      const tenantId = await resolveTenantId(routeTenantId, userId);
+      
+      const targetTenants = Array.from(new Set([tenantId, 'tenant-229', 'nkangala_auto', 'global']));
+      const payload = JSON.stringify({ 
+        items, 
+        skillsGapsMasters: skillsGapsMasters || gapsMasters,
+        gapsMasters, 
+        outcomesMasters, 
+        trainingsMasters, 
+        modesMasters, 
+        supportMasters 
+      });
+
+      for (const tKey of targetTenants) {
+        const uDocId = `team_pdp_${tKey}_${userId}`;
+        await supabase
+          .from('messages')
+          .upsert({ 
+            id: uDocId,
+            tenant_id: tKey,
+            sender_id: 'team_pdp_editor',
+            sender_email: 'team_pdp@system.local',
+            sender_name: 'Team PDP Editor',
+            content: payload,
+            message_type: 'team_pdp_list',
+            created_at: new Date().toISOString()
+          }, { onConflict: 'id' });
+
+        const allDocId = `team_pdp_${tKey}_all`;
+        await supabase
+          .from('messages')
+          .upsert({ 
+            id: allDocId,
+            tenant_id: tKey,
+            sender_id: 'team_pdp_editor',
+            sender_email: 'team_pdp@system.local',
+            sender_name: 'Team PDP Editor',
+            content: payload,
+            message_type: 'team_pdp_list',
+            created_at: new Date().toISOString()
+          }, { onConflict: 'id' });
+      }
+      res.json({ success: true, count: items ? items.length : 0 });
+    } catch (err: any) {
+      console.error("team-pdp save exception:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Team Evaluation Routes - Uses Team Performance Plan as base and syncs
+  app.get("/api/tenant/:tenantId/team-evaluation", async (req, res) => {
+    const { tenantId: routeTenantId } = req.params;
+    const rawUserId = req.query.userId ? String(req.query.userId).trim() : 'default';
+    const userId = rawUserId.toLowerCase();
+    try {
+      const supabase = getSupabase();
+      const tenantId = await resolveTenantId(routeTenantId, userId);
+      
+      const candidateDocIds = [
+        `team_evaluation_${tenantId}_${userId}`,
+        `team_evaluation_${tenantId}_all`,
+        `team_pplan_${tenantId}_${userId}`,
+        `team_pplan_${tenantId}_all`,
+        `team_pplan_tenant-229_${userId}`,
+        `team_pplan_nkangala_auto_${userId}`,
+        `team_pplan_global_all`
+      ];
+
+      for (const dId of candidateDocIds) {
+        const { data } = await supabase
+          .from('messages')
+          .select('content')
+          .eq('id', dId)
+          .maybeSingle();
+
+        if (data && data.content) {
+          try {
+            const parsed = JSON.parse(data.content);
+            const items = parsed.items || parsed.rows || parsed.kpis || [];
+            if (Array.isArray(items) && items.length > 0) {
+              return res.json({ metadata: parsed.metadata || {}, items });
+            }
+          } catch (parseErr) {}
+        }
+      }
+
+      return res.json({ metadata: { name: 'Team Evaluation' }, items: [] });
+    } catch (err: any) {
+      console.error("team-evaluation get exception:", err);
+      res.status(500).json({ error: err.message, items: [] });
+    }
+  });
+
+  app.post("/api/tenant/:tenantId/team-evaluation", async (req, res) => {
+    const { tenantId: routeTenantId } = req.params;
+    const rawUserId = req.query.userId ? String(req.query.userId).trim() : 'default';
+    const userId = rawUserId.toLowerCase();
+    const { metadata, items } = req.body;
+    try {
+      const supabase = getSupabase();
+      const tenantId = await resolveTenantId(routeTenantId, userId);
+      
+      const targetTenants = Array.from(new Set([tenantId, 'tenant-229', 'nkangala_auto', 'global']));
+      const payload = JSON.stringify({ metadata: metadata || { name: 'Team Evaluation' }, items: items || [] });
+
+      for (const tKey of targetTenants) {
+        // Save to team_evaluation document
+        await supabase
+          .from('messages')
+          .upsert({ 
+            id: `team_evaluation_${tKey}_${userId}`,
+            tenant_id: tKey,
+            sender_id: 'team_evaluation_editor',
+            sender_email: 'team_eval@system.local',
+            sender_name: 'Team Evaluation Editor',
+            content: payload,
+            message_type: 'team_evaluation_doc',
+            created_at: new Date().toISOString()
+          }, { onConflict: 'id' });
+
+        // Keep team_pplan synchronized
+        await supabase
+          .from('messages')
+          .upsert({ 
+            id: `team_pplan_${tKey}_${userId}`,
+            tenant_id: tKey,
+            sender_id: 'team_evaluation_editor',
+            sender_email: 'team_eval@system.local',
+            sender_name: 'Team Evaluation Editor',
+            content: payload,
+            message_type: 'team_pplan_list',
+            created_at: new Date().toISOString()
+          }, { onConflict: 'id' });
+      }
+
+      res.json({ success: true, count: items ? items.length : 0 });
+    } catch (err: any) {
+      console.error("team-evaluation save exception:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Shared Performance Reports Dispatch & Routing Routes
   app.get("/api/tenant/:tenantId/shared-reports", async (req, res) => {
     const { tenantId } = req.params;

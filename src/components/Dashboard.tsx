@@ -478,7 +478,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                             email.includes('khuboni') ||
                             email.includes('mike@massivedynamixdistributors.com');
 
-      const isDirectAccess = sub.id === 'ipms-evaluation' || sub.id === 'pplan' || sub.id === 'pdp' || sub.id === 'pa' || sub.id === 'pa-cds-team' || sub.id === 'pa-technical-services' || sub.id === 'pa-corporate-services' || sub.id === 'pa-pms-team' || sub.id === 'pa-templates' || sub.id === 'jsc' || sub.id === 'ccomp' || sub.id === 'ipms-kpi' || sub.id === 'ipms-kpa' || sub.id === 'organogram' || sub.id === 'ipms-inbox' || sub.id === 'review-timetable' || sub.id === 'performance-assessment';
+      const isDirectAccess = sub.id === 'ipms-evaluation' || sub.id === 'pplan' || sub.id === 'team-pplan' || sub.id === 'pdp' || sub.id === 'pa' || sub.id === 'pa-cds-team' || sub.id === 'pa-technical-services' || sub.id === 'pa-corporate-services' || sub.id === 'pa-pms-team' || sub.id === 'pa-templates' || sub.id === 'jsc' || sub.id === 'ccomp' || sub.id === 'ipms-kpi' || sub.id === 'ipms-kpa' || sub.id === 'organogram' || sub.id === 'ipms-inbox' || sub.id === 'review-timetable' || sub.id === 'performance-assessment';
       const isBypassAll = isGlobalOrSystemAdmin || isPMSTeam || isManagerUser || isDirectAccess;
 
       if (!isBypassAll) {
@@ -857,21 +857,26 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
              <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
                 <StrategicObjectives currentUser={fullUserProfile} activeTenantId={activeTenantId} />
              </div>
-          ) : activeSubModule.id === 'jsc' ? (
+          ) : activeSubModule.id === 'jsc' || activeSubModule.id === 'team-jsc' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
-                 <JobSpecificCompetencies currentUser={fullUserProfile} activeTenantId={activeTenantId} />
+                 <JobSpecificCompetencies currentUser={fullUserProfile} activeTenantId={activeTenantId} isTeamJSC={activeSubModule.id === 'team-jsc'} />
               </div>
           ) : activeSubModule.id === 'ccomp' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
                  <CoreCompetencies currentUser={fullUserProfile} activeTenantId={activeTenantId} />
               </div>
-          ) : activeSubModule.id === 'pdp' ? (
+          ) : activeSubModule.id === 'pdp' || activeSubModule.id === 'team-pdp' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
-                 <PersonalDevelopmentPlan currentUser={fullUserProfile} activeTenantId={activeTenantId} />
+                 <PersonalDevelopmentPlan currentUser={fullUserProfile} activeTenantId={activeTenantId} isTeamPdp={activeSubModule.id === 'team-pdp'} />
               </div>
-          ) : activeSubModule.id === 'pplan' || activeSubModule.id === 'pa' ? (
+          ) : activeSubModule.id === 'pplan' || activeSubModule.id === 'team-pplan' || activeSubModule.id === 'pa' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
-                 <PerformanceAgreements currentUser={fullUserProfile} activeTenantId={activeTenantId} isPlan={activeSubModule.id === 'pplan'} />
+                 <PerformanceAgreements 
+                   currentUser={fullUserProfile} 
+                   activeTenantId={activeTenantId} 
+                   isPlan={activeSubModule.id === 'pplan' || activeSubModule.id === 'team-pplan'} 
+                   isTeamPlan={activeSubModule.id === 'team-pplan'}
+                 />
               </div>
           ) : activeSubModule.id === 'pa-cds-team' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
@@ -935,9 +940,9 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
                  <KPIIPMS currentUser={fullUserProfile} activeTenantId={activeTenantId} />
               </div>
-          ) : activeSubModule.id === 'ipms-evaluation' ? (
+          ) : activeSubModule.id === 'ipms-evaluation' || activeSubModule.id === 'team-evaluation' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
-                 <EvaluationIPMS currentUser={fullUserProfile} activeTenantId={activeTenantId} />
+                 <EvaluationIPMS currentUser={fullUserProfile} activeTenantId={activeTenantId} isTeamEvaluation={activeSubModule.id === 'team-evaluation'} />
               </div>
           ) : activeSubModule.id === 'ipms-manager-review' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">

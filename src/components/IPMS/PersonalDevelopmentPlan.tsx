@@ -13,6 +13,7 @@ interface PersonalDevelopmentPlanProps {
     name?: string;
   };
   activeTenantId: string;
+  isTeamPdp?: boolean;
 }
 
 // PDP Row Schema
@@ -65,7 +66,12 @@ function getIsDualLayerTeamLeader(email) {
   return DUAL_LAYER_USERS.includes(email.toLowerCase().trim());
 }
 
-export function PersonalDevelopmentPlan({ currentUser, activeTenantId }: PersonalDevelopmentPlanProps) {
+export function PersonalDevelopmentPlan({ currentUser, activeTenantId, isTeamPdp }: PersonalDevelopmentPlanProps) {
+  const apiEndpoint = isTeamPdp ? 'team-pdp' : 'pdp';
+  const planTitle = isTeamPdp ? 'Team Personal Development Plan (Team PDP)' : 'Personal Development Plan (PDP)';
+  const planSubtitle = isTeamPdp 
+    ? 'Strategic municipal team capability enhancement matrix and collective skills development'
+    : 'Formal individual training interventions, skills gap matrices, and professional advancement schedules';
 
   const isDualLayerTeamLeader = getIsDualLayerTeamLeader(currentUser?.email);
   const [agreementScope, setAgreementScope] = useState<'individual' | 'team'>('individual');
@@ -158,7 +164,7 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId }: Persona
     const fetchPdpData = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`/api/tenant/${activeTenantId}/pdp?userId=${targetEmail}`);
+        const res = await fetch(`/api/tenant/${activeTenantId}/${apiEndpoint}?userId=${targetEmail}`);
         if (!res.ok) throw new Error("Failed to load server state");
         const data = await res.json();
         if (active && data) {
@@ -201,7 +207,7 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId }: Persona
     };
     fetchPdpData();
     return () => { active = false; };
-  }, [activeTenantId, currentUser, targetEmail]);
+  }, [activeTenantId, currentUser, targetEmail, apiEndpoint]);
 
   // Save changes to Supabase
   const handleSaveToDatabase = async (
@@ -229,7 +235,7 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId }: Persona
       };
       
       const emailToSave = explicitTargetEmail || targetEmail;
-      const res = await fetch(`/api/tenant/${activeTenantId}/pdp?userId=${emailToSave}`, {
+      const res = await fetch(`/api/tenant/${activeTenantId}/${apiEndpoint}?userId=${emailToSave}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -879,7 +885,7 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId }: Persona
           </div>
           <div>
             <span className="text-[10px] bg-slate-800 text-blue-400 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider">Mzansi Municipal Skills Plan accord</span>
-            <h1 className="text-sm font-black text-white hover:text-blue-300 transition duration-155 tracking-tight uppercase">Personal Development Plans (PDP) Workspace</h1>
+            <h1 className="text-sm font-black text-white hover:text-blue-300 transition duration-155 tracking-tight uppercase">{planTitle} Workspace</h1>
           </div>
         </div>
 

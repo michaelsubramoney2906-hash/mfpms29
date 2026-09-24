@@ -408,9 +408,16 @@ export function QuarterPoeSelector({
 interface Props {
   currentUser: any;
   activeTenantId: string;
+  isTeamEvaluation?: boolean;
 }
 
-export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
+export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }: Props) {
+  const sourceApiEndpoint = isTeamEvaluation ? 'team-pplan' : 'pplan';
+  const saveApiEndpoint = isTeamEvaluation ? 'team-evaluation' : 'pplan';
+  const headingTitle = isTeamEvaluation ? 'Team Evaluation' : 'Employee Self-Evaluation';
+  const subTitle = isTeamEvaluation 
+    ? 'Capture actual team quarterly deliverables, portfolios of evidence (POE), & collective assessments'
+    : 'Capture actual quarterly deliverables, portfolios of evidence (POE), & assessments';
   const currentMonth = new Date().getMonth(); // 0-11
   const isQ1TimeLocked = !(currentMonth >= 6 && currentMonth <= 8);
   const q1ActivePeriod = "July - September";
@@ -507,7 +514,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
   const fetchMyPlan = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(currentUser.email)}&t=${Date.now()}`);
+      const res = await fetch(`/api/tenant/${activeTenantId}/${sourceApiEndpoint}?userId=${encodeURIComponent(currentUser.email)}&t=${Date.now()}`);
       if (true) {
         const data = await res.json();
         if (data && data.metadata) {
@@ -600,7 +607,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
         items: updatedItems
       };
 
-      const pplanRes = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(currentUser.email)}`, {
+      const pplanRes = await fetch(`/api/tenant/${activeTenantId}/${saveApiEndpoint}?userId=${encodeURIComponent(currentUser.email)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -633,7 +640,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
               title: `⚡ PoE Submitted for KPI #${targetItem?.kpiNo || kpiId} by ${submitterName}`,
               message: `${submitterName} (${submitterEmail}) submitted KPI #${targetItem?.kpiNo || ''}: "${targetItem?.kpi || ''}" with ${poeCount} attached PoE document(s) for manager review (${managerName}).`,
               actionType: 'submission',
-              senderCapacity: isManagerOfAnyone ? 'manager_as_self' : 'standard_user',
+              senderCapacity: isManagerOfAnyone ? (isTeamEvaluation ? 'team_lead' : 'manager_as_self') : 'standard_user',
               kpiId,
               kpiNo: targetItem?.kpiNo || '',
               poeDocsCount: poeCount
@@ -643,11 +650,11 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
       }
       
       setPplanData(payload);
-      window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: currentUser.email } }));
+      window.dispatchEvent(new CustomEvent(isTeamEvaluation ? 'team-pplan-updated' : 'pplan-updated', { detail: { tenantId: activeTenantId, userId: currentUser.email } }));
       if (submitForReview) {
         alert(`KPI evaluation and uploaded PoE documents successfully submitted to manager (${metadata.manager || 'Yena Khuboni'})! Notification sent.`);
       } else {
-        alert("Fields pushed to Annual Performance Planner Grid successfully! Notification sent.");
+        alert(`Fields pushed to ${isTeamEvaluation ? 'Team Performance Planner Grid' : 'Annual Performance Planner Grid'} successfully! Notification sent.`);
       }
     } catch (e) {
       console.error(e);
@@ -708,7 +715,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
         items: updatedItems
       };
 
-      const pplanRes = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(currentUser.email)}`, {
+      const pplanRes = await fetch(`/api/tenant/${activeTenantId}/${saveApiEndpoint}?userId=${encodeURIComponent(currentUser.email)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -719,7 +726,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
 
       setPplanData(payload);
       setSelectedKpiIds([]);
-      window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: currentUser.email } }));
+      window.dispatchEvent(new CustomEvent(isTeamEvaluation ? 'team-pplan-updated' : 'pplan-updated', { detail: { tenantId: activeTenantId, userId: currentUser.email } }));
       
       if (submitForReview) {
         try {
@@ -775,7 +782,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
         },
         items: []
       };
-      const pplanRes = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(currentUser.email)}`, {
+      const pplanRes = await fetch(`/api/tenant/${activeTenantId}/${saveApiEndpoint}?userId=${encodeURIComponent(currentUser.email)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -785,9 +792,9 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
       }
       if (true) {
         setPplanData(payload);
-        window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: currentUser.email } }));
+        window.dispatchEvent(new CustomEvent(isTeamEvaluation ? 'team-pplan-updated' : 'pplan-updated', { detail: { tenantId: activeTenantId, userId: currentUser.email } }));
         setToastMessage({
-          text: "All KPIs have been successfully and persistently cleared from this performance plan.",
+          text: `All KPIs have been successfully and persistently cleared from this ${isTeamEvaluation ? 'team performance plan' : 'performance plan'}.`,
           type: "success"
         });
         setShowClearKpiModal(false);
@@ -826,7 +833,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
         items: updatedItems
       };
 
-      const pplanRes = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(currentUser.email)}`, {
+      const pplanRes = await fetch(`/api/tenant/${activeTenantId}/${saveApiEndpoint}?userId=${encodeURIComponent(currentUser.email)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -836,9 +843,11 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
       }
 
       setPplanData(payload);
-      window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: currentUser.email } }));
+      window.dispatchEvent(new CustomEvent(isTeamEvaluation ? 'team-pplan-updated' : 'pplan-updated', { detail: { tenantId: activeTenantId, userId: currentUser.email } }));
       setToastMessage({
-        text: "Self-evaluation unlocked! You can now edit quarterly actuals, upload or replace Portfolios of Evidence (PoE), and click 'Push to Manager for Approval' when ready.",
+        text: isTeamEvaluation
+          ? "Team evaluation unlocked! You can now edit quarterly actuals, upload or replace Portfolios of Evidence (PoE), and click 'Push to Manager for Approval' when ready."
+          : "Self-evaluation unlocked! You can now edit quarterly actuals, upload or replace Portfolios of Evidence (PoE), and click 'Push to Manager for Approval' when ready.",
         type: "success"
       });
       fetchNotifications();
@@ -881,7 +890,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
         items: updatedItems
       };
 
-      const pplanRes = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(currentUser.email)}`, {
+      const pplanRes = await fetch(`/api/tenant/${activeTenantId}/${saveApiEndpoint}?userId=${encodeURIComponent(currentUser.email)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -891,7 +900,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
       }
 
       setPplanData(payload);
-      window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: currentUser.email } }));
+      window.dispatchEvent(new CustomEvent(isTeamEvaluation ? 'team-pplan-updated' : 'pplan-updated', { detail: { tenantId: activeTenantId, userId: currentUser.email } }));
       setToastMessage({
         text: `KPI #${targetItem?.kpiNo || kpiId} unlocked for resubmission! You can now update actuals, upload/replace PoE files, and click 'Push to Manager for Approval'.`,
         type: "success"
@@ -959,7 +968,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
         items: updatedItems
       };
 
-      const pplanRes = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(currentUser.email)}`, {
+      const pplanRes = await fetch(`/api/tenant/${activeTenantId}/${saveApiEndpoint}?userId=${encodeURIComponent(currentUser.email)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -969,7 +978,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
       }
 
       setPplanData(payload);
-      window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: currentUser.email } }));
+      window.dispatchEvent(new CustomEvent(isTeamEvaluation ? 'team-pplan-updated' : 'pplan-updated', { detail: { tenantId: activeTenantId, userId: currentUser.email } }));
       
       if (submitForReview) {
         try {
@@ -980,10 +989,12 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
               senderName: currentUser.fullName || currentUser.email.split('@')[0] || 'Employee',
               recipientEmail: metadata.managerEmail || 'KhuboniY@nkangaladm.gov.za',
               recipientName: metadata.manager || 'Manager',
-              title: `Complete Performance Plan Submitted for Review`,
-              message: `I have submitted my complete Performance Plan and associated Portfolios of Evidence for your review and approval.`,
+              title: isTeamEvaluation ? `Complete Team Performance Plan Submitted for Review` : `Complete Performance Plan Submitted for Review`,
+              message: isTeamEvaluation
+                ? `I have submitted the complete Team Performance Plan and associated Portfolios of Evidence for your review and approval.`
+                : `I have submitted my complete Performance Plan and associated Portfolios of Evidence for your review and approval.`,
               actionType: 'submission',
-              senderCapacity: 'standard_user'
+              senderCapacity: isTeamEvaluation ? 'team_lead' : 'standard_user'
             }
           };
           await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
@@ -997,9 +1008,9 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
       }
 
       if (submitForReview) {
-        alert(`Evaluation successfully committed and submitted to your manager (${metadata.manager || 'Yena Khuboni'})! High-priority review notification sent.`);
+        alert(`${isTeamEvaluation ? 'Team evaluation' : 'Evaluation'} successfully committed and submitted to your manager (${metadata.manager || 'Yena Khuboni'})! High-priority review notification sent.`);
       } else {
-        alert("Evaluation draft saved successfully! All quarterly metrics, actuals, comments, and portfolios of evidence are updated in the Annual Performance Planner Grid. Notification sent.");
+        alert(`${isTeamEvaluation ? 'Team evaluation' : 'Evaluation'} draft saved successfully! All quarterly metrics, actuals, comments, and portfolios of evidence are updated in the ${isTeamEvaluation ? 'Team Performance Planner Grid' : 'Annual Performance Planner Grid'}. Notification sent.`);
       }
     } catch (e) {
       console.error(e);
@@ -1028,10 +1039,10 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
             <div className="p-2 bg-emerald-100 text-emerald-700 rounded-lg">
               <FileSignature className="w-5 h-5 md:w-6 md:h-6" />
             </div>
-            Employee Self-Evaluation
+            {headingTitle}
           </h1>
           <p className="text-xs text-slate-500 font-medium uppercase tracking-wider mt-1.5 ml-[52px]">
-            Capture actual quarterly deliverables, portfolios of evidence (POE), & assessments
+            {subTitle}
           </p>
         </div>
         
@@ -1058,7 +1069,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
             title="Re-open evaluation to update quarterly actuals, upload new/additional Portfolios of Evidence (PoE), and resubmit to manager"
           >
             <AlertCircle className="w-4 h-4" />
-            <span>Redo & Resubmit Self-Evaluation</span>
+            <span>{isTeamEvaluation ? 'Redo & Resubmit Team Evaluation' : 'Redo & Resubmit Self-Evaluation'}</span>
           </button>
 
           <button 
@@ -1068,7 +1079,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
             className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 font-bold px-4 py-2 rounded-xl text-[10px] uppercase tracking-wide flex items-center gap-2 transition disabled:opacity-50 shadow-sm cursor-pointer"
           >
             <ClipboardList className="w-4 h-4" />
-            <span>Push to Annual Performance Planner Grid</span>
+            <span>{isTeamEvaluation ? 'Push to Team Performance Planner Grid' : 'Push to Annual Performance Planner Grid'}</span>
           </button>
           <button 
             type="button"
@@ -1094,7 +1105,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
           }`}
         >
           <Target className="w-4 h-4" />
-          <span>1. KPI Self Evaluation</span>
+          <span>{isTeamEvaluation ? '1. KPI Team Evaluation' : '1. KPI Self Evaluation'}</span>
         </button>
 
         <button
@@ -1107,7 +1118,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
           }`}
         >
           <FileBadge className="w-4 h-4" />
-          <span>2. JSC Self Evaluation</span>
+          <span>{isTeamEvaluation ? '2. JSC Team Evaluation' : '2. JSC Self Evaluation'}</span>
         </button>
 
         <button
@@ -1159,15 +1170,15 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
 
         {evalPhase === 'jsc_self' ? (
           <div className="max-w-5xl mx-auto">
-            <JSCSelfEvaluationSection currentUser={currentUser} activeTenantId={activeTenantId} />
+            <JSCSelfEvaluationSection currentUser={currentUser} activeTenantId={activeTenantId} isTeamJSC={isTeamEvaluation} />
           </div>
         ) : evalPhase === 'jsc_manager' ? (
           <div className="max-w-5xl mx-auto">
-            <JSCManagerApprovalSection currentUser={currentUser} activeTenantId={activeTenantId} />
+            <JSCManagerApprovalSection currentUser={currentUser} activeTenantId={activeTenantId} isTeamJSC={isTeamEvaluation} />
           </div>
         ) : evalPhase === 'jsc_reporting' ? (
           <div className="max-w-5xl mx-auto">
-            <JSCAnalyticalReportingSection currentUser={currentUser} activeTenantId={activeTenantId} />
+            <JSCAnalyticalReportingSection currentUser={currentUser} activeTenantId={activeTenantId} isTeamJSC={isTeamEvaluation} />
           </div>
         ) : (
           <>
@@ -1199,8 +1210,8 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
         {(!items || items.length === 0) ? (
           <div className="bg-white p-8 rounded-2xl border border-gray-200 text-center">
             <Target className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-            <p className="text-slate-500 text-sm font-bold uppercase">No KPIs found in your Performance Plan</p>
-            <p className="text-slate-400 text-[10px] mt-1">Visit the Performance Agreement module to setup your active plan list first.</p>
+            <p className="text-slate-500 text-sm font-bold uppercase">{isTeamEvaluation ? 'No KPIs found in your Team Performance Plan' : 'No KPIs found in your Performance Plan'}</p>
+            <p className="text-slate-400 text-[10px] mt-1">{isTeamEvaluation ? 'Visit the Team Performance Plan module to setup your active plan list first.' : 'Visit the Performance Agreement module to setup your active plan list first.'}</p>
           </div>
         ) : (
           <div className="space-y-6">
@@ -1532,7 +1543,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                       { id: 'q3', label: 'Q3' },
                       { id: 'q4', label: 'Q4' },
                       { id: 'annual', label: 'Annual Totals' },
-                      { id: 'overall', label: 'Self Evaluation Assessment & Scores' },
+                      { id: 'overall', label: isTeamEvaluation ? 'Team Evaluation Assessment & Scores' : 'Self Evaluation Assessment & Scores' },
                     ].map(t => (
                       <button
                         key={t.id}
@@ -2231,11 +2242,11 @@ export function EvaluationIPMS({ currentUser, activeTenantId }: Props) {
                           <div className="space-y-3">
                             <label className="text-[10px] uppercase font-bold text-emerald-700 block border-b border-emerald-100 pb-1">
                               <User className="w-3.5 h-3.5 inline mr-1 mb-0.5 align-middle" />
-                              Overall Self-Evaluation
+                              {isTeamEvaluation ? 'Overall Team Evaluation' : 'Overall Self-Evaluation'}
                             </label>
                             <div className="space-y-3 text-stone-900">
                               <div className="flex items-center gap-2 mb-1">
-                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-tight">Self-Evaluation Score (1-5):</span>
+                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-tight">{isTeamEvaluation ? 'Team Evaluation Score (1-5):' : 'Self-Evaluation Score (1-5):'}</span>
                                 <input
                                   type="number"
                                   min="1"

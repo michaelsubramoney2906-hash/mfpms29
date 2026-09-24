@@ -242,6 +242,7 @@ interface PerformanceAgreementsProps {
   currentUser: User;
   activeTenantId: string;
   isPlan?: boolean;
+  isTeamPlan?: boolean;
 }
 
 interface PlanMetadata {
@@ -359,11 +360,15 @@ const safeJson = async (res: Response) => {
   return null;
 };
 
-export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: PerformanceAgreementsProps) {
-  const headingTitle = isPlan ? "Performance Plan" : "Performance Agreement";
-  const subTitle = isPlan 
-    ? "Strategic municipal performance targets and action plans" 
-    : "Formal contracts & expectations";
+export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isTeamPlan }: PerformanceAgreementsProps) {
+  const headingTitle = isTeamPlan ? "Team Performance Plan" : isPlan ? "Performance Plan" : "Performance Agreement";
+  const subTitle = isTeamPlan
+    ? "Team strategic municipal performance targets, scorecards, and action plans"
+    : isPlan 
+      ? "Strategic municipal performance targets and action plans" 
+      : "Formal contracts & expectations";
+
+  const apiEndpoint = isTeamPlan ? "team-pplan" : "pplan";
 
   // State Management
   const [items, setItems] = useState<PlanKPIItem[]>([]);
@@ -538,7 +543,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
           fetch(`/api/tenant/${activeTenantId}/users?minimal=true&t=${Date.now()}`),
           fetch(`/api/tenant/${activeTenantId}/kpas?userId=${encodeURIComponent(targetEmail)}&t=${Date.now()}`),
           fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(targetEmail)}&t=${Date.now()}`),
-          fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(targetEmail)}&t=${Date.now()}`)
+          fetch(`/api/tenant/${activeTenantId}/${apiEndpoint}?userId=${encodeURIComponent(targetEmail)}&t=${Date.now()}`)
         ]);
 
         if (usersRes.ok) {
@@ -797,7 +802,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
             const originalDataStr = JSON.stringify(data.items || []);
             const syncedDataStr = JSON.stringify(currentItems);
             if (originalDataStr !== syncedDataStr) {
-               fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(targetEmail)}`, {
+               fetch(`/api/tenant/${activeTenantId}/${apiEndpoint}?userId=${encodeURIComponent(targetEmail)}`, {
                  method: "POST",
                  headers: { "Content-Type": "application/json" },
                  body: JSON.stringify({ metadata: data.metadata || metadata, items: currentItems })
@@ -805,12 +810,12 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
             }
           } else {
             const isMahlanguTarget = targetEmail.toLowerCase().includes('mahlanguml') || targetEmail.toLowerCase().includes('mahlangulm') || targetEmail.toLowerCase().includes('mandlaml');
-            if (isMahlanguTarget) {
+            if (isMahlanguTarget && !isTeamPlan) {
               const full97 = generateAll97KPIs(allCustomKpas);
               setItems(full97);
               const metaWithExtracted = { ...(data.metadata || metadata), _isFredExtracted: true, _isCleared: false };
               setMetadata(metaWithExtracted);
-              fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(targetEmail)}`, {
+              fetch(`/api/tenant/${activeTenantId}/${apiEndpoint}?userId=${encodeURIComponent(targetEmail)}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ metadata: metaWithExtracted, items: full97 })
@@ -821,14 +826,14 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
           }
         }
       } catch (err) {
-        console.error("Error loading Performance Plan:", err);
+        console.error(`Error loading ${headingTitle}:`, err);
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchPlanAndKpaData();
-  }, [activeTenantId, currentUser?.email, selectedUserEmail]);
+  }, [activeTenantId, currentUser?.email, selectedUserEmail, isTeamPlan]);
 
   // Save to database
   const handleSaveToDatabase = async (customMetadata = metadata, customItems = items, showFeedback = false) => {
@@ -836,7 +841,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
     try {
       const targetEmail = selectedUserEmail || currentUser.email;
       const metaToSave = { ...customMetadata, _isCleared: customItems.length === 0 };
-      const res = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(targetEmail)}`, {
+      const res = await fetch(`/api/tenant/${activeTenantId}/${apiEndpoint}?userId=${encodeURIComponent(targetEmail)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ metadata: metaToSave, Send, items: customItems })
@@ -844,10 +849,10 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
       if (!res.ok) throw new Error("Failed to post payload to database");
       setHasSavedOnce(true);
       if (showFeedback) {
-        alert("Performance Plan in its entirety has been successfully saved to DB and pushed into the Employee Self-Evaluation module!");
+        alert(`${headingTitle} in its entirety has been successfully saved to DB!`);
       }
     } catch (err: any) {
-      console.error("Save Performance Plan Database Error:", err);
+      console.error(`Save ${headingTitle} Database Error:`, err);
     } finally {
       setIsSaving(false);
     }

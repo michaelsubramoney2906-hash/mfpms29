@@ -48,6 +48,7 @@ interface JSCModuleProps {
   };
   activeTenantId: string;
   defaultEmployeeEmail?: string;
+  isTeamJSC?: boolean;
 }
 
 export const ensureQuarterlyData = (row: CompetencyRow): CompetencyRow => {
@@ -121,9 +122,10 @@ export const DEFAULT_COMPETENCY_ROWS: CompetencyRow[] = [
 ];
 
 // ==========================================
-// 1. JSC Self Evaluation Section
+// 1. JSC Self / Team Evaluation Section
 // ==========================================
-export function JSCSelfEvaluationSection({ currentUser, activeTenantId }: JSCModuleProps) {
+export function JSCSelfEvaluationSection({ currentUser, activeTenantId, isTeamJSC }: JSCModuleProps) {
+  const apiEndpoint = isTeamJSC ? 'team-job-competencies' : 'job-competencies';
   const [rows, setRows] = useState<CompetencyRow[]>(DEFAULT_COMPETENCY_ROWS);
   const [selectedQuarter, setSelectedQuarter] = useState<'q1' | 'q2' | 'q3' | 'q4'>('q1');
   const [loading, setLoading] = useState<boolean>(true);
@@ -135,7 +137,7 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId }: JSCMod
     const fetchCompetencies = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`/api/tenant/${activeTenantId}/job-competencies?userId=${encodeURIComponent(userEmail)}`);
+        const res = await fetch(`/api/tenant/${activeTenantId}/${apiEndpoint}?userId=${encodeURIComponent(userEmail)}`);
         if (!res.ok) throw new Error("Failed to load server state");
         const data = await res.json();
         if (active && data) {
@@ -144,14 +146,14 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId }: JSCMod
           }
         }
       } catch (err) {
-        console.warn("Using default JSC competencies for self evaluation:", err);
+        console.warn("Using default JSC competencies for evaluation:", err);
       } finally {
         if (active) setLoading(false);
       }
     };
     if (userEmail) fetchCompetencies();
     return () => { active = false; };
-  }, [activeTenantId, userEmail]);
+  }, [activeTenantId, userEmail, apiEndpoint]);
 
   const currentMonth = new Date().getMonth(); // 0-11
   let isTimeLocked = false;
@@ -173,13 +175,13 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId }: JSCMod
   const handleSaveToDatabase = async (updatedRows: CompetencyRow[]) => {
     try {
       setSaving(true);
-      await fetch(`/api/tenant/${activeTenantId}/job-competencies?userId=${encodeURIComponent(userEmail)}`, {
+      await fetch(`/api/tenant/${activeTenantId}/${apiEndpoint}?userId=${encodeURIComponent(userEmail)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ competencies: updatedRows })
       });
     } catch (err) {
-      console.error("Error saving JSC self evaluation to Supabase:", err);
+      console.error("Error saving JSC evaluation to Supabase:", err);
     } finally {
       setSaving(false);
     }
@@ -269,8 +271,8 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId }: JSCMod
             JSC
           </div>
           <div>
-            <h3 className="text-xs font-black text-gray-800 uppercase tracking-wider">JSC Employee Self Evaluation</h3>
-            <p className="text-[10px] text-gray-400 font-medium">Rate your performance score (1-5) and provide comments per competency row per quarter.</p>
+            <h3 className="text-xs font-black text-gray-800 uppercase tracking-wider">{isTeamJSC ? 'JSC Team Evaluation' : 'JSC Employee Self Evaluation'}</h3>
+            <p className="text-[10px] text-gray-400 font-medium">Rate {isTeamJSC ? 'team' : 'your'} performance score (1-5) and provide comments per competency row per quarter.</p>
           </div>
         </div>
 
@@ -339,8 +341,8 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId }: JSCMod
                   <th className="px-4 py-3 font-black text-center w-24">JSC Code</th>
                   <th className="px-4 py-3 font-black">Competency Title</th>
                   <th className="px-4 py-3 font-black text-center w-20">Weight (%)</th>
-                  <th className="px-4 py-3 font-black text-center w-40">Self Score (1-5)</th>
-                  <th className="px-4 py-3 font-black">Self Comments</th>
+                  <th className="px-4 py-3 font-black text-center w-40">{isTeamJSC ? 'Team Score (1-5)' : 'Self Score (1-5)'}</th>
+                  <th className="px-4 py-3 font-black">{isTeamJSC ? 'Team Comments' : 'Self Comments'}</th>
                   <th className="px-4 py-3 font-black text-center w-48">Audit & DPMC Reviews</th>
                   <th className="px-4 py-3 font-black text-center w-24">Status</th>
                 </tr>
@@ -402,7 +404,7 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId }: JSCMod
                         <td className="px-4 py-3">
                           <input
                             type="text"
-                            placeholder={isLocked ? "No comment added." : "Enter self evaluation comments..."}
+                            placeholder={isLocked ? "No comment added." : (isTeamJSC ? "Enter team evaluation comments..." : "Enter self evaluation comments...")}
                             value={qData.selfComments || ''}
                             disabled={isLocked}
                             onChange={(e) => {
@@ -473,7 +475,8 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId }: JSCMod
 // ==========================================
 // 2. JSC Manager Approval Section
 // ==========================================
-export function JSCManagerApprovalSection({ currentUser, activeTenantId, defaultEmployeeEmail }: JSCModuleProps) {
+export function JSCManagerApprovalSection({ currentUser, activeTenantId, defaultEmployeeEmail, isTeamJSC }: JSCModuleProps) {
+  const apiEndpoint = isTeamJSC ? 'team-job-competencies' : 'job-competencies';
   const [rows, setRows] = useState<CompetencyRow[]>(DEFAULT_COMPETENCY_ROWS);
   const [selectedQuarter, setSelectedQuarter] = useState<'q1' | 'q2' | 'q3' | 'q4'>('q1');
   const [selectedUserEmail, setSelectedUserEmail] = useState<string>(defaultEmployeeEmail || '');
@@ -552,7 +555,7 @@ export function JSCManagerApprovalSection({ currentUser, activeTenantId, default
       if (!emailToFetch) return;
       try {
         setLoading(true);
-        const res = await fetch(`/api/tenant/${activeTenantId}/job-competencies?userId=${encodeURIComponent(emailToFetch)}`);
+        const res = await fetch(`/api/tenant/${activeTenantId}/${apiEndpoint}?userId=${encodeURIComponent(emailToFetch)}`);
         if (!res.ok) throw new Error("Failed to load server state");
         const data = await res.json();
         if (active && data) {
@@ -570,13 +573,13 @@ export function JSCManagerApprovalSection({ currentUser, activeTenantId, default
     };
     fetchCompetencies();
     return () => { active = false; };
-  }, [activeTenantId, selectedUserEmail, currentUser.email, defaultEmployeeEmail]);
+  }, [activeTenantId, selectedUserEmail, currentUser.email, defaultEmployeeEmail, apiEndpoint]);
 
   const handleSaveToDatabase = async (updatedRows: CompetencyRow[]) => {
     const emailToSave = selectedUserEmail || currentUser.email || '';
     try {
       setSaving(true);
-      await fetch(`/api/tenant/${activeTenantId}/job-competencies?userId=${encodeURIComponent(emailToSave)}`, {
+      await fetch(`/api/tenant/${activeTenantId}/${apiEndpoint}?userId=${encodeURIComponent(emailToSave)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ competencies: updatedRows })
@@ -1760,7 +1763,8 @@ export function JSCAllInOneCompetenciesTable({ currentUser, activeTenantId }: JS
 // ==========================================
 // 6. JSC Analytical Reporting Section
 // ==========================================
-export function JSCAnalyticalReportingSection({ currentUser, activeTenantId }: JSCModuleProps) {
+export function JSCAnalyticalReportingSection({ currentUser, activeTenantId, isTeamJSC }: JSCModuleProps) {
+  const apiEndpoint = isTeamJSC ? 'team-job-competencies' : 'job-competencies';
   const [rows, setRows] = useState<CompetencyRow[]>(DEFAULT_COMPETENCY_ROWS);
   const [loading, setLoading] = useState<boolean>(true);
   const userEmail = (currentUser?.email || '').toLowerCase().trim();
@@ -1770,7 +1774,7 @@ export function JSCAnalyticalReportingSection({ currentUser, activeTenantId }: J
     const fetchCompetencies = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`/api/tenant/${activeTenantId}/job-competencies?userId=${encodeURIComponent(userEmail)}`);
+        const res = await fetch(`/api/tenant/${activeTenantId}/${apiEndpoint}?userId=${encodeURIComponent(userEmail)}`);
         if (!res.ok) throw new Error("Failed to load server state");
         const data = await res.json();
         if (active && data) {
@@ -1786,7 +1790,7 @@ export function JSCAnalyticalReportingSection({ currentUser, activeTenantId }: J
     };
     if (userEmail) fetchCompetencies();
     return () => { active = false; };
-  }, [activeTenantId, userEmail]);
+  }, [activeTenantId, userEmail, apiEndpoint]);
 
   const totalWeight = rows.reduce((acc, curr) => acc + (curr.weight || 0), 0);
 

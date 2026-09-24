@@ -19,6 +19,7 @@ import {
   FileSpreadsheet,
   Edit3,
   User as UserIcon,
+  Users,
   ChevronDown,
   ChevronRight,
   Check
@@ -260,6 +261,92 @@ export function FredPerformancePlanExtractor({
     }
   };
 
+  // Push Extracted Data Verbatim to the Team Performance Plan
+  const handlePushToTeamPerformancePlan = async () => {
+    const selected = extractedItems.filter(it => it._selected !== false);
+    if (selected.length === 0) {
+      setStatusMessage({ type: 'error', text: 'Please select at least one KPI to push to the Team Performance Plan.' });
+      return;
+    }
+
+    setIsPushing(true);
+    setStatusMessage({
+      type: 'info',
+      text: `Pushing ${selected.length} verbatim KPIs directly into the Team Performance Plan...`
+    });
+
+    try {
+      const targetEmail = targetEmployeeEmail || currentUser.email;
+
+      const planItems = selected.map((it, idx) => {
+        const functionalKpa = it["functional kpa"] || it["kpa"] || 'Functional Performance Area';
+        const poeVal = it["poe"] || it["portfolio of evidence"] || it["means of verification"] || '';
+        
+        return {
+          id: `team-ipp-kpi-${Date.now()}-${idx + 1}`,
+          kpiNo: it["kpi no"] || `KPI-${idx + 1}`,
+          kpi: it["kpi description"] || '',
+          weighting: it["%wt"] || '0',
+          baseline: it["baseline"] || '',
+          annualTarget: it["annual target"] || '',
+          q1Target: it["1st qtr target"] || '',
+          q2Target: it["2nd qtr target"] || '',
+          q3Target: it["3rd qtr target"] || '',
+          q4Target: it["4th qtr target"] || '',
+          poe: poeVal,
+          annualRequiredPoe: poeVal,
+          q1Poe: poeVal,
+          q2Poe: poeVal,
+          midtermPoe: poeVal,
+          q3Poe: poeVal,
+          q4Poe: poeVal,
+          budget: it["budget"] || 'R0.00',
+          kpa: functionalKpa,
+          mscoaCode: 'Operational',
+          strategicGoal: 'To ensure sustainable service delivery and clean audit compliance',
+          myScore: '3.0'
+        };
+      });
+
+      const planMetadata = {
+        name: 'Team Performance Plan',
+        period: '2025/2026 Financial Year',
+        department: currentUser.department || 'Administration',
+        position: 'Team Scorecard',
+        email: targetEmail,
+        _extractedFrom: sourceFileName || 'Performance Agreement',
+        _pushedAt: new Date().toISOString()
+      };
+
+      const res = await fetch(`/api/tenant/${activeTenantId}/team-pplan?userId=${encodeURIComponent(targetEmail)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          metadata: planMetadata,
+          items: planItems
+        })
+      });
+
+      if (!res.ok) {
+        throw new Error(`Server returned error status ${res.status}`);
+      }
+
+      setStatusMessage({
+        type: 'success',
+        text: `Successfully pushed ${selected.length} KPIs verbatim into the Team Performance Plan! Zero cross-contamination with individual plans.`
+      });
+
+    } catch (err: any) {
+      console.error("Push to Team Performance Plan error:", err);
+      setStatusMessage({
+        type: 'error',
+        text: `Failed to push to Team Performance Plan: ${err.message || 'Unknown server error.'}`
+      });
+    } finally {
+      setIsPushing(false);
+    }
+  };
+
   // Reset / Clear Extractor
   const handleClearExtractor = async () => {
     setExtractedItems([]);
@@ -356,20 +443,37 @@ export function FredPerformancePlanExtractor({
             </button>
 
             {extractedItems.length > 0 && (
-              <button
-                id="btn-push-to-performance-plan"
-                type="button"
-                onClick={handlePushToPerformancePlan}
-                disabled={isPushing || selectedCount === 0}
-                className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl text-xs font-black flex items-center gap-2 transition shadow-lg shadow-indigo-600/30 disabled:opacity-50 cursor-pointer"
-              >
-                {isPushing ? (
-                  <Loader2 className="w-4 h-4 animate-spin text-white" />
-                ) : (
-                  <ArrowRight className="w-4 h-4 text-white" />
-                )}
-                <span>Push to Performance Plan ({selectedCount})</span>
-              </button>
+              <>
+                <button
+                  id="btn-push-to-team-performance-plan"
+                  type="button"
+                  onClick={handlePushToTeamPerformancePlan}
+                  disabled={isPushing || selectedCount === 0}
+                  className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-black flex items-center gap-2 transition shadow-lg shadow-emerald-600/30 disabled:opacity-50 cursor-pointer"
+                >
+                  {isPushing ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  ) : (
+                    <Users className="w-4 h-4 text-emerald-200" />
+                  )}
+                  <span>Push to Team Performance Plan ({selectedCount})</span>
+                </button>
+
+                <button
+                  id="btn-push-to-performance-plan"
+                  type="button"
+                  onClick={handlePushToPerformancePlan}
+                  disabled={isPushing || selectedCount === 0}
+                  className="px-4 py-2.5 bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl text-xs font-black flex items-center gap-2 transition shadow-lg shadow-indigo-600/30 disabled:opacity-50 cursor-pointer"
+                >
+                  {isPushing ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  ) : (
+                    <ArrowRight className="w-4 h-4 text-white" />
+                  )}
+                  <span>Push to Performance Plan ({selectedCount})</span>
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -704,6 +808,20 @@ export function FredPerformancePlanExtractor({
               >
                 <Trash2 className="w-4 h-4 text-rose-400" />
                 <span>Clear Extractor</span>
+              </button>
+              <button
+                id="btn-bottom-push-to-team-performance-plan"
+                type="button"
+                onClick={handlePushToTeamPerformancePlan}
+                disabled={isPushing || selectedCount === 0}
+                className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-black flex items-center gap-2 transition shadow-lg shadow-emerald-600/30 disabled:opacity-50 cursor-pointer"
+              >
+                {isPushing ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Users className="w-4 h-4 text-emerald-200" />
+                )}
+                <span>Push {selectedCount} to Team Performance Plan</span>
               </button>
               <button
                 id="btn-bottom-push-to-performance-plan"
