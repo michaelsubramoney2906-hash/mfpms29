@@ -217,7 +217,7 @@ export const GuidedIPMSWorkflow: React.FC<GuidedIPMSWorkflowProps> = ({
                           email.includes('khuboni') ||
                           email.includes('mike@massivedynamixdistributors.com');
                       
-    const isDirectAccessStep = ['ipms-evaluation', 'pplan', 'pdp', 'pa', 'jsc', 'ccomp', 'ipms-kpi', 'ipms-kpa', 'organogram', 'ipms-inbox', 'review-timetable', 'performance-assessment'].includes(stepsToShow[index]?.id);
+    const isDirectAccessStep = ['ipms-evaluation', 'pplan', 'pdp', 'pa', 'pa-cds-team', 'pa-technical-services', 'pa-corporate-services', 'pa-pms-team', 'pa-templates', 'jsc', 'ccomp', 'ipms-kpi', 'ipms-kpa', 'organogram', 'ipms-inbox', 'review-timetable', 'performance-assessment'].includes(stepsToShow[index]?.id);
     if (isGlobalOrSystemAdmin || isPMSTeam || isManagerUser || isDirectAccessStep) return true;
 
     const prevStep = stepsToShow[index - 1];

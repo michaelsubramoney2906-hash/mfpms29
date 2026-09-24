@@ -24,7 +24,9 @@ import { StrategicObjectives } from './StrategicObjectives/StrategicObjectives';
 import { JobSpecificCompetencies } from './IPMS/JobSpecificCompetencies';
 import { CoreCompetencies } from './IPMS/CoreCompetencies';
 import { PersonalDevelopmentPlan } from './IPMS/PersonalDevelopmentPlan';
-import { PerformanceAgreements } from './IPMS/PerformanceAgreements';
+import { PerformanceAgreements, DEFAULT_TECHNICAL_SERVICES_ROWS, DEFAULT_CORPORATE_SERVICES_ROWS, DEFAULT_PMS_TEAM_ROWS } from './IPMS/PerformanceAgreements';
+import { DraftingSuiteFirefighters } from './IPMS/DraftingSuiteFirefighters';
+import { DraftingSuiteTeam } from './IPMS/DraftingSuiteTeam';
 import { PATemplates } from './IPMS/PATemplates';
 import { PerformanceAssessment } from './IPMS/PerformanceAssessment';
 import { ReviewTimetable } from './IPMS/ReviewTimetable';
@@ -476,7 +478,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                             email.includes('khuboni') ||
                             email.includes('mike@massivedynamixdistributors.com');
 
-      const isDirectAccess = sub.id === 'ipms-evaluation' || sub.id === 'pplan' || sub.id === 'pdp' || sub.id === 'pa' || sub.id === 'jsc' || sub.id === 'ccomp' || sub.id === 'ipms-kpi' || sub.id === 'ipms-kpa' || sub.id === 'organogram' || sub.id === 'ipms-inbox' || sub.id === 'review-timetable' || sub.id === 'performance-assessment';
+      const isDirectAccess = sub.id === 'ipms-evaluation' || sub.id === 'pplan' || sub.id === 'pdp' || sub.id === 'pa' || sub.id === 'pa-cds-team' || sub.id === 'pa-technical-services' || sub.id === 'pa-corporate-services' || sub.id === 'pa-pms-team' || sub.id === 'pa-templates' || sub.id === 'jsc' || sub.id === 'ccomp' || sub.id === 'ipms-kpi' || sub.id === 'ipms-kpa' || sub.id === 'organogram' || sub.id === 'ipms-inbox' || sub.id === 'review-timetable' || sub.id === 'performance-assessment';
       const isBypassAll = isGlobalOrSystemAdmin || isPMSTeam || isManagerUser || isDirectAccess;
 
       if (!isBypassAll) {
@@ -870,6 +872,40 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
           ) : activeSubModule.id === 'pplan' || activeSubModule.id === 'pa' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
                  <PerformanceAgreements currentUser={fullUserProfile} activeTenantId={activeTenantId} isPlan={activeSubModule.id === 'pplan'} />
+              </div>
+          ) : activeSubModule.id === 'pa-cds-team' ? (
+              <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
+                 <DraftingSuiteFirefighters currentUser={fullUserProfile as any} activeTenantId={activeTenantId} />
+              </div>
+          ) : activeSubModule.id === 'pa-technical-services' ? (
+              <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
+                 <DraftingSuiteTeam 
+                   currentUser={fullUserProfile as any} 
+                   activeTenantId={activeTenantId} 
+                   teamTitle="Technical Services Team"
+                   documentIdSuffix="technical_services"
+                   defaultRows={DEFAULT_TECHNICAL_SERVICES_ROWS}
+                 />
+              </div>
+          ) : activeSubModule.id === 'pa-corporate-services' ? (
+              <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
+                 <DraftingSuiteTeam 
+                   currentUser={fullUserProfile as any} 
+                   activeTenantId={activeTenantId} 
+                   teamTitle="Corporate Services Team"
+                   documentIdSuffix="corporate_services"
+                   defaultRows={DEFAULT_CORPORATE_SERVICES_ROWS}
+                 />
+              </div>
+          ) : activeSubModule.id === 'pa-pms-team' ? (
+              <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
+                 <DraftingSuiteTeam 
+                   currentUser={fullUserProfile as any} 
+                   activeTenantId={activeTenantId} 
+                   teamTitle="PMS Team"
+                   documentIdSuffix="pms_team"
+                   defaultRows={DEFAULT_PMS_TEAM_ROWS}
+                 />
               </div>
           ) : activeSubModule.id === 'pa-templates' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">

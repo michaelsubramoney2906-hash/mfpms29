@@ -166,7 +166,7 @@ export function CompactPoeUploader({
   );
 }
 
-const DEFAULT_TECHNICAL_SERVICES_ROWS = [
+export const DEFAULT_TECHNICAL_SERVICES_ROWS = [
   ['1', 'Eng. Sipho Mthembu (Chief Engineer / General Manager)', 'TS-0100'],
   ['2', 'Johan Botha (Senior Water Network Superintendent)', 'TS-0205'],
   ['3', 'Nolwazi Dube (Water Distribution Supervisor)', 'TS-0312'],
@@ -175,7 +175,7 @@ const DEFAULT_TECHNICAL_SERVICES_ROWS = [
   ['6', 'Mandla Ndlovu (Water Quality Testing Tech)', 'TS-0630']
 ];
 
-const DEFAULT_CORPORATE_SERVICES_ROWS = [
+export const DEFAULT_CORPORATE_SERVICES_ROWS = [
   ['1', 'Audrey Mpanza (Director: Corporate Services)', 'CS-0101'],
   ['2', 'Mike Thompson (Senior HR & Governance Lead)', 'CS-0205'],
   ['3', 'Fatima Patel (Legal & Administration Officer)', 'CS-0312'],
@@ -184,7 +184,7 @@ const DEFAULT_CORPORATE_SERVICES_ROWS = [
   ['6', 'Thabo Mokoena (Auxiliary Services & Logistics Coordinator)', 'CS-0630']
 ];
 
-const DEFAULT_PMS_TEAM_ROWS = [
+export const DEFAULT_PMS_TEAM_ROWS = [
   ['1', 'Delphine Naidoo (PMS Manager / Performance Lead)', 'PM-0100'],
   ['2', 'Qiniso Sithole (SDBIP & Reporting Specialist)', 'PM-0210'],
   ['3', 'Marlan Botha (M&E Data Analyst)', 'PM-0320'],
@@ -2157,43 +2157,37 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan }: P
           >
             Templates
           </button>
-          {(!isDualLayerTeamLeader || agreementScope === 'individual') && (
-            <button 
-              onClick={() => setActiveTab('drafting_suite')}
-              className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'drafting_suite' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-            >
-              Drafting Suite
-            </button>
-          )}
-          {(!isDualLayerTeamLeader || agreementScope === 'team') && (
-            <>
-              <button 
-                onClick={() => setActiveTab('drafting_suite_firefighters')}
-                className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'drafting_suite_firefighters' ? 'border-amber-600 text-amber-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-              >
-                CDS Team PA
-              </button>
-              <button 
-                onClick={() => setActiveTab('drafting_suite_technical_services')}
-                className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'drafting_suite_technical_services' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-              >
-                Technical Services Team PA
-              </button>
-              <button 
-                onClick={() => setActiveTab('drafting_suite_corporate_services')}
-                className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'drafting_suite_corporate_services' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-              >
-                Corporate Services Team PA
-              </button>
-              <button 
-                onClick={() => setActiveTab('drafting_suite_pms_team')}
-                className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'drafting_suite_pms_team' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-              >
-                PMS Team PA
-              </button>
-            </>
-          )}
-          {isLeadFireFighter && (!isDualLayerTeamLeader || agreementScope === 'team') && (
+          <button 
+            onClick={() => setActiveTab('drafting_suite')}
+            className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'drafting_suite' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+          >
+            Drafting Suite
+          </button>
+          <button 
+            onClick={() => setActiveTab('drafting_suite_firefighters')}
+            className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'drafting_suite_firefighters' ? 'border-amber-600 text-amber-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+          >
+            CDS Team PA
+          </button>
+          <button 
+            onClick={() => setActiveTab('drafting_suite_technical_services')}
+            className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'drafting_suite_technical_services' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+          >
+            Technical Services Team PA
+          </button>
+          <button 
+            onClick={() => setActiveTab('drafting_suite_corporate_services')}
+            className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'drafting_suite_corporate_services' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+          >
+            Corporate Services Team PA
+          </button>
+          <button 
+            onClick={() => setActiveTab('drafting_suite_pms_team')}
+            className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'drafting_suite_pms_team' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+          >
+            PMS Team PA
+          </button>
+          {isLeadFireFighter && (
             <button 
               onClick={() => setActiveTab('lead_fire_fighter')}
               className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'lead_fire_fighter' ? 'border-amber-600 text-amber-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
