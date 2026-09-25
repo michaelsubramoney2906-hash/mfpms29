@@ -50,6 +50,88 @@ interface DirectoryUser {
 
 export function IPMSInbox({ currentUser, activeTenantId }: IPMSInboxProps) {
   const userEmail = (currentUser?.email || '').toLowerCase().trim();
+  const userPrefix = userEmail.split('@')[0] || 'official';
+  const nkangalaEmail = `${userPrefix}@nkangaladm.gov.za`;
+  const mzansiflowEmail = `${userPrefix}@mzansiflow.co.za`;
+
+  // Sender Domain Selection for New Message: 'nkangala' | 'mzansiflow' | 'default' | 'custom'
+  const [senderDomain, setSenderDomain] = useState<'nkangala' | 'mzansiflow' | 'default' | 'custom'>('nkangala');
+  const [customSenderEmail, setCustomSenderEmail] = useState('');
+
+  // Sender Domain Selection for Reply: 'nkangala' | 'mzansiflow' | 'default'
+  const [replySenderDomain, setReplySenderDomain] = useState<'nkangala' | 'mzansiflow' | 'default'>('nkangala');
+
+  // Communique Filter for Workspace: 'all' | 'nkangala' | 'mzansiflow'
+  const [communiqueFilter, setCommuniqueFilter] = useState<'all' | 'nkangala' | 'mzansiflow'>('all');
+
+  const getEffectiveSenderEmail = (choice: 'nkangala' | 'mzansiflow' | 'default' | 'custom', custom?: string) => {
+    if (choice === 'nkangala') return nkangalaEmail;
+    if (choice === 'mzansiflow') return mzansiflowEmail;
+    if (choice === 'custom' && custom?.trim()) return custom.trim().toLowerCase();
+    return currentUser?.email || nkangalaEmail;
+  };
+
+  const isUserMatch = (email?: string | null) => {
+    if (!email) return false;
+    const clean = email.toLowerCase().trim();
+    if (clean === userEmail) return true;
+    if (clean === nkangalaEmail.toLowerCase()) return true;
+    if (clean === mzansiflowEmail.toLowerCase()) return true;
+    if (userPrefix && clean.startsWith(`${userPrefix}@`) && (clean.endsWith('@nkangaladm.gov.za') || clean.endsWith('@mzansiflow.co.za'))) {
+      return true;
+    }
+    return false;
+  };
+
+  const hasDomain = (emails: (string | undefined)[], domain: string) => {
+    return emails.some(e => (e || '').toLowerCase().includes(domain));
+  };
+
+  const NKANGALA_QUICK_RECIPIENTS = [
+    { email: 'mm@nkangaladm.gov.za', label: 'Municipal Manager (MM)' },
+    { email: 'cfo@nkangaladm.gov.za', label: 'Chief Financial Officer' },
+    { email: 'pms@nkangaladm.gov.za', label: 'PMS Directorate' },
+    { email: 'internal.audit@nkangaladm.gov.za', label: 'Internal Audit' },
+    { email: 'registry@nkangaladm.gov.za', label: 'Municipal Registry' },
+    { email: 'corporate@nkangaladm.gov.za', label: 'Corporate Services' },
+  ];
+
+  const MZANSIFLOW_QUICK_RECIPIENTS = [
+    { email: 'compliance@mzansiflow.co.za', label: 'Compliance Engine' },
+    { email: 'audit@mzansiflow.co.za', label: 'Audit & Assurance' },
+    { email: 'support@mzansiflow.co.za', label: 'Technical Support' },
+    { email: 'governance@mzansiflow.co.za', label: 'Governance Desk' },
+  ];
+
+  const addRecipientEmail = (raw: string, displayName?: string) => {
+    let trimmed = raw.trim().toLowerCase();
+    if (!trimmed) return;
+    if (!trimmed.includes('@')) {
+      trimmed = `${trimmed}@nkangaladm.gov.za`;
+    }
+    if (selectedRecipients.some(r => r.email.toLowerCase() === trimmed)) {
+      setRecipientInput('');
+      return;
+    }
+    const name = displayName || (trimmed.includes('@') ? trimmed.split('@')[0].replace(/[._]/g, ' ') : trimmed);
+    const capitalized = name.charAt(0).toUpperCase() + name.slice(1);
+    setSelectedRecipients(prev => [...prev, {
+      email: trimmed,
+      fullName: capitalized,
+      department: trimmed.endsWith('@nkangaladm.gov.za') 
+        ? 'Nkangala District Municipality' 
+        : trimmed.endsWith('@mzansiflow.co.za') 
+        ? 'Mzansi Flow Hub' 
+        : 'External Contact',
+      jobFunction: trimmed.endsWith('@nkangaladm.gov.za') 
+        ? 'Nkangala Official' 
+        : trimmed.endsWith('@mzansiflow.co.za') 
+        ? 'Mzansi Flow Service' 
+        : 'Official'
+    }]);
+    setRecipientInput('');
+    setShowDirectoryDropdown(false);
+  };
 
   // Navigation / Folder state
   const [activeFolder, setActiveFolder] = useState<'inbox' | 'sent' | 'starred' | 'trash'>('inbox');
@@ -121,7 +203,7 @@ export function IPMSInbox({ currentUser, activeTenantId }: IPMSInboxProps) {
     else setRefreshing(true);
 
     try {
-      const res = await fetch(`/api/tenant/${activeTenantId}/ipms-inbox?userId=${encodeURIComponent(userEmail)}&t=${Date.now()}`);
+      const res = await fetch(`/api/tenant/${activeTenantId}/ipms-inbox?userId=${encodeURIComponent(userEmail)}&allCommunique=true&t=${Date.now()}`);
       if (res.ok) {
         const data: InboxMessage[] = await res.json();
         const sorted = (data || []).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -129,15 +211,15 @@ export function IPMSInbox({ currentUser, activeTenantId }: IPMSInboxProps) {
         // Check for new incoming unread messages to trigger receive "ding" sound
         if (knownMessageIdsRef.current.size > 0) {
           const hasNewUnread = sorted.some(m => {
-            const isForMe = (m.recipientEmails || []).some(e => e.toLowerCase() === userEmail);
-            const isUnreadByMe = !(m.readBy || []).map(e => e.toLowerCase()).includes(userEmail);
+            const isForMe = (m.recipientEmails || []).some(e => isUserMatch(e));
+            const isUnreadByMe = !(m.readBy || []).some(e => isUserMatch(e));
             const isNew = !knownMessageIdsRef.current.has(m.id);
             return isForMe && isUnreadByMe && isNew;
           });
 
           if (hasNewUnread) {
             playDingSound();
-            showNotify("New message received in IPMS Inbox!", "info");
+            showNotify("New communique received in IPMS Inbox!", "info");
           }
         }
 
@@ -232,11 +314,11 @@ export function IPMSInbox({ currentUser, activeTenantId }: IPMSInboxProps) {
   // Send New Message
   const handleSendMessage = async () => {
     if (selectedRecipients.length === 0) {
-      showNotify("Please add at least one recipient from the Azure AD Directory.", "error");
+      showNotify("Please add at least one recipient (e.g. @nkangaladm.gov.za or @mzansiflow.co.za).", "error");
       return;
     }
     if (!composeSubject.trim()) {
-      showNotify("Please enter a subject for your message.", "error");
+      showNotify("Please enter a subject for your communique.", "error");
       return;
     }
     if (!composeBody.trim()) {
@@ -246,15 +328,23 @@ export function IPMSInbox({ currentUser, activeTenantId }: IPMSInboxProps) {
 
     setSending(true);
 
+    const effectiveSender = getEffectiveSenderEmail(senderDomain, customSenderEmail);
+    const domainTitle = effectiveSender.includes('nkangaladm.gov.za')
+      ? 'Nkangala District Official'
+      : effectiveSender.includes('mzansiflow.co.za')
+      ? 'Mzansi Flow PMS Hub'
+      : (currentUser.jobFunction || currentUser.systemRole || 'Municipal Official');
+
     const payload = {
-      senderEmail: currentUser.email,
+      senderEmail: effectiveSender,
       senderName: currentUser.fullName || currentUser.email.split('@')[0],
-      senderJobTitle: currentUser.jobFunction || currentUser.systemRole || 'Municipal Official',
+      senderJobTitle: domainTitle,
       recipientEmails: selectedRecipients.map(r => r.email),
       recipientNames: selectedRecipients.map(r => r.fullName),
       subject: composeSubject,
       body: composeBody,
-      attachments: composeAttachments
+      attachments: composeAttachments,
+      userEmail: currentUser.email
     };
 
     try {
@@ -268,7 +358,7 @@ export function IPMSInbox({ currentUser, activeTenantId }: IPMSInboxProps) {
         // Play Woosh Sound on successful send!
         playWooshSound();
 
-        showNotify("Message sent successfully!", "success");
+        showNotify("Communique sent successfully!", "success");
         setIsComposeOpen(false);
         setComposeSubject('');
         setComposeBody('');
@@ -297,18 +387,27 @@ export function IPMSInbox({ currentUser, activeTenantId }: IPMSInboxProps) {
     setReplying(true);
     const lastMsg = threadMessages[threadMessages.length - 1];
 
+    const effectiveReplySender = getEffectiveSenderEmail(replySenderDomain);
+    const domainTitle = effectiveReplySender.includes('nkangaladm.gov.za')
+      ? 'Nkangala District Official'
+      : effectiveReplySender.includes('mzansiflow.co.za')
+      ? 'Mzansi Flow PMS Hub'
+      : (currentUser.jobFunction || currentUser.systemRole || 'Municipal Official');
+
     // Determine recipients (all original thread participants except current user)
     const allParticipants = new Set<string>();
     threadMessages.forEach(m => {
       allParticipants.add(m.senderEmail.toLowerCase());
       (m.recipientEmails || []).forEach(r => allParticipants.add(r.toLowerCase()));
     });
-    allParticipants.delete(userEmail);
+    // Remove all forms of "me"
+    Array.from(allParticipants).forEach(p => {
+      if (isUserMatch(p)) allParticipants.delete(p);
+    });
 
-    const replyRecipients = Array.from(allParticipants);
+    let replyRecipients = Array.from(allParticipants);
     if (replyRecipients.length === 0) {
-      // Replying to oneself
-      replyRecipients.push(userEmail);
+      replyRecipients.push(lastMsg.senderEmail || userEmail);
     }
 
     const recipientNames = replyRecipients.map(e => {
@@ -317,16 +416,17 @@ export function IPMSInbox({ currentUser, activeTenantId }: IPMSInboxProps) {
     });
 
     const payload = {
-      senderEmail: currentUser.email,
+      senderEmail: effectiveReplySender,
       senderName: currentUser.fullName || currentUser.email.split('@')[0],
-      senderJobTitle: currentUser.jobFunction || currentUser.systemRole || 'Municipal Official',
+      senderJobTitle: domainTitle,
       recipientEmails: replyRecipients,
       recipientNames: recipientNames,
       subject: lastMsg.subject.startsWith('Re:') ? lastMsg.subject : `Re: ${lastMsg.subject}`,
       body: replyBody,
       attachments: replyAttachments,
       threadId: lastMsg.threadId,
-      replyToId: lastMsg.id
+      replyToId: lastMsg.id,
+      userEmail: currentUser.email
     };
 
     try {
@@ -355,12 +455,21 @@ export function IPMSInbox({ currentUser, activeTenantId }: IPMSInboxProps) {
     }
   };
 
-  // Filter messages based on active folder & search
+  // Filter messages based on active folder, domain & search
   const filteredMessages = messages.filter(m => {
-    const isSender = m.senderEmail.toLowerCase() === userEmail;
-    const isRecipient = (m.recipientEmails || []).some(r => r.toLowerCase() === userEmail);
-    const isStarred = (m.starredBy || []).map(e => e.toLowerCase()).includes(userEmail);
-    const isTrashed = (m.trashedBy || []).map(e => e.toLowerCase()).includes(userEmail);
+    const isSender = isUserMatch(m.senderEmail);
+    const isRecipient = (m.recipientEmails || []).some(r => isUserMatch(r));
+    const isStarred = (m.starredBy || []).some(e => isUserMatch(e));
+    const isTrashed = (m.trashedBy || []).some(e => isUserMatch(e));
+
+    // Communique Domain Filter
+    if (communiqueFilter === 'nkangala') {
+      const allEmails = [m.senderEmail, ...(m.recipientEmails || [])];
+      if (!hasDomain(allEmails, 'nkangaladm.gov.za')) return false;
+    } else if (communiqueFilter === 'mzansiflow') {
+      const allEmails = [m.senderEmail, ...(m.recipientEmails || [])];
+      if (!hasDomain(allEmails, 'mzansiflow.co.za')) return false;
+    }
 
     // Folder filtering
     if (activeFolder === 'trash') {
@@ -378,7 +487,7 @@ export function IPMSInbox({ currentUser, activeTenantId }: IPMSInboxProps) {
       const matchSubject = (m.subject || '').toLowerCase().includes(q);
       const matchBody = (m.body || '').toLowerCase().includes(q);
       const matchSender = (m.senderName || '').toLowerCase().includes(q) || (m.senderEmail || '').toLowerCase().includes(q);
-      const matchRecipients = (m.recipientNames || []).some(r => r.toLowerCase().includes(q));
+      const matchRecipients = (m.recipientNames || []).some(r => r.toLowerCase().includes(q)) || (m.recipientEmails || []).some(r => r.toLowerCase().includes(q));
       if (!matchSubject && !matchBody && !matchSender && !matchRecipients) return false;
     }
 
@@ -398,11 +507,11 @@ export function IPMSInbox({ currentUser, activeTenantId }: IPMSInboxProps) {
     const threadMsgs = threadsMap[tid].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
     const latest = threadMsgs[threadMsgs.length - 1];
     const hasUnread = threadMsgs.some(m => {
-      const isForMe = (m.recipientEmails || []).some(r => r.toLowerCase() === userEmail);
-      const isUnreadByMe = !(m.readBy || []).map(e => e.toLowerCase()).includes(userEmail);
+      const isForMe = (m.recipientEmails || []).some(r => isUserMatch(r));
+      const isUnreadByMe = !(m.readBy || []).some(e => isUserMatch(e));
       return isForMe && isUnreadByMe;
     });
-    const isStarred = threadMsgs.some(m => (m.starredBy || []).map(e => e.toLowerCase()).includes(userEmail));
+    const isStarred = threadMsgs.some(m => (m.starredBy || []).some(e => isUserMatch(e)));
     const totalAttachments = threadMsgs.reduce((acc, m) => acc + (m.attachments?.length || 0), 0);
 
     return {
@@ -426,8 +535,8 @@ export function IPMSInbox({ currentUser, activeTenantId }: IPMSInboxProps) {
   useEffect(() => {
     if (activeThreadMsgs.length > 0) {
       activeThreadMsgs.forEach(m => {
-        const isForMe = (m.recipientEmails || []).some(r => r.toLowerCase() === userEmail);
-        const isUnreadByMe = !(m.readBy || []).map(e => e.toLowerCase()).includes(userEmail);
+        const isForMe = (m.recipientEmails || []).some(r => isUserMatch(r));
+        const isUnreadByMe = !(m.readBy || []).some(e => isUserMatch(e));
         if (isForMe && isUnreadByMe) {
           handleMessageAction(m.id, 'markRead');
         }
@@ -437,13 +546,13 @@ export function IPMSInbox({ currentUser, activeTenantId }: IPMSInboxProps) {
 
   // Statistics
   const unreadCount = messages.filter(m => {
-    const isForMe = (m.recipientEmails || []).some(r => r.toLowerCase() === userEmail);
-    const isUnreadByMe = !(m.readBy || []).map(e => e.toLowerCase()).includes(userEmail);
-    const isTrashed = (m.trashedBy || []).map(e => e.toLowerCase()).includes(userEmail);
+    const isForMe = (m.recipientEmails || []).some(r => isUserMatch(r));
+    const isUnreadByMe = !(m.readBy || []).some(e => isUserMatch(e));
+    const isTrashed = (m.trashedBy || []).some(e => isUserMatch(e));
     return isForMe && isUnreadByMe && !isTrashed;
   }).length;
 
-  const sentCount = messages.filter(m => m.senderEmail.toLowerCase() === userEmail).length;
+  const sentCount = messages.filter(m => isUserMatch(m.senderEmail)).length;
 
   // Directory Search Filtered Users
   const filteredDirectoryUsers = directoryUsers.filter(u => {

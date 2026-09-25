@@ -77,6 +77,7 @@ const onCloneHtml2Canvas = (clonedDoc: Document) => {
     // 1. Inject authoritative Google Fonts link inside the cloned document head
     const googleLink = clonedDoc.createElement('link');
     googleLink.rel = 'stylesheet';
+    googleLink.crossOrigin = 'anonymous';
     googleLink.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700;800;900&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Cinzel:wght@405..900&family=Montserrat:wght@400..900&family=Outfit:wght@400..900&display=swap';
     clonedDoc.head.appendChild(googleLink);
 

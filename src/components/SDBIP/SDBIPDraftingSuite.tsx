@@ -1541,7 +1541,9 @@ function SDBIPReportsTab({
         const imgData = await toPng(section, { 
             quality: 1.0, 
             pixelRatio: 2,
-            backgroundColor: '#ffffff' 
+            backgroundColor: '#ffffff',
+            skipFonts: true,
+            fontEmbedCSS: '',
         });
         
         if (i > 0) pdf.addPage();
@@ -1603,7 +1605,9 @@ function SDBIPReportsTab({
         const imgData = await toPng(section, { 
             quality: 1.0, 
             pixelRatio: 1.2, // Lowered to ensure sharpness but fit within margins
-            backgroundColor: '#ffffff'
+            backgroundColor: '#ffffff',
+            skipFonts: true,
+            fontEmbedCSS: '',
         });
         htmlContent += `
           <div style="text-align:center; padding-bottom: 20px;">

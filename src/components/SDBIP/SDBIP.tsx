@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import mammoth from 'mammoth';
-import { Layers, Info, CheckCircle, Upload, Download, ArrowRight, Shield, ShieldCheck, AlertTriangle, HelpCircle, Check, CheckSquare, FileText, Plus, Trash2, Database, FolderArchive, AlertCircle, Sparkles, Send, Inbox, Bell, Eye, Lock, RefreshCw, XCircle, Clock, Maximize2, Minimize2, Calendar, CalendarDays, ShieldAlert } from 'lucide-react';
+import { Layers, Info, CheckCircle, Upload, Download, ArrowRight, Shield, ShieldCheck, AlertTriangle, HelpCircle, Check, CheckSquare, FileText, Plus, Trash2, Database, FolderArchive, AlertCircle, Sparkles, Send, Inbox, Bell, Eye, Lock, RefreshCw, XCircle, Clock, Maximize2, Minimize2, Calendar, CalendarDays, ShieldAlert, KeyRound, BellOff, Key } from 'lucide-react';
 import type { User } from '../../types';
 import { SDBIPDraftingSuite } from './SDBIPDraftingSuite';
 import { WordProcessor } from './WordProcessor';
@@ -10,6 +10,24 @@ import { AzureADPicker } from './AzureADPicker';
 import { SDBIPPagination } from './SDBIPPagination';
 import { ExpandableCell, CellExpandModal, ExpandModalState } from './ExpandableCell';
 import { isQuarterInReportingPeriod, getQuarterLockNotice, REPORTING_PERIOD_CONFIGS, getCurrentMunicipalQuarter, ReportingPhase } from '../../utils/reportingPeriods';
+
+export const isTargetNA = (val: string | undefined | null): boolean => {
+  if (!val) return false;
+  const cleaned = val.trim().toLowerCase();
+  if (
+    cleaned === 'n/a' ||
+    cleaned === 'na' ||
+    cleaned === 'n / a' ||
+    cleaned === 'n.a.' ||
+    cleaned === 'n.a' ||
+    cleaned === 'not applicable' ||
+    cleaned.startsWith('n/a') ||
+    cleaned.startsWith('na ')
+  ) {
+    return true;
+  }
+  return false;
+};
 
 interface SDBIPProps {
   currentUser: User;
@@ -289,7 +307,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
   const [isTableExpanded, setIsTableExpanded] = useState(false);
 
   // Municipal Reporting Period & Calendar Temporal Control
-  const [periodOverride, setPeriodOverride] = useState<string>('auto');
+  const [periodOverride, setPeriodOverride] = useState<string>('all_open');
   const isQuarterActive = (phase: string): boolean => {
     return isQuarterInReportingPeriod(phase as any, periodOverride);
   };
@@ -897,6 +915,21 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
       setNotifications(updatedNotifs);
     } catch (err) {
       console.error("Error saving SDBIP notifications:", err);
+    }
+  };
+
+  const clearSystemNotifications = async () => {
+    try {
+      await fetch(`/api/tenant/${activeTenantId}/sdbip-notifications`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notifications: [] })
+      });
+      setNotifications([]);
+      setSuccessToast("All system notifications cleared successfully.");
+      setTimeout(() => setSuccessToast(null), 3500);
+    } catch (err) {
+      console.error("Error clearing SDBIP notifications:", err);
     }
   };
 
@@ -2124,9 +2157,33 @@ Timestamp: ${new Date().toLocaleString()}
   };
 
   const renderQuarterWorkflowCell = (row: SdbipRow, phase: 'q1' | 'q2' | 'midTerm' | 'q3' | 'q4' | 'annual') => {
+    const targetVal = 
+      phase === 'q1' ? row.q1 :
+      phase === 'q2' ? row.q2 :
+      phase === 'midTerm' ? (row.midTermTarget || row.midTerm) :
+      phase === 'q3' ? row.q3 :
+      phase === 'q4' ? row.q4 : row.annualTarget;
+
+    const phaseLabel = phase === 'midTerm' ? 'Mid-Term' : phase === 'annual' ? 'Annual' : phase.toUpperCase();
+
+    if (isTargetNA(targetVal)) {
+      return (
+        <div 
+          className="flex flex-col items-center justify-center gap-1 py-2 px-3 bg-slate-100/90 border border-dashed border-slate-300 rounded-lg text-center select-none min-w-[135px]"
+          title={`${phaseLabel} Target is N/A - Workflow control locked`}
+        >
+          <div className="flex items-center justify-center gap-1.5 text-xs font-black uppercase text-slate-600">
+            <Lock className="w-3.5 h-3.5 text-slate-500" />
+            <KeyRound className="w-3.5 h-3.5 text-amber-600" />
+            <span>Locked</span>
+          </div>
+          <span className="text-[9px] text-slate-400 font-bold uppercase">{phaseLabel} Target is N/A</span>
+        </div>
+      );
+    }
+
     const wf = row.workflows?.[phase] || { status: 'draft' };
     const status = wf.status || 'draft';
-    const phaseLabel = phase === 'midTerm' ? 'Mid-Term' : phase === 'annual' ? 'Annual' : phase.toUpperCase();
     const submitterName = currentUser.fullName || currentUser.email.split('@')[0];
     
     return (
@@ -2312,15 +2369,27 @@ Timestamp: ${new Date().toLocaleString()}
                 <Bell className="w-4 h-4 text-amber-600 animate-bounce" /> 
                 <span>System Notifications ({myNotifs.length})</span>
               </div>
-              <button 
-                onClick={() => {
-                  const updated = notifications.map(n => n.targetUser?.toLowerCase() === currentUserDisplayName.toLowerCase() ? { ...n, read: true } : n);
-                  saveNotifications(updated);
-                }}
-                className="text-[10px] text-amber-700 font-bold hover:underline cursor-pointer"
-              >
-                Mark all as read
-              </button>
+              <div className="flex items-center gap-2.5">
+                <button 
+                  onClick={() => {
+                    const updated = notifications.map(n => n.targetUser?.toLowerCase() === currentUserDisplayName.toLowerCase() ? { ...n, read: true } : n);
+                    saveNotifications(updated);
+                  }}
+                  className="text-[10px] text-amber-700 font-bold hover:underline cursor-pointer"
+                >
+                  Mark all as read
+                </button>
+                <span className="text-amber-300 text-xs">•</span>
+                <button 
+                  type="button"
+                  onClick={clearSystemNotifications}
+                  className="text-[10px] text-rose-700 hover:text-rose-900 font-bold hover:underline cursor-pointer flex items-center gap-1"
+                  title="Clear all system notifications"
+                >
+                  <BellOff className="w-3 h-3 text-rose-600" />
+                  <span>Clear System Notifications</span>
+                </button>
+              </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-48 overflow-y-auto pr-1">
               {myNotifs.map((notif) => (
@@ -2506,6 +2575,15 @@ Timestamp: ${new Date().toLocaleString()}
                 <Bell className="w-3.5 h-3.5" />
                 {myNotifs.length > 0 && <span className="bg-rose-500 text-white w-2 h-2 rounded-full inline-block"></span>}
                 Notifications
+              </button>
+              <button 
+                type="button"
+                onClick={clearSystemNotifications}
+                className="px-2.5 py-1.5 border border-slate-200 hover:border-amber-300 bg-white hover:bg-amber-50 text-slate-700 hover:text-amber-800 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition shadow-2xs"
+                title="Clear all system notifications"
+              >
+                <BellOff className="w-3.5 h-3.5 text-amber-600" />
+                <span>Clear Notifications</span>
               </button>
               <button 
                 onClick={() => setIsWorkflowDeskOpen(p => !p)}
@@ -2769,114 +2847,140 @@ Timestamp: ${new Date().toLocaleString()}
 
                                 {/* Active Workflow Status */}
                                 <td className="p-2 border-r border-slate-150 text-center bg-indigo-50/10 min-w-[130px]">
-                                  <div className="flex flex-col items-center gap-1 py-1">
-                                    {status === 'approved' && (
-                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-emerald-50 text-emerald-700 border-emerald-200">
-                                        <CheckCircle className="w-2.5 h-2.5" /> Approved
+                                  {isTargetNA(pData.target) ? (
+                                    <div className="flex flex-col items-center gap-0.5 py-1">
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-black uppercase bg-slate-200 text-slate-600 border-slate-300">
+                                        <Lock className="w-2.5 h-2.5 text-slate-500" />
+                                        <KeyRound className="w-2.5 h-2.5 text-amber-600" />
+                                        <span>Locked</span>
                                       </span>
-                                    )}
-                                    {status === 'pending_approval' && (
-                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-amber-50 text-amber-700 border-amber-200">
-                                        <Clock className="w-2.5 h-2.5" /> Pend. Appr.
-                                      </span>
-                                    )}
-                                    {status === 'pending_review' && (
-                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-violet-50 text-violet-700 border-violet-200">
-                                        <Clock className="w-2.5 h-2.5" /> Pend. Rev.
-                                      </span>
-                                    )}
-                                    {status === 'draft' && (
-                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-slate-100 text-slate-600 border-slate-200">
-                                        <FileText className="w-2.5 h-2.5" /> Draft
-                                      </span>
-                                    )}
-                                  </div>
+                                      <span className="text-[8px] text-slate-400 font-mono">Target N/A</span>
+                                    </div>
+                                  ) : (
+                                    <div className="flex flex-col items-center gap-1 py-1">
+                                      {status === 'approved' && (
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-emerald-50 text-emerald-700 border-emerald-200">
+                                          <CheckCircle className="w-2.5 h-2.5" /> Approved
+                                        </span>
+                                      )}
+                                      {status === 'pending_approval' && (
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-amber-50 text-amber-700 border-amber-200">
+                                          <Clock className="w-2.5 h-2.5" /> Pend. Appr.
+                                        </span>
+                                      )}
+                                      {status === 'pending_review' && (
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-violet-50 text-violet-700 border-violet-200">
+                                          <Clock className="w-2.5 h-2.5" /> Pend. Rev.
+                                        </span>
+                                      )}
+                                      {status === 'draft' && (
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-slate-100 text-slate-600 border-slate-200">
+                                          <FileText className="w-2.5 h-2.5" /> Draft
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
                                 </td>
 
                                 {/* Expenditure */}
                                 <td className="p-2 border-r border-slate-100 bg-teal-50/10" onClick={(e) => e.stopPropagation()}>
-                                  <input 
-                                    type="text"
-                                    disabled={!isOpex(row.budgetAllocation) || !isQuarterActive(workflowPhase)}
-                                    value={isOpex(row.budgetAllocation) ? (getPhaseFieldValue(row, workflowPhase, 'exp') || '') : (() => {
-                                      const total = parseBudgetNum(row.budgetAllocation);
-                                      return total > 0 ? `R ${Math.round(total / 4).toLocaleString()}` : 'R 0';
-                                    })()}
-                                    onChange={(e) => handlePhaseFieldChange(row.id, workflowPhase, 'exp', e.target.value)}
-                                    title={!isQuarterActive(workflowPhase) ? getQuarterLockNotice(workflowPhase) : undefined}
-                                    className={`w-full border p-1 rounded text-[11px] font-bold ${!isQuarterActive(workflowPhase) || !isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white text-slate-800 border-slate-200'}`}
-                                    placeholder={!isQuarterActive(workflowPhase) ? "Locked" : "Exp..."}
-                                  />
+                                  {isTargetNA(pData.target) ? (
+                                    <div className="text-center font-bold text-slate-400 text-[11px] flex items-center justify-center gap-1 select-none" title="Expenditure reporting locked (Target is N/A)">
+                                      <Lock className="w-2.5 h-2.5 text-slate-400" /> <KeyRound className="w-2.5 h-2.5 text-amber-500" /> <span>Locked</span>
+                                    </div>
+                                  ) : (
+                                    <input 
+                                      type="text"
+                                      disabled={!isOpex(row.budgetAllocation) || !isQuarterActive(workflowPhase)}
+                                      value={isOpex(row.budgetAllocation) ? (getPhaseFieldValue(row, workflowPhase, 'exp') || '') : (() => {
+                                        const total = parseBudgetNum(row.budgetAllocation);
+                                        return total > 0 ? `R ${Math.round(total / 4).toLocaleString()}` : 'R 0';
+                                      })()}
+                                      onChange={(e) => handlePhaseFieldChange(row.id, workflowPhase, 'exp', e.target.value)}
+                                      title={!isQuarterActive(workflowPhase) ? getQuarterLockNotice(workflowPhase) : undefined}
+                                      className={`w-full border p-1 rounded text-[11px] font-bold ${!isQuarterActive(workflowPhase) || !isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white text-slate-800 border-slate-200'}`}
+                                      placeholder={!isQuarterActive(workflowPhase) ? "Locked" : "Exp..."}
+                                    />
+                                  )}
                                 </td>
 
                                 {/* POE Column */}
                                 <td className="p-2 border-r border-slate-100 bg-indigo-50/10" onClick={(e) => e.stopPropagation()}>
-                                  <div className="space-y-1.5">
-                                    <textarea 
-                                      rows={2}
-                                      value={getPhaseFieldValue(row, workflowPhase, 'poeDesc') || ''}
-                                      disabled={true}
-                                      readOnly={true}
-                                      title="Source document POE description (non-editable across all quarters)"
-                                      className="w-full border p-1 rounded text-[10px] bg-slate-100/90 text-slate-700 cursor-not-allowed border-slate-200"
-                                      placeholder="Source Document POE Description..."
-                                    />
-                                    {pData.poes && pData.poes.length > 0 && (
-                                      <button
-                                        type="button"
-                                        onClick={() => triggerViewPoeModal(row, workflowPhase as any)}
-                                        className="w-full text-left text-[9px] bg-emerald-50 hover:bg-emerald-100 p-1 border border-emerald-200 rounded text-emerald-800 truncate font-semibold flex items-center gap-1 cursor-pointer transition-all duration-150 shadow-2xs hover:scale-[1.01]"
-                                        title={`Click to view/download this POE: ${pData.poes[pData.poes.length - 1]}`}
-                                      >
-                                        <span className="truncate flex-1">📄 {pData.poes[pData.poes.length - 1]}</span>
-                                        <Eye className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
-                                      </button>
-                                    )}
-                                    <div className="flex gap-1">
-                                      <button 
-                                        disabled={!isQuarterActive(workflowPhase)}
-                                        onClick={() => triggerUploadModal(row.id, row.refNum, workflowPhase as any)}
-                                        title={!isQuarterActive(workflowPhase) ? getQuarterLockNotice(workflowPhase) : "Upload/Edit POE"}
-                                        className={`flex-1 py-0.5 text-[9px] font-bold rounded border transition-colors flex items-center justify-center gap-1 ${!isQuarterActive(workflowPhase) ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 cursor-pointer'}`}
-                                      >
-                                        <Upload className="w-2 h-2" /> Upload
-                                      </button>
-                                      {((pData.poes && pData.poes.length > 0) || getPhaseFieldValue(row, workflowPhase, 'poeDesc')) && (
-                                        confirmDelete?.rowId === row.id && confirmDelete?.type === workflowPhase ? (
-                                          <div className="flex flex-col gap-1 bg-rose-50 border border-rose-200 p-1 rounded min-w-[80px]">
-                                            <span className="text-[8px] text-rose-800 font-bold text-center leading-none">Delete?</span>
-                                            <div className="flex gap-1 justify-center">
-                                              <button
-                                                disabled={!isQuarterActive(workflowPhase)}
-                                                onClick={() => {
-                                                  clearQuarterPoe(row.id, workflowPhase as any);
-                                                  setConfirmDelete(null);
-                                                }}
-                                                className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[8px] font-bold cursor-pointer hover:bg-rose-700 disabled:opacity-50"
-                                              >
-                                                Yes
-                                              </button>
-                                              <button
-                                                onClick={() => setConfirmDelete(null)}
-                                                className="px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded text-[8px] font-bold cursor-pointer"
-                                              >
-                                                No
-                                              </button>
-                                            </div>
-                                          </div>
-                                        ) : (
-                                          <button 
-                                            disabled={!isQuarterActive(workflowPhase)}
-                                            onClick={() => setConfirmDelete({ rowId: row.id, type: workflowPhase as any })}
-                                            title={!isQuarterActive(workflowPhase) ? getQuarterLockNotice(workflowPhase) : "Delete POE"}
-                                            className={`p-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center ${!isQuarterActive(workflowPhase) ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 cursor-pointer'}`}
-                                          >
-                                            <Trash2 className="w-2.5 h-2.5" />
-                                          </button>
-                                        )
-                                      )}
+                                  {isTargetNA(pData.target) ? (
+                                    <div className="flex flex-col items-center justify-center p-2 bg-slate-100/90 rounded border border-slate-200 text-slate-500 gap-0.5 select-none" title="POE reporting locked (Target is N/A)">
+                                      <div className="flex items-center gap-1 text-[10px] font-bold text-slate-600">
+                                        <Lock className="w-3 h-3 text-slate-500" /> <KeyRound className="w-3 h-3 text-amber-600" /> <span>Locked</span>
+                                      </div>
+                                      <span className="text-[8px] text-slate-400">Target is N/A</span>
                                     </div>
-                                  </div>
+                                  ) : (
+                                    <div className="space-y-1.5">
+                                      <textarea 
+                                        rows={2} 
+                                        value={getPhaseFieldValue(row, workflowPhase, 'poeDesc') || ''} 
+                                        disabled={true} 
+                                        readOnly={true} 
+                                        title="Source document POE description (non-editable across all quarters)" 
+                                        className="w-full border p-1 rounded text-[10px] bg-slate-100/90 text-slate-700 cursor-not-allowed border-slate-200" 
+                                        placeholder="Source Document POE Description..." 
+                                      />
+                                      {pData.poes && pData.poes.length > 0 && (
+                                        <button
+                                          type="button"
+                                          onClick={() => triggerViewPoeModal(row, workflowPhase as any)}
+                                          className="w-full text-left text-[9px] bg-emerald-50 hover:bg-emerald-100 p-1 border border-emerald-200 rounded text-emerald-800 truncate font-semibold flex items-center gap-1 cursor-pointer transition-all duration-150 shadow-2xs hover:scale-[1.01]"
+                                          title={`Click to view/download this POE: ${pData.poes[pData.poes.length - 1]}`}
+                                        >
+                                          <span className="truncate flex-1">📄 {pData.poes[pData.poes.length - 1]}</span>
+                                          <Eye className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+                                        </button>
+                                      )}
+                                      <div className="flex gap-1">
+                                        <button 
+                                          disabled={!isQuarterActive(workflowPhase)}
+                                          onClick={() => triggerUploadModal(row.id, row.refNum, workflowPhase as any)}
+                                          title={!isQuarterActive(workflowPhase) ? getQuarterLockNotice(workflowPhase) : "Upload/Edit POE"}
+                                          className={`flex-1 py-0.5 text-[9px] font-bold rounded border transition-colors flex items-center justify-center gap-1 ${!isQuarterActive(workflowPhase) ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 cursor-pointer'}`}
+                                        >
+                                          <Upload className="w-2 h-2" /> Upload
+                                        </button>
+                                        {((pData.poes && pData.poes.length > 0) || getPhaseFieldValue(row, workflowPhase, 'poeDesc')) && (
+                                          confirmDelete?.rowId === row.id && confirmDelete?.type === workflowPhase ? (
+                                            <div className="flex flex-col gap-1 bg-rose-50 border border-rose-200 p-1 rounded min-w-[80px]">
+                                              <span className="text-[8px] text-rose-800 font-bold text-center leading-none">Delete?</span>
+                                              <div className="flex gap-1 justify-center">
+                                                <button
+                                                  disabled={!isQuarterActive(workflowPhase)}
+                                                  onClick={() => {
+                                                    clearQuarterPoe(row.id, workflowPhase as any);
+                                                    setConfirmDelete(null);
+                                                  }}
+                                                  className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[8px] font-bold cursor-pointer hover:bg-rose-700 disabled:opacity-50"
+                                                >
+                                                  Yes
+                                                </button>
+                                                <button
+                                                  onClick={() => setConfirmDelete(null)}
+                                                  className="px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded text-[8px] font-bold cursor-pointer"
+                                                >
+                                                  No
+                                                </button>
+                                              </div>
+                                            </div>
+                                          ) : (
+                                            <button 
+                                              disabled={!isQuarterActive(workflowPhase)}
+                                              onClick={() => setConfirmDelete({ rowId: row.id, type: workflowPhase as any })}
+                                              title={!isQuarterActive(workflowPhase) ? getQuarterLockNotice(workflowPhase) : "Delete POE"}
+                                              className={`p-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center ${!isQuarterActive(workflowPhase) ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 cursor-pointer'}`}
+                                            >
+                                              <Trash2 className="w-2.5 h-2.5" />
+                                            </button>
+                                          )
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
                                 </td>
 
                                 {/* TARGET */}
@@ -2886,38 +2990,58 @@ Timestamp: ${new Date().toLocaleString()}
 
                                 {/* ACTUAL */}
                                 <td className="p-2 border-r border-slate-100 bg-indigo-50/5 relative" onClick={(e) => e.stopPropagation()}>
-                                  <textarea 
-                                    rows={2} 
-                                    disabled={!isQuarterActive(workflowPhase)}
-                                    value={getPhaseFieldValue(row, workflowPhase, 'actual') || ''} 
-                                    onChange={(e) => handlePhaseFieldChange(row.id, workflowPhase, 'actual', e.target.value)} 
-                                    title={!isQuarterActive(workflowPhase) ? getQuarterLockNotice(workflowPhase) : undefined}
-                                    className={`w-full border p-1 rounded text-[11px] ${!isQuarterActive(workflowPhase) ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white border-slate-200 focus:ring-1 focus:ring-indigo-300'}`} 
-                                    placeholder={!isQuarterActive(workflowPhase) ? "Locked for this period" : "Actual..."} 
-                                  />
-                                  {pData.actual && pData.target && pData.actual !== pData.target && (
-                                    <div className="absolute top-1 right-1" title={`Target Discrepancy: Target is ${pData.target}, Actual is ${pData.actual}`}>
-                                      <AlertCircle className="w-3 h-3 text-rose-500 animate-pulse" />
+                                  {isTargetNA(pData.target) ? (
+                                    <div className="text-center font-bold text-slate-400 text-[11px] flex items-center justify-center gap-1 py-2 bg-slate-100 rounded border border-slate-200 select-none" title="Actual reporting locked (Target is N/A)">
+                                      <Lock className="w-2.5 h-2.5 text-slate-400" /> <KeyRound className="w-2.5 h-2.5 text-amber-600" /> <span>Locked</span>
                                     </div>
+                                  ) : (
+                                    <>
+                                      <textarea 
+                                        rows={2} 
+                                        disabled={!isQuarterActive(workflowPhase)}
+                                        value={getPhaseFieldValue(row, workflowPhase, 'actual') || ''} 
+                                        onChange={(e) => handlePhaseFieldChange(row.id, workflowPhase, 'actual', e.target.value)} 
+                                        title={!isQuarterActive(workflowPhase) ? getQuarterLockNotice(workflowPhase) : undefined}
+                                        className={`w-full border p-1 rounded text-[11px] ${!isQuarterActive(workflowPhase) ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white border-slate-200 focus:ring-1 focus:ring-indigo-300'}`} 
+                                        placeholder={!isQuarterActive(workflowPhase) ? "Locked for this period" : "Actual..."} 
+                                      />
+                                      {pData.actual && pData.target && pData.actual !== pData.target && (
+                                        <div className="absolute top-1 right-1" title={`Target Discrepancy: Target is ${pData.target}, Actual is ${pData.actual}`}>
+                                          <AlertCircle className="w-3 h-3 text-rose-500 animate-pulse" />
+                                        </div>
+                                      )}
+                                    </>
                                   )}
                                 </td>
 
                                 {/* VARIANCE */}
                                 <td className="p-2 border-r border-slate-100 bg-indigo-50/5 text-center font-bold text-slate-700">
-                                  {getPhaseFieldValue(row, workflowPhase, 'var') || '-'}
+                                  {isTargetNA(pData.target) ? (
+                                    <div className="text-center font-bold text-slate-400 text-[11px] flex items-center justify-center gap-1 select-none" title="Variance locked (Target is N/A)">
+                                      <Lock className="w-2.5 h-2.5 text-slate-400" /> <KeyRound className="w-2.5 h-2.5 text-amber-600" /> <span>Locked</span>
+                                    </div>
+                                  ) : (
+                                    getPhaseFieldValue(row, workflowPhase, 'var') || '-'
+                                  )}
                                 </td>
 
                                 {/* CORRECTIVE MEASURES */}
                                 <td className="p-2 border-r border-slate-100 bg-indigo-50/5" onClick={(e) => e.stopPropagation()}>
-                                  <textarea 
-                                    rows={2} 
-                                    value={getPhaseFieldValue(row, workflowPhase, 'corr') || ''} 
-                                    disabled={!isQuarterActive(workflowPhase) || isFieldDisabled(getPhaseFieldValue(row, workflowPhase, 'var'))}
-                                    onChange={(e) => handlePhaseFieldChange(row.id, workflowPhase, 'corr', e.target.value)} 
-                                    title={!isQuarterActive(workflowPhase) ? getQuarterLockNotice(workflowPhase) : undefined}
-                                    className={`w-full p-1 rounded text-[11px] transition-colors ${!isQuarterActive(workflowPhase) || isFieldDisabled(getPhaseFieldValue(row, workflowPhase, 'var')) ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed italic font-normal' : 'bg-white border-slate-200 text-slate-800 focus:ring-1 focus:ring-indigo-300'}`} 
-                                    placeholder={!isQuarterActive(workflowPhase) ? "Locked for this period" : isFieldDisabled(getPhaseFieldValue(row, workflowPhase, 'var')) ? "No variance." : "Corrective..."} 
-                                  />
+                                  {isTargetNA(pData.target) ? (
+                                    <div className="text-center font-bold text-slate-400 text-[11px] flex items-center justify-center gap-1 py-2 bg-slate-100 rounded border border-slate-200 select-none" title="Corrective measure locked (Target is N/A)">
+                                      <Lock className="w-2.5 h-2.5 text-slate-400" /> <KeyRound className="w-2.5 h-2.5 text-amber-600" /> <span>Locked</span>
+                                    </div>
+                                  ) : (
+                                    <textarea 
+                                      rows={2} 
+                                      value={getPhaseFieldValue(row, workflowPhase, 'corr') || ''} 
+                                      disabled={!isQuarterActive(workflowPhase) || isFieldDisabled(getPhaseFieldValue(row, workflowPhase, 'var'))}
+                                      onChange={(e) => handlePhaseFieldChange(row.id, workflowPhase, 'corr', e.target.value)} 
+                                      title={!isQuarterActive(workflowPhase) ? getQuarterLockNotice(workflowPhase) : undefined}
+                                      className={`w-full p-1 rounded text-[11px] transition-colors ${!isQuarterActive(workflowPhase) || isFieldDisabled(getPhaseFieldValue(row, workflowPhase, 'var')) ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed italic font-normal' : 'bg-white border-slate-200 text-slate-800 focus:ring-1 focus:ring-indigo-300'}`} 
+                                      placeholder={!isQuarterActive(workflowPhase) ? "Locked for this period" : isFieldDisabled(getPhaseFieldValue(row, workflowPhase, 'var')) ? "No variance." : "Corrective..."} 
+                                    />
+                                  )}
                                 </td>
 
                                 <td className="p-2 border-r border-slate-150 text-[11px] text-slate-600 text-center font-semibold">{row.submitter || '-'}</td>
@@ -4439,6 +4563,20 @@ Timestamp: ${new Date().toLocaleString()}
                 </button>
                 <button
                   type="button"
+                  onClick={clearSystemNotifications}
+                  className="px-3.5 py-1.5 bg-white hover:bg-amber-50 border border-slate-200 hover:border-amber-300 text-amber-700 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition"
+                  title="Clear all system notifications for SDBIP Top Layer"
+                >
+                  <BellOff className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Clear System Notifications</span>
+                  {notifications.length > 0 && (
+                    <span className="bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold">
+                      {notifications.length}
+                    </span>
+                  )}
+                </button>
+                <button
+                  type="button"
                   onClick={() => setClearReportingModal({ isOpen: true, scope: 'all_quarters' })}
                   disabled={rows.length === 0}
                   className="px-3 py-1.5 bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-300 text-rose-600 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition"
@@ -4499,6 +4637,20 @@ Timestamp: ${new Date().toLocaleString()}
                       className="px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition"
                     >
                       <Download className="w-4 h-4" /> Export CSV
+                    </button>
+                    <button
+                      type="button"
+                      onClick={clearSystemNotifications}
+                      className="px-4 py-2 bg-white hover:bg-amber-50 border border-slate-200 hover:border-amber-300 text-amber-700 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition shadow-xs"
+                      title="Clear all system notifications for SDBIP Top Layer"
+                    >
+                      <BellOff className="w-4 h-4 text-amber-600" />
+                      <span>Clear System Notifications</span>
+                      {notifications.length > 0 && (
+                        <span className="bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold">
+                          {notifications.length}
+                        </span>
+                      )}
                     </button>
                     <button
                       type="button"
@@ -4730,6 +4882,26 @@ Timestamp: ${new Date().toLocaleString()}
                       {/* Active Workflow Status */}
                       <td className="p-2 border-r border-slate-150 text-center bg-indigo-50/10 min-w-[150px]">
                         {(() => {
+                          const activePhaseTarget = 
+                            workflowPhase === 'q1' ? row.q1 :
+                            workflowPhase === 'q2' ? row.q2 :
+                            workflowPhase === 'midTerm' ? (row.midTermTarget || row.midTerm) :
+                            workflowPhase === 'q3' ? row.q3 :
+                            workflowPhase === 'q4' ? row.q4 : row.annualTarget;
+
+                          if (isTargetNA(activePhaseTarget)) {
+                            return (
+                              <div className="flex flex-col items-center justify-center gap-1 py-1.5 px-2 bg-slate-100/90 rounded-lg border border-dashed border-slate-300 text-center select-none" title={`${workflowPhase.toUpperCase()} Target is N/A - Active workflow locked`}>
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-[9px] font-black uppercase bg-slate-200 text-slate-600 border-slate-300 shadow-2xs">
+                                  <Lock className="w-2.5 h-2.5 text-slate-500" />
+                                  <KeyRound className="w-2.5 h-2.5 text-amber-600" />
+                                  <span>Locked</span>
+                                </span>
+                                <span className="text-[8px] text-slate-400 font-semibold font-mono">{workflowPhase.toUpperCase()} Target N/A</span>
+                              </div>
+                            );
+                          }
+
                           if (!isQuarterActive(workflowPhase)) {
                             const notice = getQuarterLockNotice(workflowPhase);
                             const pConfig = REPORTING_PERIOD_CONFIGS[workflowPhase as ReportingPhase];
@@ -4878,178 +5050,236 @@ Timestamp: ${new Date().toLocaleString()}
 
                       {/* Q1 Expenditure (Moved before POE) */}
                       <td className="p-2 border-r border-slate-100 bg-teal-50/10">
-                        <ExpandableCell
-                          value={isOpex(row.budgetAllocation) ? (row.q1Expenditure || '') : (() => {
-                            const total = parseBudgetNum(row.budgetAllocation);
-                            return total > 0 ? `R ${Math.round(total / 4).toLocaleString()}` : 'R 0';
-                          })()}
-                          disabled={!isOpex(row.budgetAllocation) || !isQuarterActive('q1')}
-                          onChange={(val) => handleCellChange(row.id, 'q1Expenditure', val)}
-                          cellTitle="Q1 Expenditure"
-                          refNum={row.refNum}
-                          isFitAll={isFitAllReportingCells}
-                          minRows={1}
-                          placeholder={!isQuarterActive('q1') ? "Locked" : "Q1 Exp..."}
-                          onOpenExpandModal={openCellExpandModal}
-                          className={`font-bold ${!isQuarterActive('q1') || !isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-800'}`}
-                        />
+                        {isTargetNA(row.q1) ? (
+                          <div className="flex flex-col items-center justify-center p-2 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none" title="Expenditure reporting locked (Q1 Target is N/A)">
+                            <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500">
+                              <Lock className="w-3 h-3 text-slate-400" />
+                              <KeyRound className="w-3 h-3 text-amber-600" />
+                              <span>Locked</span>
+                            </div>
+                            <span className="text-[9px] text-slate-400 font-mono">N/A</span>
+                          </div>
+                        ) : (
+                          <ExpandableCell
+                            value={isOpex(row.budgetAllocation) ? (row.q1Expenditure || '') : (() => {
+                              const total = parseBudgetNum(row.budgetAllocation);
+                              return total > 0 ? `R ${Math.round(total / 4).toLocaleString()}` : 'R 0';
+                            })()}
+                            disabled={!isOpex(row.budgetAllocation) || !isQuarterActive('q1')}
+                            onChange={(val) => handleCellChange(row.id, 'q1Expenditure', val)}
+                            cellTitle="Q1 Expenditure"
+                            refNum={row.refNum}
+                            isFitAll={isFitAllReportingCells}
+                            minRows={1}
+                            placeholder={!isQuarterActive('q1') ? "Locked" : "Q1 Exp..."}
+                            onOpenExpandModal={openCellExpandModal}
+                            className={`font-bold ${!isQuarterActive('q1') || !isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-800'}`}
+                          />
+                        )}
                       </td>
 
                       {/* Q1 POE Column */}
                       <td className="p-2 border-r border-slate-100 bg-indigo-50/10">
-                        <div className="space-y-2">
-                          {(() => {
-                            const sourcePoe = (row.poeDesc || row.poeStatus || row.q1PoeDesc || row.q2PoeDesc || row.midTermPoeDesc || row.q3PoeDesc || row.q4PoeDesc || '').trim();
-                            return (
-                              <ExpandableCell
-                                value={row.q1PoeDesc || sourcePoe}
-                                disabled={true}
-                                onChange={() => {}}
-                                cellTitle="Q1 POE Description (Non-Editable Source Document POE)"
-                                refNum={row.refNum}
-                                isFitAll={isFitAllReportingCells}
-                                minRows={2}
-                                placeholder="Source Document POE Description..."
-                                onOpenExpandModal={openCellExpandModal}
-                                className="bg-slate-100/90 text-slate-700 border-slate-200 cursor-not-allowed"
-                              />
-                            );
-                          })()}
-                          {row.q1Poes && row.q1Poes.length > 0 && (
-                            <div 
-                              onClick={() => triggerViewPoeModal(row, 'q1')}
-                              className="text-[10px] bg-emerald-50 hover:bg-emerald-100 p-1 border border-emerald-200 rounded text-emerald-800 truncate cursor-pointer transition flex items-center justify-between font-semibold" 
-                              title="Click to view full POE document details & preview"
-                            >
-                              <span className="truncate">📄 {row.q1Poes[row.q1Poes.length - 1]}</span>
-                              <Eye className="w-3 h-3 text-emerald-600 shrink-0 ml-1" />
+                        {isTargetNA(row.q1) ? (
+                          <div className="flex flex-col items-center justify-center p-2.5 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-1 select-none min-h-[72px]" title="Q1 Target is N/A - POE submission locked">
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+                              <Lock className="w-3.5 h-3.5 text-slate-500" />
+                              <KeyRound className="w-3.5 h-3.5 text-amber-600" />
+                              <span>Locked</span>
                             </div>
-                          )}
-                          <div className="flex gap-1">
-                            {((row.q1Poes && row.q1Poes.length > 0) || row.q1PoeDesc) && (
-                              <button 
-                                onClick={() => triggerViewPoeModal(row, 'q1')}
-                                className="px-2 py-1 text-[9px] font-bold rounded border bg-emerald-600 border-emerald-500 text-white hover:bg-emerald-700 transition-colors flex items-center justify-center gap-1 cursor-pointer shadow-xs"
-                                title="View POE Document Details"
-                              >
-                                <Eye className="w-2.5 h-2.5" /> View
-                              </button>
-                            )}
-                            <button 
-                              disabled={!isQuarterActive('q1')}
-                              onClick={() => triggerUploadModal(row.id, row.refNum, 'q1')}
-                              className={`flex-1 py-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center gap-1 ${!isQuarterActive('q1') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 cursor-pointer'}`}
-                              title={!isQuarterActive('q1') ? getQuarterLockNotice('q1') : "Upload/Edit POE"}
-                            >
-                              <Upload className="w-2.5 h-2.5" /> Upload/Edit
-                            </button>
-                            {((row.q1Poes && row.q1Poes.length > 0) || row.q1PoeDesc) && (
-                              confirmDelete?.rowId === row.id && confirmDelete?.type === 'q1' ? (
-                                <div className="flex flex-col gap-1 bg-rose-50 border border-rose-200 p-1 rounded min-w-[80px]">
-                                  <span className="text-[8px] text-rose-800 font-bold text-center leading-none">Are you sure?</span>
-                                  <div className="flex gap-1 justify-center">
-                                    <button
-                                      disabled={!isQuarterActive('q1')}
-                                      onClick={() => {
-                                        clearQuarterPoe(row.id, 'q1');
-                                        setConfirmDelete(null);
-                                      }}
-                                      className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[8px] font-bold cursor-pointer hover:bg-rose-700 disabled:opacity-50"
-                                    >
-                                      Yes
-                                    </button>
-                                    <button
-                                      onClick={() => setConfirmDelete(null)}
-                                      className="px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded text-[8px] font-bold cursor-pointer hover:bg-slate-300"
-                                    >
-                                      No
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <button 
-                                  disabled={!isQuarterActive('q1')}
-                                  onClick={() => setConfirmDelete({ rowId: row.id, type: 'q1' })}
-                                  className={`p-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center ${!isQuarterActive('q1') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 cursor-pointer'}`}
-                                  title={!isQuarterActive('q1') ? getQuarterLockNotice('q1') : "Delete POE and Description"}
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                </button>
-                              )
-                            )}
+                            <span className="text-[10px] text-slate-400 font-medium">Q1 Target is N/A</span>
                           </div>
-                        </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {(() => {
+                              const sourcePoe = (row.poeDesc || row.poeStatus || row.q1PoeDesc || row.q2PoeDesc || row.midTermPoeDesc || row.q3PoeDesc || row.q4PoeDesc || '').trim();
+                              return (
+                                <ExpandableCell
+                                  value={row.q1PoeDesc || sourcePoe}
+                                  disabled={true}
+                                  onChange={() => {}}
+                                  cellTitle="Q1 POE Description (Non-Editable Source Document POE)"
+                                  refNum={row.refNum}
+                                  isFitAll={isFitAllReportingCells}
+                                  minRows={2}
+                                  placeholder="Source Document POE Description..."
+                                  onOpenExpandModal={openCellExpandModal}
+                                  className="bg-slate-100/90 text-slate-700 border-slate-200 cursor-not-allowed"
+                                />
+                              );
+                            })()}
+                            {row.q1Poes && row.q1Poes.length > 0 && (
+                              <div 
+                                onClick={() => triggerViewPoeModal(row, 'q1')}
+                                className="text-[10px] bg-emerald-50 hover:bg-emerald-100 p-1 border border-emerald-200 rounded text-emerald-800 truncate cursor-pointer transition flex items-center justify-between font-semibold" 
+                                title="Click to view full POE document details & preview"
+                              >
+                                <span className="truncate">📄 {row.q1Poes[row.q1Poes.length - 1]}</span>
+                                <Eye className="w-3 h-3 text-emerald-600 shrink-0 ml-1" />
+                              </div>
+                            )}
+                            <div className="flex gap-1">
+                              {((row.q1Poes && row.q1Poes.length > 0) || row.q1PoeDesc) && (
+                                <button 
+                                  onClick={() => triggerViewPoeModal(row, 'q1')}
+                                  className="px-2 py-1 text-[9px] font-bold rounded border bg-emerald-600 border-emerald-500 text-white hover:bg-emerald-700 transition-colors flex items-center justify-center gap-1 cursor-pointer shadow-xs"
+                                  title="View POE Document Details"
+                                >
+                                  <Eye className="w-2.5 h-2.5" /> View
+                                </button>
+                              )}
+                              <button 
+                                disabled={!isQuarterActive('q1')}
+                                onClick={() => triggerUploadModal(row.id, row.refNum, 'q1')}
+                                className={`flex-1 py-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center gap-1 ${!isQuarterActive('q1') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 cursor-pointer'}`}
+                                title={!isQuarterActive('q1') ? getQuarterLockNotice('q1') : "Upload/Edit POE"}
+                              >
+                                <Upload className="w-2.5 h-2.5" /> Upload/Edit
+                              </button>
+                              {((row.q1Poes && row.q1Poes.length > 0) || row.q1PoeDesc) && (
+                                confirmDelete?.rowId === row.id && confirmDelete?.type === 'q1' ? (
+                                  <div className="flex flex-col gap-1 bg-rose-50 border border-rose-200 p-1 rounded min-w-[80px]">
+                                    <span className="text-[8px] text-rose-800 font-bold text-center leading-none">Are you sure?</span>
+                                    <div className="flex gap-1 justify-center">
+                                      <button
+                                        disabled={!isQuarterActive('q1')}
+                                        onClick={() => {
+                                          clearQuarterPoe(row.id, 'q1');
+                                          setConfirmDelete(null);
+                                        }}
+                                        className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[8px] font-bold cursor-pointer hover:bg-rose-700 disabled:opacity-50"
+                                      >
+                                        Yes
+                                      </button>
+                                      <button
+                                        onClick={() => setConfirmDelete(null)}
+                                        className="px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded text-[8px] font-bold cursor-pointer hover:bg-slate-300"
+                                      >
+                                        No
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <button 
+                                    disabled={!isQuarterActive('q1')}
+                                    onClick={() => setConfirmDelete({ rowId: row.id, type: 'q1' })}
+                                    className={`p-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center ${!isQuarterActive('q1') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 cursor-pointer'}`}
+                                    title={!isQuarterActive('q1') ? getQuarterLockNotice('q1') : "Delete POE and Description"}
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                )
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </td>
 
                       {/* Q1 TARGET Column */}
                       <td className="p-2 border-r border-slate-100 bg-indigo-50/20 text-center">
                         <ExpandableCell
-                          value={row.q1 || '-'}
-                          readOnly
+                          value={row.q1 || ''}
+                          onChange={(val) => handleCellChange(row.id, 'q1', val)}
                           cellTitle="Q1 Target"
                           refNum={row.refNum}
                           isFitAll={isFitAllReportingCells}
                           minRows={1}
+                          placeholder="Q1 Target..."
                           onOpenExpandModal={openCellExpandModal}
                           className="font-bold text-indigo-900 text-center"
                         />
                       </td>
 
                       <td className="p-2 border-r border-slate-100 bg-indigo-50/5 relative group">
-                        <ExpandableCell
-                          value={row.q1Actual || ''}
-                          disabled={!isQuarterActive('q1')}
-                          onChange={(val) => handleCellChange(row.id, 'q1Actual', val)}
-                          cellTitle="Q1 Actual"
-                          refNum={row.refNum}
-                          isFitAll={isFitAllReportingCells}
-                          minRows={2}
-                          placeholder={!isQuarterActive('q1') ? "Locked for this period" : "Q1 Actual..."}
-                          onOpenExpandModal={openCellExpandModal}
-                          className={!isQuarterActive('q1') ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white'}
-                        />
-                        {row.q1Actual && row.q1 && row.q1Actual !== row.q1 && (
-                          <div className="absolute top-1 right-1 pointer-events-auto z-10">
-                            <div className="relative group/tip">
-                              <AlertCircle className="w-3 h-3 text-rose-500 animate-pulse cursor-help" />
-                              <div className="absolute bottom-full right-0 mb-1 hidden group-hover/tip:block z-50">
-                                <div className="bg-rose-900 text-white text-[10px] p-2 rounded shadow-lg whitespace-nowrap border border-rose-700">
-                                  <div className="font-bold border-b border-rose-800 pb-1 mb-1">Target Discrepancy</div>
-                                  <div>Target: {row.q1}</div>
-                                  <div>Actual: {row.q1Actual}</div>
-                                  <div className="mt-1 text-rose-200">Please provide variance explanation.</div>
+                        {isTargetNA(row.q1) ? (
+                          <div className="flex flex-col items-center justify-center p-2.5 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none min-h-[58px]" title="Q1 Target is N/A - Actual reporting is locked">
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+                              <Lock className="w-3.5 h-3.5 text-slate-500" />
+                              <KeyRound className="w-3.5 h-3.5 text-amber-600" />
+                              <span>Locked</span>
+                            </div>
+                            <span className="text-[9px] text-slate-400 font-semibold font-mono">Target N/A</span>
+                          </div>
+                        ) : (
+                          <>
+                            <ExpandableCell
+                              value={row.q1Actual || ''}
+                              disabled={!isQuarterActive('q1')}
+                              onChange={(val) => handleCellChange(row.id, 'q1Actual', val)}
+                              cellTitle="Q1 Actual"
+                              refNum={row.refNum}
+                              isFitAll={isFitAllReportingCells}
+                              minRows={2}
+                              placeholder={!isQuarterActive('q1') ? "Locked for this period" : "Q1 Actual..."}
+                              onOpenExpandModal={openCellExpandModal}
+                              className={!isQuarterActive('q1') ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white'}
+                            />
+                            {row.q1Actual && row.q1 && row.q1Actual !== row.q1 && (
+                              <div className="absolute top-1 right-1 pointer-events-auto z-10">
+                                <div className="relative group/tip">
+                                  <AlertCircle className="w-3 h-3 text-rose-500 animate-pulse cursor-help" />
+                                  <div className="absolute bottom-full right-0 mb-1 hidden group-hover/tip:block z-50">
+                                    <div className="bg-rose-900 text-white text-[10px] p-2 rounded shadow-lg whitespace-nowrap border border-rose-700">
+                                      <div className="font-bold border-b border-rose-800 pb-1 mb-1">Target Discrepancy</div>
+                                      <div>Target: {row.q1}</div>
+                                      <div>Actual: {row.q1Actual}</div>
+                                      <div className="mt-1 text-rose-200">Please provide variance explanation.</div>
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          </div>
+                            )}
+                          </>
                         )}
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-indigo-50/5">
-                        <ExpandableCell
-                          value={row.q1Variance || ''}
-                          readOnly
-                          cellTitle="Q1 Variance"
-                          refNum={row.refNum}
-                          isFitAll={isFitAllReportingCells}
-                          minRows={1}
-                          placeholder="No variance"
-                          onOpenExpandModal={openCellExpandModal}
-                          className="font-bold text-slate-700 bg-white"
-                        />
+                        {isTargetNA(row.q1) ? (
+                          <div className="flex flex-col items-center justify-center p-2 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none" title="Q1 Target is N/A - Variance calculation is locked">
+                            <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500">
+                              <Lock className="w-3 h-3 text-slate-400" />
+                              <KeyRound className="w-3 h-3 text-amber-600" />
+                              <span>Locked</span>
+                            </div>
+                            <span className="text-[9px] text-slate-400 font-mono">N/A</span>
+                          </div>
+                        ) : (
+                          <ExpandableCell
+                            value={row.q1Variance || ''}
+                            readOnly
+                            cellTitle="Q1 Variance"
+                            refNum={row.refNum}
+                            isFitAll={isFitAllReportingCells}
+                            minRows={1}
+                            placeholder="No variance"
+                            onOpenExpandModal={openCellExpandModal}
+                            className="font-bold text-slate-700 bg-white"
+                          />
+                        )}
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-indigo-50/5">
-                        <ExpandableCell
-                          value={row.q1Corrective || ''}
-                          disabled={!isQuarterActive('q1') || isFieldDisabled(row.q1Variance)}
-                          onChange={(val) => handleCellChange(row.id, 'q1Corrective', val)}
-                          cellTitle="Q1 Corrective Measure"
-                          refNum={row.refNum}
-                          isFitAll={isFitAllReportingCells}
-                          minRows={2}
-                          placeholder={!isQuarterActive('q1') ? "Locked for this period" : isFieldDisabled(row.q1Variance) ? "No variance detected." : "Q1 Corrective..."}
-                          onOpenExpandModal={openCellExpandModal}
-                          className={!isQuarterActive('q1') || isFieldDisabled(row.q1Variance) ? 'bg-slate-100 text-slate-400 cursor-not-allowed italic font-normal' : 'bg-white text-slate-800'}
-                        />
+                        {isTargetNA(row.q1) ? (
+                          <div className="flex flex-col items-center justify-center p-2.5 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none min-h-[58px]" title="Q1 Target is N/A - Corrective measures locked">
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+                              <Lock className="w-3.5 h-3.5 text-slate-500" />
+                              <KeyRound className="w-3.5 h-3.5 text-amber-600" />
+                              <span>Locked</span>
+                            </div>
+                            <span className="text-[9px] text-slate-400 font-semibold font-mono">Target N/A</span>
+                          </div>
+                        ) : (
+                          <ExpandableCell
+                            value={row.q1Corrective || ''}
+                            disabled={!isQuarterActive('q1') || isFieldDisabled(row.q1Variance)}
+                            onChange={(val) => handleCellChange(row.id, 'q1Corrective', val)}
+                            cellTitle="Q1 Corrective Measure"
+                            refNum={row.refNum}
+                            isFitAll={isFitAllReportingCells}
+                            minRows={2}
+                            placeholder={!isQuarterActive('q1') ? "Locked for this period" : isFieldDisabled(row.q1Variance) ? "No variance detected." : "Q1 Corrective..."}
+                            onOpenExpandModal={openCellExpandModal}
+                            className={!isQuarterActive('q1') || isFieldDisabled(row.q1Variance) ? 'bg-slate-100 text-slate-400 cursor-not-allowed italic font-normal' : 'bg-white text-slate-800'}
+                          />
+                        )}
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-indigo-100/10 text-center">
                         {renderQuarterWorkflowCell(row, 'q1')}
@@ -5057,178 +5287,236 @@ Timestamp: ${new Date().toLocaleString()}
 
                       {/* Q2 Expenditure (Moved before POE) */}
                       <td className="p-2 border-r border-slate-100 bg-teal-50/10">
-                        <ExpandableCell
-                          value={isOpex(row.budgetAllocation) ? (row.q2Expenditure || '') : (() => {
-                            const total = parseBudgetNum(row.budgetAllocation);
-                            return total > 0 ? `R ${Math.round(total / 4).toLocaleString()}` : 'R 0';
-                          })()}
-                          disabled={!isOpex(row.budgetAllocation) || !isQuarterActive('q2')}
-                          onChange={(val) => handleCellChange(row.id, 'q2Expenditure', val)}
-                          cellTitle="Q2 Expenditure"
-                          refNum={row.refNum}
-                          isFitAll={isFitAllReportingCells}
-                          minRows={1}
-                          placeholder={!isQuarterActive('q2') ? "Locked" : "Q2 Exp..."}
-                          onOpenExpandModal={openCellExpandModal}
-                          className={`font-bold ${!isQuarterActive('q2') || !isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-800'}`}
-                        />
+                        {isTargetNA(row.q2) ? (
+                          <div className="flex flex-col items-center justify-center p-2 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none" title="Expenditure reporting locked (Q2 Target is N/A)">
+                            <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500">
+                              <Lock className="w-3 h-3 text-slate-400" />
+                              <KeyRound className="w-3 h-3 text-amber-600" />
+                              <span>Locked</span>
+                            </div>
+                            <span className="text-[9px] text-slate-400 font-mono">N/A</span>
+                          </div>
+                        ) : (
+                          <ExpandableCell
+                            value={isOpex(row.budgetAllocation) ? (row.q2Expenditure || '') : (() => {
+                              const total = parseBudgetNum(row.budgetAllocation);
+                              return total > 0 ? `R ${Math.round(total / 4).toLocaleString()}` : 'R 0';
+                            })()}
+                            disabled={!isOpex(row.budgetAllocation) || !isQuarterActive('q2')}
+                            onChange={(val) => handleCellChange(row.id, 'q2Expenditure', val)}
+                            cellTitle="Q2 Expenditure"
+                            refNum={row.refNum}
+                            isFitAll={isFitAllReportingCells}
+                            minRows={1}
+                            placeholder={!isQuarterActive('q2') ? "Locked" : "Q2 Exp..."}
+                            onOpenExpandModal={openCellExpandModal}
+                            className={`font-bold ${!isQuarterActive('q2') || !isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-800'}`}
+                          />
+                        )}
                       </td>
 
                       {/* Q2 POE Column */}
                       <td className="p-2 border-r border-slate-100 bg-blue-50/10">
-                        <div className="space-y-2">
-                          {(() => {
-                            const sourcePoe = (row.poeDesc || row.poeStatus || row.q1PoeDesc || row.q2PoeDesc || row.midTermPoeDesc || row.q3PoeDesc || row.q4PoeDesc || '').trim();
-                            return (
-                              <ExpandableCell
-                                value={row.q2PoeDesc || sourcePoe}
-                                disabled={true}
-                                onChange={() => {}}
-                                cellTitle="Q2 POE Description (Non-Editable Source Document POE)"
-                                refNum={row.refNum}
-                                isFitAll={isFitAllReportingCells}
-                                minRows={2}
-                                placeholder="Source Document POE Description..."
-                                onOpenExpandModal={openCellExpandModal}
-                                className="bg-slate-100/90 text-slate-700 border-slate-200 cursor-not-allowed"
-                              />
-                            );
-                          })()}
-                          {row.q2Poes && row.q2Poes.length > 0 && (
-                            <div 
-                              onClick={() => triggerViewPoeModal(row, 'q2')}
-                              className="text-[10px] bg-emerald-50 hover:bg-emerald-100 p-1 border border-emerald-200 rounded text-emerald-800 truncate cursor-pointer transition flex items-center justify-between font-semibold" 
-                              title="Click to view full POE document details & preview"
-                            >
-                              <span className="truncate">📄 {row.q2Poes[row.q2Poes.length - 1]}</span>
-                              <Eye className="w-3 h-3 text-emerald-600 shrink-0 ml-1" />
+                        {isTargetNA(row.q2) ? (
+                          <div className="flex flex-col items-center justify-center p-2.5 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-1 select-none min-h-[72px]" title="Q2 Target is N/A - POE submission locked">
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+                              <Lock className="w-3.5 h-3.5 text-slate-500" />
+                              <KeyRound className="w-3.5 h-3.5 text-amber-600" />
+                              <span>Locked</span>
                             </div>
-                          )}
-                          <div className="flex gap-1">
-                            {((row.q2Poes && row.q2Poes.length > 0) || row.q2PoeDesc) && (
-                              <button 
-                                onClick={() => triggerViewPoeModal(row, 'q2')}
-                                className="px-2 py-1 text-[9px] font-bold rounded border bg-emerald-600 border-emerald-500 text-white hover:bg-emerald-700 transition-colors flex items-center justify-center gap-1 cursor-pointer shadow-xs"
-                                title="View POE Document Details"
-                              >
-                                <Eye className="w-2.5 h-2.5" /> View
-                              </button>
-                            )}
-                            <button 
-                              disabled={!isQuarterActive('q2')}
-                              onClick={() => triggerUploadModal(row.id, row.refNum, 'q2')}
-                              className={`flex-1 py-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center gap-1 ${!isQuarterActive('q2') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 cursor-pointer'}`}
-                              title={!isQuarterActive('q2') ? getQuarterLockNotice('q2') : "Upload/Edit POE"}
-                            >
-                              <Upload className="w-2.5 h-2.5" /> Upload/Edit
-                            </button>
-                            {((row.q2Poes && row.q2Poes.length > 0) || row.q2PoeDesc) && (
-                              confirmDelete?.rowId === row.id && confirmDelete?.type === 'q2' ? (
-                                <div className="flex flex-col gap-1 bg-rose-50 border border-rose-200 p-1 rounded min-w-[80px]">
-                                  <span className="text-[8px] text-rose-800 font-bold text-center leading-none">Are you sure?</span>
-                                  <div className="flex gap-1 justify-center">
-                                    <button
-                                      disabled={!isQuarterActive('q2')}
-                                      onClick={() => {
-                                        clearQuarterPoe(row.id, 'q2');
-                                        setConfirmDelete(null);
-                                      }}
-                                      className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[8px] font-bold cursor-pointer hover:bg-rose-700 disabled:opacity-50"
-                                    >
-                                      Yes
-                                    </button>
-                                    <button
-                                      onClick={() => setConfirmDelete(null)}
-                                      className="px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded text-[8px] font-bold cursor-pointer hover:bg-slate-300"
-                                    >
-                                      No
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <button 
-                                  disabled={!isQuarterActive('q2')}
-                                  onClick={() => setConfirmDelete({ rowId: row.id, type: 'q2' })}
-                                  className={`p-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center ${!isQuarterActive('q2') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 cursor-pointer'}`}
-                                  title={!isQuarterActive('q2') ? getQuarterLockNotice('q2') : "Delete POE and Description"}
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                </button>
-                              )
-                            )}
+                            <span className="text-[10px] text-slate-400 font-medium">Q2 Target is N/A</span>
                           </div>
-                        </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {(() => {
+                              const sourcePoe = (row.poeDesc || row.poeStatus || row.q1PoeDesc || row.q2PoeDesc || row.midTermPoeDesc || row.q3PoeDesc || row.q4PoeDesc || '').trim();
+                              return (
+                                <ExpandableCell
+                                  value={row.q2PoeDesc || sourcePoe}
+                                  disabled={true}
+                                  onChange={() => {}}
+                                  cellTitle="Q2 POE Description (Non-Editable Source Document POE)"
+                                  refNum={row.refNum}
+                                  isFitAll={isFitAllReportingCells}
+                                  minRows={2}
+                                  placeholder="Source Document POE Description..."
+                                  onOpenExpandModal={openCellExpandModal}
+                                  className="bg-slate-100/90 text-slate-700 border-slate-200 cursor-not-allowed"
+                                />
+                              );
+                            })()}
+                            {row.q2Poes && row.q2Poes.length > 0 && (
+                              <div 
+                                onClick={() => triggerViewPoeModal(row, 'q2')}
+                                className="text-[10px] bg-emerald-50 hover:bg-emerald-100 p-1 border border-emerald-200 rounded text-emerald-800 truncate cursor-pointer transition flex items-center justify-between font-semibold" 
+                                title="Click to view full POE document details & preview"
+                              >
+                                <span className="truncate">📄 {row.q2Poes[row.q2Poes.length - 1]}</span>
+                                <Eye className="w-3 h-3 text-emerald-600 shrink-0 ml-1" />
+                              </div>
+                            )}
+                            <div className="flex gap-1">
+                              {((row.q2Poes && row.q2Poes.length > 0) || row.q2PoeDesc) && (
+                                <button 
+                                  onClick={() => triggerViewPoeModal(row, 'q2')}
+                                  className="px-2 py-1 text-[9px] font-bold rounded border bg-emerald-600 border-emerald-500 text-white hover:bg-emerald-700 transition-colors flex items-center justify-center gap-1 cursor-pointer shadow-xs"
+                                  title="View POE Document Details"
+                                >
+                                  <Eye className="w-2.5 h-2.5" /> View
+                                </button>
+                              )}
+                              <button 
+                                disabled={!isQuarterActive('q2')}
+                                onClick={() => triggerUploadModal(row.id, row.refNum, 'q2')}
+                                className={`flex-1 py-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center gap-1 ${!isQuarterActive('q2') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 cursor-pointer'}`}
+                                title={!isQuarterActive('q2') ? getQuarterLockNotice('q2') : "Upload/Edit POE"}
+                              >
+                                <Upload className="w-2.5 h-2.5" /> Upload/Edit
+                              </button>
+                              {((row.q2Poes && row.q2Poes.length > 0) || row.q2PoeDesc) && (
+                                confirmDelete?.rowId === row.id && confirmDelete?.type === 'q2' ? (
+                                  <div className="flex flex-col gap-1 bg-rose-50 border border-rose-200 p-1 rounded min-w-[80px]">
+                                    <span className="text-[8px] text-rose-800 font-bold text-center leading-none">Are you sure?</span>
+                                    <div className="flex gap-1 justify-center">
+                                      <button
+                                        disabled={!isQuarterActive('q2')}
+                                        onClick={() => {
+                                          clearQuarterPoe(row.id, 'q2');
+                                          setConfirmDelete(null);
+                                        }}
+                                        className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[8px] font-bold cursor-pointer hover:bg-rose-700 disabled:opacity-50"
+                                      >
+                                        Yes
+                                      </button>
+                                      <button
+                                        onClick={() => setConfirmDelete(null)}
+                                        className="px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded text-[8px] font-bold cursor-pointer hover:bg-slate-300"
+                                      >
+                                        No
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <button 
+                                    disabled={!isQuarterActive('q2')}
+                                    onClick={() => setConfirmDelete({ rowId: row.id, type: 'q2' })}
+                                    className={`p-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center ${!isQuarterActive('q2') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 cursor-pointer'}`}
+                                    title={!isQuarterActive('q2') ? getQuarterLockNotice('q2') : "Delete POE and Description"}
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                )
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </td>
 
                       {/* Q2 TARGET Column */}
                       <td className="p-2 border-r border-slate-100 bg-blue-50/20 text-center">
                         <ExpandableCell
-                          value={row.q2 || '-'}
-                          readOnly
+                          value={row.q2 || ''}
+                          onChange={(val) => handleCellChange(row.id, 'q2', val)}
                           cellTitle="Q2 Target"
                           refNum={row.refNum}
                           isFitAll={isFitAllReportingCells}
                           minRows={1}
+                          placeholder="Q2 Target..."
                           onOpenExpandModal={openCellExpandModal}
                           className="font-bold text-blue-900 text-center"
                         />
                       </td>
 
                       <td className="p-2 border-r border-slate-100 bg-blue-50/5 relative">
-                        <ExpandableCell
-                          value={row.q2Actual || ''}
-                          disabled={!isQuarterActive('q2')}
-                          onChange={(val) => handleCellChange(row.id, 'q2Actual', val)}
-                          cellTitle="Q2 Actual"
-                          refNum={row.refNum}
-                          isFitAll={isFitAllReportingCells}
-                          minRows={2}
-                          placeholder={!isQuarterActive('q2') ? "Locked for this period" : "Q2 Actual..."}
-                          onOpenExpandModal={openCellExpandModal}
-                          className={!isQuarterActive('q2') ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white'}
-                        />
-                        {row.q2Actual && row.q2 && row.q2Actual !== row.q2 && (
-                          <div className="absolute top-1 right-1 pointer-events-auto z-10">
-                            <div className="relative group/tip">
-                              <AlertCircle className="w-3 h-3 text-rose-500 animate-pulse cursor-help" />
-                              <div className="absolute bottom-full right-0 mb-1 hidden group-hover/tip:block z-50">
-                                <div className="bg-rose-900 text-white text-[10px] p-2 rounded shadow-lg whitespace-nowrap border border-rose-700">
-                                  <div className="font-bold border-b border-rose-800 pb-1 mb-1">Target Discrepancy</div>
-                                  <div>Target: {row.q2}</div>
-                                  <div>Actual: {row.q2Actual}</div>
-                                  <div className="mt-1 text-rose-200">Please provide variance explanation.</div>
+                        {isTargetNA(row.q2) ? (
+                          <div className="flex flex-col items-center justify-center p-2.5 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none min-h-[58px]" title="Q2 Target is N/A - Actual reporting is locked">
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+                              <Lock className="w-3.5 h-3.5 text-slate-500" />
+                              <KeyRound className="w-3.5 h-3.5 text-amber-600" />
+                              <span>Locked</span>
+                            </div>
+                            <span className="text-[9px] text-slate-400 font-semibold font-mono">Target N/A</span>
+                          </div>
+                        ) : (
+                          <>
+                            <ExpandableCell
+                              value={row.q2Actual || ''}
+                              disabled={!isQuarterActive('q2')}
+                              onChange={(val) => handleCellChange(row.id, 'q2Actual', val)}
+                              cellTitle="Q2 Actual"
+                              refNum={row.refNum}
+                              isFitAll={isFitAllReportingCells}
+                              minRows={2}
+                              placeholder={!isQuarterActive('q2') ? "Locked for this period" : "Q2 Actual..."}
+                              onOpenExpandModal={openCellExpandModal}
+                              className={!isQuarterActive('q2') ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white'}
+                            />
+                            {row.q2Actual && row.q2 && row.q2Actual !== row.q2 && (
+                              <div className="absolute top-1 right-1 pointer-events-auto z-10">
+                                <div className="relative group/tip">
+                                  <AlertCircle className="w-3 h-3 text-rose-500 animate-pulse cursor-help" />
+                                  <div className="absolute bottom-full right-0 mb-1 hidden group-hover/tip:block z-50">
+                                    <div className="bg-rose-900 text-white text-[10px] p-2 rounded shadow-lg whitespace-nowrap border border-rose-700">
+                                      <div className="font-bold border-b border-rose-800 pb-1 mb-1">Target Discrepancy</div>
+                                      <div>Target: {row.q2}</div>
+                                      <div>Actual: {row.q2Actual}</div>
+                                      <div className="mt-1 text-rose-200">Please provide variance explanation.</div>
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          </div>
+                            )}
+                          </>
                         )}
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-blue-50/5">
-                        <ExpandableCell
-                          value={row.q2Variance || ''}
-                          readOnly
-                          cellTitle="Q2 Variance"
-                          refNum={row.refNum}
-                          isFitAll={isFitAllReportingCells}
-                          minRows={1}
-                          placeholder="No variance"
-                          onOpenExpandModal={openCellExpandModal}
-                          className="font-bold text-slate-700 bg-white"
-                        />
+                        {isTargetNA(row.q2) ? (
+                          <div className="flex flex-col items-center justify-center p-2 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none" title="Q2 Target is N/A - Variance calculation is locked">
+                            <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500">
+                              <Lock className="w-3 h-3 text-slate-400" />
+                              <KeyRound className="w-3 h-3 text-amber-600" />
+                              <span>Locked</span>
+                            </div>
+                            <span className="text-[9px] text-slate-400 font-mono">N/A</span>
+                          </div>
+                        ) : (
+                          <ExpandableCell
+                            value={row.q2Variance || ''}
+                            readOnly
+                            cellTitle="Q2 Variance"
+                            refNum={row.refNum}
+                            isFitAll={isFitAllReportingCells}
+                            minRows={1}
+                            placeholder="No variance"
+                            onOpenExpandModal={openCellExpandModal}
+                            className="font-bold text-slate-700 bg-white"
+                          />
+                        )}
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-blue-50/5">
-                        <ExpandableCell
-                          value={row.q2Corrective || ''}
-                          disabled={!isQuarterActive('q2') || isFieldDisabled(row.q2Variance)}
-                          onChange={(val) => handleCellChange(row.id, 'q2Corrective', val)}
-                          cellTitle="Q2 Corrective Measure"
-                          refNum={row.refNum}
-                          isFitAll={isFitAllReportingCells}
-                          minRows={2}
-                          placeholder={!isQuarterActive('q2') ? "Locked for this period" : isFieldDisabled(row.q2Variance) ? "No variance detected." : "Q2 Corrective..."}
-                          onOpenExpandModal={openCellExpandModal}
-                          className={!isQuarterActive('q2') || isFieldDisabled(row.q2Variance) ? 'bg-slate-100 text-slate-400 cursor-not-allowed italic font-normal' : 'bg-white text-slate-800'}
-                        />
+                        {isTargetNA(row.q2) ? (
+                          <div className="flex flex-col items-center justify-center p-2.5 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none min-h-[58px]" title="Q2 Target is N/A - Corrective measures locked">
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+                              <Lock className="w-3.5 h-3.5 text-slate-500" />
+                              <KeyRound className="w-3.5 h-3.5 text-amber-600" />
+                              <span>Locked</span>
+                            </div>
+                            <span className="text-[9px] text-slate-400 font-semibold font-mono">Target N/A</span>
+                          </div>
+                        ) : (
+                          <ExpandableCell
+                            value={row.q2Corrective || ''}
+                            disabled={!isQuarterActive('q2') || isFieldDisabled(row.q2Variance)}
+                            onChange={(val) => handleCellChange(row.id, 'q2Corrective', val)}
+                            cellTitle="Q2 Corrective Measure"
+                            refNum={row.refNum}
+                            isFitAll={isFitAllReportingCells}
+                            minRows={2}
+                            placeholder={!isQuarterActive('q2') ? "Locked for this period" : isFieldDisabled(row.q2Variance) ? "No variance detected." : "Q2 Corrective..."}
+                            onOpenExpandModal={openCellExpandModal}
+                            className={!isQuarterActive('q2') || isFieldDisabled(row.q2Variance) ? 'bg-slate-100 text-slate-400 cursor-not-allowed italic font-normal' : 'bg-white text-slate-800'}
+                          />
+                        )}
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-blue-100/10 text-center">
                         {renderQuarterWorkflowCell(row, 'q2')}
@@ -5236,177 +5524,235 @@ Timestamp: ${new Date().toLocaleString()}
 
                       {/* Mid Term Expenditure */}
                       <td className="p-2 border-r border-slate-100 bg-teal-50/10">
-                        <ExpandableCell
-                          value={isOpex(row.budgetAllocation) ? (row.midTermExpenditure || '') : (() => {
-                            const total = parseBudgetNum(row.budgetAllocation);
-                            return total > 0 ? `R ${Math.round(total / 2).toLocaleString()}` : 'R 0';
-                          })()}
-                          disabled={!isOpex(row.budgetAllocation) || !isQuarterActive('midTerm')}
-                          onChange={(val) => handleCellChange(row.id, 'midTermExpenditure', val)}
-                          cellTitle="Mid-Term Expenditure"
-                          refNum={row.refNum}
-                          isFitAll={isFitAllReportingCells}
-                          minRows={1}
-                          placeholder={!isQuarterActive('midTerm') ? "Locked" : "Mid Term Exp..."}
-                          onOpenExpandModal={openCellExpandModal}
-                          className={`font-bold ${!isQuarterActive('midTerm') || !isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-800'}`}
-                        />
+                        {isTargetNA(row.midTermTarget || row.midTerm) ? (
+                          <div className="flex flex-col items-center justify-center p-2 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none" title="Expenditure reporting locked (Mid-Term Target is N/A)">
+                            <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500">
+                              <Lock className="w-3 h-3 text-slate-400" />
+                              <KeyRound className="w-3 h-3 text-amber-600" />
+                              <span>Locked</span>
+                            </div>
+                            <span className="text-[9px] text-slate-400 font-mono">N/A</span>
+                          </div>
+                        ) : (
+                          <ExpandableCell
+                            value={isOpex(row.budgetAllocation) ? (row.midTermExpenditure || '') : (() => {
+                              const total = parseBudgetNum(row.budgetAllocation);
+                              return total > 0 ? `R ${Math.round(total / 2).toLocaleString()}` : 'R 0';
+                            })()}
+                            disabled={!isOpex(row.budgetAllocation) || !isQuarterActive('midTerm')}
+                            onChange={(val) => handleCellChange(row.id, 'midTermExpenditure', val)}
+                            cellTitle="Mid-Term Expenditure"
+                            refNum={row.refNum}
+                            isFitAll={isFitAllReportingCells}
+                            minRows={1}
+                            placeholder={!isQuarterActive('midTerm') ? "Locked" : "Mid Term Exp..."}
+                            onOpenExpandModal={openCellExpandModal}
+                            className={`font-bold ${!isQuarterActive('midTerm') || !isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-800'}`}
+                          />
+                        )}
                       </td>
 
                       {/* Mid Term POE Column */}
                       <td className="p-2 border-r border-slate-100 bg-emerald-50/10">
-                        <div className="space-y-2">
-                          {(() => {
-                            const sourcePoe = (row.poeDesc || row.poeStatus || row.q1PoeDesc || row.q2PoeDesc || row.midTermPoeDesc || row.q3PoeDesc || row.q4PoeDesc || '').trim();
-                            return (
-                              <ExpandableCell
-                                value={row.midTermPoeDesc || sourcePoe}
-                                disabled={true}
-                                onChange={() => {}}
-                                cellTitle="Mid-Term POE Description (Non-Editable Source Document POE)"
-                                refNum={row.refNum}
-                                isFitAll={isFitAllReportingCells}
-                                minRows={2}
-                                placeholder="Source Document POE Description..."
-                                onOpenExpandModal={openCellExpandModal}
-                                className="bg-slate-100/90 text-slate-700 border-slate-200 cursor-not-allowed"
-                              />
-                            );
-                          })()}
-                          {row.midTermPoes && row.midTermPoes.length > 0 && (
-                            <div 
-                              onClick={() => triggerViewPoeModal(row, 'midTerm')}
-                              className="text-[10px] bg-emerald-50 hover:bg-emerald-100 p-1 border border-emerald-200 rounded text-emerald-800 truncate cursor-pointer transition flex items-center justify-between font-semibold" 
-                              title="Click to view full POE document details & preview"
-                            >
-                              <span className="truncate">📄 {row.midTermPoes[row.midTermPoes.length - 1]}</span>
-                              <Eye className="w-3 h-3 text-emerald-600 shrink-0 ml-1" />
+                        {isTargetNA(row.midTermTarget || row.midTerm) ? (
+                          <div className="flex flex-col items-center justify-center p-2.5 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-1 select-none min-h-[72px]" title="Mid-Term Target is N/A - POE submission locked">
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+                              <Lock className="w-3.5 h-3.5 text-slate-500" />
+                              <KeyRound className="w-3.5 h-3.5 text-amber-600" />
+                              <span>Locked</span>
                             </div>
-                          )}
-                          <div className="flex gap-1">
-                            {((row.midTermPoes && row.midTermPoes.length > 0) || row.midTermPoeDesc) && (
-                              <button 
-                                onClick={() => triggerViewPoeModal(row, 'midTerm')}
-                                className="px-2 py-1 text-[9px] font-bold rounded border bg-emerald-600 border-emerald-500 text-white hover:bg-emerald-700 transition-colors flex items-center justify-center gap-1 cursor-pointer shadow-xs"
-                                title="View POE Document Details"
-                              >
-                                <Eye className="w-2.5 h-2.5" /> View
-                              </button>
-                            )}
-                            <button 
-                              disabled={!isQuarterActive('midTerm')}
-                              onClick={() => triggerUploadModal(row.id, row.refNum, 'midTerm')}
-                              className={`flex-1 py-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center gap-1 ${!isQuarterActive('midTerm') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100 cursor-pointer'}`}
-                              title={!isQuarterActive('midTerm') ? getQuarterLockNotice('midTerm') : "Upload/Edit POE"}
-                            >
-                              <Upload className="w-2.5 h-2.5" /> Upload/Edit
-                            </button>
-                            {((row.midTermPoes && row.midTermPoes.length > 0) || row.midTermPoeDesc) && (
-                              confirmDelete?.rowId === row.id && confirmDelete?.type === 'midTerm' ? (
-                                <div className="flex flex-col gap-1 bg-rose-50 border border-rose-200 p-1 rounded min-w-[80px]">
-                                  <span className="text-[8px] text-rose-800 font-bold text-center leading-none">Are you sure?</span>
-                                  <div className="flex gap-1 justify-center">
-                                    <button
-                                      disabled={!isQuarterActive('midTerm')}
-                                      onClick={() => {
-                                        clearQuarterPoe(row.id, 'midTerm');
-                                        setConfirmDelete(null);
-                                      }}
-                                      className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[8px] font-bold cursor-pointer hover:bg-rose-700 disabled:opacity-50"
-                                    >
-                                      Yes
-                                    </button>
-                                    <button
-                                      onClick={() => setConfirmDelete(null)}
-                                      className="px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded text-[8px] font-bold cursor-pointer hover:bg-slate-300"
-                                    >
-                                      No
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <button 
-                                  disabled={!isQuarterActive('midTerm')}
-                                  onClick={() => setConfirmDelete({ rowId: row.id, type: 'midTerm' })}
-                                  className={`p-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center ${!isQuarterActive('midTerm') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 cursor-pointer'}`}
-                                  title={!isQuarterActive('midTerm') ? getQuarterLockNotice('midTerm') : "Delete POE and Description"}
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                </button>
-                              )
-                            )}
+                            <span className="text-[10px] text-slate-400 font-medium">Mid-Term Target is N/A</span>
                           </div>
-                        </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {(() => {
+                              const sourcePoe = (row.poeDesc || row.poeStatus || row.q1PoeDesc || row.q2PoeDesc || row.midTermPoeDesc || row.q3PoeDesc || row.q4PoeDesc || '').trim();
+                              return (
+                                <ExpandableCell
+                                  value={row.midTermPoeDesc || sourcePoe}
+                                  disabled={true}
+                                  onChange={() => {}}
+                                  cellTitle="Mid-Term POE Description (Non-Editable Source Document POE)"
+                                  refNum={row.refNum}
+                                  isFitAll={isFitAllReportingCells}
+                                  minRows={2}
+                                  placeholder="Source Document POE Description..."
+                                  onOpenExpandModal={openCellExpandModal}
+                                  className="bg-slate-100/90 text-slate-700 border-slate-200 cursor-not-allowed"
+                                />
+                              );
+                            })()}
+                            {row.midTermPoes && row.midTermPoes.length > 0 && (
+                              <div 
+                                onClick={() => triggerViewPoeModal(row, 'midTerm')}
+                                className="text-[10px] bg-emerald-50 hover:bg-emerald-100 p-1 border border-emerald-200 rounded text-emerald-800 truncate cursor-pointer transition flex items-center justify-between font-semibold" 
+                                title="Click to view full POE document details & preview"
+                              >
+                                <span className="truncate">📄 {row.midTermPoes[row.midTermPoes.length - 1]}</span>
+                                <Eye className="w-3 h-3 text-emerald-600 shrink-0 ml-1" />
+                              </div>
+                            )}
+                            <div className="flex gap-1">
+                              {((row.midTermPoes && row.midTermPoes.length > 0) || row.midTermPoeDesc) && (
+                                <button 
+                                  onClick={() => triggerViewPoeModal(row, 'midTerm')}
+                                  className="px-2 py-1 text-[9px] font-bold rounded border bg-emerald-600 border-emerald-500 text-white hover:bg-emerald-700 transition-colors flex items-center justify-center gap-1 cursor-pointer shadow-xs"
+                                  title="View POE Document Details"
+                                >
+                                  <Eye className="w-2.5 h-2.5" /> View
+                                </button>
+                              )}
+                              <button 
+                                disabled={!isQuarterActive('midTerm')}
+                                onClick={() => triggerUploadModal(row.id, row.refNum, 'midTerm')}
+                                className={`flex-1 py-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center gap-1 ${!isQuarterActive('midTerm') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100 cursor-pointer'}`}
+                                title={!isQuarterActive('midTerm') ? getQuarterLockNotice('midTerm') : "Upload/Edit POE"}
+                              >
+                                <Upload className="w-2.5 h-2.5" /> Upload/Edit
+                              </button>
+                              {((row.midTermPoes && row.midTermPoes.length > 0) || row.midTermPoeDesc) && (
+                                confirmDelete?.rowId === row.id && confirmDelete?.type === 'midTerm' ? (
+                                  <div className="flex flex-col gap-1 bg-rose-50 border border-rose-200 p-1 rounded min-w-[80px]">
+                                    <span className="text-[8px] text-rose-800 font-bold text-center leading-none">Are you sure?</span>
+                                    <div className="flex gap-1 justify-center">
+                                      <button
+                                        disabled={!isQuarterActive('midTerm')}
+                                        onClick={() => {
+                                          clearQuarterPoe(row.id, 'midTerm');
+                                          setConfirmDelete(null);
+                                        }}
+                                        className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[8px] font-bold cursor-pointer hover:bg-rose-700 disabled:opacity-50"
+                                      >
+                                        Yes
+                                      </button>
+                                      <button
+                                        onClick={() => setConfirmDelete(null)}
+                                        className="px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded text-[8px] font-bold cursor-pointer hover:bg-slate-300"
+                                      >
+                                        No
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <button 
+                                    disabled={!isQuarterActive('midTerm')}
+                                    onClick={() => setConfirmDelete({ rowId: row.id, type: 'midTerm' })}
+                                    className={`p-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center ${!isQuarterActive('midTerm') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 cursor-pointer'}`}
+                                    title={!isQuarterActive('midTerm') ? getQuarterLockNotice('midTerm') : "Delete POE and Description"}
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                )
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </td>
 
                       {/* Mid Term Target */}
                       <td className="p-2 border-r border-slate-100 bg-emerald-50/20 text-center">
                         <ExpandableCell
                           value={row.midTermTarget || ''}
-                          readOnly
+                          onChange={(val) => handleCellChange(row.id, 'midTermTarget', val)}
                           cellTitle="Mid-Term Target"
                           refNum={row.refNum}
                           isFitAll={isFitAllReportingCells}
                           minRows={1}
+                          placeholder="Mid-Term Target..."
                           onOpenExpandModal={openCellExpandModal}
                           className="font-bold text-emerald-900 text-center"
                         />
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-emerald-50/5 relative">
-                        <ExpandableCell
-                          value={row.midTermActual || ''}
-                          disabled={!isQuarterActive('midTerm')}
-                          onChange={(val) => handleCellChange(row.id, 'midTermActual', val)}
-                          cellTitle="Mid-Term Actual"
-                          refNum={row.refNum}
-                          isFitAll={isFitAllReportingCells}
-                          minRows={2}
-                          placeholder={!isQuarterActive('midTerm') ? "Locked" : "Mid Term Actual..."}
-                          onOpenExpandModal={openCellExpandModal}
-                          className={!isQuarterActive('midTerm') ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white font-bold text-emerald-700'}
-                        />
-                        {row.midTermActual && row.midTermTarget && row.midTermActual !== row.midTermTarget && (
-                          <div className="absolute top-1 right-1 pointer-events-auto z-10">
-                            <div className="relative group/tip">
-                              <AlertCircle className="w-3 h-3 text-rose-500 animate-pulse cursor-help" />
-                              <div className="absolute bottom-full right-0 mb-1 hidden group-hover/tip:block z-50">
-                                <div className="bg-rose-900 text-white text-[10px] p-2 rounded shadow-lg whitespace-nowrap border border-rose-700">
-                                  <div className="font-bold border-b border-rose-800 pb-1 mb-1">Target Discrepancy</div>
-                                  <div>Target: {row.midTermTarget}</div>
-                                  <div>Actual: {row.midTermActual}</div>
-                                  <div className="mt-1 text-rose-200">Please provide variance explanation.</div>
+                        {isTargetNA(row.midTermTarget || row.midTerm) ? (
+                          <div className="flex flex-col items-center justify-center p-2.5 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none min-h-[58px]" title="Mid-Term Target is N/A - Actual reporting is locked">
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+                              <Lock className="w-3.5 h-3.5 text-slate-500" />
+                              <KeyRound className="w-3.5 h-3.5 text-amber-600" />
+                              <span>Locked</span>
+                            </div>
+                            <span className="text-[9px] text-slate-400 font-semibold font-mono">Target N/A</span>
+                          </div>
+                        ) : (
+                          <>
+                            <ExpandableCell
+                              value={row.midTermActual || ''}
+                              disabled={!isQuarterActive('midTerm')}
+                              onChange={(val) => handleCellChange(row.id, 'midTermActual', val)}
+                              cellTitle="Mid-Term Actual"
+                              refNum={row.refNum}
+                              isFitAll={isFitAllReportingCells}
+                              minRows={2}
+                              placeholder={!isQuarterActive('midTerm') ? "Locked" : "Mid Term Actual..."}
+                              onOpenExpandModal={openCellExpandModal}
+                              className={!isQuarterActive('midTerm') ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white font-bold text-emerald-700'}
+                            />
+                            {row.midTermActual && row.midTermTarget && row.midTermActual !== row.midTermTarget && (
+                              <div className="absolute top-1 right-1 pointer-events-auto z-10">
+                                <div className="relative group/tip">
+                                  <AlertCircle className="w-3 h-3 text-rose-500 animate-pulse cursor-help" />
+                                  <div className="absolute bottom-full right-0 mb-1 hidden group-hover/tip:block z-50">
+                                    <div className="bg-rose-900 text-white text-[10px] p-2 rounded shadow-lg whitespace-nowrap border border-rose-700">
+                                      <div className="font-bold border-b border-rose-800 pb-1 mb-1">Target Discrepancy</div>
+                                      <div>Target: {row.midTermTarget}</div>
+                                      <div>Actual: {row.midTermActual}</div>
+                                      <div className="mt-1 text-rose-200">Please provide variance explanation.</div>
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          </div>
+                            )}
+                          </>
                         )}
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-emerald-50/5">
-                        <ExpandableCell
-                          value={row.midTermVariance || ''}
-                          readOnly
-                          cellTitle="Mid-Term Variance"
-                          refNum={row.refNum}
-                          isFitAll={isFitAllReportingCells}
-                          minRows={1}
-                          placeholder="No variance"
-                          onOpenExpandModal={openCellExpandModal}
-                          className="font-bold text-slate-800 bg-white"
-                        />
+                        {isTargetNA(row.midTermTarget || row.midTerm) ? (
+                          <div className="flex flex-col items-center justify-center p-2 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none" title="Mid-Term Target is N/A - Variance calculation is locked">
+                            <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500">
+                              <Lock className="w-3 h-3 text-slate-400" />
+                              <KeyRound className="w-3 h-3 text-amber-600" />
+                              <span>Locked</span>
+                            </div>
+                            <span className="text-[9px] text-slate-400 font-mono">N/A</span>
+                          </div>
+                        ) : (
+                          <ExpandableCell
+                            value={row.midTermVariance || ''}
+                            readOnly
+                            cellTitle="Mid-Term Variance"
+                            refNum={row.refNum}
+                            isFitAll={isFitAllReportingCells}
+                            minRows={1}
+                            placeholder="No variance"
+                            onOpenExpandModal={openCellExpandModal}
+                            className="font-bold text-slate-800 bg-white"
+                          />
+                        )}
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-emerald-50/5">
-                        <ExpandableCell
-                          value={row.midTermCorrective || ''}
-                          disabled={!isQuarterActive('midTerm') || isFieldDisabled(row.midTermVariance)}
-                          onChange={(val) => handleCellChange(row.id, 'midTermCorrective', val)}
-                          cellTitle="Mid-Term Corrective Measure"
-                          refNum={row.refNum}
-                          isFitAll={isFitAllReportingCells}
-                          minRows={2}
-                          placeholder={!isQuarterActive('midTerm') ? "Locked for this period" : isFieldDisabled(row.midTermVariance) ? "No variance detected." : "Mid-Term Corrective..."}
-                          onOpenExpandModal={openCellExpandModal}
-                          className={!isQuarterActive('midTerm') || isFieldDisabled(row.midTermVariance) ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed italic font-normal' : 'bg-white text-slate-800'}
-                        />
+                        {isTargetNA(row.midTermTarget || row.midTerm) ? (
+                          <div className="flex flex-col items-center justify-center p-2.5 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none min-h-[58px]" title="Mid-Term Target is N/A - Corrective measures locked">
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+                              <Lock className="w-3.5 h-3.5 text-slate-500" />
+                              <KeyRound className="w-3.5 h-3.5 text-amber-600" />
+                              <span>Locked</span>
+                            </div>
+                            <span className="text-[9px] text-slate-400 font-semibold font-mono">Target N/A</span>
+                          </div>
+                        ) : (
+                          <ExpandableCell
+                            value={row.midTermCorrective || ''}
+                            disabled={!isQuarterActive('midTerm') || isFieldDisabled(row.midTermVariance)}
+                            onChange={(val) => handleCellChange(row.id, 'midTermCorrective', val)}
+                            cellTitle="Mid-Term Corrective Measure"
+                            refNum={row.refNum}
+                            isFitAll={isFitAllReportingCells}
+                            minRows={2}
+                            placeholder={!isQuarterActive('midTerm') ? "Locked for this period" : isFieldDisabled(row.midTermVariance) ? "No variance detected." : "Mid-Term Corrective..."}
+                            onOpenExpandModal={openCellExpandModal}
+                            className={!isQuarterActive('midTerm') || isFieldDisabled(row.midTermVariance) ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed italic font-normal' : 'bg-white text-slate-800'}
+                          />
+                        )}
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-emerald-100/10 text-center">
                         {renderQuarterWorkflowCell(row, 'midTerm')}
@@ -5414,178 +5760,236 @@ Timestamp: ${new Date().toLocaleString()}
 
                       {/* Q3 Expenditure (Moved before POE) */}
                       <td className="p-2 border-r border-slate-100 bg-teal-50/10">
-                        <ExpandableCell
-                          value={isOpex(row.budgetAllocation) ? (row.q3Expenditure || '') : (() => {
-                            const total = parseBudgetNum(row.budgetAllocation);
-                            return total > 0 ? `R ${Math.round(total / 4).toLocaleString()}` : 'R 0';
-                          })()}
-                          disabled={!isOpex(row.budgetAllocation) || !isQuarterActive('q3')}
-                          onChange={(val) => handleCellChange(row.id, 'q3Expenditure', val)}
-                          cellTitle="Q3 Expenditure"
-                          refNum={row.refNum}
-                          isFitAll={isFitAllReportingCells}
-                          minRows={1}
-                          placeholder={!isQuarterActive('q3') ? "Locked" : "Q3 Exp..."}
-                          onOpenExpandModal={openCellExpandModal}
-                          className={`font-bold ${!isQuarterActive('q3') || !isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-800'}`}
-                        />
+                        {isTargetNA(row.q3) ? (
+                          <div className="flex flex-col items-center justify-center p-2 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none" title="Expenditure reporting locked (Q3 Target is N/A)">
+                            <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500">
+                              <Lock className="w-3 h-3 text-slate-400" />
+                              <KeyRound className="w-3 h-3 text-amber-600" />
+                              <span>Locked</span>
+                            </div>
+                            <span className="text-[9px] text-slate-400 font-mono">N/A</span>
+                          </div>
+                        ) : (
+                          <ExpandableCell
+                            value={isOpex(row.budgetAllocation) ? (row.q3Expenditure || '') : (() => {
+                              const total = parseBudgetNum(row.budgetAllocation);
+                              return total > 0 ? `R ${Math.round(total / 4).toLocaleString()}` : 'R 0';
+                            })()}
+                            disabled={!isOpex(row.budgetAllocation) || !isQuarterActive('q3')}
+                            onChange={(val) => handleCellChange(row.id, 'q3Expenditure', val)}
+                            cellTitle="Q3 Expenditure"
+                            refNum={row.refNum}
+                            isFitAll={isFitAllReportingCells}
+                            minRows={1}
+                            placeholder={!isQuarterActive('q3') ? "Locked" : "Q3 Exp..."}
+                            onOpenExpandModal={openCellExpandModal}
+                            className={`font-bold ${!isQuarterActive('q3') || !isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-800'}`}
+                          />
+                        )}
                       </td>
 
                       {/* Q3 POE Column */}
                       <td className="p-2 border-r border-slate-100 bg-amber-50/10">
-                        <div className="space-y-2">
-                          {(() => {
-                            const sourcePoe = (row.poeDesc || row.poeStatus || row.q1PoeDesc || row.q2PoeDesc || row.midTermPoeDesc || row.q3PoeDesc || row.q4PoeDesc || '').trim();
-                            return (
-                              <ExpandableCell
-                                value={row.q3PoeDesc || sourcePoe}
-                                disabled={true}
-                                onChange={() => {}}
-                                cellTitle="Q3 POE Description (Non-Editable Source Document POE)"
-                                refNum={row.refNum}
-                                isFitAll={isFitAllReportingCells}
-                                minRows={2}
-                                placeholder="Source Document POE Description..."
-                                onOpenExpandModal={openCellExpandModal}
-                                className="bg-slate-100/90 text-slate-700 border-slate-200 cursor-not-allowed"
-                              />
-                            );
-                          })()}
-                          {row.q3Poes && row.q3Poes.length > 0 && (
-                            <div 
-                              onClick={() => triggerViewPoeModal(row, 'q3')}
-                              className="text-[10px] bg-emerald-50 hover:bg-emerald-100 p-1 border border-emerald-200 rounded text-emerald-800 truncate cursor-pointer transition flex items-center justify-between font-semibold" 
-                              title="Click to view full POE document details & preview"
-                            >
-                              <span className="truncate">📄 {row.q3Poes[row.q3Poes.length - 1]}</span>
-                              <Eye className="w-3 h-3 text-emerald-600 shrink-0 ml-1" />
+                        {isTargetNA(row.q3) ? (
+                          <div className="flex flex-col items-center justify-center p-2.5 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-1 select-none min-h-[72px]" title="Q3 Target is N/A - POE submission locked">
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+                              <Lock className="w-3.5 h-3.5 text-slate-500" />
+                              <KeyRound className="w-3.5 h-3.5 text-amber-600" />
+                              <span>Locked</span>
                             </div>
-                          )}
-                          <div className="flex gap-1">
-                            {((row.q3Poes && row.q3Poes.length > 0) || row.q3PoeDesc) && (
-                              <button 
-                                onClick={() => triggerViewPoeModal(row, 'q3')}
-                                className="px-2 py-1 text-[9px] font-bold rounded border bg-emerald-600 border-emerald-500 text-white hover:bg-emerald-700 transition-colors flex items-center justify-center gap-1 cursor-pointer shadow-xs"
-                                title="View POE Document Details"
-                              >
-                                <Eye className="w-2.5 h-2.5" /> View
-                              </button>
-                            )}
-                            <button 
-                              disabled={!isQuarterActive('q3')}
-                              onClick={() => triggerUploadModal(row.id, row.refNum, 'q3')}
-                              className={`flex-1 py-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center gap-1 ${!isQuarterActive('q3') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100 cursor-pointer'}`}
-                              title={!isQuarterActive('q3') ? getQuarterLockNotice('q3') : "Upload/Edit POE"}
-                            >
-                              <Upload className="w-2.5 h-2.5" /> Upload/Edit
-                            </button>
-                            {((row.q3Poes && row.q3Poes.length > 0) || row.q3PoeDesc) && (
-                              confirmDelete?.rowId === row.id && confirmDelete?.type === 'q3' ? (
-                                <div className="flex flex-col gap-1 bg-rose-50 border border-rose-200 p-1 rounded min-w-[80px]">
-                                  <span className="text-[8px] text-rose-800 font-bold text-center leading-none">Are you sure?</span>
-                                  <div className="flex gap-1 justify-center">
-                                    <button
-                                      disabled={!isQuarterActive('q3')}
-                                      onClick={() => {
-                                        clearQuarterPoe(row.id, 'q3');
-                                        setConfirmDelete(null);
-                                      }}
-                                      className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[8px] font-bold cursor-pointer hover:bg-rose-700 disabled:opacity-50"
-                                    >
-                                      Yes
-                                    </button>
-                                    <button
-                                      onClick={() => setConfirmDelete(null)}
-                                      className="px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded text-[8px] font-bold cursor-pointer hover:bg-slate-300"
-                                    >
-                                      No
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <button 
-                                  disabled={!isQuarterActive('q3')}
-                                  onClick={() => setConfirmDelete({ rowId: row.id, type: 'q3' })}
-                                  className={`p-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center ${!isQuarterActive('q3') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 cursor-pointer'}`}
-                                  title={!isQuarterActive('q3') ? getQuarterLockNotice('q3') : "Delete POE and Description"}
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                </button>
-                              )
-                            )}
+                            <span className="text-[10px] text-slate-400 font-medium">Q3 Target is N/A</span>
                           </div>
-                        </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {(() => {
+                              const sourcePoe = (row.poeDesc || row.poeStatus || row.q1PoeDesc || row.q2PoeDesc || row.midTermPoeDesc || row.q3PoeDesc || row.q4PoeDesc || '').trim();
+                              return (
+                                <ExpandableCell
+                                  value={row.q3PoeDesc || sourcePoe}
+                                  disabled={true}
+                                  onChange={() => {}}
+                                  cellTitle="Q3 POE Description (Non-Editable Source Document POE)"
+                                  refNum={row.refNum}
+                                  isFitAll={isFitAllReportingCells}
+                                  minRows={2}
+                                  placeholder="Source Document POE Description..."
+                                  onOpenExpandModal={openCellExpandModal}
+                                  className="bg-slate-100/90 text-slate-700 border-slate-200 cursor-not-allowed"
+                                />
+                              );
+                            })()}
+                            {row.q3Poes && row.q3Poes.length > 0 && (
+                              <div 
+                                onClick={() => triggerViewPoeModal(row, 'q3')}
+                                className="text-[10px] bg-emerald-50 hover:bg-emerald-100 p-1 border border-emerald-200 rounded text-emerald-800 truncate cursor-pointer transition flex items-center justify-between font-semibold" 
+                                title="Click to view full POE document details & preview"
+                              >
+                                <span className="truncate">📄 {row.q3Poes[row.q3Poes.length - 1]}</span>
+                                <Eye className="w-3 h-3 text-emerald-600 shrink-0 ml-1" />
+                              </div>
+                            )}
+                            <div className="flex gap-1">
+                              {((row.q3Poes && row.q3Poes.length > 0) || row.q3PoeDesc) && (
+                                <button 
+                                  onClick={() => triggerViewPoeModal(row, 'q3')}
+                                  className="px-2 py-1 text-[9px] font-bold rounded border bg-emerald-600 border-emerald-500 text-white hover:bg-emerald-700 transition-colors flex items-center justify-center gap-1 cursor-pointer shadow-xs"
+                                  title="View POE Document Details"
+                                >
+                                  <Eye className="w-2.5 h-2.5" /> View
+                                </button>
+                              )}
+                              <button 
+                                disabled={!isQuarterActive('q3')}
+                                onClick={() => triggerUploadModal(row.id, row.refNum, 'q3')}
+                                className={`flex-1 py-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center gap-1 ${!isQuarterActive('q3') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100 cursor-pointer'}`}
+                                title={!isQuarterActive('q3') ? getQuarterLockNotice('q3') : "Upload/Edit POE"}
+                              >
+                                <Upload className="w-2.5 h-2.5" /> Upload/Edit
+                              </button>
+                              {((row.q3Poes && row.q3Poes.length > 0) || row.q3PoeDesc) && (
+                                confirmDelete?.rowId === row.id && confirmDelete?.type === 'q3' ? (
+                                  <div className="flex flex-col gap-1 bg-rose-50 border border-rose-200 p-1 rounded min-w-[80px]">
+                                    <span className="text-[8px] text-rose-800 font-bold text-center leading-none">Are you sure?</span>
+                                    <div className="flex gap-1 justify-center">
+                                      <button
+                                        disabled={!isQuarterActive('q3')}
+                                        onClick={() => {
+                                          clearQuarterPoe(row.id, 'q3');
+                                          setConfirmDelete(null);
+                                        }}
+                                        className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[8px] font-bold cursor-pointer hover:bg-rose-700 disabled:opacity-50"
+                                      >
+                                        Yes
+                                      </button>
+                                      <button
+                                        onClick={() => setConfirmDelete(null)}
+                                        className="px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded text-[8px] font-bold cursor-pointer hover:bg-slate-300"
+                                      >
+                                        No
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <button 
+                                    disabled={!isQuarterActive('q3')}
+                                    onClick={() => setConfirmDelete({ rowId: row.id, type: 'q3' })}
+                                    className={`p-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center ${!isQuarterActive('q3') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 cursor-pointer'}`}
+                                    title={!isQuarterActive('q3') ? getQuarterLockNotice('q3') : "Delete POE and Description"}
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                )
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </td>
 
                       {/* Q3 TARGET Column */}
                       <td className="p-2 border-r border-slate-100 bg-amber-50/20 text-center">
                         <ExpandableCell
-                          value={row.q3 || '-'}
-                          readOnly
+                          value={row.q3 || ''}
+                          onChange={(val) => handleCellChange(row.id, 'q3', val)}
                           cellTitle="Q3 Target"
                           refNum={row.refNum}
                           isFitAll={isFitAllReportingCells}
                           minRows={1}
+                          placeholder="Q3 Target..."
                           onOpenExpandModal={openCellExpandModal}
                           className="font-bold text-amber-900 text-center"
                         />
                       </td>
 
                       <td className="p-2 border-r border-slate-100 bg-amber-50/5 relative text-slate-800">
-                        <ExpandableCell
-                          value={row.q3Actual || ''}
-                          disabled={!isQuarterActive('q3')}
-                          onChange={(val) => handleCellChange(row.id, 'q3Actual', val)}
-                          cellTitle="Q3 Actual"
-                          refNum={row.refNum}
-                          isFitAll={isFitAllReportingCells}
-                          minRows={2}
-                          placeholder={!isQuarterActive('q3') ? "Locked for this period" : "Q3 Actual..."}
-                          onOpenExpandModal={openCellExpandModal}
-                          className={!isQuarterActive('q3') ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white'}
-                        />
-                        {row.q3Actual && row.q3 && row.q3Actual !== row.q3 && (
-                          <div className="absolute top-1 right-1 pointer-events-auto z-10">
-                            <div className="relative group/tip">
-                              <AlertCircle className="w-3 h-3 text-rose-500 animate-pulse cursor-help" />
-                              <div className="absolute bottom-full right-0 mb-1 hidden group-hover/tip:block z-50">
-                                <div className="bg-rose-900 text-white text-[10px] p-2 rounded shadow-lg whitespace-nowrap border border-rose-700">
-                                  <div className="font-bold border-b border-rose-800 pb-1 mb-1">Target Discrepancy</div>
-                                  <div>Target: {row.q3}</div>
-                                  <div>Actual: {row.q3Actual}</div>
-                                  <div className="mt-1 text-rose-200">Please provide variance explanation.</div>
+                        {isTargetNA(row.q3) ? (
+                          <div className="flex flex-col items-center justify-center p-2.5 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none min-h-[58px]" title="Q3 Target is N/A - Actual reporting is locked">
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+                              <Lock className="w-3.5 h-3.5 text-slate-500" />
+                              <KeyRound className="w-3.5 h-3.5 text-amber-600" />
+                              <span>Locked</span>
+                            </div>
+                            <span className="text-[9px] text-slate-400 font-semibold font-mono">Target N/A</span>
+                          </div>
+                        ) : (
+                          <>
+                            <ExpandableCell
+                              value={row.q3Actual || ''}
+                              disabled={!isQuarterActive('q3')}
+                              onChange={(val) => handleCellChange(row.id, 'q3Actual', val)}
+                              cellTitle="Q3 Actual"
+                              refNum={row.refNum}
+                              isFitAll={isFitAllReportingCells}
+                              minRows={2}
+                              placeholder={!isQuarterActive('q3') ? "Locked for this period" : "Q3 Actual..."}
+                              onOpenExpandModal={openCellExpandModal}
+                              className={!isQuarterActive('q3') ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white'}
+                            />
+                            {row.q3Actual && row.q3 && row.q3Actual !== row.q3 && (
+                              <div className="absolute top-1 right-1 pointer-events-auto z-10">
+                                <div className="relative group/tip">
+                                  <AlertCircle className="w-3 h-3 text-rose-500 animate-pulse cursor-help" />
+                                  <div className="absolute bottom-full right-0 mb-1 hidden group-hover/tip:block z-50">
+                                    <div className="bg-rose-900 text-white text-[10px] p-2 rounded shadow-lg whitespace-nowrap border border-rose-700">
+                                      <div className="font-bold border-b border-rose-800 pb-1 mb-1">Target Discrepancy</div>
+                                      <div>Target: {row.q3}</div>
+                                      <div>Actual: {row.q3Actual}</div>
+                                      <div className="mt-1 text-rose-200">Please provide variance explanation.</div>
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          </div>
+                            )}
+                          </>
                         )}
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-amber-50/5">
-                        <ExpandableCell
-                          value={row.q3Variance || ''}
-                          readOnly
-                          cellTitle="Q3 Variance"
-                          refNum={row.refNum}
-                          isFitAll={isFitAllReportingCells}
-                          minRows={1}
-                          placeholder="No variance"
-                          onOpenExpandModal={openCellExpandModal}
-                          className="font-bold text-slate-700 bg-white"
-                        />
+                        {isTargetNA(row.q3) ? (
+                          <div className="flex flex-col items-center justify-center p-2 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none" title="Q3 Target is N/A - Variance calculation is locked">
+                            <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500">
+                              <Lock className="w-3 h-3 text-slate-400" />
+                              <KeyRound className="w-3 h-3 text-amber-600" />
+                              <span>Locked</span>
+                            </div>
+                            <span className="text-[9px] text-slate-400 font-mono">N/A</span>
+                          </div>
+                        ) : (
+                          <ExpandableCell
+                            value={row.q3Variance || ''}
+                            readOnly
+                            cellTitle="Q3 Variance"
+                            refNum={row.refNum}
+                            isFitAll={isFitAllReportingCells}
+                            minRows={1}
+                            placeholder="No variance"
+                            onOpenExpandModal={openCellExpandModal}
+                            className="font-bold text-slate-700 bg-white"
+                          />
+                        )}
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-amber-50/5">
-                        <ExpandableCell
-                          value={row.q3Corrective || ''}
-                          disabled={!isQuarterActive('q3')}
-                          onChange={(val) => handleCellChange(row.id, 'q3Corrective', val)}
-                          cellTitle="Q3 Corrective Measure"
-                          refNum={row.refNum}
-                          isFitAll={isFitAllReportingCells}
-                          minRows={2}
-                          placeholder={!isQuarterActive('q3') ? "Locked for this period" : isFieldDisabled(row.q3Variance) ? "No variance detected." : "Q3 Corrective..."}
-                          onOpenExpandModal={openCellExpandModal}
-                          className={!isQuarterActive('q3') || isFieldDisabled(row.q3Variance) ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed italic font-normal' : 'bg-white text-slate-800'}
-                        />
+                        {isTargetNA(row.q3) ? (
+                          <div className="flex flex-col items-center justify-center p-2.5 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none min-h-[58px]" title="Q3 Target is N/A - Corrective measures locked">
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+                              <Lock className="w-3.5 h-3.5 text-slate-500" />
+                              <KeyRound className="w-3.5 h-3.5 text-amber-600" />
+                              <span>Locked</span>
+                            </div>
+                            <span className="text-[9px] text-slate-400 font-semibold font-mono">Target N/A</span>
+                          </div>
+                        ) : (
+                          <ExpandableCell
+                            value={row.q3Corrective || ''}
+                            disabled={!isQuarterActive('q3') || isFieldDisabled(row.q3Variance)}
+                            onChange={(val) => handleCellChange(row.id, 'q3Corrective', val)}
+                            cellTitle="Q3 Corrective Measure"
+                            refNum={row.refNum}
+                            isFitAll={isFitAllReportingCells}
+                            minRows={2}
+                            placeholder={!isQuarterActive('q3') ? "Locked for this period" : isFieldDisabled(row.q3Variance) ? "No variance detected." : "Q3 Corrective..."}
+                            onOpenExpandModal={openCellExpandModal}
+                            className={!isQuarterActive('q3') || isFieldDisabled(row.q3Variance) ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed italic font-normal' : 'bg-white text-slate-800'}
+                          />
+                        )}
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-amber-100/10 text-center">
                         {renderQuarterWorkflowCell(row, 'q3')}
@@ -5593,178 +5997,236 @@ Timestamp: ${new Date().toLocaleString()}
 
                       {/* Q4 Expenditure (Moved before POE) */}
                       <td className="p-2 border-r border-slate-100 bg-teal-50/10">
-                        <ExpandableCell
-                          value={isOpex(row.budgetAllocation) ? (row.q4Expenditure || '') : (() => {
-                            const total = parseBudgetNum(row.budgetAllocation);
-                            return total > 0 ? `R ${Math.round(total / 4).toLocaleString()}` : 'R 0';
-                          })()}
-                          disabled={!isOpex(row.budgetAllocation) || !isQuarterActive('q4')}
-                          onChange={(val) => handleCellChange(row.id, 'q4Expenditure', val)}
-                          cellTitle="Q4 Expenditure"
-                          refNum={row.refNum}
-                          isFitAll={isFitAllReportingCells}
-                          minRows={1}
-                          placeholder={!isQuarterActive('q4') ? "Locked" : "Q4 Exp..."}
-                          onOpenExpandModal={openCellExpandModal}
-                          className={`font-bold ${!isQuarterActive('q4') || !isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-800'}`}
-                        />
+                        {isTargetNA(row.q4) ? (
+                          <div className="flex flex-col items-center justify-center p-2 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none" title="Expenditure reporting locked (Q4 Target is N/A)">
+                            <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500">
+                              <Lock className="w-3 h-3 text-slate-400" />
+                              <KeyRound className="w-3 h-3 text-amber-600" />
+                              <span>Locked</span>
+                            </div>
+                            <span className="text-[9px] text-slate-400 font-mono">N/A</span>
+                          </div>
+                        ) : (
+                          <ExpandableCell
+                            value={isOpex(row.budgetAllocation) ? (row.q4Expenditure || '') : (() => {
+                              const total = parseBudgetNum(row.budgetAllocation);
+                              return total > 0 ? `R ${Math.round(total / 4).toLocaleString()}` : 'R 0';
+                            })()}
+                            disabled={!isOpex(row.budgetAllocation) || !isQuarterActive('q4')}
+                            onChange={(val) => handleCellChange(row.id, 'q4Expenditure', val)}
+                            cellTitle="Q4 Expenditure"
+                            refNum={row.refNum}
+                            isFitAll={isFitAllReportingCells}
+                            minRows={1}
+                            placeholder={!isQuarterActive('q4') ? "Locked" : "Q4 Exp..."}
+                            onOpenExpandModal={openCellExpandModal}
+                            className={`font-bold ${!isQuarterActive('q4') || !isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-800'}`}
+                          />
+                        )}
                       </td>
 
                       {/* Q4 POE Column */}
                       <td className="p-2 border-r border-slate-100 bg-rose-50/10">
-                        <div className="space-y-2">
-                          {(() => {
-                            const sourcePoe = (row.poeDesc || row.poeStatus || row.q1PoeDesc || row.q2PoeDesc || row.midTermPoeDesc || row.q3PoeDesc || row.q4PoeDesc || '').trim();
-                            return (
-                              <ExpandableCell
-                                value={row.q4PoeDesc || sourcePoe}
-                                disabled={true}
-                                onChange={() => {}}
-                                cellTitle="Q4 POE Description (Non-Editable Source Document POE)"
-                                refNum={row.refNum}
-                                isFitAll={isFitAllReportingCells}
-                                minRows={2}
-                                placeholder="Source Document POE Description..."
-                                onOpenExpandModal={openCellExpandModal}
-                                className="bg-slate-100/90 text-slate-700 border-slate-200 cursor-not-allowed"
-                              />
-                            );
-                          })()}
-                          {row.q4Poes && row.q4Poes.length > 0 && (
-                            <div 
-                              onClick={() => triggerViewPoeModal(row, 'q4')}
-                              className="text-[10px] bg-emerald-50 hover:bg-emerald-100 p-1 border border-emerald-200 rounded text-emerald-800 truncate cursor-pointer transition flex items-center justify-between font-semibold" 
-                              title="Click to view full POE document details & preview"
-                            >
-                              <span className="truncate">📄 {row.q4Poes[row.q4Poes.length - 1]}</span>
-                              <Eye className="w-3 h-3 text-emerald-600 shrink-0 ml-1" />
+                        {isTargetNA(row.q4) ? (
+                          <div className="flex flex-col items-center justify-center p-2.5 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-1 select-none min-h-[72px]" title="Q4 Target is N/A - POE submission locked">
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+                              <Lock className="w-3.5 h-3.5 text-slate-500" />
+                              <KeyRound className="w-3.5 h-3.5 text-amber-600" />
+                              <span>Locked</span>
                             </div>
-                          )}
-                          <div className="flex gap-1">
-                            {((row.q4Poes && row.q4Poes.length > 0) || row.q4PoeDesc) && (
-                              <button 
-                                onClick={() => triggerViewPoeModal(row, 'q4')}
-                                className="px-2 py-1 text-[9px] font-bold rounded border bg-emerald-600 border-emerald-500 text-white hover:bg-emerald-700 transition-colors flex items-center justify-center gap-1 cursor-pointer shadow-xs"
-                                title="View POE Document Details"
-                              >
-                                <Eye className="w-2.5 h-2.5" /> View
-                              </button>
-                            )}
-                            <button 
-                              disabled={!isQuarterActive('q4')}
-                              onClick={() => triggerUploadModal(row.id, row.refNum, 'q4')}
-                              className={`flex-1 py-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center gap-1 ${!isQuarterActive('q4') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 cursor-pointer'}`}
-                              title={!isQuarterActive('q4') ? getQuarterLockNotice('q4') : "Upload/Edit POE"}
-                            >
-                              <Upload className="w-2.5 h-2.5" /> Upload/Edit
-                            </button>
-                            {((row.q4Poes && row.q4Poes.length > 0) || row.q4PoeDesc) && (
-                              confirmDelete?.rowId === row.id && confirmDelete?.type === 'q4' ? (
-                                <div className="flex flex-col gap-1 bg-rose-50 border border-rose-200 p-1 rounded min-w-[80px]">
-                                  <span className="text-[8px] text-rose-800 font-bold text-center leading-none">Are you sure?</span>
-                                  <div className="flex gap-1 justify-center">
-                                    <button
-                                      disabled={!isQuarterActive('q4')}
-                                      onClick={() => {
-                                        clearQuarterPoe(row.id, 'q4');
-                                        setConfirmDelete(null);
-                                      }}
-                                      className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[8px] font-bold cursor-pointer hover:bg-rose-700 disabled:opacity-50"
-                                    >
-                                      Yes
-                                    </button>
-                                    <button
-                                      onClick={() => setConfirmDelete(null)}
-                                      className="px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded text-[8px] font-bold cursor-pointer hover:bg-slate-300"
-                                    >
-                                      No
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <button 
-                                  disabled={!isQuarterActive('q4')}
-                                  onClick={() => setConfirmDelete({ rowId: row.id, type: 'q4' })}
-                                  className={`p-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center ${!isQuarterActive('q4') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 cursor-pointer'}`}
-                                  title={!isQuarterActive('q4') ? getQuarterLockNotice('q4') : "Delete POE and Description"}
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                </button>
-                              )
-                            )}
+                            <span className="text-[10px] text-slate-400 font-medium">Q4 Target is N/A</span>
                           </div>
-                        </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {(() => {
+                              const sourcePoe = (row.poeDesc || row.poeStatus || row.q1PoeDesc || row.q2PoeDesc || row.midTermPoeDesc || row.q3PoeDesc || row.q4PoeDesc || '').trim();
+                              return (
+                                <ExpandableCell
+                                  value={row.q4PoeDesc || sourcePoe}
+                                  disabled={true}
+                                  onChange={() => {}}
+                                  cellTitle="Q4 POE Description (Non-Editable Source Document POE)"
+                                  refNum={row.refNum}
+                                  isFitAll={isFitAllReportingCells}
+                                  minRows={2}
+                                  placeholder="Source Document POE Description..."
+                                  onOpenExpandModal={openCellExpandModal}
+                                  className="bg-slate-100/90 text-slate-700 border-slate-200 cursor-not-allowed"
+                                />
+                              );
+                            })()}
+                            {row.q4Poes && row.q4Poes.length > 0 && (
+                              <div 
+                                onClick={() => triggerViewPoeModal(row, 'q4')}
+                                className="text-[10px] bg-emerald-50 hover:bg-emerald-100 p-1 border border-emerald-200 rounded text-emerald-800 truncate cursor-pointer transition flex items-center justify-between font-semibold" 
+                                title="Click to view full POE document details & preview"
+                              >
+                                <span className="truncate">📄 {row.q4Poes[row.q4Poes.length - 1]}</span>
+                                <Eye className="w-3 h-3 text-emerald-600 shrink-0 ml-1" />
+                              </div>
+                            )}
+                            <div className="flex gap-1">
+                              {((row.q4Poes && row.q4Poes.length > 0) || row.q4PoeDesc) && (
+                                <button 
+                                  onClick={() => triggerViewPoeModal(row, 'q4')}
+                                  className="px-2 py-1 text-[9px] font-bold rounded border bg-emerald-600 border-emerald-500 text-white hover:bg-emerald-700 transition-colors flex items-center justify-center gap-1 cursor-pointer shadow-xs"
+                                  title="View POE Document Details"
+                                >
+                                  <Eye className="w-2.5 h-2.5" /> View
+                                </button>
+                              )}
+                              <button 
+                                disabled={!isQuarterActive('q4')}
+                                onClick={() => triggerUploadModal(row.id, row.refNum, 'q4')}
+                                className={`flex-1 py-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center gap-1 ${!isQuarterActive('q4') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 cursor-pointer'}`}
+                                title={!isQuarterActive('q4') ? getQuarterLockNotice('q4') : "Upload/Edit POE"}
+                              >
+                                <Upload className="w-2.5 h-2.5" /> Upload/Edit
+                              </button>
+                              {((row.q4Poes && row.q4Poes.length > 0) || row.q4PoeDesc) && (
+                                confirmDelete?.rowId === row.id && confirmDelete?.type === 'q4' ? (
+                                  <div className="flex flex-col gap-1 bg-rose-50 border border-rose-200 p-1 rounded min-w-[80px]">
+                                    <span className="text-[8px] text-rose-800 font-bold text-center leading-none">Are you sure?</span>
+                                    <div className="flex gap-1 justify-center">
+                                      <button
+                                        disabled={!isQuarterActive('q4')}
+                                        onClick={() => {
+                                          clearQuarterPoe(row.id, 'q4');
+                                          setConfirmDelete(null);
+                                        }}
+                                        className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[8px] font-bold cursor-pointer hover:bg-rose-700 disabled:opacity-50"
+                                      >
+                                        Yes
+                                      </button>
+                                      <button
+                                        onClick={() => setConfirmDelete(null)}
+                                        className="px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded text-[8px] font-bold cursor-pointer hover:bg-slate-300"
+                                      >
+                                        No
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <button 
+                                    disabled={!isQuarterActive('q4')}
+                                    onClick={() => setConfirmDelete({ rowId: row.id, type: 'q4' })}
+                                    className={`p-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center ${!isQuarterActive('q4') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 cursor-pointer'}`}
+                                    title={!isQuarterActive('q4') ? getQuarterLockNotice('q4') : "Delete POE and Description"}
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                )
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </td>
 
                       {/* Q4 TARGET Column */}
                       <td className="p-2 border-r border-slate-100 bg-rose-50/20 text-center">
                         <ExpandableCell
-                          value={row.q4 || '-'}
-                          readOnly
+                          value={row.q4 || ''}
+                          onChange={(val) => handleCellChange(row.id, 'q4', val)}
                           cellTitle="Q4 Target"
                           refNum={row.refNum}
                           isFitAll={isFitAllReportingCells}
                           minRows={1}
+                          placeholder="Q4 Target..."
                           onOpenExpandModal={openCellExpandModal}
                           className="font-bold text-rose-900 text-center"
                         />
                       </td>
 
                       <td className="p-2 border-r border-slate-100 bg-rose-50/5 relative">
-                        <ExpandableCell
-                          value={row.q4Actual || ''}
-                          disabled={!isQuarterActive('q4')}
-                          onChange={(val) => handleCellChange(row.id, 'q4Actual', val)}
-                          cellTitle="Q4 Actual"
-                          refNum={row.refNum}
-                          isFitAll={isFitAllReportingCells}
-                          minRows={2}
-                          placeholder={!isQuarterActive('q4') ? "Locked for this period" : "Q4 Actual..."}
-                          onOpenExpandModal={openCellExpandModal}
-                          className={!isQuarterActive('q4') ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white'}
-                        />
-                        {row.q4Actual && row.q4 && row.q4Actual !== row.q4 && (
-                          <div className="absolute top-1 right-1 pointer-events-auto z-10">
-                            <div className="relative group/tip">
-                              <AlertCircle className="w-3 h-3 text-rose-500 animate-pulse cursor-help" />
-                              <div className="absolute bottom-full right-0 mb-1 hidden group-hover/tip:block z-50">
-                                <div className="bg-rose-900 text-white text-[10px] p-2 rounded shadow-lg whitespace-nowrap border border-rose-700">
-                                  <div className="font-bold border-b border-rose-800 pb-1 mb-1">Target Discrepancy</div>
-                                  <div>Target: {row.q4}</div>
-                                  <div>Actual: {row.q4Actual}</div>
-                                  <div className="mt-1 text-rose-200">Please provide variance explanation.</div>
+                        {isTargetNA(row.q4) ? (
+                          <div className="flex flex-col items-center justify-center p-2.5 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none min-h-[58px]" title="Q4 Target is N/A - Actual reporting is locked">
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+                              <Lock className="w-3.5 h-3.5 text-slate-500" />
+                              <KeyRound className="w-3.5 h-3.5 text-amber-600" />
+                              <span>Locked</span>
+                            </div>
+                            <span className="text-[9px] text-slate-400 font-semibold font-mono">Target N/A</span>
+                          </div>
+                        ) : (
+                          <>
+                            <ExpandableCell
+                              value={row.q4Actual || ''}
+                              disabled={!isQuarterActive('q4')}
+                              onChange={(val) => handleCellChange(row.id, 'q4Actual', val)}
+                              cellTitle="Q4 Actual"
+                              refNum={row.refNum}
+                              isFitAll={isFitAllReportingCells}
+                              minRows={2}
+                              placeholder={!isQuarterActive('q4') ? "Locked for this period" : "Q4 Actual..."}
+                              onOpenExpandModal={openCellExpandModal}
+                              className={!isQuarterActive('q4') ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white'}
+                            />
+                            {row.q4Actual && row.q4 && row.q4Actual !== row.q4 && (
+                              <div className="absolute top-1 right-1 pointer-events-auto z-10">
+                                <div className="relative group/tip">
+                                  <AlertCircle className="w-3 h-3 text-rose-500 animate-pulse cursor-help" />
+                                  <div className="absolute bottom-full right-0 mb-1 hidden group-hover/tip:block z-50">
+                                    <div className="bg-rose-900 text-white text-[10px] p-2 rounded shadow-lg whitespace-nowrap border border-rose-700">
+                                      <div className="font-bold border-b border-rose-800 pb-1 mb-1">Target Discrepancy</div>
+                                      <div>Target: {row.q4}</div>
+                                      <div>Actual: {row.q4Actual}</div>
+                                      <div className="mt-1 text-rose-200">Please provide variance explanation.</div>
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          </div>
+                            )}
+                          </>
                         )}
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-rose-50/5">
-                        <ExpandableCell
-                          value={row.q4Variance || ''}
-                          readOnly
-                          cellTitle="Q4 Variance"
-                          refNum={row.refNum}
-                          isFitAll={isFitAllReportingCells}
-                          minRows={1}
-                          placeholder="No variance"
-                          onOpenExpandModal={openCellExpandModal}
-                          className="font-bold text-slate-700 bg-white"
-                        />
+                        {isTargetNA(row.q4) ? (
+                          <div className="flex flex-col items-center justify-center p-2 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none" title="Q4 Target is N/A - Variance calculation is locked">
+                            <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500">
+                              <Lock className="w-3 h-3 text-slate-400" />
+                              <KeyRound className="w-3 h-3 text-amber-600" />
+                              <span>Locked</span>
+                            </div>
+                            <span className="text-[9px] text-slate-400 font-mono">N/A</span>
+                          </div>
+                        ) : (
+                          <ExpandableCell
+                            value={row.q4Variance || ''}
+                            readOnly
+                            cellTitle="Q4 Variance"
+                            refNum={row.refNum}
+                            isFitAll={isFitAllReportingCells}
+                            minRows={1}
+                            placeholder="No variance"
+                            onOpenExpandModal={openCellExpandModal}
+                            className="font-bold text-slate-700 bg-white"
+                          />
+                        )}
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-rose-50/5">
-                        <ExpandableCell
-                          value={row.q4Corrective || ''}
-                          disabled={!isQuarterActive('q4') || isFieldDisabled(row.q4Variance)}
-                          onChange={(val) => handleCellChange(row.id, 'q4Corrective', val)}
-                          cellTitle="Q4 Corrective Measure"
-                          refNum={row.refNum}
-                          isFitAll={isFitAllReportingCells}
-                          minRows={2}
-                          placeholder={!isQuarterActive('q4') ? "Locked for this period" : isFieldDisabled(row.q4Variance) ? "No variance detected." : "Q4 Corrective..."}
-                          onOpenExpandModal={openCellExpandModal}
-                          className={!isQuarterActive('q4') || isFieldDisabled(row.q4Variance) ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed italic font-normal' : 'bg-white border-slate-200 text-slate-800'}
-                        />
+                        {isTargetNA(row.q4) ? (
+                          <div className="flex flex-col items-center justify-center p-2.5 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none min-h-[58px]" title="Q4 Target is N/A - Corrective measures locked">
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+                              <Lock className="w-3.5 h-3.5 text-slate-500" />
+                              <KeyRound className="w-3.5 h-3.5 text-amber-600" />
+                              <span>Locked</span>
+                            </div>
+                            <span className="text-[9px] text-slate-400 font-semibold font-mono">Target N/A</span>
+                          </div>
+                        ) : (
+                          <ExpandableCell
+                            value={row.q4Corrective || ''}
+                            disabled={!isQuarterActive('q4') || isFieldDisabled(row.q4Variance)}
+                            onChange={(val) => handleCellChange(row.id, 'q4Corrective', val)}
+                            cellTitle="Q4 Corrective Measure"
+                            refNum={row.refNum}
+                            isFitAll={isFitAllReportingCells}
+                            minRows={2}
+                            placeholder={!isQuarterActive('q4') ? "Locked for this period" : isFieldDisabled(row.q4Variance) ? "No variance detected." : "Q4 Corrective..."}
+                            onOpenExpandModal={openCellExpandModal}
+                            className={!isQuarterActive('q4') || isFieldDisabled(row.q4Variance) ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed italic font-normal' : 'bg-white border-slate-200 text-slate-800'}
+                          />
+                        )}
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-rose-100/10 text-center">
                         {renderQuarterWorkflowCell(row, 'q4')}

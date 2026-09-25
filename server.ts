@@ -4729,13 +4729,19 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
   // Fetch IPMS inbox messages for a user
   app.get("/api/tenant/:tenantId/ipms-inbox", async (req, res) => {
     const { tenantId } = req.params;
-    const { userId } = req.query;
+    const { userId, domain, allCommunique } = req.query;
 
     if (!userId || typeof userId !== 'string') {
       return res.status(400).json({ error: "Missing required userId query parameter." });
     }
 
     const userEmail = userId.toLowerCase().trim();
+    const userPrefix = userEmail.split('@')[0];
+    const userAliases = new Set<string>([
+      userEmail,
+      `${userPrefix}@nkangaladm.gov.za`,
+      `${userPrefix}@mzansiflow.co.za`
+    ]);
 
     try {
       const supabase = getSupabase();
@@ -4776,12 +4782,48 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
         }
       }
 
-      // Filter messages where user is sender or recipient
-      const userMessages = allMessages.filter((m: any) => {
-        const sender = (m.senderEmail || '').toLowerCase();
-        const recipients = (m.recipientEmails || []).map((r: string) => (r || '').toLowerCase());
-        return sender === userEmail || recipients.includes(userEmail);
+      // Helper to check if a user is party to a message (direct email or aliases)
+      const isUserPartyTo = (m: any) => {
+        const sender = (m.senderEmail || '').toLowerCase().trim();
+        const recipients = (m.recipientEmails || []).map((r: string) => (r || '').toLowerCase().trim());
+        
+        if (userAliases.has(sender)) return true;
+        if (recipients.some((r: string) => userAliases.has(r))) return true;
+
+        if (userPrefix && userPrefix.length > 1) {
+          if (sender.startsWith(`${userPrefix}@`) && (sender.endsWith('@nkangaladm.gov.za') || sender.endsWith('@mzansiflow.co.za'))) {
+            return true;
+          }
+          if (recipients.some((r: string) => r.startsWith(`${userPrefix}@`) && (r.endsWith('@nkangaladm.gov.za') || r.endsWith('@mzansiflow.co.za')))) {
+            return true;
+          }
+        }
+        return false;
+      };
+
+      // Filter messages
+      let userMessages = allMessages.filter((m: any) => {
+        if (allCommunique === 'true') return true;
+        return isUserPartyTo(m);
       });
+
+      // Optional domain filter query
+      if (domain && typeof domain === 'string') {
+        const d = domain.toLowerCase().trim();
+        if (d === 'nkangala' || d === 'nkangaladm.gov.za') {
+          userMessages = userMessages.filter((m: any) => {
+            const sender = (m.senderEmail || '').toLowerCase();
+            const recs = (m.recipientEmails || []).join(' ').toLowerCase();
+            return sender.includes('nkangaladm.gov.za') || recs.includes('nkangaladm.gov.za');
+          });
+        } else if (d === 'mzansiflow' || d === 'mzansiflow.co.za') {
+          userMessages = userMessages.filter((m: any) => {
+            const sender = (m.senderEmail || '').toLowerCase();
+            const recs = (m.recipientEmails || []).join(' ').toLowerCase();
+            return sender.includes('mzansiflow.co.za') || recs.includes('mzansiflow.co.za');
+          });
+        }
+      }
 
       res.json(userMessages);
     } catch (err: any) {
@@ -4830,7 +4872,12 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
         body: body.trim(),
         attachments: attachments || [],
         createdAt,
-        readBy: [senderEmail.trim().toLowerCase()],
+        readBy: Array.from(new Set([
+          senderEmail.trim().toLowerCase(),
+          (req.body.userEmail || '').trim().toLowerCase(),
+          `${senderEmail.trim().toLowerCase().split('@')[0]}@nkangaladm.gov.za`,
+          `${senderEmail.trim().toLowerCase().split('@')[0]}@mzansiflow.co.za`
+        ])).filter(Boolean),
         starredBy: [],
         trashedBy: []
       };
@@ -4907,6 +4954,12 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
     }
 
     const normalizedUser = userEmail.trim().toLowerCase();
+    const userPrefix = normalizedUser.split('@')[0];
+    const userAliases = [
+      normalizedUser,
+      `${userPrefix}@nkangaladm.gov.za`,
+      `${userPrefix}@mzansiflow.co.za`
+    ];
 
     try {
       const supabase = getSupabase();
@@ -4936,16 +4989,19 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
           const trashedBy = new Set((m.trashedBy || []).map((e: string) => e.toLowerCase()));
 
           if (action === 'markRead') {
-            readBy.add(normalizedUser);
+            userAliases.forEach(a => readBy.add(a));
           } else if (action === 'markUnread') {
-            readBy.delete(normalizedUser);
+            userAliases.forEach(a => readBy.delete(a));
           } else if (action === 'toggleStar') {
-            if (starredBy.has(normalizedUser)) starredBy.delete(normalizedUser);
-            else starredBy.add(normalizedUser);
+            if (userAliases.some(a => starredBy.has(a))) {
+              userAliases.forEach(a => starredBy.delete(a));
+            } else {
+              userAliases.forEach(a => starredBy.add(a));
+            }
           } else if (action === 'moveToTrash') {
-            trashedBy.add(normalizedUser);
+            userAliases.forEach(a => trashedBy.add(a));
           } else if (action === 'restore') {
-            trashedBy.delete(normalizedUser);
+            userAliases.forEach(a => trashedBy.delete(a));
           }
 
           return {
