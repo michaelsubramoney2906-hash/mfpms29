@@ -1578,18 +1578,64 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
                         
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                           <div className="space-y-1.5">
-                            <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider">Q1 Score (1-5)</label>
+                            <div className="flex items-center justify-between">
+                              <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider">Q1 Score (1-5)</label>
+                              <span className="text-[8px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                                Whole numbers: 1, 2, 3, 4, 5
+                              </span>
+                            </div>
                             <input
                               type="number"
                               min="1"
                               max="5"
-                              step="0.1"
-                              value={kpi.q1Score || ''}
-                              onChange={(e) => updateItem(kpi.id, 'q1Score', e.target.value)}
+                              step="1"
+                              value={kpi.q1Score ? (kpi.q1Score.includes('.') ? String(Math.round(parseFloat(kpi.q1Score))) : kpi.q1Score) : ''}
+                              onChange={(e) => {
+                                const raw = e.target.value.replace(/[^0-9]/g, '');
+                                if (raw === '') {
+                                  updateItem(kpi.id, 'q1Score', '');
+                                } else {
+                                  const num = parseInt(raw, 10);
+                                  if (num >= 1 && num <= 5) {
+                                    updateItem(kpi.id, 'q1Score', String(num));
+                                  } else if (num > 5) {
+                                    updateItem(kpi.id, 'q1Score', '5');
+                                  } else if (num < 1) {
+                                    updateItem(kpi.id, 'q1Score', '1');
+                                  }
+                                }
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === '.' || e.key === ',' || e.key === 'e' || e.key === 'E' || e.key === '+' || e.key === '-') {
+                                  e.preventDefault();
+                                }
+                              }}
                               disabled={kpiIsReadOnly || kpi.q1Locked || isQ1TimeLocked}
-                              placeholder="e.g. 3.5"
-                              className="w-full px-3 py-2 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-semibold text-stone-900 shadow-xs outline-none disabled:bg-slate-50 disabled:text-slate-400"
+                              placeholder="1, 2, 3, 4, 5"
+                              className="w-full px-3 py-2 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-bold text-stone-900 shadow-xs outline-none disabled:bg-slate-50 disabled:text-slate-400"
                             />
+                            {/* Whole Number Quick-Select Buttons */}
+                            <div className="flex items-center gap-1 mt-1">
+                              {[1, 2, 3, 4, 5].map((scoreVal) => {
+                                const currentScore = kpi.q1Score ? parseInt(kpi.q1Score, 10) : null;
+                                const isSelected = currentScore === scoreVal;
+                                return (
+                                  <button
+                                    key={scoreVal}
+                                    type="button"
+                                    disabled={kpiIsReadOnly || kpi.q1Locked || isQ1TimeLocked}
+                                    onClick={() => updateItem(kpi.id, 'q1Score', String(scoreVal))}
+                                    className={`flex-1 py-1 rounded text-[10px] font-black transition border cursor-pointer ${
+                                      isSelected
+                                        ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs'
+                                        : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                                    } disabled:opacity-40 disabled:cursor-not-allowed`}
+                                  >
+                                    {scoreVal}
+                                  </button>
+                                );
+                              })}
+                            </div>
                           </div>
 
                           <div className="space-y-1.5">
