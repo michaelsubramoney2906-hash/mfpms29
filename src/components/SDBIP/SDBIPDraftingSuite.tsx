@@ -844,80 +844,6 @@ function ReportDocument({
 
   return (
     <div id={id} className="bg-white w-full max-w-[297mm] justify-center mx-auto shadow-[0_0_50px_rgba(0,0,0,0.1)] text-slate-800">
-      
-      {/* Front Cover */}
-      {(() => {
-        let bgSizeStr = "contain";
-        if (coverFit === "cover") bgSizeStr = "cover";
-        else if (coverFit === "stretch") bgSizeStr = "100% 100%";
-        else if (coverFit === "scale") bgSizeStr = `${coverScale}% auto`;
-
-        return (
-          <section 
-            className="relative w-[297mm] max-w-full h-[195mm] print:h-[200mm] min-h-[190mm] flex flex-col justify-center items-center text-center p-10 text-white page-break-after group overflow-hidden box-border" 
-            style={{ 
-              backgroundColor: coverBgColor || "#0f172a", 
-              backgroundImage: coverImage ? (coverImage.startsWith('linear-gradient') ? coverImage : `url('${coverImage}')`) : `url('${DEFAULT_COVER_IMAGE}')`, 
-              backgroundSize: bgSizeStr, 
-              backgroundPosition: coverPosition || "center",
-              backgroundRepeat: "no-repeat"
-            }}
-          >
-             <div className="absolute inset-0 bg-slate-900 mix-blend-multiply transition-opacity" style={{ opacity: overlayOpacity }} />
-             {onOpenCoverModal && (
-               <button
-                 type="button"
-                 onClick={onOpenCoverModal}
-                 className="absolute top-6 right-6 z-20 bg-white/95 hover:bg-white text-slate-900 font-bold px-3.5 py-2 rounded-xl text-xs flex items-center gap-2 shadow-xl transition-all opacity-90 group-hover:opacity-100 cursor-pointer border border-slate-200 hover:scale-105"
-                 title="Upload custom picture or adjust picture size/fit for cover"
-               >
-                 <Camera className="w-4 h-4 text-indigo-600" />
-                 <span>Adjust Cover Picture & Size</span>
-               </button>
-             )}
-             <div className="relative z-10 w-full flex flex-col items-center space-y-4 px-8">
-                {coverTexts && coverTexts.length > 0 ? (
-                  coverTexts.map((el) => {
-                    const formattedText = el.text.replace(/\{QUARTER\}|\{quarter\}/gi, quarterLabels[selectedQuarter] || selectedQuarter.toUpperCase());
-                    return (
-                      <div key={el.id} className="relative group/textitem w-full flex justify-center items-center">
-                        <div 
-                          className={`tracking-widest text-center outline-none border-b-2 border-transparent focus:border-white transition-all ${getCoverTextClasses(el)}`}
-                          style={getCoverElementStyle(el)}
-                          contentEditable 
-                          suppressContentEditableWarning
-                          onBlur={(e) => {
-                            const newText = e.currentTarget.innerText;
-                            if (onUpdateTextElement) {
-                              onUpdateTextElement(el.id, { text: newText });
-                            }
-                          }}
-                        >
-                          {formattedText}
-                        </div>
-                        {onDeleteCoverText && (
-                          <button
-                            type="button"
-                            onClick={() => onDeleteCoverText(el.id)}
-                            className="absolute right-0 opacity-0 group-hover/textitem:opacity-100 bg-rose-600/90 hover:bg-rose-600 text-white p-1.5 rounded-lg text-[10px] font-bold transition shadow-lg cursor-pointer flex items-center gap-1 z-30 print:hidden"
-                            title={`Delete "${el.label || 'text'}" from cover`}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            <span>Delete Text</span>
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })
-                ) : null}
-                {coverTexts && coverTexts.length > 0 && (
-                  <div className="mt-8 w-1/4 h-1 bg-indigo-500 rounded-full"></div>
-                )}
-             </div>
-          </section>
-        );
-      })()}
-
       {/* Page 1: Purpose */}
       <section className="relative w-[297mm] min-h-[210mm] p-12 flex flex-col page-break-after border-b border-gray-100 bg-white">
         <div className="flex-1 space-y-6">
@@ -1532,15 +1458,15 @@ function SDBIPReportsTab({
       const sections = Array.from(content.querySelectorAll('section'));
       const pdf = new jsPDF('l', 'mm', 'a4');
       
-      // We need to hide the container's overflow temporarily so html-to-image can capture it completely
+      // Temporarily ensure content is visible
       const originalOverflow = content.style.overflow;
       content.style.overflow = 'visible';
 
       for (let i = 0; i < sections.length; i++) {
         const section = sections[i] as HTMLElement;
         const imgData = await toPng(section, { 
-            quality: 1.0, 
-            pixelRatio: 2,
+            quality: 0.95, 
+            pixelRatio: 1.5,
             backgroundColor: '#ffffff',
             skipFonts: true,
             fontEmbedCSS: '',
@@ -1551,11 +1477,11 @@ function SDBIPReportsTab({
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = (section.offsetHeight * pdfWidth) / section.offsetWidth;
         
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
       }
       
       content.style.overflow = originalOverflow;
-      pdf.save(`SDBIP_Report_${period.toUpperCase()}.pdf`);
+      pdf.save(`SDBIP_Top_Layer_Report_${period.toUpperCase()}.pdf`);
     } catch (error) {
       console.error("Failed to export PDF", error);
     }
@@ -1565,67 +1491,206 @@ function SDBIPReportsTab({
   const exportToWord = async () => {
     setIsExportingWord(true);
     try {
-      const { toPng } = await import('html-to-image');
-      
       const content = document.getElementById('report-content');
       if (!content) return;
 
-      let htmlContent = `
+      const quarterLabels: Record<string, string> = {
+        q1: '1st Quarter',
+        q2: '2nd Quarter',
+        midTerm: 'Mid-Term Review',
+        q3: '3rd Quarter',
+        q4: '4th Quarter',
+        annual: 'Annual Consolidated'
+      };
+
+      const qLabel = quarterLabels[period] || period.toUpperCase();
+      const reportTitle = `NKANGALA DISTRICT MUNICIPALITY - SDBIP ${qLabel.toUpperCase()} REPORT 2025/2026`;
+
+      // Build clean, native, rapid Word HTML document
+      let docHtml = `
 <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
 <head>
+  <meta charset="utf-8">
+  <title>${reportTitle}</title>
   <style>
     @page Section1 {
       size: 841.9pt 595.3pt;
       mso-page-orientation: landscape;
-      margin: 36.0pt 36.0pt 36.0pt 36.0pt;
+      margin: 28.0pt 28.0pt 28.0pt 28.0pt;
     }
     div.Section1 { page: Section1; }
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    img { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; line-height: 1.4; }
+    h1 { font-size: 18pt; color: #0f172a; text-align: center; margin-bottom: 8pt; text-transform: uppercase; }
+    h2 { font-size: 14pt; color: #1e293b; margin-top: 14pt; margin-bottom: 6pt; border-bottom: 2pt solid #0f172a; padding-bottom: 3pt; text-transform: uppercase; }
+    h3 { font-size: 11pt; color: #334155; margin-top: 10pt; margin-bottom: 4pt; text-transform: uppercase; }
+    p { font-size: 9.5pt; text-align: justify; margin-bottom: 6pt; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8pt; margin-bottom: 12pt; font-size: 8pt; }
+    th { background-color: #0f172a; color: #ffffff; padding: 5pt 4pt; border: 1pt solid #334155; font-weight: bold; text-align: left; }
+    td { padding: 4pt 3pt; border: 1pt solid #cbd5e1; vertical-align: top; }
+    tr:nth-child(even) { background-color: #f8fafc; }
+    .rag-green { background-color: #dcfce7; color: #166534; font-weight: bold; text-align: center; }
+    .rag-red { background-color: #fee2e2; color: #991b1b; font-weight: bold; text-align: center; }
+    .page-break { page-break-before: always; }
   </style>
-  <!--[if gte mso 9]>
-  <xml>
-    <w:WordDocument>
-      <w:View>Print</w:View>
-      <w:Zoom>100</w:Zoom>
-      <w:DoNotOptimizeForBrowser/>
-    </w:WordDocument>
-  </xml>
-  <![endif]-->
 </head>
 <body style="tab-interval:36pt">
-  <div class="Section1">`;
+  <div class="Section1">
+    <h1>${reportTitle}</h1>
+    <p style="text-align:center; font-size: 10pt; color: #475569; font-weight: bold; margin-bottom: 16pt;">
+      Official SDBIP Top Layer Institutional Scorecard & Performance Feedback
+    </p>
 
-      const sections = Array.from(content.querySelectorAll('section'));
-      const originalOverflow = content.style.overflow;
-      content.style.overflow = 'visible';
+    <h2>1. Purpose & Statutory Framework</h2>
+    <p>
+      The purpose of this report is to provide feedback on the performance of the Nkangala District Municipality, as mandated by Local Government: Municipal Systems Act No. 32 of 2000, section 41(e), and the Local Government: Municipal Finance Management Act 56 of 2003, section 52(d). The information presented in this report is founded on the Integrated Development Plan (IDP) for the fiscal year 2025/2026.
+    </p>
 
-      for (let i = 0; i < sections.length; i++) {
-        const section = sections[i] as HTMLElement;
-        const imgData = await toPng(section, { 
-            quality: 1.0, 
-            pixelRatio: 1.2, // Lowered to ensure sharpness but fit within margins
-            backgroundColor: '#ffffff',
-            skipFonts: true,
-            fontEmbedCSS: '',
+    <h2>2. Executive Summary</h2>
+    <p>
+      This report presents the ${qLabel} Institutional Performance Review for the 2025/2026 fiscal year. During the period under review, the District Municipality recorded performance across several key service delivery and strategic focus areas, notably municipal transformation, infrastructure development, financial management, good governance, and spatial transformation.
+    </p>
+
+    <div class="page-break"></div>
+    <h2>3. SDBIP Top Layer Performance Scorecards</h2>
+`;
+
+      // Group rows by KPA
+      const kpaNames: Record<string, string> = {
+        bsd: 'Basic Service Delivery and Infrastructure (BSD)',
+        led: 'Local Economic Development (LED)',
+        mfvm: 'Municipal Financial Viability and Management (MFVM)',
+        ggpp: 'Good Governance and Public Participation (GGPP)',
+        midt: 'Municipal Institutional Development and Transformation (MIDT)',
+        sr: 'Spatial Rationale and Municipal Planning (SR)'
+      };
+
+      const kpaGroups: Record<string, SdbipRow[]> = {
+        bsd: [],
+        led: [],
+        mfvm: [],
+        ggpp: [],
+        midt: [],
+        sr: []
+      };
+
+      rows.forEach(r => {
+        let kpaKey = 'bsd';
+        if (r.bsd && r.bsd !== '-') kpaKey = 'bsd';
+        else if (r.led && r.led !== '-') kpaKey = 'led';
+        else if (r.mfvm && r.mfvm !== '-') kpaKey = 'mfvm';
+        else if (r.ggpp && r.ggpp !== '-') kpaKey = 'ggpp';
+        else if (r.midt && r.midt !== '-') kpaKey = 'midt';
+        else if (r.sr && r.sr !== '-') kpaKey = 'sr';
+        else if (r.kpas) {
+          const lower = r.kpas.toLowerCase();
+          if (lower.includes('led')) kpaKey = 'led';
+          else if (lower.includes('mfvm') || lower.includes('financial')) kpaKey = 'mfvm';
+          else if (lower.includes('ggpp') || lower.includes('governance')) kpaKey = 'ggpp';
+          else if (lower.includes('midt') || lower.includes('institutional')) kpaKey = 'midt';
+          else if (lower.includes('sr') || lower.includes('spatial')) kpaKey = 'sr';
+        }
+
+        if (kpaGroups[kpaKey]) {
+          kpaGroups[kpaKey].push(r);
+        } else {
+          kpaGroups.bsd.push(r);
+        }
+      });
+
+      Object.entries(kpaGroups).forEach(([kpaKey, kpaRows]) => {
+        if (kpaRows.length === 0) return;
+        const groupTitle = kpaNames[kpaKey] || kpaKey.toUpperCase();
+
+        docHtml += `
+    <h3>${groupTitle} (${kpaRows.length} KPIs)</h3>
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 6%;">Ref</th>
+          <th style="width: 28%;">Indicator (KPI)</th>
+          <th style="width: 8%;">Budget</th>
+          <th style="width: 6%; text-align:center;">RAG</th>
+          <th style="width: 12%;">Target</th>
+          <th style="width: 12%;">Actual</th>
+          <th style="width: 14%;">Variance / Issues</th>
+          <th style="width: 14%;">Corrective Action</th>
+        </tr>
+      </thead>
+      <tbody>
+`;
+
+        kpaRows.forEach(r => {
+          const isAchieved = r.ragStatus === 'green';
+          const ragClass = isAchieved ? 'rag-green' : 'rag-red';
+          const ragText = isAchieved ? 'ACHIEVED' : 'NOT ACHIEVED';
+
+          let targetText = '';
+          let actualText = '';
+          let varianceText = '';
+          let correctiveText = '';
+
+          if (period === 'q1') {
+            targetText = r.q1 || '-';
+            actualText = r.q1Actual || '-';
+            varianceText = r.q1Variance || '-';
+            correctiveText = r.q1Corrective || '-';
+          } else if (period === 'q2') {
+            targetText = r.q2 || '-';
+            actualText = r.q2Actual || '-';
+            varianceText = r.q2Variance || '-';
+            correctiveText = r.q2Corrective || '-';
+          } else if (period === 'q3') {
+            targetText = r.q3 || '-';
+            actualText = r.q3Actual || '-';
+            varianceText = r.q3Variance || '-';
+            correctiveText = r.q3Corrective || '-';
+          } else if (period === 'q4') {
+            targetText = r.q4 || '-';
+            actualText = r.q4Actual || '-';
+            varianceText = r.q4Variance || '-';
+            correctiveText = r.q4Corrective || '-';
+          } else {
+            targetText = r.annualTarget || '-';
+            actualText = r.q4Actual || r.q3Actual || r.q2Actual || r.q1Actual || '-';
+            varianceText = r.q4Variance || r.q3Variance || r.q2Variance || r.q1Variance || '-';
+            correctiveText = r.q4Corrective || r.q3Corrective || r.q2Corrective || r.q1Corrective || '-';
+          }
+
+          docHtml += `
+        <tr>
+          <td style="font-weight:bold;">${r.refNum || '-'}</td>
+          <td>${r.kpi || '-'}</td>
+          <td>${r.budgetAllocation || '-'}</td>
+          <td class="${ragClass}">${ragText}</td>
+          <td>${targetText}</td>
+          <td>${actualText}</td>
+          <td>${varianceText}</td>
+          <td>${correctiveText}</td>
+        </tr>
+`;
         });
-        htmlContent += `
-          <div style="text-align:center; padding-bottom: 20px;">
-            <img src="${imgData}" width="700" style="width:700px; max-width: 100%;">
-          </div>
-          <br clear="all" style="page-break-before:always;" />`;
-      }
-      
-      content.style.overflow = originalOverflow;
-      htmlContent += "</div></body></html>";
-      
-      const source = 'data:application/vnd.ms-word;charset=utf-8,' + encodeURIComponent(htmlContent);
+
+        docHtml += `
+      </tbody>
+    </table>
+`;
+      });
+
+      docHtml += `
+  </div>
+</body>
+</html>
+`;
+
+      const blob = new Blob([docHtml], { type: 'application/msword;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
       const fileDownload = document.createElement("a");
       document.body.appendChild(fileDownload);
-      fileDownload.href = source;
-      fileDownload.download = `SDBIP_Report_${period.toUpperCase()}.doc`;
+      fileDownload.href = url;
+      fileDownload.download = `SDBIP_Top_Layer_Report_${period.toUpperCase()}.doc`;
       fileDownload.click();
       document.body.removeChild(fileDownload);
+      URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Failed to export Word", error);
     }
@@ -1821,26 +1886,16 @@ function SDBIPReportsTab({
           ))}
         </div>
         <div className="flex gap-2">
-          {onOpenCoverModal && (
-            <button 
-              type="button" 
-              onClick={onOpenCoverModal} 
-              className="flex items-center gap-2 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold rounded-lg transition shadow-sm cursor-pointer"
-              title="Upload custom image or pick preset for report cover"
-            >
-              <Camera className="w-3.5 h-3.5" /> Cover Picture
-            </button>
-          )}
-          <button onClick={exportToWord} disabled={isExportingWord || isExportingPDF} className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 text-white text-[10px] font-bold rounded-lg hover:bg-indigo-700 transition shadow-sm disabled:opacity-50">
+          <button onClick={exportToWord} disabled={isExportingWord || isExportingPDF} className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 text-white text-[10px] font-bold rounded-lg hover:bg-indigo-700 transition shadow-sm disabled:opacity-50 cursor-pointer">
             {isExportingWord ? <span className="animate-pulse">Exporting...</span> : <><FileText className="w-3.5 h-3.5" /> Word</>}
           </button>
-          <button onClick={exportToPDF} disabled={isExportingWord || isExportingPDF} className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 text-slate-700 text-[10px] font-bold rounded-lg hover:bg-slate-200 transition border border-slate-200 shadow-sm disabled:opacity-50">
+          <button onClick={exportToPDF} disabled={isExportingWord || isExportingPDF} className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 text-slate-700 text-[10px] font-bold rounded-lg hover:bg-slate-200 transition border border-slate-200 shadow-sm disabled:opacity-50 cursor-pointer">
             {isExportingPDF ? <span className="animate-pulse">Exporting...</span> : <><DownloadIcon className="w-3.5 h-3.5" /> PDF</>}
           </button>
-          <button onClick={exportToExcel} className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600 text-white text-[10px] font-bold rounded-lg hover:bg-emerald-700 transition shadow-sm">
+          <button onClick={exportToExcel} className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600 text-white text-[10px] font-bold rounded-lg hover:bg-emerald-700 transition shadow-sm cursor-pointer">
             <FileSpreadsheet className="w-3.5 h-3.5" /> Excel
           </button>
-          <button onClick={exportToMarkdown} className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 text-white text-[10px] font-bold rounded-lg hover:bg-slate-800 transition shadow-sm">
+          <button onClick={exportToMarkdown} className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 text-white text-[10px] font-bold rounded-lg hover:bg-slate-800 transition shadow-sm cursor-pointer">
             <LayoutTemplate className="w-3.5 h-3.5" /> Markdown
           </button>
         </div>
