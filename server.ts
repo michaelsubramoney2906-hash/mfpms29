@@ -7172,6 +7172,12 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
 
       if (userEmail) {
         const normEmail = normalizeNkangalaEmail(userEmail);
+        const userPrefix = normEmail.split('@')[0];
+        const userAliases = [
+          normEmail,
+          `${userPrefix}@nkangaladm.gov.za`,
+          `${userPrefix}@mzansiflow.co.za`
+        ];
         const userRole = req.query.role ? String(req.query.role).toLowerCase().trim() : '';
         const isAuditor = userRole.includes('audit') || normEmail.includes('audit') || req.query.isAuditor === 'true';
         const isManager = userRole.includes('manager') || normEmail.includes('manager') || req.query.isManager === 'true';
@@ -7181,7 +7187,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
           const sen = normalizeNkangalaEmail(n.senderEmail);
           const recName = (n.recipientName || '').toLowerCase().trim();
           
-          if (rec === normEmail || sen === normEmail || rec === 'all' || !rec) return true;
+          if (userAliases.includes(rec) || userAliases.includes(sen) || rec === 'all' || !rec) return true;
           if (isAuditor && (rec === 'internal_audit' || rec === 'auditor' || rec === 'audit' || rec.includes('audit'))) return true;
           if (isManager && (rec === 'managers' || rec === 'manager' || rec.includes('manager'))) return true;
           if (normEmail.includes('khuboni') && (rec.includes('khuboni') || recName.includes('khuboni') || sen.includes('zulune'))) return true;

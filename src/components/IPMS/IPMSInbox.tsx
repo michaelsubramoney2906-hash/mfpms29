@@ -695,6 +695,55 @@ export function IPMSInbox({ currentUser, activeTenantId }: IPMSInboxProps) {
             </button>
           </div>
 
+          {/* Communique Domain Filtering */}
+          <div className="mt-4 pt-4 border-t border-slate-800/80 space-y-1.5">
+            <div className="px-2 text-[10px] font-black uppercase tracking-wider text-slate-500 flex items-center justify-between">
+              <span>Domain Filter</span>
+              <Shield className="w-3 h-3 text-indigo-400" />
+            </div>
+
+            <button
+              onClick={() => { setCommuniqueFilter('all'); setSelectedThreadId(null); }}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
+                communiqueFilter === 'all'
+                  ? 'bg-slate-800 text-white border border-slate-700 shadow-sm'
+                  : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'
+              }`}
+            >
+              <span>🌐 All Communique</span>
+            </button>
+
+            <button
+              onClick={() => { setCommuniqueFilter('nkangala'); setSelectedThreadId(null); }}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
+                communiqueFilter === 'nkangala'
+                  ? 'bg-emerald-950/70 text-emerald-300 border border-emerald-700/60 shadow-sm'
+                  : 'text-slate-400 hover:bg-emerald-950/30 hover:text-emerald-300'
+              }`}
+              title="Show communique to/from @nkangaladm.gov.za"
+            >
+              <div className="flex items-center gap-1.5 truncate">
+                <span>🏛️ Nkangala DM</span>
+              </div>
+              <span className="text-[9px] font-mono text-emerald-400/80 shrink-0">gov.za</span>
+            </button>
+
+            <button
+              onClick={() => { setCommuniqueFilter('mzansiflow'); setSelectedThreadId(null); }}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
+                communiqueFilter === 'mzansiflow'
+                  ? 'bg-indigo-950/70 text-indigo-300 border border-indigo-700/60 shadow-sm'
+                  : 'text-slate-400 hover:bg-indigo-950/30 hover:text-indigo-300'
+              }`}
+              title="Show communique to/from @mzansiflow.co.za"
+            >
+              <div className="flex items-center gap-1.5 truncate">
+                <span>⚡ Mzansi Flow</span>
+              </div>
+              <span className="text-[9px] font-mono text-indigo-400/80 shrink-0">co.za</span>
+            </button>
+          </div>
+
           <div className="hidden md:block mt-auto pt-4 border-t border-slate-800/80 text-[11px] text-slate-500 px-2 space-y-2">
             <div className="flex items-center gap-1.5 font-semibold text-slate-400">
               <Volume2 className="w-3.5 h-3.5 text-indigo-400" />
@@ -794,6 +843,22 @@ export function IPMSInbox({ currentUser, activeTenantId }: IPMSInboxProps) {
                           )}
                         </div>
                       </div>
+                    </div>
+
+                    {/* Domain Indicator Tags */}
+                    <div className="flex items-center gap-1.5 flex-wrap my-1.5">
+                      {hasDomain([latest.senderEmail, ...(latest.recipientEmails || [])], 'nkangaladm.gov.za') && (
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+                          <span>🏛️</span>
+                          <span>@nkangaladm.gov.za</span>
+                        </span>
+                      )}
+                      {hasDomain([latest.senderEmail, ...(latest.recipientEmails || [])], 'mzansiflow.co.za') && (
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center gap-1">
+                          <span>⚡</span>
+                          <span>@mzansiflow.co.za</span>
+                        </span>
+                      )}
                     </div>
 
                     <h4 className={`text-xs mb-1 truncate ${hasUnread ? 'font-bold text-indigo-200' : 'text-slate-300'}`}>
@@ -919,11 +984,21 @@ export function IPMSInbox({ currentUser, activeTenantId }: IPMSInboxProps) {
                           </div>
 
                           <div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <h4 className="text-xs font-black text-white">{msg.senderName}</h4>
                               {isMe && (
                                 <span className="px-2 py-0.2 bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded-full text-[9px] font-bold">
                                   You
+                                </span>
+                              )}
+                              {msg.senderEmail.toLowerCase().includes('nkangaladm.gov.za') && (
+                                <span className="px-1.5 py-0.2 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-full text-[9px] font-bold flex items-center gap-1">
+                                  🏛️ @nkangaladm.gov.za
+                                </span>
+                              )}
+                              {msg.senderEmail.toLowerCase().includes('mzansiflow.co.za') && (
+                                <span className="px-1.5 py-0.2 bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded-full text-[9px] font-bold flex items-center gap-1">
+                                  ⚡ @mzansiflow.co.za
                                 </span>
                               )}
                             </div>
@@ -1001,11 +1076,52 @@ export function IPMSInbox({ currentUser, activeTenantId }: IPMSInboxProps) {
               {/* Quick Reply Form */}
               <div className="p-4 bg-slate-900 border-t border-slate-800 shrink-0">
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
                     <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
                       <Reply className="w-3.5 h-3.5 text-indigo-400" />
                       Quick Reply in Thread
                     </span>
+
+                    {/* Reply As Identity Switcher */}
+                    <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800 text-[11px]">
+                      <span className="text-[10px] text-slate-500 uppercase font-black px-1.5">Reply As:</span>
+                      <button
+                        type="button"
+                        onClick={() => setReplySenderDomain('nkangala')}
+                        className={`px-2 py-0.5 rounded-lg font-bold transition flex items-center gap-1 ${
+                          replySenderDomain === 'nkangala'
+                            ? 'bg-emerald-600 text-white shadow-sm'
+                            : 'text-slate-400 hover:text-emerald-300'
+                        }`}
+                        title={nkangalaEmail}
+                      >
+                        <span>🏛️ @nkangaladm.gov.za</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setReplySenderDomain('mzansiflow')}
+                        className={`px-2 py-0.5 rounded-lg font-bold transition flex items-center gap-1 ${
+                          replySenderDomain === 'mzansiflow'
+                            ? 'bg-indigo-600 text-white shadow-sm'
+                            : 'text-slate-400 hover:text-indigo-300'
+                        }`}
+                        title={mzansiflowEmail}
+                      >
+                        <span>⚡ @mzansiflow.co.za</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setReplySenderDomain('default')}
+                        className={`px-2 py-0.5 rounded-lg font-bold transition flex items-center gap-1 ${
+                          replySenderDomain === 'default'
+                            ? 'bg-slate-700 text-white shadow-sm'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                        title={currentUser.email}
+                      >
+                        <span>👤 Default</span>
+                      </button>
+                    </div>
 
                     <label className="cursor-pointer text-xs text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1.5 bg-indigo-950/40 border border-indigo-800/40 px-2.5 py-1 rounded-lg">
                       <Paperclip className="w-3.5 h-3.5" />
@@ -1102,62 +1218,262 @@ export function IPMSInbox({ currentUser, activeTenantId }: IPMSInboxProps) {
             </div>
 
             {/* Modal Body */}
-            <div className="p-6 overflow-y-auto space-y-4 flex-1">
+            <div className="p-6 overflow-y-auto space-y-5 flex-1">
               
-              {/* Recipient Picker connecting to Azure AD */}
-              <div className="relative">
-                <label className="text-[11px] font-bold text-slate-300 uppercase block mb-1.5">
-                  To (Recipients from Azure AD Directory):
-                </label>
-
-                {/* Selected Recipient Chips */}
-                <div className="flex flex-wrap gap-2 p-2.5 bg-slate-950 border border-slate-800 rounded-xl min-h-[46px] items-center">
-                  {selectedRecipients.map((user, idx) => (
-                    <span
-                      key={idx}
-                      className="bg-indigo-950 border border-indigo-700/60 text-indigo-200 text-xs px-2.5 py-1 rounded-lg flex items-center gap-2 font-medium"
-                    >
-                      <span>{user.fullName} ({user.email})</span>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedRecipients(prev => prev.filter((_, i) => i !== idx))}
-                        className="text-indigo-400 hover:text-rose-400"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </span>
-                  ))}
-
-                  <input
-                    type="text"
-                    placeholder={selectedRecipients.length === 0 ? "Type name or email to search Azure AD Directory..." : "Add another..."}
-                    value={recipientInput}
-                    onChange={e => {
-                      setRecipientInput(e.target.value);
-                      setShowDirectoryDropdown(true);
-                    }}
-                    onFocus={() => setShowDirectoryDropdown(true)}
-                    className="flex-1 min-w-[200px] bg-transparent text-xs text-white placeholder-slate-500 focus:outline-none"
-                  />
+              {/* Communique Sender Identity Selector ("From") */}
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <label className="text-[11px] font-black uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                    <Shield className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Send Communique From (Domain Identity):</span>
+                  </label>
+                  <span className="text-[10px] font-mono text-indigo-300 bg-indigo-950/80 px-2 py-0.5 rounded border border-indigo-800/60 font-bold">
+                    Active: {getEffectiveSenderEmail(senderDomain, customSenderEmail)}
+                  </span>
                 </div>
 
-                {/* Azure AD Directory Suggestions Dropdown */}
-                {showDirectoryDropdown && filteredDirectoryUsers.length > 0 && (
-                  <div className="absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl max-h-56 overflow-y-auto z-50 divide-y divide-slate-800">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {/* Option 1: Nkangala District Municipality */}
+                  <button
+                    type="button"
+                    onClick={() => setSenderDomain('nkangala')}
+                    className={`p-3 rounded-xl border text-left transition relative flex flex-col justify-between ${
+                      senderDomain === 'nkangala'
+                        ? 'bg-emerald-950/50 border-emerald-500 text-white shadow-lg shadow-emerald-950/40 ring-1 ring-emerald-500/50'
+                        : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-black flex items-center gap-1.5 text-emerald-400">
+                        🏛️ Nkangala DM
+                      </span>
+                      {senderDomain === 'nkangala' && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
+                    </div>
+                    <p className="text-[10px] font-mono text-emerald-200 truncate">{nkangalaEmail}</p>
+                    <span className="text-[9px] text-slate-500 mt-1">Official Municipal Domain</span>
+                  </button>
+
+                  {/* Option 2: Mzansi Flow Hub */}
+                  <button
+                    type="button"
+                    onClick={() => setSenderDomain('mzansiflow')}
+                    className={`p-3 rounded-xl border text-left transition relative flex flex-col justify-between ${
+                      senderDomain === 'mzansiflow'
+                        ? 'bg-indigo-950/50 border-indigo-500 text-white shadow-lg shadow-indigo-950/40 ring-1 ring-indigo-500/50'
+                        : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-black flex items-center gap-1.5 text-indigo-400">
+                        ⚡ Mzansi Flow
+                      </span>
+                      {senderDomain === 'mzansiflow' && <CheckCircle2 className="w-3.5 h-3.5 text-indigo-400" />}
+                    </div>
+                    <p className="text-[10px] font-mono text-indigo-200 truncate">{mzansiflowEmail}</p>
+                    <span className="text-[9px] text-slate-500 mt-1">PMS Integration & Engine</span>
+                  </button>
+
+                  {/* Option 3: Primary User Account */}
+                  <button
+                    type="button"
+                    onClick={() => setSenderDomain('default')}
+                    className={`p-3 rounded-xl border text-left transition relative flex flex-col justify-between ${
+                      senderDomain === 'default'
+                        ? 'bg-slate-800 border-slate-500 text-white shadow-lg ring-1 ring-slate-400/50'
+                        : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-black flex items-center gap-1.5 text-slate-300">
+                        👤 Account Login
+                      </span>
+                      {senderDomain === 'default' && <CheckCircle2 className="w-3.5 h-3.5 text-slate-300" />}
+                    </div>
+                    <p className="text-[10px] font-mono text-slate-300 truncate">{currentUser.email}</p>
+                    <span className="text-[9px] text-slate-500 mt-1">Primary Login Identity</span>
+                  </button>
+                </div>
+
+                {/* Optional Custom Alias Input */}
+                <div className="pt-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSenderDomain(prev => prev === 'custom' ? 'nkangala' : 'custom')}
+                    className={`text-[10px] font-bold px-2 py-1 rounded-lg border transition ${
+                      senderDomain === 'custom'
+                        ? 'bg-indigo-600 text-white border-indigo-500'
+                        : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
+                    }`}
+                  >
+                    ✏️ Custom From Address
+                  </button>
+                  {senderDomain === 'custom' && (
+                    <input
+                      type="email"
+                      placeholder="e.g. registry@nkangaladm.gov.za or support@mzansiflow.co.za"
+                      value={customSenderEmail}
+                      onChange={e => setCustomSenderEmail(e.target.value)}
+                      className="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                    />
+                  )}
+                </div>
+              </div>
+
+              {/* Recipient Picker ("To") */}
+              <div className="relative space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-slate-300 uppercase block">
+                    To (Recipients at @nkangaladm.gov.za, @mzansiflow.co.za or Azure AD):
+                  </label>
+                  <span className="text-[10px] text-slate-500">
+                    Type and press <kbd className="px-1 py-0.5 bg-slate-800 rounded text-slate-300 font-mono text-[9px]">Enter</kbd>
+                  </span>
+                </div>
+
+                {/* Quick Add Domain Pills */}
+                <div className="flex items-center gap-1.5 flex-wrap text-[10px]">
+                  <span className="text-slate-500 font-bold">Quick Add:</span>
+                  {NKANGALA_QUICK_RECIPIENTS.slice(0, 4).map(qr => (
+                    <button
+                      key={qr.email}
+                      type="button"
+                      onClick={() => addRecipientEmail(qr.email, qr.label)}
+                      className="bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-800/50 px-2 py-0.5 rounded-lg font-medium transition flex items-center gap-1"
+                      title={qr.label}
+                    >
+                      <span>🏛️</span>
+                      <span>{qr.email.split('@')[0]}</span>
+                    </button>
+                  ))}
+                  {MZANSIFLOW_QUICK_RECIPIENTS.slice(0, 3).map(mr => (
+                    <button
+                      key={mr.email}
+                      type="button"
+                      onClick={() => addRecipientEmail(mr.email, mr.label)}
+                      className="bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-300 border border-indigo-800/50 px-2 py-0.5 rounded-lg font-medium transition flex items-center gap-1"
+                      title={mr.label}
+                    >
+                      <span>⚡</span>
+                      <span>{mr.email.split('@')[0]}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Selected Recipient Chips & Input Container */}
+                <div className="flex flex-wrap gap-2 p-2.5 bg-slate-950 border border-slate-800 rounded-xl min-h-[46px] items-center">
+                  {selectedRecipients.map((user, idx) => {
+                    const isNkangala = user.email.toLowerCase().includes('nkangaladm.gov.za');
+                    const isMzansiFlow = user.email.toLowerCase().includes('mzansiflow.co.za');
+
+                    return (
+                      <span
+                        key={idx}
+                        className={`border text-xs px-2.5 py-1 rounded-lg flex items-center gap-2 font-medium ${
+                          isNkangala
+                            ? 'bg-emerald-950/80 border-emerald-700/60 text-emerald-200'
+                            : isMzansiFlow
+                            ? 'bg-indigo-950/80 border-indigo-700/60 text-indigo-200'
+                            : 'bg-slate-800 border-slate-700 text-slate-200'
+                        }`}
+                      >
+                        <span>{isNkangala ? '🏛️' : isMzansiFlow ? '⚡' : '👤'} {user.fullName} ({user.email})</span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedRecipients(prev => prev.filter((_, i) => i !== idx))}
+                          className="text-slate-400 hover:text-rose-400"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    );
+                  })}
+
+                  <div className="flex-1 min-w-[220px] flex items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder={selectedRecipients.length === 0 ? "Type email or name (e.g. mm@nkangaladm.gov.za)..." : "Add another recipient..."}
+                      value={recipientInput}
+                      onChange={e => {
+                        setRecipientInput(e.target.value);
+                        setShowDirectoryDropdown(true);
+                      }}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' || e.key === ',' || e.key === 'Tab') {
+                          e.preventDefault();
+                          if (recipientInput.trim()) {
+                            addRecipientEmail(recipientInput);
+                          }
+                        }
+                      }}
+                      onFocus={() => setShowDirectoryDropdown(true)}
+                      className="flex-1 bg-transparent text-xs text-white placeholder-slate-500 focus:outline-none"
+                    />
+
+                    {recipientInput.trim() && (
+                      <button
+                        type="button"
+                        onClick={() => addRecipientEmail(recipientInput)}
+                        className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-[11px] font-bold shrink-0 transition"
+                      >
+                        + Add
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Suggestions Dropdown (Domain Suggestions + Azure AD) */}
+                {showDirectoryDropdown && (recipientInput.trim() || filteredDirectoryUsers.length > 0) && (
+                  <div className="absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl max-h-64 overflow-y-auto z-50 divide-y divide-slate-800">
                     <div className="p-2 bg-slate-950/80 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
-                      <span>Azure AD Directory Suggestions ({filteredDirectoryUsers.length})</span>
+                      <span>Recipients & Directory Suggestions</span>
                       <button onClick={() => setShowDirectoryDropdown(false)} className="text-slate-400 hover:text-white">
                         <X className="w-3 h-3" />
                       </button>
                     </div>
 
+                    {/* Instant Domain Suggestions if user typed something */}
+                    {recipientInput.trim() && (
+                      <div className="p-2 bg-slate-950/40 space-y-1">
+                        <div
+                          onClick={() => addRecipientEmail(recipientInput.includes('@') ? recipientInput : `${recipientInput.trim()}@nkangaladm.gov.za`)}
+                          className="p-2.5 hover:bg-emerald-950/40 rounded-xl cursor-pointer transition flex items-center justify-between gap-3 text-emerald-300 border border-emerald-900/40"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span>🏛️</span>
+                            <span className="text-xs font-bold font-mono">
+                              {recipientInput.includes('@') ? recipientInput.trim() : `${recipientInput.trim()}@nkangaladm.gov.za`}
+                            </span>
+                          </div>
+                          <span className="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-800/40 px-2 py-0.5 rounded font-semibold">
+                            Send to Nkangala DM
+                          </span>
+                        </div>
+
+                        {!recipientInput.includes('@') && (
+                          <div
+                            onClick={() => addRecipientEmail(`${recipientInput.trim()}@mzansiflow.co.za`)}
+                            className="p-2.5 hover:bg-indigo-950/40 rounded-xl cursor-pointer transition flex items-center justify-between gap-3 text-indigo-300 border border-indigo-900/40"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span>⚡</span>
+                              <span className="text-xs font-bold font-mono">
+                                {recipientInput.trim()}@mzansiflow.co.za
+                              </span>
+                            </div>
+                            <span className="text-[10px] bg-indigo-950 text-indigo-300 border border-indigo-800/40 px-2 py-0.5 rounded font-semibold">
+                              Send to Mzansi Flow
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Directory Users */}
                     {filteredDirectoryUsers.map((user) => (
                       <div
                         key={user.email}
                         onClick={() => {
-                          setSelectedRecipients(prev => [...prev, user]);
-                          setRecipientInput('');
-                          setShowDirectoryDropdown(false);
+                          addRecipientEmail(user.email, user.fullName);
                         }}
                         className="p-3 hover:bg-slate-800/80 cursor-pointer transition flex items-center justify-between gap-3"
                       >

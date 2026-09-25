@@ -143,8 +143,23 @@ export function IPMSWorkflowInbox({
 }: IPMSWorkflowInboxProps) {
   const [notifications, setNotifications] = useState<IPMSNotification[]>([]);
   const [loading, setLoading] = useState(false);
-  const [filterCategory, setFilterCategory] = useState<'all' | 'action' | 'approval' | 'audit'>('all');
+  const [filterCategory, setFilterCategory] = useState<'all' | 'action' | 'approval' | 'audit' | 'nkangala' | 'mzansiflow'>('all');
   const [searchTerm, setSearchTerm] = useState('');
+
+  const userEmail = (currentUser?.email || '').toLowerCase().trim();
+  const userPrefix = userEmail.split('@')[0] || 'official';
+  const nkangalaEmail = `${userPrefix}@nkangaladm.gov.za`;
+  const mzansiflowEmail = `${userPrefix}@mzansiflow.co.za`;
+
+  // Sender Domain Selection for Direct Message & Reply
+  const [workflowSenderDomain, setWorkflowSenderDomain] = useState<'nkangala' | 'mzansiflow' | 'default'>('nkangala');
+  const [workflowReplyDomain, setWorkflowReplyDomain] = useState<'nkangala' | 'mzansiflow' | 'default'>('nkangala');
+
+  const getEffectiveWorkflowSender = (choice: 'nkangala' | 'mzansiflow' | 'default') => {
+    if (choice === 'nkangala') return nkangalaEmail;
+    if (choice === 'mzansiflow') return mzansiflowEmail;
+    return currentUser?.email || nkangalaEmail;
+  };
 
   // Sounds state
   const [soundMuted, setSoundMuted] = useState(() => localStorage.getItem('ipms_sound_muted') === 'true');
@@ -502,9 +517,10 @@ export function IPMSWorkflowInbox({
       const recipientUser = tenantUsers.find(u => u.email === selectedRecipient);
       const senderName = currentUser?.fullName || currentUser?.name || currentUser?.email || 'User';
       
+      const effectiveSender = getEffectiveWorkflowSender(workflowSenderDomain);
       const payload = {
         notification: {
-          senderEmail: currentUser?.email || '',
+          senderEmail: effectiveSender,
           senderName: senderName,
           recipientEmail: selectedRecipient,
           recipientName: recipientUser?.fullName || recipientUser?.name || selectedRecipient,
@@ -551,16 +567,19 @@ export function IPMSWorkflowInbox({
 
     try {
       setSendingReply(true);
-      const isSenderCurrentUser = (parent.senderEmail || '').toLowerCase().trim() === (currentUser?.email || '').toLowerCase().trim();
+      const isSenderCurrentUser = (parent.senderEmail || '').toLowerCase().trim() === (currentUser?.email || '').toLowerCase().trim() ||
+        (parent.senderEmail || '').toLowerCase().trim() === nkangalaEmail.toLowerCase() ||
+        (parent.senderEmail || '').toLowerCase().trim() === mzansiflowEmail.toLowerCase();
       const recipientEmail = isSenderCurrentUser ? parent.recipientEmail : parent.senderEmail;
       const recipientName = isSenderCurrentUser ? parent.recipientName : parent.senderName;
       const senderName = currentUser?.fullName || currentUser?.name || currentUser?.email || 'User';
 
+      const effectiveReplySender = getEffectiveWorkflowSender(workflowReplyDomain);
       const payload = {
         notification: {
           threadId: parent.threadId || parent.id,
           parentId: parent.id,
-          senderEmail: currentUser?.email || '',
+          senderEmail: effectiveReplySender,
           senderName: senderName,
           recipientEmail: recipientEmail,
           recipientName: recipientName,
@@ -687,6 +706,18 @@ export function IPMSWorkflowInbox({
     }
     if (filterCategory === 'audit') {
       return thread.some(item => item.actionType === 'audit_request' || item.actionType === 'audit_completed');
+    }
+    if (filterCategory === 'nkangala') {
+      return thread.some(item => 
+        (item.senderEmail || '').toLowerCase().includes('nkangaladm.gov.za') ||
+        (item.recipientEmail || '').toLowerCase().includes('nkangaladm.gov.za')
+      );
+    }
+    if (filterCategory === 'mzansiflow') {
+      return thread.some(item => 
+        (item.senderEmail || '').toLowerCase().includes('mzansiflow.co.za') ||
+        (item.recipientEmail || '').toLowerCase().includes('mzansiflow.co.za')
+      );
     }
 
     return true;
@@ -825,9 +856,83 @@ export function IPMSWorkflowInbox({
           </div>
 
           <form onSubmit={handleSendMessage} className="space-y-3">
+            {/* Sender Domain Picker */}
+            <div className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800 space-y-1.5">
+              <label className="block text-[10px] uppercase font-bold tracking-wider text-slate-400">
+                Send Communique As (From):
+              </label>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setWorkflowSenderDomain('nkangala')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
+                    workflowSenderDomain === 'nkangala'
+                      ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-400/50'
+                      : 'bg-slate-950 text-slate-400 hover:text-emerald-300 border border-slate-800'
+                  }`}
+                >
+                  <span>🏛️</span>
+                  <span>{nkangalaEmail}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWorkflowSenderDomain('mzansiflow')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
+                    workflowSenderDomain === 'mzansiflow'
+                      ? 'bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-400/50'
+                      : 'bg-slate-950 text-slate-400 hover:text-indigo-300 border border-slate-800'
+                  }`}
+                >
+                  <span>⚡</span>
+                  <span>{mzansiflowEmail}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWorkflowSenderDomain('default')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
+                    workflowSenderDomain === 'default'
+                      ? 'bg-slate-700 text-white shadow-sm'
+                      : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
+                  }`}
+                >
+                  <span>👤</span>
+                  <span>{currentUser.email}</span>
+                </button>
+              </div>
+            </div>
+
             {/* Searchable Recipient Picker */}
             <div className="space-y-1">
-              <label className="block text-[10px] uppercase font-bold tracking-wider text-slate-400">Recipient</label>
+              <div className="flex items-center justify-between">
+                <label className="block text-[10px] uppercase font-bold tracking-wider text-slate-400">Recipient</label>
+                <div className="flex items-center gap-1 text-[9px]">
+                  <span className="text-slate-500 font-bold">Quick:</span>
+                  <button
+                    type="button"
+                    onClick={() => { setSelectedRecipient('mm@nkangaladm.gov.za'); setRecipientSearch(''); }}
+                    className="text-emerald-400 hover:underline cursor-pointer"
+                  >
+                    mm@nkangala
+                  </button>
+                  <span className="text-slate-600">•</span>
+                  <button
+                    type="button"
+                    onClick={() => { setSelectedRecipient('pms@nkangaladm.gov.za'); setRecipientSearch(''); }}
+                    className="text-emerald-400 hover:underline cursor-pointer"
+                  >
+                    pms@nkangala
+                  </button>
+                  <span className="text-slate-600">•</span>
+                  <button
+                    type="button"
+                    onClick={() => { setSelectedRecipient('compliance@mzansiflow.co.za'); setRecipientSearch(''); }}
+                    className="text-indigo-400 hover:underline cursor-pointer"
+                  >
+                    compliance@mzansiflow
+                  </button>
+                </div>
+              </div>
+
               {selectedRecipient ? (
                 <div className="flex items-center justify-between bg-slate-900 border border-indigo-500/40 rounded-xl px-3 py-2 text-xs">
                   <div className="flex items-center gap-2">
@@ -854,7 +959,15 @@ export function IPMSWorkflowInbox({
                     type="text"
                     value={recipientSearch}
                     onChange={(e) => setRecipientSearch(e.target.value)}
-                    placeholder="Search user by name or email..."
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && recipientSearch.trim()) {
+                        e.preventDefault();
+                        const target = recipientSearch.includes('@') ? recipientSearch.trim() : `${recipientSearch.trim()}@nkangaladm.gov.za`;
+                        setSelectedRecipient(target);
+                        setRecipientSearch('');
+                      }
+                    }}
+                    placeholder="Search user, or type email e.g. mm@nkangaladm.gov.za..."
                     className="w-full pl-8 pr-10 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-indigo-500"
                   />
                   {searchingAzure && (
@@ -863,7 +976,38 @@ export function IPMSWorkflowInbox({
                     </div>
                   )}
                   {recipientSearch.trim() && (
-                    <div className="absolute left-0 right-0 mt-1 max-h-40 overflow-y-auto bg-slate-900 border border-slate-800 rounded-xl shadow-2xl z-50 divide-y divide-slate-800/60">
+                    <div className="absolute left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-slate-900 border border-slate-800 rounded-xl shadow-2xl z-50 divide-y divide-slate-800/60">
+                      {/* Direct typed domain suggestions */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedRecipient(recipientSearch.includes('@') ? recipientSearch.trim() : `${recipientSearch.trim()}@nkangaladm.gov.za`);
+                          setRecipientSearch('');
+                        }}
+                        className="w-full text-left px-3 py-2 bg-emerald-950/30 hover:bg-emerald-900/50 transition text-xs flex justify-between items-center text-emerald-300 border-b border-emerald-900/40 cursor-pointer"
+                      >
+                        <span className="font-mono font-bold">
+                          🏛️ Send to {recipientSearch.includes('@') ? recipientSearch.trim() : `${recipientSearch.trim()}@nkangaladm.gov.za`}
+                        </span>
+                        <span className="text-[10px] bg-emerald-950 px-1.5 py-0.5 rounded border border-emerald-800/40">Select</span>
+                      </button>
+
+                      {!recipientSearch.includes('@') && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedRecipient(`${recipientSearch.trim()}@mzansiflow.co.za`);
+                            setRecipientSearch('');
+                          }}
+                          className="w-full text-left px-3 py-2 bg-indigo-950/30 hover:bg-indigo-900/50 transition text-xs flex justify-between items-center text-indigo-300 border-b border-indigo-900/40 cursor-pointer"
+                        >
+                          <span className="font-mono font-bold">
+                            ⚡ Send to {recipientSearch.trim()}@mzansiflow.co.za
+                          </span>
+                          <span className="text-[10px] bg-indigo-950 px-1.5 py-0.5 rounded border border-indigo-800/40">Select</span>
+                        </button>
+                      )}
+
                       {combinedSearchResults.map(u => (
                         <button
                           key={u.email}
@@ -881,9 +1025,6 @@ export function IPMSWorkflowInbox({
                           <span className="text-[10px] text-slate-400 font-mono shrink-0 ml-2">{u.email}</span>
                         </button>
                       ))}
-                      {combinedSearchResults.length === 0 && !searchingAzure && (
-                        <div className="px-3 py-2 text-xs text-slate-500 text-center">No matching users found</div>
-                      )}
                     </div>
                   )}
                 </div>
@@ -1038,6 +1179,32 @@ export function IPMSWorkflowInbox({
               Audit Requests
             </button>
           )}
+          <button
+            type="button"
+            onClick={() => setFilterCategory('nkangala')}
+            className={`px-3 py-1 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer flex items-center gap-1 ${
+              filterCategory === 'nkangala' 
+                ? 'bg-emerald-600 text-white shadow-sm' 
+                : 'bg-emerald-950/40 text-emerald-300 hover:bg-emerald-900/60 border border-emerald-800/50'
+            }`}
+            title="Filter communique to/from @nkangaladm.gov.za"
+          >
+            <span>🏛️</span>
+            <span>@nkangaladm.gov.za</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilterCategory('mzansiflow')}
+            className={`px-3 py-1 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer flex items-center gap-1 ${
+              filterCategory === 'mzansiflow' 
+                ? 'bg-indigo-600 text-white shadow-sm' 
+                : 'bg-indigo-950/40 text-indigo-300 hover:bg-indigo-900/60 border border-indigo-800/50'
+            }`}
+            title="Filter communique to/from @mzansiflow.co.za"
+          >
+            <span>⚡</span>
+            <span>@mzansiflow.co.za</span>
+          </button>
         </div>
 
         <div className="relative flex-1 min-w-[200px] max-w-xs">
@@ -1501,8 +1668,47 @@ export function IPMSWorkflowInbox({
                 {/* Thread Inline Reply Composer */}
                 {replyingToId === item.id && (
                   <div className="mt-2 ml-6 p-3 bg-slate-950/60 border border-indigo-500/20 rounded-xl space-y-2">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
                       <span className="text-[10px] font-black uppercase tracking-wider text-indigo-400">Reply to conversation</span>
+                      <div className="flex items-center gap-1 bg-slate-900 px-2 py-0.5 rounded-lg border border-slate-800 text-[10px]">
+                        <span className="text-slate-500 font-bold uppercase text-[9px]">Reply As:</span>
+                        <button
+                          type="button"
+                          onClick={() => setWorkflowReplyDomain('nkangala')}
+                          className={`px-1.5 py-0.5 rounded font-bold transition cursor-pointer flex items-center gap-0.5 ${
+                            workflowReplyDomain === 'nkangala'
+                              ? 'bg-emerald-600 text-white shadow-xs'
+                              : 'text-slate-400 hover:text-emerald-300'
+                          }`}
+                          title={nkangalaEmail}
+                        >
+                          <span>🏛️ @nkangaladm.gov.za</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setWorkflowReplyDomain('mzansiflow')}
+                          className={`px-1.5 py-0.5 rounded font-bold transition cursor-pointer flex items-center gap-0.5 ${
+                            workflowReplyDomain === 'mzansiflow'
+                              ? 'bg-indigo-600 text-white shadow-xs'
+                              : 'text-slate-400 hover:text-indigo-300'
+                          }`}
+                          title={mzansiflowEmail}
+                        >
+                          <span>⚡ @mzansiflow.co.za</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setWorkflowReplyDomain('default')}
+                          className={`px-1.5 py-0.5 rounded font-bold transition cursor-pointer flex items-center gap-0.5 ${
+                            workflowReplyDomain === 'default'
+                              ? 'bg-slate-700 text-white shadow-xs'
+                              : 'text-slate-400 hover:text-white'
+                          }`}
+                          title={currentUser.email}
+                        >
+                          <span>👤 Default</span>
+                        </button>
+                      </div>
                       <button 
                         type="button" 
                         onClick={() => setReplyingToId(null)}
