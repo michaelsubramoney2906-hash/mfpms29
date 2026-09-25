@@ -586,7 +586,7 @@ export function MikeCommandCenter({ currentUser, activeTenantId }: MikeCommandCe
                   const itemIndex = (currentPage - 1) * PAGE_SIZE + index + 1;
                   return (
                     <tr
-                      key={u.id || u.email}
+                      key={u.id ? `cc-user-${u.id}-${index}` : `cc-user-${u.email || 'user'}-${index}`}
                       className="hover:bg-slate-800/40 transition-colors group"
                     >
                       {/* Row Index */}

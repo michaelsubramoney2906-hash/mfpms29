@@ -273,34 +273,27 @@ export function IPMSWorkflowInbox({
     e.target.value = '';
   };
 
-  // Fetch tenant users for directory
+  // Fetch complete directory users (Azure AD & Mzansi Flow base)
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const tenantToUse = (activeTenantId && activeTenantId !== 'undefined' && activeTenantId !== 'null')
-          ? activeTenantId
-          : (currentUser?.tenantId || 'nkangala_auto');
-        const res = await fetch(`/api/tenant/${tenantToUse}/users`);
+        let res = await fetch('/api/sharepoint/directory-users');
+        if (!res.ok) {
+          res = await fetch('/api/tenant/global/users');
+        }
         if (res.ok) {
           const contentType = res.headers.get("content-type");
           if (contentType && contentType.includes("application/json")) {
             const data = await safeJson(res) || {};
-            if (Array.isArray(data)) {
-              setTenantUsers(data);
-            } else {
-              setTenantUsers(data.users || []);
-            }
-          } else {
-            console.warn("Expected JSON response for tenant users but received:", contentType);
+            const list = Array.isArray(data) ? data : (data.users || []);
+            setTenantUsers(list);
           }
         }
       } catch (e) {
-        console.error("Error fetching tenant users for messaging:", e);
+        console.error("Error fetching directory users for messaging:", e);
       }
     };
-    if (activeTenantId && activeTenantId !== 'undefined' && activeTenantId !== 'null') {
-      fetchUsers();
-    }
+    fetchUsers();
   }, [activeTenantId, currentUser]);
 
   const fetchInbox = async () => {
@@ -977,54 +970,71 @@ export function IPMSWorkflowInbox({
                   )}
                   {recipientSearch.trim() && (
                     <div className="absolute left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-slate-900 border border-slate-800 rounded-xl shadow-2xl z-50 divide-y divide-slate-800/60">
-                      {/* Direct typed domain suggestions */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedRecipient(recipientSearch.includes('@') ? recipientSearch.trim() : `${recipientSearch.trim()}@nkangaladm.gov.za`);
-                          setRecipientSearch('');
-                        }}
-                        className="w-full text-left px-3 py-2 bg-emerald-950/30 hover:bg-emerald-900/50 transition text-xs flex justify-between items-center text-emerald-300 border-b border-emerald-900/40 cursor-pointer"
-                      >
-                        <span className="font-mono font-bold">
-                          🏛️ Send to {recipientSearch.includes('@') ? recipientSearch.trim() : `${recipientSearch.trim()}@nkangaladm.gov.za`}
-                        </span>
-                        <span className="text-[10px] bg-emerald-950 px-1.5 py-0.5 rounded border border-emerald-800/40">Select</span>
-                      </button>
+                      {combinedSearchResults.slice(0, 25).map((u, idx) => {
+                        const isNkangala = (u.email || '').toLowerCase().endsWith('@nkangaladm.gov.za');
+                        const isMzansi = (u.email || '').toLowerCase().endsWith('@mzansiflow.co.za');
 
-                      {!recipientSearch.includes('@') && (
+                        return (
+                          <button
+                            key={`wf-user-${u.email}-${idx}`}
+                            type="button"
+                            onClick={() => {
+                              setSelectedRecipient(u.email);
+                              setRecipientSearch('');
+                            }}
+                            className="w-full text-left px-3 py-2.5 hover:bg-slate-800 transition text-xs flex justify-between items-center cursor-pointer group"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 border ${
+                                isNkangala
+                                  ? 'bg-emerald-950/60 text-emerald-300 border-emerald-800/50'
+                                  : isMzansi
+                                  ? 'bg-indigo-950/60 text-indigo-300 border-indigo-800/50'
+                                  : 'bg-slate-800 text-slate-300 border-slate-700'
+                              }`}>
+                                {(u.fullName || u.email).charAt(0).toUpperCase()}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-bold text-slate-200 group-hover:text-indigo-300 transition truncate">{u.fullName || u.email}</span>
+                                  <span className={`text-[8px] font-mono px-1 py-0.2 rounded border shrink-0 ${
+                                    isNkangala
+                                      ? 'bg-emerald-950 text-emerald-300 border-emerald-800/40'
+                                      : isMzansi
+                                      ? 'bg-indigo-950 text-indigo-300 border-indigo-800/40'
+                                      : 'bg-slate-800 text-slate-400 border-slate-700'
+                                  }`}>
+                                    {isNkangala ? '🏛️ Nkangala' : isMzansi ? '⚡ Mzansi' : 'External'}
+                                  </span>
+                                </div>
+                                {u.jobFunction && (
+                                  <span className="text-[9px] text-slate-400 block truncate">
+                                    {u.jobFunction} {u.department ? `• ${u.department}` : ''}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <span className="text-[10px] text-slate-400 font-mono shrink-0 ml-2">{u.email}</span>
+                          </button>
+                        );
+                      })}
+
+                      {/* Custom address option if user typed full valid email not in list */}
+                      {recipientSearch.includes('@') && !combinedSearchResults.some(u => u.email.toLowerCase().trim() === recipientSearch.toLowerCase().trim()) && (
                         <button
                           type="button"
                           onClick={() => {
-                            setSelectedRecipient(`${recipientSearch.trim()}@mzansiflow.co.za`);
+                            setSelectedRecipient(recipientSearch.trim());
                             setRecipientSearch('');
                           }}
-                          className="w-full text-left px-3 py-2 bg-indigo-950/30 hover:bg-indigo-900/50 transition text-xs flex justify-between items-center text-indigo-300 border-b border-indigo-900/40 cursor-pointer"
+                          className="w-full text-left px-3 py-2 bg-slate-950/80 hover:bg-indigo-950/40 transition text-xs flex justify-between items-center text-slate-300 border-t border-slate-800 cursor-pointer"
                         >
-                          <span className="font-mono font-bold">
-                            ⚡ Send to {recipientSearch.trim()}@mzansiflow.co.za
+                          <span className="font-mono text-[11px] text-indigo-300">
+                            ✉️ Send to custom address: <b className="text-white">{recipientSearch.trim()}</b>
                           </span>
-                          <span className="text-[10px] bg-indigo-950 px-1.5 py-0.5 rounded border border-indigo-800/40">Select</span>
+                          <span className="text-[10px] bg-indigo-900 text-indigo-200 px-2 py-0.5 rounded border border-indigo-700">Select</span>
                         </button>
                       )}
-
-                      {combinedSearchResults.map(u => (
-                        <button
-                          key={u.email}
-                          type="button"
-                          onClick={() => {
-                            setSelectedRecipient(u.email);
-                            setRecipientSearch('');
-                          }}
-                          className="w-full text-left px-3 py-2 hover:bg-slate-800 transition text-xs flex justify-between items-center cursor-pointer"
-                        >
-                          <div>
-                            <span className="font-bold text-slate-200 block">{u.fullName || u.email}</span>
-                            {u.jobFunction && <span className="text-[9px] text-indigo-400 block">{u.jobFunction} • {u.department || 'Staff'}</span>}
-                          </div>
-                          <span className="text-[10px] text-slate-400 font-mono shrink-0 ml-2">{u.email}</span>
-                        </button>
-                      ))}
                     </div>
                   )}
                 </div>

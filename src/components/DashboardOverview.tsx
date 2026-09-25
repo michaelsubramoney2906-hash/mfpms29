@@ -58,8 +58,8 @@ export function DashboardOverview({ currentUser, activeTenantId }: DashboardOver
             { email: 'delphine@mzansiflow.co.za', role: 'Executive Services' },
             { email: 'mike@mzansiflow.co.za', role: 'Executive Director' },
             { email: 'marlan@mzansiflow.co.za', role: 'Project Operations' }
-          ].map(u => (
-            <div key={u.email} className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-left flex flex-col">
+          ].map((u, idx) => (
+            <div key={`auth-prof-${u.email}-${idx}`} className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-left flex flex-col">
               <span className="text-xs font-mono font-bold text-slate-200">{u.email}</span>
               <span className="text-[10px] text-slate-500 uppercase tracking-wider mt-0.5">{u.role}</span>
             </div>

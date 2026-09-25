@@ -2089,8 +2089,8 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
               <option value="">My Plan ({currentUser.fullName || currentUser.email})</option>
               {users
                 .filter(u => u.email && u.email.toLowerCase() !== (currentUser.email || '').toLowerCase())
-                .map(u => (
-                  <option key={u.id || u.email} value={u.email}>
+                .map((u, idx) => (
+                  <option key={u.id ? `pa-user-${u.id}-${idx}` : `pa-user-${u.email}-${idx}`} value={u.email}>
                     {u.fullName || u.full_name || u.email} ({u.email})
                   </option>
                 ))}

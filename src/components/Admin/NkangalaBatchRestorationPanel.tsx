@@ -419,9 +419,9 @@ export function NkangalaBatchRestorationPanel({
                 </p>
                 <div className="flex flex-wrap items-center gap-3 mt-3 text-xs">
                   <span className="text-slate-400 font-medium">Quick link to restored official:</span>
-                  {SAMPLE_NKANGALA_LEADERS.slice(0, 4).map((leader) => (
+                  {SAMPLE_NKANGALA_LEADERS.slice(0, 4).map((leader, idx) => (
                     <button
-                      key={leader.email}
+                      key={`sample-leader-quick-${leader.email}-${idx}`}
                       onClick={() => handleInspectUser(leader.email, leader.name, 'Nkangala DM', leader.role)}
                       className="bg-slate-800/80 hover:bg-slate-700 text-slate-200 px-2.5 py-1 rounded-lg border border-slate-700 text-[11px] font-mono hover:text-emerald-300 transition-colors flex items-center gap-1 cursor-pointer"
                     >
@@ -690,9 +690,9 @@ export function NkangalaBatchRestorationPanel({
                     Enter any municipal email above or click any record in the stream to inspect their exact 4-pillar payload live.
                   </p>
                   <div className="flex flex-wrap items-center justify-center gap-1.5 mt-4">
-                    {SAMPLE_NKANGALA_LEADERS.map((leader) => (
+                    {SAMPLE_NKANGALA_LEADERS.map((leader, idx) => (
                       <button
-                        key={leader.email}
+                        key={`sample-leader-inspect-${leader.email}-${idx}`}
                         onClick={() => handleInspectUser(leader.email, leader.name, 'Nkangala DM', leader.role)}
                         className="bg-slate-900 hover:bg-slate-800 text-slate-300 px-2 py-1 rounded text-[10px] border border-slate-800 font-mono transition-colors cursor-pointer"
                       >

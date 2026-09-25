@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Mail, Send, Inbox, Star, Trash2, Paperclip, Search, RefreshCw,
   Plus, Check, X, User as UserIcon, FileText, Image as ImageIcon,
@@ -88,46 +88,52 @@ export function IPMSInbox({ currentUser, activeTenantId }: IPMSInboxProps) {
   };
 
   const NKANGALA_QUICK_RECIPIENTS = [
-    { email: 'mm@nkangaladm.gov.za', label: 'Municipal Manager (MM)' },
-    { email: 'cfo@nkangaladm.gov.za', label: 'Chief Financial Officer' },
-    { email: 'pms@nkangaladm.gov.za', label: 'PMS Directorate' },
-    { email: 'internal.audit@nkangaladm.gov.za', label: 'Internal Audit' },
-    { email: 'registry@nkangaladm.gov.za', label: 'Municipal Registry' },
-    { email: 'corporate@nkangaladm.gov.za', label: 'Corporate Services' },
+    { email: 'mm@nkangaladm.gov.za', label: 'Municipal Manager', fullName: 'Thabo Mokoena' },
+    { email: 'cfo@nkangaladm.gov.za', label: 'Chief Financial Officer', fullName: 'Lerato Ndlovu' },
+    { email: 'pms@nkangaladm.gov.za', label: 'PMS Coordinator', fullName: 'Annelize van Dyk' },
+    { email: 'internal.audit@nkangaladm.gov.za', label: 'Internal Audit Lead', fullName: 'Zweli Mthembu' },
+    { email: 'registry@nkangaladm.gov.za', label: 'Municipal Registry', fullName: 'Municipal Registry' },
+    { email: 'corporate@nkangaladm.gov.za', label: 'Corporate Services Director', fullName: 'Sipho Mabena' },
   ];
 
   const MZANSIFLOW_QUICK_RECIPIENTS = [
-    { email: 'compliance@mzansiflow.co.za', label: 'Compliance Engine' },
-    { email: 'audit@mzansiflow.co.za', label: 'Audit & Assurance' },
-    { email: 'support@mzansiflow.co.za', label: 'Technical Support' },
-    { email: 'governance@mzansiflow.co.za', label: 'Governance Desk' },
+    { email: 'mike@mzansiflow.co.za', label: 'Executive Director', fullName: 'Mike' },
+    { email: 'audrey@mzansiflow.co.za', label: 'Operations & Audit Lead', fullName: 'Audrey' },
+    { email: 'delphine@mzansiflow.co.za', label: 'Executive Services Lead', fullName: 'Delphine' },
+    { email: 'qiniso@mzansiflow.co.za', label: 'Solutions Architect', fullName: 'Qiniso' },
   ];
 
   const addRecipientEmail = (raw: string, displayName?: string) => {
     let trimmed = raw.trim().toLowerCase();
     if (!trimmed) return;
-    if (!trimmed.includes('@')) {
-      trimmed = `${trimmed}@nkangaladm.gov.za`;
+
+    // Look for exact or fuzzy match in real Azure AD & Mzansi Flow directory users
+    let match = directoryUsers.find(u => u.email.toLowerCase().trim() === trimmed);
+    if (!match && !trimmed.includes('@')) {
+      match = directoryUsers.find(u => 
+        u.email.toLowerCase().startsWith(trimmed + '@') || 
+        u.fullName.toLowerCase().includes(trimmed)
+      );
+      if (match) trimmed = match.email.toLowerCase().trim();
+      else trimmed = `${trimmed}@nkangaladm.gov.za`;
     }
-    if (selectedRecipients.some(r => r.email.toLowerCase() === trimmed)) {
+
+    if (selectedRecipients.some(r => r.email.toLowerCase().trim() === trimmed)) {
       setRecipientInput('');
       return;
     }
-    const name = displayName || (trimmed.includes('@') ? trimmed.split('@')[0].replace(/[._]/g, ' ') : trimmed);
-    const capitalized = name.charAt(0).toUpperCase() + name.slice(1);
+
+    const realFullName = match?.fullName || displayName || (trimmed.includes('@') ? trimmed.split('@')[0].replace(/[._]/g, ' ') : trimmed);
+    const isNkangala = (match?.email || trimmed).endsWith('@nkangaladm.gov.za');
+    const realDept = match?.department || (isNkangala ? 'Nkangala District Municipality' : 'Mzansi Flow');
+    const realJob = match?.jobFunction || (isNkangala ? 'Municipal Official' : 'Systems Lead');
+
     setSelectedRecipients(prev => [...prev, {
-      email: trimmed,
-      fullName: capitalized,
-      department: trimmed.endsWith('@nkangaladm.gov.za') 
-        ? 'Nkangala District Municipality' 
-        : trimmed.endsWith('@mzansiflow.co.za') 
-        ? 'Mzansi Flow Hub' 
-        : 'External Contact',
-      jobFunction: trimmed.endsWith('@nkangaladm.gov.za') 
-        ? 'Nkangala Official' 
-        : trimmed.endsWith('@mzansiflow.co.za') 
-        ? 'Mzansi Flow Service' 
-        : 'Official'
+      email: match?.email || trimmed,
+      fullName: realFullName,
+      department: realDept,
+      jobFunction: realJob,
+      avatarUrl: match?.avatarUrl
     }]);
     setRecipientInput('');
     setShowDirectoryDropdown(false);
@@ -143,9 +149,10 @@ export function IPMSInbox({ currentUser, activeTenantId }: IPMSInboxProps) {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
 
-  // Directory Users (Azure AD)
+  // Directory Users (Real Azure AD & Enterprise Base)
   const [directoryUsers, setDirectoryUsers] = useState<DirectoryUser[]>([]);
   const [directoryLoading, setDirectoryLoading] = useState(false);
+  const [directoryOrgFilter, setDirectoryOrgFilter] = useState<'all' | 'nkangala' | 'mzansiflow'>('all');
 
   // Compose Modal State
   const [isComposeOpen, setIsComposeOpen] = useState(false);
@@ -173,24 +180,36 @@ export function IPMSInbox({ currentUser, activeTenantId }: IPMSInboxProps) {
     setTimeout(() => setNotification(null), 4000);
   };
 
-  // Load Directory Users
-  const fetchDirectoryUsers = async () => {
+  // Load Real Azure AD & Enterprise Directory Users
+  const fetchDirectoryUsers = async (signal?: AbortSignal) => {
     setDirectoryLoading(true);
     try {
-      const res = await fetch(`/api/tenant/${activeTenantId}/users?minimal=true`);
+      // Primary: full cross-tenant Azure AD directory
+      let res = await fetch('/api/sharepoint/directory-users', { signal });
+      if (!res.ok) {
+        res = await fetch('/api/tenant/global/users?minimal=true', { signal });
+      }
       if (res.ok) {
         const data = await res.json();
         const userList = Array.isArray(data) ? data : (data.users || []);
-        const formatted: DirectoryUser[] = userList.map((u: any) => ({
-          email: u.email || '',
-          fullName: u.fullName || u.email?.split('@')[0] || 'Directory User',
-          jobFunction: u.jobFunction || u.systemRole || 'Staff Member',
-          department: u.department || 'Municipal Administration',
-          avatarUrl: u.avatarUrl
-        })).filter((u: DirectoryUser) => u.email);
+        const seen = new Set<string>();
+        const formatted: DirectoryUser[] = [];
+        for (const u of userList) {
+          const email = (u.email || '').toLowerCase().trim();
+          if (!email || seen.has(email)) continue;
+          seen.add(email);
+          formatted.push({
+            email: u.email,
+            fullName: u.fullName || u.full_name || u.email?.split('@')[0] || 'Directory User',
+            jobFunction: u.jobFunction || u.systemRole || 'Staff Member',
+            department: u.department || (email.endsWith('@nkangaladm.gov.za') ? 'Nkangala District Municipality' : 'Mzansi Flow'),
+            avatarUrl: u.avatarUrl
+          });
+        }
         setDirectoryUsers(formatted);
       }
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.name === 'AbortError' || err?.message?.includes('aborted')) return;
       console.warn("Failed to fetch directory users:", err);
     } finally {
       setDirectoryLoading(false);
@@ -198,12 +217,12 @@ export function IPMSInbox({ currentUser, activeTenantId }: IPMSInboxProps) {
   };
 
   // Fetch Messages from Supabase
-  const fetchInboxMessages = async (silent = false) => {
+  const fetchInboxMessages = async (silent = false, signal?: AbortSignal) => {
     if (!silent) setLoading(true);
     else setRefreshing(true);
 
     try {
-      const res = await fetch(`/api/tenant/${activeTenantId}/ipms-inbox?userId=${encodeURIComponent(userEmail)}&allCommunique=true&t=${Date.now()}`);
+      const res = await fetch(`/api/tenant/${activeTenantId || 'tenant-229'}/ipms-inbox?userId=${encodeURIComponent(userEmail || '')}&allCommunique=true&t=${Date.now()}`, { signal });
       if (res.ok) {
         const data: InboxMessage[] = await res.json();
         const sorted = (data || []).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -227,8 +246,9 @@ export function IPMSInbox({ currentUser, activeTenantId }: IPMSInboxProps) {
         sorted.forEach(m => knownMessageIdsRef.current.add(m.id));
         setMessages(sorted);
       }
-    } catch (err) {
-      console.error("Error fetching inbox messages:", err);
+    } catch (err: any) {
+      if (err?.name === 'AbortError' || err?.message?.includes('aborted')) return;
+      console.warn("Could not retrieve inbox messages:", err?.message || err);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -236,15 +256,19 @@ export function IPMSInbox({ currentUser, activeTenantId }: IPMSInboxProps) {
   };
 
   useEffect(() => {
-    fetchDirectoryUsers();
-    fetchInboxMessages();
+    const controller = new AbortController();
+    fetchDirectoryUsers(controller.signal);
+    fetchInboxMessages(false, controller.signal);
 
-    // Auto-poll for new messages every 12 seconds
+    // Auto-poll for new messages every 15 seconds
     const interval = setInterval(() => {
       fetchInboxMessages(true);
-    }, 12000);
+    }, 15000);
 
-    return () => clearInterval(interval);
+    return () => {
+      controller.abort();
+      clearInterval(interval);
+    };
   }, [activeTenantId, userEmail]);
 
   // Handle Mark Action (Read, Star, Trash)
@@ -555,13 +579,28 @@ export function IPMSInbox({ currentUser, activeTenantId }: IPMSInboxProps) {
   const sentCount = messages.filter(m => isUserMatch(m.senderEmail)).length;
 
   // Directory Search Filtered Users
-  const filteredDirectoryUsers = directoryUsers.filter(u => {
-    if (!recipientInput.trim()) return true;
-    const q = recipientInput.toLowerCase().trim();
-    const isAlreadySelected = selectedRecipients.some(sr => sr.email.toLowerCase() === u.email.toLowerCase());
-    if (isAlreadySelected) return false;
-    return u.fullName.toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || (u.department || '').toLowerCase().includes(q);
-  });
+  const filteredDirectoryUsers = useMemo(() => {
+    return directoryUsers.filter(u => {
+      const emailLower = (u.email || '').toLowerCase().trim();
+      const isNkangala = emailLower.endsWith('@nkangaladm.gov.za');
+      const isMzansi = emailLower.endsWith('@mzansiflow.co.za');
+
+      if (directoryOrgFilter === 'nkangala' && !isNkangala) return false;
+      if (directoryOrgFilter === 'mzansiflow' && !isMzansi) return false;
+
+      const isAlreadySelected = selectedRecipients.some(sr => sr.email.toLowerCase().trim() === emailLower);
+      if (isAlreadySelected) return false;
+
+      if (!recipientInput.trim()) return true;
+      const q = recipientInput.toLowerCase().trim();
+      return (
+        (u.fullName || '').toLowerCase().includes(q) ||
+        emailLower.includes(q) ||
+        (u.jobFunction || '').toLowerCase().includes(q) ||
+        (u.department || '').toLowerCase().includes(q)
+      );
+    });
+  }, [directoryUsers, directoryOrgFilter, selectedRecipients, recipientInput]);
 
   return (
     <div className="flex flex-col h-full bg-slate-900 text-slate-100 rounded-2xl overflow-hidden shadow-2xl border border-slate-800">
@@ -1333,9 +1372,9 @@ export function IPMSInbox({ currentUser, activeTenantId }: IPMSInboxProps) {
                 {/* Quick Add Domain Pills */}
                 <div className="flex items-center gap-1.5 flex-wrap text-[10px]">
                   <span className="text-slate-500 font-bold">Quick Add:</span>
-                  {NKANGALA_QUICK_RECIPIENTS.slice(0, 4).map(qr => (
+                  {NKANGALA_QUICK_RECIPIENTS.slice(0, 4).map((qr, idx) => (
                     <button
-                      key={qr.email}
+                      key={`qr-${qr.email}-${idx}`}
                       type="button"
                       onClick={() => addRecipientEmail(qr.email, qr.label)}
                       className="bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-800/50 px-2 py-0.5 rounded-lg font-medium transition flex items-center gap-1"
@@ -1345,9 +1384,9 @@ export function IPMSInbox({ currentUser, activeTenantId }: IPMSInboxProps) {
                       <span>{qr.email.split('@')[0]}</span>
                     </button>
                   ))}
-                  {MZANSIFLOW_QUICK_RECIPIENTS.slice(0, 3).map(mr => (
+                  {MZANSIFLOW_QUICK_RECIPIENTS.slice(0, 3).map((mr, idx) => (
                     <button
-                      key={mr.email}
+                      key={`mr-${mr.email}-${idx}`}
                       type="button"
                       onClick={() => addRecipientEmail(mr.email, mr.label)}
                       className="bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-300 border border-indigo-800/50 px-2 py-0.5 rounded-lg font-medium transition flex items-center gap-1"
@@ -1421,77 +1460,119 @@ export function IPMSInbox({ currentUser, activeTenantId }: IPMSInboxProps) {
                   </div>
                 </div>
 
-                {/* Suggestions Dropdown (Domain Suggestions + Azure AD) */}
-                {showDirectoryDropdown && (recipientInput.trim() || filteredDirectoryUsers.length > 0) && (
-                  <div className="absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl max-h-64 overflow-y-auto z-50 divide-y divide-slate-800">
-                    <div className="p-2 bg-slate-950/80 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
-                      <span>Recipients & Directory Suggestions</span>
-                      <button onClick={() => setShowDirectoryDropdown(false)} className="text-slate-400 hover:text-white">
-                        <X className="w-3 h-3" />
+                {/* Suggestions Dropdown (Real Azure AD & Domain Directory) */}
+                {showDirectoryDropdown && (
+                  <div className="absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl max-h-72 overflow-hidden z-50 flex flex-col divide-y divide-slate-800">
+                    <div className="p-2.5 bg-slate-950/90 text-xs font-bold text-slate-300 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[10px] text-slate-400 uppercase tracking-wider font-mono mr-1">Azure AD Directory:</span>
+                        <button
+                          type="button"
+                          onClick={() => setDirectoryOrgFilter('all')}
+                          className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition cursor-pointer ${
+                            directoryOrgFilter === 'all'
+                              ? 'bg-indigo-600 text-white shadow-xs'
+                              : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+                          }`}
+                        >
+                          All ({directoryUsers.length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDirectoryOrgFilter('nkangala')}
+                          className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition cursor-pointer flex items-center gap-1 ${
+                            directoryOrgFilter === 'nkangala'
+                              ? 'bg-emerald-600 text-white shadow-xs'
+                              : 'bg-slate-900 text-slate-400 hover:text-emerald-300 border border-slate-800'
+                          }`}
+                        >
+                          <span>🏛️ Nkangala DM</span>
+                          <span className="text-[9px] opacity-80">({directoryUsers.filter(u => u.email.toLowerCase().endsWith('@nkangaladm.gov.za')).length})</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDirectoryOrgFilter('mzansiflow')}
+                          className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition cursor-pointer flex items-center gap-1 ${
+                            directoryOrgFilter === 'mzansiflow'
+                              ? 'bg-indigo-600 text-white shadow-xs'
+                              : 'bg-slate-900 text-slate-400 hover:text-indigo-300 border border-slate-800'
+                          }`}
+                        >
+                          <span>⚡ Mzansi Flow</span>
+                          <span className="text-[9px] opacity-80">({directoryUsers.filter(u => u.email.toLowerCase().endsWith('@mzansiflow.co.za')).length})</span>
+                        </button>
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => setShowDirectoryDropdown(false)} 
+                        className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition cursor-pointer shrink-0"
+                      >
+                        <X className="w-3.5 h-3.5" />
                       </button>
                     </div>
 
-                    {/* Instant Domain Suggestions if user typed something */}
-                    {recipientInput.trim() && (
-                      <div className="p-2 bg-slate-950/40 space-y-1">
-                        <div
-                          onClick={() => addRecipientEmail(recipientInput.includes('@') ? recipientInput : `${recipientInput.trim()}@nkangaladm.gov.za`)}
-                          className="p-2.5 hover:bg-emerald-950/40 rounded-xl cursor-pointer transition flex items-center justify-between gap-3 text-emerald-300 border border-emerald-900/40"
-                        >
-                          <div className="flex items-center gap-2">
-                            <span>🏛️</span>
-                            <span className="text-xs font-bold font-mono">
-                              {recipientInput.includes('@') ? recipientInput.trim() : `${recipientInput.trim()}@nkangaladm.gov.za`}
-                            </span>
-                          </div>
-                          <span className="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-800/40 px-2 py-0.5 rounded font-semibold">
-                            Send to Nkangala DM
-                          </span>
+                    <div className="overflow-y-auto max-h-56 divide-y divide-slate-800/60 p-1">
+                      {directoryLoading ? (
+                        <div className="p-6 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-400" />
+                          <span>Loading Azure Active Directory users...</span>
                         </div>
+                      ) : filteredDirectoryUsers.length === 0 ? (
+                        <div className="p-6 text-center text-xs text-slate-400 space-y-1">
+                          <p className="font-bold text-slate-300">No directory users match "{recipientInput}"</p>
+                          <p className="text-[11px] text-slate-500">Search by official full name, surname, job role, or direct municipal email.</p>
+                        </div>
+                      ) : (
+                        filteredDirectoryUsers.slice(0, 30).map((user, idx) => {
+                          const isNkangala = user.email.toLowerCase().endsWith('@nkangaladm.gov.za');
+                          const isMzansi = user.email.toLowerCase().endsWith('@mzansiflow.co.za');
 
-                        {!recipientInput.includes('@') && (
-                          <div
-                            onClick={() => addRecipientEmail(`${recipientInput.trim()}@mzansiflow.co.za`)}
-                            className="p-2.5 hover:bg-indigo-950/40 rounded-xl cursor-pointer transition flex items-center justify-between gap-3 text-indigo-300 border border-indigo-900/40"
-                          >
-                            <div className="flex items-center gap-2">
-                              <span>⚡</span>
-                              <span className="text-xs font-bold font-mono">
-                                {recipientInput.trim()}@mzansiflow.co.za
+                          return (
+                            <div
+                              key={`dir-${user.email}-${idx}`}
+                              onClick={() => {
+                                addRecipientEmail(user.email, user.fullName);
+                              }}
+                              className="p-2.5 hover:bg-slate-800/80 rounded-xl cursor-pointer transition flex items-center justify-between gap-3 text-left group"
+                            >
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 border ${
+                                  isNkangala 
+                                    ? 'bg-emerald-950/60 text-emerald-300 border-emerald-800/50'
+                                    : isMzansi
+                                    ? 'bg-indigo-950/60 text-indigo-300 border-indigo-800/50'
+                                    : 'bg-slate-800 text-slate-300 border-slate-700'
+                                }`}>
+                                  {user.fullName.charAt(0).toUpperCase()}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-xs font-bold text-white group-hover:text-indigo-300 transition truncate">{user.fullName}</p>
+                                    <span className={`text-[9px] px-1.5 py-0.2 rounded border font-mono font-bold shrink-0 ${
+                                      isNkangala
+                                        ? 'bg-emerald-950 text-emerald-300 border-emerald-800/40'
+                                        : isMzansi
+                                        ? 'bg-indigo-950 text-indigo-300 border-indigo-800/40'
+                                        : 'bg-slate-800 text-slate-400 border-slate-700'
+                                    }`}>
+                                      {isNkangala ? '🏛️ Nkangala DM' : isMzansi ? '⚡ Mzansi Flow' : 'External'}
+                                    </span>
+                                  </div>
+                                  <p className="text-[10px] text-slate-400 truncate mt-0.5">
+                                    <span className="font-mono text-slate-300">{user.email}</span>
+                                    {user.department && <span className="text-slate-500"> • {user.department}</span>}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <span className="text-[10px] bg-slate-950 text-slate-400 border border-slate-800 px-2 py-0.5 rounded-lg font-medium shrink-0 group-hover:border-indigo-500/50 group-hover:text-indigo-300 transition">
+                                {user.jobFunction || 'Staff'}
                               </span>
                             </div>
-                            <span className="text-[10px] bg-indigo-950 text-indigo-300 border border-indigo-800/40 px-2 py-0.5 rounded font-semibold">
-                              Send to Mzansi Flow
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Directory Users */}
-                    {filteredDirectoryUsers.map((user) => (
-                      <div
-                        key={user.email}
-                        onClick={() => {
-                          addRecipientEmail(user.email, user.fullName);
-                        }}
-                        className="p-3 hover:bg-slate-800/80 cursor-pointer transition flex items-center justify-between gap-3"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-indigo-400 text-xs font-bold">
-                            {user.fullName.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="text-xs font-bold text-white">{user.fullName}</p>
-                            <p className="text-[10px] text-slate-400">{user.email} • {user.department || 'Municipal Staff'}</p>
-                          </div>
-                        </div>
-
-                        <span className="text-[10px] bg-indigo-950 text-indigo-300 border border-indigo-800/40 px-2 py-0.5 rounded font-semibold">
-                          {user.jobFunction || 'Official'}
-                        </span>
-                      </div>
-                    ))}
+                          );
+                        })
+                      )}
+                    </div>
                   </div>
                 )}
               </div>

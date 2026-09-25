@@ -4726,7 +4726,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
   // IPMS INBOX & MESSAGING API ENDPOINTS
   // ==========================================
 
-  // Fetch IPMS inbox messages for a user
+  // Fetch IPMS inbox messages for a user across all enterprise & municipal tenants
   app.get("/api/tenant/:tenantId/ipms-inbox", async (req, res) => {
     const { tenantId } = req.params;
     const { userId, domain, allCommunique } = req.query;
@@ -4745,63 +4745,81 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
 
     try {
       const supabase = getSupabase();
+      const messageMap = new Map<string, any>();
 
-      // 1. Try reading individual ipms_inbox_item messages from Supabase
+      // 1. Fetch individual ipms_inbox_item messages across all namespaces
       const { data, error } = await supabase
         .from('messages')
         .select('*')
-        .eq('tenant_id', tenantId)
         .eq('message_type', 'ipms_inbox_item')
-        .order('created_at', { ascending: false });
-
-      let allMessages: any[] = [];
+        .order('created_at', { ascending: false })
+        .limit(1000);
 
       if (!error && data && data.length > 0) {
-        allMessages = data.map(m => {
+        for (const m of data) {
           try {
             const parsed = typeof m.content === 'string' ? JSON.parse(m.content) : m.content;
-            return { id: m.id, createdAt: m.created_at, ...parsed };
-          } catch (e) {
-            return null;
-          }
-        }).filter(Boolean);
-      } else {
-        // Fallback: Read aggregated store ipms_inbox_store_${tenantId}
-        const { data: storeData } = await supabase
-          .from('messages')
-          .select('content')
-          .eq('id', `ipms_inbox_store_${tenantId}`)
-          .maybeSingle();
+            if (parsed && typeof parsed === 'object') {
+              const msgId = parsed.id || m.id;
+              messageMap.set(msgId, { id: msgId, createdAt: m.created_at, ...parsed });
+            }
+          } catch (e) {}
+        }
+      }
 
-        if (storeData && storeData.content) {
-          try {
-            allMessages = JSON.parse(storeData.content);
-          } catch (e) {
-            allMessages = [];
+      // 2. Also fetch all aggregated ipms_inbox_store_% documents to guarantee 100% cross-tenant sync
+      const { data: storesData } = await supabase
+        .from('messages')
+        .select('content')
+        .like('id', 'ipms_inbox_store_%');
+
+      if (storesData && storesData.length > 0) {
+        for (const storeRow of storesData) {
+          if (storeRow.content) {
+            try {
+              const storeList = JSON.parse(storeRow.content);
+              if (Array.isArray(storeList)) {
+                for (const item of storeList) {
+                  if (item && item.id && !messageMap.has(item.id)) {
+                    messageMap.set(item.id, item);
+                  }
+                }
+              }
+            } catch (e) {}
           }
         }
       }
 
-      // Helper to check if a user is party to a message (direct email or aliases)
+      const allMessages = Array.from(messageMap.values());
+
+      // Helper to check if a user is party to a message (direct email, cross-domain aliases, or all)
       const isUserPartyTo = (m: any) => {
         const sender = (m.senderEmail || '').toLowerCase().trim();
         const recipients = (m.recipientEmails || []).map((r: string) => (r || '').toLowerCase().trim());
         
+        // Exact or direct matches
+        if (sender === userEmail) return true;
+        if (recipients.includes(userEmail)) return true;
+
+        // Cross-domain alias match
         if (userAliases.has(sender)) return true;
         if (recipients.some((r: string) => userAliases.has(r))) return true;
 
+        // Prefix match (e.g. audrey@mzansiflow.co.za and audrey@nkangaladm.gov.za)
         if (userPrefix && userPrefix.length > 1) {
-          if (sender.startsWith(`${userPrefix}@`) && (sender.endsWith('@nkangaladm.gov.za') || sender.endsWith('@mzansiflow.co.za'))) {
-            return true;
-          }
-          if (recipients.some((r: string) => r.startsWith(`${userPrefix}@`) && (r.endsWith('@nkangaladm.gov.za') || r.endsWith('@mzansiflow.co.za')))) {
-            return true;
-          }
+          if (sender.startsWith(`${userPrefix}@`)) return true;
+          if (recipients.some((r: string) => r.startsWith(`${userPrefix}@`))) return true;
         }
+
+        // Global or domain broadcast match
+        if (recipients.includes('all') || recipients.includes('all@nkangaladm.gov.za') || recipients.includes('all@mzansiflow.co.za')) {
+          return true;
+        }
+
         return false;
       };
 
-      // Filter messages
+      // Filter messages for current user
       let userMessages = allMessages.filter((m: any) => {
         if (allCommunique === 'true') return true;
         return isUserPartyTo(m);
@@ -4825,6 +4843,9 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
         }
       }
 
+      // Sort newest first
+      userMessages.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+
       res.json(userMessages);
     } catch (err: any) {
       console.error("Error in GET /api/tenant/:tenantId/ipms-inbox:", err);
@@ -4832,7 +4853,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
     }
   });
 
-  // Post new message or reply to IPMS Inbox
+  // Post new message or reply to IPMS Inbox (mirrors across all tenant namespaces for 100% reach)
   app.post("/api/tenant/:tenantId/ipms-inbox", async (req, res) => {
     const { tenantId } = req.params;
     const {
@@ -4887,7 +4908,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
         .from('messages')
         .insert({
           id: msgId,
-          tenant_id: tenantId,
+          tenant_id: tenantId || 'tenant-229',
           sender_id: senderEmail.trim().toLowerCase(),
           sender_email: senderEmail.trim().toLowerCase(),
           sender_name: senderName || senderEmail.split('@')[0],
@@ -4897,45 +4918,58 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
         });
 
       if (insertErr) {
-        console.warn("Notice: Individual insert warning, syncing to aggregated store:", insertErr.message);
+        console.warn("Notice: Individual insert warning, syncing to aggregated stores:", insertErr.message);
       }
 
-      // 2. Also update aggregated store in Supabase
-      const { data: storeData } = await supabase
-        .from('messages')
-        .select('content')
-        .eq('id', `ipms_inbox_store_${tenantId}`)
-        .maybeSingle();
+      // 2. Mirror update to all primary enterprise & municipal aggregated stores
+      const targetTenants = Array.from(new Set([
+        tenantId,
+        'tenant-229',
+        'global',
+        'nkangala_auto',
+        'tenant-1'
+      ])).filter(Boolean);
 
-      let existingMessages: any[] = [];
-      if (storeData && storeData.content) {
+      for (const tId of targetTenants) {
         try {
-          existingMessages = JSON.parse(storeData.content);
-        } catch (e) {
-          existingMessages = [];
+          const { data: storeData } = await supabase
+            .from('messages')
+            .select('content')
+            .eq('id', `ipms_inbox_store_${tId}`)
+            .maybeSingle();
+
+          let existingMessages: any[] = [];
+          if (storeData && storeData.content) {
+            try {
+              existingMessages = JSON.parse(storeData.content);
+            } catch (e) {
+              existingMessages = [];
+            }
+          }
+
+          // Prepend new message
+          existingMessages.unshift(newMsgObj);
+
+          if (existingMessages.length > 1000) {
+            existingMessages = existingMessages.slice(0, 1000);
+          }
+
+          await supabase
+            .from('messages')
+            .upsert({
+              id: `ipms_inbox_store_${tId}`,
+              tenant_id: tId,
+              sender_id: 'system_inbox',
+              sender_email: 'inbox@system.local',
+              sender_name: 'IPMS Inbox Store',
+              content: JSON.stringify(existingMessages),
+              message_type: 'ipms_inbox_store',
+              created_at: createdAt
+            });
+        } catch (storeErr) {
+          console.warn(`Could not sync to ipms_inbox_store_${tId}:`, storeErr);
         }
       }
-
-      // Prepend new message
-      existingMessages.unshift(newMsgObj);
-
-      // Keep max 1000 items in store
-      if (existingMessages.length > 1000) {
-        existingMessages = existingMessages.slice(0, 1000);
-      }
-
-      await supabase
-        .from('messages')
-        .upsert({
-          id: `ipms_inbox_store_${tenantId}`,
-          tenant_id: tenantId,
-          sender_id: 'system_inbox',
-          sender_email: 'inbox@system.local',
-          sender_name: 'IPMS Inbox Store',
-          content: JSON.stringify(existingMessages),
-          message_type: 'ipms_inbox_store',
-          created_at: createdAt
-        });
 
       res.json({ success: true, message: newMsgObj });
     } catch (err: any) {
@@ -4964,69 +4998,83 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
     try {
       const supabase = getSupabase();
 
-      // Read aggregated store
-      const { data: storeData } = await supabase
-        .from('messages')
-        .select('content')
-        .eq('id', `ipms_inbox_store_${tenantId}`)
-        .maybeSingle();
+      // Read and update across all stores where this message lives
+      const targetTenants = Array.from(new Set([
+        tenantId,
+        'tenant-229',
+        'global',
+        'nkangala_auto',
+        'tenant-1'
+      ])).filter(Boolean);
 
-      let messages: any[] = [];
-      if (storeData && storeData.content) {
+      for (const tId of targetTenants) {
         try {
-          messages = JSON.parse(storeData.content);
-        } catch (e) {
-          messages = [];
-        }
-      }
+          const { data: storeData } = await supabase
+            .from('messages')
+            .select('content')
+            .eq('id', `ipms_inbox_store_${tId}`)
+            .maybeSingle();
 
-      let updated = false;
-      messages = messages.map((m: any) => {
-        if (m.id === messageId || m.threadId === messageId) {
-          updated = true;
-          const readBy = new Set((m.readBy || []).map((e: string) => e.toLowerCase()));
-          const starredBy = new Set((m.starredBy || []).map((e: string) => e.toLowerCase()));
-          const trashedBy = new Set((m.trashedBy || []).map((e: string) => e.toLowerCase()));
-
-          if (action === 'markRead') {
-            userAliases.forEach(a => readBy.add(a));
-          } else if (action === 'markUnread') {
-            userAliases.forEach(a => readBy.delete(a));
-          } else if (action === 'toggleStar') {
-            if (userAliases.some(a => starredBy.has(a))) {
-              userAliases.forEach(a => starredBy.delete(a));
-            } else {
-              userAliases.forEach(a => starredBy.add(a));
+          let messages: any[] = [];
+          if (storeData && storeData.content) {
+            try {
+              messages = JSON.parse(storeData.content);
+            } catch (e) {
+              messages = [];
             }
-          } else if (action === 'moveToTrash') {
-            userAliases.forEach(a => trashedBy.add(a));
-          } else if (action === 'restore') {
-            userAliases.forEach(a => trashedBy.delete(a));
           }
 
-          return {
-            ...m,
-            readBy: Array.from(readBy),
-            starredBy: Array.from(starredBy),
-            trashedBy: Array.from(trashedBy)
-          };
-        }
-        return m;
-      });
+          let updated = false;
+          messages = messages.map((m: any) => {
+            if (m.id === messageId || m.threadId === messageId) {
+              updated = true;
+              const readBy = new Set((m.readBy || []).map((e: string) => e.toLowerCase()));
+              const starredBy = new Set((m.starredBy || []).map((e: string) => e.toLowerCase()));
+              const trashedBy = new Set((m.trashedBy || []).map((e: string) => e.toLowerCase()));
 
-      if (updated) {
-        await supabase
-          .from('messages')
-          .upsert({
-            id: `ipms_inbox_store_${tenantId}`,
-            tenant_id: tenantId,
-            sender_id: 'system_inbox',
-            sender_email: 'inbox@system.local',
-            sender_name: 'IPMS Inbox Store',
-            content: JSON.stringify(messages),
-            message_type: 'ipms_inbox_store',
-            created_at: new Date().toISOString()
+              if (action === 'markRead') {
+                userAliases.forEach(a => readBy.add(a));
+              } else if (action === 'markUnread') {
+                userAliases.forEach(a => readBy.delete(a));
+              } else if (action === 'toggleStar') {
+                if (userAliases.some(a => starredBy.has(a))) {
+                  userAliases.forEach(a => starredBy.delete(a));
+                } else {
+                  userAliases.forEach(a => starredBy.add(a));
+                }
+              } else if (action === 'moveToTrash') {
+                userAliases.forEach(a => trashedBy.add(a));
+              } else if (action === 'restore') {
+                userAliases.forEach(a => trashedBy.delete(a));
+              }
+
+              return {
+                ...m,
+                readBy: Array.from(readBy),
+                starredBy: Array.from(starredBy),
+                trashedBy: Array.from(trashedBy)
+              };
+            }
+            return m;
           });
+
+          if (updated) {
+            await supabase
+              .from('messages')
+              .upsert({
+                id: `ipms_inbox_store_${tId}`,
+                tenant_id: tId,
+                sender_id: 'system_inbox',
+                sender_email: 'inbox@system.local',
+                sender_name: 'IPMS Inbox Store',
+                content: JSON.stringify(messages),
+                message_type: 'ipms_inbox_store',
+                created_at: new Date().toISOString()
+              });
+          }
+        } catch (storeActionErr) {
+          console.warn(`Could not update store ipms_inbox_store_${tId}:`, storeActionErr);
+        }
       }
 
       res.json({ success: true, messageId, action });
@@ -5573,7 +5621,24 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       }
     } catch (e) {}
 
-    const formatted = (data || []).map((u: any) => {
+    // Deduplicate any duplicate user records from Supabase by lowercase email
+    const initialMap = new Map<string, any>();
+    for (const u of (data || [])) {
+      const emailKey = (u.email || '').toLowerCase().trim();
+      if (!emailKey) {
+        initialMap.set(`no-email-${u.id || Math.random()}`, u);
+      } else if (!initialMap.has(emailKey)) {
+        initialMap.set(emailKey, u);
+      } else {
+        // Keep the record with the more authoritative role or full name
+        const existing = initialMap.get(emailKey);
+        const isBetter = ['Global Administrator', 'admin', 'Auditor'].includes(u.role) && !['Global Administrator', 'admin'].includes(existing.role);
+        if (isBetter) initialMap.set(emailKey, { ...existing, ...u });
+      }
+    }
+    const deduplicatedData = Array.from(initialMap.values());
+
+    const formatted = deduplicatedData.map((u: any) => {
       let tId = u.tenant_id;
       if (tId === 'nkangala_auto' || u.email?.toLowerCase().includes('nkangaladm')) {
         tId = 'tenant-229';
@@ -5906,7 +5971,32 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       }
     });
 
-    const sanitizedFormatted = formatted;
+    // Deduplicate by normalized email so that no two users share the same email address
+    const uniqueMap = new Map<string, any>();
+    const withoutEmail: any[] = [];
+    for (const u of formatted) {
+      if (!u.email || !u.email.trim()) {
+        withoutEmail.push(u);
+        continue;
+      }
+      const key = u.email.toLowerCase().trim();
+      if (!uniqueMap.has(key)) {
+        uniqueMap.set(key, u);
+      } else {
+        // Merge records to keep richer profile / permissions
+        const existing = uniqueMap.get(key);
+        const isBetterRole = ['Global Administrator', 'admin', 'Auditor', 'Systems Administrator'].includes(u.role) && !['Global Administrator', 'admin', 'Auditor'].includes(existing.role);
+        uniqueMap.set(key, {
+          ...existing,
+          ...u,
+          id: existing.id || u.id,
+          role: isBetterRole ? u.role : (existing.role || u.role),
+          jobFunction: existing.jobFunction || u.jobFunction,
+          department: existing.department || u.department
+        });
+      }
+    }
+    const sanitizedFormatted = [...uniqueMap.values(), ...withoutEmail];
     return sanitizedFormatted;
   });
 }
@@ -7215,23 +7305,6 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
     }
     try {
       const supabase = getSupabase();
-      const documentId = `ipms_notifications_${tenantId}`;
-      
-      // Load existing
-      const { data: existingData } = await supabase
-        .from('messages')
-        .select('content')
-        .eq('id', documentId)
-        .maybeSingle();
-
-      let notifications: any[] = [];
-      if (existingData && existingData.content) {
-        try {
-          const parsed = JSON.parse(existingData.content);
-          notifications = parsed.notifications || [];
-        } catch(e) {}
-      }
-
       const generatedId = notification.id || `notif_${Date.now()}_${Math.random().toString(36).substring(2,7)}`;
       const newNotif = {
         id: generatedId,
@@ -7254,26 +7327,56 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
         readAt: null
       };
 
-      notifications.unshift(newNotif);
-      if (notifications.length > 500) {
-        notifications = notifications.slice(0, 500);
+      const targetTenants = Array.from(new Set([
+        tenantId,
+        'tenant-229',
+        'global',
+        'nkangala_auto',
+        'tenant-1'
+      ])).filter(Boolean);
+
+      let lastNotifs: any[] = [];
+
+      for (const tId of targetTenants) {
+        const documentId = `ipms_notifications_${tId}`;
+        const { data: existingData } = await supabase
+          .from('messages')
+          .select('content')
+          .eq('id', documentId)
+          .maybeSingle();
+
+        let notifications: any[] = [];
+        if (existingData && existingData.content) {
+          try {
+            const parsed = JSON.parse(existingData.content);
+            notifications = parsed.notifications || [];
+          } catch(e) {}
+        }
+
+        notifications.unshift(newNotif);
+        if (notifications.length > 500) {
+          notifications = notifications.slice(0, 500);
+        }
+
+        await supabase
+          .from('messages')
+          .upsert({
+            id: documentId,
+            tenant_id: tId,
+            sender_id: 'ipms_notification_system',
+            sender_email: 'ipms_notif@system.local',
+            sender_name: 'IPMS Notification Service',
+            content: JSON.stringify({ notifications }),
+            message_type: 'ipms_notifications_v1',
+            created_at: new Date().toISOString()
+          });
+
+        if (tId === tenantId) {
+          lastNotifs = notifications;
+        }
       }
 
-      const { error } = await supabase
-        .from('messages')
-        .upsert({
-          id: documentId,
-          tenant_id: tenantId,
-          sender_id: 'ipms_notification_system',
-          sender_email: 'ipms_notif@system.local',
-          sender_name: 'IPMS Notification Service',
-          content: JSON.stringify({ notifications }),
-          message_type: 'ipms_notifications_v1',
-          created_at: new Date().toISOString()
-        });
-
-      if (error) throw error;
-      res.json({ success: true, notification: newNotif, notifications });
+      res.json({ success: true, notification: newNotif, notifications: lastNotifs });
     } catch (err: any) {
       console.error("IPMS notification post exception:", err);
       res.status(500).json({ error: err.message });
@@ -8552,11 +8655,259 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
     }
   });
 
-  // Directory Users for Share Point Notification Selection
+  // 3b. POST share an existing SharePoint document with Azure AD & Enterprise users (1, 20, or custom count)
+  app.post("/api/sharepoint/share-document", async (req, res) => {
+    const { 
+      itemId, 
+      recipientEmails, 
+      sharedBy, 
+      sharedByEmail, 
+      permission = 'view', 
+      note = '' 
+    } = req.body;
+
+    if (!itemId) {
+      return res.status(400).json({ error: "Document ID (itemId) is required." });
+    }
+    if (!recipientEmails || !Array.isArray(recipientEmails) || recipientEmails.length === 0) {
+      return res.status(400).json({ error: "At least one recipient must be selected." });
+    }
+
+    try {
+      const supabase = getSupabase();
+      const items = await getSharePointIndex(supabase);
+      const targetIndex = items.findIndex((it: any) => it.id === itemId);
+
+      if (targetIndex === -1) {
+        return res.status(404).json({ error: "Document not found in SharePoint repository." });
+      }
+
+      const item = items[targetIndex];
+
+      // Get directory users to enrich recipient details
+      const allUsers = await getConsolidatedUsersList('global');
+      const userMap = new Map<string, any>();
+      for (const u of allUsers) {
+        if (u.email) userMap.set(u.email.toLowerCase().trim(), u);
+      }
+
+      const normalizedRecipients = recipientEmails.map((e: string) => String(e).toLowerCase().trim()).filter(Boolean);
+      const existingSharedWith = new Set<string>((item.sharedWith || []).map((e: string) => String(e).toLowerCase().trim()));
+      
+      const newRecipientsDetails = normalizedRecipients.map((email: string) => {
+        const u = userMap.get(email);
+        const isNkangala = email.includes('nkangala') || email.endsWith('.gov.za');
+        return {
+          email,
+          fullName: u?.fullName || email.split('@')[0],
+          jobFunction: u?.jobFunction || (isNkangala ? 'Municipal Officer' : 'Enterprise Specialist'),
+          department: u?.department || (isNkangala ? 'Nkangala District Municipality' : 'Mzansi Flow Enterprise'),
+          organization: isNkangala ? 'nkangaladm.gov.za' : 'mzansiflow.co.za',
+          permission,
+          sharedAt: new Date().toISOString(),
+          sharedBy: sharedBy || 'SharePoint User',
+          sharedByEmail: sharedByEmail || ''
+        };
+      });
+
+      // Merge recipient emails
+      normalizedRecipients.forEach((e: string) => existingSharedWith.add(e));
+      item.sharedWith = Array.from(existingSharedWith);
+
+      // Merge recipient details
+      const existingDetails = item.sharedWithDetails || [];
+      const updatedDetailsMap = new Map<string, any>();
+      existingDetails.forEach((d: any) => {
+        if (d && d.email) updatedDetailsMap.set(d.email.toLowerCase().trim(), d);
+      });
+      newRecipientsDetails.forEach(d => updatedDetailsMap.set(d.email.toLowerCase().trim(), d));
+      item.sharedWithDetails = Array.from(updatedDetailsMap.values());
+
+      item.lastSharedAt = new Date().toISOString();
+      item.lastSharedBy = sharedBy || 'SharePoint User';
+      item.lastSharedByEmail = sharedByEmail || '';
+      item.sharePermission = permission;
+      item.shareNote = note;
+      item.updatedAt = new Date().toISOString();
+
+      items[targetIndex] = item;
+      await saveSharePointIndex(supabase, items);
+
+      // Find parent folder name for context
+      const parentFolder = items.find((it: any) => it.id === item.parentId);
+      const folderDisplayName = parentFolder?.name || 'SharePoint Repository';
+
+      // Create Notification Record
+      const notifRecord = {
+        id: `notif_share_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        type: 'sharepoint_file_shared',
+        title: `Document Shared: ${item.name}`,
+        fileName: item.name,
+        fileId: item.id,
+        folderId: item.parentId || '',
+        folderName: folderDisplayName,
+        organization: item.organization || (sharedByEmail?.includes('nkangala') ? 'nkangaladm.gov.za' : 'mzansiflow.co.za'),
+        sharedBy: sharedBy || 'SharePoint User',
+        sharedByEmail: sharedByEmail || 'sharepoint@mzansiflow.co.za',
+        uploadedBy: item.createdBy || sharedBy || 'SharePoint User',
+        uploadedByEmail: item.createdByEmail || sharedByEmail || '',
+        size: item.size || 0,
+        extension: item.extension || '',
+        permission,
+        note: note || '',
+        createdAt: new Date().toISOString(),
+        recipients: normalizedRecipients,
+        readBy: []
+      };
+
+      // 1. Save to sharepoint_notifications_store in Supabase
+      try {
+        const { data: existingNotifs } = await supabase
+          .from('messages')
+          .select('content')
+          .eq('id', 'sharepoint_notifications_store')
+          .maybeSingle();
+
+        let notificationsList: any[] = [];
+        if (existingNotifs && existingNotifs.content) {
+          try {
+            notificationsList = JSON.parse(existingNotifs.content);
+            if (!Array.isArray(notificationsList)) notificationsList = [];
+          } catch (e) {
+            notificationsList = [];
+          }
+        }
+
+        notificationsList.unshift(notifRecord);
+        if (notificationsList.length > 300) {
+          notificationsList = notificationsList.slice(0, 300);
+        }
+
+        await supabase.from('messages').upsert({
+          id: 'sharepoint_notifications_store',
+          tenant_id: 'global_sharepoint',
+          sender_id: 'sharepoint_notifier',
+          sender_email: sharedByEmail || 'sharepoint@system.local',
+          sender_name: 'SharePoint Document Sharing Dispatcher',
+          content: JSON.stringify(notificationsList),
+          message_type: 'sharepoint_notifications_store',
+          created_at: new Date().toISOString()
+        });
+      } catch (notifStoreErr) {
+        console.error("[SharePoint Share] Error saving notifications store:", notifStoreErr);
+      }
+
+      // 2. Also inject into IPMS Inboxes across tenants so communique inbox gets the shared document!
+      try {
+        const tenantStores = ['ipms_inbox_store_global', 'ipms_inbox_store_tenant-229', 'ipms_inbox_store_nkangala_auto'];
+        for (const storeId of tenantStores) {
+          const { data: tenantInboxData } = await supabase
+            .from('messages')
+            .select('content')
+            .eq('id', storeId)
+            .maybeSingle();
+
+          let inboxMsgs: any[] = [];
+          if (tenantInboxData && tenantInboxData.content) {
+            try {
+              inboxMsgs = JSON.parse(tenantInboxData.content);
+              if (!Array.isArray(inboxMsgs)) inboxMsgs = [];
+            } catch (_) {
+              inboxMsgs = [];
+            }
+          }
+
+          const inboxEntry = {
+            id: `sp_share_msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+            senderEmail: sharedByEmail || 'sharepoint@mzansiflow.co.za',
+            senderName: sharedBy || 'SharePoint Document Collaboration',
+            recipientEmail: normalizedRecipients[0] || 'all@district.local',
+            recipientEmails: normalizedRecipients,
+            subject: `[SharePoint] Document Shared with you: ${item.name}`,
+            body: `${sharedBy || 'A colleague'} has shared the document "${item.name}" (${((item.size || 0) / 1024).toFixed(1)} KB) with you with "${permission.toUpperCase()}" permissions.\n\n${note ? `Note from sender: ${note}\n\n` : ''}Repository location: "${folderDisplayName}". You can open, preview, or collaborate on this document directly in SharePoint.`,
+            category: 'sharepoint',
+            attachments: [{ name: item.name, size: item.size || 0, type: item.fileType, fileId: item.id }],
+            createdAt: new Date().toISOString(),
+            readBy: [],
+            starredBy: [],
+            trashedBy: []
+          };
+
+          inboxMsgs.unshift(inboxEntry);
+          if (inboxMsgs.length > 250) inboxMsgs = inboxMsgs.slice(0, 250);
+
+          await supabase.from('messages').upsert({
+            id: storeId,
+            tenant_id: storeId.replace('ipms_inbox_store_', ''),
+            sender_id: 'sharepoint_inbox_bridge',
+            sender_email: sharedByEmail || 'sharepoint@system.local',
+            sender_name: 'SharePoint Document Sharing Bridge',
+            content: JSON.stringify(inboxMsgs),
+            message_type: 'ipms_inbox_store',
+            created_at: new Date().toISOString()
+          });
+        }
+      } catch (inboxErr) {
+        console.error("[SharePoint Share] Error bridging share to inbox:", inboxErr);
+      }
+
+      // 3. Emit real-time WebSocket alert
+      try {
+        io.emit("sharepoint_notification", notifRecord);
+      } catch (socketErr) {
+        console.warn("[SharePoint Share] Socket emit warning:", socketErr);
+      }
+
+      res.json({
+        success: true,
+        item,
+        items,
+        sharedCount: normalizedRecipients.length,
+        recipients: normalizedRecipients
+      });
+    } catch (err: any) {
+      console.error("[POST /api/sharepoint/share-document Error]:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Directory Users for Share Point Notification & Document Sharing Selection
   app.get("/api/sharepoint/directory-users", async (req, res) => {
     try {
       const allUsers = await getConsolidatedUsersList('global');
-      const formatted = allUsers.map((u: any) => {
+
+      // Canonical list of Mzansi Flow users ensuring full team visibility
+      const mzansiFlowCoreUsers = [
+        { email: 'mike@mzansiflow.co.za', fullName: 'Mike', jobFunction: 'Executive Director & Solutions Architect', department: 'Executive Management', systemRole: 'Global Administrator' },
+        { email: 'audrey@mzansiflow.co.za', fullName: 'Audrey', jobFunction: 'Lead Cloud Solutions Architect', department: 'Cloud & Systems Engineering', systemRole: 'Administrator' },
+        { email: 'delphine@mzansiflow.co.za', fullName: 'Delphine', jobFunction: 'Operations Director & Compliance Lead', department: 'Operations & Governance', systemRole: 'Administrator' },
+        { email: 'ryanw@mzansiflow.co.za', fullName: 'Ryan Walters', jobFunction: 'Principal DevOps & Infrastructure Engineer', department: 'Cloud Infrastructure', systemRole: 'Administrator' },
+        { email: 'bonganim@mzansiflow.co.za', fullName: 'Bongani M', jobFunction: 'Global Administrator & Security Lead', department: 'Enterprise Security', systemRole: 'Global Administrator' },
+        { email: 'qiniso@mzansiflow.co.za', fullName: 'Qiniso', jobFunction: 'Senior Business Systems Analyst', department: 'Business Solutions', systemRole: 'Administrator' },
+        { email: 'marlan@mzansiflow.co.za', fullName: 'Marlan', jobFunction: 'Quality Assurance & Delivery Manager', department: 'Quality Engineering', systemRole: 'Administrator' },
+        { email: 'ruannars@mzansiflow.co.za', fullName: 'Ruannars', jobFunction: 'Systems Engineering Specialist', department: 'Engineering & Automation', systemRole: 'Administrator' },
+        { email: 'support@mzansiflow.co.za', fullName: 'Enterprise Support', jobFunction: 'Client Operations & Liaison', department: 'Client Operations', systemRole: 'Staff Member' },
+        { email: 'admin@mzansiflow.co.za', fullName: 'System Administrator', jobFunction: 'System Administrator & Service Ops', department: 'IT Operations', systemRole: 'Administrator' },
+        { email: 'tech@mzansiflow.co.za', fullName: 'Technical Architecture Team', jobFunction: 'Technical Solutions Architecture', department: 'Technology & Architecture', systemRole: 'Administrator' }
+      ];
+
+      const combined = [...allUsers];
+      for (const mu of mzansiFlowCoreUsers) {
+        if (!combined.some(u => (u.email || '').toLowerCase().trim() === mu.email.toLowerCase())) {
+          combined.push({
+            id: `mzansi_${mu.email}`,
+            fullName: mu.fullName,
+            email: mu.email,
+            jobFunction: mu.jobFunction,
+            department: mu.department,
+            systemRole: mu.systemRole,
+            role: 'admin',
+            source: 'mzansiflow_directory'
+          });
+        }
+      }
+
+      const formatted = combined.map((u: any) => {
         const email = (u.email || '').toLowerCase().trim();
         const isNkangala = email.includes('nkangala') || email.endsWith('.gov.za');
         const isMzansi = email.includes('mzansiflow') || email.includes('massivedynamix');
@@ -8565,10 +8916,10 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
           id: u.id || email,
           fullName: u.fullName || email.split('@')[0],
           email: u.email,
-          jobFunction: u.jobFunction || 'Municipal Officer',
+          jobFunction: u.jobFunction || (isNkangala ? 'Municipal Officer' : 'Solutions Engineer'),
           department: u.department || (isNkangala ? 'Nkangala District Municipality' : 'Mzansi Flow Enterprise'),
           organization: isNkangala ? 'nkangaladm.gov.za' : (isMzansi ? 'mzansiflow.co.za' : 'nkangaladm.gov.za'),
-          organizationLabel: isNkangala ? '🏛️ Nkangala District Municipality' : '☁️ Mzansi Flow',
+          organizationLabel: isNkangala ? '🏛️ Nkangala District Municipality' : '⚡ Mzansi Flow',
           role: u.role || 'tenant_user',
           systemRole: u.systemRole || 'Staff Member',
           source: u.source || 'azure_ad'
@@ -8585,7 +8936,13 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
         return true;
       }).sort((a: any, b: any) => a.fullName.localeCompare(b.fullName));
 
-      res.json({ success: true, users: unique, total: unique.length });
+      res.json({ 
+        success: true, 
+        users: unique, 
+        total: unique.length,
+        nkangalaCount: unique.filter((u: any) => u.organization === 'nkangaladm.gov.za').length,
+        mzansiCount: unique.filter((u: any) => u.organization === 'mzansiflow.co.za').length
+      });
     } catch (err: any) {
       console.error("[GET /api/sharepoint/directory-users Error]:", err);
       res.status(500).json({ error: err.message });

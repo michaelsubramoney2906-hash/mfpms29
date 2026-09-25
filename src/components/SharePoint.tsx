@@ -6,7 +6,8 @@ import {
   AlertTriangle, Filter, Grid, List as ListIcon, ShieldCheck, Building2,
   Cloud, Sparkles, FolderTree, Clock, User as UserIcon, Tag, Copy, Maximize2,
   ExternalLink, ZoomIn, ZoomOut, RotateCw, ChevronLeft, Table, Layers, FileCheck, Check,
-  Bell, Users, CheckSquare, Square, Send, Info, Mail, AlertCircle, CheckSquare2
+  Bell, Users, CheckSquare, Square, Send, Info, Mail, AlertCircle, CheckSquare2,
+  Share2, Shield, UserCheck
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import mammoth from 'mammoth';
@@ -29,6 +30,22 @@ export interface SharePointItem {
   organization?: string;
   color?: string;
   description?: string;
+  sharedWith?: string[];
+  sharedWithDetails?: Array<{
+    email: string;
+    fullName?: string;
+    jobFunction?: string;
+    department?: string;
+    organization?: string;
+    permission?: string;
+    sharedAt?: string;
+    sharedBy?: string;
+  }>;
+  sharePermission?: 'view' | 'download' | 'edit';
+  shareNote?: string;
+  lastSharedAt?: string;
+  lastSharedBy?: string;
+  lastSharedByEmail?: string;
 }
 
 export interface DirectoryUser {
@@ -132,6 +149,17 @@ export function SharePoint({ currentUser, activeTenantId, initialFolderId }: Sha
 
   const [deleteTarget, setDeleteTarget] = useState<SharePointItem | null>(null);
 
+  // Document Sharing Modal State (Azure AD & Enterprise Cross-Tenant Collaboration)
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareTargetItem, setShareTargetItem] = useState<SharePointItem | null>(null);
+  const [shareSelectedRecipients, setShareSelectedRecipients] = useState<Set<string>>(new Set());
+  const [shareSearchQuery, setShareSearchQuery] = useState('');
+  const [shareOrgFilter, setShareOrgFilter] = useState<'all' | 'nkangala' | 'mzansi' | 'managers' | 'auditors'>('all');
+  const [sharePermission, setSharePermission] = useState<'view' | 'download' | 'edit'>('view');
+  const [shareNote, setShareNote] = useState('');
+  const [isSharingDocument, setIsSharingDocument] = useState(false);
+  const [shareSuccessToast, setShareSuccessToast] = useState<string | null>(null);
+
   // Universal File Viewer State
   const [previewFile, setPreviewFile] = useState<{
     item: SharePointItem;
@@ -155,7 +183,11 @@ export function SharePoint({ currentUser, activeTenantId, initialFolderId }: Sha
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (previewFile) {
+        if (showShareModal) {
+          setShowShareModal(false);
+          setShareTargetItem(null);
+          setShareSuccessToast(null);
+        } else if (previewFile) {
           handleCloseViewer();
         } else if (showUploadNotifyModal) {
           setShowUploadNotifyModal(false);
@@ -173,7 +205,7 @@ export function SharePoint({ currentUser, activeTenantId, initialFolderId }: Sha
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [previewFile, showUploadNotifyModal, showNotificationsDrawer, showNewFolderModal, renameTarget, deleteTarget]);
+  }, [showShareModal, previewFile, showUploadNotifyModal, showNotificationsDrawer, showNewFolderModal, renameTarget, deleteTarget]);
 
   // Fetch Directory Users from Azure AD & Municipal base
   const fetchDirectoryUsers = async () => {
@@ -183,7 +215,18 @@ export function SharePoint({ currentUser, activeTenantId, initialFolderId }: Sha
       if (res.ok) {
         const data = await res.json();
         if (data.users && Array.isArray(data.users)) {
-          setDirectoryUsers(data.users);
+          const seen = new Set<string>();
+          const deduped: DirectoryUser[] = [];
+          data.users.forEach((u: DirectoryUser) => {
+            const emailKey = (u.email || '').toLowerCase().trim();
+            if (emailKey && !seen.has(emailKey)) {
+              seen.add(emailKey);
+              deduped.push(u);
+            } else if (!emailKey) {
+              deduped.push(u);
+            }
+          });
+          setDirectoryUsers(deduped);
         }
       }
     } catch (err) {
@@ -367,6 +410,9 @@ export function SharePoint({ currentUser, activeTenantId, initialFolderId }: Sha
       // Format Filter
       if (formatFilter !== 'all') {
         if (formatFilter === 'folders') return it.type === 'folder';
+        if (formatFilter === 'shared') {
+          return it.type === 'file' && Array.isArray(it.sharedWith) && it.sharedWith.length > 0;
+        }
         if (it.type === 'folder') return false; // if filtering by file formats, omit folders
         const ext = (it.extension || '').toLowerCase();
         if (formatFilter === 'pdf') return ext === 'pdf';
@@ -550,6 +596,197 @@ export function SharePoint({ currentUser, activeTenantId, initialFolderId }: Sha
       });
       return next;
     });
+  };
+
+  const selectTwentyUploadUsers = () => {
+    setSelectedRecipients(prev => {
+      const next = new Set(prev);
+      const pool = filteredDirectoryUsers.length >= 20 ? filteredDirectoryUsers : directoryUsers;
+      const targets = pool.slice(0, 20);
+      targets.forEach(u => next.add(u.email.toLowerCase().trim()));
+      return next;
+    });
+  };
+
+  const selectOneUploadUser = (email: string) => {
+    setSelectedRecipients(new Set([email.toLowerCase().trim()]));
+  };
+
+  // Open Document Share Modal
+  const handleOpenShareModal = (item: SharePointItem) => {
+    setShareTargetItem(item);
+    setShareSearchQuery('');
+    setShareOrgFilter('all');
+    setSharePermission(item.sharePermission || 'view');
+    setShareNote('');
+    setShareSuccessToast(null);
+
+    const initialRecipients = new Set<string>();
+    if (item.sharedWith && Array.isArray(item.sharedWith)) {
+      item.sharedWith.forEach(e => initialRecipients.add(e.toLowerCase().trim()));
+    }
+    setShareSelectedRecipients(initialRecipients);
+
+    if (directoryUsers.length === 0) {
+      fetchDirectoryUsers();
+    }
+    setShowShareModal(true);
+  };
+
+  const handleCloseShareModal = () => {
+    setShowShareModal(false);
+    setShareTargetItem(null);
+    setShareSuccessToast(null);
+    setShareSelectedRecipients(new Set());
+  };
+
+  // Filtered Directory Users for Share Modal
+  const filteredShareUsers = useMemo(() => {
+    return directoryUsers.filter(u => {
+      if (shareOrgFilter === 'nkangala' && u.organization !== 'nkangaladm.gov.za') return false;
+      if (shareOrgFilter === 'mzansi' && u.organization !== 'mzansiflow.co.za') return false;
+      if (shareOrgFilter === 'managers' && !['manager', 'head', 'lead', 'director', 'cfo', 'supervisor', 'admin'].some(term => 
+        (u.jobFunction || '').toLowerCase().includes(term) || (u.role || '').toLowerCase().includes(term) || (u.systemRole || '').toLowerCase().includes(term)
+      )) return false;
+      if (shareOrgFilter === 'auditors' && !['audit', 'internal control', 'risk', 'compliance', 'analyst', 'pmu'].some(term => 
+        (u.department || '').toLowerCase().includes(term) || (u.jobFunction || '').toLowerCase().includes(term)
+      )) return false;
+
+      if (shareSearchQuery.trim()) {
+        const q = shareSearchQuery.toLowerCase();
+        const match = u.fullName.toLowerCase().includes(q) ||
+                      u.email.toLowerCase().includes(q) ||
+                      (u.department && u.department.toLowerCase().includes(q)) ||
+                      (u.jobFunction && u.jobFunction.toLowerCase().includes(q));
+        if (!match) return false;
+      }
+
+      return true;
+    });
+  }, [directoryUsers, shareOrgFilter, shareSearchQuery]);
+
+  // Share selection toggle
+  const toggleShareUser = (email: string) => {
+    const norm = email.toLowerCase().trim();
+    setShareSelectedRecipients(prev => {
+      const next = new Set(prev);
+      if (next.has(norm)) {
+        next.delete(norm);
+      } else {
+        next.add(norm);
+      }
+      return next;
+    });
+  };
+
+  // Quick 1 User preset: selects just this single user
+  const handleSelect1User = (user: DirectoryUser) => {
+    const norm = user.email.toLowerCase().trim();
+    setShareSelectedRecipients(new Set([norm]));
+  };
+
+  // Quick 20 Users preset: selects up to 20 users from filtered list (or directory)
+  const handleSelectTwentyUsers = () => {
+    setShareSelectedRecipients(prev => {
+      const next = new Set(prev);
+      const pool = filteredShareUsers.length >= 20 ? filteredShareUsers : directoryUsers;
+      const targets = pool.slice(0, 20);
+      targets.forEach(u => next.add(u.email.toLowerCase().trim()));
+      return next;
+    });
+  };
+
+  // Select all Mzansi Flow users
+  const handleSelectAllMzansiUsers = () => {
+    setShareSelectedRecipients(prev => {
+      const next = new Set(prev);
+      directoryUsers.forEach(u => {
+        if (u.organization === 'mzansiflow.co.za') {
+          next.add(u.email.toLowerCase().trim());
+        }
+      });
+      return next;
+    });
+  };
+
+  // Select all Nkangala users
+  const handleSelectAllNkangalaUsers = () => {
+    setShareSelectedRecipients(prev => {
+      const next = new Set(prev);
+      directoryUsers.forEach(u => {
+        if (u.organization === 'nkangaladm.gov.za') {
+          next.add(u.email.toLowerCase().trim());
+        }
+      });
+      return next;
+    });
+  };
+
+  // Select all filtered users
+  const handleSelectAllFilteredShare = () => {
+    setShareSelectedRecipients(prev => {
+      const next = new Set(prev);
+      filteredShareUsers.forEach(u => next.add(u.email.toLowerCase().trim()));
+      return next;
+    });
+  };
+
+  // Clear selections
+  const handleClearShareSelections = () => {
+    setShareSelectedRecipients(new Set());
+  };
+
+  // Submit sharing
+  const handleShareDocumentSubmit = async () => {
+    if (!shareTargetItem) return;
+    if (shareSelectedRecipients.size === 0) {
+      alert("Please select at least 1 user to share this document with.");
+      return;
+    }
+
+    try {
+      setIsSharingDocument(true);
+      const recipientList = Array.from(shareSelectedRecipients);
+      const res = await fetch('/api/sharepoint/share-document', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          itemId: shareTargetItem.id,
+          recipientEmails: recipientList,
+          sharedBy: currentUser.fullName || currentUser.email.split('@')[0],
+          sharedByEmail: currentUser.email,
+          permission: sharePermission,
+          note: shareNote
+        })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Failed to share document.');
+      }
+
+      const data = await res.json();
+      if (data.items) {
+        setItems(data.items);
+      } else if (data.item) {
+        setItems(prev => prev.map(it => it.id === data.item.id ? data.item : it));
+      }
+
+      const count = recipientList.length;
+      setShareSuccessToast(`Successfully shared "${shareTargetItem.name}" with ${count} user${count === 1 ? '' : 's'}!`);
+      fetchNotifications();
+
+      setTimeout(() => {
+        setShowShareModal(false);
+        setShareTargetItem(null);
+        setShareSuccessToast(null);
+      }, 1500);
+    } catch (err: any) {
+      console.error('Error sharing document:', err);
+      alert(err.message || 'Error sharing document.');
+    } finally {
+      setIsSharingDocument(false);
+    }
   };
 
   // Handle Drag & Drop Uploads
@@ -1242,6 +1479,7 @@ export function SharePoint({ currentUser, activeTenantId, initialFolderId }: Sha
                 className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-300 font-semibold focus:outline-none focus:border-emerald-500 cursor-pointer"
               >
                 <option value="all">All Formats</option>
+                <option value="shared">Shared Documents</option>
                 <option value="folders">Folders Only</option>
                 <option value="pdf">PDF Documents</option>
                 <option value="excel">Excel & Spreadsheets</option>
@@ -1461,6 +1699,18 @@ export function SharePoint({ currentUser, activeTenantId, initialFolderId }: Sha
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
+                              handleOpenShareModal(item);
+                            }}
+                            title="Share Document with Azure AD & Enterprise Users"
+                            className="p-1 rounded bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                          >
+                            <Share2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {item.type === 'file' && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
                               handleOpenFile(item);
                             }}
                             title="View Actual Document"
@@ -1516,6 +1766,39 @@ export function SharePoint({ currentUser, activeTenantId, initialFolderId }: Sha
                         <p className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">
                           {item.description}
                         </p>
+                      )}
+
+                      {/* File Shared Badge */}
+                      {item.type === 'file' && (
+                        <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                          {item.sharedWith && item.sharedWith.length > 0 ? (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenShareModal(item);
+                              }}
+                              title={`Shared with ${item.sharedWith.length} user(s)`}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/15 text-blue-300 border border-blue-500/30 hover:bg-blue-500/25 transition-all cursor-pointer"
+                            >
+                              <Users className="w-3 h-3 text-blue-400" />
+                              <span>Shared ({item.sharedWith.length})</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenShareModal(item);
+                              }}
+                              title="Share this document with 1 or 20 users"
+                              className="inline-flex items-center gap-1 text-[10px] text-slate-500 hover:text-blue-400 font-medium transition-colors cursor-pointer"
+                            >
+                              <Share2 className="w-2.5 h-2.5" />
+                              <span>Share</span>
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
 
@@ -1599,6 +1882,36 @@ export function SharePoint({ currentUser, activeTenantId, initialFolderId }: Sha
                                   {item.description}
                                 </p>
                               )}
+                              {item.type === 'file' && (
+                                <div className="mt-1 flex items-center gap-2">
+                                  {item.sharedWith && item.sharedWith.length > 0 ? (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleOpenShareModal(item);
+                                      }}
+                                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-300 border border-blue-500/20 hover:bg-blue-500/20 transition-colors cursor-pointer"
+                                      title={`Shared with: ${item.sharedWith.join(', ')}`}
+                                    >
+                                      <Users className="w-3 h-3 text-blue-400" />
+                                      <span>Shared with {item.sharedWith.length} user{item.sharedWith.length === 1 ? '' : 's'}</span>
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleOpenShareModal(item);
+                                      }}
+                                      className="inline-flex items-center gap-1 text-[10px] text-slate-500 hover:text-blue-400 font-medium transition-colors cursor-pointer"
+                                    >
+                                      <Share2 className="w-2.5 h-2.5" />
+                                      <span>Share</span>
+                                    </button>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </td>
@@ -1638,6 +1951,16 @@ export function SharePoint({ currentUser, activeTenantId, initialFolderId }: Sha
                         {/* Actions */}
                         <td className="py-3 px-4 text-right">
                           <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                            {item.type === 'file' && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenShareModal(item)}
+                                title="Share Document with Azure AD & Enterprise Users"
+                                className="p-1.5 rounded-lg bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                              >
+                                <Share2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                             {item.type === 'file' && (
                               <button
                                 onClick={() => handleOpenFile(item)}
@@ -2035,7 +2358,27 @@ export function SharePoint({ currentUser, activeTenantId, initialFolderId }: Sha
                           Directory Filter:
                         </span>
 
-                        <div className="flex items-center gap-1 text-xs">
+                        <div className="flex flex-wrap items-center gap-1 text-xs">
+                          <button
+                            type="button"
+                            onClick={selectTwentyUploadUsers}
+                            className="px-2 py-0.5 rounded bg-blue-900/50 hover:bg-blue-800 text-blue-300 text-[11px] font-semibold transition-colors cursor-pointer border border-blue-700/50"
+                            title="Select up to 20 users"
+                          >
+                            20 Users
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (filteredDirectoryUsers.length > 0) {
+                                selectOneUploadUser(filteredDirectoryUsers[0].email);
+                              }
+                            }}
+                            className="px-2 py-0.5 rounded bg-emerald-900/50 hover:bg-emerald-800 text-emerald-300 text-[11px] font-semibold transition-colors cursor-pointer border border-emerald-700/50"
+                            title="Select 1 user"
+                          >
+                            1 User
+                          </button>
                           <button
                             type="button"
                             onClick={selectAllFilteredUsers}
@@ -2155,13 +2498,13 @@ export function SharePoint({ currentUser, activeTenantId, initialFolderId }: Sha
                           No users matched your directory filter or search criteria.
                         </div>
                       ) : (
-                        filteredDirectoryUsers.map((u) => {
+                        filteredDirectoryUsers.map((u, idx) => {
                           const isSelected = selectedRecipients.has(u.email.toLowerCase().trim());
                           const isNkangala = u.organization === 'nkangaladm.gov.za';
                           
                           return (
                             <div
-                              key={u.id || u.email}
+                              key={u.id ? `dir-user-${u.id}-${idx}` : `dir-user-${u.email || 'user'}-${idx}`}
                               onClick={() => toggleUserSelection(u.email)}
                               className={`flex items-center justify-between gap-3 p-2.5 rounded-xl border transition-all cursor-pointer ${
                                 isSelected
@@ -2442,6 +2785,539 @@ export function SharePoint({ currentUser, activeTenantId, initialFolderId }: Sha
       )}
 
       {/* ========================================================================= */}
+      {/* SHAREPOINT DOCUMENT SHARING MODAL (AZURE AD & ENTERPRISE CROSS-TENANT)     */}
+      {/* ========================================================================= */}
+      {showShareModal && shareTargetItem && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-150">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl max-w-3xl w-full max-h-[92vh] flex flex-col overflow-hidden">
+            
+            {/* Header */}
+            <div className="px-6 py-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-blue-950/50 shrink-0">
+                  <Share2 className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-base font-bold text-white truncate flex items-center gap-2">
+                    <span>Share Document</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full font-mono font-medium bg-blue-500/10 text-blue-300 border border-blue-500/20">
+                      Azure AD & Mzansi Flow
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-400 truncate">
+                    Collaborate with 1 user, 20 users, or cross-tenant teams
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleCloseShareModal}
+                className="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                title="Close (Esc)"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Success Toast */}
+            {shareSuccessToast && (
+              <div className="bg-emerald-950/80 border-b border-emerald-500/40 px-6 py-3 flex items-center gap-2 text-xs text-emerald-200 animate-in fade-in duration-200">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span className="font-bold">{shareSuccessToast}</span>
+              </div>
+            )}
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+
+              {/* Target Document Card */}
+              <div className="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center border shrink-0 ${getFileFormatBadge(shareTargetItem).color}`}>
+                    {React.createElement(getFileFormatBadge(shareTargetItem).icon, { className: 'w-4 h-4' })}
+                  </div>
+                  <div className="min-w-0">
+                    <h4 className="text-xs font-bold text-slate-100 truncate">{shareTargetItem.name}</h4>
+                    <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono">
+                      <span>{formatBytes(shareTargetItem.size || 0)}</span>
+                      <span>•</span>
+                      <span>Format: {shareTargetItem.extension?.toUpperCase() || 'FILE'}</span>
+                      <span>•</span>
+                      <span>Owner: {shareTargetItem.createdBy || 'System'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-right shrink-0">
+                  <span className="text-[10px] text-slate-400 block font-mono">Sharing As</span>
+                  <span className="text-xs font-bold text-emerald-400">
+                    {currentUser.email?.includes('nkangala') ? '🏛️ @nkangaladm.gov.za' : '⚡ @mzansiflow.co.za'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Vice-Versa Cross-Tenant Banner */}
+              <div className="p-3 rounded-xl border transition-all bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 border-slate-800">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-indigo-500/20 text-indigo-300 flex items-center justify-center shrink-0">
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h5 className="text-xs font-bold text-slate-200">
+                        Cross-Tenant Active Directory Directory
+                      </h5>
+                      <p className="text-[11px] text-slate-400">
+                        {currentUser.email?.includes('nkangala')
+                          ? 'As an @nkangaladm.gov.za user, you can view and share with all @mzansiflow.co.za users.'
+                          : 'As an @mzansiflow.co.za user, you can search and share with all 740+ @nkangaladm.gov.za Azure Active Directory users.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setShareOrgFilter(shareOrgFilter === 'mzansi' ? 'all' : 'mzansi')}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 border ${
+                        shareOrgFilter === 'mzansi'
+                          ? 'bg-teal-600 text-white border-teal-500 shadow-sm'
+                          : 'bg-slate-800 hover:bg-slate-700 text-teal-300 border-slate-700'
+                      }`}
+                    >
+                      <Cloud className="w-3.5 h-3.5 text-teal-400" />
+                      <span>@mzansiflow.co.za ({directoryUsers.filter(u => u.organization === 'mzansiflow.co.za').length})</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShareOrgFilter(shareOrgFilter === 'nkangala' ? 'all' : 'nkangala')}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 border ${
+                        shareOrgFilter === 'nkangala'
+                          ? 'bg-blue-600 text-white border-blue-500 shadow-sm'
+                          : 'bg-slate-800 hover:bg-slate-700 text-blue-300 border-slate-700'
+                      }`}
+                    >
+                      <Building2 className="w-3.5 h-3.5 text-blue-400" />
+                      <span>@nkangaladm.gov.za ({directoryUsers.filter(u => u.organization === 'nkangaladm.gov.za').length})</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Directory Filter Tabs */}
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setShareOrgFilter('all')}
+                      className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        shareOrgFilter === 'all'
+                          ? 'bg-blue-600 text-white shadow-sm'
+                          : 'bg-slate-800 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      All Users ({directoryUsers.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShareOrgFilter('nkangala')}
+                      className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 cursor-pointer ${
+                        shareOrgFilter === 'nkangala'
+                          ? 'bg-blue-600 text-white shadow-sm'
+                          : 'bg-slate-800 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <Building2 className="w-3 h-3 text-blue-400" />
+                      <span>Nkangala Azure AD ({directoryUsers.filter(u => u.organization === 'nkangaladm.gov.za').length})</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShareOrgFilter('mzansi')}
+                      className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 cursor-pointer ${
+                        shareOrgFilter === 'mzansi'
+                          ? 'bg-teal-600 text-white shadow-sm'
+                          : 'bg-slate-800 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <Cloud className="w-3 h-3 text-teal-400" />
+                      <span>Mzansi Flow Team ({directoryUsers.filter(u => u.organization === 'mzansiflow.co.za').length})</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShareOrgFilter('managers')}
+                      className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        shareOrgFilter === 'managers'
+                          ? 'bg-purple-600 text-white shadow-sm'
+                          : 'bg-slate-800 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Managers & Directors
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShareOrgFilter('auditors')}
+                      className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        shareOrgFilter === 'auditors'
+                          ? 'bg-amber-600 text-white shadow-sm'
+                          : 'bg-slate-800 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Auditors & PMU
+                    </button>
+                  </div>
+                </div>
+
+                {/* Azure Active Directory Search Bar */}
+                <div className="relative">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search Azure Active Directory by user name, @mzansiflow.co.za, @nkangaladm.gov.za, department..."
+                    value={shareSearchQuery}
+                    onChange={(e) => setShareSearchQuery(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-8 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500 shadow-inner"
+                  />
+                  {shareSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setShareSearchQuery('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Quick Selection Buttons (1 user, 20 users, all) */}
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-400">
+                      Showing <strong className="text-slate-200">{filteredShareUsers.length}</strong> users
+                    </span>
+                    <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold border ${
+                      shareSelectedRecipients.size > 0
+                        ? 'bg-blue-500/15 text-blue-300 border-blue-500/30'
+                        : 'bg-slate-800 text-slate-400 border-slate-700'
+                    }`}>
+                      {shareSelectedRecipients.size === 0
+                        ? '0 users selected'
+                        : `${shareSelectedRecipients.size} user${shareSelectedRecipients.size === 1 ? '' : 's'} selected`}
+                    </span>
+                  </div>
+
+                  {/* Preset Buttons */}
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                    <button
+                      type="button"
+                      onClick={handleSelectTwentyUsers}
+                      className="px-2.5 py-1 rounded-lg bg-blue-900/40 hover:bg-blue-800 text-blue-300 hover:text-white border border-blue-700/50 font-semibold transition-all cursor-pointer shadow-sm"
+                      title="Quickly select up to 20 users"
+                    >
+                      🎯 Select 20 Users
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (filteredShareUsers.length > 0) {
+                          handleSelect1User(filteredShareUsers[0]);
+                        }
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-emerald-900/40 hover:bg-emerald-800 text-emerald-300 hover:text-white border border-emerald-700/50 font-semibold transition-all cursor-pointer shadow-sm"
+                      title="Quickly select 1 user"
+                    >
+                      ⚡ Select 1 User
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSelectAllMzansiUsers}
+                      className="px-2.5 py-1 rounded-lg bg-teal-900/40 hover:bg-teal-800 text-teal-300 hover:text-white border border-teal-700/50 font-semibold transition-all cursor-pointer shadow-sm"
+                    >
+                      ☁️ All Mzansi Flow
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSelectAllNkangalaUsers}
+                      className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 font-semibold transition-all cursor-pointer shadow-sm"
+                    >
+                      🏛️ All Nkangala DM
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSelectAllFilteredShare}
+                      className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold transition-all cursor-pointer border border-slate-700"
+                    >
+                      Select All Filtered
+                    </button>
+                    {shareSelectedRecipients.size > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleClearShareSelections}
+                        className="px-2.5 py-1 rounded-lg bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/40 font-semibold transition-all cursor-pointer"
+                      >
+                        Clear All
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Selected Users Chips Carousel */}
+                {shareSelectedRecipients.size > 0 && (
+                  <div className="p-2.5 bg-slate-950/90 border border-blue-900/40 rounded-xl space-y-1.5">
+                    <div className="flex items-center justify-between text-[11px] text-slate-400">
+                      <span className="font-bold text-slate-300 flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5 text-blue-400" />
+                        Selected Recipients ({shareSelectedRecipients.size}):
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleClearShareSelections}
+                        className="text-slate-400 hover:text-rose-400 transition-colors"
+                      >
+                        Deselect all
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1">
+                      {Array.from(shareSelectedRecipients).map((email, idx) => {
+                        const userObj = directoryUsers.find(u => u.email.toLowerCase().trim() === email);
+                        const displayName = userObj?.fullName || email.split('@')[0];
+                        const isNkangala = email.includes('nkangala') || email.endsWith('.gov.za');
+
+                        return (
+                          <span
+                            key={`share-chip-${email}-${idx}`}
+                            className={`inline-flex items-center gap-1.5 pl-2 pr-1.5 py-0.5 rounded-lg text-[11px] font-semibold border ${
+                              isNkangala
+                                ? 'bg-blue-950/60 text-blue-200 border-blue-700/40'
+                                : 'bg-teal-950/60 text-teal-200 border-teal-700/40'
+                            }`}
+                          >
+                            <span>{displayName}</span>
+                            <span className="text-[9px] text-slate-400 font-mono">
+                              ({isNkangala ? '🏛️ Nkangala' : '⚡ Mzansi'})
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => toggleShareUser(email)}
+                              className="w-3.5 h-3.5 rounded hover:bg-black/30 flex items-center justify-center text-slate-400 hover:text-white"
+                            >
+                              <X className="w-2.5 h-2.5" />
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Directory Users Selection List */}
+                <div className="max-h-60 overflow-y-auto space-y-1.5 pr-1 border border-slate-800 rounded-xl p-2 bg-slate-950/60">
+                  {loadingDirectoryUsers ? (
+                    <div className="flex items-center justify-center py-8 gap-2 text-slate-400 text-xs">
+                      <RefreshCw className="w-4 h-4 animate-spin text-blue-400" />
+                      <span>Loading Azure Active Directory...</span>
+                    </div>
+                  ) : filteredShareUsers.length === 0 ? (
+                    <div className="py-8 text-center text-slate-400 text-xs">
+                      No directory users matched your search or filter.
+                    </div>
+                  ) : (
+                    filteredShareUsers.map((u, idx) => {
+                      const isSelected = shareSelectedRecipients.has(u.email.toLowerCase().trim());
+                      const isNkangala = u.organization === 'nkangaladm.gov.za';
+
+                      return (
+                        <div
+                          key={u.id ? `share-user-${u.id}-${idx}` : `share-user-${u.email || 'user'}-${idx}`}
+                          onClick={() => toggleShareUser(u.email)}
+                          className={`flex items-center justify-between gap-3 p-2.5 rounded-xl border transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-blue-950/40 border-blue-500/50 text-white shadow-sm'
+                              : 'bg-slate-900/80 border-slate-800/80 text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            {/* Checkbox */}
+                            <div
+                              className={`w-5 h-5 rounded flex items-center justify-center border shrink-0 ${
+                                isSelected
+                                  ? 'bg-blue-600 border-blue-500 text-white'
+                                  : 'border-slate-700 bg-slate-950 text-transparent'
+                              }`}
+                            >
+                              <Check className="w-3.5 h-3.5 stroke-[3]" />
+                            </div>
+
+                            {/* User Avatar */}
+                            <div className={`w-8 h-8 rounded-lg font-bold text-xs flex items-center justify-center shrink-0 border ${
+                              isNkangala
+                                ? 'bg-blue-950 text-blue-300 border-blue-700/50'
+                                : 'bg-teal-950 text-teal-300 border-teal-700/50'
+                            }`}>
+                              {u.fullName.charAt(0) || 'U'}
+                            </div>
+
+                            {/* User Details */}
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 truncate">
+                                <span className="font-bold text-xs text-slate-100 truncate">{u.fullName}</span>
+                                <span
+                                  className={`px-1.5 py-0.2 text-[9px] font-bold rounded-full border ${
+                                    isNkangala
+                                      ? 'bg-blue-500/10 text-blue-300 border-blue-500/20'
+                                      : 'bg-teal-500/10 text-teal-300 border-teal-500/20'
+                                  }`}
+                                >
+                                  {isNkangala ? '🏛️ Nkangala Azure AD' : '⚡ Mzansi Flow Team'}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 text-[10px] text-slate-400 truncate">
+                                <span className="font-mono text-slate-300">{u.email}</span>
+                                {u.jobFunction && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="text-slate-300 truncate">{u.jobFunction}</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Right Side: Department & Quick 1-User Pick */}
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-[10px] font-mono text-slate-400 hidden sm:inline-block max-w-[130px] truncate">
+                              {u.department || 'General'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSelect1User(u);
+                              }}
+                              className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white border border-slate-700 transition-colors"
+                              title="Select only this 1 user"
+                            >
+                              Solo 1-User
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Permissions & Communique Note */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+                  
+                  {/* Permission selector */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                      Access Permission
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setSharePermission('view')}
+                        className={`p-2 rounded-xl border text-center text-xs font-bold transition-all cursor-pointer ${
+                          sharePermission === 'view'
+                            ? 'bg-blue-600 text-white border-blue-400 shadow-md'
+                            : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+                        }`}
+                      >
+                        <Eye className="w-3.5 h-3.5 mx-auto mb-1 text-blue-300" />
+                        <span>Can View</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSharePermission('download')}
+                        className={`p-2 rounded-xl border text-center text-xs font-bold transition-all cursor-pointer ${
+                          sharePermission === 'download'
+                            ? 'bg-blue-600 text-white border-blue-400 shadow-md'
+                            : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+                        }`}
+                      >
+                        <Download className="w-3.5 h-3.5 mx-auto mb-1 text-emerald-300" />
+                        <span>Download</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSharePermission('edit')}
+                        className={`p-2 rounded-xl border text-center text-xs font-bold transition-all cursor-pointer ${
+                          sharePermission === 'edit'
+                            ? 'bg-blue-600 text-white border-blue-400 shadow-md'
+                            : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+                        }`}
+                      >
+                        <Edit3 className="w-3.5 h-3.5 mx-auto mb-1 text-purple-300" />
+                        <span>Can Edit</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Share Note / Communique Message */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                      Optional Share Note / Communique
+                    </label>
+                    <textarea
+                      rows={2}
+                      placeholder="e.g. Please review the municipal SDBIP quarterly portfolio attachment..."
+                      value={shareNote}
+                      onChange={(e) => setShareNote(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500 resize-none"
+                    />
+                  </div>
+
+                </div>
+
+              </div>
+
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 bg-slate-950 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={handleCloseShareModal}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                disabled={isSharingDocument || shareSelectedRecipients.size === 0}
+                onClick={handleShareDocumentSubmit}
+                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold transition-all shadow-md shadow-blue-950/50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSharingDocument ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Sharing Document...</span>
+                  </>
+                ) : (
+                  <>
+                    <Share2 className="w-4 h-4" />
+                    <span>
+                      {shareSelectedRecipients.size === 0
+                        ? 'Select Recipients to Share'
+                        : shareSelectedRecipients.size === 1
+                        ? 'Share Document with 1 User'
+                        : shareSelectedRecipients.size === 20
+                        ? 'Share Document with 20 Users'
+                        : `Share Document (${shareSelectedRecipients.size} Users)`}
+                    </span>
+                  </>
+                )}
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
       {/* ACTUAL IN-SYSTEM DOCUMENT VIEWER (WORD DOCX, EXCEL SPREADSHEET, PDF)      */}
       {/* ========================================================================= */}
       {previewFile && (
@@ -2518,6 +3394,17 @@ export function SharePoint({ currentUser, activeTenantId, initialFolderId }: Sha
                   )}
                 </div>
               )}
+
+              {/* Share Document in Viewer */}
+              <button
+                type="button"
+                onClick={() => handleOpenShareModal(previewFile.item)}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all shadow-sm cursor-pointer"
+                title="Share this document with 1 or 20 users"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                <span>Share Document</span>
+              </button>
 
               <button
                 onClick={() => handleDownloadFile(previewFile.item)}

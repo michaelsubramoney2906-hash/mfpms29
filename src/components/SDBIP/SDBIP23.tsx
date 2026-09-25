@@ -966,8 +966,8 @@ export function SDBIP23({ currentUser, activeTenantId, onClose }: SDBIP23Props) 
             className="w-full bg-transparent text-xs text-slate-700 font-semibold focus:outline-none cursor-pointer"
           >
             <option value="ALL">All Users ({userList.length})</option>
-            {userList.map(u => (
-              <option key={u.email} value={u.email}>
+            {userList.map((u, idx) => (
+              <option key={u.id ? `${u.id}-${idx}` : `${u.email || 'user'}-${idx}`} value={u.email}>
                 {u.fullName || u.email} {u.department ? `(${u.department})` : ''}
               </option>
             ))}

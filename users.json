@@ -320,22 +320,6 @@
     "managerEmail": ""
   },
   {
-    "id": "user-audrey-mzansiflow-t229",
-    "fullName": "Audrey",
-    "email": "audrey@mzansiflow.co.za",
-    "jobFunction": "Senior Internal Auditor",
-    "department": "Internal Audit",
-    "source": "manual",
-    "role": "Auditor",
-    "tenantId": "tenant-229",
-    "manager": "",
-    "directorate": "",
-    "reportTo": "",
-    "level": "1",
-    "signatureType": "draw",
-    "managerEmail": ""
-  },
-  {
     "id": "5bd5c8eb-3a58-45f7-829f-3b6c4449d58b",
     "fullName": "ECMS",
     "email": "",
@@ -992,22 +976,6 @@
     "managerEmail": ""
   },
   {
-    "id": "user-marlan-mzansiflow-t229",
-    "fullName": "Marlan",
-    "email": "marlan@mzansiflow.co.za",
-    "jobFunction": "DPMC Committee Chairperson",
-    "department": "Performance Moderation",
-    "source": "manual",
-    "role": "Standard User",
-    "tenantId": "tenant-229",
-    "manager": "",
-    "directorate": "",
-    "reportTo": "",
-    "level": "1",
-    "signatureType": "draw",
-    "managerEmail": ""
-  },
-  {
     "id": "user-qiniso-mzansiflow-t229",
     "fullName": "Qiniso",
     "email": "qiniso@mzansiflow.co.za",
@@ -1263,22 +1231,6 @@
     "level": "1",
     "signatureType": "draw",
     "managerEmail": ""
-  },
-  {
-    "id": "user-qiniso-mzansiflow-auto",
-    "fullName": "Qiniso",
-    "email": "qiniso@mzansiflow.co.za",
-    "jobFunction": "Strategic Planning Officer",
-    "department": "Strategic Planning",
-    "source": "manual",
-    "role": "Standard User",
-    "tenantId": "tenant-229",
-    "manager": "Audrey",
-    "directorate": "",
-    "reportTo": "",
-    "level": "1",
-    "signatureType": "draw",
-    "managerEmail": "audrey@mzansiflow.co.za"
   },
   {
     "id": "61412166-ca86-43af-8b2b-70bf823f942a",
