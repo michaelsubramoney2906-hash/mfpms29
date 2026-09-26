@@ -2156,7 +2156,7 @@ Timestamp: ${new Date().toLocaleString()}
     document.body.removeChild(link);
   };
 
-  const renderQuarterWorkflowCell = (row: SdbipRow, phase: 'q1' | 'q2' | 'midTerm' | 'q3' | 'q4' | 'annual') => {
+  const renderQuarterWorkflowCell = (row: SdbipRow, phase: 'q1' | 'q2' | 'midTerm' | 'q3' | 'q4' | 'annual', isLocked = false) => {
     const targetVal = 
       phase === 'q1' ? row.q1 :
       phase === 'q2' ? row.q2 :
@@ -2185,6 +2185,52 @@ Timestamp: ${new Date().toLocaleString()}
     const wf = row.workflows?.[phase] || { status: 'draft' };
     const status = wf.status || 'draft';
     const submitterName = currentUser.fullName || currentUser.email.split('@')[0];
+
+    if (isLocked) {
+      return (
+        <div className="flex flex-col items-center gap-1.5 py-1.5 min-w-[140px] select-none">
+          {/* Current Badge */}
+          {status === 'approved' && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-emerald-50 text-emerald-700 border-emerald-200 shadow-xs">
+              <CheckCircle className="w-2.5 h-2.5" /> Approved
+            </span>
+          )}
+          {status === 'pending_approval' && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-amber-50 text-amber-700 border-amber-200 shadow-xs">
+              <Clock className="w-2.5 h-2.5" /> Pend. Appr.
+            </span>
+          )}
+          {status === 'pending_review' && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-violet-50 text-violet-700 border-violet-200 shadow-xs">
+              <Clock className="w-2.5 h-2.5" /> Pend. Rev.
+            </span>
+          )}
+          {status === 'pending_audit' && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-rose-50 text-rose-700 border-rose-200 shadow-xs">
+              <ShieldCheck className="w-2.5 h-2.5" /> Pend. Audit
+            </span>
+          )}
+          {status === 'draft' && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-slate-100 text-slate-600 border-slate-200 shadow-xs">
+              <FileText className="w-2.5 h-2.5" /> Draft
+            </span>
+          )}
+
+          <div 
+            className="flex flex-col items-center justify-center gap-0.5 w-full max-w-[135px] mt-1 bg-slate-100/90 border border-slate-200 p-1.5 rounded text-center shadow-2xs cursor-not-allowed" 
+            title={`${phaseLabel} Workflow Control is Locked`}
+          >
+            <div className="flex items-center justify-center gap-1 text-[9px] font-bold text-slate-500">
+              <Lock className="w-2.5 h-2.5 text-amber-500" />
+              <span>Workflow Locked</span>
+            </div>
+            <span className="text-[8px] text-slate-400 font-medium leading-tight">
+              Action controls locked
+            </span>
+          </div>
+        </div>
+      );
+    }
     
     return (
       <div className="flex flex-col items-center gap-1.5 py-1.5 min-w-[140px]">
@@ -4719,41 +4765,176 @@ Timestamp: ${new Date().toLocaleString()}
                     <th className="p-3 border-r border-slate-200 w-72 sticky top-0 z-20 bg-indigo-300 text-indigo-955 border-b-2 border-indigo-400">Q1 CORRECTIVE MEASURE</th>
                     <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-indigo-400 text-indigo-955 font-bold text-center border-b-2 border-indigo-500">Q1 WORKFLOW CONTROL</th>
 
-                    {/* Q2 Reporting */}
-                    <th className="p-3 border-r border-slate-200 w-44 sticky top-0 z-20 bg-teal-50 text-teal-955 font-bold text-center border-b-2 border-teal-200">Q2 EXPENDITURE</th>
-                    <th className="p-3 border-r border-slate-200 w-56 sticky top-0 z-20 bg-blue-50 text-blue-955 font-bold text-center">Q2 POE</th>
-                    <th className="p-3 border-r border-slate-200 w-28 sticky top-0 z-20 bg-blue-50 text-blue-900 text-center">Q2 TARGET</th>
-                    <th className="p-3 border-r border-slate-200 w-56 sticky top-0 z-20 bg-blue-100 text-blue-900 border-b-2 border-blue-200">Q2 ACTUAL</th>
-                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-blue-200 text-blue-955 border-b-2 border-blue-300">Q2 VARIANCE</th>
-                    <th className="p-3 border-r border-slate-200 w-72 sticky top-0 z-20 bg-blue-300 text-blue-955 border-b-2 border-blue-400">Q2 CORRECTIVE MEASURE</th>
-                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-blue-400 text-blue-955 font-bold text-center border-b-2 border-blue-500">Q2 WORKFLOW CONTROL</th>
+                    {/* Q2 Reporting (Locked) */}
+                    <th className="p-3 border-r border-slate-200 w-44 sticky top-0 z-20 bg-slate-200/90 text-slate-700 font-bold text-center border-b-2 border-slate-300">
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Q2 EXPENDITURE</span>
+                        <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                      </div>
+                    </th>
+                    <th className="p-3 border-r border-slate-200 w-56 sticky top-0 z-20 bg-slate-200/90 text-slate-700 font-bold text-center border-b-2 border-slate-300">
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Q2 POE</span>
+                        <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                      </div>
+                    </th>
+                    <th className="p-3 border-r border-slate-200 w-28 sticky top-0 z-20 bg-slate-200/90 text-slate-700 font-bold text-center border-b-2 border-slate-300">
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Q2 TARGET</span>
+                        <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                      </div>
+                    </th>
+                    <th className="p-3 border-r border-slate-200 w-56 sticky top-0 z-20 bg-slate-200/90 text-slate-700 font-bold text-center border-b-2 border-slate-300">
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Q2 ACTUAL</span>
+                        <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                      </div>
+                    </th>
+                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-slate-200/90 text-slate-700 font-bold text-center border-b-2 border-slate-300">
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Q2 VARIANCE</span>
+                        <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                      </div>
+                    </th>
+                    <th className="p-3 border-r border-slate-200 w-72 sticky top-0 z-20 bg-slate-200/90 text-slate-700 font-bold text-center border-b-2 border-slate-300">
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Q2 CORRECTIVE MEASURE</span>
+                        <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                      </div>
+                    </th>
+                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-slate-200/90 text-slate-700 font-bold text-center border-b-2 border-slate-300">
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Q2 WORKFLOW CONTROL</span>
+                        <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                      </div>
+                    </th>
 
-                    {/* Mid Term Reporting */}
+                    {/* Mid Term Reporting (Locked) */}
                     <th className="p-3 border-r border-slate-200 w-44 sticky top-0 z-20 bg-teal-50 text-teal-955 font-bold text-center border-b-2 border-teal-200">MID TERM EXPENDITURE</th>
-                    <th className="p-3 border-r border-slate-200 w-56 sticky top-0 z-20 bg-emerald-50 text-emerald-955 font-bold text-center border-b-2 border-emerald-200">MID TERM POE</th>
-                    <th className="p-3 border-r border-slate-200 w-32 sticky top-0 z-20 bg-emerald-50 text-emerald-900 border-b-2 border-emerald-100">MID TERM TARGET</th>
-                    <th className="p-3 border-r border-slate-200 w-56 sticky top-0 z-20 bg-emerald-100 text-emerald-900 border-b-2 border-emerald-200">MID TERM ACTUAL</th>
-                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-emerald-200 text-emerald-900 border-b-2 border-emerald-300">MID TERM VARIANCE</th>
-                    <th className="p-3 border-r border-slate-200 w-72 sticky top-0 z-20 bg-emerald-300 text-emerald-955 border-b-2 border-emerald-400">MID TERM CORRECTIVE MEASURE</th>
-                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-emerald-400 text-emerald-955 font-bold text-center border-b-2 border-emerald-500">MID-TERM WORKFLOW CONTROL</th>
+                    <th className="p-3 border-r border-slate-200 w-56 sticky top-0 z-20 bg-slate-200/90 text-slate-700 font-bold text-center border-b-2 border-slate-300">
+                      <div className="flex items-center justify-center gap-1">
+                        <span>MID TERM POE</span>
+                        <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                      </div>
+                    </th>
+                    <th className="p-3 border-r border-slate-200 w-32 sticky top-0 z-20 bg-slate-200/90 text-slate-700 font-bold text-center border-b-2 border-slate-300">
+                      <div className="flex items-center justify-center gap-1">
+                        <span>MID TERM TARGET</span>
+                        <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                      </div>
+                    </th>
+                    <th className="p-3 border-r border-slate-200 w-56 sticky top-0 z-20 bg-slate-200/90 text-slate-700 font-bold text-center border-b-2 border-slate-300">
+                      <div className="flex items-center justify-center gap-1">
+                        <span>MID TERM ACTUAL</span>
+                        <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                      </div>
+                    </th>
+                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-slate-200/90 text-slate-700 font-bold text-center border-b-2 border-slate-300">
+                      <div className="flex items-center justify-center gap-1">
+                        <span>MID TERM VARIANCE</span>
+                        <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                      </div>
+                    </th>
+                    <th className="p-3 border-r border-slate-200 w-72 sticky top-0 z-20 bg-slate-200/90 text-slate-700 font-bold text-center border-b-2 border-slate-300">
+                      <div className="flex items-center justify-center gap-1">
+                        <span>MID TERM CORRECTIVE MEASURE</span>
+                        <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                      </div>
+                    </th>
+                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-slate-200/90 text-slate-700 font-bold text-center border-b-2 border-slate-300">
+                      <div className="flex items-center justify-center gap-1">
+                        <span>MID-TERM WORKFLOW CONTROL</span>
+                        <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                      </div>
+                    </th>
 
-                    {/* Q3 Reporting */}
-                    <th className="p-3 border-r border-slate-200 w-44 sticky top-0 z-20 bg-teal-50 text-teal-955 font-bold text-center border-b-2 border-teal-200">Q3 EXPENDITURE</th>
-                    <th className="p-3 border-r border-slate-200 w-56 sticky top-0 z-20 bg-amber-50 text-amber-955 font-bold text-center">Q3 POE</th>
-                    <th className="p-3 border-r border-slate-200 w-28 sticky top-0 z-20 bg-amber-50 text-amber-900 text-center">Q3 TARGET</th>
-                    <th className="p-3 border-r border-slate-200 w-56 sticky top-0 z-20 bg-amber-100 text-amber-900 border-b-2 border-amber-200">Q3 ACTUAL</th>
-                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-amber-200 text-amber-955 border-b-2 border-amber-300">Q3 VARIANCE</th>
-                    <th className="p-3 border-r border-slate-200 w-72 sticky top-0 z-20 bg-amber-300 text-amber-955 border-b-2 border-amber-400">Q3 CORRECTIVE MEASURE</th>
-                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-amber-400 text-amber-955 font-bold text-center border-b-2 border-amber-500">Q3 WORKFLOW CONTROL</th>
+                    {/* Q3 Reporting (Locked) */}
+                    <th className="p-3 border-r border-slate-200 w-44 sticky top-0 z-20 bg-slate-200/90 text-slate-700 font-bold text-center border-b-2 border-slate-300">
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Q3 EXPENDITURE</span>
+                        <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                      </div>
+                    </th>
+                    <th className="p-3 border-r border-slate-200 w-56 sticky top-0 z-20 bg-slate-200/90 text-slate-700 font-bold text-center border-b-2 border-slate-300">
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Q3 POE</span>
+                        <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                      </div>
+                    </th>
+                    <th className="p-3 border-r border-slate-200 w-28 sticky top-0 z-20 bg-slate-200/90 text-slate-700 font-bold text-center border-b-2 border-slate-300">
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Q3 TARGET</span>
+                        <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                      </div>
+                    </th>
+                    <th className="p-3 border-r border-slate-200 w-56 sticky top-0 z-20 bg-slate-200/90 text-slate-700 font-bold text-center border-b-2 border-slate-300">
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Q3 ACTUAL</span>
+                        <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                      </div>
+                    </th>
+                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-slate-200/90 text-slate-700 font-bold text-center border-b-2 border-slate-300">
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Q3 VARIANCE</span>
+                        <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                      </div>
+                    </th>
+                    <th className="p-3 border-r border-slate-200 w-72 sticky top-0 z-20 bg-slate-200/90 text-slate-700 font-bold text-center border-b-2 border-slate-300">
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Q3 CORRECTIVE MEASURE</span>
+                        <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                      </div>
+                    </th>
+                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-slate-200/90 text-slate-700 font-bold text-center border-b-2 border-slate-300">
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Q3 WORKFLOW CONTROL</span>
+                        <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                      </div>
+                    </th>
 
-                    {/* Q4 Reporting */}
-                    <th className="p-3 border-r border-slate-200 w-44 sticky top-0 z-20 bg-teal-50 text-teal-955 font-bold text-center border-b-2 border-teal-200">Q4 EXPENDITURE</th>
-                    <th className="p-3 border-r border-slate-200 w-56 sticky top-0 z-20 bg-rose-50 text-rose-955 font-bold text-center">Q4 POE</th>
-                    <th className="p-3 border-r border-slate-200 w-28 sticky top-0 z-20 bg-rose-50 text-rose-900 text-center">Q4 TARGET</th>
-                    <th className="p-3 border-r border-slate-200 w-56 sticky top-0 z-20 bg-rose-100 text-rose-900 border-b-2 border-rose-200">Q4 ACTUAL</th>
-                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-rose-200 text-rose-955 border-b-2 border-rose-300">Q4 VARIANCE</th>
-                    <th className="p-3 border-r border-slate-200 w-72 sticky top-0 z-20 bg-rose-300 text-rose-955 border-b-2 border-rose-400">Q4 CORRECTIVE MEASURE</th>
-                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-rose-400 text-rose-955 font-bold text-center border-b-2 border-rose-500">Q4/ANNUAL WORKFLOW CONTROL</th>
+                    {/* Q4 Reporting (Locked) */}
+                    <th className="p-3 border-r border-slate-200 w-44 sticky top-0 z-20 bg-slate-200/90 text-slate-700 font-bold text-center border-b-2 border-slate-300">
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Q4 EXPENDITURE</span>
+                        <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                      </div>
+                    </th>
+                    <th className="p-3 border-r border-slate-200 w-56 sticky top-0 z-20 bg-slate-200/90 text-slate-700 font-bold text-center border-b-2 border-slate-300">
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Q4 POE</span>
+                        <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                      </div>
+                    </th>
+                    <th className="p-3 border-r border-slate-200 w-28 sticky top-0 z-20 bg-slate-200/90 text-slate-700 font-bold text-center border-b-2 border-slate-300">
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Q4 TARGET</span>
+                        <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                      </div>
+                    </th>
+                    <th className="p-3 border-r border-slate-200 w-56 sticky top-0 z-20 bg-slate-200/90 text-slate-700 font-bold text-center border-b-2 border-slate-300">
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Q4 ACTUAL</span>
+                        <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                      </div>
+                    </th>
+                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-slate-200/90 text-slate-700 font-bold text-center border-b-2 border-slate-300">
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Q4 VARIANCE</span>
+                        <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                      </div>
+                    </th>
+                    <th className="p-3 border-r border-slate-200 w-72 sticky top-0 z-20 bg-slate-200/90 text-slate-700 font-bold text-center border-b-2 border-slate-300">
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Q4 CORRECTIVE MEASURE</span>
+                        <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                      </div>
+                    </th>
+                    <th className="p-3 border-r border-slate-200 w-48 sticky top-0 z-20 bg-slate-200/90 text-slate-700 font-bold text-center border-b-2 border-slate-300">
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Q4/ANNUAL WORKFLOW CONTROL</span>
+                        <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                      </div>
+                    </th>
 
                     <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-indigo-50 text-indigo-900 font-bold text-center border-b-2 border-indigo-200">SUBMITTER</th>
                     <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-emerald-50 text-emerald-900 font-bold text-center border-b-2 border-emerald-200">APPROVER</th>
@@ -5285,8 +5466,8 @@ Timestamp: ${new Date().toLocaleString()}
                         {renderQuarterWorkflowCell(row, 'q1')}
                       </td>
 
-                      {/* Q2 Expenditure (Moved before POE) */}
-                      <td className="p-2 border-r border-slate-100 bg-teal-50/10">
+                      {/* Q2 Expenditure (Locked) */}
+                      <td className="p-2 border-r border-slate-100 bg-slate-100/50">
                         {isTargetNA(row.q2) ? (
                           <div className="flex flex-col items-center justify-center p-2 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none" title="Expenditure reporting locked (Q2 Target is N/A)">
                             <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500">
@@ -5302,21 +5483,22 @@ Timestamp: ${new Date().toLocaleString()}
                               const total = parseBudgetNum(row.budgetAllocation);
                               return total > 0 ? `R ${Math.round(total / 4).toLocaleString()}` : 'R 0';
                             })()}
-                            disabled={!isOpex(row.budgetAllocation) || !isQuarterActive('q2')}
-                            onChange={(val) => handleCellChange(row.id, 'q2Expenditure', val)}
-                            cellTitle="Q2 Expenditure"
+                            readOnly={true}
+                            disabled={true}
+                            onChange={() => {}}
+                            cellTitle="Q2 Expenditure (Locked)"
                             refNum={row.refNum}
                             isFitAll={isFitAllReportingCells}
                             minRows={1}
-                            placeholder={!isQuarterActive('q2') ? "Locked" : "Q2 Exp..."}
+                            placeholder="Locked"
                             onOpenExpandModal={openCellExpandModal}
-                            className={`font-bold ${!isQuarterActive('q2') || !isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-800'}`}
+                            className="font-bold bg-slate-100/90 text-slate-500 cursor-not-allowed border-slate-200"
                           />
                         )}
                       </td>
 
-                      {/* Q2 POE Column */}
-                      <td className="p-2 border-r border-slate-100 bg-blue-50/10">
+                      {/* Q2 POE Column (Locked) */}
+                      <td className="p-2 border-r border-slate-100 bg-slate-100/40">
                         {isTargetNA(row.q2) ? (
                           <div className="flex flex-col items-center justify-center p-2.5 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-1 select-none min-h-[72px]" title="Q2 Target is N/A - POE submission locked">
                             <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
@@ -5333,15 +5515,16 @@ Timestamp: ${new Date().toLocaleString()}
                               return (
                                 <ExpandableCell
                                   value={row.q2PoeDesc || sourcePoe}
+                                  readOnly={true}
                                   disabled={true}
                                   onChange={() => {}}
-                                  cellTitle="Q2 POE Description (Non-Editable Source Document POE)"
+                                  cellTitle="Q2 POE Description (Locked)"
                                   refNum={row.refNum}
                                   isFitAll={isFitAllReportingCells}
                                   minRows={2}
-                                  placeholder="Source Document POE Description..."
+                                  placeholder="Locked"
                                   onOpenExpandModal={openCellExpandModal}
-                                  className="bg-slate-100/90 text-slate-700 border-slate-200 cursor-not-allowed"
+                                  className="bg-slate-100/90 text-slate-600 border-slate-200 cursor-not-allowed"
                                 />
                               );
                             })()}
@@ -5366,68 +5549,35 @@ Timestamp: ${new Date().toLocaleString()}
                                 </button>
                               )}
                               <button 
-                                disabled={!isQuarterActive('q2')}
-                                onClick={() => triggerUploadModal(row.id, row.refNum, 'q2')}
-                                className={`flex-1 py-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center gap-1 ${!isQuarterActive('q2') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 cursor-pointer'}`}
-                                title={!isQuarterActive('q2') ? getQuarterLockNotice('q2') : "Upload/Edit POE"}
+                                disabled={true}
+                                className="flex-1 py-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center gap-1 bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+                                title="Upload Locked"
                               >
-                                <Upload className="w-2.5 h-2.5" /> Upload/Edit
+                                <Lock className="w-2.5 h-2.5 text-amber-500" /> Upload Locked
                               </button>
-                              {((row.q2Poes && row.q2Poes.length > 0) || row.q2PoeDesc) && (
-                                confirmDelete?.rowId === row.id && confirmDelete?.type === 'q2' ? (
-                                  <div className="flex flex-col gap-1 bg-rose-50 border border-rose-200 p-1 rounded min-w-[80px]">
-                                    <span className="text-[8px] text-rose-800 font-bold text-center leading-none">Are you sure?</span>
-                                    <div className="flex gap-1 justify-center">
-                                      <button
-                                        disabled={!isQuarterActive('q2')}
-                                        onClick={() => {
-                                          clearQuarterPoe(row.id, 'q2');
-                                          setConfirmDelete(null);
-                                        }}
-                                        className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[8px] font-bold cursor-pointer hover:bg-rose-700 disabled:opacity-50"
-                                      >
-                                        Yes
-                                      </button>
-                                      <button
-                                        onClick={() => setConfirmDelete(null)}
-                                        className="px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded text-[8px] font-bold cursor-pointer hover:bg-slate-300"
-                                      >
-                                        No
-                                      </button>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <button 
-                                    disabled={!isQuarterActive('q2')}
-                                    onClick={() => setConfirmDelete({ rowId: row.id, type: 'q2' })}
-                                    className={`p-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center ${!isQuarterActive('q2') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 cursor-pointer'}`}
-                                    title={!isQuarterActive('q2') ? getQuarterLockNotice('q2') : "Delete POE and Description"}
-                                  >
-                                    <Trash2 className="w-3 h-3" />
-                                  </button>
-                                )
-                              )}
                             </div>
                           </div>
                         )}
                       </td>
 
-                      {/* Q2 TARGET Column */}
-                      <td className="p-2 border-r border-slate-100 bg-blue-50/20 text-center">
+                      {/* Q2 TARGET Column (Locked) */}
+                      <td className="p-2 border-r border-slate-100 bg-slate-100/50 text-center">
                         <ExpandableCell
                           value={row.q2 || ''}
-                          onChange={(val) => handleCellChange(row.id, 'q2', val)}
-                          cellTitle="Q2 Target"
+                          readOnly={true}
+                          disabled={true}
+                          onChange={() => {}}
+                          cellTitle="Q2 Target (Locked)"
                           refNum={row.refNum}
                           isFitAll={isFitAllReportingCells}
                           minRows={1}
-                          placeholder="Q2 Target..."
+                          placeholder="Locked"
                           onOpenExpandModal={openCellExpandModal}
-                          className="font-bold text-blue-900 text-center"
+                          className="font-bold text-slate-600 text-center bg-slate-100/90 cursor-not-allowed border-slate-200"
                         />
                       </td>
 
-                      <td className="p-2 border-r border-slate-100 bg-blue-50/5 relative">
+                      <td className="p-2 border-r border-slate-100 bg-slate-100/40 relative">
                         {isTargetNA(row.q2) ? (
                           <div className="flex flex-col items-center justify-center p-2.5 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none min-h-[58px]" title="Q2 Target is N/A - Actual reporting is locked">
                             <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
@@ -5438,38 +5588,22 @@ Timestamp: ${new Date().toLocaleString()}
                             <span className="text-[9px] text-slate-400 font-semibold font-mono">Target N/A</span>
                           </div>
                         ) : (
-                          <>
-                            <ExpandableCell
-                              value={row.q2Actual || ''}
-                              disabled={!isQuarterActive('q2')}
-                              onChange={(val) => handleCellChange(row.id, 'q2Actual', val)}
-                              cellTitle="Q2 Actual"
-                              refNum={row.refNum}
-                              isFitAll={isFitAllReportingCells}
-                              minRows={2}
-                              placeholder={!isQuarterActive('q2') ? "Locked for this period" : "Q2 Actual..."}
-                              onOpenExpandModal={openCellExpandModal}
-                              className={!isQuarterActive('q2') ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white'}
-                            />
-                            {row.q2Actual && row.q2 && row.q2Actual !== row.q2 && (
-                              <div className="absolute top-1 right-1 pointer-events-auto z-10">
-                                <div className="relative group/tip">
-                                  <AlertCircle className="w-3 h-3 text-rose-500 animate-pulse cursor-help" />
-                                  <div className="absolute bottom-full right-0 mb-1 hidden group-hover/tip:block z-50">
-                                    <div className="bg-rose-900 text-white text-[10px] p-2 rounded shadow-lg whitespace-nowrap border border-rose-700">
-                                      <div className="font-bold border-b border-rose-800 pb-1 mb-1">Target Discrepancy</div>
-                                      <div>Target: {row.q2}</div>
-                                      <div>Actual: {row.q2Actual}</div>
-                                      <div className="mt-1 text-rose-200">Please provide variance explanation.</div>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </>
+                          <ExpandableCell
+                            value={row.q2Actual || ''}
+                            readOnly={true}
+                            disabled={true}
+                            onChange={() => {}}
+                            cellTitle="Q2 Actual (Locked)"
+                            refNum={row.refNum}
+                            isFitAll={isFitAllReportingCells}
+                            minRows={2}
+                            placeholder="Locked"
+                            onOpenExpandModal={openCellExpandModal}
+                            className="bg-slate-100/90 text-slate-600 cursor-not-allowed border-slate-200"
+                          />
                         )}
                       </td>
-                      <td className="p-2 border-r border-slate-100 bg-blue-50/5">
+                      <td className="p-2 border-r border-slate-100 bg-slate-100/40">
                         {isTargetNA(row.q2) ? (
                           <div className="flex flex-col items-center justify-center p-2 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none" title="Q2 Target is N/A - Variance calculation is locked">
                             <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500">
@@ -5482,18 +5616,20 @@ Timestamp: ${new Date().toLocaleString()}
                         ) : (
                           <ExpandableCell
                             value={row.q2Variance || ''}
-                            readOnly
-                            cellTitle="Q2 Variance"
+                            readOnly={true}
+                            disabled={true}
+                            onChange={() => {}}
+                            cellTitle="Q2 Variance (Locked)"
                             refNum={row.refNum}
                             isFitAll={isFitAllReportingCells}
                             minRows={1}
-                            placeholder="No variance"
+                            placeholder="Locked"
                             onOpenExpandModal={openCellExpandModal}
-                            className="font-bold text-slate-700 bg-white"
+                            className="font-bold text-slate-600 bg-slate-100/90 cursor-not-allowed border-slate-200"
                           />
                         )}
                       </td>
-                      <td className="p-2 border-r border-slate-100 bg-blue-50/5">
+                      <td className="p-2 border-r border-slate-100 bg-slate-100/40">
                         {isTargetNA(row.q2) ? (
                           <div className="flex flex-col items-center justify-center p-2.5 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none min-h-[58px]" title="Q2 Target is N/A - Corrective measures locked">
                             <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
@@ -5506,20 +5642,21 @@ Timestamp: ${new Date().toLocaleString()}
                         ) : (
                           <ExpandableCell
                             value={row.q2Corrective || ''}
-                            disabled={!isQuarterActive('q2') || isFieldDisabled(row.q2Variance)}
-                            onChange={(val) => handleCellChange(row.id, 'q2Corrective', val)}
-                            cellTitle="Q2 Corrective Measure"
+                            readOnly={true}
+                            disabled={true}
+                            onChange={() => {}}
+                            cellTitle="Q2 Corrective Measure (Locked)"
                             refNum={row.refNum}
                             isFitAll={isFitAllReportingCells}
                             minRows={2}
-                            placeholder={!isQuarterActive('q2') ? "Locked for this period" : isFieldDisabled(row.q2Variance) ? "No variance detected." : "Q2 Corrective..."}
+                            placeholder="Locked"
                             onOpenExpandModal={openCellExpandModal}
-                            className={!isQuarterActive('q2') || isFieldDisabled(row.q2Variance) ? 'bg-slate-100 text-slate-400 cursor-not-allowed italic font-normal' : 'bg-white text-slate-800'}
+                            className="bg-slate-100/90 text-slate-500 border-slate-200 cursor-not-allowed italic font-normal"
                           />
                         )}
                       </td>
-                      <td className="p-2 border-r border-slate-100 bg-blue-100/10 text-center">
-                        {renderQuarterWorkflowCell(row, 'q2')}
+                      <td className="p-2 border-r border-slate-100 bg-slate-100/40 text-center">
+                        {renderQuarterWorkflowCell(row, 'q2', true)}
                       </td>
 
                       {/* Mid Term Expenditure */}
@@ -5552,8 +5689,8 @@ Timestamp: ${new Date().toLocaleString()}
                         )}
                       </td>
 
-                      {/* Mid Term POE Column */}
-                      <td className="p-2 border-r border-slate-100 bg-emerald-50/10">
+                      {/* Mid Term POE Column (Locked) */}
+                      <td className="p-2 border-r border-slate-100 bg-slate-100/40">
                         {isTargetNA(row.midTermTarget || row.midTerm) ? (
                           <div className="flex flex-col items-center justify-center p-2.5 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-1 select-none min-h-[72px]" title="Mid-Term Target is N/A - POE submission locked">
                             <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
@@ -5570,15 +5707,16 @@ Timestamp: ${new Date().toLocaleString()}
                               return (
                                 <ExpandableCell
                                   value={row.midTermPoeDesc || sourcePoe}
+                                  readOnly={true}
                                   disabled={true}
                                   onChange={() => {}}
-                                  cellTitle="Mid-Term POE Description (Non-Editable Source Document POE)"
+                                  cellTitle="Mid-Term POE Description (Locked)"
                                   refNum={row.refNum}
                                   isFitAll={isFitAllReportingCells}
                                   minRows={2}
-                                  placeholder="Source Document POE Description..."
+                                  placeholder="Locked"
                                   onOpenExpandModal={openCellExpandModal}
-                                  className="bg-slate-100/90 text-slate-700 border-slate-200 cursor-not-allowed"
+                                  className="bg-slate-100/90 text-slate-600 border-slate-200 cursor-not-allowed"
                                 />
                               );
                             })()}
@@ -5603,67 +5741,34 @@ Timestamp: ${new Date().toLocaleString()}
                                 </button>
                               )}
                               <button 
-                                disabled={!isQuarterActive('midTerm')}
-                                onClick={() => triggerUploadModal(row.id, row.refNum, 'midTerm')}
-                                className={`flex-1 py-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center gap-1 ${!isQuarterActive('midTerm') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100 cursor-pointer'}`}
-                                title={!isQuarterActive('midTerm') ? getQuarterLockNotice('midTerm') : "Upload/Edit POE"}
+                                disabled={true}
+                                className="flex-1 py-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center gap-1 bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+                                title="Upload Locked"
                               >
-                                <Upload className="w-2.5 h-2.5" /> Upload/Edit
+                                <Lock className="w-2.5 h-2.5 text-amber-500" /> Upload Locked
                               </button>
-                              {((row.midTermPoes && row.midTermPoes.length > 0) || row.midTermPoeDesc) && (
-                                confirmDelete?.rowId === row.id && confirmDelete?.type === 'midTerm' ? (
-                                  <div className="flex flex-col gap-1 bg-rose-50 border border-rose-200 p-1 rounded min-w-[80px]">
-                                    <span className="text-[8px] text-rose-800 font-bold text-center leading-none">Are you sure?</span>
-                                    <div className="flex gap-1 justify-center">
-                                      <button
-                                        disabled={!isQuarterActive('midTerm')}
-                                        onClick={() => {
-                                          clearQuarterPoe(row.id, 'midTerm');
-                                          setConfirmDelete(null);
-                                        }}
-                                        className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[8px] font-bold cursor-pointer hover:bg-rose-700 disabled:opacity-50"
-                                      >
-                                        Yes
-                                      </button>
-                                      <button
-                                        onClick={() => setConfirmDelete(null)}
-                                        className="px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded text-[8px] font-bold cursor-pointer hover:bg-slate-300"
-                                      >
-                                        No
-                                      </button>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <button 
-                                    disabled={!isQuarterActive('midTerm')}
-                                    onClick={() => setConfirmDelete({ rowId: row.id, type: 'midTerm' })}
-                                    className={`p-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center ${!isQuarterActive('midTerm') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 cursor-pointer'}`}
-                                    title={!isQuarterActive('midTerm') ? getQuarterLockNotice('midTerm') : "Delete POE and Description"}
-                                  >
-                                    <Trash2 className="w-3 h-3" />
-                                  </button>
-                                )
-                              )}
                             </div>
                           </div>
                         )}
                       </td>
 
-                      {/* Mid Term Target */}
-                      <td className="p-2 border-r border-slate-100 bg-emerald-50/20 text-center">
+                      {/* Mid Term Target (Locked) */}
+                      <td className="p-2 border-r border-slate-100 bg-slate-100/50 text-center">
                         <ExpandableCell
                           value={row.midTermTarget || ''}
-                          onChange={(val) => handleCellChange(row.id, 'midTermTarget', val)}
-                          cellTitle="Mid-Term Target"
+                          readOnly={true}
+                          disabled={true}
+                          onChange={() => {}}
+                          cellTitle="Mid-Term Target (Locked)"
                           refNum={row.refNum}
                           isFitAll={isFitAllReportingCells}
                           minRows={1}
-                          placeholder="Mid-Term Target..."
+                          placeholder="Locked"
                           onOpenExpandModal={openCellExpandModal}
-                          className="font-bold text-emerald-900 text-center"
+                          className="font-bold text-slate-600 text-center bg-slate-100/90 cursor-not-allowed border-slate-200"
                         />
                       </td>
-                      <td className="p-2 border-r border-slate-100 bg-emerald-50/5 relative">
+                      <td className="p-2 border-r border-slate-100 bg-slate-100/40 relative">
                         {isTargetNA(row.midTermTarget || row.midTerm) ? (
                           <div className="flex flex-col items-center justify-center p-2.5 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none min-h-[58px]" title="Mid-Term Target is N/A - Actual reporting is locked">
                             <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
@@ -5674,38 +5779,22 @@ Timestamp: ${new Date().toLocaleString()}
                             <span className="text-[9px] text-slate-400 font-semibold font-mono">Target N/A</span>
                           </div>
                         ) : (
-                          <>
-                            <ExpandableCell
-                              value={row.midTermActual || ''}
-                              disabled={!isQuarterActive('midTerm')}
-                              onChange={(val) => handleCellChange(row.id, 'midTermActual', val)}
-                              cellTitle="Mid-Term Actual"
-                              refNum={row.refNum}
-                              isFitAll={isFitAllReportingCells}
-                              minRows={2}
-                              placeholder={!isQuarterActive('midTerm') ? "Locked" : "Mid Term Actual..."}
-                              onOpenExpandModal={openCellExpandModal}
-                              className={!isQuarterActive('midTerm') ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white font-bold text-emerald-700'}
-                            />
-                            {row.midTermActual && row.midTermTarget && row.midTermActual !== row.midTermTarget && (
-                              <div className="absolute top-1 right-1 pointer-events-auto z-10">
-                                <div className="relative group/tip">
-                                  <AlertCircle className="w-3 h-3 text-rose-500 animate-pulse cursor-help" />
-                                  <div className="absolute bottom-full right-0 mb-1 hidden group-hover/tip:block z-50">
-                                    <div className="bg-rose-900 text-white text-[10px] p-2 rounded shadow-lg whitespace-nowrap border border-rose-700">
-                                      <div className="font-bold border-b border-rose-800 pb-1 mb-1">Target Discrepancy</div>
-                                      <div>Target: {row.midTermTarget}</div>
-                                      <div>Actual: {row.midTermActual}</div>
-                                      <div className="mt-1 text-rose-200">Please provide variance explanation.</div>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </>
+                          <ExpandableCell
+                            value={row.midTermActual || ''}
+                            readOnly={true}
+                            disabled={true}
+                            onChange={() => {}}
+                            cellTitle="Mid-Term Actual (Locked)"
+                            refNum={row.refNum}
+                            isFitAll={isFitAllReportingCells}
+                            minRows={2}
+                            placeholder="Locked"
+                            onOpenExpandModal={openCellExpandModal}
+                            className="bg-slate-100/90 text-slate-600 cursor-not-allowed border-slate-200 font-bold"
+                          />
                         )}
                       </td>
-                      <td className="p-2 border-r border-slate-100 bg-emerald-50/5">
+                      <td className="p-2 border-r border-slate-100 bg-slate-100/40">
                         {isTargetNA(row.midTermTarget || row.midTerm) ? (
                           <div className="flex flex-col items-center justify-center p-2 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none" title="Mid-Term Target is N/A - Variance calculation is locked">
                             <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500">
@@ -5718,18 +5807,20 @@ Timestamp: ${new Date().toLocaleString()}
                         ) : (
                           <ExpandableCell
                             value={row.midTermVariance || ''}
-                            readOnly
-                            cellTitle="Mid-Term Variance"
+                            readOnly={true}
+                            disabled={true}
+                            onChange={() => {}}
+                            cellTitle="Mid-Term Variance (Locked)"
                             refNum={row.refNum}
                             isFitAll={isFitAllReportingCells}
                             minRows={1}
-                            placeholder="No variance"
+                            placeholder="Locked"
                             onOpenExpandModal={openCellExpandModal}
-                            className="font-bold text-slate-800 bg-white"
+                            className="font-bold text-slate-600 bg-slate-100/90 cursor-not-allowed border-slate-200"
                           />
                         )}
                       </td>
-                      <td className="p-2 border-r border-slate-100 bg-emerald-50/5">
+                      <td className="p-2 border-r border-slate-100 bg-slate-100/40">
                         {isTargetNA(row.midTermTarget || row.midTerm) ? (
                           <div className="flex flex-col items-center justify-center p-2.5 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none min-h-[58px]" title="Mid-Term Target is N/A - Corrective measures locked">
                             <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
@@ -5742,24 +5833,25 @@ Timestamp: ${new Date().toLocaleString()}
                         ) : (
                           <ExpandableCell
                             value={row.midTermCorrective || ''}
-                            disabled={!isQuarterActive('midTerm') || isFieldDisabled(row.midTermVariance)}
-                            onChange={(val) => handleCellChange(row.id, 'midTermCorrective', val)}
-                            cellTitle="Mid-Term Corrective Measure"
+                            readOnly={true}
+                            disabled={true}
+                            onChange={() => {}}
+                            cellTitle="Mid-Term Corrective Measure (Locked)"
                             refNum={row.refNum}
                             isFitAll={isFitAllReportingCells}
                             minRows={2}
-                            placeholder={!isQuarterActive('midTerm') ? "Locked for this period" : isFieldDisabled(row.midTermVariance) ? "No variance detected." : "Mid-Term Corrective..."}
+                            placeholder="Locked"
                             onOpenExpandModal={openCellExpandModal}
-                            className={!isQuarterActive('midTerm') || isFieldDisabled(row.midTermVariance) ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed italic font-normal' : 'bg-white text-slate-800'}
+                            className="bg-slate-100/90 border-slate-200 text-slate-500 cursor-not-allowed italic font-normal"
                           />
                         )}
                       </td>
-                      <td className="p-2 border-r border-slate-100 bg-emerald-100/10 text-center">
-                        {renderQuarterWorkflowCell(row, 'midTerm')}
+                      <td className="p-2 border-r border-slate-100 bg-slate-100/40 text-center">
+                        {renderQuarterWorkflowCell(row, 'midTerm', true)}
                       </td>
 
-                      {/* Q3 Expenditure (Moved before POE) */}
-                      <td className="p-2 border-r border-slate-100 bg-teal-50/10">
+                      {/* Q3 Expenditure (Locked) */}
+                      <td className="p-2 border-r border-slate-100 bg-slate-100/50">
                         {isTargetNA(row.q3) ? (
                           <div className="flex flex-col items-center justify-center p-2 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none" title="Expenditure reporting locked (Q3 Target is N/A)">
                             <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500">
@@ -5775,21 +5867,22 @@ Timestamp: ${new Date().toLocaleString()}
                               const total = parseBudgetNum(row.budgetAllocation);
                               return total > 0 ? `R ${Math.round(total / 4).toLocaleString()}` : 'R 0';
                             })()}
-                            disabled={!isOpex(row.budgetAllocation) || !isQuarterActive('q3')}
-                            onChange={(val) => handleCellChange(row.id, 'q3Expenditure', val)}
-                            cellTitle="Q3 Expenditure"
+                            readOnly={true}
+                            disabled={true}
+                            onChange={() => {}}
+                            cellTitle="Q3 Expenditure (Locked)"
                             refNum={row.refNum}
                             isFitAll={isFitAllReportingCells}
                             minRows={1}
-                            placeholder={!isQuarterActive('q3') ? "Locked" : "Q3 Exp..."}
+                            placeholder="Locked"
                             onOpenExpandModal={openCellExpandModal}
-                            className={`font-bold ${!isQuarterActive('q3') || !isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-800'}`}
+                            className="font-bold bg-slate-100/90 text-slate-500 cursor-not-allowed border-slate-200"
                           />
                         )}
                       </td>
 
-                      {/* Q3 POE Column */}
-                      <td className="p-2 border-r border-slate-100 bg-amber-50/10">
+                      {/* Q3 POE Column (Locked) */}
+                      <td className="p-2 border-r border-slate-100 bg-slate-100/40">
                         {isTargetNA(row.q3) ? (
                           <div className="flex flex-col items-center justify-center p-2.5 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-1 select-none min-h-[72px]" title="Q3 Target is N/A - POE submission locked">
                             <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
@@ -5806,15 +5899,16 @@ Timestamp: ${new Date().toLocaleString()}
                               return (
                                 <ExpandableCell
                                   value={row.q3PoeDesc || sourcePoe}
+                                  readOnly={true}
                                   disabled={true}
                                   onChange={() => {}}
-                                  cellTitle="Q3 POE Description (Non-Editable Source Document POE)"
+                                  cellTitle="Q3 POE Description (Locked)"
                                   refNum={row.refNum}
                                   isFitAll={isFitAllReportingCells}
                                   minRows={2}
-                                  placeholder="Source Document POE Description..."
+                                  placeholder="Locked"
                                   onOpenExpandModal={openCellExpandModal}
-                                  className="bg-slate-100/90 text-slate-700 border-slate-200 cursor-not-allowed"
+                                  className="bg-slate-100/90 text-slate-600 border-slate-200 cursor-not-allowed"
                                 />
                               );
                             })()}
@@ -5839,68 +5933,35 @@ Timestamp: ${new Date().toLocaleString()}
                                 </button>
                               )}
                               <button 
-                                disabled={!isQuarterActive('q3')}
-                                onClick={() => triggerUploadModal(row.id, row.refNum, 'q3')}
-                                className={`flex-1 py-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center gap-1 ${!isQuarterActive('q3') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100 cursor-pointer'}`}
-                                title={!isQuarterActive('q3') ? getQuarterLockNotice('q3') : "Upload/Edit POE"}
+                                disabled={true}
+                                className="flex-1 py-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center gap-1 bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+                                title="Upload Locked"
                               >
-                                <Upload className="w-2.5 h-2.5" /> Upload/Edit
+                                <Lock className="w-2.5 h-2.5 text-amber-500" /> Upload Locked
                               </button>
-                              {((row.q3Poes && row.q3Poes.length > 0) || row.q3PoeDesc) && (
-                                confirmDelete?.rowId === row.id && confirmDelete?.type === 'q3' ? (
-                                  <div className="flex flex-col gap-1 bg-rose-50 border border-rose-200 p-1 rounded min-w-[80px]">
-                                    <span className="text-[8px] text-rose-800 font-bold text-center leading-none">Are you sure?</span>
-                                    <div className="flex gap-1 justify-center">
-                                      <button
-                                        disabled={!isQuarterActive('q3')}
-                                        onClick={() => {
-                                          clearQuarterPoe(row.id, 'q3');
-                                          setConfirmDelete(null);
-                                        }}
-                                        className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[8px] font-bold cursor-pointer hover:bg-rose-700 disabled:opacity-50"
-                                      >
-                                        Yes
-                                      </button>
-                                      <button
-                                        onClick={() => setConfirmDelete(null)}
-                                        className="px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded text-[8px] font-bold cursor-pointer hover:bg-slate-300"
-                                      >
-                                        No
-                                      </button>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <button 
-                                    disabled={!isQuarterActive('q3')}
-                                    onClick={() => setConfirmDelete({ rowId: row.id, type: 'q3' })}
-                                    className={`p-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center ${!isQuarterActive('q3') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 cursor-pointer'}`}
-                                    title={!isQuarterActive('q3') ? getQuarterLockNotice('q3') : "Delete POE and Description"}
-                                  >
-                                    <Trash2 className="w-3 h-3" />
-                                  </button>
-                                )
-                              )}
                             </div>
                           </div>
                         )}
                       </td>
 
-                      {/* Q3 TARGET Column */}
-                      <td className="p-2 border-r border-slate-100 bg-amber-50/20 text-center">
+                      {/* Q3 TARGET Column (Locked) */}
+                      <td className="p-2 border-r border-slate-100 bg-slate-100/50 text-center">
                         <ExpandableCell
                           value={row.q3 || ''}
-                          onChange={(val) => handleCellChange(row.id, 'q3', val)}
-                          cellTitle="Q3 Target"
+                          readOnly={true}
+                          disabled={true}
+                          onChange={() => {}}
+                          cellTitle="Q3 Target (Locked)"
                           refNum={row.refNum}
                           isFitAll={isFitAllReportingCells}
                           minRows={1}
-                          placeholder="Q3 Target..."
+                          placeholder="Locked"
                           onOpenExpandModal={openCellExpandModal}
-                          className="font-bold text-amber-900 text-center"
+                          className="font-bold text-slate-600 text-center bg-slate-100/90 cursor-not-allowed border-slate-200"
                         />
                       </td>
 
-                      <td className="p-2 border-r border-slate-100 bg-amber-50/5 relative text-slate-800">
+                      <td className="p-2 border-r border-slate-100 bg-slate-100/40 relative text-slate-800">
                         {isTargetNA(row.q3) ? (
                           <div className="flex flex-col items-center justify-center p-2.5 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none min-h-[58px]" title="Q3 Target is N/A - Actual reporting is locked">
                             <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
@@ -5911,38 +5972,22 @@ Timestamp: ${new Date().toLocaleString()}
                             <span className="text-[9px] text-slate-400 font-semibold font-mono">Target N/A</span>
                           </div>
                         ) : (
-                          <>
-                            <ExpandableCell
-                              value={row.q3Actual || ''}
-                              disabled={!isQuarterActive('q3')}
-                              onChange={(val) => handleCellChange(row.id, 'q3Actual', val)}
-                              cellTitle="Q3 Actual"
-                              refNum={row.refNum}
-                              isFitAll={isFitAllReportingCells}
-                              minRows={2}
-                              placeholder={!isQuarterActive('q3') ? "Locked for this period" : "Q3 Actual..."}
-                              onOpenExpandModal={openCellExpandModal}
-                              className={!isQuarterActive('q3') ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white'}
-                            />
-                            {row.q3Actual && row.q3 && row.q3Actual !== row.q3 && (
-                              <div className="absolute top-1 right-1 pointer-events-auto z-10">
-                                <div className="relative group/tip">
-                                  <AlertCircle className="w-3 h-3 text-rose-500 animate-pulse cursor-help" />
-                                  <div className="absolute bottom-full right-0 mb-1 hidden group-hover/tip:block z-50">
-                                    <div className="bg-rose-900 text-white text-[10px] p-2 rounded shadow-lg whitespace-nowrap border border-rose-700">
-                                      <div className="font-bold border-b border-rose-800 pb-1 mb-1">Target Discrepancy</div>
-                                      <div>Target: {row.q3}</div>
-                                      <div>Actual: {row.q3Actual}</div>
-                                      <div className="mt-1 text-rose-200">Please provide variance explanation.</div>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </>
+                          <ExpandableCell
+                            value={row.q3Actual || ''}
+                            readOnly={true}
+                            disabled={true}
+                            onChange={() => {}}
+                            cellTitle="Q3 Actual (Locked)"
+                            refNum={row.refNum}
+                            isFitAll={isFitAllReportingCells}
+                            minRows={2}
+                            placeholder="Locked"
+                            onOpenExpandModal={openCellExpandModal}
+                            className="bg-slate-100/90 text-slate-600 cursor-not-allowed border-slate-200 font-semibold"
+                          />
                         )}
                       </td>
-                      <td className="p-2 border-r border-slate-100 bg-amber-50/5">
+                      <td className="p-2 border-r border-slate-100 bg-slate-100/40">
                         {isTargetNA(row.q3) ? (
                           <div className="flex flex-col items-center justify-center p-2 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none" title="Q3 Target is N/A - Variance calculation is locked">
                             <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500">
@@ -5955,18 +6000,20 @@ Timestamp: ${new Date().toLocaleString()}
                         ) : (
                           <ExpandableCell
                             value={row.q3Variance || ''}
-                            readOnly
-                            cellTitle="Q3 Variance"
+                            readOnly={true}
+                            disabled={true}
+                            onChange={() => {}}
+                            cellTitle="Q3 Variance (Locked)"
                             refNum={row.refNum}
                             isFitAll={isFitAllReportingCells}
                             minRows={1}
-                            placeholder="No variance"
+                            placeholder="Locked"
                             onOpenExpandModal={openCellExpandModal}
-                            className="font-bold text-slate-700 bg-white"
+                            className="font-bold text-slate-600 bg-slate-100/90 cursor-not-allowed border-slate-200"
                           />
                         )}
                       </td>
-                      <td className="p-2 border-r border-slate-100 bg-amber-50/5">
+                      <td className="p-2 border-r border-slate-100 bg-slate-100/40">
                         {isTargetNA(row.q3) ? (
                           <div className="flex flex-col items-center justify-center p-2.5 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none min-h-[58px]" title="Q3 Target is N/A - Corrective measures locked">
                             <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
@@ -5979,24 +6026,25 @@ Timestamp: ${new Date().toLocaleString()}
                         ) : (
                           <ExpandableCell
                             value={row.q3Corrective || ''}
-                            disabled={!isQuarterActive('q3') || isFieldDisabled(row.q3Variance)}
-                            onChange={(val) => handleCellChange(row.id, 'q3Corrective', val)}
-                            cellTitle="Q3 Corrective Measure"
+                            readOnly={true}
+                            disabled={true}
+                            onChange={() => {}}
+                            cellTitle="Q3 Corrective Measure (Locked)"
                             refNum={row.refNum}
                             isFitAll={isFitAllReportingCells}
                             minRows={2}
-                            placeholder={!isQuarterActive('q3') ? "Locked for this period" : isFieldDisabled(row.q3Variance) ? "No variance detected." : "Q3 Corrective..."}
+                            placeholder="Locked"
                             onOpenExpandModal={openCellExpandModal}
-                            className={!isQuarterActive('q3') || isFieldDisabled(row.q3Variance) ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed italic font-normal' : 'bg-white text-slate-800'}
+                            className="bg-slate-100/90 border-slate-200 text-slate-500 cursor-not-allowed italic font-normal"
                           />
                         )}
                       </td>
-                      <td className="p-2 border-r border-slate-100 bg-amber-100/10 text-center">
-                        {renderQuarterWorkflowCell(row, 'q3')}
+                      <td className="p-2 border-r border-slate-100 bg-slate-100/40 text-center">
+                        {renderQuarterWorkflowCell(row, 'q3', true)}
                       </td>
 
-                      {/* Q4 Expenditure (Moved before POE) */}
-                      <td className="p-2 border-r border-slate-100 bg-teal-50/10">
+                      {/* Q4 Expenditure (Locked) */}
+                      <td className="p-2 border-r border-slate-100 bg-slate-100/50">
                         {isTargetNA(row.q4) ? (
                           <div className="flex flex-col items-center justify-center p-2 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none" title="Expenditure reporting locked (Q4 Target is N/A)">
                             <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500">
@@ -6012,21 +6060,22 @@ Timestamp: ${new Date().toLocaleString()}
                               const total = parseBudgetNum(row.budgetAllocation);
                               return total > 0 ? `R ${Math.round(total / 4).toLocaleString()}` : 'R 0';
                             })()}
-                            disabled={!isOpex(row.budgetAllocation) || !isQuarterActive('q4')}
-                            onChange={(val) => handleCellChange(row.id, 'q4Expenditure', val)}
-                            cellTitle="Q4 Expenditure"
+                            readOnly={true}
+                            disabled={true}
+                            onChange={() => {}}
+                            cellTitle="Q4 Expenditure (Locked)"
                             refNum={row.refNum}
                             isFitAll={isFitAllReportingCells}
                             minRows={1}
-                            placeholder={!isQuarterActive('q4') ? "Locked" : "Q4 Exp..."}
+                            placeholder="Locked"
                             onOpenExpandModal={openCellExpandModal}
-                            className={`font-bold ${!isQuarterActive('q4') || !isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-800'}`}
+                            className="font-bold bg-slate-100/90 text-slate-500 cursor-not-allowed border-slate-200"
                           />
                         )}
                       </td>
 
-                      {/* Q4 POE Column */}
-                      <td className="p-2 border-r border-slate-100 bg-rose-50/10">
+                      {/* Q4 POE Column (Locked) */}
+                      <td className="p-2 border-r border-slate-100 bg-slate-100/40">
                         {isTargetNA(row.q4) ? (
                           <div className="flex flex-col items-center justify-center p-2.5 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-1 select-none min-h-[72px]" title="Q4 Target is N/A - POE submission locked">
                             <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
@@ -6043,15 +6092,16 @@ Timestamp: ${new Date().toLocaleString()}
                               return (
                                 <ExpandableCell
                                   value={row.q4PoeDesc || sourcePoe}
+                                  readOnly={true}
                                   disabled={true}
                                   onChange={() => {}}
-                                  cellTitle="Q4 POE Description (Non-Editable Source Document POE)"
+                                  cellTitle="Q4 POE Description (Locked)"
                                   refNum={row.refNum}
                                   isFitAll={isFitAllReportingCells}
                                   minRows={2}
-                                  placeholder="Source Document POE Description..."
+                                  placeholder="Locked"
                                   onOpenExpandModal={openCellExpandModal}
-                                  className="bg-slate-100/90 text-slate-700 border-slate-200 cursor-not-allowed"
+                                  className="bg-slate-100/90 text-slate-600 border-slate-200 cursor-not-allowed"
                                 />
                               );
                             })()}
@@ -6076,68 +6126,35 @@ Timestamp: ${new Date().toLocaleString()}
                                 </button>
                               )}
                               <button 
-                                disabled={!isQuarterActive('q4')}
-                                onClick={() => triggerUploadModal(row.id, row.refNum, 'q4')}
-                                className={`flex-1 py-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center gap-1 ${!isQuarterActive('q4') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 cursor-pointer'}`}
-                                title={!isQuarterActive('q4') ? getQuarterLockNotice('q4') : "Upload/Edit POE"}
+                                disabled={true}
+                                className="flex-1 py-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center gap-1 bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+                                title="Upload Locked"
                               >
-                                <Upload className="w-2.5 h-2.5" /> Upload/Edit
+                                <Lock className="w-2.5 h-2.5 text-amber-500" /> Upload Locked
                               </button>
-                              {((row.q4Poes && row.q4Poes.length > 0) || row.q4PoeDesc) && (
-                                confirmDelete?.rowId === row.id && confirmDelete?.type === 'q4' ? (
-                                  <div className="flex flex-col gap-1 bg-rose-50 border border-rose-200 p-1 rounded min-w-[80px]">
-                                    <span className="text-[8px] text-rose-800 font-bold text-center leading-none">Are you sure?</span>
-                                    <div className="flex gap-1 justify-center">
-                                      <button
-                                        disabled={!isQuarterActive('q4')}
-                                        onClick={() => {
-                                          clearQuarterPoe(row.id, 'q4');
-                                          setConfirmDelete(null);
-                                        }}
-                                        className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[8px] font-bold cursor-pointer hover:bg-rose-700 disabled:opacity-50"
-                                      >
-                                        Yes
-                                      </button>
-                                      <button
-                                        onClick={() => setConfirmDelete(null)}
-                                        className="px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded text-[8px] font-bold cursor-pointer hover:bg-slate-300"
-                                      >
-                                        No
-                                      </button>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <button 
-                                    disabled={!isQuarterActive('q4')}
-                                    onClick={() => setConfirmDelete({ rowId: row.id, type: 'q4' })}
-                                    className={`p-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center ${!isQuarterActive('q4') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 cursor-pointer'}`}
-                                    title={!isQuarterActive('q4') ? getQuarterLockNotice('q4') : "Delete POE and Description"}
-                                  >
-                                    <Trash2 className="w-3 h-3" />
-                                  </button>
-                                )
-                              )}
                             </div>
                           </div>
                         )}
                       </td>
 
-                      {/* Q4 TARGET Column */}
-                      <td className="p-2 border-r border-slate-100 bg-rose-50/20 text-center">
+                      {/* Q4 TARGET Column (Locked) */}
+                      <td className="p-2 border-r border-slate-100 bg-slate-100/50 text-center">
                         <ExpandableCell
                           value={row.q4 || ''}
-                          onChange={(val) => handleCellChange(row.id, 'q4', val)}
-                          cellTitle="Q4 Target"
+                          readOnly={true}
+                          disabled={true}
+                          onChange={() => {}}
+                          cellTitle="Q4 Target (Locked)"
                           refNum={row.refNum}
                           isFitAll={isFitAllReportingCells}
                           minRows={1}
-                          placeholder="Q4 Target..."
+                          placeholder="Locked"
                           onOpenExpandModal={openCellExpandModal}
-                          className="font-bold text-rose-900 text-center"
+                          className="font-bold text-slate-600 text-center bg-slate-100/90 cursor-not-allowed border-slate-200"
                         />
                       </td>
 
-                      <td className="p-2 border-r border-slate-100 bg-rose-50/5 relative">
+                      <td className="p-2 border-r border-slate-100 bg-slate-100/40 relative">
                         {isTargetNA(row.q4) ? (
                           <div className="flex flex-col items-center justify-center p-2.5 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none min-h-[58px]" title="Q4 Target is N/A - Actual reporting is locked">
                             <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
@@ -6148,38 +6165,22 @@ Timestamp: ${new Date().toLocaleString()}
                             <span className="text-[9px] text-slate-400 font-semibold font-mono">Target N/A</span>
                           </div>
                         ) : (
-                          <>
-                            <ExpandableCell
-                              value={row.q4Actual || ''}
-                              disabled={!isQuarterActive('q4')}
-                              onChange={(val) => handleCellChange(row.id, 'q4Actual', val)}
-                              cellTitle="Q4 Actual"
-                              refNum={row.refNum}
-                              isFitAll={isFitAllReportingCells}
-                              minRows={2}
-                              placeholder={!isQuarterActive('q4') ? "Locked for this period" : "Q4 Actual..."}
-                              onOpenExpandModal={openCellExpandModal}
-                              className={!isQuarterActive('q4') ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white'}
-                            />
-                            {row.q4Actual && row.q4 && row.q4Actual !== row.q4 && (
-                              <div className="absolute top-1 right-1 pointer-events-auto z-10">
-                                <div className="relative group/tip">
-                                  <AlertCircle className="w-3 h-3 text-rose-500 animate-pulse cursor-help" />
-                                  <div className="absolute bottom-full right-0 mb-1 hidden group-hover/tip:block z-50">
-                                    <div className="bg-rose-900 text-white text-[10px] p-2 rounded shadow-lg whitespace-nowrap border border-rose-700">
-                                      <div className="font-bold border-b border-rose-800 pb-1 mb-1">Target Discrepancy</div>
-                                      <div>Target: {row.q4}</div>
-                                      <div>Actual: {row.q4Actual}</div>
-                                      <div className="mt-1 text-rose-200">Please provide variance explanation.</div>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </>
+                          <ExpandableCell
+                            value={row.q4Actual || ''}
+                            readOnly={true}
+                            disabled={true}
+                            onChange={() => {}}
+                            cellTitle="Q4 Actual (Locked)"
+                            refNum={row.refNum}
+                            isFitAll={isFitAllReportingCells}
+                            minRows={2}
+                            placeholder="Locked"
+                            onOpenExpandModal={openCellExpandModal}
+                            className="bg-slate-100/90 text-slate-600 cursor-not-allowed border-slate-200 font-semibold"
+                          />
                         )}
                       </td>
-                      <td className="p-2 border-r border-slate-100 bg-rose-50/5">
+                      <td className="p-2 border-r border-slate-100 bg-slate-100/40">
                         {isTargetNA(row.q4) ? (
                           <div className="flex flex-col items-center justify-center p-2 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none" title="Q4 Target is N/A - Variance calculation is locked">
                             <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500">
@@ -6192,18 +6193,20 @@ Timestamp: ${new Date().toLocaleString()}
                         ) : (
                           <ExpandableCell
                             value={row.q4Variance || ''}
-                            readOnly
-                            cellTitle="Q4 Variance"
+                            readOnly={true}
+                            disabled={true}
+                            onChange={() => {}}
+                            cellTitle="Q4 Variance (Locked)"
                             refNum={row.refNum}
                             isFitAll={isFitAllReportingCells}
                             minRows={1}
-                            placeholder="No variance"
+                            placeholder="Locked"
                             onOpenExpandModal={openCellExpandModal}
-                            className="font-bold text-slate-700 bg-white"
+                            className="font-bold text-slate-600 bg-slate-100/90 cursor-not-allowed border-slate-200"
                           />
                         )}
                       </td>
-                      <td className="p-2 border-r border-slate-100 bg-rose-50/5">
+                      <td className="p-2 border-r border-slate-100 bg-slate-100/40">
                         {isTargetNA(row.q4) ? (
                           <div className="flex flex-col items-center justify-center p-2.5 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none min-h-[58px]" title="Q4 Target is N/A - Corrective measures locked">
                             <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
@@ -6216,20 +6219,21 @@ Timestamp: ${new Date().toLocaleString()}
                         ) : (
                           <ExpandableCell
                             value={row.q4Corrective || ''}
-                            disabled={!isQuarterActive('q4') || isFieldDisabled(row.q4Variance)}
-                            onChange={(val) => handleCellChange(row.id, 'q4Corrective', val)}
-                            cellTitle="Q4 Corrective Measure"
+                            readOnly={true}
+                            disabled={true}
+                            onChange={() => {}}
+                            cellTitle="Q4 Corrective Measure (Locked)"
                             refNum={row.refNum}
                             isFitAll={isFitAllReportingCells}
                             minRows={2}
-                            placeholder={!isQuarterActive('q4') ? "Locked for this period" : isFieldDisabled(row.q4Variance) ? "No variance detected." : "Q4 Corrective..."}
+                            placeholder="Locked"
                             onOpenExpandModal={openCellExpandModal}
-                            className={!isQuarterActive('q4') || isFieldDisabled(row.q4Variance) ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed italic font-normal' : 'bg-white border-slate-200 text-slate-800'}
+                            className="bg-slate-100/90 border-slate-200 text-slate-500 cursor-not-allowed italic font-normal"
                           />
                         )}
                       </td>
-                      <td className="p-2 border-r border-slate-100 bg-rose-100/10 text-center">
-                        {renderQuarterWorkflowCell(row, 'q4')}
+                      <td className="p-2 border-r border-slate-100 bg-slate-100/40 text-center">
+                        {renderQuarterWorkflowCell(row, 'q4', true)}
                       </td>
 
                       {/* Submitter */}
