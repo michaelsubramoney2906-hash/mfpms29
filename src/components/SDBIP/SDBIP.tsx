@@ -4035,14 +4035,20 @@ Timestamp: ${new Date().toLocaleString()}
         )}
 
         {/* TABLE TAB */}
+        {/* TABLE TAB (View-Only Top Layer Baseline) */}
         {activeTab === 'table' && (
           <div className="flex-1 flex flex-col min-h-0 space-y-4">
             
             {/* Toolbar controller */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-50 p-4 border border-slate-200 rounded-xl select-none text-slate-700">
               <div className="flex items-center gap-3">
-                <Info className="w-4 h-4 text-indigo-600" />
-                <span className="text-xs font-bold">Currently viewing: <strong className="text-slate-900 font-black">{filteredRows.length}</strong> of <strong className="text-slate-900 font-bold">{rows.length}</strong> active SDBIP top layer log items. Click cells directly to modify text.</span>
+                <div className="p-1.5 bg-indigo-100 text-indigo-800 rounded-lg flex items-center gap-1.5 shrink-0">
+                  <Lock className="w-3.5 h-3.5 text-indigo-700" />
+                  <span className="text-[11px] font-black uppercase tracking-wider">Statutory Baseline (View Only)</span>
+                </div>
+                <span className="text-xs font-bold text-slate-700">
+                  Council-Approved SDBIP Top Layer Scorecard. Currently viewing: <strong className="text-slate-900 font-black">{filteredRows.length}</strong> of <strong className="text-slate-900 font-bold">{rows.length}</strong> statutory log items.
+                </span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <button 
@@ -4064,16 +4070,6 @@ Timestamp: ${new Date().toLocaleString()}
                 >
                   <Download className="w-3.5 h-3.5" /> Export CSV
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setClearTopLayerModal({ isOpen: true, clearTarget: filteredRows.length < rows.length ? 'filtered' : 'all' })}
-                  disabled={rows.length === 0}
-                  className="px-3 py-1.5 bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-300 text-rose-600 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition"
-                  title="Clear all or filtered SDBIP top layer table data"
-                >
-                  <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-                  <span>Clear Table</span>
-                </button>
               </div>
             </div>
 
@@ -4092,10 +4088,10 @@ Timestamp: ${new Date().toLocaleString()}
               isSaving={isSavingRows}
             />
 
-            {/* Large Wide Spreadsheet Table Container */}
+            {/* Large Wide Spreadsheet Table Container (View Only) */}
             <div className="overflow-auto border border-slate-200 rounded-xl relative bg-white h-[580px] max-h-[68vh]">
               
-              <table className="w-full text-left border-collapse select-text table-fixed min-w-[3420px]">
+              <table className="w-full text-left border-collapse select-text table-fixed min-w-[3360px]">
                 
                 {/* Headers */}
                 <thead className="sticky top-0 bg-slate-100 z-20 border-b-2 border-slate-200 text-[10px] font-black tracking-wider uppercase text-slate-700 font-mono">
@@ -4125,7 +4121,6 @@ Timestamp: ${new Date().toLocaleString()}
                     <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-violet-50 text-violet-900">REVIEWER</th>
                     <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-amber-50 text-amber-900">INTERNAL AUDIT</th>
                     <th className="p-3 border-r border-slate-200 w-56 text-center sticky top-0 z-20 bg-indigo-50 text-indigo-900 border-l border-indigo-200">POE AND DESCRIPTION</th>
-                    <th className="p-3 w-20 text-center sticky top-0 z-20 bg-slate-100">ACTIONS</th>
                   </tr>
                 </thead>
 
@@ -4138,13 +4133,13 @@ Timestamp: ${new Date().toLocaleString()}
                       <td className="p-2 border-r border-slate-150 sticky left-0 z-10 bg-white group-hover:bg-slate-50/95 transition-colors drop-shadow-[1px_0_0_rgba(203,213,225,1)]">
                         <ExpandableCell 
                           value={row.refNum || ''}
-                          onChange={(val) => handleCellChange(row.id, 'refNum', val)}
+                          readOnly={true}
                           cellTitle="Reference Number"
                           refNum={row.refNum}
                           isFitAll={isFitAllTopLayerCells}
                           minRows={1}
                           onOpenExpandModal={openCellExpandModal}
-                          placeholder="TL ..."
+                          placeholder="-"
                           className="font-mono"
                         />
                       </td>
@@ -4153,13 +4148,13 @@ Timestamp: ${new Date().toLocaleString()}
                       <td className="p-2 border-r border-slate-150">
                         <ExpandableCell 
                           value={row.strategicObj || ''}
-                          onChange={(val) => handleCellChange(row.id, 'strategicObj', val)}
+                          readOnly={true}
                           cellTitle="Strategic Objectives"
                           refNum={row.refNum}
                           isFitAll={isFitAllTopLayerCells}
                           minRows={2}
                           onOpenExpandModal={openCellExpandModal}
-                          placeholder="Strategic objectives narrative..."
+                          placeholder="-"
                         />
                       </td>
 
@@ -4167,85 +4162,91 @@ Timestamp: ${new Date().toLocaleString()}
                       <td className="p-2 border-r border-slate-150">
                         <ExpandableCell 
                           value={row.kpi || ''}
-                          onChange={(val) => handleCellChange(row.id, 'kpi', val)}
+                          readOnly={true}
                           cellTitle="Key Performance Indicator (KPI)"
                           refNum={row.refNum}
                           isFitAll={isFitAllTopLayerCells}
                           minRows={2}
                           onOpenExpandModal={openCellExpandModal}
-                          placeholder="Key performance indicator sentence..."
+                          placeholder="-"
                         />
                       </td>
                       <td className="p-2 border-r border-slate-150 text-center bg-blue-50/50">
-                        <input 
-                          type="text" 
-                          value={row.bsd || ''}
-                          onChange={(e) => handleCellChange(row.id, 'bsd', e.target.value)}
-                          className="w-8 mx-auto bg-transparent border-0 p-1 focus:ring-1 focus:ring-indigo-300 rounded text-center font-bold text-blue-900"
-                        />
+                        {row.bsd ? (
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-blue-100 border border-blue-300 font-bold text-blue-900 text-xs shadow-2xs">
+                            {row.bsd.trim() === '1' || row.bsd.trim().toUpperCase() === 'X' ? 'X' : row.bsd}
+                          </span>
+                        ) : (
+                          <span className="text-slate-300 font-mono text-[10px]">-</span>
+                        )}
                       </td>
 
                       {/* LED */}
                       <td className="p-2 border-r border-slate-150 text-center bg-emerald-50/50">
-                        <input 
-                          type="text" 
-                          value={row.led || ''}
-                          onChange={(e) => handleCellChange(row.id, 'led', e.target.value)}
-                          className="w-8 mx-auto bg-transparent border-0 p-1 focus:ring-1 focus:ring-indigo-300 rounded text-center font-bold text-emerald-900"
-                        />
+                        {row.led ? (
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-emerald-100 border border-emerald-300 font-bold text-emerald-900 text-xs shadow-2xs">
+                            {row.led.trim() === '1' || row.led.trim().toUpperCase() === 'X' ? 'X' : row.led}
+                          </span>
+                        ) : (
+                          <span className="text-slate-300 font-mono text-[10px]">-</span>
+                        )}
                       </td>
 
                       {/* MFVM */}
                       <td className="p-2 border-r border-slate-150 text-center bg-amber-50/50">
-                        <input 
-                          type="text" 
-                          value={row.mfvm || ''}
-                          onChange={(e) => handleCellChange(row.id, 'mfvm', e.target.value)}
-                          className="w-8 mx-auto bg-transparent border-0 p-1 focus:ring-1 focus:ring-indigo-300 rounded text-center font-bold text-amber-900"
-                        />
+                        {row.mfvm ? (
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-amber-100 border border-amber-300 font-bold text-amber-900 text-xs shadow-2xs">
+                            {row.mfvm.trim() === '1' || row.mfvm.trim().toUpperCase() === 'X' ? 'X' : row.mfvm}
+                          </span>
+                        ) : (
+                          <span className="text-slate-300 font-mono text-[10px]">-</span>
+                        )}
                       </td>
 
                       {/* GGPP */}
                       <td className="p-2 border-r border-slate-150 text-center bg-purple-50/50">
-                        <input 
-                          type="text" 
-                          value={row.ggpp || ''}
-                          onChange={(e) => handleCellChange(row.id, 'ggpp', e.target.value)}
-                          className="w-8 mx-auto bg-transparent border-0 p-1 focus:ring-1 focus:ring-indigo-300 rounded text-center font-bold text-purple-900"
-                        />
+                        {row.ggpp ? (
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-purple-100 border border-purple-300 font-bold text-purple-900 text-xs shadow-2xs">
+                            {row.ggpp.trim() === '1' || row.ggpp.trim().toUpperCase() === 'X' ? 'X' : row.ggpp}
+                          </span>
+                        ) : (
+                          <span className="text-slate-300 font-mono text-[10px]">-</span>
+                        )}
                       </td>
 
                       {/* MIDT (Institutional Development) */}
                       <td className="p-2 border-r border-slate-150 text-center bg-rose-50/50">
-                        <input 
-                          type="text" 
-                          value={row.midt || ''}
-                          onChange={(e) => handleCellChange(row.id, 'midt', e.target.value)}
-                          className="w-8 mx-auto bg-transparent border-0 p-1 focus:ring-1 focus:ring-indigo-300 rounded text-center font-bold text-rose-900"
-                        />
+                        {row.midt ? (
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-rose-100 border border-rose-300 font-bold text-rose-900 text-xs shadow-2xs">
+                            {row.midt.trim() === '1' || row.midt.trim().toUpperCase() === 'X' ? 'X' : row.midt}
+                          </span>
+                        ) : (
+                          <span className="text-slate-300 font-mono text-[10px]">-</span>
+                        )}
                       </td>
 
                       {/* SR (Spatial Rationale) */}
                       <td className="p-2 border-r border-slate-150 text-center bg-orange-50/50">
-                        <input 
-                          type="text" 
-                          value={row.sr || ''}
-                          onChange={(e) => handleCellChange(row.id, 'sr', e.target.value)}
-                          className="w-8 mx-auto bg-transparent border-0 p-1 focus:ring-1 focus:ring-indigo-300 rounded text-center font-bold text-orange-900"
-                        />
+                        {row.sr ? (
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-orange-100 border border-orange-300 font-bold text-orange-900 text-xs shadow-2xs">
+                            {row.sr.trim() === '1' || row.sr.trim().toUpperCase() === 'X' ? 'X' : row.sr}
+                          </span>
+                        ) : (
+                          <span className="text-slate-300 font-mono text-[10px]">-</span>
+                        )}
                       </td>
 
                       {/* Responsible Owner */}
                       <td className="p-2 border-r border-slate-150">
                         <ExpandableCell 
                           value={row.kpas || ''}
-                          onChange={(val) => handleCellChange(row.id, 'kpas', val)}
+                          readOnly={true}
                           cellTitle="Responsible Owner (KPAS)"
                           refNum={row.refNum}
                           isFitAll={isFitAllTopLayerCells}
                           minRows={2}
                           onOpenExpandModal={openCellExpandModal}
-                          placeholder="Responsible owner department..."
+                          placeholder="-"
                           className="font-bold text-slate-900"
                         />
                       </td>
@@ -4254,13 +4255,13 @@ Timestamp: ${new Date().toLocaleString()}
                       <td className="p-2 border-r border-slate-150">
                         <ExpandableCell 
                           value={row.uom || ''}
-                          onChange={(val) => handleCellChange(row.id, 'uom', val)}
+                          readOnly={true}
                           cellTitle="Unit of Measure"
                           refNum={row.refNum}
                           isFitAll={isFitAllTopLayerCells}
                           minRows={2}
                           onOpenExpandModal={openCellExpandModal}
-                          placeholder="Unit of measure description..."
+                          placeholder="-"
                         />
                       </td>
 
@@ -4268,13 +4269,13 @@ Timestamp: ${new Date().toLocaleString()}
                       <td className="p-2 border-r border-slate-150">
                         <ExpandableCell 
                           value={row.mscoaTracking || ''}
-                          onChange={(val) => handleCellChange(row.id, 'mscoaTracking', val)}
+                          readOnly={true}
                           cellTitle="mSCOA Tracking"
                           refNum={row.refNum}
                           isFitAll={isFitAllTopLayerCells}
                           minRows={2}
                           onOpenExpandModal={openCellExpandModal}
-                          placeholder="mSCOA segment code..."
+                          placeholder="-"
                           className="font-mono text-slate-700"
                         />
                       </td>
@@ -4283,13 +4284,13 @@ Timestamp: ${new Date().toLocaleString()}
                       <td className="p-2 border-r border-slate-150">
                         <ExpandableCell 
                           value={row.baseline || ''}
-                          onChange={(val) => handleCellChange(row.id, 'baseline', val)}
+                          readOnly={true}
                           cellTitle="Baseline"
                           refNum={row.refNum}
                           isFitAll={isFitAllTopLayerCells}
                           minRows={2}
                           onOpenExpandModal={openCellExpandModal}
-                          placeholder="Baseline performance narrative..."
+                          placeholder="-"
                         />
                       </td>
 
@@ -4297,13 +4298,13 @@ Timestamp: ${new Date().toLocaleString()}
                       <td className="p-2 border-r border-slate-150">
                         <ExpandableCell 
                           value={row.annualTarget || ''}
-                          onChange={(val) => handleCellChange(row.id, 'annualTarget', val)}
+                          readOnly={true}
                           cellTitle="Annual Target"
                           refNum={row.refNum}
                           isFitAll={isFitAllTopLayerCells}
                           minRows={2}
                           onOpenExpandModal={openCellExpandModal}
-                          placeholder="Annual target description..."
+                          placeholder="-"
                           className="font-bold text-indigo-900"
                         />
                       </td>
@@ -4312,44 +4313,42 @@ Timestamp: ${new Date().toLocaleString()}
                       <td className="p-2 border-r border-slate-150">
                         <ExpandableCell 
                           value={row.budgetAllocation || ''}
-                          onChange={(val) => handleCellChange(row.id, 'budgetAllocation', val)}
+                          readOnly={true}
                           cellTitle="Budget Allocation"
                           refNum={row.refNum}
                           isFitAll={isFitAllTopLayerCells}
                           minRows={1}
                           onOpenExpandModal={openCellExpandModal}
-                          placeholder="R 0 / Opex..."
+                          placeholder="-"
                           className="font-bold text-slate-800"
                         />
                       </td>
 
                       {/* Q1 */}
-                      <td className={`p-2 border-r border-slate-150 ${!isQuarterActive('q1') ? 'bg-slate-50' : ''}`} title={!isQuarterActive('q1') ? getQuarterLockNotice('q1') : undefined}>
+                      <td className="p-2 border-r border-slate-150">
                         <ExpandableCell 
                           value={row.q1 || ''}
-                          disabled={!isQuarterActive('q1')}
-                          onChange={(val) => handleCellChange(row.id, 'q1', val)}
+                          readOnly={true}
                           cellTitle="1st Quarter Target"
                           refNum={row.refNum}
                           isFitAll={isFitAllTopLayerCells}
                           minRows={2}
                           onOpenExpandModal={openCellExpandModal}
-                          placeholder={!isQuarterActive('q1') ? "Locked" : "Q1 Target..."}
+                          placeholder="-"
                         />
                       </td>
 
                       {/* Q2 */}
-                      <td className={`p-2 border-r border-slate-150 ${!isQuarterActive('q2') ? 'bg-slate-50' : ''}`} title={!isQuarterActive('q2') ? getQuarterLockNotice('q2') : undefined}>
+                      <td className="p-2 border-r border-slate-150">
                         <ExpandableCell 
                           value={row.q2 || ''}
-                          disabled={!isQuarterActive('q2')}
-                          onChange={(val) => handleCellChange(row.id, 'q2', val)}
+                          readOnly={true}
                           cellTitle="2nd Quarter Target"
                           refNum={row.refNum}
                           isFitAll={isFitAllTopLayerCells}
                           minRows={2}
                           onOpenExpandModal={openCellExpandModal}
-                          placeholder={!isQuarterActive('q2') ? "Locked" : "Q2 Target..."}
+                          placeholder="-"
                         />
                       </td>
 
@@ -4357,7 +4356,7 @@ Timestamp: ${new Date().toLocaleString()}
                       <td className="p-2 border-r border-slate-150 text-center bg-rose-50/50">
                         <ExpandableCell 
                           value={row.midTerm || ''}
-                          readOnly
+                          readOnly={true}
                           cellTitle="Mid Term Target (Calculated)"
                           refNum={row.refNum}
                           isFitAll={isFitAllTopLayerCells}
@@ -4368,76 +4367,86 @@ Timestamp: ${new Date().toLocaleString()}
                       </td>
 
                       {/* Q3 */}
-                      <td className={`p-2 border-r border-slate-150 ${!isQuarterActive('q3') ? 'bg-slate-50' : ''}`} title={!isQuarterActive('q3') ? getQuarterLockNotice('q3') : undefined}>
+                      <td className="p-2 border-r border-slate-150">
                         <ExpandableCell 
                           value={row.q3 || ''}
-                          disabled={!isQuarterActive('q3')}
-                          onChange={(val) => handleCellChange(row.id, 'q3', val)}
+                          readOnly={true}
                           cellTitle="3rd Quarter Target"
                           refNum={row.refNum}
                           isFitAll={isFitAllTopLayerCells}
                           minRows={2}
                           onOpenExpandModal={openCellExpandModal}
-                          placeholder={!isQuarterActive('q3') ? "Locked" : "Q3 Target..."}
+                          placeholder="-"
                         />
                       </td>
 
                       {/* Q4 */}
-                      <td className={`p-2 border-r border-slate-150 ${!isQuarterActive('q4') ? 'bg-slate-50' : ''}`} title={!isQuarterActive('q4') ? getQuarterLockNotice('q4') : undefined}>
+                      <td className="p-2 border-r border-slate-150">
                         <ExpandableCell 
                           value={row.q4 || ''}
-                          disabled={!isQuarterActive('q4')}
-                          onChange={(val) => handleCellChange(row.id, 'q4', val)}
+                          readOnly={true}
                           cellTitle="4th Quarter Target"
                           refNum={row.refNum}
                           isFitAll={isFitAllTopLayerCells}
                           minRows={2}
                           onOpenExpandModal={openCellExpandModal}
-                          placeholder={!isQuarterActive('q4') ? "Locked" : "Q4 Target..."}
+                          placeholder="-"
                         />
                       </td>
 
                       {/* Submitter */}
-                      <td className="p-1 border-r border-slate-150">
-                        <AzureADPicker 
-                          value={row.submitter || row.responsibleUnit || ''}
-                          onChange={(val) => handleCellChange(row.id, 'submitter', val)}
-                          roleType="submitter"
-                          activeTenantId={activeTenantId}
-                        />
+                      <td className="p-2 border-r border-slate-150">
+                        <div className="text-[11px] font-medium text-slate-800 px-1 py-0.5 whitespace-pre-wrap break-words">
+                          {row.submitter || row.responsibleUnit ? (
+                            <span className="inline-flex items-center gap-1 text-slate-800 font-semibold">
+                              {row.submitter || row.responsibleUnit}
+                            </span>
+                          ) : (
+                            <span className="text-slate-300 italic text-[10px]">Unassigned</span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Approver */}
-                      <td className="p-1 border-r border-slate-150">
-                        <AzureADPicker 
-                          value={row.approver || ''}
-                          onChange={(val) => handleCellChange(row.id, 'approver', val)}
-                          roleType="approver"
-                          activeTenantId={activeTenantId}
-                        />
+                      <td className="p-2 border-r border-slate-150">
+                        <div className="text-[11px] font-medium text-slate-800 px-1 py-0.5 whitespace-pre-wrap break-words">
+                          {row.approver ? (
+                            <span className="inline-flex items-center gap-1 text-slate-800 font-semibold">
+                              {row.approver}
+                            </span>
+                          ) : (
+                            <span className="text-slate-300 italic text-[10px]">Unassigned</span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Reviewer */}
-                      <td className="p-1 border-r border-slate-150">
-                        <AzureADPicker 
-                          value={row.reviewer || ''}
-                          onChange={(val) => handleCellChange(row.id, 'reviewer', val)}
-                          roleType="reviewer"
-                          activeTenantId={activeTenantId}
-                        />
+                      <td className="p-2 border-r border-slate-150">
+                        <div className="text-[11px] font-medium text-slate-800 px-1 py-0.5 whitespace-pre-wrap break-words">
+                          {row.reviewer ? (
+                            <span className="inline-flex items-center gap-1 text-slate-800 font-semibold">
+                              {row.reviewer}
+                            </span>
+                          ) : (
+                            <span className="text-slate-300 italic text-[10px]">Unassigned</span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Internal Audit */}
-                      <td className="p-1 border-r border-slate-150">
-                        <AzureADPicker 
-                          value={row.internalAudit || ''}
-                          onChange={(val) => handleCellChange(row.id, 'internalAudit', val)}
-                          roleType="internal_audit"
-                          activeTenantId={activeTenantId}
-                        />
+                      <td className="p-2 border-r border-slate-150">
+                        <div className="text-[11px] font-medium text-slate-800 px-1 py-0.5 whitespace-pre-wrap break-words">
+                          {row.internalAudit ? (
+                            <span className="inline-flex items-center gap-1 text-slate-800 font-semibold">
+                              {row.internalAudit}
+                            </span>
+                          ) : (
+                            <span className="text-slate-300 italic text-[10px]">Unassigned</span>
+                          )}
+                        </div>
                       </td>
 
-                      {/* POE Upload with full description and expandability */}
+                      {/* POE with description and viewability */}
                       <td className="p-2 border-r border-indigo-200 text-center bg-indigo-50/40 min-w-[170px]">
                         {(() => {
                           const topLayerPoe = (row.poeDesc || row.poeStatus || row.q1PoeDesc || row.q2PoeDesc || row.midTermPoeDesc || row.q3PoeDesc || row.q4PoeDesc || '').trim();
@@ -4456,7 +4465,7 @@ Timestamp: ${new Date().toLocaleString()}
                               {topLayerPoe && (
                                 <div 
                                   className="text-[10px] text-slate-700 italic max-w-[220px] whitespace-pre-wrap break-words leading-relaxed cursor-pointer hover:text-indigo-600 transition bg-white/80 p-1.5 rounded border border-slate-200 text-left shadow-2xs" 
-                                  title="Source Document POE Description (Non-editable across all quarters)"
+                                  title="Source Document POE Description (Statutory baseline)"
                                   onClick={() => openCellExpandModal("Source Document POE Description (Non-Editable)", topLayerPoe, undefined, true, `Ref: ${row.refNum}`)}
                                 >
                                   "{topLayerPoe}"
@@ -4465,55 +4474,15 @@ Timestamp: ${new Date().toLocaleString()}
                               <div className="flex items-center gap-1 mt-1">
                                 <button 
                                   onClick={() => triggerViewPoeModal(row, 'general')}
-                                  className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[9px] font-extrabold cursor-pointer transition shadow-xs"
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[9px] font-extrabold cursor-pointer transition shadow-xs"
                                   title="View POE document details & download"
                                 >
                                   <Eye className="w-3 h-3" /> View POE
-                                </button>
-                                <button 
-                                  onClick={() => triggerUploadModal(row.id, row.refNum, 'general')}
-                                  className="inline-flex items-center gap-1 px-1.5 py-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded text-[9px] font-bold cursor-pointer transition"
-                                  title="Update POE files"
-                                >
-                                  <Upload className="w-3 h-3 text-indigo-600" /> Update
                                 </button>
                               </div>
                             </div>
                           );
                         })()}
-                      </td>
-
-                      {/* Action columns */}
-                      <td className="p-2 text-center h-full">
-                        {confirmDelete?.rowId === row.id && confirmDelete?.type === 'row' ? (
-                          <div className="flex gap-1 justify-center items-center">
-                            <button
-                              onClick={() => {
-                                deleteRowHandler(row.id);
-                                setConfirmDelete(null);
-                              }}
-                              className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[9px] font-bold cursor-pointer hover:bg-rose-700"
-                              title="Confirm delete line"
-                            >
-                              Yes
-                            </button>
-                            <button
-                              onClick={() => setConfirmDelete(null)}
-                              className="px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded text-[9px] font-bold cursor-pointer hover:bg-slate-300"
-                              title="Cancel"
-                            >
-                              No
-                            </button>
-                          </div>
-                        ) : (
-                          <button 
-                            onClick={() => setConfirmDelete({ rowId: row.id, type: 'row' })}
-                            className="text-slate-300 hover:text-rose-500 transition-colors"
-                            title="Delete SDBIP line"
-                          >
-                            <Trash2 className="w-3.5 h-3.5 mx-auto" />
-                          </button>
-                        )}
                       </td>
 
                     </tr>
@@ -4535,72 +4504,6 @@ Timestamp: ${new Date().toLocaleString()}
               itemName="SDBIP top layer items"
               isSaving={isSavingRows}
             />
-
-            {/* Quick Add Form Row helper at the bottom of spreadsheet */}
-            <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl select-none">
-              <h4 className="text-xs font-black text-slate-900 uppercase mb-3 flex items-center gap-1.5">
-                <Plus className="w-4 h-4 text-indigo-600" />
-                Capture Multi-Column SDBIP Top-Layer Row Unit
-              </h4>
-              
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
-                <input 
-                  type="text"
-                  placeholder="Reference No. (e.g. SDBIP-205)"
-                  value={newRowData.refNum || ''}
-                  onChange={(e) => setNewRowData(p => ({ ...p, refNum: e.target.value }))}
-                  className="px-3 py-2 bg-white border border-slate-200 rounded-lg outline-none focus:border-indigo-505"
-                />
-                <input 
-                  type="text"
-                  placeholder="Strategic Objectives Link"
-                  value={newRowData.strategicObj || ''}
-                  onChange={(e) => setNewRowData(p => ({ ...p, strategicObj: e.target.value }))}
-                  className="px-3 py-2 bg-white border border-slate-200 rounded-lg outline-none focus:border-indigo-505"
-                />
-                <input 
-                  type="text"
-                  placeholder="Responsible Owner"
-                  value={newRowData.kpas || ''}
-                  onChange={(e) => setNewRowData(p => ({ ...p, kpas: e.target.value }))}
-                  className="px-3 py-2 bg-white border border-slate-200 rounded-lg outline-none focus:border-indigo-505"
-                />
-                <input 
-                  type="text"
-                  placeholder="Key Performance Indicator (KPI)"
-                  value={newRowData.kpi || ''}
-                  onChange={(e) => setNewRowData(p => ({ ...p, kpi: e.target.value }))}
-                  className="px-3 py-2 bg-white border border-slate-200 rounded-lg outline-none focus:border-indigo-505"
-                />
-                <input 
-                  type="text"
-                  placeholder="mSCOA segment alignment"
-                  value={newRowData.mscoaTracking || ''}
-                  onChange={(e) => setNewRowData(p => ({ ...p, mscoaTracking: e.target.value }))}
-                  className="px-3 py-2 bg-white border border-slate-200 rounded-lg outline-none focus:border-indigo-505"
-                />
-                <input 
-                  type="text"
-                  placeholder="Annual target"
-                  value={newRowData.annualTarget || ''}
-                  onChange={(e) => setNewRowData(p => ({ ...p, annualTarget: e.target.value }))}
-                  className="px-3 py-2 bg-white border border-slate-200 rounded-lg outline-none focus:border-indigo-505"
-                />
-                <input 
-                  type="text"
-                  placeholder="Budget (e.g. R 4,200,000)"
-                  value={newRowData.budgetAllocation || ''}
-                  onChange={(e) => setNewRowData(p => ({ ...p, budgetAllocation: e.target.value }))}
-                  className="px-3 py-2 bg-white border border-slate-200 rounded-lg outline-none focus:border-indigo-505"
-                />
-                <button 
-                  onClick={addRow}
-                  className="px-4 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition"
-                >
-                  Append SDBIP Row
-                </button>
-              </div>
-            </div>
 
           </div>
         )}
