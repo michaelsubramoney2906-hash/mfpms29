@@ -2051,7 +2051,46 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
         })
       });
 
-      alert(`Successfully sent ${isTeam ? 'Team' : 'Individual'} Performance Agreement to Manager and Internal Audit for review.`);
+      // When team leader submits team agreement, notify each team member on their individual profile
+      if (isTeam) {
+        try {
+          const teamRepRes = await fetch(`/api/tenant/${activeTenantId}/team-reporting?documentIdSuffix=all`);
+          if (teamRepRes.ok) {
+            const repData = await teamRepRes.json();
+            const membersMap = new Map<string, { name: string; email: string }>();
+            (repData.reports || []).forEach((r: any) => {
+              (r.notifiedMembers || []).forEach((m: any) => {
+                if (m && m.email && m.email.includes('@') && m.email.toLowerCase() !== currentUser.email?.toLowerCase()) {
+                  membersMap.set(m.email.toLowerCase(), { name: m.name || m.email, email: m.email.toLowerCase() });
+                }
+              });
+            });
+
+            for (const member of Array.from(membersMap.values())) {
+              await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  notification: {
+                    senderEmail: targetEmailStr,
+                    senderName: currentUser.fullName || currentUser.email,
+                    recipientEmail: member.email,
+                    recipientName: member.name,
+                    title: `Team Performance Agreement Submitted for Review`,
+                    message: `Team Leader ${currentUser.fullName || currentUser.email} has submitted the Team Performance Agreement for official review. As a team member, this update is recorded on your individual profile.`,
+                    actionType: 'revision_requested',
+                    employeeEmail: targetEmailStr
+                  }
+                })
+              });
+            }
+          }
+        } catch (teamNotifErr) {
+          console.warn("Failed to notify team members for agreement review:", teamNotifErr);
+        }
+      }
+
+      alert(`Successfully sent ${isTeam ? 'Team' : 'Individual'} Performance Agreement to Manager, Internal Audit, and team members.`);
     } catch (e) {
       console.error(e);
       alert('Failed to send for review.');

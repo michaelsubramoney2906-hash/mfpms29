@@ -29,6 +29,41 @@ export const isTargetNA = (val: string | undefined | null): boolean => {
   return false;
 };
 
+/**
+ * Determines whether Submitter & Approver are unlocked in the SDBIP Top Layer reporting table.
+ * Specifically unlocked ONLY for KPI M_72 and P_07 (all other KPIs locked).
+ */
+export const isKpiUnlockedForSubmitterApprover = (row: { refNum?: string; id?: string; kpi?: string } | null | undefined): boolean => {
+  if (!row) return false;
+  const clean = (val?: string) => (val || '').trim().toLowerCase().replace(/[\s_\-]+/g, '');
+  const refClean = clean(row.refNum);
+  const idClean = clean(row.id);
+
+  // Check M_72 variants (e.g. M_72, m_72, M72, m72, M-72, REF-M_72)
+  const isM72 = 
+    refClean === 'm72' || refClean === 'm072' || refClean.endsWith('m72') ||
+    idClean === 'm72' || idClean === 'm072' || idClean.endsWith('m72') ||
+    /\bm[_\-\s]?72\b/i.test(row.refNum || '') ||
+    /\bm[_\-\s]?72\b/i.test(row.id || '') ||
+    /\bm[_\-\s]?72\b/i.test(row.kpi || '') ||
+    (Boolean(row.kpi) && row.kpi!.toLowerCase().includes('municipal delegation register'));
+
+  // Check P_07 variants (e.g. P_07, p_07, P07, p07, P7, p7, P-07, REF-P_07)
+  const isP07 = 
+    refClean === 'p07' || refClean === 'p7' || refClean.endsWith('p07') || refClean.endsWith('p7') ||
+    idClean === 'p07' || idClean === 'p7' || idClean.endsWith('p07') || idClean.endsWith('p7') ||
+    /\bp[_\-\s]?0?7\b/i.test(row.refNum || '') ||
+    /\bp[_\-\s]?0?7\b/i.test(row.id || '') ||
+    /\bp[_\-\s]?0?7\b/i.test(row.kpi || '') ||
+    (Boolean(row.kpi) && row.kpi!.toLowerCase().includes('safety inspections conducted at municipal facilities'));
+
+  return Boolean(isM72 || isP07);
+};
+
+export const isSubmitterApproverLockedInReporting = (row: { refNum?: string; id?: string; kpi?: string } | null | undefined): boolean => {
+  return !isKpiUnlockedForSubmitterApprover(row);
+};
+
 interface SDBIPProps {
   currentUser: User;
   activeTenantId: string;
@@ -1381,6 +1416,16 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
       setSuccessToast(`Reporting Locked: ${getQuarterLockNotice('q4')} Unless you are in the actual period, you cannot report.`);
       setTimeout(() => setSuccessToast(null), 4000);
       return;
+    }
+
+    // Submitter and Approver are locked in the reporting table except for KPI M_72 and P_07
+    if (activeTab === 'reporting' && (field === 'submitter' || field === 'approver')) {
+      const targetRow = rows.find(r => r.id === rowId);
+      if (targetRow && isSubmitterApproverLockedInReporting(targetRow)) {
+        setSuccessToast(`Field Locked: Submitter and Approver are locked in the reporting table for KPI ${targetRow.refNum || ''} (Unlocked only for M_72 and P_07).`);
+        setTimeout(() => setSuccessToast(null), 4000);
+        return;
+      }
     }
 
     const updated = rows.map(r => {
@@ -4936,8 +4981,28 @@ Timestamp: ${new Date().toLocaleString()}
                       </div>
                     </th>
 
-                    <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-indigo-50 text-indigo-900 font-bold text-center border-b-2 border-indigo-200">SUBMITTER</th>
-                    <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-emerald-50 text-emerald-900 font-bold text-center border-b-2 border-emerald-200">APPROVER</th>
+                    <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-slate-200/90 text-slate-700 font-bold text-center border-b-2 border-slate-300">
+                      <div className="flex flex-col items-center justify-center gap-0.5">
+                        <div className="flex items-center justify-center gap-1">
+                          <span>SUBMITTER</span>
+                          <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                        </div>
+                        <span className="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300">
+                          LOCKED (EXCEPT M_72 &amp; P_07)
+                        </span>
+                      </div>
+                    </th>
+                    <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-slate-200/90 text-slate-700 font-bold text-center border-b-2 border-slate-300">
+                      <div className="flex flex-col items-center justify-center gap-0.5">
+                        <div className="flex items-center justify-center gap-1">
+                          <span>APPROVER</span>
+                          <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                        </div>
+                        <span className="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300">
+                          LOCKED (EXCEPT M_72 &amp; P_07)
+                        </span>
+                      </div>
+                    </th>
                     <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-violet-50 text-violet-900 font-bold text-center border-b-2 border-violet-200">REVIEWER</th>
                     <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-amber-50 text-amber-900 font-bold text-center border-b-2 border-amber-200">INTERNAL AUDIT</th>
 
@@ -6237,25 +6302,45 @@ Timestamp: ${new Date().toLocaleString()}
                       </td>
 
                       {/* Submitter */}
-                      <td className="p-1.5 border-r border-slate-100 bg-slate-50/5">
-                        <AzureADPicker 
-                          value={row.submitter || row.responsibleUnit || ''}
-                          onChange={(val) => handleCellChange(row.id, 'submitter', val)}
-                          roleType="submitter"
-                          activeTenantId={activeTenantId}
-                          isFitAll={isFitAllReportingCells}
-                        />
+                      <td className={`p-1.5 border-r border-slate-100 ${isSubmitterApproverLockedInReporting(row) ? 'bg-slate-100/40' : 'bg-emerald-50/20'}`}>
+                        <div className="flex flex-col gap-1">
+                          <AzureADPicker 
+                            value={row.submitter || row.responsibleUnit || ''}
+                            onChange={(val) => handleCellChange(row.id, 'submitter', val)}
+                            roleType="submitter"
+                            activeTenantId={activeTenantId}
+                            isFitAll={isFitAllReportingCells}
+                            disabled={isSubmitterApproverLockedInReporting(row)}
+                          />
+                          {!isSubmitterApproverLockedInReporting(row) && (
+                            <div className="flex items-center gap-1 justify-center">
+                              <span className="text-[8px] font-bold font-mono px-1 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                EXCEPTION UNLOCKED
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </td>
 
                       {/* Approver */}
-                      <td className="p-1.5 border-r border-slate-100 bg-slate-50/5">
-                        <AzureADPicker 
-                          value={row.approver || ''}
-                          onChange={(val) => handleCellChange(row.id, 'approver', val)}
-                          roleType="approver"
-                          activeTenantId={activeTenantId}
-                          isFitAll={isFitAllReportingCells}
-                        />
+                      <td className={`p-1.5 border-r border-slate-100 ${isSubmitterApproverLockedInReporting(row) ? 'bg-slate-100/40' : 'bg-emerald-50/20'}`}>
+                        <div className="flex flex-col gap-1">
+                          <AzureADPicker 
+                            value={row.approver || ''}
+                            onChange={(val) => handleCellChange(row.id, 'approver', val)}
+                            roleType="approver"
+                            activeTenantId={activeTenantId}
+                            isFitAll={isFitAllReportingCells}
+                            disabled={isSubmitterApproverLockedInReporting(row)}
+                          />
+                          {!isSubmitterApproverLockedInReporting(row) && (
+                            <div className="flex items-center gap-1 justify-center">
+                              <span className="text-[8px] font-bold font-mono px-1 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                EXCEPTION UNLOCKED
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </td>
 
                       {/* Reviewer */}

@@ -647,6 +647,47 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
             }
           })
         });
+
+        // When team leader reports on team evaluation, notify each team member as per the performance agreement
+        if (isTeamEvaluation) {
+          try {
+            const teamRepRes = await fetch(`/api/tenant/${activeTenantId}/team-reporting?documentIdSuffix=all`);
+            if (teamRepRes.ok) {
+              const repData = await teamRepRes.json();
+              const membersMap = new Map<string, { name: string; email: string }>();
+              (repData.reports || []).forEach((r: any) => {
+                (r.notifiedMembers || []).forEach((m: any) => {
+                  if (m && m.email && m.email.includes('@') && m.email.toLowerCase() !== submitterEmail.toLowerCase()) {
+                    membersMap.set(m.email.toLowerCase(), { name: m.name || m.email, email: m.email.toLowerCase() });
+                  }
+                });
+              });
+
+              for (const member of Array.from(membersMap.values())) {
+                await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    notification: {
+                      senderEmail: submitterEmail,
+                      senderName: submitterName,
+                      recipientEmail: member.email,
+                      recipientName: member.name,
+                      title: `⚡ Team Deliverables Reported: KPI #${targetItem?.kpiNo || kpiId}`,
+                      message: `Team Leader ${submitterName} has reported quarterly deliverables and submitted PoE for Team KPI #${targetItem?.kpiNo || ''}: "${targetItem?.kpi || ''}". As a member of this team performance agreement, this update is registered to your profile.`,
+                      actionType: 'team_reporting',
+                      kpiId,
+                      kpiNo: targetItem?.kpiNo || '',
+                      poeDocsCount: poeCount
+                    }
+                  })
+                });
+              }
+            }
+          } catch (teamNotifErr) {
+            console.warn("Failed to notify team members for evaluation reporting:", teamNotifErr);
+          }
+        }
       }
       
       setPplanData(payload);

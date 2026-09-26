@@ -7511,6 +7511,252 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
     }
   });
 
+  // 13.8.2. Team Performance Agreement Reporting & Member Notification Dispatch
+  app.post("/api/tenant/:tenantId/team-reporting", async (req, res) => {
+    const { tenantId } = req.params;
+    const {
+      teamTitle,
+      teamName,
+      teamIndex = 0,
+      documentIdSuffix = 'team',
+      leaderEmail,
+      leaderName,
+      period = 'Q1',
+      reportTitle,
+      reportSummary,
+      kpiDetails,
+      teamMembers = []
+    } = req.body;
+
+    try {
+      const supabase = getSupabase();
+      const reportId = `team_rep_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const timestamp = new Date().toISOString();
+
+      // Normalize team members and ensure unique emails
+      const validMembers: { name: string; email: string; designation?: string }[] = [];
+      const seenEmails = new Set<string>();
+
+      (teamMembers || []).forEach((m: any) => {
+        if (!m || !m.email) return;
+        const normEmail = String(m.email).toLowerCase().trim();
+        if (normEmail && normEmail.includes('@') && !seenEmails.has(normEmail)) {
+          seenEmails.add(normEmail);
+          validMembers.push({
+            name: m.name || normEmail.split('@')[0],
+            email: normEmail,
+            designation: m.designation || 'Team Member'
+          });
+        }
+      });
+
+      const effectiveTitle = reportTitle || `📊 Team Performance Report: ${teamName || teamTitle} (${period})`;
+      const effectiveMessage = reportSummary || `Team Leader ${leaderName || leaderEmail} has officially completed and submitted the ${period} team performance report for ${teamName || teamTitle}. Each team member has received this notification directly on their profile as per the performance agreement.`;
+
+      // 1. Dispatch IPMS Notification to EACH team member's individual profile
+      const newNotifs: any[] = [];
+      for (let i = 0; i < validMembers.length; i++) {
+        const mem = validMembers[i];
+        const notifId = `notif_team_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 6)}`;
+        newNotifs.push({
+          id: notifId,
+          threadId: reportId,
+          senderEmail: leaderEmail || '',
+          senderName: leaderName || 'Team Leader',
+          recipientEmail: mem.email,
+          recipientName: mem.name,
+          title: effectiveTitle,
+          message: effectiveMessage,
+          quarter: period,
+          actionType: 'team_reporting',
+          teamTitle: teamTitle || '',
+          teamName: teamName || '',
+          teamIndex,
+          createdAt: timestamp,
+          read: false
+        });
+      }
+
+      // Sync across notification stores
+      const targetTenants = Array.from(new Set([
+        tenantId,
+        'tenant-229',
+        'global',
+        'nkangala_auto',
+        'tenant-1'
+      ])).filter(Boolean);
+
+      for (const tId of targetTenants) {
+        const documentId = `ipms_notifications_${tId}`;
+        const { data: existingData } = await supabase
+          .from('messages')
+          .select('content')
+          .eq('id', documentId)
+          .maybeSingle();
+
+        let notifications: any[] = [];
+        if (existingData && existingData.content) {
+          try {
+            const parsed = JSON.parse(existingData.content);
+            notifications = parsed.notifications || [];
+          } catch (e) {}
+        }
+
+        notifications.unshift(...newNotifs);
+        if (notifications.length > 500) {
+          notifications = notifications.slice(0, 500);
+        }
+
+        await supabase
+          .from('messages')
+          .upsert({
+            id: documentId,
+            tenant_id: tId,
+            sender_id: 'ipms_notification_system',
+            sender_email: 'ipms_notif@system.local',
+            sender_name: 'IPMS Notification Service',
+            content: JSON.stringify({ notifications }),
+            message_type: 'ipms_notifications_v1',
+            created_at: timestamp
+          });
+      }
+
+      // 2. Also dispatch an IPMS Inbox message so team members receive it in their official Communique / Profile Inbox
+      for (let i = 0; i < validMembers.length; i++) {
+        const mem = validMembers[i];
+        const inboxMsgId = `inbox_msg_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 6)}`;
+        const inboxItem = {
+          id: inboxMsgId,
+          threadId: reportId,
+          tenantId,
+          senderEmail: leaderEmail || '',
+          senderName: leaderName || 'Team Leader',
+          recipientEmails: [mem.email],
+          recipientNames: [mem.name],
+          subject: effectiveTitle,
+          body: `Dear ${mem.name},\n\nPlease be advised that Team Leader ${leaderName || leaderEmail} has officially recorded and submitted the ${period} Performance Report for ${teamName || teamTitle} as per your signed Team Performance Agreement.\n\nReport Overview:\n${effectiveMessage}\n\nDeliverable Highlights & Metrics:\n${kpiDetails ? JSON.stringify(kpiDetails, null, 2) : 'Delivered according to performance plan targets.'}\n\nThis notification has been registered to your personal IPMS profile for audit and governance compliance.\n\nMzansiFlow IPMS Reporting Engine`,
+          createdAt: timestamp,
+          readBy: [],
+          starredBy: [],
+          trashedBy: []
+        };
+
+        await supabase
+          .from('messages')
+          .upsert({
+            id: `ipms_msg_${inboxMsgId}`,
+            tenant_id: tenantId,
+            sender_id: 'ipms_inbox_service',
+            sender_email: leaderEmail || 'leader@nkangaladm.gov.za',
+            sender_name: leaderName || 'Team Leader',
+            content: JSON.stringify(inboxItem),
+            message_type: 'ipms_inbox_item',
+            created_at: timestamp
+          });
+      }
+
+      // 3. Store the team report log persistently in Supabase
+      const reportLogId = `team_reports_${tenantId}_${documentIdSuffix}`;
+      const { data: existingReportsData } = await supabase
+        .from('messages')
+        .select('content')
+        .eq('id', reportLogId)
+        .maybeSingle();
+
+      let reportsList: any[] = [];
+      if (existingReportsData && existingReportsData.content) {
+        try {
+          reportsList = typeof existingReportsData.content === 'string'
+            ? JSON.parse(existingReportsData.content)
+            : existingReportsData.content;
+          if (!Array.isArray(reportsList)) reportsList = [];
+        } catch (e) {}
+      }
+
+      const reportRecord = {
+        id: reportId,
+        teamTitle,
+        teamName,
+        teamIndex,
+        documentIdSuffix,
+        leaderEmail,
+        leaderName,
+        period,
+        reportTitle: effectiveTitle,
+        reportSummary: effectiveMessage,
+        kpiDetails: kpiDetails || [],
+        notifiedMembersCount: validMembers.length,
+        notifiedMembers: validMembers,
+        createdAt: timestamp
+      };
+
+      reportsList.unshift(reportRecord);
+      if (reportsList.length > 200) reportsList = reportsList.slice(0, 200);
+
+      await supabase
+        .from('messages')
+        .upsert({
+          id: reportLogId,
+          tenant_id: tenantId,
+          sender_id: 'team_reporting_system',
+          sender_email: leaderEmail || 'leader@nkangaladm.gov.za',
+          sender_name: 'Team Reporting Service',
+          content: JSON.stringify(reportsList),
+          message_type: 'team_reports_log',
+          created_at: timestamp
+        });
+
+      return res.json({
+        success: true,
+        report: reportRecord,
+        notifiedMembersCount: validMembers.length,
+        notifiedMembers: validMembers
+      });
+    } catch (err: any) {
+      console.error("Team reporting post exception:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get("/api/tenant/:tenantId/team-reporting", async (req, res) => {
+    const { tenantId } = req.params;
+    const documentIdSuffix = req.query.documentIdSuffix ? String(req.query.documentIdSuffix) : 'all';
+    try {
+      const supabase = getSupabase();
+      let query = supabase.from('messages').select('content');
+      if (documentIdSuffix === 'all') {
+        query = query.like('id', `team_reports_${tenantId}%`);
+      } else {
+        query = query.eq('id', `team_reports_${tenantId}_${documentIdSuffix}`);
+      }
+      const { data, error } = await query;
+      if (error) {
+        logSupabaseError("team-reporting", error);
+        return res.json({ reports: [] });
+      }
+
+      let allReports: any[] = [];
+      if (data) {
+        for (const row of data) {
+          if (row.content) {
+            try {
+              const parsed = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
+              if (Array.isArray(parsed)) {
+                allReports.push(...parsed);
+              }
+            } catch (e) {}
+          }
+        }
+      }
+
+      allReports.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      return res.json({ reports: allReports });
+    } catch (err: any) {
+      console.error("Team reporting get exception:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // 13.9. Fetch PA templates
   app.get("/api/tenant/:tenantId/pa-templates", async (req, res) => {
     const { tenantId: routeTenantId } = req.params;

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Search, Check, Users } from 'lucide-react';
+import { Search, Check, Users, Lock } from 'lucide-react';
 
 interface AzureContact {
   id: string;
@@ -18,6 +18,7 @@ interface AzureADPickerProps {
   activeTenantId: string;
   size?: 'sm' | 'md';
   isFitAll?: boolean;
+  disabled?: boolean;
 }
 
 export const FIXED_REVIEWERS = [
@@ -104,7 +105,8 @@ export const AzureADPicker = React.memo(function AzureADPicker({
   placeholder, 
   activeTenantId, 
   size = 'md',
-  isFitAll = false
+  isFitAll = false,
+  disabled = false
 }: AzureADPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -118,7 +120,7 @@ export const AzureADPicker = React.memo(function AzureADPicker({
 
   // Attach click-outside listener ONLY when popover is open
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || disabled) return;
     const handleClickOutside = (event: MouseEvent) => {
       if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
         setIsOpen(false);
@@ -126,7 +128,7 @@ export const AzureADPicker = React.memo(function AzureADPicker({
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isOpen]);
+  }, [isOpen, disabled]);
 
   // Load user data on open or when tenant/role changes
   useEffect(() => {
@@ -161,7 +163,7 @@ export const AzureADPicker = React.memo(function AzureADPicker({
   }, [activeTenantId, roleType, isOpen]);
 
   const filteredUsers = useMemo(() => {
-    if (!isOpen) return [];
+    if (!isOpen || disabled) return [];
     if (!searchQuery.trim()) return allUsers;
     const q = searchQuery.toLowerCase();
     return allUsers.filter(contact => 
@@ -170,7 +172,7 @@ export const AzureADPicker = React.memo(function AzureADPicker({
       contact.title.toLowerCase().includes(q) ||
       contact.department.toLowerCase().includes(q)
     );
-  }, [allUsers, searchQuery, isOpen]);
+  }, [allUsers, searchQuery, isOpen, disabled]);
 
   const getRoleTheme = () => {
     switch (roleType) {
@@ -192,32 +194,54 @@ export const AzureADPicker = React.memo(function AzureADPicker({
     <div className="relative inline-block w-full" ref={popoverRef}>
       {/* Target Trigger Button */}
       <div 
-        onClick={() => setIsOpen(!isOpen)}
-        title={resolvedDisplayName || placeholder || `Select ${roleType}...`}
-        className={`flex items-center justify-between cursor-pointer border rounded-lg px-2.5 py-1.5 transition-all text-left bg-white shadow-sm hover:border-sky-400 select-none ${
-          value ? 'border-slate-200 text-slate-800' : 'border-dashed border-slate-300 text-slate-400 hover:bg-slate-50'
+        onClick={() => {
+          if (disabled) return;
+          setIsOpen(!isOpen);
+        }}
+        title={
+          disabled 
+            ? `${resolvedDisplayName ? `${resolvedDisplayName} • ` : ''}${theme.label} Locked (Read-Only)`
+            : (resolvedDisplayName || placeholder || `Select ${roleType}...`)
+        }
+        className={`flex items-center justify-between border rounded-lg px-2.5 py-1.5 transition-all text-left select-none ${
+          disabled
+            ? 'bg-slate-100/90 border-slate-200 text-slate-500 cursor-not-allowed shadow-none'
+            : `cursor-pointer bg-white shadow-sm hover:border-sky-400 ${
+                value ? 'border-slate-200 text-slate-800' : 'border-dashed border-slate-300 text-slate-400 hover:bg-slate-50'
+              }`
         } ${size === 'sm' ? 'text-[11px]' : 'text-xs'}`}
       >
         <div className={`flex items-center gap-2 ${isFitAll ? 'min-w-0' : 'truncate'}`}>
-          <div className="w-4 h-4 rounded-md bg-sky-500/10 text-sky-600 flex items-center justify-center shrink-0">
-            <svg viewBox="0 0 24 24" className="w-2.5 h-2.5 fill-current">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
-            </svg>
-          </div>
+          {disabled ? (
+            <div className="w-4 h-4 rounded-md bg-slate-200/80 text-amber-600 flex items-center justify-center shrink-0">
+              <Lock className="w-2.5 h-2.5" />
+            </div>
+          ) : (
+            <div className="w-4 h-4 rounded-md bg-sky-500/10 text-sky-600 flex items-center justify-center shrink-0">
+              <svg viewBox="0 0 24 24" className="w-2.5 h-2.5 fill-current">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
+              </svg>
+            </div>
+          )}
           <span className={`font-medium font-sans ${isFitAll ? 'break-words whitespace-normal leading-tight' : 'truncate'}`}>
-            {resolvedDisplayName || placeholder || `Select ${roleType}...`}
+            {resolvedDisplayName || (disabled ? 'Locked' : (placeholder || `Select ${roleType}...`))}
           </span>
         </div>
 
-        {value && (
+        {disabled ? (
+          <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ml-2 shrink-0 bg-slate-200/80 text-slate-600 border border-slate-300 flex items-center gap-0.5">
+            <Lock className="w-2 h-2 text-amber-600" />
+            <span>{roleType === 'internal_audit' ? 'AUDIT' : roleType.substring(0, 4)}</span>
+          </span>
+        ) : value ? (
           <span className={`text-[8.5px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ml-2 shrink-0 ${theme.bg}`}>
             {roleType === 'internal_audit' ? 'AUDIT' : roleType.substring(0, 4)}
           </span>
-        )}
+        ) : null}
       </div>
 
       {/* Azure AD Dropdown Sheet */}
-      {isOpen && (
+      {isOpen && !disabled && (
         <div className="absolute right-0 mt-1.5 w-72 bg-slate-900 border border-slate-750 rounded-xl shadow-2xl z-50 overflow-hidden text-slate-100 flex flex-col font-sans">
           <div className="bg-gradient-to-r from-slate-950 to-slate-900 px-4 py-3 border-b border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-1.5">

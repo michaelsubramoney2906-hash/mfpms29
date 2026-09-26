@@ -5,7 +5,7 @@ import type { AzureUser } from './TeamAzureSearchInput';
 interface BulkAddDirectoryModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddMembers: (members: { name: string; designation: string }[]) => void;
+  onAddMembers: (members: { name: string; designation: string; email?: string }[]) => void;
   currentMembers: string[][];
 }
 
@@ -70,7 +70,8 @@ export const BulkAddDirectoryModal: React.FC<BulkAddDirectoryModalProps> = ({
     const selectedUsers = users.filter(u => selectedEmails.has(u.email));
     const formatted = selectedUsers.map(u => ({
       name: u.fullName,
-      designation: u.jobFunction || u.department || (u.email ? u.email.split('@')[0] : 'Municipal Official')
+      designation: u.jobFunction || u.department || (u.email ? u.email.split('@')[0] : 'Municipal Official'),
+      email: u.email
     }));
     onAddMembers(formatted);
     setSelectedEmails(new Set());

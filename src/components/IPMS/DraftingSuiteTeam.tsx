@@ -5,7 +5,7 @@ import {
   Upload, Download, FileText, CheckCircle2, ChevronRight, Check, Save, Plus, Trash2, X, 
   Printer, FileDown, FileSpreadsheet, Loader2, Briefcase, GraduationCap, Award, TrendingUp, 
   Sparkles, PenTool, Search, Users, RefreshCw, Edit3, Shield, Info, CheckSquare,
-  Table2, ClipboardList, ArrowRight, Scale
+  Table2, ClipboardList, ArrowRight, Scale, Bell, Send, CheckCheck, ShieldCheck
 } from 'lucide-react';
 import type { User } from '../../types';
 import { NKANGALA_LOGO_BASE64 } from './nkangala_logo_base64';
@@ -457,6 +457,145 @@ export function DraftingSuiteTeam({
   const triggerNotification = (text: string, type: 'success' | 'error') => {
     setNotification({ text, type });
     setTimeout(() => setNotification(null), 4000);
+  };
+
+  // Team Leader Reporting & Member Notifications State
+  const [reportingPeriod, setReportingPeriod] = useState<string>('Q1');
+  const [reportingHeadline, setReportingHeadline] = useState<string>('Quarterly Team Performance Deliverables & POE Verification');
+  const [reportingProgress, setReportingProgress] = useState<string>('');
+  const [isDispatchingReport, setIsDispatchingReport] = useState<boolean>(false);
+  const [dispatchedReports, setDispatchedReports] = useState<any[]>([]);
+  const [reportingSuccessNotice, setReportingSuccessNotice] = useState<{ message: string; count: number; members: any[] } | null>(null);
+
+  // Dynamically resolve Azure AD Team Members linked to this Team Performance Agreement
+  const getTeamAzureMembers = (): { name: string; email: string; designation: string }[] => {
+    const map = new Map<string, { name: string; email: string; designation: string }>();
+    const leaderEmail = (currentUser?.email || '').toLowerCase().trim();
+
+    // 1. Members from Deployment Roster tableRows
+    tableRows.forEach(r => {
+      const name = r[1]?.trim();
+      const desig = r[2]?.trim() || 'Team Member';
+      const email = r[3]?.trim();
+      if (email && email.includes('@')) {
+        const norm = email.toLowerCase();
+        if (norm !== leaderEmail) {
+          map.set(norm, { name: name || norm.split('@')[0], email: norm, designation: desig });
+        }
+      } else if (name) {
+        // Fallback match against tenant users or directory
+        const match = tenantUsers.find(u => 
+          (u.fullName && u.fullName.toLowerCase().trim() === name.toLowerCase()) ||
+          ((u as any).name && String((u as any).name).toLowerCase().trim() === name.toLowerCase())
+        );
+        if (match && match.email && match.email.includes('@') && match.email.toLowerCase() !== leaderEmail) {
+          map.set(match.email.toLowerCase(), { 
+            name: match.fullName || (match as any).name || name, 
+            email: match.email.toLowerCase(), 
+            designation: desig || match.jobFunction || match.department || 'Team Member' 
+          });
+        }
+      }
+    });
+
+    // 2. Members from teamMemberSignatures
+    teamMemberSignatures.forEach(s => {
+      const email = s.email?.trim();
+      const name = s.name?.trim();
+      if (email && email.includes('@')) {
+        const norm = email.toLowerCase();
+        if (norm !== leaderEmail) {
+          map.set(norm, { name: name || norm.split('@')[0], email: norm, designation: s.designation || s.title || 'Team Signatory' });
+        }
+      } else if (name) {
+        const match = tenantUsers.find(u => 
+          (u.fullName && u.fullName.toLowerCase().trim() === name.toLowerCase()) ||
+          ((u as any).name && String((u as any).name).toLowerCase().trim() === name.toLowerCase())
+        );
+        if (match && match.email && match.email.includes('@') && match.email.toLowerCase() !== leaderEmail) {
+          map.set(match.email.toLowerCase(), { 
+            name: match.fullName || (match as any).name || name, 
+            email: match.email.toLowerCase(), 
+            designation: s.designation || s.title || match.jobFunction || 'Team Signatory' 
+          });
+        }
+      }
+    });
+
+    return Array.from(map.values());
+  };
+
+  // Fetch historical dispatched team reports from Supabase
+  const loadDispatchedReports = async () => {
+    if (!activeTenantId) return;
+    try {
+      const res = await fetch(`/api/tenant/${activeTenantId}/team-reporting?documentIdSuffix=${documentIdSuffix}&t=${Date.now()}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.reports)) {
+          const teamReps = data.reports.filter((r: any) => r.teamIndex === activeTeamIndex || r.teamName === currentTeam.name);
+          setDispatchedReports(teamReps);
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to load team reports:", e);
+    }
+  };
+
+  useEffect(() => {
+    loadDispatchedReports();
+  }, [activeTenantId, activeTeamIndex, documentIdSuffix]);
+
+  // Dispatch Team Reporting & Notify All Azure AD Team Members on their individual profiles
+  const handleDispatchTeamReport = async () => {
+    const azureMembers = getTeamAzureMembers();
+    if (azureMembers.length === 0) {
+      alert("No Azure AD team members were detected for this team. Please select team members from Azure AD in Section 1 (Deployment Roster) or Section 13 (Signatories) first.");
+      return;
+    }
+
+    const summaryText = reportingProgress.trim() || reporting.trim() || `Quarterly operational targets for ${currentTeam.name} (${reportingPeriod}) have been fulfilled in accordance with performance agreement standards.`;
+    const headlineText = reportingHeadline.trim() || `Team Performance Report: ${currentTeam.name} (${reportingPeriod})`;
+
+    setIsDispatchingReport(true);
+    try {
+      const res = await fetch(`/api/tenant/${activeTenantId}/team-reporting`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          teamTitle,
+          teamName: currentTeam.name,
+          teamIndex: activeTeamIndex,
+          documentIdSuffix,
+          leaderEmail: currentUser.email,
+          leaderName: currentUser.fullName || currentUser.email,
+          period: reportingPeriod,
+          reportTitle: headlineText,
+          reportSummary: summaryText,
+          teamMembers: azureMembers
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setReportingSuccessNotice({
+          message: `Successfully reported and notified ${data.notifiedMembersCount} team member(s) directly on their individual IPMS profiles!`,
+          count: data.notifiedMembersCount,
+          members: data.notifiedMembers || azureMembers
+        });
+        triggerNotification(`Team report dispatched! ${data.notifiedMembersCount} team member(s) notified on their individual profiles.`, 'success');
+        loadDispatchedReports();
+        // Also auto-save draft
+        saveToProfile();
+      } else {
+        throw new Error("Failed to dispatch team report");
+      }
+    } catch (err: any) {
+      console.error("Team report dispatch error:", err);
+      triggerNotification("Failed to dispatch team report. Check network connection.", 'error');
+    } finally {
+      setIsDispatchingReport(false);
+    }
   };
 
   const DEFAULT_FILTERED_PPLAN_ITEMS = [
@@ -1405,12 +1544,13 @@ export function DraftingSuiteTeam({
   };
 
   // Add Directory Members from Bulk Modal
-  const handleBulkAddMembers = (newMembers: { name: string; designation: string }[]) => {
+  const handleBulkAddMembers = (newMembers: { name: string; designation: string; email?: string }[]) => {
     const startIdx = tableRows.length + 1;
     const addedRows: string[][] = newMembers.map((m, i) => [
       String(startIdx + i),
       m.name,
-      m.designation
+      m.designation,
+      m.email || ''
     ]);
     setTableRows(prev => [...prev, ...addedRows]);
   };
@@ -2128,7 +2268,7 @@ export function DraftingSuiteTeam({
                       onSelectUser={(user) => {
                         const newTable = [...tableRows];
                         const designation = user.jobFunction || user.department || user.email || 'Municipal Official';
-                        newTable[rIdx] = [row[0] || String(rIdx + 1), user.fullName, designation];
+                        newTable[rIdx] = [row[0] || String(rIdx + 1), user.fullName, designation, user.email || ''];
                         setTableRows(newTable);
                       }}
                     />
@@ -2230,7 +2370,7 @@ export function DraftingSuiteTeam({
           />
         </div>
 
-        {/* SECTION 3: REPORTING */}
+        {/* SECTION 3: REPORTING & MEMBER NOTIFICATIONS */}
         <div className="bg-white p-5 rounded-xl shadow-xs border border-slate-200 space-y-4">
           <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
             <Edit3 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
@@ -2243,6 +2383,7 @@ export function DraftingSuiteTeam({
               placeholder="3. Reporting Requirements & Lines"
             />
           </div>
+
           <SectionCustomBlockEditor
             label="Additional Table & Text (Above 3. Reporting)"
             position="above"
@@ -2256,6 +2397,206 @@ export function DraftingSuiteTeam({
             extra={getSectionExtra('reporting').below}
             onChange={val => updateSectionExtra('reporting', 'below', val)}
           />
+
+          {/* TEAM LEADER REPORTING CONSOLE & PROFILE NOTIFICATIONS HUB */}
+          <div className="mt-4 rounded-xl border border-indigo-200 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 p-5 text-white shadow-lg space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-indigo-800/60 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-400/30 flex items-center justify-center shrink-0">
+                  <Bell className="w-5 h-5 animate-pulse" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-xs font-black uppercase tracking-wider text-white">
+                      Team Leader Reporting Console
+                    </h4>
+                    <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
+                      <ShieldCheck className="w-2.5 h-2.5" />
+                      Individual Profile Notifications
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-300 mt-0.5">
+                    When the team leader reports, all users selected from Azure AD as team members receive instant notifications on their individual profiles.
+                  </p>
+                </div>
+              </div>
+
+              <div className="text-right shrink-0">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block font-mono">Active Team Unit</span>
+                <span className="text-xs font-black text-indigo-200">{currentTeam.name || teamTitle}</span>
+              </div>
+            </div>
+
+            {/* Detected Azure AD Team Members List */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-300 flex items-center gap-1.5 font-mono">
+                  <Users className="w-3.5 h-3.5 text-indigo-400" />
+                  Azure AD Team Members Linked to this Agreement ({getTeamAzureMembers().length})
+                </label>
+                <span className="text-[9px] text-slate-400">
+                  Selected via Azure AD Search in Deployment Roster / Signatories
+                </span>
+              </div>
+
+              {getTeamAzureMembers().length > 0 ? (
+                <div className="flex flex-wrap gap-2 p-3 bg-slate-950/70 border border-indigo-900/60 rounded-xl">
+                  {getTeamAzureMembers().map((mem, mIdx) => (
+                    <div 
+                      key={mIdx} 
+                      className="flex items-center gap-1.5 bg-indigo-950/90 border border-indigo-700/60 px-2.5 py-1 rounded-lg text-xs"
+                      title={`${mem.name} (${mem.email}) - Will receive individual profile notifications`}
+                    >
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping shrink-0" />
+                      <span className="font-bold text-slate-100">{mem.name}</span>
+                      <span className="text-[10px] text-indigo-300 font-mono">({mem.email})</span>
+                      {mem.designation && (
+                        <span className="text-[9px] text-slate-400 ml-1 border-l border-indigo-800 pl-1">
+                          {mem.designation}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-200 text-xs flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Info className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span>No Azure AD team members selected yet. Search and select users from Azure AD in Section 1 (Deployment Roster) to link team profiles.</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsBulkModalOpen(true)}
+                    className="px-2.5 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded text-[10px] font-bold transition shrink-0 cursor-pointer"
+                  >
+                    Add from Azure AD
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Reporting Form Controls */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-slate-950/50 p-3.5 rounded-xl border border-indigo-900/40">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-300 uppercase block font-mono">Reporting Period</label>
+                <div className="grid grid-cols-3 gap-1">
+                  {(['Q1', 'Q2', 'Mid-Term', 'Q3', 'Q4', 'Annual'] as const).map(q => (
+                    <button
+                      key={q}
+                      type="button"
+                      onClick={() => setReportingPeriod(q)}
+                      className={`px-2 py-1 rounded text-[11px] font-bold transition text-center cursor-pointer ${
+                        reportingPeriod === q 
+                          ? 'bg-indigo-600 text-white shadow-sm border border-indigo-400' 
+                          : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                      }`}
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="md:col-span-2 space-y-1">
+                <label className="text-[10px] font-bold text-slate-300 uppercase block font-mono">Report Title / Milestone Headline</label>
+                <input
+                  type="text"
+                  value={reportingHeadline}
+                  onChange={e => setReportingHeadline(e.target.value)}
+                  placeholder="e.g. Q1 Operational Targets 100% Met, Deliverables Recorded"
+                  className="w-full text-xs p-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 placeholder-slate-500 focus:border-indigo-400 outline-none"
+                />
+              </div>
+
+              <div className="md:col-span-3 space-y-1">
+                <label className="text-[10px] font-bold text-slate-300 uppercase block font-mono">
+                  Team Leader Reporting Narrative &amp; Actual Deliverables Summary
+                </label>
+                <textarea
+                  value={reportingProgress}
+                  onChange={e => setReportingProgress(e.target.value)}
+                  placeholder={reporting || "Detail the actual quarterly deliverables, achievements, SLA turnaround times, and verified performance metrics for this reporting period..."}
+                  rows={3}
+                  className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 placeholder-slate-500 focus:border-indigo-400 outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Success Notice Card */}
+            {reportingSuccessNotice && (
+              <div className="p-3 bg-emerald-500/20 border border-emerald-500/40 rounded-xl flex items-center justify-between text-xs text-emerald-200">
+                <div className="flex items-center gap-2">
+                  <CheckCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>{reportingSuccessNotice.message}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReportingSuccessNotice(null)}
+                  className="text-slate-400 hover:text-white text-[10px] underline ml-2 cursor-pointer"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
+
+            {/* Action Bar */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1">
+              <span className="text-[10px] text-slate-400">
+                Dispatches real-time IPMS notifications &amp; inbox communiques to each member's verified email.
+              </span>
+
+              <button
+                type="button"
+                onClick={handleDispatchTeamReport}
+                disabled={isDispatchingReport || getTeamAzureMembers().length === 0}
+                className="w-full sm:w-auto px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-extrabold transition flex items-center justify-center gap-2 shadow-md cursor-pointer active:scale-95"
+              >
+                {isDispatchingReport ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Dispatching Notifications...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    <span>Dispatch Team Report &amp; Notify Members ({getTeamAzureMembers().length})</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Historical Dispatched Reports Log */}
+            {dispatchedReports.length > 0 && (
+              <div className="border-t border-indigo-900/60 pt-3 space-y-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block font-mono">
+                  Previously Dispatched Team Reports ({dispatchedReports.length})
+                </span>
+                <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                  {dispatchedReports.map((rep, rIdx) => (
+                    <div key={rIdx} className="bg-slate-950/60 border border-slate-800 rounded-lg p-2.5 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="px-1.5 py-0.5 rounded bg-indigo-500/30 text-indigo-300 font-bold text-[9px] font-mono">
+                            {rep.period}
+                          </span>
+                          <span className="font-bold text-slate-200 text-[11px]">{rep.reportTitle}</span>
+                        </div>
+                        <p className="text-[10px] text-slate-400 line-clamp-1">{rep.reportSummary}</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="text-[9px] text-emerald-400 font-bold block">
+                          ✓ {rep.notifiedMembersCount || (rep.notifiedMembers?.length || 0)} members notified
+                        </span>
+                        <span className="text-[8.5px] text-slate-500 font-mono">
+                          {rep.createdAt ? new Date(rep.createdAt).toLocaleDateString() : ''}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* SECTION 4: ASSESSMENT FRAMEWORK & 4.2 KPA TABLE */}
