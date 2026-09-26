@@ -17,6 +17,7 @@ import mammoth from "mammoth";
 import * as XLSX from "xlsx";
 import { NKANGALA_HARDCODED_DATA } from "./fred_hardcoded_data";
 import { ensureAllSdbipKpis } from "./src/sdbip_catalog";
+import { handleDemoWorkflowGet, handleDemoWorkflowAction, seedDemoDataInSupabase } from "./src/utils/ipmsDemoHandler";
 
 const SUPABASE_TIMEOUT_MS = 15000;
 
@@ -5734,6 +5735,75 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
     // Inject local evaluation test users to test specific module roles
     const localTestUsers = [
       {
+        id: 'demo-user-mzansiflow',
+        fullName: 'Demo Standard User',
+        email: 'user@mzansiflow.co.za',
+        jobFunction: 'Performance Management Specialist',
+        department: 'Corporate Services',
+        source: 'demo',
+        role: 'tenant_user',
+        tenantId: 'nkangala_auto',
+        systemRole: 'Standard User',
+        manager: 'Demo Line Manager',
+        managerEmail: 'manager@mzansiflow.co.za',
+        directorate: 'Corporate Services',
+        reportTo: 'manager@mzansiflow.co.za',
+        level: '1',
+        signatureType: 'draw',
+        signatureData: ''
+      },
+      {
+        id: 'demo-manager-mzansiflow',
+        fullName: 'Demo Line Manager',
+        email: 'manager@mzansiflow.co.za',
+        jobFunction: 'Divisional Manager: Corporate Services',
+        department: 'Corporate Services',
+        source: 'demo',
+        role: 'Manager',
+        tenantId: 'nkangala_auto',
+        systemRole: 'Manager',
+        manager: '',
+        directorate: 'Corporate Services',
+        reportTo: '',
+        level: '1',
+        signatureType: 'draw',
+        signatureData: ''
+      },
+      {
+        id: 'demo-audit-mzansiflow',
+        fullName: 'Demo Internal Auditor',
+        email: 'audit@mzansiflow.co.za',
+        jobFunction: 'Senior Internal Auditor',
+        department: 'Internal Audit Services',
+        source: 'demo',
+        role: 'Auditor',
+        tenantId: 'nkangala_auto',
+        systemRole: 'Internal Auditor',
+        manager: '',
+        directorate: 'Internal Audit',
+        reportTo: '',
+        level: '1',
+        signatureType: 'draw',
+        signatureData: ''
+      },
+      {
+        id: 'demo-dpmc-mzansiflow',
+        fullName: 'Demo DPMC Moderator',
+        email: 'dpmc@mzansiflow.co.za',
+        jobFunction: 'Committee Moderator',
+        department: 'Performance Moderation (DPMC)',
+        source: 'demo',
+        role: 'DPMC',
+        tenantId: 'nkangala_auto',
+        systemRole: 'DPMC',
+        manager: '',
+        directorate: 'Performance Moderation',
+        reportTo: '',
+        level: '1',
+        signatureType: 'draw',
+        signatureData: ''
+      },
+      {
         id: 'test-user-local',
         fullName: 'Test Standard User (Local Demo)',
         email: 'test.user@local',
@@ -7271,6 +7341,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
         const userRole = req.query.role ? String(req.query.role).toLowerCase().trim() : '';
         const isAuditor = userRole.includes('audit') || normEmail.includes('audit') || req.query.isAuditor === 'true';
         const isManager = userRole.includes('manager') || normEmail.includes('manager') || req.query.isManager === 'true';
+        const isDpmc = userRole.includes('dpmc') || normEmail.includes('dpmc') || req.query.isDpmc === 'true';
 
         notifications = notifications.filter((n: any) => {
           const rec = normalizeNkangalaEmail(n.recipientEmail);
@@ -7280,6 +7351,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
           if (userAliases.includes(rec) || userAliases.includes(sen) || rec === 'all' || !rec) return true;
           if (isAuditor && (rec === 'internal_audit' || rec === 'auditor' || rec === 'audit' || rec.includes('audit'))) return true;
           if (isManager && (rec === 'managers' || rec === 'manager' || rec.includes('manager'))) return true;
+          if (isDpmc && (rec === 'dpmc' || rec.includes('dpmc'))) return true;
           if (normEmail.includes('khuboni') && (rec.includes('khuboni') || recName.includes('khuboni') || sen.includes('zulune'))) return true;
           if (normEmail.includes('zulune') && (sen.includes('zulune') || rec.includes('zulune') || sen.includes('khuboni'))) return true;
 
@@ -7508,6 +7580,28 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
     } catch (err: any) {
       console.error("IPMS notification delete exception:", err);
       res.status(500).json({ error: err.message });
+    }
+  });
+
+  // 13.8.1.1. IPMS Demo Workflow Endpoints
+  app.get("/api/tenant/:tenantId/demo-workflow", async (req, res) => {
+    const supabase = getSupabase();
+    await handleDemoWorkflowGet(req, res, supabase);
+  });
+
+  app.post("/api/tenant/:tenantId/demo-workflow/action", async (req, res) => {
+    const supabase = getSupabase();
+    await handleDemoWorkflowAction(req, res, supabase);
+  });
+
+  app.post("/api/tenant/:tenantId/demo-workflow/seed", async (req, res) => {
+    const { tenantId } = req.params;
+    const supabase = getSupabase();
+    try {
+      const state = await seedDemoDataInSupabase(supabase, tenantId);
+      res.json({ success: true, state });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
     }
   });
 
@@ -12221,6 +12315,10 @@ User Request: ${prompt}`;
           { email: 'bonagni@mzansiflow.co.za', fullName: 'Bonagni', role: 'Global Administrator' },
           { email: 'qiniso@mzansiflow.co.za', fullName: 'Qiniso', role: 'Systems Administrator' },
           { email: 'marlan@mzansiflow.co.za', fullName: 'Marlan', role: 'Systems Administrator' },
+          { email: 'user@mzansiflow.co.za', fullName: 'Demo Standard User', role: 'tenant_user' },
+          { email: 'manager@mzansiflow.co.za', fullName: 'Demo Line Manager', role: 'Manager' },
+          { email: 'audit@mzansiflow.co.za', fullName: 'Demo Internal Auditor', role: 'Auditor' },
+          { email: 'dpmc@mzansiflow.co.za', fullName: 'Demo DPMC Moderator', role: 'DPMC' },
         ];
 
         let seededAny = false;
@@ -12258,6 +12356,10 @@ User Request: ${prompt}`;
           }
           passMap['delphine@mzansiflow.co.za'] = 'Deskjet01*';
           passMap['ryanw@mzansiflow.co.za'] = 'Deskjet01*';
+          passMap['user@mzansiflow.co.za'] = 'Deskjet01*';
+          passMap['manager@mzansiflow.co.za'] = 'Deskjet01*';
+          passMap['audit@mzansiflow.co.za'] = 'Deskjet01*';
+          passMap['dpmc@mzansiflow.co.za'] = 'Deskjet01*';
           await supabase.from('messages').upsert({
             id: 'nkangala_user_passwords',
             content: JSON.stringify(passMap),

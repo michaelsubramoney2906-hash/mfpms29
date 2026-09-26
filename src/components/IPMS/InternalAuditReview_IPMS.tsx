@@ -76,15 +76,18 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
 
   // Check authorization
   const isAuthorized = 
+    (currentUser.email === 'audit@mzansiflow.co.za' ||
+    currentUser.email === 'test.auditor@local' ||
     currentUser.role === 'admin' || 
     currentUser.systemRole === 'Global Administrator' ||
     (currentUser.systemRole && currentUser.systemRole.toLowerCase().includes('admin')) ||
     (currentUser.role && currentUser.role.toLowerCase().includes('admin')) ||
     currentUser.email === 'mike@mzansiflow.co.za' ||
-    currentUser.email?.endsWith('@mzansiflow.co.za') ||
     (currentUser.jobFunction && currentUser.jobFunction.toLowerCase().includes('audit')) ||
     (currentUser.department && currentUser.department.toLowerCase().includes('audit')) ||
-    (currentUser.systemRole && currentUser.systemRole.toLowerCase().includes('audit'));
+    (currentUser.systemRole && currentUser.systemRole.toLowerCase().includes('audit'))) &&
+    currentUser.email !== 'user@mzansiflow.co.za' &&
+    currentUser.email !== 'manager@mzansiflow.co.za';
 
   useEffect(() => {
     if (isAuthorized) {

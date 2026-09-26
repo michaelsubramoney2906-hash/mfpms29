@@ -5,13 +5,15 @@ import {
   Upload, Download, FileText, CheckCircle2, ChevronRight, Check, Save, Plus, Trash2, X, 
   Printer, FileDown, FileSpreadsheet, Loader2, Briefcase, GraduationCap, Award, TrendingUp, 
   Sparkles, PenTool, Search, Users, RefreshCw, Edit3, Shield, Info, CheckSquare,
-  Table2, ClipboardList, ArrowRight, Scale, Bell, Send, CheckCheck, ShieldCheck
+  Table2, ClipboardList, ArrowRight, Scale, Bell, Send, CheckCheck, ShieldCheck,
+  ShieldAlert, Crown, Star, Eye, Lock
 } from 'lucide-react';
 import type { User } from '../../types';
 import { NKANGALA_LOGO_BASE64 } from './nkangala_logo_base64';
 import { TEAM_MODULE_CONFIGS, TeamPreset } from './teamPADefaults';
 import { TeamAzureSearchInput, AzureUser } from './TeamAzureSearchInput';
 import { BulkAddDirectoryModal } from './BulkAddDirectoryModal';
+import { checkRosterRole, resolveGlobalTeamStatus } from '../../utils/teamRosterHelper';
 import { 
   DualSectionExtras, SectionExtraBlock, CustomTableBlock,
   createDefaultDualExtras, createDefaultExtraBlock, normalizeSectionExtras,
@@ -170,6 +172,17 @@ export function DraftingSuiteTeam({
   // Table State
   const [headers, setHeaders] = useState<string[]>(moduleConfig?.defaultHeaders || defaultHeaders);
   const [tableRows, setTableRows] = useState<string[][]>(currentTeam.defaultRows || defaultRows);
+
+  const rosterRoleInfo = React.useMemo(() => {
+    const leaderRow = tableRows[0] || [];
+    const defaultLeaderName = leaderRow[1] || 'Team Leader';
+    const defaultLeaderEmail = leaderRow[3]?.includes('@') ? leaderRow[3] : (leaderRow[4]?.includes('@') ? leaderRow[4] : '');
+    return checkRosterRole(currentUser, tableRows, defaultLeaderName, defaultLeaderEmail);
+  }, [currentUser, tableRows]);
+
+  const canReportOrEdit = rosterRoleInfo.canReportOrEdit;
+  const isTeamMemberOnly = rosterRoleInfo.isMember && !rosterRoleInfo.isLeader;
+  const currentTeamLeaderName = rosterRoleInfo.leaderName || 'Team Leader';
 
   // Review quarters table
   const [reviewRows, setReviewRows] = useState<any[]>([
@@ -1674,6 +1687,35 @@ export function DraftingSuiteTeam({
           </div>
         )}
 
+        {/* Top View-Only Notice Banner for Team Members */}
+        {isTeamMemberOnly && (
+          <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-xl shadow-xs border border-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 select-text">
+            <div className="flex items-start sm:items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 mt-0.5 sm:mt-0">
+                <ShieldAlert className="w-5 h-5 text-amber-600" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h4 className="text-xs font-black text-amber-950 uppercase tracking-wide">
+                    Team Member Profile — View-Only Mode
+                  </h4>
+                  <span className="px-2 py-0.5 bg-amber-200 text-amber-900 text-[9px] font-extrabold rounded-full uppercase">
+                    Reporting &amp; Edits Restricted
+                  </span>
+                </div>
+                <p className="text-[11px] text-amber-900/90 mt-0.5">
+                  As a <strong>Team Member</strong> in {teamTitle}, you have read access to observe the team performance agreement, roster, KPIs, and reporting updates submitted by your Team Leader (<strong>{currentTeamLeaderName}</strong>). Only the Team Leader has authority to report actuals, update deliverables, or modify contract clauses.
+                </p>
+              </div>
+            </div>
+            <div className="shrink-0 flex items-center gap-2">
+              <span className="px-3 py-1 bg-amber-200/80 border border-amber-300 text-amber-950 text-[10px] font-extrabold rounded-lg flex items-center gap-1.5 uppercase tracking-wider">
+                <Eye className="w-3.5 h-3.5 text-amber-800" /> Read-Only Access
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Top Header Bar with Save & Actions */}
         <div className="bg-white p-4 rounded-xl shadow-xs border border-slate-200 flex justify-between items-center flex-wrap gap-3">
           <div className="flex items-center gap-2.5">
@@ -1688,24 +1730,30 @@ export function DraftingSuiteTeam({
                 </span>
               </h2>
               <p className="text-[11px] text-slate-500">
-                Configure team rosters, Azure AD members, quarterly reviews & live signatures
+                Configure team rosters, Azure AD members, quarterly reviews &amp; live signatures
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={saveToProfile}
-              disabled={saving}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs ${
-                saveStatus === 'success' ? 'bg-emerald-600 text-white' :
-                saveStatus === 'error' ? 'bg-rose-600 text-white' :
-                'bg-emerald-700 hover:bg-emerald-800 text-white active:scale-95'
-              }`}
-            >
-              <Save className="w-3.5 h-3.5" />
-              {saving ? 'Saving...' : saveStatus === 'success' ? 'Saved to Supabase!' : 'Save Team Draft'}
-            </button>
+            {!canReportOrEdit ? (
+              <span className="px-3.5 py-1.5 rounded-lg text-xs font-extrabold bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1.5 shadow-2xs">
+                <Lock className="w-3.5 h-3.5 text-amber-700" /> Read-Only Mode (Team Leader Authority Only)
+              </span>
+            ) : (
+              <button
+                onClick={saveToProfile}
+                disabled={saving}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs ${
+                  saveStatus === 'success' ? 'bg-emerald-600 text-white' :
+                  saveStatus === 'error' ? 'bg-rose-600 text-white' :
+                  'bg-emerald-700 hover:bg-emerald-800 text-white active:scale-95'
+                }`}
+              >
+                <Save className="w-3.5 h-3.5" />
+                {saving ? 'Saving...' : saveStatus === 'success' ? 'Saved to Supabase!' : 'Save Team Draft'}
+              </button>
+            )}
             <button
               onClick={() => syncSignaturesFromDirectory()}
               disabled={isRefreshingSignatures}
@@ -2183,27 +2231,31 @@ export function DraftingSuiteTeam({
                 Team Roster ({tableRows.length} Members in {currentTeam.name})
               </label>
               <p className="text-[11px] text-slate-500">
-                Type in the name cell to search Azure AD directory or click Bulk Add
+                Type in the name cell to search Azure AD directory or click Bulk Add. Every roster member must have an assigned Team Role.
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setIsBulkModalOpen(true)}
-                className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
-              >
-                <Users className="w-3.5 h-3.5" /> Bulk Add from Azure AD
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const nextNo = tableRows.length + 1;
-                  setTableRows([...tableRows, [String(nextNo), '', '']]);
-                }}
-                className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" /> Add Row
-              </button>
+              {canReportOrEdit && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setIsBulkModalOpen(true)}
+                    className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                  >
+                    <Users className="w-3.5 h-3.5" /> Bulk Add from Azure AD
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextNo = tableRows.length + 1;
+                      setTableRows([...tableRows, [String(nextNo), '', '', nextNo === 1 ? 'Team Leader' : 'Team Member', '']]);
+                    }}
+                    className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add Row
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
@@ -2218,75 +2270,133 @@ export function DraftingSuiteTeam({
             {tableRows.map((row, rIdx) => (
               <div key={rIdx} className="border border-slate-200 p-3 rounded-lg bg-white space-y-2 relative group hover:border-emerald-300 transition">
                 <div className="flex justify-between items-center">
-                  <span className="text-[10px] font-extrabold text-slate-500 uppercase">
-                    Member #{rIdx + 1}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const updated = tableRows.filter((_, idx) => idx !== rIdx);
-                      // Re-index row numbers
-                      const reindexed = updated.map((r, i) => [String(i + 1), r[1] || '', r[2] || '']);
-                      setTableRows(reindexed);
-                    }}
-                    className="text-slate-400 hover:text-rose-600 p-1 rounded transition"
-                    title="Delete member"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-extrabold text-slate-500 uppercase">
+                      Member #{rIdx + 1}
+                    </span>
+                    <span className={`text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                      (row[3] === 'Team Leader' || (!row[3] && rIdx === 0))
+                        ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                        : 'bg-blue-50 text-blue-800 border border-blue-200'
+                    }`}>
+                      {(row[3] === 'Team Leader' || (!row[3] && rIdx === 0)) ? (
+                        <>
+                          <Crown className="w-3 h-3 text-amber-600" /> Team Leader
+                        </>
+                      ) : (
+                        <>
+                          <Users className="w-3 h-3 text-blue-600" /> Team Member
+                        </>
+                      )}
+                    </span>
+                  </div>
+                  {canReportOrEdit && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updated = tableRows.filter((_, idx) => idx !== rIdx);
+                        // Re-index row numbers
+                        const reindexed = updated.map((r, i) => [
+                          String(i + 1), 
+                          r[1] || '', 
+                          r[2] || '', 
+                          r[3] || (i === 0 ? 'Team Leader' : 'Team Member'),
+                          r[4] || ''
+                        ]);
+                        setTableRows(reindexed);
+                      }}
+                      className="text-slate-400 hover:text-rose-600 p-1 rounded transition cursor-pointer"
+                      title="Delete member"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
-                  <div className="md:col-span-2">
+                  <div className="md:col-span-1">
                     <label className="text-[9px] text-slate-400 block font-semibold">No.</label>
                     <input 
                       type="text" 
                       value={row[0] || String(rIdx + 1)} 
+                      disabled={!canReportOrEdit}
                       onChange={e => {
                         const newTable = [...tableRows];
-                        newTable[rIdx] = [e.target.value, row[1] || '', row[2] || ''];
+                        const cur = newTable[rIdx] || [];
+                        newTable[rIdx] = [e.target.value, cur[1] || '', cur[2] || '', cur[3] || (rIdx === 0 ? 'Team Leader' : 'Team Member'), cur[4] || ''];
                         setTableRows(newTable);
                       }} 
-                      className="w-full text-xs p-1.5 border border-slate-300 rounded outline-none focus:border-emerald-500 text-center font-bold"
+                      className="w-full text-xs p-1.5 border border-slate-300 rounded outline-none focus:border-emerald-500 text-center font-bold bg-white disabled:bg-slate-100 disabled:cursor-not-allowed"
                     />
                   </div>
 
-                  <div className="md:col-span-6">
+                  <div className="md:col-span-4">
                     <label className="text-[9px] text-slate-400 block font-semibold flex items-center justify-between">
                       <span>Full Name (Azure AD Searchable)</span>
-                      <span className="text-emerald-700 font-bold text-[8.5px]">Type to search</span>
+                      {canReportOrEdit && <span className="text-emerald-700 font-bold text-[8.5px]">Type to search</span>}
                     </label>
                     <TeamAzureSearchInput
                       value={row[1] || ''}
                       placeholder="Search Azure AD Directory..."
                       compact={true}
+                      disabled={!canReportOrEdit}
                       onChange={(val) => {
                         const newTable = [...tableRows];
-                        newTable[rIdx] = [row[0] || String(rIdx + 1), val, row[2] || ''];
+                        const cur = newTable[rIdx] || [];
+                        newTable[rIdx] = [cur[0] || String(rIdx + 1), val, cur[2] || '', cur[3] || (rIdx === 0 ? 'Team Leader' : 'Team Member'), cur[4] || ''];
                         setTableRows(newTable);
                       }}
                       onSelectUser={(user) => {
                         const newTable = [...tableRows];
+                        const cur = newTable[rIdx] || [];
                         const designation = user.jobFunction || user.department || user.email || 'Municipal Official';
-                        newTable[rIdx] = [row[0] || String(rIdx + 1), user.fullName, designation, user.email || ''];
+                        const existingRole = cur[3] || (rIdx === 0 ? 'Team Leader' : 'Team Member');
+                        newTable[rIdx] = [cur[0] || String(rIdx + 1), user.fullName, designation, existingRole, user.email || ''];
                         setTableRows(newTable);
                       }}
                     />
                   </div>
 
-                  <div className="md:col-span-4">
+                  <div className="md:col-span-3">
                     <label className="text-[9px] text-slate-400 block font-semibold">Employee No / Designation</label>
                     <input 
                       type="text" 
                       value={row[2] || ''} 
+                      disabled={!canReportOrEdit}
                       placeholder="e.g. TS-0419 (Technician)"
                       onChange={e => {
                         const newTable = [...tableRows];
-                        newTable[rIdx] = [row[0] || String(rIdx + 1), row[1] || '', e.target.value];
+                        const cur = newTable[rIdx] || [];
+                        newTable[rIdx] = [cur[0] || String(rIdx + 1), cur[1] || '', e.target.value, cur[3] || (rIdx === 0 ? 'Team Leader' : 'Team Member'), cur[4] || ''];
                         setTableRows(newTable);
                       }} 
-                      className="w-full text-xs p-1.5 border border-slate-300 rounded outline-none focus:border-emerald-500"
+                      className="w-full text-xs p-1.5 border border-slate-300 rounded outline-none focus:border-emerald-500 bg-white disabled:bg-slate-100 disabled:cursor-not-allowed"
                     />
+                  </div>
+
+                  <div className="md:col-span-4">
+                    <label className="text-[9px] text-slate-400 block font-semibold flex items-center justify-between">
+                      <span>Team Role in Roster</span>
+                      <span className="text-[8px] font-bold text-slate-400">Authority</span>
+                    </label>
+                    <select
+                      value={row[3] || (rIdx === 0 ? 'Team Leader' : 'Team Member')}
+                      disabled={!canReportOrEdit}
+                      onChange={e => {
+                        const newTable = [...tableRows];
+                        const cur = newTable[rIdx] || [];
+                        newTable[rIdx] = [cur[0] || String(rIdx + 1), cur[1] || '', cur[2] || '', e.target.value, cur[4] || ''];
+                        setTableRows(newTable);
+                      }}
+                      className={`w-full text-xs p-1.5 border rounded font-bold outline-none transition ${
+                        (row[3] === 'Team Leader' || (!row[3] && rIdx === 0))
+                          ? 'border-amber-400 bg-amber-50/50 text-amber-950 focus:border-amber-600'
+                          : 'border-slate-300 bg-white text-slate-800 focus:border-emerald-500'
+                      } disabled:bg-slate-100 disabled:cursor-not-allowed`}
+                    >
+                      <option value="Team Leader">⭐ Team Leader (Can Report &amp; Edit)</option>
+                      <option value="Team Member">👤 Team Member (View Only)</option>
+                    </select>
                   </div>
                 </div>
               </div>
@@ -2294,13 +2404,19 @@ export function DraftingSuiteTeam({
           </div>
 
           <div className="flex justify-between items-center pt-2">
-            <button
-              type="button"
-              onClick={() => setTableRows(currentTeam.defaultRows || defaultRows)}
-              className="text-[11px] text-slate-500 hover:text-slate-800 underline cursor-pointer"
-            >
-              Reset to default team rows
-            </button>
+            {canReportOrEdit ? (
+              <button
+                type="button"
+                onClick={() => setTableRows(currentTeam.defaultRows || defaultRows)}
+                className="text-[11px] text-slate-500 hover:text-slate-800 underline cursor-pointer"
+              >
+                Reset to default team rows
+              </button>
+            ) : (
+              <span className="text-[11px] text-slate-400 italic">
+                Team Roster is managed by the Team Leader ({currentTeamLeaderName}).
+              </span>
+            )}
             <span className="text-xs text-slate-500 font-medium">
               Total roster count: <strong className="text-slate-800">{tableRows.length}</strong>
             </span>
@@ -2476,6 +2592,15 @@ export function DraftingSuiteTeam({
             </div>
 
             {/* Reporting Form Controls */}
+            {!canReportOrEdit && (
+              <div className="p-3 bg-amber-500/15 border border-amber-500/30 rounded-xl text-amber-200 text-xs flex items-center gap-2.5 select-text">
+                <Lock className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>
+                  <strong>View-Only Reporting Access:</strong> Only your Team Leader (<strong>{currentTeamLeaderName}</strong>) can dispatch quarterly performance reports and update milestones. Team members can see what the team leader is reporting on below, but cannot report in their own profiles.
+                </span>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-slate-950/50 p-3.5 rounded-xl border border-indigo-900/40">
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-300 uppercase block font-mono">Reporting Period</label>
@@ -2484,12 +2609,13 @@ export function DraftingSuiteTeam({
                     <button
                       key={q}
                       type="button"
+                      disabled={!canReportOrEdit}
                       onClick={() => setReportingPeriod(q)}
-                      className={`px-2 py-1 rounded text-[11px] font-bold transition text-center cursor-pointer ${
+                      className={`px-2 py-1 rounded text-[11px] font-bold transition text-center ${
                         reportingPeriod === q 
                           ? 'bg-indigo-600 text-white shadow-sm border border-indigo-400' 
                           : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                      }`}
+                      } ${!canReportOrEdit ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'}`}
                     >
                       {q}
                     </button>
@@ -2502,9 +2628,11 @@ export function DraftingSuiteTeam({
                 <input
                   type="text"
                   value={reportingHeadline}
+                  readOnly={!canReportOrEdit}
+                  disabled={!canReportOrEdit}
                   onChange={e => setReportingHeadline(e.target.value)}
                   placeholder="e.g. Q1 Operational Targets 100% Met, Deliverables Recorded"
-                  className="w-full text-xs p-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 placeholder-slate-500 focus:border-indigo-400 outline-none"
+                  className="w-full text-xs p-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 placeholder-slate-500 focus:border-indigo-400 outline-none disabled:bg-slate-950 disabled:text-slate-300 disabled:cursor-not-allowed"
                 />
               </div>
 
@@ -2514,10 +2642,12 @@ export function DraftingSuiteTeam({
                 </label>
                 <textarea
                   value={reportingProgress}
+                  readOnly={!canReportOrEdit}
+                  disabled={!canReportOrEdit}
                   onChange={e => setReportingProgress(e.target.value)}
                   placeholder={reporting || "Detail the actual quarterly deliverables, achievements, SLA turnaround times, and verified performance metrics for this reporting period..."}
                   rows={3}
-                  className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 placeholder-slate-500 focus:border-indigo-400 outline-none"
+                  className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 placeholder-slate-500 focus:border-indigo-400 outline-none disabled:bg-slate-950 disabled:text-slate-300 disabled:cursor-not-allowed"
                 />
               </div>
             </div>
@@ -2545,24 +2675,31 @@ export function DraftingSuiteTeam({
                 Dispatches real-time IPMS notifications &amp; inbox communiques to each member's verified email.
               </span>
 
-              <button
-                type="button"
-                onClick={handleDispatchTeamReport}
-                disabled={isDispatchingReport || getTeamAzureMembers().length === 0}
-                className="w-full sm:w-auto px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-extrabold transition flex items-center justify-center gap-2 shadow-md cursor-pointer active:scale-95"
-              >
-                {isDispatchingReport ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Dispatching Notifications...</span>
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-4 h-4" />
-                    <span>Dispatch Team Report &amp; Notify Members ({getTeamAzureMembers().length})</span>
-                  </>
-                )}
-              </button>
+              {!canReportOrEdit ? (
+                <div className="w-full sm:w-auto px-5 py-2.5 bg-slate-900 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-not-allowed shadow-inner">
+                  <Lock className="w-4 h-4 text-amber-400" />
+                  <span>Only Team Leader Can Report (View Only for Members)</span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleDispatchTeamReport}
+                  disabled={isDispatchingReport || getTeamAzureMembers().length === 0}
+                  className="w-full sm:w-auto px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-extrabold transition flex items-center justify-center gap-2 shadow-md cursor-pointer active:scale-95"
+                >
+                  {isDispatchingReport ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Dispatching Notifications...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      <span>Dispatch Team Report &amp; Notify Members ({getTeamAzureMembers().length})</span>
+                    </>
+                  )}
+                </button>
+              )}
             </div>
 
             {/* Historical Dispatched Reports Log */}
@@ -3808,6 +3945,20 @@ export function DraftingSuiteTeam({
                     </td>
                     <td className="border border-slate-300 p-2 text-slate-600">
                       {row[2] || '—'}
+                    </td>
+                    <td className="border border-slate-300 p-2">
+                      {(() => {
+                        const role = (row[3] === 'Team Leader' || row[3] === 'Team Member') ? row[3] : (idx === 0 ? 'Team Leader' : 'Team Member');
+                        return role === 'Team Leader' ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300 print:border-amber-400">
+                            <Crown className="w-3 h-3 text-amber-600 shrink-0" /> Team Leader
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-blue-50 text-blue-800 border border-blue-200 print:border-blue-300">
+                            <Users className="w-3 h-3 text-blue-600 shrink-0" /> Team Member
+                          </span>
+                        );
+                      })()}
                     </td>
                   </tr>
                 ))}

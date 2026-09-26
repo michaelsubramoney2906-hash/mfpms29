@@ -15,7 +15,7 @@ export interface DepartmentConfig {
 const CDS_CONFIG: DepartmentConfig = {
   title: "Community & Disaster Services (CDS) Team",
   documentIdSuffix: "cds",
-  defaultHeaders: ["No.", "Full Name (Team Members)", "Employee Number / Station Designation"],
+  defaultHeaders: ["No.", "Full Name (Team Members)", "Employee Number / Station Designation", "Team Role"],
   teams: [
     {
       id: 1,
@@ -133,14 +133,14 @@ const CDS_CONFIG: DepartmentConfig = {
   ]
 };
 
-export const TEAM_MODULE_CONFIGS: Record<string, DepartmentConfig> = {
+const RAW_TEAM_CONFIGS: Record<string, DepartmentConfig> = {
   cds: CDS_CONFIG,
   firefighters: CDS_CONFIG,
 
   technical_services: {
     title: "Technical Services Team",
     documentIdSuffix: "technical_services",
-    defaultHeaders: ["No.", "Full Name (Team Members)", "Employee Number / Technical Designation"],
+    defaultHeaders: ["No.", "Full Name (Team Members)", "Employee Number / Technical Designation", "Team Role"],
     teams: [
       {
         id: 1,
@@ -256,7 +256,7 @@ export const TEAM_MODULE_CONFIGS: Record<string, DepartmentConfig> = {
   corporate_services: {
     title: "Corporate Services Team",
     documentIdSuffix: "corporate_services",
-    defaultHeaders: ["No.", "Full Name (Team Members)", "Employee Number / Designation"],
+    defaultHeaders: ["No.", "Full Name (Team Members)", "Employee Number / Designation", "Team Role"],
     teams: [
       {
         id: 1,
@@ -370,7 +370,7 @@ export const TEAM_MODULE_CONFIGS: Record<string, DepartmentConfig> = {
   pms_team: {
     title: "PMS Team",
     documentIdSuffix: "pms_team",
-    defaultHeaders: ["No.", "Full Name (Team Members)", "Employee Number / Designation"],
+    defaultHeaders: ["No.", "Full Name (Team Members)", "Employee Number / Designation", "Team Role"],
     teams: [
       {
         id: 1,
@@ -475,3 +475,33 @@ export const TEAM_MODULE_CONFIGS: Record<string, DepartmentConfig> = {
     ]
   }
 };
+
+function normalizeDepartmentConfig(cfg: DepartmentConfig): DepartmentConfig {
+  return {
+    ...cfg,
+    defaultHeaders: ["No.", "Full Name (Team Members)", "Employee Number / Designation", "Team Role"],
+    teams: cfg.teams.map(team => ({
+      ...team,
+      defaultRows: team.defaultRows.map((row, idx) => {
+        const no = row[0] || String(idx + 1);
+        const name = row[1] || '';
+        const desig = row[2] || '';
+        const role = (row[3] === 'Team Leader' || row[3] === 'Team Member') 
+          ? row[3] 
+          : (idx === 0 ? 'Team Leader' : 'Team Member');
+        return [no, name, desig, role];
+      })
+    }))
+  };
+}
+
+// Apply normalization to ensure all 4 municipal team configs strictly include Team Leader & Team Member roles
+const NORMALIZED_CONFIGS: Record<string, DepartmentConfig> = {
+  cds: normalizeDepartmentConfig(RAW_TEAM_CONFIGS.cds),
+  firefighters: normalizeDepartmentConfig(RAW_TEAM_CONFIGS.cds),
+  technical_services: normalizeDepartmentConfig(RAW_TEAM_CONFIGS.technical_services),
+  corporate_services: normalizeDepartmentConfig(RAW_TEAM_CONFIGS.corporate_services),
+  pms_team: normalizeDepartmentConfig(RAW_TEAM_CONFIGS.pms_team)
+};
+
+export const TEAM_MODULE_CONFIGS: Record<string, DepartmentConfig> = NORMALIZED_CONFIGS;

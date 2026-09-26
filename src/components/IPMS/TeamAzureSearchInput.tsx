@@ -20,6 +20,7 @@ interface TeamAzureSearchInputProps {
   placeholder?: string;
   className?: string;
   compact?: boolean;
+  disabled?: boolean;
 }
 
 export const TeamAzureSearchInput: React.FC<TeamAzureSearchInputProps> = ({
@@ -28,7 +29,8 @@ export const TeamAzureSearchInput: React.FC<TeamAzureSearchInputProps> = ({
   onSelectUser,
   placeholder = "Search name or directory...",
   className = "",
-  compact = false
+  compact = false,
+  disabled = false
 }) => {
   const [query, setQuery] = useState(value || '');
   const [isOpen, setIsOpen] = useState(false);
@@ -97,18 +99,21 @@ export const TeamAzureSearchInput: React.FC<TeamAzureSearchInputProps> = ({
 
   return (
     <div ref={containerRef} className="relative w-full">
-      <div className={`flex items-center gap-1.5 bg-white border border-slate-300 rounded focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500 transition shadow-xs ${className}`}>
+      <div className={`flex items-center gap-1.5 ${disabled ? 'bg-slate-100 cursor-not-allowed border-slate-200' : 'bg-white border-slate-300 focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500'} border rounded transition shadow-xs ${className}`}>
         <Search className={`${compact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-slate-400 ml-2 shrink-0`} />
         <input
           type="text"
           value={query}
-          onFocus={() => setIsOpen(true)}
+          disabled={disabled}
+          onFocus={() => { if (!disabled) setIsOpen(true); }}
           onChange={(e) => {
+            if (disabled) return;
             setQuery(e.target.value);
             onChange(e.target.value);
             setIsOpen(true);
           }}
           onKeyDown={(e) => {
+            if (disabled) return;
             if (e.key === 'Enter') {
               e.preventDefault();
               if (results.length > 0) {
@@ -119,12 +124,12 @@ export const TeamAzureSearchInput: React.FC<TeamAzureSearchInputProps> = ({
             }
           }}
           placeholder={placeholder}
-          className={`w-full bg-transparent outline-none text-slate-800 ${compact ? 'text-[11px] py-1 px-1' : 'text-xs py-1.5 px-2'}`}
+          className={`w-full bg-transparent outline-none text-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed ${compact ? 'text-[11px] py-1 px-1' : 'text-xs py-1.5 px-2'}`}
         />
         {loading && <Loader2 className="w-3 h-3 text-emerald-600 animate-spin mr-2 shrink-0" />}
       </div>
 
-      {isOpen && (
+      {isOpen && !disabled && (
         <div className="absolute left-0 top-full mt-1 w-full min-w-[290px] max-h-64 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-xl z-50 divide-y divide-slate-100 animate-in fade-in zoom-in-95 duration-100">
           <div className="p-1.5 bg-slate-50 text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center justify-between">
             <span className="flex items-center gap-1">

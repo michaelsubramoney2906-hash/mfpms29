@@ -106,15 +106,17 @@ export function DepartmentModerationIPMS({ currentUser, activeTenantId }: Props)
 
   // Check authorization
   const isAuthorized = 
+    (currentUser.email === 'dpmc@mzansiflow.co.za' ||
+    currentUser.email === 'test.dpmc@local' ||
     currentUser.role === 'admin' || 
     currentUser.systemRole === 'Global Administrator' ||
     (currentUser.systemRole && currentUser.systemRole.toLowerCase().includes('admin')) ||
     (currentUser.role && currentUser.role.toLowerCase().includes('admin')) ||
     currentUser.email === 'mike@mzansiflow.co.za' ||
-    currentUser.email?.endsWith('@mzansiflow.co.za') ||
     (currentUser.jobFunction && currentUser.jobFunction.toLowerCase().includes('committee')) ||
     (currentUser.department && currentUser.department.toLowerCase().includes('moderation')) ||
-    (currentUser.jobFunction && currentUser.jobFunction.toLowerCase().includes('manager')); // broad fallback
+    (currentUser.jobFunction && currentUser.jobFunction.toLowerCase().includes('manager'))) &&
+    currentUser.email !== 'user@mzansiflow.co.za';
 
   useEffect(() => {
     if (isAuthorized) {

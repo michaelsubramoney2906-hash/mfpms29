@@ -44,6 +44,7 @@ import { InternalAudit } from './InternalAudit';
 import { CalendarEvents } from './CalendarEvents';
 import { Reports } from './IPMS/Reports';
 import { IPMSInbox } from './IPMS/IPMSInbox';
+import { IPMSDemo } from './IPMS/IPMSDemo';
 import { CouncilCommittees } from './CouncilCommittees/CouncilCommittees';
 import { OfficeOfTheMayor } from './OfficeOfTheMayor/OfficeOfTheMayor';
 import { OfficeOfTheMM } from './OfficeOfTheMM/OfficeOfTheMM';
@@ -377,17 +378,23 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
     const jobFunction = (profileToUse?.jobFunction || '').toLowerCase().trim();
     const department = (profileToUse?.department || '').toLowerCase().trim();
 
-    const isAuditorUser = role.includes('auditor') || 
+    const isDPMCUser = email === 'dpmc@mzansiflow.co.za' || email === 'test.dpmc@local' || role.includes('dpmc') || systemRole.includes('dpmc') || jobFunction.includes('dpmc');
+
+    const isAuditorUser = (email === 'audit@mzansiflow.co.za' || email === 'test.auditor@local' || 
+                          role.includes('auditor') || 
                           systemRole.includes('auditor') || 
                           jobFunction.includes('auditor') || 
                           role.includes('audit') || 
                           systemRole.includes('audit') || 
                           jobFunction.includes('audit') ||
                           department.includes('audit') ||
-                          email === 'mike@mzansiflow.co.za' ||
-                          email.endsWith('@mzansiflow.co.za');
+                          email === 'mike@mzansiflow.co.za') && 
+                          email !== 'user@mzansiflow.co.za' && 
+                          email !== 'manager@mzansiflow.co.za' && 
+                          email !== 'dpmc@mzansiflow.co.za';
 
-    const isManagerUser = role === 'manager' || 
+    const isManagerUser = (email === 'manager@mzansiflow.co.za' || email === 'test.manager@local' ||
+                          role === 'manager' || 
                           role === 'approver' || 
                           role === 'admin' || 
                           systemRole.includes('manager') || 
@@ -397,7 +404,10 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                           jobFunction.includes('head of') ||
                           jobFunction.includes('supervisor') ||
                           jobFunction.includes('lead') ||
-                          jobFunction.includes('divisional manager') || email.includes('khuboni');
+                          jobFunction.includes('divisional manager') || email.includes('khuboni')) &&
+                          email !== 'user@mzansiflow.co.za' && 
+                          email !== 'audit@mzansiflow.co.za' && 
+                          email !== 'dpmc@mzansiflow.co.za';
 
     const isPMSTeam = email === 'zulune@nkangaladm.gov.za' || 
                       email === 'nsibandenp@nkangaladm.gov.za' || 
@@ -405,9 +415,19 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                       email === 'lukhelema@nkangaladm.gov.za' ||
                       jobFunction.includes('pms');
 
-    const isStdUser = !isPMSTeam && !isAuditorUser && !isManagerUser && profileToUse?.role !== 'admin';
+    const isStdUser = email === 'user@mzansiflow.co.za' || (!isPMSTeam && !isAuditorUser && !isManagerUser && !isDPMCUser && profileToUse?.role !== 'admin');
 
     return mod.subModules.filter(sub => {
+      // Demo module is always directly visible to all users
+      if (sub.id === 'ipms-demo') {
+        return true;
+      }
+
+      // DPMC module visible to DPMC members and Admins
+      if (sub.id === 'ipms-dpmc') {
+        return isDPMCUser || isAuditorUser || profileToUse?.role === 'admin' || user.role === 'admin';
+      }
+
       // 0. Team Dashboard is strictly reserved for managers and line management
       if (sub.id === 'ipms-team-dashboard') {
         if (isStdUser) {
@@ -478,7 +498,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                             email.includes('khuboni') ||
                             email.includes('mike@massivedynamixdistributors.com');
 
-      const isDirectAccess = sub.id === 'ipms-evaluation' || sub.id === 'pplan' || sub.id === 'team-pplan' || sub.id === 'pdp' || sub.id === 'pa' || sub.id === 'pa-cds-team' || sub.id === 'pa-technical-services' || sub.id === 'pa-corporate-services' || sub.id === 'pa-pms-team' || sub.id === 'pa-templates' || sub.id === 'jsc' || sub.id === 'ccomp' || sub.id === 'ipms-kpi' || sub.id === 'ipms-kpa' || sub.id === 'organogram' || sub.id === 'ipms-inbox' || sub.id === 'review-timetable' || sub.id === 'performance-assessment';
+      const isDirectAccess = sub.id === 'ipms-demo' || sub.id === 'ipms-evaluation' || sub.id === 'pplan' || sub.id === 'team-pplan' || sub.id === 'pdp' || sub.id === 'pa' || sub.id === 'pa-cds-team' || sub.id === 'pa-technical-services' || sub.id === 'pa-corporate-services' || sub.id === 'pa-pms-team' || sub.id === 'pa-templates' || sub.id === 'jsc' || sub.id === 'ccomp' || sub.id === 'ipms-kpi' || sub.id === 'ipms-kpa' || sub.id === 'organogram' || sub.id === 'ipms-inbox' || sub.id === 'review-timetable' || sub.id === 'performance-assessment';
       const isBypassAll = isGlobalOrSystemAdmin || isPMSTeam || isManagerUser || isDirectAccess;
 
       if (!isBypassAll) {
@@ -983,6 +1003,24 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
           ) : activeSubModule.id === 'ipms-inbox' ? (
              <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
                 <IPMSInbox currentUser={fullUserProfile} activeTenantId={activeTenantId} />
+             </div>
+          ) : activeSubModule.id === 'ipms-demo' ? (
+             <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
+                <IPMSDemo 
+                   currentUser={fullUserProfile} 
+                   activeTenantId={activeTenantId} 
+                   onImpersonate={onImpersonate}
+                   onNavigateToSubModule={(subId: string) => {
+                     const ipmsModule = modules.find(m => m.id === 'ipms');
+                     if (ipmsModule) {
+                       const targetSub = ipmsModule.subModules?.find(s => s.id === subId);
+                       if (targetSub) {
+                         setActiveModule(ipmsModule);
+                         handleSubModuleSelect(targetSub);
+                       }
+                     }
+                   }}
+                />
              </div>
           ) : activeSubModule.id === 'fred' || activeSubModule.id === 'fred-ipp' || activeSubModule.id === 'fred-performance-plan' || activeSubModule.id === 'fred-sdbip' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">

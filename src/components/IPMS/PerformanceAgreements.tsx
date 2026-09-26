@@ -193,29 +193,29 @@ export function CompactPoeUploader({
 }
 
 export const DEFAULT_TECHNICAL_SERVICES_ROWS = [
-  ['1', 'Eng. Sipho Mthembu (Chief Engineer / General Manager)', 'TS-0100'],
-  ['2', 'Johan Botha (Senior Water Network Superintendent)', 'TS-0205'],
-  ['3', 'Nolwazi Dube (Water Distribution Supervisor)', 'TS-0312'],
-  ['4', 'Tebogo Radebe (Pipe Fitting & Valve Specialist)', 'TS-0418'],
-  ['5', 'Farai Moyo (Wastewater Plant Process Controller)', 'TS-0525'],
-  ['6', 'Mandla Ndlovu (Water Quality Testing Tech)', 'TS-0630']
+  ['1', 'Eng. Sipho Mthembu (Chief Engineer / General Manager)', 'TS-0100', 'Team Leader'],
+  ['2', 'Johan Botha (Senior Water Network Superintendent)', 'TS-0205', 'Team Member'],
+  ['3', 'Nolwazi Dube (Water Distribution Supervisor)', 'TS-0312', 'Team Member'],
+  ['4', 'Tebogo Radebe (Pipe Fitting & Valve Specialist)', 'TS-0418', 'Team Member'],
+  ['5', 'Farai Moyo (Wastewater Plant Process Controller)', 'TS-0525', 'Team Member'],
+  ['6', 'Mandla Ndlovu (Water Quality Testing Tech)', 'TS-0630', 'Team Member']
 ];
 
 export const DEFAULT_CORPORATE_SERVICES_ROWS = [
-  ['1', 'Audrey Mpanza (Director: Corporate Services)', 'CS-0101'],
-  ['2', 'Mike Thompson (Senior HR & Governance Lead)', 'CS-0205'],
-  ['3', 'Fatima Patel (Legal & Administration Officer)', 'CS-0312'],
-  ['4', 'Sipho Dlamini (IT & Records Systems Administrator)', 'CS-0418'],
-  ['5', 'Zama Khumalo (Committee & Secretariat Specialist)', 'CS-0522'],
-  ['6', 'Thabo Mokoena (Auxiliary Services & Logistics Coordinator)', 'CS-0630']
+  ['1', 'Audrey Mpanza (Director: Corporate Services)', 'CS-0101', 'Team Leader'],
+  ['2', 'Mike Thompson (Senior HR & Governance Lead)', 'CS-0205', 'Team Member'],
+  ['3', 'Fatima Patel (Legal & Administration Officer)', 'CS-0312', 'Team Member'],
+  ['4', 'Sipho Dlamini (IT & Records Systems Administrator)', 'CS-0418', 'Team Member'],
+  ['5', 'Zama Khumalo (Committee & Secretariat Specialist)', 'CS-0522', 'Team Member'],
+  ['6', 'Thabo Mokoena (Auxiliary Services & Logistics Coordinator)', 'CS-0630', 'Team Member']
 ];
 
 export const DEFAULT_PMS_TEAM_ROWS = [
-  ['1', 'Delphine Naidoo (PMS Manager / Performance Lead)', 'PM-0100'],
-  ['2', 'Qiniso Sithole (SDBIP & Reporting Specialist)', 'PM-0210'],
-  ['3', 'Marlan Botha (M&E Data Analyst)', 'PM-0320'],
-  ['4', 'Nomvula Khumalo (Institutional Performance Officer)', 'PM-0415'],
-  ['5', 'Brandon Pillay (Quality Assurance & Audit Liaison)', 'PM-0530']
+  ['1', 'Delphine Naidoo (PMS Manager / Performance Lead)', 'PM-0100', 'Team Leader'],
+  ['2', 'Qiniso Sithole (SDBIP & Reporting Specialist)', 'PM-0210', 'Team Member'],
+  ['3', 'Marlan Botha (M&E Data Analyst)', 'PM-0320', 'Team Member'],
+  ['4', 'Nomvula Khumalo (Institutional Performance Officer)', 'PM-0415', 'Team Member'],
+  ['5', 'Brandon Pillay (Quality Assurance & Audit Liaison)', 'PM-0530', 'Team Member']
 ];
 
 const STRATEGIC_OBJECTIVES = [

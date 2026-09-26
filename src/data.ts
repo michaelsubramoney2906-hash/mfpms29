@@ -5,7 +5,7 @@ import {
   Users, Landmark, Search, ShieldAlert, Users2, Mic, Settings,
   MessageCircle, HelpCircle, Calendar, Database, Box, GraduationCap,
   Shield, Key, Ticket, List, MessageSquare, FileBarChart, UserCheck, LayoutGrid, BadgePlus, Mail,
-  Cpu, GitFork, ClipboardCheck, CalendarDays, FolderTree, Building2, Cloud, Share2, Bot
+  Cpu, GitFork, ClipboardCheck, CalendarDays, FolderTree, Building2, Cloud, Share2, Bot, Sparkles
 } from 'lucide-react';
 import type { Module, Tenant } from './types';
 
@@ -329,6 +329,7 @@ export const modules: Module[] = [
     name: 'IPMS',
     icon: Target,
     subModules: [
+      { id: 'ipms-demo', name: 'Demo', icon: Sparkles },
       { id: 'ipms-team-dashboard', name: 'Team Dashboard', icon: Users },
       { id: 'organogram', name: 'Organogram', icon: GitFork },
       { id: 'ipms-inbox', name: 'Inbox', icon: Mail },
