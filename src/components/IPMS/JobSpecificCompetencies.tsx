@@ -67,6 +67,13 @@ interface CompetencyQuarterData {
 }
 
 // Table Row Schema
+export interface JSCColumn {
+  id: string;
+  key: string;
+  label: string;
+  width?: string;
+}
+
 interface CompetencyRow {
   id: string;
   jscNo: string;
@@ -77,6 +84,7 @@ interface CompetencyRow {
   };
   level: string;
   weight: number; 
+  customFields?: Record<string, string>;
   q1?: CompetencyQuarterData;
   q2?: CompetencyQuarterData;
   q3?: CompetencyQuarterData;
@@ -194,6 +202,7 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
       },
       level: 'Level 3: Advanced Architect',
       weight: 30,
+      customFields: {},
       q1: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' },
       q2: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' },
       q3: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' },
@@ -211,6 +220,7 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
       },
       level: 'Level 2: Competent Operator',
       weight: 40,
+      customFields: {},
       q1: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' },
       q2: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' },
       q3: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' },
@@ -226,12 +236,19 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
       },
       level: 'Level 3: Advanced Architect',
       weight: 30,
+      customFields: {},
       q1: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' },
       q2: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' },
       q3: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' },
       q4: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' }
     }
   ]);
+
+  const [customColumns, setCustomColumns] = useState<JSCColumn[]>([]);
+  const [isAddColModalOpen, setIsAddColModalOpen] = useState(false);
+  const [newColTitle, setNewColTitle] = useState('');
+  const [editingColId, setEditingColId] = useState<string | null>(null);
+  const [editingColTitle, setEditingColTitle] = useState('');
 
   const [selectedQuarter, setSelectedQuarter] = useState<'q1' | 'q2' | 'q3' | 'q4'>('q1');
   const [selectedUserEmailState, setSelectedUserEmailState] = useState<string>('');
@@ -241,8 +258,6 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
 
   const userTargetEmail = isDualLayerTeamLeader && agreementScope === 'team' ? currentUser.email + '_team' : currentUser.email;
   const selectedUserEmail = selectedUserEmailState || userTargetEmail;
-  
-
 
   useEffect(() => {
     if (currentUser.email) {
@@ -254,6 +269,7 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
   const ensureQuarterlyData = (row: CompetencyRow): CompetencyRow => {
     return {
       ...row,
+      customFields: row.customFields || {},
       q1: row.q1 || { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' },
       q2: row.q2 || { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' },
       q3: row.q3 || { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' },
@@ -290,6 +306,9 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
           if (Array.isArray(data.competencies)) {
             setRows(data.competencies.map(ensureQuarterlyData));
           }
+          if (Array.isArray(data.customColumns)) {
+            setCustomColumns(data.customColumns);
+          }
           if (Array.isArray(data.jscMasters)) {
             setJscMasters(data.jscMasters);
           }
@@ -314,7 +333,7 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
     };
     fetchCompetencies();
     return () => { active = false; };
-  }, [activeTenantId, selectedUserEmail]);
+  }, [activeTenantId, selectedUserEmail, apiEndpoint]);
 
   // Save changes to Supabase
   const handleSaveToDatabase = async (
@@ -324,7 +343,8 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
     cmDef = definitionMasters,
     cmLvl = levelMasters,
     cmWt = weightMasters,
-    explicitTargetEmail?: string
+    explicitTargetEmail?: string,
+    currentColsList = customColumns
   ) => {
     try {
       setSyncStatus('saving');
@@ -332,6 +352,7 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
       
       const payload = { 
         competencies: currentRowsList,
+        customColumns: currentColsList,
         jscMasters: cmJsc,
         competencyMasters: cmComp,
         definitionMasters: cmDef,
@@ -353,6 +374,68 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
     } finally {
       setSaving(false);
     }
+  };
+
+  // Custom Column Operations
+  const handleAddCustomColumn = () => {
+    if (!newColTitle.trim()) return;
+    const colKey = `col_${Date.now()}`;
+    const newCol: JSCColumn = {
+      id: `col-${Date.now()}`,
+      key: colKey,
+      label: newColTitle.trim()
+    };
+    const updatedCols = [...customColumns, newCol];
+    setCustomColumns(updatedCols);
+    setNewColTitle('');
+    setIsAddColModalOpen(false);
+    handleSaveToDatabase(rows, jscMasters, competencyMasters, definitionMasters, levelMasters, weightMasters, undefined, updatedCols);
+  };
+
+  const handleDeleteCustomColumn = (colId: string) => {
+    const colToDelete = customColumns.find(c => c.id === colId);
+    const updatedCols = customColumns.filter(c => c.id !== colId);
+    setCustomColumns(updatedCols);
+    if (colToDelete) {
+      const updatedRows = rows.map(r => {
+        if (!r.customFields) return r;
+        const copy = { ...r.customFields };
+        delete copy[colToDelete.key];
+        return { ...r, customFields: copy };
+      });
+      setRows(updatedRows);
+      handleSaveToDatabase(updatedRows, jscMasters, competencyMasters, definitionMasters, levelMasters, weightMasters, undefined, updatedCols);
+    } else {
+      handleSaveToDatabase(rows, jscMasters, competencyMasters, definitionMasters, levelMasters, weightMasters, undefined, updatedCols);
+    }
+  };
+
+  const handleRenameCustomColumn = (colId: string, newTitle: string) => {
+    if (!newTitle.trim()) {
+      setEditingColId(null);
+      return;
+    }
+    const updatedCols = customColumns.map(c => c.id === colId ? { ...c, label: newTitle.trim() } : c);
+    setCustomColumns(updatedCols);
+    setEditingColId(null);
+    setEditingColTitle('');
+    handleSaveToDatabase(rows, jscMasters, competencyMasters, definitionMasters, levelMasters, weightMasters, undefined, updatedCols);
+  };
+
+  const handleCustomFieldChange = (rowId: string, colKey: string, value: string) => {
+    const updated = rows.map(r => {
+      if (r.id === rowId) {
+        return {
+          ...r,
+          customFields: {
+            ...(r.customFields || {}),
+            [colKey]: value
+          }
+        };
+      }
+      return r;
+    });
+    setRows(updated);
   };
 
   const handlePushToManager = async () => {
@@ -1925,8 +2008,8 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
                     <p className="text-[10px] text-gray-400 mt-0.5">Click into any cell input to active focal selection. Post from Left masters instantly injects values.</p>
                   </div>
 
-                  {/* Calculator Widget total */}
-                  <div className="flex items-center gap-2">
+                  {/* Calculator Widget total & Column / Row Controls */}
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-[10px] text-gray-500 font-bold">Sum of Weights: </span>
                     <span className={`px-2.5 py-1 text-xs font-mono font-black border rounded-lg ${
                       totalWeight === 100 
@@ -1951,8 +2034,53 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
                     >
                       Scale 100%
                     </button>
+
+                    {/* Dynamic Column Management Button */}
+                    <button
+                      onClick={() => setIsAddColModalOpen(true)}
+                      className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold px-2.5 py-1 rounded-lg text-[10px] flex items-center gap-1 transition shadow-sm"
+                      title="Add custom column to table"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>+ Add Column</span>
+                    </button>
                   </div>
                 </div>
+
+                {/* Add Column Inline Modal */}
+                {isAddColModalOpen && (
+                  <div className="bg-indigo-50/90 border border-indigo-200 p-3 rounded-xl flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2">
+                    <div className="flex items-center gap-2 flex-1">
+                      <span className="text-xs font-bold text-indigo-950 uppercase tracking-wide shrink-0">New Column:</span>
+                      <input
+                        type="text"
+                        autoFocus
+                        value={newColTitle}
+                        onChange={e => setNewColTitle(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') handleAddCustomColumn();
+                          if (e.key === 'Escape') setIsAddColModalOpen(false);
+                        }}
+                        placeholder="e.g. Verification Method, Evidence Link, SCM Code..."
+                        className="flex-1 bg-white border border-indigo-300 px-3 py-1.5 text-xs rounded-lg outline-none focus:ring-2 focus:ring-indigo-400"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleAddCustomColumn}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition"
+                      >
+                        Add Column
+                      </button>
+                      <button
+                        onClick={() => { setIsAddColModalOpen(false); setNewColTitle(''); }}
+                        className="bg-white hover:bg-gray-100 text-gray-600 border border-gray-300 font-bold px-3 py-1.5 rounded-lg text-xs transition"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Main Table Scrolling Element Wrapper */}
                 <div className="flex-1 overflow-auto border border-gray-200 rounded-xl bg-gray-50/50">
@@ -1982,6 +2110,57 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
                           <th className="py-3 px-4 text-left w-[35%]">COMPETENCY DEFINITION (NESTED)</th>
                           <th className="py-3 px-3 text-left w-28">LEVEL OF CAPABILITY</th>
                           <th className="py-3 px-3 text-left w-24">WEIGHTING</th>
+                          {/* Dynamic Custom Column Headers */}
+                          {customColumns.map(col => (
+                            <th key={col.id} className="py-3 px-3 text-left min-w-[140px] bg-indigo-50/40 border-l border-indigo-100 text-indigo-900">
+                              <div className="flex items-center justify-between gap-1">
+                                {editingColId === col.id ? (
+                                  <input
+                                    autoFocus
+                                    type="text"
+                                    value={editingColTitle}
+                                    onChange={e => setEditingColTitle(e.target.value)}
+                                    onKeyDown={e => {
+                                      if (e.key === 'Enter') handleRenameCustomColumn(col.id, editingColTitle);
+                                      if (e.key === 'Escape') setEditingColId(null);
+                                    }}
+                                    onBlur={() => handleRenameCustomColumn(col.id, editingColTitle)}
+                                    className="bg-white border border-indigo-400 rounded px-1.5 py-0.5 text-[9px] w-full text-slate-900 font-bold uppercase outline-none"
+                                  />
+                                ) : (
+                                  <span
+                                    className="truncate font-bold tracking-wider cursor-pointer hover:text-indigo-700"
+                                    title="Click to rename column"
+                                    onClick={() => {
+                                      setEditingColId(col.id);
+                                      setEditingColTitle(col.label);
+                                    }}
+                                  >
+                                    {col.label}
+                                  </span>
+                                )}
+                                <div className="flex items-center gap-0.5 shrink-0">
+                                  <button
+                                    onClick={() => {
+                                      setEditingColId(col.id);
+                                      setEditingColTitle(col.label);
+                                    }}
+                                    title="Rename column"
+                                    className="p-0.5 text-gray-400 hover:text-indigo-600 rounded transition"
+                                  >
+                                    <Edit2 className="w-2.5 h-2.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteCustomColumn(col.id)}
+                                    title="Delete column"
+                                    className="p-0.5 text-gray-400 hover:text-red-600 rounded transition"
+                                  >
+                                    <Trash2 className="w-2.5 h-2.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            </th>
+                          ))}
                           <th className="py-3 px-3 text-center w-20">ACTIONS</th>
                         </tr>
                       </thead>
@@ -2148,6 +2327,20 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
                                   <span className="text-gray-400 font-bold">%</span>
                                 </div>
                               </td>
+
+                              {/* Custom Column Cells */}
+                              {customColumns.map(col => (
+                                <td key={col.id} className="py-3 px-3 border-l border-indigo-50">
+                                  <input
+                                    type="text"
+                                    value={row.customFields?.[col.key] || ''}
+                                    onChange={e => handleCustomFieldChange(row.id, col.key, e.target.value)}
+                                    onBlur={() => handleSaveToDatabase()}
+                                    placeholder="Enter data..."
+                                    className="w-full bg-transparent border-0 px-1 py-1 text-[11px] rounded outline-none transition focus:bg-white focus:ring-1 focus:ring-indigo-400 text-gray-800"
+                                  />
+                                </td>
+                              ))}
 
                               {/* Row Movement and Deletion Controls */}
                               <td className="py-3 px-3 text-center shrink-0">

@@ -3,14 +3,19 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { LandingPage } from './components/LandingPage';
 import { Dashboard } from './components/Dashboard';
 import { NEDAPortal } from './components/NEDAPortal';
 import { SecurityShield } from './components/SecurityShield';
 import { FinancialYearProvider } from './context/FinancialYearContext';
 import { performanceLogger } from './utils/performanceLogger';
+import { installResilientNetworkInterceptor } from './utils/resilientFetch';
+import { NetworkResilienceToast } from './components/NetworkResilienceToast';
 import type { User } from './types';
+
+// Initialize network resilience immediately on app boot
+installResilientNetworkInterceptor();
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -89,11 +94,14 @@ export default function App() {
     setUser(u);
   };
 
+  // High-concurrency zero-kickout session keep-alive ping
   useEffect(() => {
     if (!user) return;
 
+    let isPinging = false;
     const pingSession = async () => {
-      if (document.hidden) return;
+      if (isPinging) return;
+      isPinging = true;
       try {
         await fetch('/api/auth/ping', {
           method: 'POST',
@@ -105,14 +113,35 @@ export default function App() {
             userId: user.email
           })
         });
-      } catch (err) {}
+      } catch (err) {
+        // Silently preserve session; never kick user out on temporary ping lag
+      } finally {
+        isPinging = false;
+      }
     };
 
+    // Immediate ping on mount
     pingSession();
-    const pingInterval = setInterval(pingSession, 45000);
+
+    // Regular 30s heartbeat interval
+    const pingInterval = setInterval(pingSession, 30000);
+
+    // Immediate ping on tab focus, visibility return, and network reconnection
+    const handleWakeOrFocus = () => {
+      if (!document.hidden && navigator.onLine) {
+        pingSession();
+      }
+    };
+
+    window.addEventListener('visibilitychange', handleWakeOrFocus);
+    window.addEventListener('focus', handleWakeOrFocus);
+    window.addEventListener('online', handleWakeOrFocus);
 
     return () => {
       clearInterval(pingInterval);
+      window.removeEventListener('visibilitychange', handleWakeOrFocus);
+      window.removeEventListener('focus', handleWakeOrFocus);
+      window.removeEventListener('online', handleWakeOrFocus);
     };
   }, [user]);
 
@@ -254,7 +283,12 @@ export default function App() {
   };
 
   if (!user) {
-    return <LandingPage onLogin={handleSetUser} />;
+    return (
+      <>
+        <LandingPage onLogin={handleSetUser} />
+        <NetworkResilienceToast />
+      </>
+    );
   }
 
   const isImpersonating = !!sessionStorage.getItem('originalAdminUser');
@@ -262,6 +296,7 @@ export default function App() {
   return (
     <FinancialYearProvider>
       <div className="flex flex-col min-h-screen">
+        <NetworkResilienceToast />
         {isImpersonating && (
           <div className="bg-amber-500 text-black px-8 py-2.5 flex items-center justify-between text-xs font-bold uppercase tracking-wider z-[999] shadow-md border-b border-amber-600 shrink-0">
             <div className="flex items-center gap-2">

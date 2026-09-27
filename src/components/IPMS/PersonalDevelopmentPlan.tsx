@@ -17,6 +17,14 @@ interface PersonalDevelopmentPlanProps {
   isTeamPdp2?: boolean;
 }
 
+// PDP Column Schema
+export interface PDPColumn {
+  id: string;
+  key: string;
+  label: string;
+  width?: string;
+}
+
 // PDP Row Schema
 interface PDPItem {
   id: string;
@@ -27,6 +35,7 @@ interface PDPItem {
   timeFrame: string;
   workOpportunity: string;
   supportPerson: string;
+  customFields?: Record<string, string>;
 }
 
 // Sidebar Master schemas
@@ -165,6 +174,12 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId, isTeamPdp
   const [newSupportRole, setNewSupportRole] = useState('');
   const [editingSupportId, setEditingSupportId] = useState<string | null>(null);
 
+  const [customColumns, setCustomColumns] = useState<PDPColumn[]>([]);
+  const [isAddColModalOpen, setIsAddColModalOpen] = useState(false);
+  const [newColTitle, setNewColTitle] = useState('');
+  const [editingColId, setEditingColId] = useState<string | null>(null);
+  const [editingColTitle, setEditingColTitle] = useState('');
+
   // Load state from Supabase on mount/tenant changes
   useEffect(() => {
     let active = true;
@@ -184,7 +199,8 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId, isTeamPdp
               modeOfDelivery: row.modeOfDelivery || row.mode || row.delivery || '',
               timeFrame: row.timeFrame || row.timeframe || row.period || '',
               workOpportunity: row.workOpportunity || row.opportunity || row.practice || '',
-              supportPerson: row.supportPerson || row.support || row.mentor || ''
+              supportPerson: row.supportPerson || row.support || row.mentor || '',
+              customFields: row.customFields || {}
             }));
             setItems(normalized);
             itemsRef.current = normalized;
@@ -192,6 +208,9 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId, isTeamPdp
               setSelectedRowIndex(0);
               setSelectedRowId(normalized[0].id);
             }
+          }
+          if (Array.isArray(data.customColumns)) {
+            setCustomColumns(data.customColumns);
           }
           if (Array.isArray(data.skillsGapsMasters)) {
             setSkillsGapsMasters(data.skillsGapsMasters);
@@ -223,7 +242,8 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId, isTeamPdp
     cmTrainings = trainingsMasters,
     cmModes = modesMasters,
     cmSupport = supportMasters,
-    explicitTargetEmail?: string
+    explicitTargetEmail?: string,
+    currentColsList = customColumns
   ) => {
     try {
       setSyncStatus('saving');
@@ -235,6 +255,7 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId, isTeamPdp
 
       const payload = { 
         items: listToSave,
+        customColumns: currentColsList,
         skillsGapsMasters: cmGaps,
         trainingsMasters: cmTrainings,
         modesMasters: cmModes,
@@ -255,6 +276,70 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId, isTeamPdp
     } finally {
       setSaving(false);
     }
+  };
+
+  // Custom Column Operations
+  const handleAddCustomColumn = () => {
+    if (!newColTitle.trim()) return;
+    const colKey = `col_${Date.now()}`;
+    const newCol: PDPColumn = {
+      id: `col-${Date.now()}`,
+      key: colKey,
+      label: newColTitle.trim()
+    };
+    const updatedCols = [...customColumns, newCol];
+    setCustomColumns(updatedCols);
+    setNewColTitle('');
+    setIsAddColModalOpen(false);
+    handleSaveToDatabase(undefined, undefined, undefined, undefined, undefined, undefined, updatedCols);
+  };
+
+  const handleDeleteCustomColumn = (colId: string) => {
+    const colToDelete = customColumns.find(c => c.id === colId);
+    const updatedCols = customColumns.filter(c => c.id !== colId);
+    setCustomColumns(updatedCols);
+    if (colToDelete) {
+      const updatedItems = items.map(r => {
+        if (!r.customFields) return r;
+        const copy = { ...r.customFields };
+        delete copy[colToDelete.key];
+        return { ...r, customFields: copy };
+      });
+      setItems(updatedItems);
+      itemsRef.current = updatedItems;
+      handleSaveToDatabase(updatedItems, undefined, undefined, undefined, undefined, undefined, updatedCols);
+    } else {
+      handleSaveToDatabase(undefined, undefined, undefined, undefined, undefined, undefined, updatedCols);
+    }
+  };
+
+  const handleRenameCustomColumn = (colId: string, newTitle: string) => {
+    if (!newTitle.trim()) {
+      setEditingColId(null);
+      return;
+    }
+    const updatedCols = customColumns.map(c => c.id === colId ? { ...c, label: newTitle.trim() } : c);
+    setCustomColumns(updatedCols);
+    setEditingColId(null);
+    setEditingColTitle('');
+    handleSaveToDatabase(undefined, undefined, undefined, undefined, undefined, undefined, updatedCols);
+  };
+
+  const handleCustomFieldChange = (rowIndex: number, colKey: string, value: string) => {
+    const updated = items.map((r, idx) => {
+      if (idx === rowIndex) {
+        return {
+          ...r,
+          customFields: {
+            ...(r.customFields || {}),
+            [colKey]: value
+          }
+        };
+      }
+      return r;
+    });
+    setItems(updated);
+    itemsRef.current = updated;
   };
 
   // Keyboard Event Handlers for Laptop Standard Tab Keypress Auto-expansion
@@ -1265,20 +1350,64 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId, isTeamPdp
 
             {/* Right Hand Excel-like Grid table */}
             <div className="col-span-1 xl:col-span-8 flex flex-col h-full bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden max-h-[82vh]">
-              <div className="border-b border-gray-200 bg-gray-50/50 px-5 py-3.5 flex items-center justify-between shrink-0">
+              <div className="border-b border-gray-200 bg-gray-50/50 px-5 py-3.5 flex items-center justify-between shrink-0 flex-wrap gap-2">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-black text-slate-800 uppercase tracking-wider">PDP Competency & Learning Matrix</span>
                   <span className="bg-indigo-100 text-[#0078D4] text-[10px] px-2 py-0.5 font-bold font-mono rounded">
                     {items.length} Records Identified
                   </span>
                 </div>
-                <button 
-                  onClick={() => handleAddNewRow()}
-                  className="bg-[#0078D4] hover:bg-[#106ebe] text-white font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1 shadow-sm transition cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Add Priority Gap Row
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setIsAddColModalOpen(true)}
+                    className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1 shadow-sm transition cursor-pointer"
+                    title="Add custom column to PDP table"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> + Add Column
+                  </button>
+                  <button 
+                    onClick={() => handleAddNewRow()}
+                    className="bg-[#0078D4] hover:bg-[#106ebe] text-white font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1 shadow-sm transition cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add Priority Gap Row
+                  </button>
+                </div>
               </div>
+
+              {/* Add Column Inline Modal */}
+              {isAddColModalOpen && (
+                <div className="bg-indigo-50/90 border-b border-indigo-200 px-5 py-2.5 flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2">
+                  <div className="flex items-center gap-2 flex-1">
+                    <span className="text-xs font-bold text-indigo-950 uppercase tracking-wide shrink-0">New Column:</span>
+                    <input
+                      type="text"
+                      autoFocus
+                      value={newColTitle}
+                      onChange={e => setNewColTitle(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') handleAddCustomColumn();
+                        if (e.key === 'Escape') setIsAddColModalOpen(false);
+                      }}
+                      placeholder="e.g. Budget Estimate, Target Quarter, Certification Body..."
+                      className="flex-1 bg-white border border-indigo-300 px-3 py-1.5 text-xs rounded-lg outline-none focus:ring-2 focus:ring-indigo-400"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleAddCustomColumn}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition"
+                    >
+                      Add Column
+                    </button>
+                    <button
+                      onClick={() => { setIsAddColModalOpen(false); setNewColTitle(''); }}
+                      className="bg-white hover:bg-gray-100 text-gray-600 border border-gray-300 font-bold px-3 py-1.5 rounded-lg text-xs transition"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Spreadsheet Table Container */}
               <div className="flex-1 overflow-auto">
@@ -1286,13 +1415,64 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId, isTeamPdp
                   <thead>
                     <tr className="bg-slate-50 border-b border-gray-200 text-[10px] font-black uppercase text-gray-550 tracking-wider">
                       <th className="py-3 px-4 text-center w-[5%] select-none">Order</th>
-                      <th className="py-3 px-3 w-[20%]">Skills Gap (Priority order)</th>
-                      <th className="py-3 px-3 w-[22%]">Measurable Indicators / Outcomes expected</th>
-                      <th className="py-3 px-3 w-[15%]">Suggested training & development</th>
+                      <th className="py-3 px-3 w-[18%]">Skills Gap (Priority order)</th>
+                      <th className="py-3 px-3 w-[20%]">Measurable Indicators / Outcomes expected</th>
+                      <th className="py-3 px-3 w-[14%]">Suggested training & development</th>
                       <th className="py-3 px-3 w-[12%]">Suggested Mode of Delivery</th>
                       <th className="py-3 px-3 w-[10%]">Suggested Time Frame</th>
                       <th className="py-3 px-3 w-[10%]">Practice work opportunity</th>
                       <th className="py-3 px-3 w-[10%]">Support Person</th>
+                      {/* Dynamic Custom Column Headers */}
+                      {customColumns.map(col => (
+                        <th key={col.id} className="py-3 px-3 text-left min-w-[140px] bg-indigo-50/40 border-l border-indigo-100 text-indigo-900">
+                          <div className="flex items-center justify-between gap-1">
+                            {editingColId === col.id ? (
+                              <input
+                                autoFocus
+                                type="text"
+                                value={editingColTitle}
+                                onChange={e => setEditingColTitle(e.target.value)}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') handleRenameCustomColumn(col.id, editingColTitle);
+                                  if (e.key === 'Escape') setEditingColId(null);
+                                }}
+                                onBlur={() => handleRenameCustomColumn(col.id, editingColTitle)}
+                                className="bg-white border border-indigo-400 rounded px-1.5 py-0.5 text-[9px] w-full text-slate-900 font-bold uppercase outline-none"
+                              />
+                            ) : (
+                              <span
+                                className="truncate font-bold tracking-wider cursor-pointer hover:text-indigo-700"
+                                title="Click to rename column"
+                                onClick={() => {
+                                  setEditingColId(col.id);
+                                  setEditingColTitle(col.label);
+                                }}
+                              >
+                                {col.label}
+                              </span>
+                            )}
+                            <div className="flex items-center gap-0.5 shrink-0">
+                              <button
+                                onClick={() => {
+                                  setEditingColId(col.id);
+                                  setEditingColTitle(col.label);
+                                }}
+                                title="Rename column"
+                                className="p-0.5 text-gray-400 hover:text-indigo-600 rounded transition"
+                              >
+                                <Edit2 className="w-2.5 h-2.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteCustomColumn(col.id)}
+                                title="Delete column"
+                                className="p-0.5 text-gray-400 hover:text-red-600 rounded transition"
+                              >
+                                <Trash2 className="w-2.5 h-2.5" />
+                              </button>
+                            </div>
+                          </div>
+                        </th>
+                      ))}
                       <th className="py-3 px-2 text-center w-[6%] select-none">Action</th>
                     </tr>
                   </thead>
@@ -1468,6 +1648,20 @@ export function PersonalDevelopmentPlan({ currentUser, activeTenantId, isTeamPdp
                               }`}
                             />
                           </td>
+
+                          {/* Custom Column Cells */}
+                          {customColumns.map(col => (
+                            <td key={col.id} className="py-2.5 px-2 border-l border-indigo-50">
+                              <input
+                                type="text"
+                                value={row.customFields?.[col.key] || ''}
+                                onChange={e => handleCustomFieldChange(rIdx, col.key, e.target.value)}
+                                onBlur={() => handleSaveToDatabase()}
+                                placeholder="Enter value..."
+                                className="w-full bg-transparent border-0 px-1 py-1 text-[10px] rounded outline-none transition focus:bg-white focus:ring-1 focus:ring-indigo-400 text-gray-800"
+                              />
+                            </td>
+                          ))}
 
                           {/* 9. Actions: Insert Row + Delete Row */}
                           <td className="py-4 px-2 text-center select-none">
