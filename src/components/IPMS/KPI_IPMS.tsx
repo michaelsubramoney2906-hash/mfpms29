@@ -2,10 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { 
   Activity, Trash2, Plus, Info, CheckCircle2, Database, HelpCircle, Save, Sparkles, 
   FileText, ClipboardList, TrendingUp, Upload, X, File, FileSpreadsheet, Image, Paperclip, Search, Presentation,
-  Eye, Download, AlertCircle, Flag
+  Eye, Download, AlertCircle, Flag, Lock
 } from 'lucide-react';
 import type { User } from '../../types';
 import { OfficeDocumentViewer } from './OfficeDocumentViewer';
+
+export const isCellNA = (val: any): boolean => {
+  if (val === null || val === undefined) return false;
+  const s = String(val).trim().toUpperCase();
+  return s === 'N/A' || s === 'NA' || s === 'N / A' || s === 'NOT APPLICABLE' || s.startsWith('N/A') || s.startsWith('NOT APPLICABLE') || s.includes('LOCKED (NOT REPORTABLE)');
+};
 
 export interface PoeDocument {
   id: string;
@@ -1547,48 +1553,88 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
                           <span className="text-[10px] font-black text-emerald-400 uppercase tracking-wider block">Real-Time Target Updates</span>
                           <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                             <div className="flex flex-col gap-1">
-                              <span className="text-[8px] font-bold text-slate-400 uppercase">Annual</span>
+                              <span className="text-[8px] font-bold text-slate-400 uppercase flex items-center gap-1">
+                                Annual {isCellNA(k.annualTarget) && <Lock className="w-2.5 h-2.5 text-amber-400 inline" />}
+                              </span>
                               <input 
                                 type="text"
                                 value={k.annualTarget}
+                                disabled={isCellNA(k.annualTarget)}
+                                readOnly={isCellNA(k.annualTarget)}
                                 onChange={(e) => updateKpiField(k.id, 'annualTarget', e.target.value)}
-                                className="w-full bg-slate-950 border border-slate-800 text-[10.5px] p-1 rounded font-bold text-white outline-none focus:border-emerald-500"
+                                className={`w-full text-[10.5px] p-1 rounded font-bold outline-none ${
+                                  isCellNA(k.annualTarget)
+                                    ? 'bg-slate-950/80 border border-slate-800 text-slate-500 cursor-not-allowed font-mono text-center'
+                                    : 'bg-slate-950 border border-slate-800 text-white focus:border-emerald-500'
+                                }`}
                               />
                             </div>
                             <div className="flex flex-col gap-1">
-                              <span className="text-[8px] font-bold text-slate-400 uppercase">Q1</span>
+                              <span className="text-[8px] font-bold text-slate-400 uppercase flex items-center gap-1">
+                                Q1 {isCellNA(k.q1Target) && <Lock className="w-2.5 h-2.5 text-amber-400 inline" />}
+                              </span>
                               <input 
                                 type="text"
                                 value={k.q1Target}
+                                disabled={isCellNA(k.q1Target)}
+                                readOnly={isCellNA(k.q1Target)}
                                 onChange={(e) => updateKpiField(k.id, 'q1Target', e.target.value)}
-                                className="w-full bg-slate-950 border border-slate-800 text-[10.5px] p-1 rounded text-slate-200 outline-none focus:border-emerald-500"
+                                className={`w-full text-[10.5px] p-1 rounded outline-none ${
+                                  isCellNA(k.q1Target)
+                                    ? 'bg-slate-950/80 border border-slate-800 text-slate-500 cursor-not-allowed font-mono text-center font-bold'
+                                    : 'bg-slate-950 border border-slate-800 text-slate-200 focus:border-emerald-500'
+                                }`}
                               />
                             </div>
                             <div className="flex flex-col gap-1">
-                              <span className="text-[8px] font-bold text-slate-400 uppercase">Q2</span>
+                              <span className="text-[8px] font-bold text-slate-400 uppercase flex items-center gap-1">
+                                Q2 {isCellNA(k.q2Target) && <Lock className="w-2.5 h-2.5 text-amber-400 inline" />}
+                              </span>
                               <input 
                                 type="text"
                                 value={k.q2Target}
+                                disabled={isCellNA(k.q2Target)}
+                                readOnly={isCellNA(k.q2Target)}
                                 onChange={(e) => updateKpiField(k.id, 'q2Target', e.target.value)}
-                                className="w-full bg-slate-950 border border-slate-800 text-[10.5px] p-1 rounded text-slate-200 outline-none focus:border-emerald-500"
+                                className={`w-full text-[10.5px] p-1 rounded outline-none ${
+                                  isCellNA(k.q2Target)
+                                    ? 'bg-slate-950/80 border border-slate-800 text-slate-500 cursor-not-allowed font-mono text-center font-bold'
+                                    : 'bg-slate-950 border border-slate-800 text-slate-200 focus:border-emerald-500'
+                                }`}
                               />
                             </div>
                             <div className="flex flex-col gap-1">
-                              <span className="text-[8px] font-bold text-slate-400 uppercase">Q3</span>
+                              <span className="text-[8px] font-bold text-slate-400 uppercase flex items-center gap-1">
+                                Q3 {isCellNA(k.q3Target) && <Lock className="w-2.5 h-2.5 text-amber-400 inline" />}
+                              </span>
                               <input 
                                 type="text"
                                 value={k.q3Target}
+                                disabled={isCellNA(k.q3Target)}
+                                readOnly={isCellNA(k.q3Target)}
                                 onChange={(e) => updateKpiField(k.id, 'q3Target', e.target.value)}
-                                className="w-full bg-slate-950 border border-slate-800 text-[10.5px] p-1 rounded text-slate-200 outline-none focus:border-emerald-500"
+                                className={`w-full text-[10.5px] p-1 rounded outline-none ${
+                                  isCellNA(k.q3Target)
+                                    ? 'bg-slate-950/80 border border-slate-800 text-slate-500 cursor-not-allowed font-mono text-center font-bold'
+                                    : 'bg-slate-950 border border-slate-800 text-slate-200 focus:border-emerald-500'
+                                }`}
                               />
                             </div>
                             <div className="flex flex-col gap-1">
-                              <span className="text-[8px] font-bold text-slate-400 uppercase">Q4</span>
+                              <span className="text-[8px] font-bold text-slate-400 uppercase flex items-center gap-1">
+                                Q4 {isCellNA(k.q4Target) && <Lock className="w-2.5 h-2.5 text-amber-400 inline" />}
+                              </span>
                               <input 
                                 type="text"
                                 value={k.q4Target}
+                                disabled={isCellNA(k.q4Target)}
+                                readOnly={isCellNA(k.q4Target)}
                                 onChange={(e) => updateKpiField(k.id, 'q4Target', e.target.value)}
-                                className="w-full bg-slate-950 border border-slate-800 text-[10.5px] p-1 rounded text-slate-200 outline-none focus:border-emerald-500"
+                                className={`w-full text-[10.5px] p-1 rounded outline-none ${
+                                  isCellNA(k.q4Target)
+                                    ? 'bg-slate-950/80 border border-slate-800 text-slate-500 cursor-not-allowed font-mono text-center font-bold'
+                                    : 'bg-slate-950 border border-slate-800 text-slate-200 focus:border-emerald-500'
+                                }`}
                               />
                             </div>
                           </div>

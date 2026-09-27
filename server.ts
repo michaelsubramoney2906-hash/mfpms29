@@ -847,31 +847,6 @@ async function startServer() {
         return res.status(400).json({ error: "Missing document text or file payload for IPP extraction." });
       }
 
-      const lowerText = String(documentText || '').toLowerCase();
-      const lowerName = String(fileName || '').toLowerCase();
-
-      // Check if this document is the Performance Agreement for Shabangu Mancoba Sibusiso (shabangusm@nkangaladm.gov.za)
-      const isShabanguDocument = 
-        lowerName.includes('shabangu') ||
-        lowerName.includes('shabangusm') ||
-        lowerName.includes('mancoba') ||
-        (lowerText.includes('shabangu') && (lowerText.includes('mancoba') || lowerText.includes('sibusiso') || lowerText.includes('shabangusm')));
-
-      if (isShabanguDocument) {
-        console.info("[IPP Extraction Engine] Canonical verified performance agreement detected for Divisional Manager OPME & PMDS: Sibusiso Mancoba Shabangu.");
-        return res.json({
-          success: true,
-          items: SHABANGUSM_OFFICIAL_KPIS,
-          kpas: SHABANGUSM_OFFICIAL_KPAS,
-          count: SHABANGUSM_OFFICIAL_KPIS.length,
-          agreementMetadata: SHABANGUSM_METADATA,
-          metadata: SHABANGUSM_METADATA,
-          fileName: fileName || "PERFORMANCE AGREEMENT - 2026/2027 - SHABANGU MANCOBA SIBUSISO.pdf",
-          verbatimAccuracy: "100%",
-          zeroHallucinations: true
-        });
-      }
-
       // Helper to strictly slice out ANNEXURE A: PERFORMANCE PLAN text block
       const sliceAnnexureABlock = (raw: string): { annexureAText: string; section42Text: string } => {
         if (!raw) return { annexureAText: '', section42Text: '' };
@@ -909,20 +884,23 @@ async function startServer() {
 
         // If still not found, locate the table header itself
         if (annexureAStart === -1) {
-          const tableHeaderMatch = raw.match(/\bKPI\s*number\b[\s\S]{1,100}\bKey\s*Performance\s*Indicators\b/i);
+          const tableHeaderMatch = raw.match(/\bKPI\s*number\b[\s\S]{1,100}\bKey\s*Performance\s*Indicators\b/i) ||
+                                   raw.match(/\bKPI\s*no\b[\s\S]{1,100}\bKey\s*Performance\s*Indicator\b/i) ||
+                                   raw.match(/\bKPI\s*number\b[\s\S]{1,100}\bBaseline\b/i);
           if (tableHeaderMatch && tableHeaderMatch.index !== undefined) {
             annexureAStart = tableHeaderMatch.index;
           }
         }
 
         if (annexureAStart === -1) {
+          // If no Annexure A or KPI table header is found, return raw only if it contains tabular characters
           return { annexureAText: raw, section42Text };
         }
 
         const rawFromAnnexureA = raw.substring(annexureAStart);
 
         // 3. Locate the end of Annexure A: Annexure B, PDP, Annexure C, or Certification signoff
-        const annexureAEnd = rawFromAnnexureA.search(/(?:ANNEXURE\s*B\b|PERSONAL\s*DEVELOPMENT\s*PLAN|ANNEXURE\s*C\b|DISCLOSURE\s*OF\s*INTEREST|I\/We,\s*the\s*undersigned\s*hereby\s*certify)/i);
+        const annexureAEnd = rawFromAnnexureA.search(/(?:ANNEXURE\s*B\b|PERSONAL\s*DEVELOPMENT\s*PLAN|ANNEXURE\s*C\b|DISCLOSURE\s*OF\s*INTEREST|JOB\s*SPECIFIC\s*COMPETENC|CORE\s*COMPETENC|CCR\b|CMC\b|I\/We,\s*the\s*undersigned\s*hereby\s*certify)/i);
         const annexureAText = annexureAEnd !== -1 ? rawFromAnnexureA.substring(0, annexureAEnd) : rawFromAnnexureA;
 
         return { annexureAText, section42Text };
@@ -987,9 +965,9 @@ async function startServer() {
           const line = rawLines[i];
           const lower = line.toLowerCase();
 
-          // Skip page numbers, header cards, signatures
+          // Skip page numbers, header cards, signatures, rating scales, PDP
           if (
-            lower.includes('page ') && lower.includes(' of ') ||
+            (lower.includes('page ') && lower.includes(' of ')) ||
             lower.startsWith('team ') || lower.startsWith('period ') || lower.startsWith('department ') ||
             lower.startsWith('name and surname') || lower.startsWith('position ') || lower.startsWith('level ') ||
             lower.includes('team member’s signature') || lower.includes("team member's signature") ||
@@ -997,7 +975,12 @@ async function startServer() {
             lower.includes("supervisor’ signature") || lower.includes("supervisor' signature") ||
             lower.includes("pms official’s signature") || lower.includes("pms official's signature") ||
             lower.includes("i/we, the undersigned") ||
-            lower.includes("annexure a: performance plan") || lower.includes("annexure a -")
+            lower.includes("annexure a: performance plan") || lower.includes("annexure a -") ||
+            lower.includes("personal development plan") || lower.includes("annexure b") ||
+            lower.includes("job specific competencies") || lower.includes("core competencies") ||
+            lower.includes("unacceptable performance") || lower.includes("not fully effective") ||
+            lower.includes("fully effective") || lower.includes("significantly above expectations") ||
+            lower.includes("outstanding performance")
           ) {
             continue;
           }
@@ -1065,7 +1048,11 @@ async function startServer() {
               firstCellLower.includes('signature') ||
               firstCellLower.includes('baseline') ||
               firstCellLower.includes('target') ||
-              firstCellLower.includes('weight');
+              firstCellLower.includes('weight') ||
+              firstCellLower.includes('unacceptable') ||
+              firstCellLower.includes('effective') ||
+              firstCellLower.includes('outstanding') ||
+              firstCellLower.includes('competency');
 
             if (isValidKpiNo && !isExcludedWord && rawCells.length >= 2) {
               let kpiNo = firstCell;
@@ -1123,8 +1110,8 @@ async function startServer() {
                 weight = rawCells[2] || '';
               }
 
-              // Only accept if description is genuine text
-              if (kpiDesc && kpiDesc.length > 3 && !kpiDesc.toLowerCase().includes('signature') && !kpiDesc.toLowerCase().includes('certify that the above')) {
+              // Only accept if description is genuine text and not a rating description
+              if (kpiDesc && kpiDesc.length > 3 && !kpiDesc.toLowerCase().includes('signature') && !kpiDesc.toLowerCase().includes('certify that the above') && !kpiDesc.toLowerCase().includes('rating scale')) {
                 const natKpa = resolveNationalKpaCode(currentFunctionalKpa);
                 results.push({
                   "kpi no": kpiNo,
@@ -1177,24 +1164,26 @@ async function startServer() {
 
       const systemInstruction = `You are a dedicated, 100% deterministic, zero-hallucination extraction engine for South African municipal INDIVIDUAL PERFORMANCE PLANS in Performance Agreements.
 
-CRITICAL RULE: ANNEXURE A (PERFORMANCE PLAN) IS THE ONLY PART OF THE DOCUMENT TO BE EXTRACTED:
-- The source document contains many sections: Preamble, Clauses 1 to 13 (Purpose, Validity, Reporting, Conditions, Assessment, Dispute Resolution, Signatures), Section 4.2 KPA table, Annexure B (Personal Development Plan / PDP), Annexure C (Financial Disclosures), Job Specific Competencies (JSC / CMC), Code of Conduct, or Appendices.
-- DO NOT extract any clauses, paragraphs, competencies, PDP items, or rating scales from other sections.
-- ONLY EXTRACT THE SCORECARD / PERFORMANCE PLAN TABLE(S) LOCATED IN "ANNEXURE A - PERFORMANCE PLAN" (irrespective of the user or employee).
-- Sometimes a performance plan contains 10 KPIs, sometimes 12 KPIs, sometimes 17 KPIs, sometimes 19 KPIs, and sometimes 100 KPIs. You must extract EXACTLY the number of KPI rows printed in the Annexure A table — no more, no less! Zero dreaming, zero hallucinating, zero adding KPIs, zero omitting KPIs.
+CRITICAL ZERO-HALLUCINATION & 1:1 FIDELITY RULES:
+1. ANNEXURE A (PERFORMANCE PLAN) IS THE ONLY PART OF THE DOCUMENT TO BE EXTRACTED.
+2. The source agreement contains legal clauses (1 to 13), Section 4.2 framework percentages, 5-point rating scales (1=Unacceptable to 5=Outstanding), Section 7 review dates, Annexure B Personal Development Plan (PDP), Annexure C Disclosures, and Job Specific Competencies (JSC / CMC).
+3. DO NOT extract ANY legal clauses, rating criteria, PDP items, or competencies.
+4. ONLY extract the exact KPI rows from the scorecard table in "ANNEXURE A - PERFORMANCE PLAN".
+5. If the Annexure A table has exactly N rows, you MUST return EXACTLY N items. ZERO dreaming, ZERO inventing, ZERO additions, ZERO omissions.
+6. Extract verbatim text for every cell. If a cell contains "N/A" (or "n/a"), output "N/A" verbatim.
 
 DATA TO EXTRACT FOR EVERY KPI ROW IN ANNEXURE A:
 1. functional KPA -> Parent Functional KPA (from Annexure A table banner or column, e.g. "KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION")
 2. KPI number -> Exact KPI Number (e.g. "M_21", "1", "2", "3", "1.1", "BSD-01")
 3. key performance indicator -> Verbatim description/output of the Key Performance Indicator
 4. weight -> % Weighting number (e.g. "9", "5", "10", "20")
-5. baseline -> Verbatim Baseline (e.g. "1 (Unqualified with matters)", "100%", "4")
-6. annual target -> Verbatim Planned Annual Target (e.g. "1 (Clean audit)", "100%")
+5. baseline -> Verbatim Baseline (e.g. "1 (Unqualified with matters)", "100%", "4", "N/A")
+6. annual target -> Verbatim Planned Annual Target (e.g. "1 (Clean audit)", "100%", "N/A")
 7. 1st quarter planned target -> Verbatim 1st Quarter Planned Target (e.g. "N/A", "1", "100%")
 8. 2nd quarter planned target -> Verbatim 2nd Quarter Planned Target (e.g. "1 (Clean audit)", "N/A", "100%")
 9. 3rd quarter planned target -> Verbatim 3rd Quarter Planned Target (e.g. "N/A", "1", "100%")
 10. 4th quarter planned target -> Verbatim 4th Quarter Planned Target (e.g. "N/A", "1", "100%")
-11. poe -> Verbatim Portfolio of Evidence (POE) description / Means of verification (e.g. "AG's Audit Report", "Compliance certificate from OPME & PMDS Unit")
+11. poe -> Verbatim Portfolio of Evidence (POE) description / Means of verification
 12. total budget allocated R'000 -> Verbatim Total Budget Allocated (e.g. "OPEX", "R 5 380", "450 000")`;
 
       let extractedArray: any[] = [];
@@ -1215,49 +1204,42 @@ DATA TO EXTRACT FOR EVERY KPI ROW IN ANNEXURE A:
 
           let contents: any[] = [];
 
-          if (fileBase64 && (mimeType === 'application/pdf' || (fileName || '').toLowerCase().endsWith('.pdf'))) {
-            const parts: any[] = [
-              {
-                inlineData: {
-                  data: fileBase64,
-                  mimeType: 'application/pdf'
-                }
-              }
-            ];
-
-            if (annexureAText && annexureAText.trim().length > 0) {
-              parts.push({
-                text: `Extracted Annexure A (Performance Plan Table Only):\n${annexureAText}\n\n${section42Text ? `Section 4.2 Framework Definitions:\n${section42Text}` : ''}`
-              });
-            } else if (documentText && documentText.trim().length > 0) {
-              parts.push({
-                text: `Extracted Document Text Structure:\n${documentText}`
-              });
-            }
-
-            parts.push({
-              text: `CRITICAL INSTRUCTION: Extract ONLY the KPI rows physically present in the Annexure A Performance Plan table(s). Extract exactly: functional KPA, KPI number, key performance indicator, weight, baseline, annual target, 1st quarter planned target, 2nd quarter planned target, 3rd quarter planned target, 4th quarter planned target, poe, and total budget allocated R'000. Do NOT extract anything from any other section (no legal clauses, no rating matrices, no Annexure B PDP, no CMC/JSC). If the Annexure A table has 17 KPIs, return EXACTLY 17 items. If it has 12 KPIs, return EXACTLY 12 items. If it has 19 KPIs, return EXACTLY 19 items. Zero dreaming, zero adding data.`
-            });
-
-            contents = [{ role: 'user', parts }];
-          } else if (annexureAText && annexureAText.trim().length > 0) {
+          // Prioritize pure isolated Annexure A text if available to prevent LLM from seeing other clauses/tables
+          if (annexureAText && annexureAText.trim().length > 30) {
             contents = [
               {
                 role: 'user',
                 parts: [
                   {
-                    text: `SOURCE ANNEXURE A (PERFORMANCE PLAN TABLE ONLY - FILENAME: ${fileName || 'Performance Agreement'}):\n${annexureAText}\n\n${section42Text ? `Section 4.2 Framework Definitions:\n${section42Text}` : ''}\n\nCRITICAL INSTRUCTION: Extract ONLY the KPI rows physically present in the Annexure A Performance Plan table(s). Extract exactly: functional KPA, KPI number, key performance indicator, weight, baseline, annual target, 1st quarter planned target, 2nd quarter planned target, 3rd quarter planned target, 4th quarter planned target, poe, and total budget allocated R'000. Do NOT extract anything from any other section (no legal clauses, no rating matrices, no Annexure B PDP, no CMC/JSC). If the Annexure A table has 17 KPIs, return EXACTLY 17 items. If it has 12 KPIs, return EXACTLY 12 items. If it has 19 KPIs, return EXACTLY 19 items. Zero dreaming, zero adding data.`
+                    text: `SOURCE ANNEXURE A (PERFORMANCE PLAN TABLE ONLY - FILENAME: ${fileName || 'Performance Agreement'}):\n${annexureAText}\n\n${section42Text ? `Section 4.2 Framework Definitions:\n${section42Text}` : ''}\n\nCRITICAL INSTRUCTION: Extract ONLY the KPI rows physically present in the Annexure A Performance Plan table. Extract exactly 1:1: functional KPA, KPI number, key performance indicator, weight, baseline, annual target, 1st quarter planned target, 2nd quarter planned target, 3rd quarter planned target, 4th quarter planned target, poe, and total budget allocated R'000. Do NOT extract anything from any other section. Zero dreaming, zero adding data. If a quarterly target or baseline is "N/A", output "N/A" verbatim.`
                   }
                 ]
               }
             ];
-          } else if (documentText && documentText.trim().length > 0) {
+          } else if (documentText && documentText.trim().length > 30) {
             contents = [
               {
                 role: 'user',
                 parts: [
                   {
-                    text: `SOURCE DOCUMENT CONTENT (FILENAME: ${fileName || 'Performance Agreement'}):\n${documentText}\n\nCRITICAL INSTRUCTION: Locate "ANNEXURE A - PERFORMANCE PLAN" (or Section 4.2 framework). Extract ONLY the rows in the Annexure A Performance Plan table(s). Extract exactly: functional KPA, KPI number, key performance indicator, weight, baseline, annual target, 1st quarter planned target, 2nd quarter planned target, 3rd quarter planned target, 4th quarter planned target, poe, and total budget allocated R'000. Do NOT extract anything from any other section (no legal clauses, no rating matrices, no Annexure B PDP, no CMC/JSC). Zero dreaming, zero adding data.`
+                    text: `SOURCE DOCUMENT CONTENT (FILENAME: ${fileName || 'Performance Agreement'}):\n${documentText}\n\nCRITICAL INSTRUCTION: Locate "ANNEXURE A - PERFORMANCE PLAN". Extract ONLY the rows in the Annexure A Performance Plan table. Extract exactly 1:1: functional KPA, KPI number, key performance indicator, weight, baseline, annual target, 1st quarter planned target, 2nd quarter planned target, 3rd quarter planned target, 4th quarter planned target, poe, and total budget allocated R'000. Do NOT extract from legal clauses 1-13, rating scales, Annexure B PDP, or JSC competencies. Zero dreaming, zero adding data.`
+                  }
+                ]
+              }
+            ];
+          } else if (fileBase64 && (mimeType === 'application/pdf' || (fileName || '').toLowerCase().endsWith('.pdf'))) {
+            contents = [
+              {
+                role: 'user',
+                parts: [
+                  {
+                    inlineData: {
+                      data: fileBase64,
+                      mimeType: 'application/pdf'
+                    }
+                  },
+                  {
+                    text: `CRITICAL INSTRUCTION: Locate "ANNEXURE A - PERFORMANCE PLAN" in the PDF. Extract ONLY the rows physically present in the Annexure A Performance Plan table(s). Extract exactly 1:1: functional KPA, KPI number, key performance indicator, weight, baseline, annual target, 1st quarter planned target, 2nd quarter planned target, 3rd quarter planned target, 4th quarter planned target, poe, and total budget allocated R'000. Do NOT extract from legal clauses 1-13, rating scales, Annexure B PDP, or JSC competencies. Zero dreaming, zero adding data. If a target is "N/A", output "N/A" verbatim.`
                   }
                 ]
               }

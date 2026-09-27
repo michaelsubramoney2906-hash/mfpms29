@@ -361,6 +361,12 @@ const safeJson = async (res: Response) => {
   return null;
 };
 
+export const isCellNA = (val: any): boolean => {
+  if (val === null || val === undefined) return false;
+  const s = String(val).trim().toUpperCase();
+  return s === 'N/A' || s === 'NA' || s === 'N / A' || s === 'NOT APPLICABLE' || s.startsWith('N/A') || s.startsWith('NOT APPLICABLE') || s.includes('LOCKED (NOT REPORTABLE)');
+};
+
 export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isTeamPlan, isTeamPlan2 }: PerformanceAgreementsProps) {
   const headingTitle = isTeamPlan2 ? "Team Performance Plan 2" : isTeamPlan ? "Team Performance Plan" : isPlan ? "Performance Plan" : "Performance Agreement";
   const subTitle = isTeamPlan2
@@ -3170,130 +3176,167 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
                         </div>
                       </td>
 
-                      <td className={`p-1 border-r border-slate-205 min-w-[150px] ${item.q1Locked ? 'bg-slate-100/50 opacity-60' : ''}`}>
-                        <textarea
-                          rows={2}
-                          value={item.q1Target || ''}
-                          onChange={(e) => handleRowChange(item.id, 'q1Target', e.target.value)}
-                          disabled={item.q1Locked}
-                          onInput={(e) => {
-                            e.currentTarget.style.height = 'auto';
-                            e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
-                          }}
-                          placeholder="Q1 Target"
-                          className="w-full bg-transparent p-1 focus:bg-slate-50 hover:bg-slate-100/50 border-0 outline-none text-center text-slate-700 text-[10px]"
-                          style={{ minHeight: '40px', overflow: 'hidden' }}
-                        />
-                      </td>
-
-                      <td className={`p-1 border-r border-slate-205 min-w-[150px] ${item.q1Locked ? 'bg-slate-100/80' : 'bg-slate-50/50'}`}>
-                        {item.q1Locked ? (
-                          <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-1 text-[10px] py-4 select-none">
-                            <span>🔒 Locked</span>
-                            <span className="text-[8px] text-slate-400 font-medium">Not reportable</span>
-                          </div>
-                        ) : (
-                          <>
-                            <div className="flex items-center gap-1 mb-1 justify-center px-1">
-                              <span className="text-[8px] font-bold text-amber-700 uppercase tracking-tight">Score:</span>
-                              <input
-                                type="number" 
-                                min="1" 
-                                max="5" 
-                                step="1"
-                                value={item.q1Score ? (item.q1Score.includes('.') ? String(Math.round(parseFloat(item.q1Score))) : item.q1Score) : ''}
-                                onChange={(e) => {
-                                  const raw = e.target.value.replace(/[^0-9]/g, '');
-                                  if (raw === '') {
-                                    handleRowChange(item.id, 'q1Score', '');
-                                  } else {
-                                    const num = parseInt(raw, 10);
-                                    if (num >= 1 && num <= 5) {
-                                      handleRowChange(item.id, 'q1Score', String(num));
-                                    } else if (num > 5) {
-                                      handleRowChange(item.id, 'q1Score', '5');
-                                    } else if (num < 1) {
-                                      handleRowChange(item.id, 'q1Score', '1');
-                                    }
-                                  }
-                                }}
-                                onKeyDown={(e) => {
-                                  if (e.key === '.' || e.key === ',' || e.key === 'e' || e.key === 'E' || e.key === '+' || e.key === '-') {
-                                    e.preventDefault();
-                                  }
-                                }}
-                                placeholder="1-5"
-                                className="w-10 text-[9px] font-bold text-emerald-700 text-center bg-white border border-slate-200 outline-none rounded"
-                              />
-                            </div>
-                            <textarea
-                              rows={1}
-                              value={item.q1Actual || ''}
-                              onChange={(e) => handleRowChange(item.id, 'q1Actual', e.target.value)}
-                              onInput={(e) => {
-                                e.currentTarget.style.height = 'auto';
-                                e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
-                              }}
-                              placeholder="1st Qtr Actual..."
-                              className="w-full font-bold bg-transparent p-1 focus:bg-white hover:bg-white border-0 border-b border-dashed border-slate-300 outline-none text-center text-emerald-700 text-[10px] mb-1"
-                              style={{ minHeight: '20px', overflow: 'hidden' }}
-                            />
-                            {/* Automatic 1st Qtr Variance */}
-                            {(() => {
-                              const variance = calculateVariance(item.q1Target, item.q1Actual);
-                              const hasVariance = variance !== '0';
-                              return (
-                                <div className="flex flex-col items-center gap-0.5 mb-1 px-1">
-                                  <div className="flex items-center gap-1">
-                                    <span className="text-[8px] font-extrabold text-indigo-700 uppercase tracking-tight">Variance:</span>
-                                    <span className={`text-[9px] font-black px-1 rounded ${hasVariance ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'}`}>
-                                      {variance}
-                                    </span>
-                                  </div>
+                      {/* Q1 Target - Locked if N/A or q1Locked */}
+                      {(() => {
+                        const isQ1NA = isCellNA(item.q1Target);
+                        const isQ1CellLocked = item.q1Locked || isQ1NA;
+                        return (
+                          <td className={`p-1 border-r border-slate-205 min-w-[150px] ${isQ1CellLocked ? 'bg-slate-100/60 opacity-80 cursor-not-allowed' : ''}`}>
+                            {isQ1NA ? (
+                              <div className="flex flex-col items-center justify-center p-1 gap-0.5 min-h-[40px] text-center">
+                                <div className="flex items-center gap-1 text-[8px] font-bold text-slate-400 uppercase select-none">
+                                  <Lock className="w-2.5 h-2.5 text-amber-500" />
+                                  <span>Locked</span>
                                 </div>
-                              );
-                            })()}
-                            <textarea
-                              rows={1}
-                              value={item.q1Comment || ''}
-                              onChange={(e) => handleRowChange(item.id, 'q1Comment', e.target.value)}
-                              disabled={calculateVariance(item.q1Target, item.q1Actual) === '0'}
-                              onInput={(e) => {
-                                e.currentTarget.style.height = 'auto';
-                                e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
-                              }}
-                              placeholder={calculateVariance(item.q1Target, item.q1Actual) === '0' ? "No variance - locked" : "Variance comment..."}
-                              className={`w-full italic bg-transparent p-1 focus:bg-white hover:bg-white border-0 outline-none text-center text-slate-500 text-[9px] ${calculateVariance(item.q1Target, item.q1Actual) === '0' ? 'opacity-50 cursor-not-allowed' : ''}`}
-                              style={{ minHeight: '20px', overflow: 'hidden' }}
-                            />
-                            {/* Compact 1st Qtr POE */}
-                            <CompactPoeUploader
-                              label="1st Qtr POE"
-                              poeDescription={item.q1Poe || item.annualRequiredPoe || item.poe || ''}
-                              files={item.q1PoeDocs || []}
-                              onUpload={(newDocs) => handleRowChange(item.id, 'q1PoeDocs', [...(item.q1PoeDocs || []), ...newDocs])}
-                              onRemove={(docId) => handleRowChange(item.id, 'q1PoeDocs', (item.q1PoeDocs || []).filter(f => f.id !== docId))}
-                              disabled={item.q1Locked}
-                            />
-                          </>
-                        )}
-                      </td>
+                                <div className="text-[10px] font-bold text-slate-500 font-mono select-none">N/A</div>
+                              </div>
+                            ) : (
+                              <textarea
+                                rows={2}
+                                value={item.q1Target || ''}
+                                onChange={(e) => handleRowChange(item.id, 'q1Target', e.target.value)}
+                                disabled={isQ1CellLocked}
+                                onInput={(e) => {
+                                  e.currentTarget.style.height = 'auto';
+                                  e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
+                                }}
+                                placeholder="Q1 Target"
+                                className="w-full bg-transparent p-1 focus:bg-slate-50 hover:bg-slate-100/50 border-0 outline-none text-center text-slate-700 text-[10px]"
+                                style={{ minHeight: '40px', overflow: 'hidden' }}
+                              />
+                            )}
+                          </td>
+                        );
+                      })()}
+
+                      {/* Q1 Actual & Score - Locked if N/A or q1Locked */}
+                      {(() => {
+                        const isQ1NA = isCellNA(item.q1Target);
+                        const isQ1CellLocked = item.q1Locked || isQ1NA;
+                        return (
+                          <td className={`p-1 border-r border-slate-205 min-w-[150px] ${isQ1CellLocked ? 'bg-slate-100/80 cursor-not-allowed' : 'bg-slate-50/50'}`}>
+                            {isQ1CellLocked ? (
+                              <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-1 text-[10px] py-4 select-none">
+                                <span className="flex items-center gap-1 font-bold text-slate-500"><Lock className="w-3 h-3 text-amber-500" /> Locked</span>
+                                <span className="text-[8px] text-slate-400 font-medium">{isQ1NA ? 'N/A — Not reportable' : 'Not reportable'}</span>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="flex items-center gap-1 mb-1 justify-center px-1">
+                                  <span className="text-[8px] font-bold text-amber-700 uppercase tracking-tight">Score:</span>
+                                  <input
+                                    type="number" 
+                                    min="1" 
+                                    max="5" 
+                                    step="1"
+                                    value={item.q1Score ? (item.q1Score.includes('.') ? String(Math.round(parseFloat(item.q1Score))) : item.q1Score) : ''}
+                                    onChange={(e) => {
+                                      const raw = e.target.value.replace(/[^0-9]/g, '');
+                                      if (raw === '') {
+                                        handleRowChange(item.id, 'q1Score', '');
+                                      } else {
+                                        const num = parseInt(raw, 10);
+                                        if (num >= 1 && num <= 5) {
+                                          handleRowChange(item.id, 'q1Score', String(num));
+                                        } else if (num > 5) {
+                                          handleRowChange(item.id, 'q1Score', '5');
+                                        } else if (num < 1) {
+                                          handleRowChange(item.id, 'q1Score', '1');
+                                        }
+                                      }
+                                    }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === '.' || e.key === ',' || e.key === 'e' || e.key === 'E' || e.key === '+' || e.key === '-') {
+                                        e.preventDefault();
+                                      }
+                                    }}
+                                    placeholder="1-5"
+                                    className="w-10 text-[9px] font-bold text-emerald-700 text-center bg-white border border-slate-200 outline-none rounded"
+                                  />
+                                </div>
+                                <textarea
+                                  rows={1}
+                                  value={item.q1Actual || ''}
+                                  onChange={(e) => handleRowChange(item.id, 'q1Actual', e.target.value)}
+                                  onInput={(e) => {
+                                    e.currentTarget.style.height = 'auto';
+                                    e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
+                                  }}
+                                  placeholder="1st Qtr Actual..."
+                                  className="w-full font-bold bg-transparent p-1 focus:bg-white hover:bg-white border-0 border-b border-dashed border-slate-300 outline-none text-center text-emerald-700 text-[10px] mb-1"
+                                  style={{ minHeight: '20px', overflow: 'hidden' }}
+                                />
+                                {/* Automatic 1st Qtr Variance */}
+                                {(() => {
+                                  const variance = calculateVariance(item.q1Target, item.q1Actual);
+                                  const hasVariance = variance !== '0';
+                                  return (
+                                    <div className="flex flex-col items-center gap-0.5 mb-1 px-1">
+                                      <div className="flex items-center gap-1">
+                                        <span className="text-[8px] font-extrabold text-indigo-700 uppercase tracking-tight">Variance:</span>
+                                        <span className={`text-[9px] font-black px-1 rounded ${hasVariance ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'}`}>
+                                          {variance}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
+                                <textarea
+                                  rows={1}
+                                  value={item.q1Comment || ''}
+                                  onChange={(e) => handleRowChange(item.id, 'q1Comment', e.target.value)}
+                                  disabled={calculateVariance(item.q1Target, item.q1Actual) === '0'}
+                                  onInput={(e) => {
+                                    e.currentTarget.style.height = 'auto';
+                                    e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
+                                  }}
+                                  placeholder={calculateVariance(item.q1Target, item.q1Actual) === '0' ? "No variance - locked" : "Variance comment..."}
+                                  className={`w-full italic bg-transparent p-1 focus:bg-white hover:bg-white border-0 outline-none text-center text-slate-500 text-[9px] ${calculateVariance(item.q1Target, item.q1Actual) === '0' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                  style={{ minHeight: '20px', overflow: 'hidden' }}
+                                />
+                                {/* Compact 1st Qtr POE */}
+                                <CompactPoeUploader
+                                  label="1st Qtr POE"
+                                  poeDescription={item.q1Poe || item.annualRequiredPoe || item.poe || ''}
+                                  files={item.q1PoeDocs || []}
+                                  onUpload={(newDocs) => handleRowChange(item.id, 'q1PoeDocs', [...(item.q1PoeDocs || []), ...newDocs])}
+                                  onRemove={(docId) => handleRowChange(item.id, 'q1PoeDocs', (item.q1PoeDocs || []).filter(f => f.id !== docId))}
+                                  disabled={isQ1CellLocked}
+                                />
+                              </>
+                            )}
+                          </td>
+                        );
+                      })()}
 
                       {/* 1st Qtr Actual Expense Column */}
-                      <td className="p-1 border-r border-slate-205 min-w-[140px] bg-emerald-50/20">
-                        <textarea
-                          rows={1}
-                          value={item.q1ActualExpense || ''}
-                          onChange={(e) => handleRowChange(item.id, 'q1ActualExpense', e.target.value)}
-                          onInput={(e) => {
-                            e.currentTarget.style.height = 'auto';
-                            e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
-                          }}
-                          placeholder="1st Qtr Expense (R)..."
-                          className="w-full font-bold bg-transparent p-1 focus:bg-white hover:bg-white border-0 border-b border-dashed border-emerald-300 outline-none text-center text-emerald-800 text-[10px]"
-                          style={{ minHeight: '20px', overflow: 'hidden' }}
-                        />
-                      </td>
+                      {(() => {
+                        const isQ1NA = isCellNA(item.q1Target);
+                        const isQ1CellLocked = item.q1Locked || isQ1NA;
+                        return (
+                          <td className={`p-1 border-r border-slate-205 min-w-[140px] ${isQ1CellLocked ? 'bg-slate-100/50 cursor-not-allowed opacity-75' : 'bg-emerald-50/20'}`}>
+                            {isQ1CellLocked ? (
+                              <div className="text-center text-[10px] font-mono text-slate-400 p-1 flex items-center justify-center gap-1">
+                                <Lock className="w-2.5 h-2.5 text-amber-500" />
+                                <span>{isQ1NA ? 'N/A' : 'Locked'}</span>
+                              </div>
+                            ) : (
+                              <textarea
+                                rows={1}
+                                value={item.q1ActualExpense || ''}
+                                onChange={(e) => handleRowChange(item.id, 'q1ActualExpense', e.target.value)}
+                                onInput={(e) => {
+                                  e.currentTarget.style.height = 'auto';
+                                  e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
+                                }}
+                                placeholder="1st Qtr Expense (R)..."
+                                className="w-full font-bold bg-transparent p-1 focus:bg-white hover:bg-white border-0 border-b border-dashed border-emerald-300 outline-none text-center text-emerald-800 text-[10px]"
+                                style={{ minHeight: '20px', overflow: 'hidden' }}
+                              />
+                            )}
+                          </td>
+                        );
+                      })()}
 
                       {/* Q1 Variance Column */}
                       <td className="p-1 border-r border-slate-205 min-w-[120px] bg-amber-50/15">
@@ -3313,7 +3356,8 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
                       {/* Q1 Corrective Column */}
                       <td className="p-1 border-r border-slate-205 min-w-[180px] bg-amber-50/15">
                         {(() => {
-                          const isUnlocked = hasVariance(item.q1Target, item.q1Actual);
+                          const isQ1NA = isCellNA(item.q1Target);
+                          const isUnlocked = hasVariance(item.q1Target, item.q1Actual) && !isQ1NA && !item.q1Locked;
                           return (
                             <textarea
                               rows={2}
@@ -3324,7 +3368,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
                                 e.currentTarget.style.height = 'auto';
                                 e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
                               }}
-                              placeholder={!isUnlocked ? "No variance - locked" : "1st Qtr Corrective Action..."}
+                              placeholder={!isUnlocked ? (isQ1NA ? "N/A - locked" : "No variance - locked") : "1st Qtr Corrective Action..."}
                               className={`w-full text-[9.5px] font-medium p-1 border rounded outline-none transition ${
                                 isUnlocked 
                                   ? 'border-amber-300 bg-white text-emerald-900 focus:border-emerald-600 shadow-xs' 
@@ -3338,15 +3382,15 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
 
                       {/* 2nd Qtr Target - Locked */}
                       <td className="p-1 border-r border-slate-205 min-w-[150px] bg-slate-100/50 cursor-not-allowed">
-                        <textarea
-                          rows={2}
-                          value={item.q2Target || ''}
-                          readOnly
-                          disabled
-                          placeholder="Locked"
-                          className="w-full bg-transparent p-1 border-0 outline-none text-center text-slate-700 text-[10px] cursor-not-allowed resize-none font-medium"
-                          style={{ minHeight: '40px', overflow: 'hidden' }}
-                        />
+                        <div className="flex flex-col items-center justify-center p-1 gap-0.5 min-h-[40px]">
+                          <div className="flex items-center gap-1 text-[8px] font-bold text-slate-400 uppercase select-none">
+                            <Lock className="w-2.5 h-2.5 text-amber-500" />
+                            <span>Q2 Target (Locked)</span>
+                          </div>
+                          <div className="text-[10px] font-bold text-slate-700 text-center select-text font-mono">
+                            {item.q2Target || <span className="text-slate-400 italic font-normal">Locked</span>}
+                          </div>
+                        </div>
                       </td>
 
                       {/* 2nd Qtr Actual - Locked */}
@@ -3361,7 +3405,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
                             </div>
                           ) : null}
                           <div className="text-[10px] font-bold text-slate-700 text-center py-0.5">
-                            {item.q2Actual || <span className="text-slate-400 font-normal italic">Locked</span>}
+                            {item.q2Actual || <span className="text-slate-400 font-normal italic">{isCellNA(item.q2Target) ? 'N/A (Locked)' : 'Locked'}</span>}
                           </div>
                           {/* Variance */}
                           {(() => {
@@ -3436,15 +3480,15 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
 
                       {/* Midterm Review - Locked */}
                       <td className="p-1 border-r border-slate-205 min-w-[150px] bg-slate-100/50 cursor-not-allowed">
-                        <textarea
-                          rows={2}
-                          value={item.midtermTarget || ''}
-                          readOnly
-                          disabled
-                          placeholder="Midterm Review (Locked)"
-                          className="w-full bg-transparent p-1 border-0 outline-none text-center text-slate-700 text-[10px] font-bold cursor-not-allowed resize-none"
-                          style={{ minHeight: '40px', overflow: 'hidden' }}
-                        />
+                        <div className="flex flex-col items-center justify-center p-1 gap-0.5 min-h-[40px]">
+                          <div className="flex items-center gap-1 text-[8px] font-bold text-slate-400 uppercase select-none">
+                            <Lock className="w-2.5 h-2.5 text-amber-500" />
+                            <span>Midterm (Locked)</span>
+                          </div>
+                          <div className="text-[10px] font-bold text-slate-700 text-center select-text font-mono">
+                            {item.midtermTarget || <span className="text-slate-400 italic font-normal">Locked</span>}
+                          </div>
+                        </div>
                       </td>
 
                       {/* Midterm Actual - Locked */}
@@ -3459,7 +3503,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
                             </div>
                           ) : null}
                           <div className="text-[10px] font-bold text-slate-700 text-center py-0.5">
-                            {item.midtermActual || <span className="text-slate-400 font-normal italic">Locked</span>}
+                            {item.midtermActual || <span className="text-slate-400 font-normal italic">{isCellNA(item.midtermTarget) ? 'N/A (Locked)' : 'Locked'}</span>}
                           </div>
                           {/* Variance */}
                           {(() => {
@@ -3534,15 +3578,15 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
 
                       {/* 3rd Qtr Target - Locked */}
                       <td className="p-1 border-r border-slate-205 min-w-[150px] bg-slate-100/50 cursor-not-allowed">
-                        <textarea
-                          rows={2}
-                          value={item.q3Target || ''}
-                          readOnly
-                          disabled
-                          placeholder="Locked"
-                          className="w-full bg-transparent p-1 border-0 outline-none text-center text-slate-700 text-[10px] cursor-not-allowed resize-none font-medium"
-                          style={{ minHeight: '40px', overflow: 'hidden' }}
-                        />
+                        <div className="flex flex-col items-center justify-center p-1 gap-0.5 min-h-[40px]">
+                          <div className="flex items-center gap-1 text-[8px] font-bold text-slate-400 uppercase select-none">
+                            <Lock className="w-2.5 h-2.5 text-amber-500" />
+                            <span>Q3 Target (Locked)</span>
+                          </div>
+                          <div className="text-[10px] font-bold text-slate-700 text-center select-text font-mono">
+                            {item.q3Target || <span className="text-slate-400 italic font-normal">Locked</span>}
+                          </div>
+                        </div>
                       </td>
 
                       {/* 3rd Qtr Actual - Locked */}
@@ -3557,7 +3601,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
                             </div>
                           ) : null}
                           <div className="text-[10px] font-bold text-slate-700 text-center py-0.5">
-                            {item.q3Actual || <span className="text-slate-400 font-normal italic">Locked</span>}
+                            {item.q3Actual || <span className="text-slate-400 font-normal italic">{isCellNA(item.q3Target) ? 'N/A (Locked)' : 'Locked'}</span>}
                           </div>
                           {/* Variance */}
                           {(() => {
@@ -3632,15 +3676,15 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
 
                       {/* 4th Qtr Target - Locked */}
                       <td className="p-1 border-r border-slate-205 min-w-[150px] bg-slate-100/50 cursor-not-allowed">
-                        <textarea
-                          rows={2}
-                          value={item.q4Target || ''}
-                          readOnly
-                          disabled
-                          placeholder="Locked"
-                          className="w-full bg-transparent p-1 border-0 outline-none text-center text-slate-700 text-[10px] cursor-not-allowed resize-none font-medium"
-                          style={{ minHeight: '40px', overflow: 'hidden' }}
-                        />
+                        <div className="flex flex-col items-center justify-center p-1 gap-0.5 min-h-[40px]">
+                          <div className="flex items-center gap-1 text-[8px] font-bold text-slate-400 uppercase select-none">
+                            <Lock className="w-2.5 h-2.5 text-amber-500" />
+                            <span>Q4 Target (Locked)</span>
+                          </div>
+                          <div className="text-[10px] font-bold text-slate-700 text-center select-text font-mono">
+                            {item.q4Target || <span className="text-slate-400 italic font-normal">Locked</span>}
+                          </div>
+                        </div>
                       </td>
 
                       {/* 4th Qtr Actual - Locked */}
@@ -3655,7 +3699,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
                             </div>
                           ) : null}
                           <div className="text-[10px] font-bold text-slate-700 text-center py-0.5">
-                            {item.q4Actual || <span className="text-slate-400 font-normal italic">Locked</span>}
+                            {item.q4Actual || <span className="text-slate-400 font-normal italic">{isCellNA(item.q4Target) ? 'N/A (Locked)' : 'Locked'}</span>}
                           </div>
                           {/* Variance */}
                           {(() => {
@@ -3730,15 +3774,15 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
 
                       {/* Annual Actual Total Achieved - Locked */}
                       <td className="p-1 border-r border-slate-205 min-w-[150px] bg-slate-100/50 cursor-not-allowed">
-                        <textarea
-                          rows={1}
-                          value={item.annualActual || ''}
-                          readOnly
-                          disabled
-                          placeholder="Locked"
-                          className="w-full font-bold bg-transparent p-1 border-0 outline-none text-center text-slate-600 text-[10px] cursor-not-allowed resize-none"
-                          style={{ minHeight: '20px', overflow: 'hidden' }}
-                        />
+                        <div className="flex flex-col items-center justify-center p-1 gap-0.5 min-h-[40px]">
+                          <div className="flex items-center gap-1 text-[8px] font-bold text-slate-400 uppercase select-none">
+                            <Lock className="w-2.5 h-2.5 text-amber-500" />
+                            <span>Annual (Locked)</span>
+                          </div>
+                          <div className="text-[10px] font-bold text-slate-700 text-center select-text font-mono">
+                            {item.annualActual || <span className="text-slate-400 italic font-normal">{isCellNA(item.annualTarget) ? 'N/A (Locked)' : 'Locked'}</span>}
+                          </div>
+                        </div>
                       </td>
 
                       {/* Annual Actual Exp Column - Locked */}
@@ -3758,7 +3802,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
                       <td className="p-1 border-r border-slate-205 min-w-[120px] bg-slate-100/50 cursor-not-allowed">
                         <div className="flex flex-col items-center justify-center h-full gap-1 p-1">
                           {(() => {
-                            const variance = calculateVariance(item.annualTarget, item.annualActual || item.q4Actual);
+                            const variance = calculateVariance(item.annualTarget, item.annualActual);
                             const hasVariance = variance !== '0';
                             return (
                               <span className={`text-[10px] font-black px-2 py-1 rounded ${hasVariance ? 'bg-rose-100 text-rose-700' : 'bg-slate-200 text-slate-600'}`}>

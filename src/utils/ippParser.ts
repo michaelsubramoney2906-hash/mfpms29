@@ -2,7 +2,6 @@ import * as XLSX from 'xlsx';
 import mammoth from 'mammoth';
 import JSZip from 'jszip';
 import * as pdfjsLib from 'pdfjs-dist';
-import { SHABANGUSM_OFFICIAL_KPIS, SHABANGUSM_OFFICIAL_KPAS } from '../data/shabanguAgreementData';
 
 // Configure PDF.js worker
 if (typeof window !== 'undefined') {
@@ -449,7 +448,7 @@ export function parseRawTextLines(text: string): ExtractedMappedKPI[] {
 
   const rawAnnexureA = text.substring(annexureAStart);
   // Strictly find end of Annexure A
-  const endMatch = rawAnnexureA.search(/(?:ANNEXURE\s*B\b|PERSONAL\s*DEVELOPMENT\s*PLAN|ANNEXURE\s*C\b|DISCLOSURE\s*OF\s*INTEREST|I\/We,\s*the\s*undersigned\s*hereby\s*certify)/i);
+  const endMatch = rawAnnexureA.search(/(?:ANNEXURE\s*B\b|PERSONAL\s*DEVELOPMENT\s*PLAN|ANNEXURE\s*C\b|DISCLOSURE\s*OF\s*INTEREST|JOB\s*SPECIFIC\s*COMPETENC|CORE\s*COMPETENC|CCR\b|CMC\b|I\/We,\s*the\s*undersigned\s*hereby\s*certify)/i);
   const annexureAText = endMatch !== -1 ? rawAnnexureA.substring(0, endMatch) : rawAnnexureA;
 
   const lines = annexureAText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
@@ -460,15 +459,20 @@ export function parseRawTextLines(text: string): ExtractedMappedKPI[] {
     const line = lines[i];
     const lower = line.toLowerCase();
 
-    // Skip metadata headers & signoffs
+    // Skip metadata headers, signoffs, rating scales, PDP
     if (
-      lower.includes('page ') && lower.includes(' of ') ||
+      (lower.includes('page ') && lower.includes(' of ')) ||
       lower.startsWith('team ') || lower.startsWith('period ') || lower.startsWith('department ') ||
       lower.startsWith('name and surname') || lower.startsWith('position ') || lower.startsWith('level ') ||
       lower.includes("employee’s signature") || lower.includes("employee's signature") ||
       lower.includes("supervisor’ signature") || lower.includes("supervisor' signature") ||
       lower.includes("pms official’s signature") || lower.includes("pms official's signature") ||
-      lower.includes("annexure a: performance plan") || lower.includes("annexure a -")
+      lower.includes("annexure a: performance plan") || lower.includes("annexure a -") ||
+      lower.includes("personal development plan") || lower.includes("annexure b") ||
+      lower.includes("job specific competencies") || lower.includes("core competencies") ||
+      lower.includes("unacceptable performance") || lower.includes("not fully effective") ||
+      lower.includes("fully effective") || lower.includes("significantly above expectations") ||
+      lower.includes("outstanding performance")
     ) {
       continue;
     }
@@ -508,11 +512,15 @@ export function parseRawTextLines(text: string): ExtractedMappedKPI[] {
         firstCellLower.includes('signature') ||
         firstCellLower.includes('baseline') ||
         firstCellLower.includes('target') ||
-        firstCellLower.includes('weight');
+        firstCellLower.includes('weight') ||
+        firstCellLower.includes('unacceptable') ||
+        firstCellLower.includes('effective') ||
+        firstCellLower.includes('outstanding') ||
+        firstCellLower.includes('competency');
 
       if (isValidKpiNo && !isExcludedWord && rawCells.length >= 2) {
         const desc = rawCells[1] || '';
-        if (desc.length > 3 && !desc.toLowerCase().includes('signature') && !desc.toLowerCase().includes('certify')) {
+        if (desc.length > 3 && !desc.toLowerCase().includes('signature') && !desc.toLowerCase().includes('certify') && !desc.toLowerCase().includes('rating scale')) {
           let kpiNo = firstCell;
           let weight = '';
           let baseline = '';
@@ -652,6 +660,28 @@ export async function extractIPPKPIsFromPDF(arrayBuffer: ArrayBuffer, fileName: 
 }
 
 /**
+ * Helper to convert Mammoth HTML tables to TSV rows
+ */
+export function htmlTablesToTsv(html: string): string {
+  if (!html) return '';
+  return html
+    .replace(/<\/tr>/gi, '\n')
+    .replace(/<\/td>\s*<td[^>]*>/gi, '\t')
+    .replace(/<td[^>]*>/gi, '')
+    .replace(/<\/td>/gi, '')
+    .replace(/<\/th>\s*<th[^>]*>/gi, '\t')
+    .replace(/<th[^>]*>/gi, '')
+    .replace(/<\/th>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"');
+}
+
+/**
  * Extracts and maps KPIs from Word (.docx) strictly for IPP
  */
 export async function extractIPPKPIsFromDocx(arrayBuffer: ArrayBuffer, fileName: string = 'IPP_Agreement.docx'): Promise<ExtractedMappedKPI[]> {
@@ -673,7 +703,8 @@ export async function extractIPPKPIsFromDocx(arrayBuffer: ArrayBuffer, fileName:
     console.warn("[IPP Parser] Mammoth text extraction warning:", mErr);
   }
 
-  const payloadText = docxHtml ? `${docxHtml}\n\nPlain Text:\n${docxText}` : docxText;
+  const tableTsv = docxHtml ? htmlTablesToTsv(docxHtml) : '';
+  const payloadText = tableTsv ? `${tableTsv}\n\nPlain Document Text:\n${docxText}` : docxText;
 
   try {
     const aiItems = await callServerAiIPPExtraction({
@@ -687,6 +718,11 @@ export async function extractIPPKPIsFromDocx(arrayBuffer: ArrayBuffer, fileName:
     }
   } catch (aiErr) {
     console.warn("[IPP Parser] Server AI docx extraction fallback to text parser:", aiErr);
+  }
+
+  if (tableTsv && tableTsv.trim().length > 0) {
+    const parsed = parseRawTextLines(tableTsv);
+    if (parsed.length > 0) return parsed;
   }
 
   if (docxText && docxText.trim().length > 0) {
@@ -778,20 +814,7 @@ export async function extractIPPKPIsFromDocument(file: File): Promise<ExtractedM
 }
 
 export async function extractIppFromDocument(file: File): Promise<{ items: ExtractedMappedKPI[]; count: number; kpas: ExtractedKpaDefinition[] }> {
-  const fileNameLower = (file.name || '').toLowerCase();
-  if (fileNameLower.includes('shabangu') || fileNameLower.includes('mancoba') || fileNameLower.includes('shabangusm')) {
-    const formatted: ExtractedMappedKPI[] = SHABANGUSM_OFFICIAL_KPIS.map((item, idx) => ({
-      ...item,
-      _id: `ipp-shabangu-${idx + 1}-${Date.now()}`,
-      _selected: true
-    }));
-    return {
-      items: formatted,
-      count: formatted.length,
-      kpas: SHABANGUSM_OFFICIAL_KPAS
-    };
-  }
-
+  // Extract strictly from what is physically present in the uploaded file with 100% dynamic parsing
   const items = await extractIPPKPIsFromDocument(file);
   
   // Extract unique functional KPAs from the items
