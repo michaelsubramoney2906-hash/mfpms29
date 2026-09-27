@@ -540,12 +540,12 @@ function getRagDetails(row: SdbipRow) {
   if (!hasReportingData) {
     return {
       status: 'none' as const,
-      face: '😐',
-      label: 'No Data',
+      face: '☹️',
+      label: 'Sad',
       bgClass: 'bg-slate-50',
       borderClass: 'border-slate-200',
       textClass: 'text-slate-500',
-      tooltip: 'No target/actual data entered.'
+      tooltip: 'No target/actual data entered yet.'
     };
   }
 
@@ -553,8 +553,8 @@ function getRagDetails(row: SdbipRow) {
     if (totalActual >= 0) {
       return {
         status: 'green' as const,
-        face: '😊',
-        label: 'Happy',
+        face: '😁',
+        label: 'Smiling Big Grin',
         bgClass: 'bg-emerald-50',
         borderClass: 'border-emerald-200',
         textClass: 'text-emerald-700',
@@ -563,8 +563,8 @@ function getRagDetails(row: SdbipRow) {
     } else {
       return {
         status: 'red' as const,
-        face: '😡',
-        label: 'Angry',
+        face: '☹️',
+        label: 'Sad',
         bgClass: 'bg-rose-50',
         borderClass: 'border-rose-200',
         textClass: 'text-rose-700',
@@ -579,8 +579,8 @@ function getRagDetails(row: SdbipRow) {
   if (achievementRate >= 1.0) {
     return {
       status: 'green' as const,
-      face: '😊',
-      label: 'Happy',
+      face: '😁',
+      label: 'Smiling Big Grin',
       bgClass: 'bg-emerald-50',
       borderClass: 'border-emerald-200',
       textClass: 'text-emerald-700',
@@ -589,22 +589,22 @@ function getRagDetails(row: SdbipRow) {
   } else if (achievementRate >= 0.70) {
     return {
       status: 'amber' as const,
-      face: '☹️',
-      label: 'Sad',
+      face: '🙂',
+      label: 'Semi Smiling',
       bgClass: 'bg-amber-50',
       borderClass: 'border-amber-200',
       textClass: 'text-amber-700',
-      tooltip: `Under target with minor variance. Achievement Rate: ${ratePercent}% (${totalActual} actual vs ${totalTarget} target)`
+      tooltip: `Progressing towards target. Achievement Rate: ${ratePercent}% (${totalActual} actual vs ${totalTarget} target)`
     };
   } else {
     return {
       status: 'red' as const,
-      face: '😡',
-      label: 'Angry',
+      face: '☹️',
+      label: 'Sad',
       bgClass: 'bg-rose-50',
       borderClass: 'border-rose-200',
       textClass: 'text-rose-700',
-      tooltip: `Significant underperformance. Achievement Rate: ${ratePercent}% (${totalActual} actual vs ${totalTarget} target)`
+      tooltip: `Under target / severe underperformance. Achievement Rate: ${ratePercent}% (${totalActual} actual vs ${totalTarget} target)`
     };
   }
 }

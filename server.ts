@@ -1864,11 +1864,21 @@ CRITICAL MAPPING & EXTRACTION RULES:
       // Sanitize each item to ensure all fields are mapped verbatim to standard pplan and kpi fields
       const formattedItems = items.map((it: any, idx: number) => {
         const functionalKpa = it.functionalKpa || it.kpa || it["functional kpa"] || 'Functional Performance Area';
-        const kpiDesc = it.kpiDescription || it.kpi || it["kpi description"] || it["key performance indicator"] || '';
+        const kpiDesc = it.kpiDescription || it.kpi || it.description || it["kpi description"] || it["key performance indicator"] || '';
         const kpiNo = it.kpiNo || it.refNum || it.id || it["kpi no"] || `GM_${idx + 1}`;
         const poeVal = it.poe || it.poeDesc || it["poe"] || '';
-        const wt = String(it.weighting || it.wt || it.weight || '1');
-        const budget = it.budget || it.totalBudget || it.budgetAllocation || '';
+        const wt = String(it.weighting || it.wt || it.weight || it["wt"] || '1');
+        const budget = it.budget || it.totalBudget || it.budgetAllocation || it["budget"] || '';
+        const baseline = it.baseline || it["baseline"] || '';
+        const annualTarget = it.annualTarget || it.annual || it["annual target"] || '';
+        const q1 = it.q1Target || it.q1 || it["1st qtr target"] || '';
+        const q2 = it.q2Target || it.q2 || it["2nd qtr target"] || '';
+        const q3 = it.q3Target || it.q3 || it["3rd qtr target"] || '';
+        const q4 = it.q4Target || it.q4 || it["4th qtr target"] || '';
+        const q1Poe = it.q1Poe || it["1st qtr poe"] || poeVal;
+        const q2Poe = it.q2Poe || it["2nd qtr poe"] || poeVal;
+        const q3Poe = it.q3Poe || it["3rd qtr poe"] || poeVal;
+        const q4Poe = it.q4Poe || it["4th qtr poe"] || poeVal;
 
         return {
           id: it.id || `gm-ipp-kpi-${Date.now()}-${idx + 1}`,
@@ -1882,26 +1892,40 @@ CRITICAL MAPPING & EXTRACTION RULES:
           weighting: parseFloat(wt) || 1,
           wt: wt,
           weight: wt,
-          baseline: it.baseline || '',
-          annualTarget: it.annualTarget || it.annual || '',
-          annual: it.annualTarget || it.annual || '',
-          q1: it.q1Target || it.q1 || '',
-          q2: it.q2Target || it.q2 || '',
-          q3: it.q3Target || it.q3 || '',
-          q4: it.q4Target || it.q4 || '',
-          q1Target: it.q1Target || it.q1 || '',
-          q2Target: it.q2Target || it.q2 || '',
-          q3Target: it.q3Target || it.q3 || '',
-          q4Target: it.q4Target || it.q4 || '',
-          q1Poe: it.q1Poe || poeVal,
-          q2Poe: it.q2Poe || poeVal,
-          q3Poe: it.q3Poe || poeVal,
-          q4Poe: it.q4Poe || poeVal,
+          baseline: baseline,
+          annualTarget: annualTarget,
+          annual: annualTarget,
+          q1: q1,
+          q2: q2,
+          q3: q3,
+          q4: q4,
+          q1Target: q1,
+          q2Target: q2,
+          q3Target: q3,
+          q4Target: q4,
+          q1Poe: q1Poe,
+          q2Poe: q2Poe,
+          q3Poe: q3Poe,
+          q4Poe: q4Poe,
           poe: poeVal,
           poeDesc: poeVal,
           budget: budget,
           totalBudget: budget,
           budgetAllocation: budget,
+          // Spaced / bracket verbatim keys
+          "kpi no": kpiNo,
+          "kpi description": kpiDesc,
+          "%wt": wt,
+          "annual target": annualTarget,
+          "1st qtr target": q1,
+          "2nd qtr target": q2,
+          "3rd qtr target": q3,
+          "4th qtr target": q4,
+          "1st qtr poe": q1Poe,
+          "2nd qtr poe": q2Poe,
+          "3rd qtr poe": q3Poe,
+          "4th qtr poe": q4Poe,
+          "functional kpa": functionalKpa,
           sourceFileName: sourceFileName || 'GM_Performance_Agreement.pdf',
           extractedBy: userEmail,
           extractedAt: new Date().toISOString()
@@ -1925,8 +1949,6 @@ CRITICAL MAPPING & EXTRACTION RULES:
         }
 
         // 2. ALSO save to the primary pplan and kpis documents in messages table for performance plan display
-        const pplanDocId = `pplan_${tenantId}_${userId}`;
-        const kpisDocId = `kpis_${tenantId}_${userId}`;
         const pplanPayload = JSON.stringify({
           metadata: {
             title: `GM Performance Plan - ${sourceFileName || 'Annexure A'}`,
@@ -1938,39 +1960,41 @@ CRITICAL MAPPING & EXTRACTION RULES:
           kpas: kpas || []
         });
 
+        const targetDocIds = [
+          `pplan_${tenantId}_${userId}`,
+          `kpis_${tenantId}_${userId}`,
+          `pplan_tenant-229_${userId}`,
+          `kpis_tenant-229_${userId}`,
+          `pplan_nkangala_auto_${userId}`,
+          `kpis_nkangala_auto_${userId}`,
+          `pplan_global_${userId}`,
+          `kpis_global_${userId}`
+        ];
+
+        if (userId.includes('mahlanguml') || userId.includes('mahlangulm') || userId.includes('mandlaml')) {
+          targetDocIds.push(
+            `pplan_tenant-229_mahlanguml@nkangaladm.gov.za`,
+            `pplan_tenant-229_mahlangulm@nkangaladm.gov.za`,
+            `kpis_tenant-229_mahlanguml@nkangaladm.gov.za`,
+            `kpis_tenant-229_mahlangulm@nkangaladm.gov.za`
+          );
+        }
+
         try {
-          await Promise.all([
-            supabase.from('messages').upsert({
-              id: pplanDocId,
-              tenant_id: tenantId,
-              sender_id: 'fred_gm_extractor',
-              sender_email: userEmail,
-              sender_name: 'FRED GM Extractor',
-              content: pplanPayload,
-              message_type: 'pplan_list',
-              created_at: new Date().toISOString()
-            }),
-            supabase.from('messages').upsert({
-              id: kpisDocId,
-              tenant_id: tenantId,
-              sender_id: 'fred_gm_extractor',
-              sender_email: userEmail,
-              sender_name: 'FRED GM Extractor',
-              content: pplanPayload,
-              message_type: 'kpi_list',
-              created_at: new Date().toISOString()
-            }),
-            supabase.from('messages').upsert({
-              id: `pplan_tenant-229_${userId}`,
-              tenant_id: 'tenant-229',
-              sender_id: 'fred_gm_extractor',
-              sender_email: userEmail,
-              sender_name: 'FRED GM Extractor',
-              content: pplanPayload,
-              message_type: 'pplan_list',
-              created_at: new Date().toISOString()
-            })
-          ]);
+          await Promise.all(
+            Array.from(new Set(targetDocIds)).map(docId =>
+              supabase.from('messages').upsert({
+                id: docId,
+                tenant_id: docId.includes('tenant-229') ? 'tenant-229' : tenantId,
+                sender_id: 'fred_gm_extractor',
+                sender_email: userEmail,
+                sender_name: 'FRED GM Extractor',
+                content: pplanPayload,
+                message_type: docId.startsWith('kpis_') ? 'kpi_list' : 'pplan_list',
+                created_at: new Date().toISOString()
+              })
+            )
+          );
         } catch (msgErr) {
           console.warn("[GM Push Plan] messages upsert error:", msgErr);
         }

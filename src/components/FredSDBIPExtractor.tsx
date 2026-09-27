@@ -273,13 +273,24 @@ export function FredSDBIPExtractor({
 
       // Map strictly into SDBIP Top Layer format with National KPAs and M_ / P_ codes
       const sdbipPayload = selected.map((item, idx) => {
-        const natKpa = item.kpas || '';
-        const isBsd = item.bsd || /bsd|basic service/i.test(natKpa) ? 'Y' : 'N';
-        const isLed = item.led || /led|local economic/i.test(natKpa) ? 'Y' : 'N';
-        const isMfvm = item.mfvm || /mfvm|financial viability/i.test(natKpa) ? 'Y' : 'N';
-        const isGgpp = item.ggpp || /ggpp|good governance/i.test(natKpa) ? 'Y' : 'N';
-        const isMidt = item.midt || /midt|institutional/i.test(natKpa) ? 'Y' : 'N';
-        const isSr = item.sr || /sr|spatial/i.test(natKpa) ? 'Y' : 'N';
+        const natKpa = (item.kpas || '').toLowerCase();
+        let selectedKpa: 'bsd' | 'led' | 'mfvm' | 'ggpp' | 'midt' | 'sr' = 'bsd';
+
+        if (item.sr || /sr|spatial/i.test(natKpa)) selectedKpa = 'sr';
+        else if (item.midt || /midt|institutional/i.test(natKpa)) selectedKpa = 'midt';
+        else if (item.ggpp || /ggpp|good governance/i.test(natKpa)) selectedKpa = 'ggpp';
+        else if (item.mfvm || /mfvm|financial viability/i.test(natKpa)) selectedKpa = 'mfvm';
+        else if (item.led || /led|local economic/i.test(natKpa)) selectedKpa = 'led';
+        else if (item.bsd || /bsd|basic service/i.test(natKpa)) selectedKpa = 'bsd';
+
+        const kpaLabels: Record<string, string> = {
+          bsd: 'Basic Service Delivery and Infrastructure Development (BSD)',
+          led: 'Local Economic Development (LED)',
+          mfvm: 'Municipal Financial Viability and Management (MFVM)',
+          ggpp: 'Good Governance and Public Participation (GGPP)',
+          midt: 'Municipal Institutional Development and Transformation (MIDT)',
+          sr: 'Spatial Rationale (SR)'
+        };
 
         const existing = existingSdbipRows.find(
           r => r.refNum?.toLowerCase() === item.refNum?.toLowerCase() || r.id === item._id
@@ -292,13 +303,13 @@ export function FredSDBIPExtractor({
           id: existing?.id || item._id || `sdbip-tl-${Date.now()}-${idx + 1}`,
           refNum: item.refNum || `M_${String(idx + 1).padStart(2, '0')}`,
           strategicObj: item.strategicObj || 'To ensure sustainable service delivery and clean audit compliance',
-          bsd: isBsd,
-          led: isLed,
-          mfvm: isMfvm,
-          ggpp: isGgpp,
-          midt: isMidt,
-          sr: isSr,
-          kpas: item.kpas || 'Basic Service Delivery and Infrastructure Development (BSD)',
+          bsd: selectedKpa === 'bsd' ? 'X' : '',
+          led: selectedKpa === 'led' ? 'X' : '',
+          mfvm: selectedKpa === 'mfvm' ? 'X' : '',
+          ggpp: selectedKpa === 'ggpp' ? 'X' : '',
+          midt: selectedKpa === 'midt' ? 'X' : '',
+          sr: selectedKpa === 'sr' ? 'X' : '',
+          kpas: kpaLabels[selectedKpa],
           operationalActivity: item.operationalActivity || item.kpi || '',
           kpi: item.kpi || '',
           compliance: item.compliance || 'compliant',

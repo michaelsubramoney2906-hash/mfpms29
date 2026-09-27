@@ -158,6 +158,62 @@ const isFieldDisabled = (variance: string | undefined): boolean => {
   return isNaN(num) || num === 0;
 };
 
+export const KPA_DESCRIPTIONS: Record<string, string> = {
+  bsd: 'Basic Service Delivery and Infrastructure Development (BSD)',
+  led: 'Local Economic Development (LED)',
+  mfvm: 'Municipal Financial Viability and Management (MFVM)',
+  ggpp: 'Good Governance and Public Participation (GGPP)',
+  midt: 'Municipal Institutional Development and Transformation (MIDT)',
+  sr: 'Spatial Rationale (SR)'
+};
+
+export function sanitizeSdbipRow(row: SdbipRow): SdbipRow {
+  const isMarked = (val: string | undefined) => {
+    if (!val) return false;
+    const v = val.trim().toUpperCase();
+    return v === 'X' || v === 'Y' || v === '1' || v === 'TRUE';
+  };
+
+  const activeKeys = (['bsd', 'led', 'mfvm', 'ggpp', 'midt', 'sr'] as const).filter(k => isMarked(row[k]));
+
+  let chosenKpa: 'bsd' | 'led' | 'mfvm' | 'ggpp' | 'midt' | 'sr' = 'bsd';
+
+  if (activeKeys.length === 1) {
+    chosenKpa = activeKeys[0];
+  } else if (activeKeys.length > 1) {
+    const text = (row.kpas || '').toLowerCase();
+    const match = activeKeys.find(k =>
+      text.includes(k) ||
+      (k === 'bsd' && text.includes('service')) ||
+      (k === 'led' && text.includes('economic')) ||
+      (k === 'mfvm' && text.includes('financial')) ||
+      (k === 'ggpp' && text.includes('governance')) ||
+      (k === 'midt' && text.includes('institutional')) ||
+      (k === 'sr' && text.includes('spatial'))
+    );
+    chosenKpa = match || activeKeys[0];
+  } else {
+    const text = `${row.kpas || ''} ${row.strategicObj || ''} ${row.kpi || ''}`.toLowerCase();
+    if (text.includes('spatial') || text.includes('sr') || text.includes('town planning') || text.includes('land use')) chosenKpa = 'sr';
+    else if (text.includes('institutional') || text.includes('midt') || text.includes('skills') || text.includes('transformation') || text.includes('hr')) chosenKpa = 'midt';
+    else if (text.includes('governance') || text.includes('ggpp') || text.includes('public participation') || text.includes('ward')) chosenKpa = 'ggpp';
+    else if (text.includes('financial') || text.includes('mfvm') || text.includes('viability') || text.includes('budget') || text.includes('revenue')) chosenKpa = 'mfvm';
+    else if (text.includes('economic') || text.includes('led') || text.includes('tourism') || text.includes('smme')) chosenKpa = 'led';
+    else chosenKpa = 'bsd';
+  }
+
+  return {
+    ...row,
+    bsd: chosenKpa === 'bsd' ? 'X' : '',
+    led: chosenKpa === 'led' ? 'X' : '',
+    mfvm: chosenKpa === 'mfvm' ? 'X' : '',
+    ggpp: chosenKpa === 'ggpp' ? 'X' : '',
+    midt: chosenKpa === 'midt' ? 'X' : '',
+    sr: chosenKpa === 'sr' ? 'X' : '',
+    kpas: KPA_DESCRIPTIONS[chosenKpa]
+  };
+}
+
 export interface SdbipPoeFile {
   id: string;
   name: string;
@@ -293,7 +349,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
       if (!res.ok) throw new Error("Failed to load SDBIP data");
       const data = await res.json();
       if (data && Array.isArray(data.items)) {
-        setRows(data.items);
+        setRows(data.items.map(sanitizeSdbipRow));
         setSuccessToast(`Successfully pulled and loaded all ${data.items.length} records from the SDBIP top layer table!`);
       } else {
         setSuccessToast("SDBIP top layer table data refreshed.");
@@ -708,7 +764,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
           if (isBackground && Date.now() - lastUserEditTimeRef.current < 15000) {
             // Keep local active edits without clobbering
           } else {
-            setRows(rowsData.items);
+            setRows(rowsData.items.map(sanitizeSdbipRow));
           }
         } else if (!isBackground) {
           const templates: SdbipRow[] = Array.from({ length: 25 }, (_, idx) => ({
@@ -749,7 +805,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
             responsibleUnit: "",
             poeStatus: "Not Uploaded"
           }));
-          setRows(templates);
+          setRows(templates.map(sanitizeSdbipRow));
         }
 
         if (poesData && Array.isArray(poesData.poes)) {
@@ -1210,12 +1266,12 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     if (row.auditChecklist?.auditSubmitted) {
       return {
         status: 'green' as const,
-        face: '😊',
-        label: 'Happy',
+        face: '😁',
+        label: 'Smiling Big Grin',
         bgClass: 'bg-emerald-50',
         borderClass: 'border-emerald-200',
         textClass: 'text-emerald-700',
-        tooltip: 'Audit Submitted'
+        tooltip: 'Audit Submitted - Target Achieved'
       };
     }
 
@@ -1251,12 +1307,12 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     if (!hasReportingData) {
       return {
         status: 'none' as const,
-        face: '😐',
-        label: 'No Data',
+        face: '☹️',
+        label: 'Sad',
         bgClass: 'bg-slate-50',
         borderClass: 'border-slate-200',
         textClass: 'text-slate-500',
-        tooltip: 'No target/actual data entered.'
+        tooltip: 'No target/actual data entered yet.'
       };
     }
 
@@ -1264,8 +1320,8 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
       if (totalActual >= 0) {
         return {
           status: 'green' as const,
-          face: '😊',
-          label: 'Happy',
+          face: '😁',
+          label: 'Smiling Big Grin',
           bgClass: 'bg-emerald-50',
           borderClass: 'border-emerald-200',
           textClass: 'text-emerald-700',
@@ -1274,8 +1330,8 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
       } else {
         return {
           status: 'red' as const,
-          face: '😡',
-          label: 'Angry',
+          face: '☹️',
+          label: 'Sad',
           bgClass: 'bg-rose-50',
           borderClass: 'border-rose-200',
           textClass: 'text-rose-700',
@@ -1290,8 +1346,8 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     if (achievementRate >= 1.0) {
       return {
         status: 'green' as const,
-        face: '😊',
-        label: 'Happy',
+        face: '😁',
+        label: 'Smiling Big Grin',
         bgClass: 'bg-emerald-50',
         borderClass: 'border-emerald-200',
         textClass: 'text-emerald-700',
@@ -1300,22 +1356,22 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     } else if (achievementRate >= 0.70) {
       return {
         status: 'amber' as const,
-        face: '☹️',
-        label: 'Sad',
+        face: '🙂',
+        label: 'Semi Smiling',
         bgClass: 'bg-amber-50',
         borderClass: 'border-amber-200',
         textClass: 'text-amber-700',
-        tooltip: `Under target with minor variance. Achievement Rate: ${ratePercent}% (${totalActual} actual vs ${totalTarget} target)`
+        tooltip: `Progressing towards target. Achievement Rate: ${ratePercent}% (${totalActual} actual vs ${totalTarget} target)`
       };
     } else {
       return {
         status: 'red' as const,
-        face: '😡',
-        label: 'Angry',
+        face: '☹️',
+        label: 'Sad',
         bgClass: 'bg-rose-50',
         borderClass: 'border-rose-200',
         textClass: 'text-rose-700',
-        tooltip: `Significant underperformance. Achievement Rate: ${ratePercent}% (${totalActual} actual vs ${totalTarget} target)`
+        tooltip: `Under target / severe underperformance. Achievement Rate: ${ratePercent}% (${totalActual} actual vs ${totalTarget} target)`
       };
     }
   };
@@ -1423,6 +1479,18 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
       if (r.id === rowId) {
         let updatedRow = { ...r, [field]: value };
         
+        // Handle KPA selection with strict mutual exclusivity & Responsible Owner alignment
+        if (['bsd', 'led', 'mfvm', 'ggpp', 'midt', 'sr'].includes(field as string)) {
+          const kpaKey = field as 'bsd' | 'led' | 'mfvm' | 'ggpp' | 'midt' | 'sr';
+          updatedRow.bsd = kpaKey === 'bsd' ? 'X' : '';
+          updatedRow.led = kpaKey === 'led' ? 'X' : '';
+          updatedRow.mfvm = kpaKey === 'mfvm' ? 'X' : '';
+          updatedRow.ggpp = kpaKey === 'ggpp' ? 'X' : '';
+          updatedRow.midt = kpaKey === 'midt' ? 'X' : '';
+          updatedRow.sr = kpaKey === 'sr' ? 'X' : '';
+          updatedRow.kpas = KPA_DESCRIPTIONS[kpaKey];
+        }
+
         // Sync submitter and responsibleUnit fields
         if (field === 'submitter') {
           updatedRow.responsibleUnit = value;
@@ -4202,10 +4270,10 @@ Timestamp: ${new Date().toLocaleString()}
                           placeholder="-"
                         />
                       </td>
-                      <td className="p-2 border-r border-slate-150 text-center bg-blue-50/50">
+                      <td className="p-2 border-r border-slate-150 text-center bg-blue-50/50 cursor-pointer hover:bg-blue-100/50" title="Click to select BSD" onClick={() => handleCellChange(row.id, 'bsd', 'X')}>
                         {row.bsd ? (
                           <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-blue-100 border border-blue-300 font-bold text-blue-900 text-xs shadow-2xs">
-                            {row.bsd.trim() === '1' || row.bsd.trim().toUpperCase() === 'X' ? 'X' : row.bsd}
+                            X
                           </span>
                         ) : (
                           <span className="text-slate-300 font-mono text-[10px]">-</span>
@@ -4213,10 +4281,10 @@ Timestamp: ${new Date().toLocaleString()}
                       </td>
 
                       {/* LED */}
-                      <td className="p-2 border-r border-slate-150 text-center bg-emerald-50/50">
+                      <td className="p-2 border-r border-slate-150 text-center bg-emerald-50/50 cursor-pointer hover:bg-emerald-100/50" title="Click to select LED" onClick={() => handleCellChange(row.id, 'led', 'X')}>
                         {row.led ? (
                           <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-emerald-100 border border-emerald-300 font-bold text-emerald-900 text-xs shadow-2xs">
-                            {row.led.trim() === '1' || row.led.trim().toUpperCase() === 'X' ? 'X' : row.led}
+                            X
                           </span>
                         ) : (
                           <span className="text-slate-300 font-mono text-[10px]">-</span>
@@ -4224,10 +4292,10 @@ Timestamp: ${new Date().toLocaleString()}
                       </td>
 
                       {/* MFVM */}
-                      <td className="p-2 border-r border-slate-150 text-center bg-amber-50/50">
+                      <td className="p-2 border-r border-slate-150 text-center bg-amber-50/50 cursor-pointer hover:bg-amber-100/50" title="Click to select MFVM" onClick={() => handleCellChange(row.id, 'mfvm', 'X')}>
                         {row.mfvm ? (
                           <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-amber-100 border border-amber-300 font-bold text-amber-900 text-xs shadow-2xs">
-                            {row.mfvm.trim() === '1' || row.mfvm.trim().toUpperCase() === 'X' ? 'X' : row.mfvm}
+                            X
                           </span>
                         ) : (
                           <span className="text-slate-300 font-mono text-[10px]">-</span>
@@ -4235,10 +4303,10 @@ Timestamp: ${new Date().toLocaleString()}
                       </td>
 
                       {/* GGPP */}
-                      <td className="p-2 border-r border-slate-150 text-center bg-purple-50/50">
+                      <td className="p-2 border-r border-slate-150 text-center bg-purple-50/50 cursor-pointer hover:bg-purple-100/50" title="Click to select GGPP" onClick={() => handleCellChange(row.id, 'ggpp', 'X')}>
                         {row.ggpp ? (
                           <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-purple-100 border border-purple-300 font-bold text-purple-900 text-xs shadow-2xs">
-                            {row.ggpp.trim() === '1' || row.ggpp.trim().toUpperCase() === 'X' ? 'X' : row.ggpp}
+                            X
                           </span>
                         ) : (
                           <span className="text-slate-300 font-mono text-[10px]">-</span>
@@ -4246,10 +4314,10 @@ Timestamp: ${new Date().toLocaleString()}
                       </td>
 
                       {/* MIDT (Institutional Development) */}
-                      <td className="p-2 border-r border-slate-150 text-center bg-rose-50/50">
+                      <td className="p-2 border-r border-slate-150 text-center bg-rose-50/50 cursor-pointer hover:bg-rose-100/50" title="Click to select MIDT" onClick={() => handleCellChange(row.id, 'midt', 'X')}>
                         {row.midt ? (
                           <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-rose-100 border border-rose-300 font-bold text-rose-900 text-xs shadow-2xs">
-                            {row.midt.trim() === '1' || row.midt.trim().toUpperCase() === 'X' ? 'X' : row.midt}
+                            X
                           </span>
                         ) : (
                           <span className="text-slate-300 font-mono text-[10px]">-</span>
@@ -4257,10 +4325,10 @@ Timestamp: ${new Date().toLocaleString()}
                       </td>
 
                       {/* SR (Spatial Rationale) */}
-                      <td className="p-2 border-r border-slate-150 text-center bg-orange-50/50">
+                      <td className="p-2 border-r border-slate-150 text-center bg-orange-50/50 cursor-pointer hover:bg-orange-100/50" title="Click to select SR" onClick={() => handleCellChange(row.id, 'sr', 'X')}>
                         {row.sr ? (
                           <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-orange-100 border border-orange-300 font-bold text-orange-900 text-xs shadow-2xs">
-                            {row.sr.trim() === '1' || row.sr.trim().toUpperCase() === 'X' ? 'X' : row.sr}
+                            X
                           </span>
                         ) : (
                           <span className="text-slate-300 font-mono text-[10px]">-</span>
@@ -4983,12 +5051,24 @@ Timestamp: ${new Date().toLocaleString()}
                           className="font-bold text-slate-800"
                         />
                       </td>
-                      <td className="p-2 border-r border-slate-150 text-center bg-blue-50/30 font-bold text-blue-600">{row.bsd}</td>
-                      <td className="p-2 border-r border-slate-150 text-center bg-emerald-50/30 font-bold text-emerald-600">{row.led}</td>
-                      <td className="p-2 border-r border-slate-150 text-center bg-amber-50/30 font-bold text-amber-600">{row.mfvm}</td>
-                      <td className="p-2 border-r border-slate-150 text-center bg-indigo-50/30 font-bold text-indigo-600">{row.ggpp}</td>
-                      <td className="p-2 border-r border-slate-150 text-center bg-rose-50/30 font-bold text-rose-600">{row.midt}</td>
-                      <td className="p-2 border-r border-slate-150 text-center bg-orange-50/30 font-bold text-orange-600">{row.sr}</td>
+                      <td className="p-2 border-r border-slate-150 text-center bg-blue-50/30 cursor-pointer hover:bg-blue-100/50" title="Click to select BSD" onClick={() => handleCellChange(row.id, 'bsd', 'X')}>
+                        {row.bsd ? <span className="font-bold text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded text-xs shadow-2xs">X</span> : <span className="text-slate-300 font-mono text-[10px]">-</span>}
+                      </td>
+                      <td className="p-2 border-r border-slate-150 text-center bg-emerald-50/30 cursor-pointer hover:bg-emerald-100/50" title="Click to select LED" onClick={() => handleCellChange(row.id, 'led', 'X')}>
+                        {row.led ? <span className="font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded text-xs shadow-2xs">X</span> : <span className="text-slate-300 font-mono text-[10px]">-</span>}
+                      </td>
+                      <td className="p-2 border-r border-slate-150 text-center bg-amber-50/30 cursor-pointer hover:bg-amber-100/50" title="Click to select MFVM" onClick={() => handleCellChange(row.id, 'mfvm', 'X')}>
+                        {row.mfvm ? <span className="font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded text-xs shadow-2xs">X</span> : <span className="text-slate-300 font-mono text-[10px]">-</span>}
+                      </td>
+                      <td className="p-2 border-r border-slate-150 text-center bg-indigo-50/30 cursor-pointer hover:bg-indigo-100/50" title="Click to select GGPP" onClick={() => handleCellChange(row.id, 'ggpp', 'X')}>
+                        {row.ggpp ? <span className="font-bold text-indigo-700 bg-indigo-100 px-1.5 py-0.5 rounded text-xs shadow-2xs">X</span> : <span className="text-slate-300 font-mono text-[10px]">-</span>}
+                      </td>
+                      <td className="p-2 border-r border-slate-150 text-center bg-rose-50/30 cursor-pointer hover:bg-rose-100/50" title="Click to select MIDT" onClick={() => handleCellChange(row.id, 'midt', 'X')}>
+                        {row.midt ? <span className="font-bold text-rose-700 bg-rose-100 px-1.5 py-0.5 rounded text-xs shadow-2xs">X</span> : <span className="text-slate-300 font-mono text-[10px]">-</span>}
+                      </td>
+                      <td className="p-2 border-r border-slate-150 text-center bg-orange-50/30 cursor-pointer hover:bg-orange-100/50" title="Click to select SR" onClick={() => handleCellChange(row.id, 'sr', 'X')}>
+                        {row.sr ? <span className="font-bold text-orange-700 bg-orange-100 px-1.5 py-0.5 rounded text-xs shadow-2xs">X</span> : <span className="text-slate-300 font-mono text-[10px]">-</span>}
+                      </td>
                       <td className="p-2 border-r border-slate-150">
                         <ExpandableCell
                           value={row.kpas || ''}

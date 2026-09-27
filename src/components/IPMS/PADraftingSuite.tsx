@@ -1166,12 +1166,15 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
   const handlePullPerformancePlan = async () => {
     setPullingPplan(true);
     try {
-      const res = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${currentUser.email}&t=${Date.now()}`);
+      const emailToUse = (currentUser?.email || '').toLowerCase().trim();
+      const res = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
-        if (data && Array.isArray(data.items)) {
-          setPulledPplanItems(data.items);
-          triggerNotification("Successfully pulled Annual Performance Planner Grid items!", "success");
+        const items = (data && Array.isArray(data.items)) ? data.items : [];
+        if (items.length > 0) {
+          setPulledPplanItems(items);
+          setPulledFilteredPplanItems(null);
+          triggerNotification(`Successfully pulled ${items.length} Annual Performance Planner Grid items for ${emailToUse}!`, "success");
         } else {
           setPulledPplanItems([]);
           triggerNotification("No performance planner items found for this profile.", "error");
@@ -1190,12 +1193,15 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
   const handlePullFilteredPerformancePlan = async () => {
     setPullingFilteredPplan(true);
     try {
-      const res = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${currentUser.email}&t=${Date.now()}`);
+      const emailToUse = (currentUser?.email || '').toLowerCase().trim();
+      const res = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
-        if (data && Array.isArray(data.items)) {
-          setPulledFilteredPplanItems(data.items);
-          triggerNotification("Successfully pulled Filtered Annual Performance Planner Grid items!", "success");
+        const items = (data && Array.isArray(data.items)) ? data.items : [];
+        if (items.length > 0) {
+          setPulledFilteredPplanItems(items);
+          setPulledPplanItems(null);
+          triggerNotification(`Successfully pulled ${items.length} Filtered Annual Performance Planner Grid items for ${emailToUse}!`, "success");
         } else {
           setPulledFilteredPplanItems([]);
           triggerNotification("No performance planner items found for this profile.", "error");
@@ -4765,13 +4771,15 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
 
             {/* Pulled Annual Performance Planner Grid Table (Grouped by KPA) */}
             {(() => {
-              const activeItems = pulledPplanItems || pulledFilteredPplanItems;
+              const activeItems = (pulledFilteredPplanItems && pulledFilteredPplanItems.length > 0)
+                ? pulledFilteredPplanItems
+                : ((pulledPplanItems && pulledPplanItems.length > 0) ? pulledPplanItems : (pulledFilteredPplanItems || pulledPplanItems));
               if (activeItems === null) return null;
 
               // Group items by KPA
               const groups: { [key: string]: any[] } = {};
               activeItems.forEach(item => {
-                const kpaName = item.kpa || 'Other / General Key Performance Areas';
+                const kpaName = item.kpa || item.functionalKpa || 'Other / General Key Performance Areas';
                 if (!groups[kpaName]) {
                   groups[kpaName] = [];
                 }
@@ -4821,17 +4829,17 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
                             <tbody className="divide-y font-medium text-slate-700" style={{ borderColor: borderColor }}>
                               {kpis.map((item, idx) => (
                                 <tr key={item.id || idx} className="hover:bg-slate-50/85 transition">
-                                  <td className="p-1 border-r font-mono font-bold text-slate-800 text-center" style={{ borderColor: borderColor }}>{item.kpiNo || idx + 1}</td>
-                                  <td className="p-1 border-r leading-tight text-slate-900 break-words" style={{ borderColor: borderColor }}>{item.kpi || ''}</td>
-                                  <td className="p-1 border-r text-center font-bold text-slate-800" style={{ borderColor: borderColor }}>{item.weighting || '0'}%</td>
+                                  <td className="p-1 border-r font-mono font-bold text-slate-800 text-center" style={{ borderColor: borderColor }}>{item.kpiNo || item.refNum || idx + 1}</td>
+                                  <td className="p-1 border-r leading-tight text-slate-900 break-words" style={{ borderColor: borderColor }}>{item.kpi || item.kpiDescription || item.description || ''}</td>
+                                  <td className="p-1 border-r text-center font-bold text-slate-800" style={{ borderColor: borderColor }}>{item.weighting || item.wt || item.weight || '0'}%</td>
                                   <td className="p-1 border-r text-center text-slate-600 break-all" style={{ borderColor: borderColor }}>{item.baseline || 'N/A'}</td>
-                                  <td className="p-1 border-r text-center font-bold text-slate-900 break-all" style={{ borderColor: borderColor }}>{item.annualTarget || 'N/A'}</td>
-                                  <td className="p-1 border-r text-center text-slate-600 break-all" style={{ borderColor: borderColor }}>{item.q1Target || 'N/A'}</td>
-                                  <td className="p-1 border-r text-center text-slate-600 break-all" style={{ borderColor: borderColor }}>{item.q2Target || 'N/A'}</td>
-                                  <td className="p-1 border-r text-center text-slate-600 break-all" style={{ borderColor: borderColor }}>{item.q3Target || 'N/A'}</td>
-                                  <td className="p-1 border-r text-center text-slate-600 break-all" style={{ borderColor: borderColor }}>{item.q4Target || 'N/A'}</td>
-                                  <td className="p-1 border-r text-slate-600 leading-normal whitespace-pre-line break-words" style={{ borderColor: borderColor }}>{item.annualRequiredPoe || item.poe || 'N/A'}</td>
-                                  <td className="p-1 text-center bg-emerald-50/10 font-bold text-emerald-800 break-all" style={{ borderColor: borderColor }}>{item.budget || 'R0'}</td>
+                                  <td className="p-1 border-r text-center font-bold text-slate-900 break-all" style={{ borderColor: borderColor }}>{item.annualTarget || item.annual || 'N/A'}</td>
+                                  <td className="p-1 border-r text-center text-slate-600 break-all" style={{ borderColor: borderColor }}>{item.q1Target || item.q1 || 'N/A'}</td>
+                                  <td className="p-1 border-r text-center text-slate-600 break-all" style={{ borderColor: borderColor }}>{item.q2Target || item.q2 || 'N/A'}</td>
+                                  <td className="p-1 border-r text-center text-slate-600 break-all" style={{ borderColor: borderColor }}>{item.q3Target || item.q3 || 'N/A'}</td>
+                                  <td className="p-1 border-r text-center text-slate-600 break-all" style={{ borderColor: borderColor }}>{item.q4Target || item.q4 || 'N/A'}</td>
+                                  <td className="p-1 border-r text-slate-600 leading-normal whitespace-pre-line break-words" style={{ borderColor: borderColor }}>{item.annualRequiredPoe || item.poe || item.poeDesc || 'N/A'}</td>
+                                  <td className="p-1 text-center bg-emerald-50/10 font-bold text-emerald-800 break-all" style={{ borderColor: borderColor }}>{item.budget || item.totalBudget || item.budgetAllocation || 'R0'}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -5428,13 +5436,15 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
 
                   {/* Pulled Annual Performance Planner Grid Table (Grouped by KPA) */}
                   {(() => {
-                    const activeItems = pulledPplanItems || pulledFilteredPplanItems;
+                    const activeItems = (pulledFilteredPplanItems && pulledFilteredPplanItems.length > 0)
+                      ? pulledFilteredPplanItems
+                      : ((pulledPplanItems && pulledPplanItems.length > 0) ? pulledPplanItems : (pulledFilteredPplanItems || pulledPplanItems));
                     if (activeItems === null) return null;
 
                     // Group items by KPA
                     const groups: { [key: string]: any[] } = {};
                     activeItems.forEach(item => {
-                      const kpaName = item.kpa || 'Other / General Key Performance Areas';
+                      const kpaName = item.kpa || item.functionalKpa || 'Other / General Key Performance Areas';
                       if (!groups[kpaName]) {
                         groups[kpaName] = [];
                       }
@@ -5482,17 +5492,17 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
                                   <tbody className="divide-y font-medium text-slate-700" style={{ borderColor: borderColor }}>
                                     {kpis.map((item, idx) => (
                                       <tr key={item.id || idx}>
-                                        <td className="p-1 border-r font-mono font-bold text-slate-800 text-center" style={{ borderColor: borderColor }}>{item.kpiNo || idx + 1}</td>
-                                        <td className="p-1 border-r leading-tight text-slate-900 break-words" style={{ borderColor: borderColor }}>{item.kpi || ''}</td>
-                                        <td className="p-1 border-r text-center font-bold text-slate-800" style={{ borderColor: borderColor }}>{item.weighting || '0'}%</td>
+                                        <td className="p-1 border-r font-mono font-bold text-slate-800 text-center" style={{ borderColor: borderColor }}>{item.kpiNo || item.refNum || idx + 1}</td>
+                                        <td className="p-1 border-r leading-tight text-slate-900 break-words" style={{ borderColor: borderColor }}>{item.kpi || item.kpiDescription || item.description || ''}</td>
+                                        <td className="p-1 border-r text-center font-bold text-slate-800" style={{ borderColor: borderColor }}>{item.weighting || item.wt || item.weight || '0'}%</td>
                                         <td className="p-1 border-r text-center text-slate-600 break-all" style={{ borderColor: borderColor }}>{item.baseline || 'N/A'}</td>
-                                        <td className="p-1 border-r text-center font-bold text-slate-900 break-all" style={{ borderColor: borderColor }}>{item.annualTarget || 'N/A'}</td>
-                                        <td className="p-1 border-r text-center text-slate-600 break-all" style={{ borderColor: borderColor }}>{item.q1Target || 'N/A'}</td>
-                                        <td className="p-1 border-r text-center text-slate-600 break-all" style={{ borderColor: borderColor }}>{item.q2Target || 'N/A'}</td>
-                                        <td className="p-1 border-r text-center text-slate-600 break-all" style={{ borderColor: borderColor }}>{item.q3Target || 'N/A'}</td>
-                                        <td className="p-1 border-r text-center text-slate-600 break-all" style={{ borderColor: borderColor }}>{item.q4Target || 'N/A'}</td>
-                                        <td className="p-1 border-r text-slate-600 leading-normal whitespace-pre-line break-words" style={{ borderColor: borderColor }}>{item.annualRequiredPoe || item.poe || 'N/A'}</td>
-                                        <td className="p-1 text-center bg-emerald-50/10 font-bold text-emerald-800 break-all" style={{ borderColor: borderColor }}>{item.budget || 'R0'}</td>
+                                        <td className="p-1 border-r text-center font-bold text-slate-900 break-all" style={{ borderColor: borderColor }}>{item.annualTarget || item.annual || 'N/A'}</td>
+                                        <td className="p-1 border-r text-center text-slate-600 break-all" style={{ borderColor: borderColor }}>{item.q1Target || item.q1 || 'N/A'}</td>
+                                        <td className="p-1 border-r text-center text-slate-600 break-all" style={{ borderColor: borderColor }}>{item.q2Target || item.q2 || 'N/A'}</td>
+                                        <td className="p-1 border-r text-center text-slate-600 break-all" style={{ borderColor: borderColor }}>{item.q3Target || item.q3 || 'N/A'}</td>
+                                        <td className="p-1 border-r text-center text-slate-600 break-all" style={{ borderColor: borderColor }}>{item.q4Target || item.q4 || 'N/A'}</td>
+                                        <td className="p-1 border-r text-slate-600 leading-normal whitespace-pre-line break-words" style={{ borderColor: borderColor }}>{item.annualRequiredPoe || item.poe || item.poeDesc || 'N/A'}</td>
+                                        <td className="p-1 text-center bg-emerald-50/10 font-bold text-emerald-800 break-all" style={{ borderColor: borderColor }}>{item.budget || item.totalBudget || item.budgetAllocation || 'R0'}</td>
                                       </tr>
                                     ))}
                                   </tbody>

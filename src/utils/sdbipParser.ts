@@ -251,18 +251,45 @@ export function sanitizeSdbipItems(rawItems: any[]): ExtractedSdbipItem[] {
 
   return catalogList.map((item, idx) => {
     const poeDesc = item.POE_Description || 'Signed quarterly progress reports, verification registers and supporting compliance documents';
+    
+    let activeKpa: 'bsd' | 'led' | 'mfvm' | 'ggpp' | 'midt' | 'sr' = 'bsd';
+    if (item.SR === 'X') activeKpa = 'sr';
+    else if (item.MIDT === 'X') activeKpa = 'midt';
+    else if (item.GGPP === 'X') activeKpa = 'ggpp';
+    else if (item.MFVM === 'X') activeKpa = 'mfvm';
+    else if (item.LED === 'X') activeKpa = 'led';
+    else if (item.BSD === 'X') activeKpa = 'bsd';
+    else {
+      const kText = (item.National_KPA || '').toLowerCase();
+      if (kText.includes('spatial') || kText.includes('sr')) activeKpa = 'sr';
+      else if (kText.includes('institutional') || kText.includes('midt')) activeKpa = 'midt';
+      else if (kText.includes('governance') || kText.includes('ggpp')) activeKpa = 'ggpp';
+      else if (kText.includes('financial') || kText.includes('mfvm')) activeKpa = 'mfvm';
+      else if (kText.includes('economic') || kText.includes('led')) activeKpa = 'led';
+      else activeKpa = 'bsd';
+    }
+
+    const kpaLabels: Record<string, string> = {
+      bsd: 'Basic Service Delivery and Infrastructure Development (BSD)',
+      led: 'Local Economic Development (LED)',
+      mfvm: 'Municipal Financial Viability and Management (MFVM)',
+      ggpp: 'Good Governance and Public Participation (GGPP)',
+      midt: 'Municipal Institutional Development and Transformation (MIDT)',
+      sr: 'Spatial Rationale (SR)'
+    };
+
     return {
       _id: `sdbip-item-${item.Ref_Number}-${idx + 1}`,
       _selected: true,
       refNum: item.Ref_Number,
       strategicObj: item.SDBIP_Strategic_Objective || 'To provide sustainable municipal infrastructure and service delivery',
-      kpas: item.National_KPA,
-      bsd: item.BSD === 'X',
-      led: item.LED === 'X',
-      mfvm: item.MFVM === 'X',
-      ggpp: item.GGPP === 'X',
-      midt: item.MIDT === 'X',
-      sr: item.SR === 'X',
+      kpas: kpaLabels[activeKpa],
+      bsd: activeKpa === 'bsd',
+      led: activeKpa === 'led',
+      mfvm: activeKpa === 'mfvm',
+      ggpp: activeKpa === 'ggpp',
+      midt: activeKpa === 'midt',
+      sr: activeKpa === 'sr',
       operationalActivity: item.Description || item.KPI,
       kpi: item.KPI,
       compliance: 'compliant',

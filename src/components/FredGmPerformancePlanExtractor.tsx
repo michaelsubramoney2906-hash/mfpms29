@@ -188,29 +188,68 @@ export function FredGmPerformancePlanExtractor({
       // q4 -> 4th qtr target
       // poe -> 1st qtr poe, 2nd qtr poe, 3rd qtr poe, 4th qtr poe
       const planItems = selected.map((it, idx) => {
-        const functionalKpa = it["functional kpa"] || it["kpa"] || 'Functional Performance Area';
-        const poeVal = it["poe"] || '';
-        
+        const functionalKpa = it["functional kpa"] || (it as any).functionalKpa || it["kpa"] || (it as any).kpa || 'Functional Performance Area';
+        const poeVal = it["poe"] || (it as any).poe || (it as any).poeDesc || '';
+        const kpiNoVal = it["kpi no"] || (it as any).kpiNo || (it as any).refNum || (it as any).id || `M_${idx + 1}`;
+        const kpiDescVal = it["kpi description"] || (it as any).kpiDescription || (it as any).kpi || (it as any).description || '';
+        const wtVal = String(it["wt"] || (it as any).wt || (it as any).weighting || (it as any).weight || '1');
+        const budgetVal = it["budget"] || (it as any).budget || (it as any).totalBudget || '';
+        const baselineVal = it["baseline"] || (it as any).baseline || '';
+        const annualTargetVal = it["annual target"] || (it as any).annualTarget || (it as any).annual || '';
+        const q1TargetVal = it["1st qtr target"] || (it as any).q1Target || (it as any).q1 || '';
+        const q2TargetVal = it["2nd qtr target"] || (it as any).q2Target || (it as any).q2 || '';
+        const q3TargetVal = it["3rd qtr target"] || (it as any).q3Target || (it as any).q3 || '';
+        const q4TargetVal = it["4th qtr target"] || (it as any).q4Target || (it as any).q4 || '';
+        const q1PoeVal = it["1st qtr poe"] || (it as any).q1Poe || poeVal;
+        const q2PoeVal = it["2nd qtr poe"] || (it as any).q2Poe || poeVal;
+        const q3PoeVal = it["3rd qtr poe"] || (it as any).q3Poe || poeVal;
+        const q4PoeVal = it["4th qtr poe"] || (it as any).q4Poe || poeVal;
+
         return {
-          id: `gm-ipp-kpi-${Date.now()}-${idx + 1}`,
-          kpiNo: it["kpi no"] || `M_${idx + 1}`,
-          kpiDescription: it["kpi description"] || '',
+          id: (it as any).id || `gm-ipp-kpi-${Date.now()}-${idx + 1}`,
+          kpiNo: kpiNoVal,
+          refNum: kpiNoVal,
+          kpiDescription: kpiDescVal,
+          kpi: kpiDescVal,
+          description: kpiDescVal,
           kpa: functionalKpa,
           functionalKpa: functionalKpa,
-          weighting: parseFloat(it["wt"] || '1') || 1,
-          wt: it["wt"] || '1',
-          baseline: it["baseline"] || '',
-          annualTarget: it["annual target"] || '',
-          q1Target: it["1st qtr target"] || '',
-          q2Target: it["2nd qtr target"] || '',
-          q3Target: it["3rd qtr target"] || '',
-          q4Target: it["4th qtr target"] || '',
-          q1Poe: it["1st qtr poe"] || poeVal,
-          q2Poe: it["2nd qtr poe"] || poeVal,
-          q3Poe: it["3rd qtr poe"] || poeVal,
-          q4Poe: it["4th qtr poe"] || poeVal,
+          weighting: parseFloat(wtVal) || 1,
+          wt: wtVal,
+          weight: wtVal,
+          baseline: baselineVal,
+          annualTarget: annualTargetVal,
+          annual: annualTargetVal,
+          q1Target: q1TargetVal,
+          q2Target: q2TargetVal,
+          q3Target: q3TargetVal,
+          q4Target: q4TargetVal,
+          q1: q1TargetVal,
+          q2: q2TargetVal,
+          q3: q3TargetVal,
+          q4: q4TargetVal,
+          q1Poe: q1PoeVal,
+          q2Poe: q2PoeVal,
+          q3Poe: q3PoeVal,
+          q4Poe: q4PoeVal,
           poe: poeVal,
-          budget: it["budget"] || '',
+          poeDesc: poeVal,
+          budget: budgetVal,
+          totalBudget: budgetVal,
+          // Spaced / bracket verbatim keys
+          "kpi no": kpiNoVal,
+          "kpi description": kpiDescVal,
+          "%wt": wtVal,
+          "annual target": annualTargetVal,
+          "1st qtr target": q1TargetVal,
+          "2nd qtr target": q2TargetVal,
+          "3rd qtr target": q3TargetVal,
+          "4th qtr target": q4TargetVal,
+          "1st qtr poe": q1PoeVal,
+          "2nd qtr poe": q2PoeVal,
+          "3rd qtr poe": q3PoeVal,
+          "4th qtr poe": q4PoeVal,
+          "functional kpa": functionalKpa,
           sourceFileName: sourceFileName || 'GM_Performance_Agreement.pdf',
           extractedBy: currentUser.email,
           extractedAt: new Date().toISOString()
