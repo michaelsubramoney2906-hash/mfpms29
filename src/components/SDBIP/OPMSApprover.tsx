@@ -3,11 +3,19 @@ import {
   Search, CheckCircle, AlertTriangle, AlertCircle, RefreshCw, 
   Layers, Database, ChevronRight, Clock, ShieldCheck, 
   ThumbsUp, MessageSquare, ArrowLeftRight, UserCheck, Check, X, ShieldAlert, Award, FileSpreadsheet,
-  Eye, Download, FileText, Presentation, File, FolderOpen, Paperclip
+  Eye, Download, FileText, Presentation, File, FolderOpen, Paperclip, Bell, ArrowRight
 } from 'lucide-react';
 import type { User } from '../../types';
 import { SdbipRow, SdbipPoeFile } from './SDBIP';
 import { OfficeDocumentViewer } from '../IPMS/OfficeDocumentViewer';
+import { 
+  SdbipWorkflowNotification, 
+  isUserMatch, 
+  fetchSdbipNotifications, 
+  dispatchSdbipNotification, 
+  markSdbipNotificationRead,
+  extractKpiPoes 
+} from '../../utils/sdbipWorkflowHelper';
 
 interface OPMSApproverProps {
   currentUser: User;
@@ -16,6 +24,8 @@ interface OPMSApproverProps {
 
 export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps) {
   const [rows, setRows] = useState<SdbipRow[]>([]);
+  const [notifications, setNotifications] = useState<SdbipWorkflowNotification[]>([]);
+  const [assignedFilter, setAssignedFilter] = useState<'ALL' | 'MINE'>('ALL');
   const [poes, setPoes] = useState<SdbipPoeFile[]>([]);
   const [previewDoc, setPreviewDoc] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
@@ -27,14 +37,22 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
   const [approverNotes, setApproverNotes] = useState('');
   const [showCertificate, setShowCertificate] = useState(false);
 
+  const loadNotifications = async () => {
+    const list = await fetchSdbipNotifications(activeTenantId);
+    setNotifications(list);
+  };
+
   useEffect(() => {
     fetchSDBIPData(false);
+    loadNotifications();
     const interval = setInterval(() => {
       fetchSDBIPData(true);
+      loadNotifications();
     }, 4000);
 
     const handleFocus = () => {
       fetchSDBIPData(true);
+      loadNotifications();
     };
     window.addEventListener('focus', handleFocus);
 
@@ -271,27 +289,28 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
     if (!selectedKpi) return;
     setLoading(true);
     try {
+      const reviewerTarget = selectedKpi.reviewer || 'Reviewer';
       const updatedRows = rows.map(r => {
         if (r.id === selectedKpi.id) {
           const currentHistory = (r as any).workflowHistory || [];
           const newHistoryItem = {
             date: new Date().toISOString(),
-            action: 'Pushed to Reviewer',
-            user: currentUser.email,
-            notes: approverNotes || 'Pushed to PMU Reviewer by Executive Approver.'
+            action: 'Approved & Pushed to Reviewer',
+            user: currentUser.fullName || currentUser.email,
+            notes: approverNotes || `Approved by Executive Approver and routed to Reviewer (${reviewerTarget}).`
           };
 
           const workflows = r.workflows || {};
           ['q1', 'q2', 'midTerm', 'q3', 'q4', 'annual'].forEach(ph => {
             if (workflows[ph]) {
-              workflows[ph] = { ...workflows[ph], status: 'pending_review', approvedBy: currentUser.email };
+              workflows[ph] = { ...workflows[ph], status: 'pending_review', approvedBy: currentUser.fullName || currentUser.email };
             }
           });
 
           return {
             ...r,
             workflowStatus: 'Pending Review',
-            approvedBy: currentUser.email,
+            approvedBy: currentUser.fullName || currentUser.email,
             approverNotes: approverNotes,
             workflows,
             workflowHistory: [...currentHistory, newHistoryItem]
@@ -307,9 +326,24 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
       });
 
       if (!response.ok) throw new Error('Failed to push item to Reviewer');
+
+      // Dispatch real-time notification to the specified Reviewer
+      await dispatchSdbipNotification(activeTenantId, {
+        targetUser: reviewerTarget,
+        senderUser: currentUser.fullName || currentUser.email,
+        kpiId: selectedKpi.id,
+        refNum: selectedKpi.refNum,
+        kpiName: selectedKpi.kpi,
+        phase: 'General',
+        message: `KPI ${selectedKpi.refNum} approved by Executive Approver ${currentUser.fullName || currentUser.email} and routed to you for PMU Review sign-off.`,
+        comment: approverNotes,
+        actionType: 'pushed_to_reviewer'
+      });
+
+      await loadNotifications();
       
       setRows(updatedRows);
-      setSuccess('SDBIP Item pushed to PMU Reviewer desk successfully!');
+      setSuccess(`SDBIP Item ${selectedKpi.refNum} successfully approved and pushed to Reviewer (${reviewerTarget})!`);
       setTimeout(() => setSuccess(null), 4000);
       setSelectedKpi(null);
     } catch (err: any) {
@@ -328,13 +362,14 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
     }
     setLoading(true);
     try {
+      const submitterTarget = selectedKpi.submitter || 'Submitter';
       const updatedRows = rows.map(r => {
         if (r.id === selectedKpi.id) {
           const currentHistory = (r as any).workflowHistory || [];
           const newHistoryItem = {
             date: new Date().toISOString(),
-            action: 'Rejected & Returned',
-            user: currentUser.email,
+            action: 'Rejected & Returned to Submitter',
+            user: currentUser.fullName || currentUser.email,
             notes: approverNotes
           };
 
@@ -348,7 +383,6 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
           return {
             ...r,
             workflowStatus: 'Returned', // return back to submitter with feedback
-            reviewerNotes: `Executive Rejection Directive: ${approverNotes}`,
             approverNotes: approverNotes,
             workflows,
             workflowHistory: [...currentHistory, newHistoryItem]
@@ -364,9 +398,24 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
       });
 
       if (!response.ok) throw new Error('Failed to dispatch rejection directive');
+
+      // Dispatch real-time notification to the specified Submitter
+      await dispatchSdbipNotification(activeTenantId, {
+        targetUser: submitterTarget,
+        senderUser: currentUser.fullName || currentUser.email,
+        kpiId: selectedKpi.id,
+        refNum: selectedKpi.refNum,
+        kpiName: selectedKpi.kpi,
+        phase: 'General',
+        message: `KPI ${selectedKpi.refNum} returned by Executive Approver ${currentUser.fullName || currentUser.email} for corrections and resubmission.`,
+        comment: approverNotes,
+        actionType: 'returned'
+      });
+
+      await loadNotifications();
       
       setRows(updatedRows);
-      setSuccess('Scorecard rejected and sent down the pipeline with executive correction notes.');
+      setSuccess(`KPI ${selectedKpi.refNum} rejected and returned to Submitter (${submitterTarget}) with correction instructions.`);
       setTimeout(() => setSuccess(null), 4000);
       setSelectedKpi(null);
     } catch (err: any) {
@@ -381,7 +430,7 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
     let matchesStatus = true;
     if (statusFilter !== 'ALL') {
       if (statusFilter === 'Reviewed' || statusFilter === 'Submitted') {
-        matchesStatus = rowStatus === 'Reviewed' || rowStatus === 'Submitted' || rowStatus === 'Pending Approval' ||
+        matchesStatus = rowStatus === 'Reviewed' || rowStatus === 'Submitted' || rowStatus === 'Submitted to Approver' || rowStatus === 'Pending Approval' ||
           r.workflows?.q1?.status === 'pending_approval' || r.workflows?.q2?.status === 'pending_approval' ||
           r.workflows?.q3?.status === 'pending_approval' || r.workflows?.q4?.status === 'pending_approval' ||
           r.workflows?.q1?.status === 'pending_review' || r.workflows?.q2?.status === 'pending_review';
@@ -393,8 +442,10 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
     const matchesSearch = searchQuery === '' || 
       (r.refNum && r.refNum.toLowerCase().includes(searchQuery.toLowerCase())) || 
       (r.kpi && r.kpi.toLowerCase().includes(searchQuery.toLowerCase()));
+
+    const matchesMine = assignedFilter === 'ALL' || isUserMatch(r.approver, currentUser);
     
-    return matchesStatus && matchesSearch;
+    return matchesStatus && matchesSearch && matchesMine;
   });
 
   // Calculate high level stats
@@ -501,6 +552,72 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
         </div>
       )}
 
+      {/* Real-time Approver Workflow Notifications Pop-Up Panel */}
+      {(() => {
+        const myUnreadNotifs = notifications.filter(n => isUserMatch(n.targetUser, currentUser) && !n.read);
+        if (myUnreadNotifs.length === 0) return null;
+        return (
+          <div className="space-y-2">
+            {myUnreadNotifs.map((notif) => {
+              const isSubmission = notif.actionType === 'submitted';
+              return (
+                <div 
+                  key={notif.id}
+                  className="p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg transition-all animate-fade-in bg-amber-950/60 border-amber-500/40 text-amber-100"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-lg shrink-0 mt-0.5 bg-amber-600/30 text-amber-300">
+                      <Bell className="w-5 h-5 animate-bounce" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono text-xs font-black bg-black/40 px-2 py-0.5 rounded border border-white/10">{notif.refNum}</span>
+                        <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-600/30 text-amber-300 border border-amber-500/30">
+                          {isSubmission ? 'Awaiting Executive Approval' : 'Workflow Request'}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-mono">{new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                      <p className="text-xs font-bold mt-1 text-white">{notif.message}</p>
+                      {notif.comment && (
+                        <div className="mt-1.5 p-2 bg-black/40 rounded-lg border border-white/5 text-[11px] italic font-sans text-amber-200">
+                          <strong>Submitter Note:</strong> "{notif.comment}"
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const targetRow = rows.find(r => r.id === notif.kpiId || r.refNum === notif.refNum);
+                        if (targetRow) {
+                          setSelectedKpi(targetRow);
+                        }
+                      }}
+                      className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg text-xs font-black uppercase tracking-wider transition cursor-pointer shadow-md flex items-center gap-1.5"
+                    >
+                      <ArrowRight className="w-3.5 h-3.5" />
+                      <span>Review & Action KPI</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const updated = await markSdbipNotificationRead(activeTenantId, notif.id, notifications);
+                        setNotifications(updated);
+                      }}
+                      className="p-1.5 bg-black/30 hover:bg-black/50 text-slate-400 hover:text-white rounded-lg transition cursor-pointer"
+                      title="Dismiss notification"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
+
       {/* Two Pane Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         
@@ -513,7 +630,24 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
             </h2>
 
             {/* Stage Quick filters */}
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex rounded-lg border border-slate-800 bg-slate-950 p-0.5 text-[10px] font-bold">
+                <button
+                  type="button"
+                  onClick={() => setAssignedFilter('MINE')}
+                  className={`px-2 py-1 rounded transition cursor-pointer ${assignedFilter === 'MINE' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                >
+                  My Approvals
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAssignedFilter('ALL')}
+                  className={`px-2 py-1 rounded transition cursor-pointer ${assignedFilter === 'ALL' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                >
+                  All Items
+                </button>
+              </div>
+
               <div className="relative shrink-0 w-36">
                 <Search className="absolute left-2.5 top-2 w-3.5 h-3.5 text-slate-500" />
                 <input
@@ -646,13 +780,13 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
 
               {/* Uploaded PoE File List with Live Preview and Download */}
               <div className="space-y-2 pt-1">
-                {getKpiPoes(selectedKpi).length === 0 ? (
+                {extractKpiPoes(selectedKpi, poes).length === 0 ? (
                   <div className="p-3 bg-slate-900/40 border border-dashed border-slate-800 rounded-lg text-center">
                     <p className="text-[11px] text-slate-500 italic m-0">No document files attached to this KPI yet.</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 gap-2">
-                    {getKpiPoes(selectedKpi).map(file => (
+                    {extractKpiPoes(selectedKpi, poes).map(file => (
                       <div key={file.id} className="bg-slate-900/80 border border-slate-800 hover:border-emerald-500/50 p-2.5 rounded-xl flex items-center justify-between gap-3 transition">
                         <div className="flex items-center gap-2.5 min-w-0">
                           <div className="p-2 bg-slate-950 rounded-lg border border-slate-800 shrink-0">
@@ -678,13 +812,14 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
                             type="button"
                             onClick={() => setPreviewDoc({
                               name: file.name,
+                              dataUrl: file.dataUrl,
                               fileData: file.dataUrl,
                               kpiName: selectedKpi.kpi,
                               refNum: selectedKpi.refNum,
                               quarter: file.quarter
                             })}
-                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-2.5 py-1.5 rounded-lg text-[10px] uppercase tracking-wide flex items-center gap-1 cursor-pointer transition shadow-sm"
-                            title="Preview Portfolio of Evidence"
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-wide flex items-center gap-1.5 cursor-pointer transition shadow-sm"
+                            title="View Portfolio of Evidence on-screen without downloading"
                           >
                             <Eye className="w-3.5 h-3.5" />
                             <span>View PoE</span>
@@ -695,7 +830,7 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
                               href={file.dataUrl}
                               download={file.name}
                               className="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white p-1.5 rounded-lg text-[10px] flex items-center justify-center transition border border-slate-700"
-                              title="Download File"
+                              title="Download backup file"
                             >
                               <Download className="w-3.5 h-3.5" />
                             </a>
@@ -710,43 +845,54 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
 
             {/* Approver direct comments */}
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black uppercase text-slate-400">Executive Directives / Approver Remarks</label>
+              <label className="text-[10px] font-black uppercase text-slate-400 flex items-center justify-between">
+                <span>Executive Directives / Approver Remarks</span>
+                <span className="text-[9px] text-slate-500 font-normal">Included in feedback when pushing to Reviewer or returning to Submitter</span>
+              </label>
               <textarea
                 value={approverNotes}
                 onChange={(e) => setApproverNotes(e.target.value)}
                 disabled={(selectedKpi as any).workflowStatus === 'Approved'}
-                placeholder="Type final sign-off directives or audit directives..."
-                className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded p-2 text-xs text-white h-24 focus:outline-none resize-none"
+                placeholder="Enter executive approval comments, directives, or required corrections..."
+                className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded p-2.5 text-xs text-white h-24 focus:outline-none resize-none"
               />
             </div>
 
             {/* Action buttons */}
             {((selectedKpi as any).workflowStatus !== 'Approved') ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 pt-3 border-t border-slate-850">
-                <button
-                  onClick={handleRejectToReviewer}
-                  disabled={loading}
-                  className="w-full bg-rose-950/40 hover:bg-rose-900/30 text-rose-300 border border-rose-800/30 rounded-xl py-3 font-bold text-[11px] uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1"
-                >
-                  <X className="w-3.5 h-3.5" />
-                  Decline & Return
-                </button>
-                <button
-                  onClick={handlePushToReviewer}
-                  disabled={loading}
-                  className="w-full bg-indigo-950/40 hover:bg-indigo-900/30 text-indigo-300 border border-indigo-800/30 rounded-xl py-3 font-bold text-[11px] uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1"
-                >
-                  <UserCheck className="w-3.5 h-3.5" />
-                  Push to Reviewer
-                </button>
-                <button
-                  onClick={handleGrantApproval}
-                  disabled={loading}
-                  className="w-full bg-gradient-to-r from-emerald-600 to-teal-650 hover:from-emerald-500 hover:to-teal-600 text-white rounded-xl py-3 font-bold text-[11px] uppercase tracking-wider transition-all flex items-center justify-center gap-1 cursor-pointer shadow-lg disabled:opacity-50"
-                >
-                  <CheckCircle className="w-3.5 h-3.5" />
-                  Grant Sign-off
-                </button>
+              <div className="space-y-2 pt-3 border-t border-slate-850">
+                <div className="flex items-center justify-between text-xs text-slate-400 px-1 font-mono">
+                  <span>Submitter: <strong className="text-amber-400 font-bold">{selectedKpi.submitter || 'None assigned'}</strong></span>
+                  <span>Reviewer Target: <strong className="text-indigo-400 font-bold">{selectedKpi.reviewer || 'PMU Reviewer'}</strong></span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  <button
+                    onClick={handleRejectToReviewer}
+                    disabled={loading}
+                    className="w-full bg-rose-950/40 hover:bg-rose-900/40 text-rose-300 border border-rose-800/40 rounded-xl py-3 font-bold text-[11px] uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-sm"
+                    title={`Reject KPI and send back to Submitter (${selectedKpi.submitter || 'Submitter'}) with comments`}
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    <span>Reject & Request Resend</span>
+                  </button>
+                  <button
+                    onClick={handlePushToReviewer}
+                    disabled={loading}
+                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl py-3 font-bold text-[11px] uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-md"
+                    title={`Accept and route to Reviewer (${selectedKpi.reviewer || 'Reviewer'})`}
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Accept & Push to Reviewer</span>
+                  </button>
+                  <button
+                    onClick={handleGrantApproval}
+                    disabled={loading}
+                    className="w-full bg-gradient-to-r from-emerald-600 to-teal-650 hover:from-emerald-500 hover:to-teal-600 text-white rounded-xl py-3 font-bold text-[11px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-lg disabled:opacity-50"
+                  >
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    <span>Grant Direct Sign-off</span>
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="bg-emerald-950/25 border border-emerald-900/40 text-emerald-300 text-xs p-3.5 rounded-xl flex items-center gap-2">

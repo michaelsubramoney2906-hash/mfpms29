@@ -53,7 +53,11 @@ export interface ParsedSlide {
 }
 
 export function OfficeDocumentViewer({ doc, document: propDocument, onClose }: OfficeDocumentViewerProps) {
-  const targetDoc = doc || propDocument;
+  const rawDoc = doc || propDocument;
+  const targetDoc = rawDoc ? {
+    ...rawDoc,
+    dataUrl: rawDoc.dataUrl || (rawDoc as any).fileData
+  } : undefined;
   const extension = targetDoc?.name.split('.').pop()?.toLowerCase() || '';
   const isExcel = ['xls', 'xlsx', 'csv'].includes(extension);
   const isWord = ['doc', 'docx', 'rtf', 'txt'].includes(extension);

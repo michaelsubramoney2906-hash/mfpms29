@@ -3,11 +3,19 @@ import {
   Search, CheckCircle, AlertTriangle, AlertCircle, RefreshCw, 
   Layers, Database, ChevronRight, Clock, ShieldCheck, 
   ThumbsUp, MessageSquare, ArrowLeftRight, UserCheck, Check, X, ShieldAlert,
-  Eye, Download, FileText, FileSpreadsheet, Presentation, File, FolderOpen, Paperclip
+  Eye, Download, FileText, FileSpreadsheet, Presentation, File, FolderOpen, Paperclip, Bell, ArrowRight
 } from 'lucide-react';
 import type { User } from '../../types';
 import { SdbipRow, SdbipPoeFile } from './SDBIP';
 import { OfficeDocumentViewer } from '../IPMS/OfficeDocumentViewer';
+import { 
+  SdbipWorkflowNotification, 
+  isUserMatch, 
+  fetchSdbipNotifications, 
+  dispatchSdbipNotification, 
+  markSdbipNotificationRead,
+  extractKpiPoes 
+} from '../../utils/sdbipWorkflowHelper';
 
 interface OPMSReviewerProps {
   currentUser: User;
@@ -16,6 +24,8 @@ interface OPMSReviewerProps {
 
 export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps) {
   const [rows, setRows] = useState<SdbipRow[]>([]);
+  const [notifications, setNotifications] = useState<SdbipWorkflowNotification[]>([]);
+  const [assignedFilter, setAssignedFilter] = useState<'ALL' | 'MINE'>('ALL');
   const [poes, setPoes] = useState<SdbipPoeFile[]>([]);
   const [previewDoc, setPreviewDoc] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
@@ -27,14 +37,22 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
   const [searchQuery, setSearchQuery] = useState('');
   const [reviewerNotes, setReviewerNotes] = useState('');
 
+  const loadNotifications = async () => {
+    const list = await fetchSdbipNotifications(activeTenantId);
+    setNotifications(list);
+  };
+
   useEffect(() => {
     fetchSDBIPData(false);
+    loadNotifications();
     const interval = setInterval(() => {
       fetchSDBIPData(true);
+      loadNotifications();
     }, 4000);
 
     const handleFocus = () => {
       fetchSDBIPData(true);
+      loadNotifications();
     };
     window.addEventListener('focus', handleFocus);
 
@@ -273,27 +291,28 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
     if (!selectedKpi) return;
     setLoading(true);
     try {
+      const auditorTarget = selectedKpi.internalAudit || 'Internal Audit Desk';
       const updatedRows = rows.map(r => {
         if (r.id === selectedKpi.id) {
           const currentHistory = (r as any).workflowHistory || [];
           const newHistoryItem = {
             date: new Date().toISOString(),
-            action: 'Pushed to Internal Audit',
-            user: currentUser.email,
-            notes: reviewerNotes || 'Pushed to Internal Audit desk for compliance verification.'
+            action: 'Reviewed & Pushed to Internal Audit',
+            user: currentUser.fullName || currentUser.email,
+            notes: reviewerNotes || `Pushed to Internal Audit desk (${auditorTarget}) for statutory compliance verification.`
           };
 
           const workflows = r.workflows || {};
           ['q1', 'q2', 'midTerm', 'q3', 'q4', 'annual'].forEach(ph => {
             if (workflows[ph]) {
-              workflows[ph] = { ...workflows[ph], status: 'pending_audit', reviewedBy: currentUser.email };
+              workflows[ph] = { ...workflows[ph], status: 'pending_audit', reviewedBy: currentUser.fullName || currentUser.email };
             }
           });
 
           return {
             ...r,
             workflowStatus: 'Pending Audit',
-            reviewedBy: currentUser.email,
+            reviewedBy: currentUser.fullName || currentUser.email,
             reviewerNotes: reviewerNotes,
             workflows,
             workflowHistory: [...currentHistory, newHistoryItem]
@@ -309,9 +328,24 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
       });
 
       if (!response.ok) throw new Error('Failed to push item to Internal Audit');
+
+      // Dispatch real-time notification to Internal Audit
+      await dispatchSdbipNotification(activeTenantId, {
+        targetUser: auditorTarget,
+        senderUser: currentUser.fullName || currentUser.email,
+        kpiId: selectedKpi.id,
+        refNum: selectedKpi.refNum,
+        kpiName: selectedKpi.kpi,
+        phase: 'General',
+        message: `KPI ${selectedKpi.refNum} review sign-off completed by ${currentUser.fullName || currentUser.email} and routed to Internal Audit desk.`,
+        comment: reviewerNotes,
+        actionType: 'pushed_to_audit'
+      });
+
+      await loadNotifications();
       
       setRows(updatedRows);
-      setSuccess('SDBIP Item successfully pushed to Internal Audit desk!');
+      setSuccess(`SDBIP Item ${selectedKpi.refNum} successfully pushed to Internal Audit desk (${auditorTarget})!`);
       setTimeout(() => setSuccess(null), 4000);
       setSelectedKpi(null);
     } catch (err: any) {
@@ -330,13 +364,14 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
     }
     setLoading(true);
     try {
+      const submitterTarget = selectedKpi.submitter || 'Submitter';
       const updatedRows = rows.map(r => {
         if (r.id === selectedKpi.id) {
           const currentHistory = (r as any).workflowHistory || [];
           const newHistoryItem = {
             date: new Date().toISOString(),
-            action: 'Returned for Corrections',
-            user: currentUser.email,
+            action: 'Reviewer Returned for Corrections',
+            user: currentUser.fullName || currentUser.email,
             notes: reviewerNotes
           };
 
@@ -365,9 +400,24 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
       });
 
       if (!response.ok) throw new Error('Failed to dispatch correction request');
+
+      // Dispatch notification to Submitter and Approver
+      await dispatchSdbipNotification(activeTenantId, {
+        targetUser: [submitterTarget, selectedKpi.approver || ''].filter(Boolean),
+        senderUser: currentUser.fullName || currentUser.email,
+        kpiId: selectedKpi.id,
+        refNum: selectedKpi.refNum,
+        kpiName: selectedKpi.kpi,
+        phase: 'General',
+        message: `KPI ${selectedKpi.refNum} returned by PMU Reviewer ${currentUser.fullName || currentUser.email} for corrections.`,
+        comment: reviewerNotes,
+        actionType: 'returned'
+      });
+
+      await loadNotifications();
       
       setRows(updatedRows);
-      setSuccess('Scorecard successfully returned to department with correction logs.');
+      setSuccess(`KPI ${selectedKpi.refNum} successfully returned to Submitter (${submitterTarget}) with correction logs.`);
       setTimeout(() => setSuccess(null), 4000);
       setSelectedKpi(null);
     } catch (err: any) {
@@ -399,8 +449,10 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
     const matchesSearch = searchQuery === '' || 
       (r.refNum && r.refNum.toLowerCase().includes(searchQuery.toLowerCase())) || 
       (r.kpi && r.kpi.toLowerCase().includes(searchQuery.toLowerCase()));
+
+    const matchesMine = assignedFilter === 'ALL' || isUserMatch(r.reviewer, currentUser);
     
-    return matchesKpa && matchesStatus && matchesSearch;
+    return matchesKpa && matchesStatus && matchesSearch && matchesMine;
   });
 
   // Calculate high level stats
@@ -504,6 +556,72 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
         </div>
       )}
 
+      {/* Real-time Reviewer Workflow Notifications Pop-Up Panel */}
+      {(() => {
+        const myUnreadNotifs = notifications.filter(n => isUserMatch(n.targetUser, currentUser) && !n.read);
+        if (myUnreadNotifs.length === 0) return null;
+        return (
+          <div className="space-y-2">
+            {myUnreadNotifs.map((notif) => {
+              const isPushedToReviewer = notif.actionType === 'pushed_to_reviewer';
+              return (
+                <div 
+                  key={notif.id}
+                  className="p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg transition-all animate-fade-in bg-indigo-950/60 border-indigo-500/40 text-indigo-100"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-lg shrink-0 mt-0.5 bg-indigo-600/30 text-indigo-300">
+                      <Bell className="w-5 h-5 animate-bounce" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono text-xs font-black bg-black/40 px-2 py-0.5 rounded border border-white/10">{notif.refNum}</span>
+                        <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-600/30 text-indigo-300 border border-indigo-500/30">
+                          {isPushedToReviewer ? 'Approved by Executive • Awaiting Review' : 'Workflow Request'}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-mono">{new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                      <p className="text-xs font-bold mt-1 text-white">{notif.message}</p>
+                      {notif.comment && (
+                        <div className="mt-1.5 p-2 bg-black/40 rounded-lg border border-white/5 text-[11px] italic font-sans text-indigo-200">
+                          <strong>Executive Approver Directive:</strong> "{notif.comment}"
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const targetRow = rows.find(r => r.id === notif.kpiId || r.refNum === notif.refNum);
+                        if (targetRow) {
+                          setSelectedKpi(targetRow);
+                        }
+                      }}
+                      className="px-3.5 py-1.5 bg-indigo-500 hover:bg-indigo-400 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition cursor-pointer shadow-md flex items-center gap-1.5"
+                    >
+                      <ArrowRight className="w-3.5 h-3.5" />
+                      <span>Inspect & Review KPI</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const updated = await markSdbipNotificationRead(activeTenantId, notif.id, notifications);
+                        setNotifications(updated);
+                      }}
+                      className="p-1.5 bg-black/30 hover:bg-black/50 text-slate-400 hover:text-white rounded-lg transition cursor-pointer"
+                      title="Dismiss notification"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
+
       {/* Audit Panels */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         
@@ -518,6 +636,23 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
             {/* Smart Filters */}
             <div className="flex flex-wrap items-center gap-2">
               
+              <div className="inline-flex rounded-lg border border-slate-800 bg-slate-950 p-0.5 text-[10px] font-bold">
+                <button
+                  type="button"
+                  onClick={() => setAssignedFilter('MINE')}
+                  className={`px-2 py-1 rounded transition cursor-pointer ${assignedFilter === 'MINE' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                >
+                  My Reviews
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAssignedFilter('ALL')}
+                  className={`px-2 py-1 rounded transition cursor-pointer ${assignedFilter === 'ALL' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                >
+                  All Items
+                </button>
+              </div>
+
               <div className="relative shrink-0 w-36">
                 <Search className="absolute left-2.5 top-2 w-3.5 h-3.5 text-slate-500" />
                 <input
@@ -673,13 +808,13 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
 
               {/* Uploaded PoE File List with Live Preview and Download */}
               <div className="space-y-2 pt-1">
-                {getKpiPoes(selectedKpi).length === 0 ? (
+                {extractKpiPoes(selectedKpi, poes).length === 0 ? (
                   <div className="p-3 bg-slate-900/40 border border-dashed border-slate-800 rounded-lg text-center">
                     <p className="text-[11px] text-slate-500 italic m-0">No document files attached to this KPI yet.</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 gap-2">
-                    {getKpiPoes(selectedKpi).map(file => (
+                    {extractKpiPoes(selectedKpi, poes).map(file => (
                       <div key={file.id} className="bg-slate-900/80 border border-slate-800 hover:border-indigo-500/50 p-2.5 rounded-xl flex items-center justify-between gap-3 transition">
                         <div className="flex items-center gap-2.5 min-w-0">
                           <div className="p-2 bg-slate-950 rounded-lg border border-slate-800 shrink-0">
@@ -705,13 +840,14 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
                             type="button"
                             onClick={() => setPreviewDoc({
                               name: file.name,
+                              dataUrl: file.dataUrl,
                               fileData: file.dataUrl,
                               kpiName: selectedKpi.kpi,
                               refNum: selectedKpi.refNum,
                               quarter: file.quarter
                             })}
-                            className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-2.5 py-1.5 rounded-lg text-[10px] uppercase tracking-wide flex items-center gap-1 cursor-pointer transition shadow-sm"
-                            title="Preview Portfolio of Evidence"
+                            className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-wide flex items-center gap-1.5 cursor-pointer transition shadow-sm"
+                            title="View Portfolio of Evidence on-screen without downloading"
                           >
                             <Eye className="w-3.5 h-3.5" />
                             <span>View PoE</span>
@@ -722,7 +858,7 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
                               href={file.dataUrl}
                               download={file.name}
                               className="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white p-1.5 rounded-lg text-[10px] flex items-center justify-center transition border border-slate-700"
-                              title="Download File"
+                              title="Download backup file"
                             >
                               <Download className="w-3.5 h-3.5" />
                             </a>
@@ -745,64 +881,80 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
               </div>
             )}
 
-            {/* Audit review checklist (interactive larp) */}
+            {/* Executive Approver notes */}
+            {(selectedKpi as any).approverNotes && (
+              <div className="bg-amber-950/40 p-3 rounded-xl border border-amber-800/60 space-y-1">
+                <span className="text-[10px] font-black text-amber-400 uppercase tracking-wider block">Executive Approver Directive</span>
+                <p className="text-xs text-amber-200 font-sans italic leading-relaxed">
+                  "{(selectedKpi as any).approverNotes}"
+                </p>
+                <div className="text-[9.5px] text-slate-400 pt-1 border-t border-amber-900/40 mt-1">
+                  Approved by: <span className="font-bold text-amber-300 font-mono">{(selectedKpi as any).approvedBy || selectedKpi.approver || 'Executive Approver'}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Audit review checklist */}
             <div className="bg-slate-950 p-4 border border-slate-850 rounded-xl space-y-2">
               <span className="text-[10px] font-black text-indigo-400 uppercase tracking-wider block">Compliance Checklist</span>
               <div className="space-y-1.5 text-xs text-slate-300">
                 <label className="flex items-center gap-2 cursor-pointer select-none">
                   <input type="checkbox" defaultChecked className="rounded text-indigo-600 focus:ring-0 bg-slate-900 border-slate-800" />
-                  <span>Reported Achievements align with UoM</span>
+                  <span>Reported Achievements align with Unit of Measurement (UoM)</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer select-none">
                   <input type="checkbox" defaultChecked className="rounded text-indigo-600 focus:ring-0 bg-slate-900 border-slate-800" />
-                  <span>Portfolio of Evidence (PoE) matches data</span>
+                  <span>Portfolio of Evidence (PoE) matches reported performance</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input type="checkbox" className="rounded text-indigo-600 focus:ring-0 bg-slate-900 border-slate-800" />
-                  <span>Variance and mitigations meet AGSA standards</span>
+                  <input type="checkbox" defaultChecked className="rounded text-indigo-600 focus:ring-0 bg-slate-900 border-slate-800" />
+                  <span>Variance and corrective measures meet statutory reporting standards</span>
                 </label>
               </div>
             </div>
 
             {/* Reviewer appraisal editor */}
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black uppercase text-slate-400">Auditor / PMU Review Remarks</label>
+              <label className="text-[10px] font-black uppercase text-slate-400 flex items-center justify-between">
+                <span>Auditor / PMU Review Remarks & Advice</span>
+                <span className="text-[9px] text-slate-500 font-normal">Included in feedback when pushing to Audit or returning to Submitter</span>
+              </label>
               <textarea
                 value={reviewerNotes}
                 onChange={(e) => setReviewerNotes(e.target.value)}
                 disabled={(selectedKpi as any).workflowStatus === 'Approved'}
-                placeholder="State evaluation remarks, audit findings or return instructions here..."
-                className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded p-2 text-xs text-white h-24 focus:outline-none resize-none"
+                placeholder="State evaluation remarks, audit recommendations, or correction instructions here..."
+                className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded p-2.5 text-xs text-white h-24 focus:outline-none resize-none"
               />
             </div>
 
             {/* Reviewer Action Buttons */}
             {((selectedKpi as any).workflowStatus !== 'Approved') ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 pt-3 border-t border-slate-850">
-                <button
-                  onClick={handleReturnToSubmitter}
-                  disabled={loading}
-                  className="w-full bg-rose-950/40 hover:bg-rose-900/30 text-rose-300 border border-rose-800/30 rounded-xl py-3 font-bold text-[11px] uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1"
-                >
-                  <X className="w-3.5 h-3.5" />
-                  Return
-                </button>
-                <button
-                  onClick={handlePushToAudit}
-                  disabled={loading}
-                  className="w-full bg-amber-950/40 hover:bg-amber-900/30 text-amber-300 border border-amber-800/30 rounded-xl py-3 font-bold text-[11px] uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1"
-                >
-                  <ShieldAlert className="w-3.5 h-3.5" />
-                  Push to Audit
-                </button>
-                <button
-                  onClick={handleRecommendApproval}
-                  disabled={loading}
-                  className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-xl py-3 font-bold text-[11px] uppercase tracking-wider transition-all flex items-center justify-center gap-1 cursor-pointer shadow-lg disabled:opacity-50"
-                >
-                  <Check className="w-3.5 h-3.5" />
-                  Recommend
-                </button>
+              <div className="space-y-2 pt-3 border-t border-slate-850">
+                <div className="flex items-center justify-between text-xs text-slate-400 px-1 font-mono">
+                  <span>Submitter: <strong className="text-amber-400 font-bold">{selectedKpi.submitter || 'None assigned'}</strong></span>
+                  <span>Internal Audit Target: <strong className="text-rose-400 font-bold">{selectedKpi.internalAudit || 'Internal Audit Desk'}</strong></span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <button
+                    onClick={handleReturnToSubmitter}
+                    disabled={loading}
+                    className="w-full bg-rose-950/40 hover:bg-rose-900/40 text-rose-300 border border-rose-800/40 rounded-xl py-3 font-bold text-[11px] uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-sm"
+                    title={`Reject KPI and send back to Submitter (${selectedKpi.submitter || 'Submitter'}) with comments`}
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    <span>Reject & Request Resend</span>
+                  </button>
+                  <button
+                    onClick={handlePushToAudit}
+                    disabled={loading}
+                    className="w-full bg-gradient-to-r from-violet-600 via-indigo-600 to-rose-600 hover:from-violet-500 hover:to-rose-500 text-white rounded-xl py-3 font-bold text-[11px] uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-lg"
+                    title={`Accept review and push to Internal Audit (${selectedKpi.internalAudit || 'Internal Audit Desk'})`}
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Accept & Push to Internal Audit</span>
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="bg-emerald-950/20 border border-emerald-900/40 text-emerald-300 text-xs p-3 rounded-xl flex items-center gap-2">

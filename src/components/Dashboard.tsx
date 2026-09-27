@@ -985,6 +985,10 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
              <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
                 <OPMSApprover currentUser={fullUserProfile} activeTenantId={activeTenantId} />
              </div>
+          ) : activeSubModule.id === 'opms-audit' ? (
+             <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
+                <InternalAudit currentUser={fullUserProfile} activeTenantId={activeTenantId} />
+             </div>
           ) : activeSubModule.id === 'ipms-reports' ? (
              <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
                 <Reports currentUser={fullUserProfile} activeTenantId={activeTenantId} />

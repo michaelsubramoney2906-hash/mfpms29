@@ -2422,6 +2422,46 @@ Timestamp: ${new Date().toLocaleString()}
                 </button>
               </div>
             )}
+
+            {status === 'pending_audit' && (
+              <div className="flex flex-col gap-1 w-full">
+                <button
+                  onClick={() => {
+                    updateWorkflowState(
+                      row.id, 
+                      phase, 
+                      'approved', 
+                      { auditedBy: submitterName, comments: 'Internal audit statutory clearance granted.' },
+                      `Internal Audit clearance granted for KPI ${row.refNum}. Officially approved.`,
+                      [row.submitter || 'Submitter', row.approver || 'Approver', row.reviewer || 'Reviewer']
+                    );
+                  }}
+                  className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-[10px] text-white font-bold rounded flex items-center justify-center gap-1 transition shadow-sm cursor-pointer"
+                  title="Clear Audit and Officially Approve"
+                >
+                  <ShieldCheck className="w-2.5 h-2.5" /> Clear Audit ✅
+                </button>
+                <button
+                  onClick={() => {
+                    const submitterNameVal = row.submitter || 'Submitter';
+                    const approverNameVal = row.approver || 'Approver';
+                    const reviewerNameVal = row.reviewer || 'Reviewer';
+                    updateWorkflowState(
+                      row.id, 
+                      phase, 
+                      'draft', 
+                      { auditedBy: submitterName, comments: 'Internal audit queries raised.' },
+                      `Internal Audit returned KPI ${row.refNum} with audit findings.`,
+                      [approverNameVal, submitterNameVal, reviewerNameVal]
+                    );
+                  }}
+                  className="px-2 py-0.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[9px] font-medium rounded flex items-center justify-center gap-1 transition cursor-pointer"
+                  title="Return with Audit Findings"
+                >
+                  <XCircle className="w-2.5 h-2.5" /> Return / Findings
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -5076,7 +5116,7 @@ Timestamp: ${new Date().toLocaleString()}
                               {/* Current Badge */}
                               {status === 'approved' && (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-emerald-50 text-emerald-700 border-emerald-200">
-                                  <CheckCircle className="w-2.5 h-2.5" /> Approved
+                                  <CheckCircle className="w-2.5 h-2.5" /> Approved & Sealed
                                 </span>
                               )}
                               {status === 'pending_approval' && (
@@ -5089,6 +5129,11 @@ Timestamp: ${new Date().toLocaleString()}
                                   <Clock className="w-2.5 h-2.5" /> Pend. Rev.
                                 </span>
                               )}
+                              {status === 'pending_audit' && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-rose-50 text-rose-700 border-rose-200 animate-pulse">
+                                  <ShieldAlert className="w-2.5 h-2.5" /> Pend. Audit
+                                </span>
+                              )}
                               {status === 'draft' && (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-slate-100 text-slate-600 border-slate-200">
                                   <FileText className="w-2.5 h-2.5" /> Draft
@@ -5096,61 +5141,82 @@ Timestamp: ${new Date().toLocaleString()}
                               )}
 
                               {/* Interactive Transition Buttons */}
-                              <div className="flex flex-col gap-1 w-full max-w-[130px] mt-1">
+                              <div className="flex flex-col gap-1 w-full max-w-[140px] mt-1">
                                 {status === 'draft' && (
-                                  <button
-                                    onClick={() => {
-                                      const approverName = row.approver || 'Approver';
-                                      updateWorkflowState(
-                                        row.id, 
-                                        workflowPhase, 
-                                        'pending_approval', 
-                                        { submittedBy: submitterName, submittedAt: new Date().toLocaleDateString() },
-                                        `KPI ${row.refNum} (${phaseLabel}) submitted to you for executive approval.`,
-                                        approverName
-                                      );
-                                    }}
-                                    className="px-2 py-1 bg-amber-600 hover:bg-amber-700 text-[10px] text-white font-bold rounded flex items-center justify-center gap-1 transition shadow-sm cursor-pointer"
-                                    title="Submit this KPI to the Executive Approver"
-                                  >
-                                    <Send className="w-2.5 h-2.5" /> Push to Approver
-                                  </button>
+                                  <>
+                                    <button
+                                      onClick={() => {
+                                        const approverName = row.approver || 'Approver';
+                                        updateWorkflowState(
+                                          row.id, 
+                                          workflowPhase, 
+                                          'pending_approval', 
+                                          { submittedBy: submitterName, submittedAt: new Date().toLocaleDateString() },
+                                          `KPI ${row.refNum} (${phaseLabel}) submitted to you for executive approval.`,
+                                          approverName
+                                        );
+                                      }}
+                                      className="px-2 py-1 bg-amber-600 hover:bg-amber-700 text-[10px] text-white font-bold rounded flex items-center justify-center gap-1 transition shadow-sm cursor-pointer"
+                                      title={`Submit this KPI to the Executive Approver (${row.approver || 'Approver'})`}
+                                    >
+                                      <Send className="w-2.5 h-2.5" /> Push to Approver
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => triggerViewPoeModal(row, 'general')}
+                                      className="px-1.5 py-0.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 text-[9px] rounded flex items-center justify-center gap-1 transition cursor-pointer"
+                                      title="Inspect KPI and attached PoE on system without downloading"
+                                    >
+                                      <Eye className="w-2.5 h-2.5" /> Inspect PoE
+                                    </button>
+                                  </>
                                 )}
 
                                 {status === 'pending_approval' && (
                                   <div className="flex flex-col gap-1 w-full">
                                     <button
+                                      type="button"
+                                      onClick={() => triggerViewPoeModal(row, 'general')}
+                                      className="px-2 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-[9px] font-bold rounded flex items-center justify-center gap-1 transition cursor-pointer"
+                                      title="View KPI and attached PoE documents directly on system without downloading"
+                                    >
+                                      <Eye className="w-2.5 h-2.5" /> View KPI & PoE
+                                    </button>
+                                    <button
                                       onClick={() => {
                                         const reviewerName = row.reviewer || 'Reviewer';
+                                        const comment = prompt('Enter approval comment or notes (optional):', 'Approved by Executive Approver. Pushed to Reviewer.') || 'Approved by Executive Approver.';
                                         updateWorkflowState(
                                           row.id,
                                           workflowPhase,
                                           'pending_review',
-                                          { approvedBy: submitterName, approvedAt: new Date().toLocaleDateString(), comments: 'Approved by executive.' },
-                                          `KPI ${row.refNum} (${phaseLabel}) approved by Executive and pushed to you for final review.`,
+                                          { approvedBy: submitterName, approvedAt: new Date().toLocaleDateString(), comments: comment },
+                                          `KPI ${row.refNum} (${phaseLabel}) approved by Executive and pushed to you for PMU Review: "${comment}"`,
                                           reviewerName
                                         );
                                       }}
                                       className="px-2 py-1 bg-indigo-600 hover:bg-indigo-700 text-[10px] text-white font-bold rounded flex items-center justify-center gap-1 transition shadow-sm cursor-pointer"
-                                      title="Approve & Push to Reviewer"
+                                      title={`Approve & Push to Reviewer (${row.reviewer || 'Reviewer'})`}
                                     >
                                       <Check className="w-2.5 h-2.5" /> Push to Reviewer
                                     </button>
                                     <button
                                       onClick={() => {
+                                        const comment = prompt('Please enter reason / corrections required for resubmission:', 'Please update actuals and re-verify PoE documentation.');
+                                        if (comment === null) return; // user cancelled
                                         updateWorkflowState(
                                           row.id,
                                           workflowPhase,
                                           'draft',
-                                          { approvedBy: submitterName, comments: 'Returned by executive approver.' },
-                                          `Executive approver returned KPI ${row.refNum} to submitter.`,
+                                          { approvedBy: submitterName, comments: comment || 'Returned by executive approver for corrections.' },
+                                          `Executive approver returned KPI ${row.refNum} with comments: "${comment}"`,
                                           row.submitter || 'Submitter'
                                         );
                                       }}
                                       className="px-2 py-0.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[9px] font-medium rounded flex items-center justify-center gap-1 transition cursor-pointer"
-                                      title="Send back to Submitter"
+                                      title="Reject & Request Resend with comments"
                                     >
-                                      <XCircle className="w-2.5 h-2.5" /> Send Back
+                                      <XCircle className="w-2.5 h-2.5" /> Reject & Resend
                                     </button>
                                   </div>
                                 )}
@@ -5158,38 +5224,109 @@ Timestamp: ${new Date().toLocaleString()}
                                 {status === 'pending_review' && (
                                   <div className="flex flex-col gap-1 w-full">
                                     <button
+                                      type="button"
+                                      onClick={() => triggerViewPoeModal(row, 'general')}
+                                      className="px-2 py-0.5 bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 text-[9px] font-bold rounded flex items-center justify-center gap-1 transition cursor-pointer"
+                                      title="View KPI and attached PoE documents directly on system without downloading"
+                                    >
+                                      <Eye className="w-2.5 h-2.5" /> View KPI & PoE
+                                    </button>
+                                    <button
                                       onClick={() => {
+                                        const auditorName = row.internalAudit || 'Internal Audit';
+                                        const comment = prompt('Enter review notes or compliance remarks (optional):', 'Review sign-off completed. Pushed to Internal Audit.') || 'Review sign-off completed.';
+                                        updateWorkflowState(
+                                          row.id,
+                                          workflowPhase,
+                                          'pending_audit',
+                                          { reviewedBy: submitterName, reviewedAt: new Date().toLocaleDateString(), comments: comment },
+                                          `KPI ${row.refNum} (${phaseLabel}) review sign-off completed. Pushed to Internal Audit: "${comment}"`,
+                                          auditorName
+                                        );
+                                      }}
+                                      className="px-2 py-1 bg-gradient-to-r from-violet-600 to-rose-600 hover:from-violet-700 hover:to-rose-700 text-[10px] text-white font-bold rounded flex items-center justify-center gap-1 transition shadow-sm cursor-pointer"
+                                      title={`Accept & Push to Internal Audit (${row.internalAudit || 'Internal Audit'})`}
+                                    >
+                                      <ShieldCheck className="w-2.5 h-2.5" /> Push to Audit
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        const comment = prompt('Please enter reason / corrections required for resubmission:', 'Reviewer noted discrepancies. Please correct and resend.');
+                                        if (comment === null) return;
+                                        updateWorkflowState(
+                                          row.id,
+                                          workflowPhase,
+                                          'draft',
+                                          { reviewedBy: submitterName, comments: comment || 'Reviewer requested corrections.' },
+                                          `Reviewer returned KPI ${row.refNum} to Submitter: "${comment}"`,
+                                          [row.submitter || 'Submitter', row.approver || 'Approver']
+                                        );
+                                      }}
+                                      className="px-2 py-0.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[9px] font-medium rounded flex items-center justify-center gap-1 transition cursor-pointer"
+                                      title="Reject & Request Resend with comments"
+                                    >
+                                      <XCircle className="w-2.5 h-2.5" /> Reject & Resend
+                                    </button>
+                                  </div>
+                                )}
+
+                                {status === 'pending_audit' && (
+                                  <div className="flex flex-col gap-1 w-full">
+                                    <button
+                                      type="button"
+                                      onClick={() => triggerViewPoeModal(row, 'general')}
+                                      className="px-2 py-0.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[9px] font-bold rounded flex items-center justify-center gap-1 transition cursor-pointer"
+                                      title="View KPI and attached PoE documents directly on system without downloading"
+                                    >
+                                      <Eye className="w-2.5 h-2.5" /> View KPI & PoE
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        const comment = prompt('Enter Internal Audit clearance notes (optional):', 'MFMA statutory compliance audit verification passed.') || 'Audit verification passed.';
                                         updateWorkflowState(
                                           row.id,
                                           workflowPhase,
                                           'approved',
-                                          { reviewedBy: submitterName, reviewedAt: new Date().toLocaleDateString(), comments: 'Final review sign-off completed.' },
-                                          `Reviewer verification success! KPI ${row.refNum} has been fully approved.`,
-                                          row.submitter || 'Submitter'
+                                          { auditedBy: submitterName, auditedAt: new Date().toLocaleDateString(), comments: comment },
+                                          `Internal Audit clearance GRANTED for KPI ${row.refNum}. Officially approved: "${comment}"`,
+                                          [row.submitter || 'Submitter', row.approver || 'Approver', row.reviewer || 'Reviewer']
                                         );
                                       }}
                                       className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-[10px] text-white font-bold rounded flex items-center justify-center gap-1 transition shadow-sm cursor-pointer"
-                                      title="Finalize & Approve KPI"
+                                      title="Grant Audit Clearance and Officially Approve"
                                     >
-                                      <CheckCircle className="w-2.5 h-2.5" /> Final Approve ✅
+                                      <ShieldCheck className="w-2.5 h-2.5" /> Clear Audit ✅
                                     </button>
                                     <button
                                       onClick={() => {
+                                        const comment = prompt('Please enter Internal Audit findings / required actions:', 'Audit query raised: Evidence documentation requires correction.');
+                                        if (comment === null) return;
                                         updateWorkflowState(
                                           row.id,
                                           workflowPhase,
-                                          'pending_approval',
-                                          { reviewedBy: submitterName, comments: 'Reviewer requested corrections.' },
-                                          `Reviewer returned KPI ${row.refNum} to Executive Approver.`,
-                                          row.approver || 'Approver'
+                                          'draft',
+                                          { auditedBy: submitterName, comments: comment || 'Internal audit returned with queries.' },
+                                          `Internal Audit returned KPI ${row.refNum} with findings: "${comment}"`,
+                                          [row.submitter || 'Submitter', row.approver || 'Approver', row.reviewer || 'Reviewer']
                                         );
                                       }}
                                       className="px-2 py-0.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[9px] font-medium rounded flex items-center justify-center gap-1 transition cursor-pointer"
-                                      title="Send back to Approver"
+                                      title="Return with Audit Findings"
                                     >
-                                      <XCircle className="w-2.5 h-2.5" /> Send Back
+                                      <XCircle className="w-2.5 h-2.5" /> Audit Findings
                                     </button>
                                   </div>
+                                )}
+
+                                {status === 'approved' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => triggerViewPoeModal(row, 'general')}
+                                    className="px-2 py-0.5 text-emerald-700 hover:bg-emerald-50 text-[9px] font-semibold rounded flex items-center justify-center gap-1 transition cursor-pointer"
+                                    title="View verified KPI record and PoE on system"
+                                  >
+                                    <Eye className="w-2.5 h-2.5" /> View PoE
+                                  </button>
                                 )}
                               </div>
                             </div>

@@ -3,12 +3,21 @@ import {
   FileText, ArrowRight, CheckCircle, AlertTriangle, AlertCircle, 
   Send, RefreshCw, Layers, Database, Search, ChevronRight, 
   Clock, Plus, ShieldCheck, Check, MessageSquare, Info, Lock,
-  Upload, Eye, Trash2, Paperclip, FileSpreadsheet, Presentation, Image as ImageIcon
+  Upload, Eye, Trash2, Paperclip, FileSpreadsheet, Presentation, Image as ImageIcon,
+  Bell, CheckCircle2, UserCheck, ShieldAlert, X
 } from 'lucide-react';
 import type { User } from '../../types';
 import { SdbipRow } from './SDBIP';
 import { isQuarterInReportingPeriod, getQuarterLockNotice } from '../../utils/reportingPeriods';
 import { OfficeDocumentViewer, PoeDocument } from '../IPMS/OfficeDocumentViewer';
+import { 
+  SdbipWorkflowNotification, 
+  isUserMatch, 
+  fetchSdbipNotifications, 
+  dispatchSdbipNotification, 
+  markSdbipNotificationRead,
+  extractKpiPoes 
+} from '../../utils/sdbipWorkflowHelper';
 
 interface OPMSSubmitterProps {
   currentUser: User;
@@ -17,6 +26,8 @@ interface OPMSSubmitterProps {
 
 export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProps) {
   const [rows, setRows] = useState<SdbipRow[]>([]);
+  const [notifications, setNotifications] = useState<SdbipWorkflowNotification[]>([]);
+  const [assignedFilter, setAssignedFilter] = useState<'ALL' | 'MINE'>('ALL');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -48,17 +59,25 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
   const [poeDesc, setPoeDesc] = useState('');
   const [submitterNotes, setSubmitterNotes] = useState('');
 
+  const loadNotifications = async () => {
+    const list = await fetchSdbipNotifications(activeTenantId);
+    setNotifications(list);
+  };
+
   useEffect(() => {
     fetchSDBIPData(false);
     fetchPoes();
+    loadNotifications();
     const interval = setInterval(() => {
       fetchSDBIPData(true);
       fetchPoes();
+      loadNotifications();
     }, 4000);
 
     const handleFocus = () => {
       fetchSDBIPData(true);
       fetchPoes();
+      loadNotifications();
     };
     window.addEventListener('focus', handleFocus);
 
@@ -286,22 +305,23 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
     if (!selectedKpi) return;
     setLoading(true);
     try {
+      const approverTarget = selectedKpi.approver || 'Approver';
       const updatedRows = rows.map(r => {
         if (r.id === selectedKpi.id) {
           const currentHistory = (r as any).workflowHistory || [];
           const newHistoryItem = {
             date: new Date().toISOString(),
             action: 'Submitted to Approver',
-            user: currentUser.email,
-            notes: submitterNotes || 'Submitted to Executive Approver through OPMS Submitter dashboard.'
+            user: currentUser.fullName || currentUser.email,
+            notes: submitterNotes || `Submitted to Executive Approver (${approverTarget}) through OPMS Submitter dashboard.`
           };
 
           const workflows = r.workflows || {};
-          ['q1', 'q2', 'q3', 'q4'].forEach(q => {
+          ['q1', 'q2', 'midTerm', 'q3', 'q4', 'annual'].forEach(q => {
             workflows[q] = {
               ...(workflows[q]),
               status: 'pending_approval',
-              submittedBy: currentUser.email,
+              submittedBy: currentUser.fullName || currentUser.email,
               submittedAt: new Date().toLocaleDateString()
             };
           });
@@ -314,7 +334,7 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
             q4Actual, q4Variance, q4Corrective,
             poeDesc,
             workflowStatus: 'Submitted to Approver',
-            submittedBy: currentUser.email,
+            submittedBy: currentUser.fullName || currentUser.email,
             submitterNotes: submitterNotes,
             workflows,
             workflowHistory: [...currentHistory, newHistoryItem]
@@ -330,9 +350,24 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
       });
 
       if (!response.ok) throw new Error('Failed to submit SDBIP item to Approver');
+
+      // Dispatch real-time notification to specified approver
+      await dispatchSdbipNotification(activeTenantId, {
+        targetUser: approverTarget,
+        senderUser: currentUser.fullName || currentUser.email,
+        kpiId: selectedKpi.id,
+        refNum: selectedKpi.refNum,
+        kpiName: selectedKpi.kpi,
+        phase: 'General',
+        message: `KPI ${selectedKpi.refNum} submitted for Executive Approval by Submitter ${currentUser.fullName || currentUser.email}.`,
+        comment: submitterNotes,
+        actionType: 'submitted'
+      });
+
+      await loadNotifications();
       
       setRows(updatedRows);
-      setSuccess('SDBIP KPI successfully submitted to Executive Approver!');
+      setSuccess(`SDBIP KPI ${selectedKpi.refNum} successfully submitted to Executive Approver (${approverTarget})!`);
       setTimeout(() => setSuccess(null), 4000);
       setSelectedKpi(null);
     } catch (err: any) {
@@ -348,10 +383,11 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
   const filteredRows = rows.filter(r => {
     const matchesKpa = kpaFilter === 'ALL' || r.kpas === kpaFilter;
     const matchesSearch = searchQuery === '' || 
-      r.refNum.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      r.kpi.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.strategicObj.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesKpa && matchesSearch;
+      (r.refNum && r.refNum.toLowerCase().includes(searchQuery.toLowerCase())) || 
+      (r.kpi && r.kpi.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (r.strategicObj && r.strategicObj.toLowerCase().includes(searchQuery.toLowerCase()));
+    const matchesMine = assignedFilter === 'ALL' || isUserMatch(r.submitter, currentUser);
+    return matchesKpa && matchesSearch && matchesMine;
   });
 
   // Calculate high level stats
@@ -454,6 +490,78 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
         </div>
       )}
 
+      {/* Real-time Submitter Workflow Notifications Pop-Up Panel */}
+      {(() => {
+        const myUnreadNotifs = notifications.filter(n => isUserMatch(n.targetUser, currentUser) && !n.read);
+        if (myUnreadNotifs.length === 0) return null;
+        return (
+          <div className="space-y-2">
+            {myUnreadNotifs.map((notif) => {
+              const isReturned = notif.actionType === 'returned';
+              return (
+                <div 
+                  key={notif.id}
+                  className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg transition-all animate-fade-in ${
+                    isReturned 
+                      ? 'bg-rose-950/60 border-rose-500/40 text-rose-100' 
+                      : 'bg-indigo-950/60 border-indigo-500/40 text-indigo-100'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`p-2 rounded-lg shrink-0 mt-0.5 ${isReturned ? 'bg-rose-600/30 text-rose-300' : 'bg-indigo-600/30 text-indigo-300'}`}>
+                      <Bell className="w-5 h-5 animate-bounce" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono text-xs font-black bg-black/40 px-2 py-0.5 rounded border border-white/10">{notif.refNum}</span>
+                        <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                          isReturned ? 'bg-rose-600/30 text-rose-300 border border-rose-500/30' : 'bg-indigo-600/30 text-indigo-300 border border-indigo-500/30'
+                        }`}>
+                          {isReturned ? 'Returned for Resubmission' : 'Workflow Update'}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-mono">{new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                      <p className="text-xs font-bold mt-1 text-white">{notif.message}</p>
+                      {notif.comment && (
+                        <div className="mt-1.5 p-2 bg-black/40 rounded-lg border border-white/5 text-[11px] italic font-sans text-rose-200">
+                          <strong>Comments / Required Changes:</strong> "{notif.comment}"
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const targetRow = rows.find(r => r.id === notif.kpiId || r.refNum === notif.refNum);
+                        if (targetRow) {
+                          setSelectedKpi(targetRow);
+                        }
+                      }}
+                      className="px-3 py-1.5 bg-white text-slate-900 hover:bg-slate-100 rounded-lg text-xs font-bold uppercase tracking-wider transition cursor-pointer shadow-md flex items-center gap-1.5"
+                    >
+                      <ArrowRight className="w-3.5 h-3.5" />
+                      <span>Review & Resend KPI</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const updated = await markSdbipNotificationRead(activeTenantId, notif.id, notifications);
+                        setNotifications(updated);
+                      }}
+                      className="p-1.5 bg-black/30 hover:bg-black/50 text-slate-400 hover:text-white rounded-lg transition cursor-pointer"
+                      title="Dismiss notification"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
+
       {/* Split Dashboard Screen */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         
@@ -467,7 +575,24 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
 
             {/* Smart Inline Filters */}
             <div className="flex flex-wrap items-center gap-2">
-              <div className="relative shrink-0 w-44">
+              <div className="inline-flex rounded-lg border border-slate-800 bg-slate-950 p-0.5 text-[10px] font-bold">
+                <button
+                  type="button"
+                  onClick={() => setAssignedFilter('MINE')}
+                  className={`px-2 py-1 rounded transition cursor-pointer ${assignedFilter === 'MINE' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                >
+                  My KPIs
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAssignedFilter('ALL')}
+                  className={`px-2 py-1 rounded transition cursor-pointer ${assignedFilter === 'ALL' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                >
+                  All KPIs
+                </button>
+              </div>
+
+              <div className="relative shrink-0 w-36">
                 <Search className="absolute left-2.5 top-2 w-3.5 h-3.5 text-slate-500" />
                 <input
                   type="text"
@@ -851,7 +976,7 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
 
                 {/* Attached PoE Files for this KPI */}
                 {(() => {
-                  const relevantPoes = poes.filter(p => p.refNum === selectedKpi.refNum);
+                  const relevantPoes = extractKpiPoes(selectedKpi, poes);
                   if (relevantPoes.length === 0) {
                     return (
                       <p className="text-[10px] text-slate-500 italic py-1">
@@ -862,7 +987,7 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
 
                   return (
                     <div className="space-y-1.5 pt-1">
-                      <span className="text-[9px] font-black tracking-wider uppercase text-slate-400">Attached Evidence Files:</span>
+                      <span className="text-[9px] font-black tracking-wider uppercase text-slate-400">Attached Evidence Files ({relevantPoes.length}):</span>
                       <div className="grid grid-cols-1 gap-1.5 max-h-40 overflow-y-auto pr-1">
                         {relevantPoes.map((p) => {
                           const ext = p.name.split('.').pop()?.toLowerCase();
@@ -880,18 +1005,18 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                                 )}
                                 <div className="truncate">
                                   <span className="text-white font-medium block truncate text-[11px]">{p.name}</span>
-                                  <span className="text-[9px] text-slate-400">{p.size || 'Attached'} • {p.date || 'Today'}</span>
+                                  <span className="text-[9px] text-slate-400">{p.quarter} • {p.size || 'Attached'}</span>
                                 </div>
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0 ml-2">
                                 <button
                                   type="button"
                                   onClick={() => handleOpenPoePreview(p)}
-                                  className="px-2 py-1 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 rounded text-[10px] font-bold flex items-center gap-1 transition cursor-pointer"
+                                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[10px] font-bold flex items-center gap-1 transition cursor-pointer shadow-sm"
                                   title="View document on-screen without downloading"
                                 >
                                   <Eye className="w-3 h-3" />
-                                  <span>View</span>
+                                  <span>View PoE</span>
                                 </button>
                                 {(!((selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed')) && (
                                   <button
@@ -913,14 +1038,55 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                 })()}
               </div>
 
+              {/* Feedback History Cards from Approver, Reviewer, and Audit */}
+              {((selectedKpi as any).approverNotes || (selectedKpi as any).reviewerNotes || (selectedKpi as any).auditNotes) && (
+                <div className="space-y-2">
+                  {(selectedKpi as any).approverNotes && (
+                    <div className="bg-amber-950/40 border border-amber-800/60 rounded-xl p-3 text-xs space-y-1">
+                      <div className="flex items-center gap-1.5 text-amber-400 font-bold uppercase text-[10px] font-mono">
+                        <UserCheck className="w-3.5 h-3.5" />
+                        <span>Executive Approver Directive / Comments ({selectedKpi.approver || 'Approver'}):</span>
+                      </div>
+                      <p className="text-amber-200 italic font-medium leading-relaxed bg-black/30 p-2 rounded border border-amber-900/40">
+                        "{(selectedKpi as any).approverNotes}"
+                      </p>
+                    </div>
+                  )}
+
+                  {(selectedKpi as any).reviewerNotes && (
+                    <div className="bg-indigo-950/40 border border-indigo-800/60 rounded-xl p-3 text-xs space-y-1">
+                      <div className="flex items-center gap-1.5 text-indigo-400 font-bold uppercase text-[10px] font-mono">
+                        <Search className="w-3.5 h-3.5" />
+                        <span>PMU Reviewer Feedback ({selectedKpi.reviewer || 'Reviewer'}):</span>
+                      </div>
+                      <p className="text-indigo-200 italic font-medium leading-relaxed bg-black/30 p-2 rounded border border-indigo-900/40">
+                        "{(selectedKpi as any).reviewerNotes}"
+                      </p>
+                    </div>
+                  )}
+
+                  {(selectedKpi as any).auditNotes && (
+                    <div className="bg-rose-950/40 border border-rose-800/60 rounded-xl p-3 text-xs space-y-1">
+                      <div className="flex items-center gap-1.5 text-rose-400 font-bold uppercase text-[10px] font-mono">
+                        <ShieldAlert className="w-3.5 h-3.5" />
+                        <span>Internal Audit Findings / Queries ({selectedKpi.internalAudit || 'Internal Audit Desk'}):</span>
+                      </div>
+                      <p className="text-rose-200 italic font-medium leading-relaxed bg-black/30 p-2 rounded border border-rose-900/40">
+                        "{(selectedKpi as any).auditNotes}"
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Submitter specific comments */}
               <div className="space-y-1 bg-slate-950/40 border border-slate-800 rounded-xl p-3">
-                <label className="text-[10px] font-black uppercase text-slate-400">Submitter Workflow Remarks</label>
+                <label className="text-[10px] font-black uppercase text-slate-400">Submitter Workflow Remarks & Explanation</label>
                 <textarea
                   value={submitterNotes}
                   onChange={(e) => setSubmitterNotes(e.target.value)}
                   disabled={(selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
-                  placeholder="Any additional context or notes to the PMU reviewers."
+                  placeholder="Enter context, explanations of variances, or responses to feedback before pushing to the Executive Approver..."
                   className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded p-2 text-xs text-white h-16 focus:outline-none resize-none"
                 />
               </div>
@@ -932,7 +1098,7 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                     <Clock className="w-3.5 h-3.5" />
                     <span>Audit Pipeline Logs</span>
                   </div>
-                  <div className="space-y-2 font-mono text-[10px] divide-y divide-slate-850/60">
+                  <div className="space-y-2 font-mono text-[10px] divide-y divide-slate-850/60 max-h-48 overflow-y-auto pr-1">
                     {((selectedKpi as any).workflowHistory as any[]).map((h, i) => (
                       <div key={i} className="pt-2 first:pt-0">
                         <div className="flex items-center justify-between font-bold">
@@ -951,22 +1117,29 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
 
             {/* Submitter Action Controls */}
             {(!((selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed')) && (
-              <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-850">
-                <button
-                  onClick={handleSaveDraft}
-                  disabled={loading}
-                  className="w-full bg-slate-950 hover:bg-slate-850 text-slate-300 border border-slate-800 rounded-xl py-3 font-bold text-xs uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50"
-                >
-                  Save Draft
-                </button>
-                <button
-                  onClick={handleSubmitWorkflow}
-                  disabled={loading}
-                  className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl py-3 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-lg disabled:opacity-50"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                  Submit to Approver
-                </button>
+              <div className="space-y-2 pt-3 border-t border-slate-850">
+                <div className="flex items-center justify-between text-xs text-slate-400 px-1 font-mono">
+                  <span>Designated Approver: <strong className="text-amber-400 font-bold">{selectedKpi.approver || 'Not assigned'}</strong></span>
+                  <span>Reviewer: <strong className="text-indigo-400 font-bold">{selectedKpi.reviewer || 'Not assigned'}</strong></span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={handleSaveDraft}
+                    disabled={loading}
+                    className="w-full bg-slate-950 hover:bg-slate-850 text-slate-300 border border-slate-800 rounded-xl py-3 font-bold text-xs uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    Save Draft
+                  </button>
+                  <button
+                    onClick={handleSubmitWorkflow}
+                    disabled={loading}
+                    className="w-full bg-gradient-to-r from-amber-600 via-amber-500 to-indigo-600 hover:from-amber-500 hover:to-indigo-500 text-white rounded-xl py-3 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg disabled:opacity-50"
+                    title={`Push to Approver (${selectedKpi.approver || 'Executive Approver'})`}
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>Push to Approver</span>
+                  </button>
+                </div>
               </div>
             )}
           </div>

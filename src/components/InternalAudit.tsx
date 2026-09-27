@@ -2,10 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { 
   ShieldAlert, BookOpen, Search, FileText, CheckSquare, Activity, 
   Users, Lock, Database, CheckCircle, AlertTriangle, XCircle, ChevronRight, Download, Send, RefreshCw,
-  Eye, Paperclip, FileSpreadsheet, Presentation, Image as ImageIcon
+  Eye, Paperclip, FileSpreadsheet, Presentation, Image as ImageIcon, Bell, X, ArrowRight
 } from 'lucide-react';
 import type { User } from '../types';
 import { OfficeDocumentViewer, PoeDocument } from './IPMS/OfficeDocumentViewer';
+import { 
+  SdbipWorkflowNotification, 
+  isUserMatch, 
+  fetchSdbipNotifications, 
+  dispatchSdbipNotification, 
+  markSdbipNotificationRead,
+  extractKpiPoes 
+} from '../utils/sdbipWorkflowHelper';
 
 interface InternalAuditProps {
   currentUser: User;
@@ -15,6 +23,7 @@ interface InternalAuditProps {
 export function InternalAudit({ currentUser, activeTenantId }: InternalAuditProps) {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'rcm' | 'compliance' | 'iam' | 'modules' | 'workflows' | 'integration' | 'inbox' | 'templates'>('dashboard');
   const [sdbipRows, setSdbipRows] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<SdbipWorkflowNotification[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedAuditKpi, setSelectedAuditKpi] = useState<any | null>(null);
   const [auditNotes, setAuditNotes] = useState('');
@@ -23,6 +32,11 @@ export function InternalAudit({ currentUser, activeTenantId }: InternalAuditProp
   const [auditSearchQuery, setAuditSearchQuery] = useState('');
   const [poes, setPoes] = useState<any[]>([]);
   const [previewDoc, setPreviewDoc] = useState<PoeDocument | null>(null);
+
+  const loadNotifications = async () => {
+    const list = await fetchSdbipNotifications(activeTenantId);
+    setNotifications(list);
+  };
 
   const fetchPoes = async () => {
     try {
@@ -64,14 +78,17 @@ export function InternalAudit({ currentUser, activeTenantId }: InternalAuditProp
   useEffect(() => {
     fetchSdbip(false);
     fetchPoes();
+    loadNotifications();
     const interval = setInterval(() => {
       fetchSdbip(true);
       fetchPoes();
+      loadNotifications();
     }, 4000);
 
     const handleFocus = () => {
       fetchSdbip(true);
       fetchPoes();
+      loadNotifications();
     };
     window.addEventListener('focus', handleFocus);
 
@@ -82,25 +99,28 @@ export function InternalAudit({ currentUser, activeTenantId }: InternalAuditProp
   }, [activeTenantId]);
 
   const handleVerifyAudit = async (rowId: string, isCleared: boolean) => {
+    const targetRow = sdbipRows.find(r => r.id === rowId);
+    if (!targetRow) return;
+
     const updatedRows = sdbipRows.map(r => {
       if (r.id === rowId) {
         const workflows = r.workflows || {};
         ['q1', 'q2', 'midTerm', 'q3', 'q4', 'annual'].forEach(ph => {
           if (workflows[ph]) {
-            workflows[ph] = { ...workflows[ph], status: isCleared ? 'approved' : 'draft', auditedBy: currentUser.email };
+            workflows[ph] = { ...workflows[ph], status: isCleared ? 'approved' : 'draft', auditedBy: currentUser.fullName || currentUser.email };
           }
         });
         const currentHistory = r.workflowHistory || [];
         const newHistoryItem = {
           date: new Date().toISOString(),
-          action: isCleared ? 'Internal Audit Cleared' : 'Internal Audit Returned',
-          user: currentUser.email,
+          action: isCleared ? 'Internal Audit Cleared & Approved' : 'Internal Audit Returned with Findings',
+          user: currentUser.fullName || currentUser.email,
           notes: auditNotes || (isCleared ? 'Cleared by Internal Audit Desk' : 'Returned with audit queries')
         };
         return {
           ...r,
           workflowStatus: isCleared ? 'Approved' : 'Returned',
-          auditedBy: currentUser.email,
+          auditedBy: currentUser.fullName || currentUser.email,
           auditNotes: auditNotes,
           workflows,
           workflowHistory: [...currentHistory, newHistoryItem]
@@ -117,6 +137,30 @@ export function InternalAudit({ currentUser, activeTenantId }: InternalAuditProp
       });
       if (res.ok) {
         setSdbipRows(updatedRows);
+
+        // Dispatch notifications to Submitter, Approver, and Reviewer
+        const recipients = [
+          targetRow.submitter,
+          targetRow.approver,
+          targetRow.reviewer
+        ].filter(Boolean);
+
+        await dispatchSdbipNotification(activeTenantId, {
+          targetUser: recipients,
+          senderUser: currentUser.fullName || currentUser.email,
+          kpiId: targetRow.id,
+          refNum: targetRow.refNum,
+          kpiName: targetRow.kpi,
+          phase: 'General',
+          message: isCleared 
+            ? `Internal Audit statutory clearance GRANTED for KPI ${targetRow.refNum}. Officially approved.`
+            : `Internal Audit RETURNED KPI ${targetRow.refNum} with audit findings / queries. Resubmission required.`,
+          comment: auditNotes,
+          actionType: isCleared ? 'cleared' : 'returned'
+        });
+
+        await loadNotifications();
+
         setSuccess(isCleared ? 'KPI Verified and Cleared by Internal Audit!' : 'KPI Returned with Audit Queries.');
         setTimeout(() => setSuccess(null), 4000);
         setSelectedAuditKpi(null);
@@ -345,6 +389,74 @@ export function InternalAudit({ currentUser, activeTenantId }: InternalAuditProp
               </div>
             )}
 
+            {/* Real-time Internal Audit Notification Alert Banner */}
+            {(() => {
+              const auditNotifs = notifications.filter(n => 
+                (isUserMatch(n.targetUser, currentUser) || n.actionType === 'pushed_to_audit') && !n.read
+              );
+              if (auditNotifs.length === 0) return null;
+              return (
+                <div className="space-y-2">
+                  {auditNotifs.map((notif) => (
+                    <div 
+                      key={notif.id}
+                      className="p-4 rounded-xl border border-rose-300 bg-rose-50 text-rose-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md animate-fade-in"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="p-2 bg-rose-200 text-rose-800 rounded-lg shrink-0 mt-0.5">
+                          <Bell className="w-5 h-5 animate-bounce" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-mono text-xs font-black bg-rose-200 text-rose-900 px-2 py-0.5 rounded border border-rose-300">{notif.refNum}</span>
+                            <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-200 text-rose-800 border border-rose-300">
+                              Incoming Audit Verification Request
+                            </span>
+                            <span className="text-[10px] text-rose-600 font-mono">
+                              {new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          <p className="text-xs font-bold mt-1 text-rose-950">{notif.message}</p>
+                          {notif.comment && (
+                            <div className="mt-1.5 p-2 bg-white/80 rounded-lg border border-rose-200 text-[11px] italic text-rose-800">
+                              <strong>Reviewer Note:</strong> "{notif.comment}"
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const targetRow = sdbipRows.find(r => r.id === notif.kpiId || r.refNum === notif.refNum);
+                            if (targetRow) {
+                              setSelectedAuditKpi(targetRow);
+                              setAuditFilter('ALL');
+                            }
+                          }}
+                          className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition cursor-pointer shadow-sm flex items-center gap-1.5"
+                        >
+                          <ArrowRight className="w-3.5 h-3.5" />
+                          <span>Audit & Verify KPI</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const updated = await markSdbipNotificationRead(activeTenantId, notif.id, notifications);
+                            setNotifications(updated);
+                          }}
+                          className="p-1.5 bg-rose-200 hover:bg-rose-300 text-rose-800 rounded-lg transition cursor-pointer"
+                          title="Dismiss notification"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+
             <div className="bg-white p-4 border border-slate-200 rounded-2xl shadow-xs text-sm text-slate-600 flex flex-col md:flex-row items-center justify-between gap-3">
               <div>
                 <p className="font-semibold text-slate-800">Live OPMS SDBIP Top-Layer Reporting Integration</p>
@@ -526,7 +638,7 @@ export function InternalAudit({ currentUser, activeTenantId }: InternalAuditProp
                     ) : null}
 
                     {(() => {
-                      const relevantPoes = poes.filter(p => p.refNum === selectedAuditKpi.refNum);
+                      const relevantPoes = extractKpiPoes(selectedAuditKpi, poes);
                       if (relevantPoes.length === 0) {
                         return (
                           <p className="text-[10.5px] text-slate-400 italic">
@@ -537,8 +649,13 @@ export function InternalAudit({ currentUser, activeTenantId }: InternalAuditProp
 
                       return (
                         <div className="space-y-1 pt-1">
-                          <span className="text-[9px] font-bold text-slate-500 uppercase">Attached Verification Documents:</span>
-                          <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[9px] font-bold text-slate-500 uppercase">Attached Verification Documents:</span>
+                            <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
+                              {relevantPoes.length} PoE File(s)
+                            </span>
+                          </div>
+                          <div className="space-y-1 max-h-44 overflow-y-auto pr-1">
                             {relevantPoes.map((p) => {
                               const ext = p.name.split('.').pop()?.toLowerCase();
                               return (
@@ -553,7 +670,10 @@ export function InternalAudit({ currentUser, activeTenantId }: InternalAuditProp
                                     ) : (
                                       <FileText className="w-4 h-4 text-indigo-600 shrink-0" />
                                     )}
-                                    <span className="text-slate-800 font-semibold truncate text-[11px]">{p.name}</span>
+                                    <div className="truncate min-w-0">
+                                      <span className="text-slate-800 font-semibold truncate text-[11px] block">{p.name}</span>
+                                      <span className="text-[9px] text-slate-400">{p.quarter} • {p.size || '1.5 MB'}</span>
+                                    </div>
                                   </div>
                                   <button
                                     type="button"
@@ -562,18 +682,18 @@ export function InternalAudit({ currentUser, activeTenantId }: InternalAuditProp
                                         id: p.id,
                                         name: p.name,
                                         mimeType: p.fileType || 'application/octet-stream',
-                                        dataUrl: p.fileData,
-                                        uploadedAt: p.uploadedAt || p.date,
-                                        uploadedBy: p.uploadedBy || 'Submitter',
+                                        dataUrl: p.dataUrl || p.fileData,
+                                        uploadedAt: p.date,
+                                        uploadedBy: 'Submitter',
                                         kpiName: selectedAuditKpi.kpi,
-                                        quarter: 'Audit Verification'
+                                        quarter: p.quarter
                                       });
                                     }}
-                                    className="px-2 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[10px] font-bold flex items-center gap-1 transition cursor-pointer shrink-0 ml-2"
-                                    title="View evidence without downloading"
+                                    className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[10px] font-bold flex items-center gap-1 transition cursor-pointer shrink-0 ml-2 shadow-xs"
+                                    title="View Portfolio of Evidence on-system without downloading"
                                   >
                                     <Eye className="w-3 h-3" />
-                                    <span>View</span>
+                                    <span>View PoE</span>
                                   </button>
                                 </div>
                               );

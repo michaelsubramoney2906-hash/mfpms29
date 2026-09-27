@@ -305,8 +305,9 @@ export const modules: Module[] = [
       { id: 'sdbip-23', name: '2nd & 3rd Layer SDBIP', icon: Database },
       { id: 'so', name: 'Strategic Objectives', icon: Target },
       { id: 'opms-submitter', name: 'Submitter', icon: FileText },
-      { id: 'opms-reviewer', name: 'Reviewer', icon: Search },
       { id: 'opms-approver', name: 'Approver', icon: UserCheck },
+      { id: 'opms-reviewer', name: 'Reviewer', icon: Search },
+      { id: 'opms-audit', name: 'Internal Audit', icon: ShieldAlert },
     ]
   },
   {
