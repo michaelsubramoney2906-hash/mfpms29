@@ -243,6 +243,7 @@ interface PerformanceAgreementsProps {
   activeTenantId: string;
   isPlan?: boolean;
   isTeamPlan?: boolean;
+  isTeamPlan2?: boolean;
 }
 
 interface PlanMetadata {
@@ -360,15 +361,17 @@ const safeJson = async (res: Response) => {
   return null;
 };
 
-export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isTeamPlan }: PerformanceAgreementsProps) {
-  const headingTitle = isTeamPlan ? "Team Performance Plan" : isPlan ? "Performance Plan" : "Performance Agreement";
-  const subTitle = isTeamPlan
+export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isTeamPlan, isTeamPlan2 }: PerformanceAgreementsProps) {
+  const headingTitle = isTeamPlan2 ? "Team Performance Plan 2" : isTeamPlan ? "Team Performance Plan" : isPlan ? "Performance Plan" : "Performance Agreement";
+  const subTitle = isTeamPlan2
+    ? "Team 2 strategic municipal performance targets, scorecards, and action plans"
+    : isTeamPlan
     ? "Team strategic municipal performance targets, scorecards, and action plans"
     : isPlan 
       ? "Strategic municipal performance targets and action plans" 
       : "Formal contracts & expectations";
 
-  const apiEndpoint = isTeamPlan ? "team-pplan" : "pplan";
+  const apiEndpoint = isTeamPlan2 ? "team-pplan-2" : isTeamPlan ? "team-pplan" : "pplan";
 
   // State Management
   const [items, setItems] = useState<PlanKPIItem[]>([]);
@@ -612,68 +615,73 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
           }
 
           const isCleared = data.metadata && data.metadata._isCleared === true;
-          const isFredExtracted = data.metadata && data.metadata._isFredExtracted === true;
+          const isFredExtracted = Boolean(
+            data.metadata && (
+              data.metadata._isFredExtracted === true ||
+              data.metadata._extractedFrom ||
+              data.metadata.extractedFrom
+            )
+          );
 
           // Auto-sync captured KPIs into Performance Plan
           if (!isCleared && !isFredExtracted && fetchedKpis.length > 0) {
-            // First, update existing items if they match kpiNo
-            currentItems = currentItems.map(item => {
-              const matchedKpi = fetchedKpis.find(fk => fk.kpiNo === item.kpiNo);
-              if (matchedKpi) {
-                return {
-                  ...item,
-                  kpi: matchedKpi.kpi || item.kpi,
-                  kpa: matchedKpi.kpa || item.kpa, // updates automatically from captured KPI KPA
-                  baseline: matchedKpi.baseline || item.baseline,
-                  baselineYear: matchedKpi.baselineYear || item.baselineYear,
-                  budget: matchedKpi.budget || item.budget,
-                  annualTarget: matchedKpi.annualTarget || item.annualTarget,
-                  q1Target: matchedKpi.q1Target || item.q1Target,
-                  q2Target: matchedKpi.q2Target || item.q2Target,
-                  q3Target: matchedKpi.q3Target || item.q3Target,
-                  q4Target: matchedKpi.q4Target || item.q4Target,
-                  q1Poe: item.q1Poe || matchedKpi.q1Poe || '',
-                  q2Poe: item.q2Poe || matchedKpi.q2Poe || '',
-                  q3Poe: item.q3Poe || matchedKpi.q3Poe || '',
-                  q4Poe: item.q4Poe || matchedKpi.q4Poe || '',
-                  annualRequiredPoe: matchedKpi.annualRequiredPoe || item.annualRequiredPoe || '',
-                  poe: matchedKpi.annualRequiredPoe || item.annualRequiredPoe || item.poe || [item.q1Poe, item.q2Poe, item.q3Poe, item.q4Poe].filter(Boolean).join('\n') || [matchedKpi.q1Poe, matchedKpi.q2Poe, matchedKpi.q3Poe, matchedKpi.q4Poe].filter(Boolean).join('\n') || '',
-                };
-              }
-              return item;
-            });
-            const existingKpiIds = new Set(currentItems.map((i: any) => i.kpiNo));
-            const newItemsToAdd = fetchedKpis
-               .filter(fk => !existingKpiIds.has(fk.kpiNo) && fk.kpiNo)
-               .map((fk, idx) => ({
-                 id: fk.id || `kpi-${fk.kpiNo || idx}`,
-                 strategicGoal: '',
-                 kpiNo: fk.kpiNo,
-                 kpi: fk.kpi || '',
-                 bsd: false, led: false, mfvm: false, ggpp: false, midt: false, sr: false,
-                 kpa: fk.kpa || '', // pre-populate KPA from captured KPI
-                 baseline: fk.baseline || '',
-                 baselineYear: fk.baselineYear || '2025/2026',
-                 budget: fk.budget || '',
-                 annualTarget: fk.annualTarget || '',
-                 q1Target: fk.q1Target || '',
-                 q2Target: fk.q2Target || '',
-                 q3Target: fk.q3Target || '',
-                 q4Target: fk.q4Target || '',
-                 q1Poe: fk.q1Poe || '',
-                 q2Poe: fk.q2Poe || '',
-                 q3Poe: fk.q3Poe || '',
-                 q4Poe: fk.q4Poe || '',
-                 annualRequiredPoe: fk.annualRequiredPoe || '',
-                 poe: fk.annualRequiredPoe || [fk.q1Poe, fk.q2Poe, fk.q3Poe, fk.q4Poe].filter(Boolean).join('\n') || '',
-                 weighting: '',
-                 myScore: '',
-                 evaluation: '',
-                 review: ''
-               }));
-
-            if (newItemsToAdd.length > 0) {
-               currentItems = [...currentItems, ...newItemsToAdd];
+            if (currentItems.length > 0) {
+              // First, update existing items if they match kpiNo - strictly preserve the exact count
+              currentItems = currentItems.map(item => {
+                const matchedKpi = fetchedKpis.find(fk => (fk.kpiNo || '').toLowerCase() === (item.kpiNo || '').toLowerCase());
+                if (matchedKpi) {
+                  return {
+                    ...item,
+                    kpi: matchedKpi.kpi || item.kpi,
+                    kpa: matchedKpi.kpa || item.kpa, // updates automatically from captured KPI KPA
+                    baseline: matchedKpi.baseline || item.baseline,
+                    baselineYear: matchedKpi.baselineYear || item.baselineYear,
+                    budget: matchedKpi.budget || item.budget,
+                    annualTarget: matchedKpi.annualTarget || item.annualTarget,
+                    q1Target: matchedKpi.q1Target || item.q1Target,
+                    q2Target: matchedKpi.q2Target || item.q2Target,
+                    q3Target: matchedKpi.q3Target || item.q3Target,
+                    q4Target: matchedKpi.q4Target || item.q4Target,
+                    q1Poe: item.q1Poe || matchedKpi.q1Poe || '',
+                    q2Poe: item.q2Poe || matchedKpi.q2Poe || '',
+                    q3Poe: item.q3Poe || matchedKpi.q3Poe || '',
+                    q4Poe: item.q4Poe || matchedKpi.q4Poe || '',
+                    annualRequiredPoe: matchedKpi.annualRequiredPoe || item.annualRequiredPoe || '',
+                    poe: matchedKpi.annualRequiredPoe || item.annualRequiredPoe || item.poe || [item.q1Poe, item.q2Poe, item.q3Poe, item.q4Poe].filter(Boolean).join('\n') || [matchedKpi.q1Poe, matchedKpi.q2Poe, matchedKpi.q3Poe, matchedKpi.q4Poe].filter(Boolean).join('\n') || '',
+                  };
+                }
+                return item;
+              });
+            } else {
+              // Only populate from fetchedKpis if the grid was completely empty
+              currentItems = fetchedKpis
+                 .filter(fk => fk.kpiNo)
+                 .map((fk, idx) => ({
+                   id: fk.id || `kpi-${fk.kpiNo || idx}`,
+                   strategicGoal: '',
+                   kpiNo: fk.kpiNo,
+                   kpi: fk.kpi || '',
+                   bsd: false, led: false, mfvm: false, ggpp: false, midt: false, sr: false,
+                   kpa: fk.kpa || '', // pre-populate KPA from captured KPI
+                   baseline: fk.baseline || '',
+                   baselineYear: fk.baselineYear || '2025/2026',
+                   budget: fk.budget || '',
+                   annualTarget: fk.annualTarget || '',
+                   q1Target: fk.q1Target || '',
+                   q2Target: fk.q2Target || '',
+                   q3Target: fk.q3Target || '',
+                   q4Target: fk.q4Target || '',
+                   q1Poe: fk.q1Poe || '',
+                   q2Poe: fk.q2Poe || '',
+                   q3Poe: fk.q3Poe || '',
+                   q4Poe: fk.q4Poe || '',
+                   annualRequiredPoe: fk.annualRequiredPoe || '',
+                   poe: fk.annualRequiredPoe || [fk.q1Poe, fk.q2Poe, fk.q3Poe, fk.q4Poe].filter(Boolean).join('\n') || '',
+                   weighting: '',
+                   myScore: '',
+                   evaluation: '',
+                   review: ''
+                 }));
             }
           }
 
@@ -810,7 +818,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
             }
           } else {
             const isMahlanguTarget = targetEmail.toLowerCase().includes('mahlanguml') || targetEmail.toLowerCase().includes('mahlangulm') || targetEmail.toLowerCase().includes('mandlaml');
-            if (isMahlanguTarget && !isTeamPlan) {
+            if (isMahlanguTarget && !isTeamPlan && !isTeamPlan2) {
               const full97 = generateAll97KPIs(allCustomKpas);
               setItems(full97);
               const metaWithExtracted = { ...(data.metadata || metadata), _isFredExtracted: true, _isCleared: false };
@@ -833,7 +841,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
     };
 
     fetchPlanAndKpaData();
-  }, [activeTenantId, currentUser?.email, selectedUserEmail, isTeamPlan]);
+  }, [activeTenantId, currentUser?.email, selectedUserEmail, isTeamPlan, isTeamPlan2]);
 
   // Save to database
   const handleSaveToDatabase = async (customMetadata = metadata, customItems = items, showFeedback = false) => {

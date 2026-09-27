@@ -26,7 +26,7 @@ const SUBMODULE_TO_PARENT_MAP: Record<string, string> = {
   'ss': 'opms-political', 'wc': 'opms-political',
 
   // IPMS
-  'jsc': 'ipms', 'team-jsc': 'ipms', 'pdp': 'ipms', 'team-pdp': 'ipms', 'pplan': 'ipms', 'team-pplan': 'ipms', 'ipms-kpi': 'ipms',
+  'jsc': 'ipms', 'team-jsc': 'ipms', 'team-jsc-2': 'ipms', 'pdp': 'ipms', 'team-pdp': 'ipms', 'team-pdp-2': 'ipms', 'pplan': 'ipms', 'team-pplan': 'ipms', 'team-pplan-2': 'ipms', 'ipms-kpi': 'ipms',
   'pa': 'ipms', 'pa-cds-team': 'ipms', 'pa-technical-services': 'ipms', 'pa-corporate-services': 'ipms', 'pa-pms-team': 'ipms', 'ipms-kpa': 'ipms', 'sdbip-23': 'ipms', 'ipms-evaluation': 'ipms', 'team-evaluation': 'ipms',
   'ipms-manager-review': 'ipms', 'ipms-internal-audit': 'ipms', 'ipms-dpmc': 'ipms',
   'ipms-reports': 'ipms', 'pa-templates': 'ipms', 'organogram': 'ipms', 'ipms-organogram': 'ipms',

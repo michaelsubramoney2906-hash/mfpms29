@@ -49,6 +49,7 @@ interface JSCModuleProps {
   activeTenantId: string;
   defaultEmployeeEmail?: string;
   isTeamJSC?: boolean;
+  isTeamJSC2?: boolean;
 }
 
 export const ensureQuarterlyData = (row: CompetencyRow): CompetencyRow => {
@@ -124,8 +125,9 @@ export const DEFAULT_COMPETENCY_ROWS: CompetencyRow[] = [
 // ==========================================
 // 1. JSC Self / Team Evaluation Section
 // ==========================================
-export function JSCSelfEvaluationSection({ currentUser, activeTenantId, isTeamJSC }: JSCModuleProps) {
-  const apiEndpoint = isTeamJSC ? 'team-job-competencies' : 'job-competencies';
+export function JSCSelfEvaluationSection({ currentUser, activeTenantId, isTeamJSC, isTeamJSC2 }: JSCModuleProps) {
+  const apiEndpoint = isTeamJSC2 ? 'team-job-competencies-2' : isTeamJSC ? 'team-job-competencies' : 'job-competencies';
+  const isTeam = isTeamJSC || isTeamJSC2;
   const [rows, setRows] = useState<CompetencyRow[]>(DEFAULT_COMPETENCY_ROWS);
   const [selectedQuarter, setSelectedQuarter] = useState<'q1' | 'q2' | 'q3' | 'q4'>('q1');
   const [loading, setLoading] = useState<boolean>(true);
@@ -475,8 +477,8 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId, isTeamJS
 // ==========================================
 // 2. JSC Manager Approval Section
 // ==========================================
-export function JSCManagerApprovalSection({ currentUser, activeTenantId, defaultEmployeeEmail, isTeamJSC }: JSCModuleProps) {
-  const apiEndpoint = isTeamJSC ? 'team-job-competencies' : 'job-competencies';
+export function JSCManagerApprovalSection({ currentUser, activeTenantId, defaultEmployeeEmail, isTeamJSC, isTeamJSC2 }: JSCModuleProps) {
+  const apiEndpoint = isTeamJSC2 ? 'team-job-competencies-2' : isTeamJSC ? 'team-job-competencies' : 'job-competencies';
   const [rows, setRows] = useState<CompetencyRow[]>(DEFAULT_COMPETENCY_ROWS);
   const [selectedQuarter, setSelectedQuarter] = useState<'q1' | 'q2' | 'q3' | 'q4'>('q1');
   const [selectedUserEmail, setSelectedUserEmail] = useState<string>(defaultEmployeeEmail || '');
@@ -1763,8 +1765,8 @@ export function JSCAllInOneCompetenciesTable({ currentUser, activeTenantId }: JS
 // ==========================================
 // 6. JSC Analytical Reporting Section
 // ==========================================
-export function JSCAnalyticalReportingSection({ currentUser, activeTenantId, isTeamJSC }: JSCModuleProps) {
-  const apiEndpoint = isTeamJSC ? 'team-job-competencies' : 'job-competencies';
+export function JSCAnalyticalReportingSection({ currentUser, activeTenantId, isTeamJSC, isTeamJSC2 }: JSCModuleProps) {
+  const apiEndpoint = isTeamJSC2 ? 'team-job-competencies-2' : isTeamJSC ? 'team-job-competencies' : 'job-competencies';
   const [rows, setRows] = useState<CompetencyRow[]>(DEFAULT_COMPETENCY_ROWS);
   const [loading, setLoading] = useState<boolean>(true);
   const userEmail = (currentUser?.email || '').toLowerCase().trim();

@@ -243,29 +243,14 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
           const tenantToUse = (activeTenantId && activeTenantId !== 'undefined' && activeTenantId !== 'null')
             ? activeTenantId
             : resolvedUserTenant;
-          const res = await fetchWithRetry(`/api/tenant/${tenantToUse}/pplan?userId=${email}&t=${Date.now()}`);
+          const res = await fetchWithRetry(`/api/tenant/${tenantToUse}/reports-unlock-status?userId=${encodeURIComponent(email)}&t=${Date.now()}`);
           if (res.ok) {
-            const contentType = res.headers.get("content-type");
-            if (contentType && contentType.includes("application/json")) {
-              const data = await res.json();
-              const revStatus = data?.metadata?.reviewStatus;
-              const auditStatus = data?.metadata?.internalAuditStatus;
-              
-              // Managers review sets reviewStatus to 'Reviewed' or 'Approved'
-              const managerDone = revStatus === 'Reviewed' || revStatus === 'Approved';
-              // Internal audit sets internalAuditStatus to 'Audited' or 'Pushed to DPMC' or 'Pushed to Moderation'
-              const auditDone = auditStatus === 'Audited' || auditStatus === 'Pushed to DPMC' || auditStatus === 'Pushed to Moderation';
-
-              setReportsUnlocked(!!(managerDone && auditDone));
-            } else {
-              console.warn("Expected JSON response for checkReportsUnlock standard user but received:", contentType);
-              setReportsUnlocked(false);
-            }
+            const data = await res.json();
+            setReportsUnlocked(!!data?.unlocked);
           } else {
             setReportsUnlocked(false);
           }
         } catch (e) {
-          console.error("Error in checkReportsUnlock standard user:", e);
           setReportsUnlocked(false);
         }
       } else if (isManagerUser) {
@@ -273,26 +258,14 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
           const tenantToUse = (activeTenantId && activeTenantId !== 'undefined' && activeTenantId !== 'null')
             ? activeTenantId
             : resolvedUserTenant;
-          const res = await fetchWithRetry(`/api/tenant/${tenantToUse}/team-pplans?t=${Date.now()}`);
+          const res = await fetchWithRetry(`/api/tenant/${tenantToUse}/reports-unlock-status?isManager=true&t=${Date.now()}`);
           if (res.ok) {
-            const contentType = res.headers.get("content-type");
-            if (contentType && contentType.includes("application/json")) {
-              const data = await res.json();
-              const arr = Array.isArray(data) ? data : (data?.teamPlans || []);
-              const anyAudited = arr.some((tp: any) => {
-                const auditStatus = tp?.plan?.metadata?.internalAuditStatus;
-                return auditStatus === 'Audited' || auditStatus === 'Pushed to DPMC' || auditStatus === 'Pushed to Moderation';
-              });
-              setReportsUnlocked(anyAudited);
-            } else {
-              console.warn("Expected JSON response for checkReportsUnlock manager user but received:", contentType);
-              setReportsUnlocked(false);
-            }
+            const data = await res.json();
+            setReportsUnlocked(!!data?.unlocked);
           } else {
             setReportsUnlocked(false);
           }
         } catch (e) {
-          console.error("Error in checkReportsUnlock manager user:", e);
           setReportsUnlocked(false);
         }
       }
@@ -418,6 +391,11 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
     const isStdUser = email === 'user@mzansiflow.co.za' || (!isPMSTeam && !isAuditorUser && !isManagerUser && !isDPMCUser && profileToUse?.role !== 'admin');
 
     return mod.subModules.filter(sub => {
+      // Specific 3 modules requested ONLY for dimpems@nkangaladm.gov.za profile
+      if (sub.id === 'team-pplan-2' || sub.id === 'team-pdp-2' || sub.id === 'team-jsc-2') {
+        return email === 'dimpems@nkangaladm.gov.za' || email.includes('dimpems');
+      }
+
       // Demo module is always directly visible to all users
       if (sub.id === 'ipms-demo') {
         return true;
@@ -498,7 +476,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                             email.includes('khuboni') ||
                             email.includes('mike@massivedynamixdistributors.com');
 
-      const isDirectAccess = sub.id === 'ipms-demo' || sub.id === 'ipms-evaluation' || sub.id === 'pplan' || sub.id === 'team-pplan' || sub.id === 'pdp' || sub.id === 'pa' || sub.id === 'pa-cds-team' || sub.id === 'pa-technical-services' || sub.id === 'pa-corporate-services' || sub.id === 'pa-pms-team' || sub.id === 'pa-templates' || sub.id === 'jsc' || sub.id === 'ccomp' || sub.id === 'ipms-kpi' || sub.id === 'ipms-kpa' || sub.id === 'organogram' || sub.id === 'ipms-inbox' || sub.id === 'review-timetable' || sub.id === 'performance-assessment';
+      const isDirectAccess = sub.id === 'ipms-demo' || sub.id === 'ipms-evaluation' || sub.id === 'pplan' || sub.id === 'team-pplan' || sub.id === 'team-pplan-2' || sub.id === 'pdp' || sub.id === 'team-pdp' || sub.id === 'team-pdp-2' || sub.id === 'pa' || sub.id === 'pa-cds-team' || sub.id === 'pa-technical-services' || sub.id === 'pa-corporate-services' || sub.id === 'pa-pms-team' || sub.id === 'pa-templates' || sub.id === 'jsc' || sub.id === 'team-jsc' || sub.id === 'team-jsc-2' || sub.id === 'ccomp' || sub.id === 'ipms-kpi' || sub.id === 'ipms-kpa' || sub.id === 'organogram' || sub.id === 'ipms-inbox' || sub.id === 'review-timetable' || sub.id === 'performance-assessment';
       const isBypassAll = isGlobalOrSystemAdmin || isPMSTeam || isManagerUser || isDirectAccess;
 
       if (!isBypassAll) {
@@ -877,25 +855,36 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
              <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
                 <StrategicObjectives currentUser={fullUserProfile} activeTenantId={activeTenantId} />
              </div>
-          ) : activeSubModule.id === 'jsc' || activeSubModule.id === 'team-jsc' ? (
+          ) : activeSubModule.id === 'jsc' || activeSubModule.id === 'team-jsc' || activeSubModule.id === 'team-jsc-2' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
-                 <JobSpecificCompetencies currentUser={fullUserProfile} activeTenantId={activeTenantId} isTeamJSC={activeSubModule.id === 'team-jsc'} />
+                 <JobSpecificCompetencies 
+                   currentUser={fullUserProfile} 
+                   activeTenantId={activeTenantId} 
+                   isTeamJSC={activeSubModule.id === 'team-jsc'} 
+                   isTeamJSC2={activeSubModule.id === 'team-jsc-2'} 
+                 />
               </div>
           ) : activeSubModule.id === 'ccomp' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
                  <CoreCompetencies currentUser={fullUserProfile} activeTenantId={activeTenantId} />
               </div>
-          ) : activeSubModule.id === 'pdp' || activeSubModule.id === 'team-pdp' ? (
+          ) : activeSubModule.id === 'pdp' || activeSubModule.id === 'team-pdp' || activeSubModule.id === 'team-pdp-2' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
-                 <PersonalDevelopmentPlan currentUser={fullUserProfile} activeTenantId={activeTenantId} isTeamPdp={activeSubModule.id === 'team-pdp'} />
+                 <PersonalDevelopmentPlan 
+                   currentUser={fullUserProfile} 
+                   activeTenantId={activeTenantId} 
+                   isTeamPdp={activeSubModule.id === 'team-pdp'} 
+                   isTeamPdp2={activeSubModule.id === 'team-pdp-2'} 
+                 />
               </div>
-          ) : activeSubModule.id === 'pplan' || activeSubModule.id === 'team-pplan' || activeSubModule.id === 'pa' ? (
+          ) : activeSubModule.id === 'pplan' || activeSubModule.id === 'team-pplan' || activeSubModule.id === 'team-pplan-2' || activeSubModule.id === 'pa' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
                  <PerformanceAgreements 
                    currentUser={fullUserProfile} 
                    activeTenantId={activeTenantId} 
-                   isPlan={activeSubModule.id === 'pplan' || activeSubModule.id === 'team-pplan'} 
+                   isPlan={activeSubModule.id === 'pplan' || activeSubModule.id === 'team-pplan' || activeSubModule.id === 'team-pplan-2'} 
                    isTeamPlan={activeSubModule.id === 'team-pplan'}
+                   isTeamPlan2={activeSubModule.id === 'team-pplan-2'}
                  />
               </div>
           ) : activeSubModule.id === 'pa-cds-team' ? (

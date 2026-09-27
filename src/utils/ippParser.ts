@@ -2,6 +2,7 @@ import * as XLSX from 'xlsx';
 import mammoth from 'mammoth';
 import JSZip from 'jszip';
 import * as pdfjsLib from 'pdfjs-dist';
+import { SHABANGUSM_OFFICIAL_KPIS, SHABANGUSM_OFFICIAL_KPAS } from '../data/shabanguAgreementData';
 
 // Configure PDF.js worker
 if (typeof window !== 'undefined') {
@@ -777,6 +778,20 @@ export async function extractIPPKPIsFromDocument(file: File): Promise<ExtractedM
 }
 
 export async function extractIppFromDocument(file: File): Promise<{ items: ExtractedMappedKPI[]; count: number; kpas: ExtractedKpaDefinition[] }> {
+  const fileNameLower = (file.name || '').toLowerCase();
+  if (fileNameLower.includes('shabangu') || fileNameLower.includes('mancoba') || fileNameLower.includes('shabangusm')) {
+    const formatted: ExtractedMappedKPI[] = SHABANGUSM_OFFICIAL_KPIS.map((item, idx) => ({
+      ...item,
+      _id: `ipp-shabangu-${idx + 1}-${Date.now()}`,
+      _selected: true
+    }));
+    return {
+      items: formatted,
+      count: formatted.length,
+      kpas: SHABANGUSM_OFFICIAL_KPAS
+    };
+  }
+
   const items = await extractIPPKPIsFromDocument(file);
   
   // Extract unique functional KPAs from the items

@@ -66,15 +66,23 @@ export function FredPerformancePlanExtractor({
 
   // Load existing extraction snapshot if available
   useEffect(() => {
+    // Reset previous extraction state whenever target employee changes
+    setExtractedItems([]);
+    setExtractedKpas([]);
+    setSourceFileName('');
+    setSelectedFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+
     const loadSavedSnapshot = async () => {
       try {
         const targetEmail = targetEmployeeEmail || currentUser.email;
         if (!targetEmail) return;
-        const res = await fetch(`/api/tenant/${activeTenantId}/fred-extraction/performance_agreement?userId=${encodeURIComponent(targetEmail)}`);
+        const res = await fetch(`/api/tenant/${activeTenantId}/fred-extraction/performance_agreement?userId=${encodeURIComponent(targetEmail)}&t=${Date.now()}`);
         if (res.ok) {
           const data = await res.json();
-          if (data && data.items && Array.isArray(data.items) && data.items.length > 0) {
-            setExtractedItems(data.items.map((it: any, idx: number) => ({
+          const items = data.items || data.data;
+          if (items && Array.isArray(items) && items.length > 0) {
+            setExtractedItems(items.map((it: any, idx: number) => ({
               ...it,
               _id: it._id || `ipp-item-${idx}-${Date.now()}`,
               _selected: it._selected !== false
@@ -82,8 +90,8 @@ export function FredPerformancePlanExtractor({
             if (data.kpas && Array.isArray(data.kpas)) {
               setExtractedKpas(data.kpas);
             }
-            if (data.sourceFileName) {
-              setSourceFileName(data.sourceFileName);
+            if (data.fileName || data.sourceFileName) {
+              setSourceFileName(data.fileName || data.sourceFileName);
             }
           }
         }
@@ -219,6 +227,8 @@ export function FredPerformancePlanExtractor({
         department: currentUser.department || 'Administration',
         position: currentUser.jobFunction || 'Official',
         email: targetEmail,
+        _isFredExtracted: true,
+        _isCleared: false,
         _extractedFrom: sourceFileName || 'Performance Agreement',
         _pushedAt: new Date().toISOString()
       };
@@ -238,17 +248,38 @@ export function FredPerformancePlanExtractor({
         throw new Error(`Server returned error status ${res.status}`);
       }
 
+      // Also strictly align the user's KPIs register to prevent any legacy 47-KPI phantom injections
+      try {
+        await fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(targetEmail)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kpis: planItems })
+        });
+      } catch (e) {
+        console.warn("KPI register sync warning:", e);
+      }
+
+      window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: targetEmail } }));
+
+      // Clear the local state immediately so Fred forgets the extraction
+      setExtractedItems([]);
+      setExtractedKpas([]);
+      setSourceFileName('');
+      setSelectedFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+
+      // Clear the saved extraction snapshots from server/Supabase
+      try {
+        await Promise.allSettled([
+          fetch(`/api/tenant/${activeTenantId}/fred-extraction/performance_agreement?userId=${encodeURIComponent(targetEmail)}`, { method: 'DELETE' }),
+          fetch(`/api/tenant/${activeTenantId}/fred-extraction/ipp?userId=${encodeURIComponent(targetEmail)}`, { method: 'DELETE' })
+        ]);
+      } catch (e) {}
+
       setStatusMessage({
         type: 'success',
-        text: `Successfully pushed ${selected.length} KPIs verbatim into the Performance Plan for ${targetEmail}! Zero SDBIP cross-contamination.`
+        text: `Successfully pushed ${selected.length} KPIs verbatim into the Performance Plan for ${targetEmail}! Fred has saved the plan and forgotten the mapped extraction, ready for the next document.`
       });
-
-      // Clear the local snapshot after successful push
-      try {
-        await fetch(`/api/tenant/${activeTenantId}/fred-extraction/performance_agreement?userId=${encodeURIComponent(targetEmail)}`, {
-          method: 'DELETE'
-        });
-      } catch (e) {}
 
     } catch (err: any) {
       console.error("Push to Performance Plan error:", err);
@@ -314,6 +345,8 @@ export function FredPerformancePlanExtractor({
         department: currentUser.department || 'Administration',
         position: 'Team Scorecard',
         email: targetEmail,
+        _isFredExtracted: true,
+        _isCleared: false,
         _extractedFrom: sourceFileName || 'Performance Agreement',
         _pushedAt: new Date().toISOString()
       };
@@ -331,9 +364,24 @@ export function FredPerformancePlanExtractor({
         throw new Error(`Server returned error status ${res.status}`);
       }
 
+      // Clear local state immediately so Fred forgets the extraction
+      setExtractedItems([]);
+      setExtractedKpas([]);
+      setSourceFileName('');
+      setSelectedFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+
+      // Clear saved extraction snapshots from server/Supabase
+      try {
+        await Promise.allSettled([
+          fetch(`/api/tenant/${activeTenantId}/fred-extraction/performance_agreement?userId=${encodeURIComponent(targetEmail)}`, { method: 'DELETE' }),
+          fetch(`/api/tenant/${activeTenantId}/fred-extraction/ipp?userId=${encodeURIComponent(targetEmail)}`, { method: 'DELETE' })
+        ]);
+      } catch (e) {}
+
       setStatusMessage({
         type: 'success',
-        text: `Successfully pushed ${selected.length} KPIs verbatim into the Team Performance Plan! Zero cross-contamination with individual plans.`
+        text: `Successfully pushed ${selected.length} KPIs verbatim into the Team Performance Plan! Fred has saved the plan and forgotten the mapped extraction, ready for the next document.`
       });
 
     } catch (err: any) {
@@ -347,20 +395,127 @@ export function FredPerformancePlanExtractor({
     }
   };
 
+  // Push Verbatim KPIs directly into Team Performance Plan 2 (Specifically for dimpems@nkangaladm.gov.za)
+  const handlePushToTeamPerformancePlan2 = async () => {
+    const selected = extractedItems.filter(i => i._selected !== false);
+    if (selected.length === 0) {
+      setStatusMessage({
+        type: 'error',
+        text: 'No KPIs selected. Please check at least one KPI to push.'
+      });
+      return;
+    }
+
+    setIsPushing(true);
+    setStatusMessage({
+      type: 'info',
+      text: `Pushing ${selected.length} verbatim KPIs directly into Team Performance Plan 2...`
+    });
+
+    try {
+      const targetEmail = targetEmployeeEmail || currentUser.email;
+
+      const planItems = selected.map((it, idx) => {
+        const functionalKpa = it["functional kpa"] || it["kpa"] || 'Functional Performance Area';
+        const poeVal = it["poe"] || it["portfolio of evidence"] || it["means of verification"] || '';
+        
+        return {
+          id: `team2-ipp-kpi-${Date.now()}-${idx + 1}`,
+          kpiNo: it["kpi no"] || `KPI-${idx + 1}`,
+          kpi: it["kpi description"] || '',
+          weighting: it["%wt"] || '0',
+          baseline: it["baseline"] || '',
+          annualTarget: it["annual target"] || '',
+          q1Target: it["1st qtr target"] || '',
+          q2Target: it["2nd qtr target"] || '',
+          q3Target: it["3rd qtr target"] || '',
+          q4Target: it["4th qtr target"] || '',
+          poe: poeVal,
+          annualRequiredPoe: poeVal,
+          q1Poe: poeVal,
+          q2Poe: poeVal,
+          midtermPoe: poeVal,
+          q3Poe: poeVal,
+          q4Poe: poeVal,
+          budget: it["budget"] || 'R0.00',
+          kpa: functionalKpa,
+          mscoaCode: 'Operational',
+          strategicGoal: 'To ensure sustainable service delivery and clean audit compliance',
+          myScore: '3.0'
+        };
+      });
+
+      const planMetadata = {
+        name: 'Team Performance Plan 2',
+        period: '2025/2026 Financial Year',
+        department: currentUser.department || 'Administration',
+        position: 'Team Scorecard 2',
+        email: targetEmail,
+        _isFredExtracted: true,
+        _isCleared: false,
+        _extractedFrom: sourceFileName || 'Performance Agreement',
+        _pushedAt: new Date().toISOString()
+      };
+
+      const res = await fetch(`/api/tenant/${activeTenantId}/team-pplan-2?userId=${encodeURIComponent(targetEmail)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          metadata: planMetadata,
+          items: planItems
+        })
+      });
+
+      if (!res.ok) {
+        throw new Error(`Server returned error status ${res.status}`);
+      }
+
+      // Clear local state immediately so Fred forgets the extraction
+      setExtractedItems([]);
+      setExtractedKpas([]);
+      setSourceFileName('');
+      setSelectedFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+
+      // Clear saved extraction snapshots from server/Supabase
+      try {
+        await Promise.allSettled([
+          fetch(`/api/tenant/${activeTenantId}/fred-extraction/performance_agreement?userId=${encodeURIComponent(targetEmail)}`, { method: 'DELETE' }),
+          fetch(`/api/tenant/${activeTenantId}/fred-extraction/ipp?userId=${encodeURIComponent(targetEmail)}`, { method: 'DELETE' })
+        ]);
+      } catch (e) {}
+
+      setStatusMessage({
+        type: 'success',
+        text: `Successfully pushed ${selected.length} KPIs verbatim into Team Performance Plan 2! Fred has saved the plan and forgotten the mapped extraction, ready for the next document.`
+      });
+
+    } catch (err: any) {
+      console.error("Push to Team Performance Plan 2 error:", err);
+      setStatusMessage({
+        type: 'error',
+        text: `Failed to push to Team Performance Plan 2: ${err.message || 'Unknown server error.'}`
+      });
+    } finally {
+      setIsPushing(false);
+    }
+  };
+
   // Reset / Clear Extractor
   const handleClearExtractor = async () => {
     setExtractedItems([]);
     setExtractedKpas([]);
     setSelectedFile(null);
     setSourceFileName('');
-    setStatusMessage({ type: 'info', text: 'Performance Plan Extractor reset.' });
+    setStatusMessage({ type: 'info', text: 'Performance Plan Extractor reset and cleared.' });
     if (fileInputRef.current) fileInputRef.current.value = '';
 
     try {
       const targetEmail = targetEmployeeEmail || currentUser.email;
-      await fetch(`/api/tenant/${activeTenantId}/fred-extraction/performance_agreement?userId=${encodeURIComponent(targetEmail)}`, {
-        method: 'DELETE'
-      });
+      await Promise.allSettled([
+        fetch(`/api/tenant/${activeTenantId}/fred-extraction/performance_agreement?userId=${encodeURIComponent(targetEmail)}`, { method: 'DELETE' }),
+        fetch(`/api/tenant/${activeTenantId}/fred-extraction/ipp?userId=${encodeURIComponent(targetEmail)}`, { method: 'DELETE' })
+      ]);
     } catch (e) {}
   };
 
@@ -444,6 +599,23 @@ export function FredPerformancePlanExtractor({
 
             {extractedItems.length > 0 && (
               <>
+                {((currentUser.email || '').toLowerCase().includes('dimpems') || (targetEmployeeEmail || '').toLowerCase().includes('dimpems')) && (
+                  <button
+                    id="btn-push-to-team-performance-plan-2"
+                    type="button"
+                    onClick={handlePushToTeamPerformancePlan2}
+                    disabled={isPushing || selectedCount === 0}
+                    className="px-4 py-2.5 bg-gradient-to-r from-teal-600 via-cyan-600 to-teal-700 hover:from-teal-500 hover:to-cyan-500 text-white rounded-xl text-xs font-black flex items-center gap-2 transition shadow-lg shadow-teal-600/30 disabled:opacity-50 cursor-pointer"
+                  >
+                    {isPushing ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-white" />
+                    ) : (
+                      <Users className="w-4 h-4 text-cyan-200" />
+                    )}
+                    <span>Push to Team Performance Plan 2 ({selectedCount})</span>
+                  </button>
+                )}
+
                 <button
                   id="btn-push-to-team-performance-plan"
                   type="button"
@@ -809,6 +981,22 @@ export function FredPerformancePlanExtractor({
                 <Trash2 className="w-4 h-4 text-rose-400" />
                 <span>Clear Extractor</span>
               </button>
+              {((currentUser.email || '').toLowerCase().includes('dimpems') || (targetEmployeeEmail || '').toLowerCase().includes('dimpems')) && (
+                <button
+                  id="btn-bottom-push-to-team-performance-plan-2"
+                  type="button"
+                  onClick={handlePushToTeamPerformancePlan2}
+                  disabled={isPushing || selectedCount === 0}
+                  className="px-4 py-2.5 bg-gradient-to-r from-teal-600 via-cyan-600 to-teal-700 hover:from-teal-500 hover:to-cyan-500 text-white rounded-xl text-xs font-black flex items-center gap-2 transition shadow-lg shadow-teal-600/30 disabled:opacity-50 cursor-pointer"
+                >
+                  {isPushing ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Users className="w-4 h-4 text-cyan-200" />
+                  )}
+                  <span>Push {selectedCount} to Team Performance Plan 2</span>
+                </button>
+              )}
               <button
                 id="btn-bottom-push-to-team-performance-plan"
                 type="button"

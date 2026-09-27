@@ -19,6 +19,7 @@ interface JobSpecificCompetenciesProps {
   };
   activeTenantId: string;
   isTeamJSC?: boolean;
+  isTeamJSC2?: boolean;
 }
 
 // Master Schema Interfaces
@@ -97,8 +98,8 @@ function getIsDualLayerTeamLeader(email) {
   return DUAL_LAYER_USERS.includes(email.toLowerCase().trim());
 }
 
-export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC }: JobSpecificCompetenciesProps) {
-  const apiEndpoint = isTeamJSC ? 'team-job-competencies' : 'job-competencies';
+export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC, isTeamJSC2 }: JobSpecificCompetenciesProps) {
+  const apiEndpoint = isTeamJSC2 ? 'team-job-competencies-2' : isTeamJSC ? 'team-job-competencies' : 'job-competencies';
   // Navigation Tabs state
   const [activeTab, setActiveTab] = useState<'legislation' | 'templates' | 'self_evaluation' | 'manager_approval' | 'reporting'>('templates');
 
@@ -1341,7 +1342,7 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
           </div>
           <div>
             <span className="text-[10px] bg-slate-800 text-orange-400 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider">PMS National Framework Annexure B</span>
-            <h1 className="text-sm font-black text-white hover:text-orange-300 transition duration-150 tracking-tight uppercase">{isTeamJSC ? 'Team Job Specific Competencies (Team JSC) Planner' : 'Job Specific Competencies (JSC) Planner'}</h1>
+            <h1 className="text-sm font-black text-white hover:text-orange-300 transition duration-150 tracking-tight uppercase">{isTeamJSC2 ? 'Team Job Specific Competencies 2 (Team JSC 2) Planner' : isTeamJSC ? 'Team Job Specific Competencies (Team JSC) Planner' : 'Job Specific Competencies (JSC) Planner'}</h1>
           </div>
         </div>
 
@@ -1427,7 +1428,7 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
               className={`px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition duration-150 ${activeTab === 'self_evaluation' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
             >
               <FileText className="w-3.5 h-3.5" />
-              <span>{isTeamJSC ? '3. Team Evaluation' : '3. Self Evaluation'}</span>
+              <span>{isTeamJSC2 ? '3. Team Evaluation 2' : isTeamJSC ? '3. Team Evaluation' : '3. Self Evaluation'}</span>
             </button>
             <button 
               onClick={() => setActiveTab('manager_approval')}
@@ -2208,17 +2209,17 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
 
         {/* TAB 3: Employee Self / Team Evaluation */}
         {activeTab === 'self_evaluation' && (
-          <JSCSelfEvaluationSection currentUser={currentUser} activeTenantId={activeTenantId} isTeamJSC={isTeamJSC} />
+          <JSCSelfEvaluationSection currentUser={currentUser} activeTenantId={activeTenantId} isTeamJSC={isTeamJSC} isTeamJSC2={isTeamJSC2} />
         )}
 
         {/* TAB 4: Supervisor & Line Manager Approval */}
         {activeTab === 'manager_approval' && (
-          <JSCManagerApprovalSection currentUser={currentUser} activeTenantId={activeTenantId} defaultEmployeeEmail={selectedUserEmail} isTeamJSC={isTeamJSC} />
+          <JSCManagerApprovalSection currentUser={currentUser} activeTenantId={activeTenantId} defaultEmployeeEmail={selectedUserEmail} isTeamJSC={isTeamJSC} isTeamJSC2={isTeamJSC2} />
         )}
 
         {/* TAB 5: Analytical Reporting Statistics and Visualizations */}
         {activeTab === 'reporting' && (
-          <JSCAnalyticalReportingSection currentUser={currentUser} activeTenantId={activeTenantId} isTeamJSC={isTeamJSC} />
+          <JSCAnalyticalReportingSection currentUser={currentUser} activeTenantId={activeTenantId} isTeamJSC={isTeamJSC} isTeamJSC2={isTeamJSC2} />
         )}
       </div>
 

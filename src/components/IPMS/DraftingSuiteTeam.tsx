@@ -445,12 +445,15 @@ export function DraftingSuiteTeam({
   const [pulledFilteredPplanItems, setPulledFilteredPplanItems] = useState<any[] | null>(null);
   const [pullingFilteredPplan, setPullingFilteredPplan] = useState(false);
   const [pullingFilteredTeamPA, setPullingFilteredTeamPA] = useState(false);
+  const [pullingFilteredTeamPA2, setPullingFilteredTeamPA2] = useState(false);
   const [pulledPdpItems, setPulledPdpItems] = useState<any[] | null>(null);
   const [pullingPdp, setPullingPdp] = useState(false);
   const [pullingTeamPdp, setPullingTeamPdp] = useState(false);
+  const [pullingTeamPdp2, setPullingTeamPdp2] = useState(false);
   const [pulledJscRows, setPulledJscRows] = useState<any[] | null>(null);
   const [pullingJsc, setPullingJsc] = useState(false);
   const [pullingTeamJsc, setPullingTeamJsc] = useState(false);
+  const [pullingTeamJsc2, setPullingTeamJsc2] = useState(false);
   const [khuboniJscNotes, setKhuboniJscNotes] = useState<string>('Notes / Developmental Framework Commentary: Employees shall be assessed against the adopted Job Specific Competencies quarterly.');
   const [jscBelowText, setJscBelowText] = useState<string>('The Job Specific Competencies detailed above represent the core operational standards and behavioral requirements for effective service delivery under this agreement.');
 
@@ -926,6 +929,126 @@ export function DraftingSuiteTeam({
       triggerNotification("Adopted Team JSC table matrix!", "success");
     } finally {
       setPullingTeamJsc(false);
+    }
+  };
+
+  const handlePullFilteredTeamPA2 = async () => {
+    setPullingFilteredTeamPA2(true);
+    try {
+      const emailToUse = currentUser?.email || 'dimpems@nkangaladm.gov.za';
+      let res = await fetch(`/api/tenant/${activeTenantId}/team-pplan-2?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
+      if (!res.ok) {
+        const scopedEmail = getEmailScope(currentUser?.email || 'dimpems@nkangaladm.gov.za');
+        res = await fetch(`/api/tenant/${activeTenantId}/team-pplan-2?userId=${encodeURIComponent(scopedEmail)}&t=${Date.now()}`);
+      }
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.items) && data.items.length > 0) {
+          setPulledFilteredPplanItems(data.items);
+          setIsPPlanAdopted(true);
+          triggerNotification(`Successfully adopted ${data.items.length} Filtered Team Performance Plan 2 items into Annexure A!`, "success");
+          return;
+        }
+      }
+      // Try tenant all fallback
+      const allRes = await fetch(`/api/tenant/${activeTenantId}/team-pplan-2?userId=all&t=${Date.now()}`);
+      if (allRes.ok) {
+        const allData = await allRes.json();
+        if (allData && Array.isArray(allData.items) && allData.items.length > 0) {
+          setPulledFilteredPplanItems(allData.items);
+          setIsPPlanAdopted(true);
+          triggerNotification(`Successfully adopted ${allData.items.length} Filtered Team Performance Plan 2 items into Annexure A!`, "success");
+          return;
+        }
+      }
+      setPulledFilteredPplanItems(DEFAULT_FILTERED_PPLAN_ITEMS);
+      setIsPPlanAdopted(true);
+      triggerNotification("Adopted Filtered Team Performance Plan 2 (KPA & KPI matrix) into Annexure A!", "success");
+    } catch (err: any) {
+      console.error("Error pulling Filtered Team Performance Plan 2:", err);
+      setPulledFilteredPplanItems(DEFAULT_FILTERED_PPLAN_ITEMS);
+      setIsPPlanAdopted(true);
+      triggerNotification("Adopted Filtered Team Performance Plan 2 (KPA & KPI matrix) into Annexure A!", "success");
+    } finally {
+      setPullingFilteredTeamPA2(false);
+    }
+  };
+
+  const handleAdoptTeamPdp2 = async () => {
+    setPullingTeamPdp2(true);
+    try {
+      const emailToUse = currentUser?.email || 'dimpems@nkangaladm.gov.za';
+      let res = await fetch(`/api/tenant/${activeTenantId}/team-pdp-2?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
+      if (!res.ok) {
+        const scopedEmail = getEmailScope(currentUser?.email || 'dimpems@nkangaladm.gov.za');
+        res = await fetch(`/api/tenant/${activeTenantId}/team-pdp-2?userId=${encodeURIComponent(scopedEmail)}&t=${Date.now()}`);
+      }
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.items) && data.items.length > 0) {
+          setPulledPdpItems(data.items);
+          setIsPdpAdopted(true);
+          triggerNotification(`Successfully adopted ${data.items.length} items from Team PDP 2 table!`, "success");
+          return;
+        }
+      }
+      const genericRes = await fetch(`/api/tenant/${activeTenantId}/team-pdp-2?userId=default&t=${Date.now()}`);
+      const genericData = genericRes.ok ? await genericRes.json() : null;
+      if (genericData && Array.isArray(genericData.items) && genericData.items.length > 0) {
+        setPulledPdpItems(genericData.items);
+        setIsPdpAdopted(true);
+        triggerNotification(`Successfully adopted ${genericData.items.length} items from Team PDP 2 table!`, "success");
+      } else {
+        setPulledPdpItems(KHUBONI_Y_DEFAULT_PDP_TABLE);
+        setIsPdpAdopted(true);
+        triggerNotification("Adopted Team Personal Development Plan 2 (Team PDP 2) table matrix!", "success");
+      }
+    } catch (err: any) {
+      console.error("Error adopting Team PDP 2:", err);
+      setPulledPdpItems(KHUBONI_Y_DEFAULT_PDP_TABLE);
+      setIsPdpAdopted(true);
+      triggerNotification("Adopted Team PDP 2 table matrix!", "success");
+    } finally {
+      setPullingTeamPdp2(false);
+    }
+  };
+
+  const handleAdoptTeamJsc2 = async () => {
+    setPullingTeamJsc2(true);
+    try {
+      const emailToUse = currentUser?.email || 'dimpems@nkangaladm.gov.za';
+      let res = await fetch(`/api/tenant/${activeTenantId}/team-jsc-2?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
+      if (!res.ok) {
+        const scopedEmail = getEmailScope(currentUser?.email || 'dimpems@nkangaladm.gov.za');
+        res = await fetch(`/api/tenant/${activeTenantId}/team-jsc-2?userId=${encodeURIComponent(scopedEmail)}&t=${Date.now()}`);
+      }
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.competencies) && data.competencies.length > 0) {
+          setPulledJscRows(data.competencies);
+          setIsJscAdopted(true);
+          triggerNotification(`Successfully adopted ${data.competencies.length} competencies from Team JSC 2 table!`, "success");
+          return;
+        }
+      }
+      const genericRes = await fetch(`/api/tenant/${activeTenantId}/team-job-competencies-2?userId=default&t=${Date.now()}`);
+      const genericData = genericRes.ok ? await genericRes.json() : null;
+      if (genericData && Array.isArray(genericData.competencies) && genericData.competencies.length > 0) {
+        setPulledJscRows(genericData.competencies);
+        setIsJscAdopted(true);
+        triggerNotification(`Successfully adopted ${genericData.competencies.length} competencies from Team JSC 2 table!`, "success");
+      } else {
+        setPulledJscRows(KHUBONI_Y_DEFAULT_JSC_TABLE);
+        setIsJscAdopted(true);
+        triggerNotification("Adopted Team Job Specific Competencies 2 (Team JSC 2) table matrix!", "success");
+      }
+    } catch (err: any) {
+      console.error("Error adopting Team JSC 2:", err);
+      setPulledJscRows(KHUBONI_Y_DEFAULT_JSC_TABLE);
+      setIsJscAdopted(true);
+      triggerNotification("Adopted Team JSC 2 table matrix!", "success");
+    } finally {
+      setPullingTeamJsc2(false);
     }
   };
 
@@ -1870,6 +1993,98 @@ export function DraftingSuiteTeam({
               )}
             </div>
 
+            {/* Button 1C: Pull Filtered Team Performance Plan 2 */}
+            <div className="flex flex-col gap-1.5 bg-slate-800/80 p-2.5 rounded-lg border border-cyan-700/60">
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] font-bold text-cyan-300 uppercase flex items-center gap-1">
+                  <Users className="w-3.5 h-3.5 text-cyan-400" />
+                  Team Plan 2
+                </span>
+                {pulledFilteredPplanItems && pulledFilteredPplanItems.length > 0 && (
+                  <span className="text-[9px] bg-cyan-500/20 text-cyan-300 px-1.5 py-0.5 rounded font-bold">
+                    {pulledFilteredPplanItems.length} Loaded
+                  </span>
+                )}
+              </div>
+              <button
+                id="btn-pull-filtered-team-performance-plan-2"
+                type="button"
+                onClick={handlePullFilteredTeamPA2}
+                disabled={pullingFilteredTeamPA2}
+                className="w-full px-2.5 py-1.5 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white rounded text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                {pullingFilteredTeamPA2 ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Pulling...</span>
+                  </>
+                ) : (
+                  <>
+                    <Users className="w-3.5 h-3.5" />
+                    <span>Pull Filtered Team Performance Plan 2</span>
+                  </>
+                )}
+              </button>
+              {pulledFilteredPplanItems && pulledFilteredPplanItems.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPulledFilteredPplanItems(null);
+                    setIsPPlanAdopted(false);
+                  }}
+                  className="text-[9.5px] text-slate-400 hover:text-rose-400 text-center underline cursor-pointer"
+                >
+                  Clear Adopted Table
+                </button>
+              )}
+            </div>
+
+            {/* Button: Adopt Team PDP 2 */}
+            <div className="flex flex-col gap-1.5 bg-slate-800/80 p-2.5 rounded-lg border border-orange-500/60">
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] font-bold text-orange-300 uppercase flex items-center gap-1">
+                  <GraduationCap className="w-3.5 h-3.5 text-orange-400" />
+                  Team PDP 2
+                </span>
+                {pulledPdpItems && pulledPdpItems.length > 0 && (
+                  <span className="text-[9px] bg-orange-500/20 text-orange-300 px-1.5 py-0.5 rounded font-bold">
+                    {pulledPdpItems.length} Adopted
+                  </span>
+                )}
+              </div>
+              <button
+                id="btn-adopt-team-pdp-2"
+                type="button"
+                onClick={handleAdoptTeamPdp2}
+                disabled={pullingTeamPdp2}
+                className="w-full px-2.5 py-1.5 bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white rounded text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                {pullingTeamPdp2 ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Adopting...</span>
+                  </>
+                ) : (
+                  <>
+                    <GraduationCap className="w-3.5 h-3.5" />
+                    <span>Adopt Team PDP 2</span>
+                  </>
+                )}
+              </button>
+              {pulledPdpItems && pulledPdpItems.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPulledPdpItems(null);
+                    setIsPdpAdopted(false);
+                  }}
+                  className="text-[9.5px] text-slate-400 hover:text-rose-400 text-center underline cursor-pointer"
+                >
+                  Clear Adopted Table
+                </button>
+              )}
+            </div>
+
             {/* Button: Adopt Team PDP */}
             <div className="flex flex-col gap-1.5 bg-slate-800/80 p-2.5 rounded-lg border border-amber-500/60">
               <div className="flex justify-between items-center">
@@ -1952,6 +2167,52 @@ export function DraftingSuiteTeam({
                   onClick={() => {
                     setPulledPdpItems(null);
                     setIsPdpAdopted(false);
+                  }}
+                  className="text-[9.5px] text-slate-400 hover:text-rose-400 text-center underline cursor-pointer"
+                >
+                  Clear Adopted Table
+                </button>
+              )}
+            </div>
+
+            {/* Button: Adopt Team JSC 2 */}
+            <div className="flex flex-col gap-1.5 bg-slate-800/80 p-2.5 rounded-lg border border-violet-500/60">
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] font-bold text-violet-300 uppercase flex items-center gap-1">
+                  <Award className="w-3.5 h-3.5 text-violet-400" />
+                  Team JSC 2
+                </span>
+                {pulledJscRows && pulledJscRows.length > 0 && (
+                  <span className="text-[9px] bg-violet-500/20 text-violet-300 px-1.5 py-0.5 rounded font-bold">
+                    {pulledJscRows.length} Adopted
+                  </span>
+                )}
+              </div>
+              <button
+                id="btn-adopt-team-jsc-2"
+                type="button"
+                onClick={handleAdoptTeamJsc2}
+                disabled={pullingTeamJsc2}
+                className="w-full px-2.5 py-1.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white rounded text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                {pullingTeamJsc2 ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Adopting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Award className="w-3.5 h-3.5" />
+                    <span>Adopt Team JSC 2</span>
+                  </>
+                )}
+              </button>
+              {pulledJscRows && pulledJscRows.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPulledJscRows(null);
+                    setIsJscAdopted(false);
                   }}
                   className="text-[9.5px] text-slate-400 hover:text-rose-400 text-center underline cursor-pointer"
                 >
@@ -2838,6 +3099,17 @@ export function DraftingSuiteTeam({
             <label className="text-xs font-bold text-slate-700 uppercase block">4.4 Framework Footer Text &amp; PDP</label>
             <div className="flex items-center gap-2">
               <button
+                id="btn-inline-adopt-team-pdp-2"
+                type="button"
+                onClick={handleAdoptTeamPdp2}
+                disabled={pullingTeamPdp2}
+                className="px-2.5 py-1 bg-orange-600 hover:bg-orange-700 text-white rounded text-[10.5px] font-bold transition flex items-center gap-1 cursor-pointer shadow-xs"
+                title="Adopt Team PDP 2 table into Performance Agreement"
+              >
+                {pullingTeamPdp2 ? <Loader2 className="w-3 h-3 animate-spin" /> : <GraduationCap className="w-3 h-3 text-orange-200" />}
+                <span>Adopt Team PDP 2</span>
+              </button>
+              <button
                 type="button"
                 onClick={handleAdoptTeamPdp}
                 disabled={pullingTeamPdp}
@@ -2898,6 +3170,18 @@ export function DraftingSuiteTeam({
               </div>
 
               <div className="flex items-center gap-2">
+                <button
+                  id="btn-inline-adopt-team-jsc-2"
+                  type="button"
+                  onClick={handleAdoptTeamJsc2}
+                  disabled={pullingTeamJsc2}
+                  className="px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  title="Adopt Team JSC 2 table into Performance Agreement"
+                >
+                  {pullingTeamJsc2 ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Award className="w-3.5 h-3.5 text-violet-200" />}
+                  <span>Adopt Team JSC 2</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={handleAdoptTeamJsc}
@@ -3732,6 +4016,17 @@ export function DraftingSuiteTeam({
               </p>
             </div>
             <div className="flex items-center gap-2">
+              <button
+                id="btn-inline-pull-team-pplan-2"
+                type="button"
+                onClick={handlePullFilteredTeamPA2}
+                disabled={pullingFilteredTeamPA2}
+                className="px-2.5 py-1.5 bg-cyan-100 hover:bg-cyan-200 text-cyan-800 border border-cyan-300 rounded text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                title="Adopt Filtered Team Performance Plan 2 into Annexure A"
+              >
+                {pullingFilteredTeamPA2 ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Users className="w-3.5 h-3.5 text-cyan-700" />}
+                <span>{pulledFilteredPplanItems && pulledFilteredPplanItems.length > 0 ? `Re-adopt Team Plan 2 (${pulledFilteredPplanItems.length})` : 'Pull Filtered Team Performance Plan 2'}</span>
+              </button>
               <button
                 type="button"
                 onClick={handlePullFilteredPerformancePlan}

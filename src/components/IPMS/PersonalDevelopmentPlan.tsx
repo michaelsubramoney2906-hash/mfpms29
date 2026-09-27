@@ -14,6 +14,7 @@ interface PersonalDevelopmentPlanProps {
   };
   activeTenantId: string;
   isTeamPdp?: boolean;
+  isTeamPdp2?: boolean;
 }
 
 // PDP Row Schema
@@ -66,10 +67,16 @@ function getIsDualLayerTeamLeader(email) {
   return DUAL_LAYER_USERS.includes(email.toLowerCase().trim());
 }
 
-export function PersonalDevelopmentPlan({ currentUser, activeTenantId, isTeamPdp }: PersonalDevelopmentPlanProps) {
-  const apiEndpoint = isTeamPdp ? 'team-pdp' : 'pdp';
-  const planTitle = isTeamPdp ? 'Team Personal Development Plan (Team PDP)' : 'Personal Development Plan (PDP)';
-  const planSubtitle = isTeamPdp 
+export function PersonalDevelopmentPlan({ currentUser, activeTenantId, isTeamPdp, isTeamPdp2 }: PersonalDevelopmentPlanProps) {
+  const apiEndpoint = isTeamPdp2 ? 'team-pdp-2' : isTeamPdp ? 'team-pdp' : 'pdp';
+  const planTitle = isTeamPdp2 
+    ? 'Team Personal Development Plan 2 (Team PDP 2)'
+    : isTeamPdp 
+    ? 'Team Personal Development Plan (Team PDP)' 
+    : 'Personal Development Plan (PDP)';
+  const planSubtitle = isTeamPdp2
+    ? 'Strategic municipal team 2 capability enhancement matrix and collective skills development'
+    : isTeamPdp 
     ? 'Strategic municipal team capability enhancement matrix and collective skills development'
     : 'Formal individual training interventions, skills gap matrices, and professional advancement schedules';
 
