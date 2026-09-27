@@ -8364,9 +8364,12 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
             continue;
           }
           
-          // A plan is in the quality assurance audit flow if its internalAuditStatus is set and not 'Draft' and not 'Cleared'
+          // A plan is in the quality assurance audit flow if its internalAuditStatus is set or reviewStatus is set
           const auditStatus = content?.metadata?.internalAuditStatus || '';
-          if (auditStatus && auditStatus !== 'Draft' && auditStatus !== 'Cleared') {
+          const reviewStatus = content?.metadata?.reviewStatus || '';
+          const hasItemAudits = Array.isArray(content?.items) && content.items.some((item: any) => item.internalAuditStatus || item.internalAuditRating || item.reviewStatus === 'Approved' || item.reviewStatus === 'Submitted for Approval');
+
+          if ((auditStatus && auditStatus !== 'Draft' && auditStatus !== 'Cleared') || hasItemAudits || (reviewStatus && reviewStatus !== 'Draft' && reviewStatus !== 'In Progress')) {
             if (content && Array.isArray(content.items)) {
               content.items.forEach((item: any) => {
                 delete item.internalAuditRating;
@@ -8379,7 +8382,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
             
             if (content?.metadata) {
               content.metadata.internalAuditStatus = 'Draft';
-              content.metadata.reviewStatus = 'Draft';
+              content.metadata.reviewStatus = 'In Progress';
               changed = true;
             }
           }

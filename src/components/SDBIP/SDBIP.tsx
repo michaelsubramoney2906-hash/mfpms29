@@ -1141,6 +1141,17 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
       return;
     }
 
+    const targetRow = rows.find(r => r.id === rowId);
+    if (targetRow && status === 'pending_approval') {
+      const assignedSubmitter = targetRow.submitter || targetRow.responsibleUnit;
+      const isMatch = isUserMatch(assignedSubmitter, currentUser);
+      if (!isMatch) {
+        setSuccessToast(`Submission Restricted: Only the designated Submitter (${assignedSubmitter}) can submit KPI ${targetRow.refNum || ''} for approval.`);
+        setTimeout(() => setSuccessToast(null), 4000);
+        return;
+      }
+    }
+
     let targetRowRefNum = '';
     let targetRowKpi = '';
     const currentUserDisplayName = currentUser.fullName || currentUser.email;
@@ -1461,12 +1472,17 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     }
 
     // Strict Submitter reporting enforcement: Only designated submitter can report on actuals
-    const actualsFields = ['q1Actual', 'q2Actual', 'midTermActual', 'q3Actual', 'q4Actual', 'q1Corrective', 'q2Corrective', 'q3Corrective', 'q4Corrective', 'poeDesc', 'q1PoeDesc', 'q2PoeDesc', 'q3PoeDesc', 'q4PoeDesc'];
+    const actualsFields = [
+      'q1Actual', 'q2Actual', 'midTermActual', 'q3Actual', 'q4Actual', 
+      'q1Corrective', 'q2Corrective', 'q3Corrective', 'q4Corrective', 
+      'poeDesc', 'q1PoeDesc', 'q2PoeDesc', 'q3PoeDesc', 'q4PoeDesc', 'midTermPoeDesc',
+      'q1Expenditure', 'q2Expenditure', 'midTermExpenditure', 'q3Expenditure', 'q4Expenditure'
+    ];
     if (actualsFields.includes(field as string)) {
       const targetRow = rows.find(r => r.id === rowId);
       if (targetRow && (targetRow.submitter || targetRow.responsibleUnit)) {
         const assignedSubmitter = targetRow.submitter || targetRow.responsibleUnit;
-        const isMatch = isUserMatch(assignedSubmitter, currentUser) || currentUser.role === 'admin';
+        const isMatch = isUserMatch(assignedSubmitter, currentUser);
         if (!isMatch) {
           setSuccessToast(`Reporting Restricted: Only the designated Submitter (${assignedSubmitter}) can report on actuals for KPI ${targetRow.refNum || ''}.`);
           setTimeout(() => setSuccessToast(null), 4000);
@@ -1538,6 +1554,16 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
       setSuccessToast(`Upload Locked: ${getQuarterLockNotice(quarter)} Unless you are in the actual period, you cannot upload or edit POE.`);
       setTimeout(() => setSuccessToast(null), 4000);
       return;
+    }
+    const targetRow = rows.find(r => r.id === rowId);
+    if (targetRow && (targetRow.submitter || targetRow.responsibleUnit)) {
+      const assignedSubmitter = targetRow.submitter || targetRow.responsibleUnit;
+      const isMatch = isUserMatch(assignedSubmitter, currentUser);
+      if (!isMatch) {
+        setSuccessToast(`Upload Restricted: Only the designated Submitter (${assignedSubmitter}) can upload or edit POE for KPI ${targetRow.refNum || ''}.`);
+        setTimeout(() => setSuccessToast(null), 4000);
+        return;
+      }
     }
     setPoeModal({ isOpen: true, rowId, refNum, quarter });
     const suffix = quarter !== 'general' ? `_${quarter}` : '';
@@ -2009,6 +2035,15 @@ Timestamp: ${new Date().toLocaleString()}
       return;
     }
     const targetRow = rows.find(r => r.id === rowId);
+    if (targetRow && (targetRow.submitter || targetRow.responsibleUnit)) {
+      const assignedSubmitter = targetRow.submitter || targetRow.responsibleUnit;
+      const isMatch = isUserMatch(assignedSubmitter, currentUser);
+      if (!isMatch) {
+        setSuccessToast(`Action Restricted: Only the designated Submitter (${assignedSubmitter}) can delete POE for KPI ${targetRow.refNum || ''}.`);
+        setTimeout(() => setSuccessToast(null), 4000);
+        return;
+      }
+    }
     if (targetRow) {
       let filesToRemove: string[] = [];
       if (quarter === 'q1') {
@@ -2383,23 +2418,29 @@ Timestamp: ${new Date().toLocaleString()}
           <div className="flex flex-col gap-1 w-full max-w-[130px] mt-1">
             {status === 'draft' && (
               <div className="flex flex-col gap-1 w-full">
-                <button
-                  onClick={() => {
-                    const approverName = row.approver || 'Approver';
-                    updateWorkflowState(
-                      row.id, 
-                      phase, 
-                      'pending_approval', 
-                      { submittedBy: submitterName, submittedAt: new Date().toLocaleDateString() },
-                      `KPI ${row.refNum} (${phaseLabel}) submitted to you for executive approval.`,
-                      approverName
-                    );
-                  }}
-                  className="px-2 py-1 bg-amber-600 hover:bg-amber-700 text-[10px] text-white font-bold rounded flex items-center justify-center gap-1 transition shadow-sm cursor-pointer"
-                  title="Submit this KPI to the Executive Approver"
-                >
-                  <Send className="w-2.5 h-2.5" /> Push to Approver
-                </button>
+                {isUserMatch(row.submitter || row.responsibleUnit, currentUser) ? (
+                  <button
+                    onClick={() => {
+                      const approverName = row.approver || 'Approver';
+                      updateWorkflowState(
+                        row.id, 
+                        phase, 
+                        'pending_approval', 
+                        { submittedBy: submitterName, submittedAt: new Date().toLocaleDateString() },
+                        `KPI ${row.refNum} (${phaseLabel}) submitted to you for executive approval.`,
+                        approverName
+                      );
+                    }}
+                    className="px-2 py-1 bg-amber-600 hover:bg-amber-700 text-[10px] text-white font-bold rounded flex items-center justify-center gap-1 transition shadow-sm cursor-pointer"
+                    title="Submit this KPI to the Executive Approver"
+                  >
+                    <Send className="w-2.5 h-2.5" /> Push to Approver
+                  </button>
+                ) : (
+                  <span className="text-[9px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded text-center" title={`Only designated submitter (${row.submitter || row.responsibleUnit || 'Submitter'}) can submit this KPI`}>
+                    Submitter Only ({row.submitter || row.responsibleUnit || 'Assigned'})
+                  </span>
+                )}
               </div>
             )}
 
@@ -3362,7 +3403,7 @@ Timestamp: ${new Date().toLocaleString()}
                                           className={`w-full md:w-auto px-4 py-2 text-xs font-bold rounded-lg transition shadow-xs inline-flex items-center justify-center gap-1.5 ${!isQuarterActive(workflowPhase) ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed' : 'bg-amber-600 text-white hover:bg-amber-700 cursor-pointer'}`}
                                         >
                                           {!isQuarterActive(workflowPhase) ? <Lock className="w-3.5 h-3.5 text-slate-400" /> : <Send className="w-3.5 h-3.5" />} 
-                                          <span>{!isQuarterActive(workflowPhase) ? 'Locked Period' : 'Push to Approver'}</span>
+                                          <span>{!isUserMatch(row.submitter || row.responsibleUnit, currentUser) ? `Submitter Only (${row.submitter || row.responsibleUnit || 'Assigned'})` : !isQuarterActive(workflowPhase) ? 'Locked Period' : 'Push to Approver'}</span>
                                         </button>
                                       )}
                                     </div>
@@ -5013,7 +5054,9 @@ Timestamp: ${new Date().toLocaleString()}
                 </thead>
 
                 <tbody className="text-xs font-medium text-slate-800 divide-y divide-slate-100">
-                  {paginatedReportingRows.map((row) => (
+                  {paginatedReportingRows.map((row) => {
+                    const isRowSubmitter = isUserMatch(row.submitter || row.responsibleUnit, currentUser);
+                    return (
                     <tr key={row.id} className="group hover:bg-slate-50/70 transition-colors">
                       <td className="p-2 border-r border-slate-150 sticky left-0 z-10 bg-white group-hover:bg-slate-50/95 transition-colors font-mono text-[11px] drop-shadow-[1px_0_0_rgba(203,213,225,1)]">
                         <ExpandableCell
@@ -5422,15 +5465,15 @@ Timestamp: ${new Date().toLocaleString()}
                               const total = parseBudgetNum(row.budgetAllocation);
                               return total > 0 ? `R ${Math.round(total / 4).toLocaleString()}` : 'R 0';
                             })()}
-                            disabled={!isOpex(row.budgetAllocation) || !isQuarterActive('q1')}
+                            disabled={!isRowSubmitter || !isOpex(row.budgetAllocation) || !isQuarterActive('q1')}
                             onChange={(val) => handleCellChange(row.id, 'q1Expenditure', val)}
                             cellTitle="Q1 Expenditure"
                             refNum={row.refNum}
                             isFitAll={isFitAllReportingCells}
                             minRows={1}
-                            placeholder={!isQuarterActive('q1') ? "Locked" : "Q1 Exp..."}
+                            placeholder={!isRowSubmitter ? `Submitter Only (${row.submitter || row.responsibleUnit || 'Assigned'})` : !isQuarterActive('q1') ? "Locked" : "Q1 Exp..."}
                             onOpenExpandModal={openCellExpandModal}
-                            className={`font-bold ${!isQuarterActive('q1') || !isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-800'}`}
+                            className={`font-bold ${!isRowSubmitter || !isQuarterActive('q1') || !isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-800'}`}
                           />
                         )}
                       </td>
@@ -5486,10 +5529,10 @@ Timestamp: ${new Date().toLocaleString()}
                                 </button>
                               )}
                               <button 
-                                disabled={!isQuarterActive('q1')}
+                                disabled={!isRowSubmitter || !isQuarterActive('q1')}
                                 onClick={() => triggerUploadModal(row.id, row.refNum, 'q1')}
-                                className={`flex-1 py-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center gap-1 ${!isQuarterActive('q1') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 cursor-pointer'}`}
-                                title={!isQuarterActive('q1') ? getQuarterLockNotice('q1') : "Upload/Edit POE"}
+                                className={`flex-1 py-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center gap-1 ${!isRowSubmitter || !isQuarterActive('q1') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 cursor-pointer'}`}
+                                title={!isRowSubmitter ? `Upload Restricted: Only designated submitter (${row.submitter || row.responsibleUnit}) can upload POE` : !isQuarterActive('q1') ? getQuarterLockNotice('q1') : "Upload/Edit POE"}
                               >
                                 <Upload className="w-2.5 h-2.5" /> Upload/Edit
                               </button>
@@ -5499,7 +5542,7 @@ Timestamp: ${new Date().toLocaleString()}
                                     <span className="text-[8px] text-rose-800 font-bold text-center leading-none">Are you sure?</span>
                                     <div className="flex gap-1 justify-center">
                                       <button
-                                        disabled={!isQuarterActive('q1')}
+                                        disabled={!isRowSubmitter || !isQuarterActive('q1')}
                                         onClick={() => {
                                           clearQuarterPoe(row.id, 'q1');
                                           setConfirmDelete(null);
@@ -5518,10 +5561,10 @@ Timestamp: ${new Date().toLocaleString()}
                                   </div>
                                 ) : (
                                   <button 
-                                    disabled={!isQuarterActive('q1')}
+                                    disabled={!isRowSubmitter || !isQuarterActive('q1')}
                                     onClick={() => setConfirmDelete({ rowId: row.id, type: 'q1' })}
-                                    className={`p-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center ${!isQuarterActive('q1') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 cursor-pointer'}`}
-                                    title={!isQuarterActive('q1') ? getQuarterLockNotice('q1') : "Delete POE and Description"}
+                                    className={`p-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center ${!isRowSubmitter || !isQuarterActive('q1') ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 cursor-pointer'}`}
+                                    title={!isRowSubmitter ? `Delete Restricted: Only designated submitter (${row.submitter || row.responsibleUnit}) can delete POE` : !isQuarterActive('q1') ? getQuarterLockNotice('q1') : "Delete POE and Description"}
                                   >
                                     <Trash2 className="w-3 h-3" />
                                   </button>
@@ -5561,15 +5604,15 @@ Timestamp: ${new Date().toLocaleString()}
                           <>
                             <ExpandableCell
                               value={row.q1Actual || ''}
-                              disabled={!isQuarterActive('q1')}
+                              disabled={!isRowSubmitter || !isQuarterActive('q1')}
                               onChange={(val) => handleCellChange(row.id, 'q1Actual', val)}
                               cellTitle="Q1 Actual"
                               refNum={row.refNum}
                               isFitAll={isFitAllReportingCells}
                               minRows={2}
-                              placeholder={!isQuarterActive('q1') ? "Locked for this period" : "Q1 Actual..."}
+                              placeholder={!isRowSubmitter ? `Submitter Only (${row.submitter || row.responsibleUnit || 'Assigned'})` : !isQuarterActive('q1') ? "Locked for this period" : "Q1 Actual..."}
                               onOpenExpandModal={openCellExpandModal}
-                              className={!isQuarterActive('q1') ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white'}
+                              className={!isRowSubmitter || !isQuarterActive('q1') ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white'}
                             />
                             {row.q1Actual && row.q1 && row.q1Actual !== row.q1 && (
                               <div className="absolute top-1 right-1 pointer-events-auto z-10">
@@ -5626,15 +5669,15 @@ Timestamp: ${new Date().toLocaleString()}
                         ) : (
                           <ExpandableCell
                             value={row.q1Corrective || ''}
-                            disabled={!isQuarterActive('q1') || isFieldDisabled(row.q1Variance)}
+                            disabled={!isRowSubmitter || !isQuarterActive('q1') || isFieldDisabled(row.q1Variance)}
                             onChange={(val) => handleCellChange(row.id, 'q1Corrective', val)}
                             cellTitle="Q1 Corrective Measure"
                             refNum={row.refNum}
                             isFitAll={isFitAllReportingCells}
                             minRows={2}
-                            placeholder={!isQuarterActive('q1') ? "Locked for this period" : isFieldDisabled(row.q1Variance) ? "No variance detected." : "Q1 Corrective..."}
+                            placeholder={!isRowSubmitter ? `Submitter Only (${row.submitter || row.responsibleUnit || 'Assigned'})` : !isQuarterActive('q1') ? "Locked for this period" : isFieldDisabled(row.q1Variance) ? "No variance detected." : "Q1 Corrective..."}
                             onOpenExpandModal={openCellExpandModal}
-                            className={!isQuarterActive('q1') || isFieldDisabled(row.q1Variance) ? 'bg-slate-100 text-slate-400 cursor-not-allowed italic font-normal' : 'bg-white text-slate-800'}
+                            className={!isRowSubmitter || !isQuarterActive('q1') || isFieldDisabled(row.q1Variance) ? 'bg-slate-100 text-slate-400 cursor-not-allowed italic font-normal' : 'bg-white text-slate-800'}
                           />
                         )}
                       </td>
@@ -6490,7 +6533,8 @@ Timestamp: ${new Date().toLocaleString()}
                         />
                       </td>
                     </tr>
-                  ))}
+                  );
+                })}
                 </tbody>
               </table>
             </div>

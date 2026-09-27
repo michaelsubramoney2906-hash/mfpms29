@@ -460,7 +460,48 @@ export function DepartmentModerationIPMS({ currentUser, activeTenantId }: Props)
       });
 
       setDpmcLedger(updatedLedger);
-      alert("Moderated Plan successfully pushed and distributed back to Subordinate/User, Manager, and Internal Auditor!");
+
+      // Dispatch notifications to all 4 stakeholders: Submitter, Manager, Internal Auditor, DPMC
+      const employeeEmail = selectedPlan.userId;
+      const employeeName = payload.metadata?.name || employeeEmail;
+      let managerEmail = payload.metadata?.manager;
+      if (!managerEmail && Array.isArray(payload.metadata?.history)) {
+        const mgrLog = payload.metadata.history.find((h: any) => h.role?.toLowerCase().includes('manager') || h.userEmail?.includes('khuboni'));
+        if (mgrLog) managerEmail = mgrLog.userEmail;
+      }
+      if (!managerEmail) managerEmail = 'khuboniy@nkangaladm.gov.za';
+
+      const dpmcRecipients = [
+        { email: employeeEmail, name: employeeName },
+        { email: managerEmail, name: 'Line Manager' },
+        { email: 'internal_audit', name: 'Internal Audit Committee' },
+        { email: 'dpmc', name: 'DPMC Moderation Committee' }
+      ];
+
+      for (const rec of dpmcRecipients) {
+        await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            notification: {
+              senderEmail: currentUser.email || 'dpmc@nkangaladm.gov.za',
+              senderName: currentUser.fullName || currentUser.full_name || 'DPMC Moderation Committee',
+              recipientEmail: rec.email,
+              recipientName: rec.name,
+              title: `⚖️ DPMC Moderation Outcome: Final Blended Rating ${trueCombinedScore}/100% for ${employeeName}`,
+              message: `Departmental Performance Moderation Committee (DPMC) has finalized performance moderation for ${employeeName} (${employeeEmail}).\n\n` +
+                       `Final Blended Score: ${trueCombinedScore}/100%\n` +
+                       `Status: Pushed to Stakeholders\n\n` +
+                       `Moderated scores have been recorded and synchronized in all stakeholder inboxes.`,
+              actionType: 'approval',
+              senderCapacity: 'dpmc_committee',
+              employeeEmail: employeeEmail
+            }
+          })
+        });
+      }
+
+      alert("Moderated Plan successfully pushed and distributed back to Subordinate/User, Manager, Internal Auditor, and DPMC!");
       
       const updatedPlans = teamPlans.map(tp => 
         tp.userId === selectedPlan.userId ? { ...tp, plan: payload } : tp
@@ -514,7 +555,48 @@ export function DepartmentModerationIPMS({ currentUser, activeTenantId }: Props)
       });
 
       setDpmcLedger(updatedLedger);
-      alert("Moderated Plan successfully pushed and distributed back to Subordinate/User, Manager, and Internal Auditor!");
+
+      // Dispatch notifications to all 4 stakeholders: Submitter, Manager, Internal Auditor, DPMC
+      const employeeEmail = planToPush.userId;
+      const employeeName = updatedPPlan.metadata?.name || planToPush.name || employeeEmail;
+      let managerEmail = updatedPPlan.metadata?.manager;
+      if (!managerEmail && Array.isArray(updatedPPlan.metadata?.history)) {
+        const mgrLog = updatedPPlan.metadata.history.find((h: any) => h.role?.toLowerCase().includes('manager') || h.userEmail?.includes('khuboni'));
+        if (mgrLog) managerEmail = mgrLog.userEmail;
+      }
+      if (!managerEmail) managerEmail = 'khuboniy@nkangaladm.gov.za';
+
+      const dpmcRecipients = [
+        { email: employeeEmail, name: employeeName },
+        { email: managerEmail, name: 'Line Manager' },
+        { email: 'internal_audit', name: 'Internal Audit Committee' },
+        { email: 'dpmc', name: 'DPMC Moderation Committee' }
+      ];
+
+      for (const rec of dpmcRecipients) {
+        await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            notification: {
+              senderEmail: currentUser.email || 'dpmc@nkangaladm.gov.za',
+              senderName: currentUser.fullName || currentUser.full_name || 'DPMC Moderation Committee',
+              recipientEmail: rec.email,
+              recipientName: rec.name,
+              title: `⚖️ DPMC Moderation Outcome: Final Score ${planToPush.totalScore || 'Moderated'}/100% for ${employeeName}`,
+              message: `Departmental Performance Moderation Committee (DPMC) has pushed finalized moderation results for ${employeeName} (${employeeEmail}).\n\n` +
+                       `Final Blended Score: ${planToPush.totalScore || 'Moderated'}/100%\n` +
+                       `Status: Pushed to Stakeholders\n\n` +
+                       `Moderated scores have been recorded and synchronized across all stakeholder inboxes.`,
+              actionType: 'approval',
+              senderCapacity: 'dpmc_committee',
+              employeeEmail: employeeEmail
+            }
+          })
+        });
+      }
+
+      alert("Moderated Plan successfully pushed and distributed back to Subordinate/User, Manager, Internal Auditor, and DPMC!");
       
       // Update local teamPlans status if loaded
       setTeamPlans(prev => prev.map(tp => tp.userId === planToPush.userId ? { ...tp, plan: { ...tp.plan, metadata: { ...tp.plan.metadata, dpmcStatus: 'Pushed to Stakeholders' } } } : tp));

@@ -568,6 +568,14 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
         reportTo: pplanData.metadata?.reportTo || currentUser.reportTo || (isDemoUser ? 'Demo Line Manager' : '')
       };
       if (submitForReview) {
+        const targetItem = pplanData.items.find(i => i.id === kpiId);
+        const docsCount = targetItem ? ((targetItem.q1PoeDocs?.length || 0) + (targetItem.q2PoeDocs?.length || 0) + (targetItem.q3PoeDocs?.length || 0) + (targetItem.q4PoeDocs?.length || 0) + (targetItem.annualPoeDocs?.length || 0) + (targetItem.midtermPoeDocs?.length || 0)) : 0;
+        const hasTextPoe = targetItem && (targetItem.poe || targetItem.q1Poe || targetItem.q2Poe || targetItem.q3Poe || targetItem.q4Poe || targetItem.poeFileName);
+        if (docsCount === 0 && !hasTextPoe) {
+          alert("Portfolio of Evidence (PoE) is MANDATORY prior to submitting KPI for manager review! Please attach a PoE document or description.");
+          setSaving(false);
+          return;
+        }
         metadata.reviewStatus = 'Submitted for Approval';
       } else if (!metadata.reviewStatus) {
         metadata.reviewStatus = 'Draft';
@@ -635,25 +643,33 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
           poeCount = (targetItem.q1PoeDocs?.length || 0) + (targetItem.q2PoeDocs?.length || 0) + (targetItem.q3PoeDocs?.length || 0) + (targetItem.q4PoeDocs?.length || 0) + (targetItem.annualPoeDocs?.length || 0) + (targetItem.midtermPoeDocs?.length || 0);
         }
 
-        await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            notification: {
-              senderEmail: submitterEmail,
-              senderName: submitterName,
-              recipientEmail: managerEmail,
-              recipientName: managerName,
-              title: `⚡ PoE Submitted for KPI #${targetItem?.kpiNo || kpiId} by ${submitterName}`,
-              message: `${submitterName} (${submitterEmail}) submitted KPI #${targetItem?.kpiNo || ''}: "${targetItem?.kpi || ''}" with ${poeCount} attached PoE document(s) for manager review (${managerName}).`,
-              actionType: 'submission',
-              senderCapacity: isManagerOfAnyone ? (isTeamEvaluation ? 'team_lead' : 'manager_as_self') : 'standard_user',
-              kpiId,
-              kpiNo: targetItem?.kpiNo || '',
-              poeDocsCount: poeCount
-            }
-          })
-        });
+        const submissionRecipients = [
+          { email: managerEmail, name: managerName },
+          { email: submitterEmail, name: submitterName }
+        ];
+
+        for (const rec of submissionRecipients) {
+          await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              notification: {
+                senderEmail: submitterEmail,
+                senderName: submitterName,
+                recipientEmail: rec.email,
+                recipientName: rec.name,
+                title: `⚡ PoE Submitted for KPI #${targetItem?.kpiNo || kpiId} by ${submitterName}`,
+                message: `${submitterName} (${submitterEmail}) submitted KPI #${targetItem?.kpiNo || ''}: "${targetItem?.kpi || ''}" with ${poeCount} attached PoE document(s) for manager review (${managerName}).`,
+                actionType: 'submission',
+                senderCapacity: isManagerOfAnyone ? (isTeamEvaluation ? 'team_lead' : 'manager_as_self') : 'standard_user',
+                kpiId,
+                kpiNo: targetItem?.kpiNo || '',
+                poeDocsCount: poeCount,
+                employeeEmail: submitterEmail
+              }
+            })
+          });
+        }
 
         // When team leader reports on team evaluation, notify each team member as per the performance agreement
         if (isTeamEvaluation) {
@@ -778,29 +794,53 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
       window.dispatchEvent(new CustomEvent(isTeamEvaluation ? 'team-pplan-updated' : 'pplan-updated', { detail: { tenantId: activeTenantId, userId: currentUser.email } }));
       
       if (submitForReview) {
+        for (const kId of targetIds) {
+          const item = pplanData.items.find((i: any) => i.id === kId);
+          const docsCount = item ? ((item.q1PoeDocs?.length || 0) + (item.q2PoeDocs?.length || 0) + (item.q3PoeDocs?.length || 0) + (item.q4PoeDocs?.length || 0) + (item.annualPoeDocs?.length || 0) + (item.midtermPoeDocs?.length || 0)) : 0;
+          const hasTextPoe = item && (item.poe || item.q1Poe || item.q2Poe || item.q3Poe || item.q4Poe || item.poeFileName);
+          if (docsCount === 0 && !hasTextPoe) {
+            alert(`Portfolio of Evidence (PoE) is MANDATORY prior to submitting KPI #${item?.kpiNo || kId} for manager review! Please attach a PoE document or description.`);
+            setSaving(false);
+            return;
+          }
+        }
+      }
+
+      if (submitForReview) {
         try {
-          const notifPayload = {
-            action: 'send_notification',
-            notification: {
-              senderEmail: currentUser.email,
-              senderName: currentUser.fullName || currentUser.email.split('@')[0] || 'Employee',
-              recipientEmail: metadata.managerEmail || 'KhuboniY@nkangaladm.gov.za',
-              recipientName: metadata.manager || 'Manager',
-              title: targetIds.length === 1 ? `KPI ${kpiNosText} Submitted for Review` : `${targetIds.length} KPIs Submitted for Review`,
-              message: targetIds.length === 1 
-                ? `I have submitted KPI ${kpiNosText} and its associated Portfolio of Evidence for your review and approval.`
-                : `I have submitted ${targetIds.length} KPIs (${kpiNosText}) and their associated Portfolio of Evidence for your review and approval.`,
-              actionType: 'submission',
-              kpiId: targetIds[0],
-              kpiNo: kpiNosText,
-              senderCapacity: 'standard_user'
-            }
-          };
-          await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(notifPayload)
-          });
+          const managerEmail = metadata.managerEmail || 'KhuboniY@nkangaladm.gov.za';
+          const managerName = metadata.manager || 'Manager';
+          const submitterEmail = currentUser.email;
+          const submitterName = currentUser.fullName || currentUser.email.split('@')[0] || 'Employee';
+
+          const batchRecipients = [
+            { email: managerEmail, name: managerName },
+            { email: submitterEmail, name: submitterName }
+          ];
+
+          for (const rec of batchRecipients) {
+            await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                notification: {
+                  senderEmail: submitterEmail,
+                  senderName: submitterName,
+                  recipientEmail: rec.email,
+                  recipientName: rec.name,
+                  title: targetIds.length === 1 ? `⚡ PoE Submitted for KPI ${kpiNosText} by ${submitterName}` : `⚡ PoE Submitted for ${targetIds.length} KPIs (${kpiNosText}) by ${submitterName}`,
+                  message: targetIds.length === 1 
+                    ? `${submitterName} (${submitterEmail}) submitted KPI ${kpiNosText} and associated Portfolio of Evidence for manager review (${managerName}).`
+                    : `${submitterName} (${submitterEmail}) submitted ${targetIds.length} KPIs (${kpiNosText}) and associated Portfolios of Evidence for manager review (${managerName}).`,
+                  actionType: 'submission',
+                  kpiId: targetIds[0],
+                  kpiNo: kpiNosText,
+                  senderCapacity: 'standard_user',
+                  employeeEmail: submitterEmail
+                }
+              })
+            });
+          }
         } catch(e) {
           console.warn("Failed to dispatch workflow notification", e);
         }

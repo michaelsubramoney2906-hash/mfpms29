@@ -399,49 +399,15 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
           `📋 **AUDIT FINDINGS & COMPLIANCE GAPS**:\n\n${auditDetails}`;
       }
 
-      // Notify Employee
-      await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          notification: {
-            senderEmail: currentUser.email || 'audit@system.local',
-            senderName: auditorName,
-            recipientEmail: employeeEmail,
-            recipientName: employeeName,
-            title: titleEmployee,
-            message: messageEmployee,
-            actionType: 'audit_completed',
-            senderCapacity: 'internal_auditor',
-            employeeEmail: employeeEmail,
-            kpiIds: targetKpiIds
-          }
-        })
-      });
+      // Notify all 4 stakeholders: Employee, Manager, Internal Audit, DPMC
+      const auditRecipients = [
+        { email: employeeEmail, name: employeeName, title: titleEmployee, msg: messageEmployee },
+        { email: managerEmail, name: 'Line Manager', title: titleManager, msg: messageManager },
+        { email: currentUser.email || 'internal_audit', name: auditorName, title: titleEmployee, msg: messageEmployee },
+        { email: 'dpmc', name: 'DPMC Moderation Committee', title: status === 'Pushed to DPMC' ? `📋 DPMC Docket: Audit-Cleared KPIs for ${employeeName}` : `⚠️ Audit Findings / Rejection Notice for ${employeeName}`, msg: status === 'Pushed to DPMC' ? `Internal Audit has cleared and forwarded ${isSingle ? `single KPI ${kpiNosText}` : `${targetItems.length} KPIs (${kpiNosText})`} for subordinate ${employeeName} (${employeeEmail}) to DPMC for final moderation and scoring.\n\nAverage Audit Rating: ${avgRating}/5.0\n\nAudit Findings:\n${auditDetails}` : `Internal Audit evaluated Portfolios of Evidence (PoEs) for ${employeeName} (${employeeEmail}) and issued findings/rejection.\n\nAudit Findings:\n${auditDetails}` }
+      ];
 
-      // Notify Manager
-      await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          notification: {
-            senderEmail: currentUser.email || 'audit@system.local',
-            senderName: auditorName,
-            recipientEmail: managerEmail,
-            recipientName: 'Line Manager',
-            title: titleManager,
-            message: messageManager,
-            actionType: 'audit_completed',
-            senderCapacity: 'internal_auditor',
-            employeeEmail: employeeEmail,
-            kpiIds: targetKpiIds
-          }
-        })
-      });
-
-      // Notify DPMC if status is Pushed to DPMC
-      if (status === 'Pushed to DPMC') {
-        const dpmcRecipient = employeeEmail.includes('mzansiflow') ? 'dpmc@mzansiflow.co.za' : 'dpmc@nkangaladm.gov.za';
+      for (const rec of auditRecipients) {
         await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -449,17 +415,18 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
             notification: {
               senderEmail: currentUser.email || 'audit@system.local',
               senderName: auditorName,
-              recipientEmail: dpmcRecipient,
-              recipientName: 'DPMC Moderation Committee',
-              title: `📋 DPMC Docket: Audit-Cleared KPIs for ${employeeName}`,
-              message: `Internal Audit has cleared and forwarded ${isSingle ? `single KPI ${kpiNosText}` : `${targetItems.length} KPIs (${kpiNosText})`} for subordinate ${employeeName} (${employeeEmail}) to DPMC for final moderation and scoring.\n\nAverage Audit Rating: ${avgRating}/5.0\n\nAudit Findings:\n${auditDetails}`,
-              actionType: 'dpmc_docket',
+              recipientEmail: rec.email,
+              recipientName: rec.name,
+              title: rec.title,
+              message: rec.msg,
+              actionType: isRejected ? 'revision_requested' : 'audit_completed',
               senderCapacity: 'internal_auditor',
               employeeEmail: employeeEmail,
               kpiIds: targetKpiIds
             }
           })
         });
+      }
 
         if (employeeEmail.toLowerCase().includes('user@mzansiflow')) {
           try {
@@ -476,7 +443,6 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
             console.warn("Failed to sync demo state from audit review:", demoSyncErr);
           }
         }
-      }
 
       alert(isSingle 
         ? `Internal Audit feedback for Single KPI (${kpiNosText}) saved & status marked as "${status}". Notifications sent to subordinate (${employeeEmail}), manager (${managerEmail}), and DPMC!`

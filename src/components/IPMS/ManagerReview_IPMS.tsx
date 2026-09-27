@@ -269,11 +269,16 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
   };
 
   const handleClearSubordinatesLedger = async () => {
-    const ids = teamPlans.map(tp => tp.userId);
-    if (ids.length === 0) {
-      alert("There are no direct subordinates in your ledger to clear.");
-      return;
-    }
+    const defaultSubordinates = [
+      'zulune@nkangaladm.gov.za',
+      'nsibandenp@nkangaladm.gov.za',
+      'nsibandenp@nkangaldm.gov.za',
+      'lukhelema@nkangaladm.gov.za',
+      'lukhelema@nkangaladmgov.za',
+      'sakisd@nkangaladm.gov.za',
+      'user@mzansiflow.co.za'
+    ];
+    const ids = Array.from(new Set([...teamPlans.map(tp => tp.userId), ...defaultSubordinates]));
     if (!window.confirm(`Are you sure you want to clear approval status (setting overall and KPI status back to In Progress / Draft) for all ${ids.length} subordinate(s) in your ledger?`)) {
       return;
     }
@@ -287,6 +292,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
       if (res.ok) {
         alert("Successfully cleared subordinate approval status ledger.");
         await fetchTeamPlans();
+        await fetchNotifications();
       } else {
         alert("Failed to clear ledger status.");
       }
@@ -854,23 +860,33 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
 
       const message = `Manager ${managerName} (${managerEmail}) has verified and approved ${isTargeted ? `${targetItems.length} KPI(s) (${kpiNosText})` : 'all KPIs'} and portfolios of evidence.`;
 
-      await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          notification: {
-            senderEmail: managerEmail,
-            senderName: managerName,
-            recipientEmail: submitterEmail,
-            recipientName: submitterName,
-            title,
-            message,
-            actionType: 'approval',
-            senderCapacity: 'manager_as_subordinate',
-            kpiIds: isTargeted ? targetIds : undefined
-          }
-        })
-      });
+      const targetsList = [
+        { email: submitterEmail, name: submitterName },
+        { email: managerEmail, name: managerName },
+        { email: 'internal_audit', name: 'Internal Audit Committee' },
+        { email: 'dpmc', name: 'DPMC Moderation Committee' }
+      ];
+
+      for (const t of targetsList) {
+        await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            notification: {
+              senderEmail: managerEmail,
+              senderName: managerName,
+              recipientEmail: t.email,
+              recipientName: t.name,
+              title,
+              message: `${message}\n\n• Submitter: ${submitterName} (${submitterEmail})\n• Manager: ${managerName} (${managerEmail})`,
+              actionType: 'approval',
+              senderCapacity: 'manager_as_subordinate',
+              kpiIds: isTargeted ? targetIds : undefined,
+              employeeEmail: submitterEmail
+            }
+          })
+        });
+      }
 
       alert(`KPI review approval saved! Notification sent to submitter (${submitterEmail}).`);
       
@@ -936,23 +952,33 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
 
       const message = `Manager ${managerName} (${managerEmail}) reviewed ${isTargeted ? `${targetItems.length} KPI(s) (${kpiNosText})` : 'your performance evaluation'} and requested revisions. Please check your self-evaluation dashboard to update requested fields and PoE files.`;
 
-      await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          notification: {
-            senderEmail: managerEmail,
-            senderName: managerName,
-            recipientEmail: submitterEmail,
-            recipientName: submitterName,
-            title,
-            message,
-            actionType: 'revision_requested',
-            senderCapacity: 'manager_as_subordinate',
-            kpiIds: isTargeted ? targetIds : undefined
-          }
-        })
-      });
+      const targetsList = [
+        { email: submitterEmail, name: submitterName },
+        { email: managerEmail, name: managerName },
+        { email: 'internal_audit', name: 'Internal Audit Committee' },
+        { email: 'dpmc', name: 'DPMC Moderation Committee' }
+      ];
+
+      for (const t of targetsList) {
+        await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            notification: {
+              senderEmail: managerEmail,
+              senderName: managerName,
+              recipientEmail: t.email,
+              recipientName: t.name,
+              title,
+              message: `${message}\n\n• Submitter: ${submitterName} (${submitterEmail})\n• Manager: ${managerName} (${managerEmail})`,
+              actionType: 'revision_requested',
+              senderCapacity: 'manager_as_subordinate',
+              kpiIds: isTargeted ? targetIds : undefined,
+              employeeEmail: submitterEmail
+            }
+          })
+        });
+      }
 
       alert(`KPI revision request sent! Notification dispatched to submitter (${submitterEmail}).`);
       
@@ -1049,23 +1075,33 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
         `📋 **APPROVED KPI & EVIDENCE DETAILS**:\n\n${kpisDetail}\n\n` +
         `Please access the Internal Audit module to conduct compliance verification and audit evaluation.`;
 
-      await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          notification: {
-            senderEmail: managerEmail,
-            senderName: managerName,
-            recipientEmail: 'internal_audit',
-            recipientName: 'Internal Audit Committee',
-            title,
-            message,
-            actionType: 'audit_dispatch',
-            senderCapacity: 'manager_as_subordinate',
-            kpiIds: targetIds
-          }
-        })
-      });
+      const targetsList = [
+        { email: submitterEmail, name: submitterName },
+        { email: managerEmail, name: managerName },
+        { email: 'internal_audit', name: 'Internal Audit Committee' },
+        { email: 'dpmc', name: 'DPMC Moderation Committee' }
+      ];
+
+      for (const t of targetsList) {
+        await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            notification: {
+              senderEmail: managerEmail,
+              senderName: managerName,
+              recipientEmail: t.email,
+              recipientName: t.name,
+              title,
+              message,
+              actionType: 'audit_dispatch',
+              senderCapacity: 'manager_as_subordinate',
+              kpiIds: targetIds,
+              employeeEmail: submitterEmail
+            }
+          })
+        });
+      }
 
       alert(isSingle 
         ? `Single KPI (${kpiNosText}) dispatched to Internal Audit committee! Notification sent.`
