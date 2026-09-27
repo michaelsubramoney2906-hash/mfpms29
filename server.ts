@@ -2807,8 +2807,10 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
 
   app.post("/api/auth/ping", (req: any, res: any) => {
     try {
-      const { email, tenantId, fullName, userId, documentId, activePage } = req.body;
-      if (!email) return res.status(400).json({ error: "Missing email" });
+      const { email, tenantId, fullName, userId, documentId, activePage } = req.body || {};
+      if (!email || typeof email !== 'string') {
+        return res.json({ success: true, activeUsersCount: activeSessionsMap.size, timestamp: Date.now() });
+      }
       
       const clientIp = (req.headers["x-forwarded-for"] as string || req.headers["x-real-ip"] as string || req.ip || req.socket?.remoteAddress || "").split(",")[0].trim();
       const now = new Date().toISOString();
@@ -2827,9 +2829,24 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       });
       activeSessionsDirty = true;
 
-      res.json({ success: true });
+      // Track active concurrent sessions for high concurrency monitoring
+      if (typeof activeConcurrentSessions !== 'undefined') {
+        activeConcurrentSessions.set(emailKey, {
+          email: emailKey,
+          tenantId: tenantId || 'nkangala_auto',
+          fullName: fullName || emailKey.split('@')[0],
+          lastPing: Date.now()
+        });
+      }
+
+      res.json({ 
+        success: true, 
+        activeUsersCount: activeSessionsMap.size,
+        serverUptime: Math.round(process.uptime()),
+        timestamp: Date.now()
+      });
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      res.json({ success: true, activeUsersCount: activeSessionsMap.size, timestamp: Date.now() });
     }
   });
 
@@ -4172,30 +4189,6 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       }
     }
   }, 60000);
-
-  // Dedicated Session Keep-Alive Ping for up to 500+ Concurrent Users
-  app.post("/api/auth/ping", (req: any, res: any) => {
-    try {
-      const { email, tenantId, fullName, userId } = req.body || {};
-      if (email && typeof email === 'string') {
-        const cleanEmail = email.trim().toLowerCase();
-        activeConcurrentSessions.set(cleanEmail, {
-          email: cleanEmail,
-          tenantId: tenantId || 'nkangala_auto',
-          fullName: fullName || cleanEmail.split('@')[0],
-          lastPing: Date.now()
-        });
-      }
-      res.json({ 
-        success: true, 
-        activeUsersCount: activeConcurrentSessions.size,
-        serverUptime: Math.round(process.uptime()),
-        timestamp: Date.now()
-      });
-    } catch (err: any) {
-      res.json({ success: true, activeUsersCount: activeConcurrentSessions.size });
-    }
-  });
 
   // Azure AD SSO Initiation endpoint with prompt=login to enforce password verification every time
   app.get("/api/auth/azure", async (req: any, res: any) => {
@@ -8594,13 +8587,12 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
     const { tenantId: routeTenantId } = req.params;
     const rawUserId = req.query.userId ? String(req.query.userId).trim() : 'default';
     const userId = rawUserId.toLowerCase();
-    const { competencies, jscMasters, competencyMasters, definitionMasters, levelMasters, weightMasters } = req.body;
     try {
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
       
       const targetTenants = Array.from(new Set([tenantId, 'tenant-229', 'nkangala_auto', 'global']));
-      const payload = JSON.stringify({ competencies, jscMasters, competencyMasters, definitionMasters, levelMasters, weightMasters });
+      const payload = JSON.stringify(req.body);
 
       for (const tKey of targetTenants) {
         const uDocId = `job_competencies_${tKey}_${userId}`;
@@ -9717,21 +9709,12 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
     const { tenantId: routeTenantId } = req.params;
     const rawUserId = req.query.userId ? String(req.query.userId).trim() : 'default';
     const userId = rawUserId.toLowerCase();
-    const { items, gapsMasters, outcomesMasters, trainingsMasters, modesMasters, supportMasters, skillsGapsMasters } = req.body;
     try {
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
       
       const targetTenants = Array.from(new Set([tenantId, 'tenant-229', 'nkangala_auto', 'global']));
-      const payload = JSON.stringify({ 
-        items, 
-        skillsGapsMasters: skillsGapsMasters || gapsMasters,
-        gapsMasters, 
-        outcomesMasters, 
-        trainingsMasters, 
-        modesMasters, 
-        supportMasters 
-      });
+      const payload = JSON.stringify(req.body);
 
       for (const tKey of targetTenants) {
         const uDocId = `pdp_${tKey}_${userId}`;
@@ -10825,13 +10808,12 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
     const { tenantId: routeTenantId } = req.params;
     const rawUserId = req.query.userId ? String(req.query.userId).trim() : 'default';
     const userId = rawUserId.toLowerCase();
-    const { competencies, jscMasters, competencyMasters, definitionMasters, levelMasters, weightMasters } = req.body;
     try {
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
       
       const targetTenants = Array.from(new Set([tenantId, 'tenant-229', 'nkangala_auto', 'global']));
-      const payload = JSON.stringify({ competencies, jscMasters, competencyMasters, definitionMasters, levelMasters, weightMasters });
+      const payload = JSON.stringify(req.body);
 
       for (const tKey of targetTenants) {
         const uDocId = `team_jsc_${tKey}_${userId}`;
@@ -10862,7 +10844,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
             created_at: new Date().toISOString()
           }, { onConflict: 'id' });
       }
-      res.json({ success: true, count: competencies ? competencies.length : 0 });
+      res.json({ success: true, count: req.body?.competencies ? req.body.competencies.length : 0 });
     } catch (err: any) {
       console.error("team-jsc save exception:", err);
       res.status(500).json({ error: err.message });
@@ -10916,21 +10898,12 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
     const { tenantId: routeTenantId } = req.params;
     const rawUserId = req.query.userId ? String(req.query.userId).trim() : 'default';
     const userId = rawUserId.toLowerCase();
-    const { items, gapsMasters, outcomesMasters, trainingsMasters, modesMasters, supportMasters, skillsGapsMasters } = req.body;
     try {
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
       
       const targetTenants = Array.from(new Set([tenantId, 'tenant-229', 'nkangala_auto', 'global']));
-      const payload = JSON.stringify({ 
-        items, 
-        skillsGapsMasters: skillsGapsMasters || gapsMasters,
-        gapsMasters, 
-        outcomesMasters, 
-        trainingsMasters, 
-        modesMasters, 
-        supportMasters 
-      });
+      const payload = JSON.stringify(req.body);
 
       for (const tKey of targetTenants) {
         const uDocId = `team_pdp_${tKey}_${userId}`;
@@ -10961,7 +10934,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
             created_at: new Date().toISOString()
           }, { onConflict: 'id' });
       }
-      res.json({ success: true, count: items ? items.length : 0 });
+      res.json({ success: true, count: req.body?.items ? req.body.items.length : 0 });
     } catch (err: any) {
       console.error("team-pdp save exception:", err);
       res.status(500).json({ error: err.message });
@@ -11167,7 +11140,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
             created_at: new Date().toISOString()
           }, { onConflict: 'id' });
       }
-      res.json({ success: true, count: competencies ? competencies.length : 0 });
+      res.json({ success: true, count: req.body?.competencies ? req.body.competencies.length : 0 });
     } catch (err: any) {
       console.error("team-jsc-2 save exception:", err);
       res.status(500).json({ error: err.message });
@@ -11223,21 +11196,12 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
     const { tenantId: routeTenantId } = req.params;
     const rawUserId = req.query.userId ? String(req.query.userId).trim() : 'default';
     const userId = rawUserId.toLowerCase();
-    const { items, gapsMasters, outcomesMasters, trainingsMasters, modesMasters, supportMasters, skillsGapsMasters } = req.body;
     try {
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
       
       const targetTenants = Array.from(new Set([tenantId, 'tenant-229', 'nkangala_auto', 'global']));
-      const payload = JSON.stringify({ 
-        items, 
-        skillsGapsMasters: skillsGapsMasters || gapsMasters,
-        gapsMasters, 
-        outcomesMasters, 
-        trainingsMasters, 
-        modesMasters, 
-        supportMasters 
-      });
+      const payload = JSON.stringify(req.body);
 
       for (const tKey of targetTenants) {
         const uDocId = `team_pdp_2_${tKey}_${userId}`;
@@ -11268,7 +11232,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
             created_at: new Date().toISOString()
           }, { onConflict: 'id' });
       }
-      res.json({ success: true, count: items ? items.length : 0 });
+      res.json({ success: true, count: req.body?.items ? req.body.items.length : 0 });
     } catch (err: any) {
       console.error("team-pdp-2 save exception:", err);
       res.status(500).json({ error: err.message });
