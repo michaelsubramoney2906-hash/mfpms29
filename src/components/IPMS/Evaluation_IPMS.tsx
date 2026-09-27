@@ -1397,7 +1397,9 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
               const setTab = (tab: string) => {
                 setActiveTabs(prev => ({ ...prev, [kpi.id]: tab }));
               };
-              const kpiIsReadOnly = false;
+              const kpiIsReadOnly = kpi.reviewStatus === 'Submitted for Approval' || 
+                                    kpi.reviewStatus === 'Reviewed' || 
+                                    kpi.reviewStatus === 'Approved';
               const isSelected = selectedKpiIds.includes(kpi.id);
 
               return (
@@ -1452,12 +1454,16 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
                       <button
                         type="button"
                         onClick={() => handleBatchSubmitSelectedKpis([kpi.id], true)}
-                        disabled={saving}
-                        className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold px-3 py-1 rounded-xl text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
-                        title="Submit ONLY this single KPI and its attached PoE files for Manager approval"
+                        disabled={saving || kpiIsReadOnly}
+                        className={`font-bold px-3 py-1 rounded-xl text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition shadow-2xs ${
+                          kpiIsReadOnly
+                            ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
+                            : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 cursor-pointer'
+                        }`}
+                        title={kpiIsReadOnly ? "Already submitted or approved" : "Submit ONLY this single KPI and its attached PoE files for Manager approval"}
                       >
                         <Send className="w-3 h-3 text-emerald-600" />
-                        <span>Submit Single KPI #{kpi.kpiNo || idx + 1}</span>
+                        <span>{kpiIsReadOnly ? 'Already Submitted' : `Submit Single KPI #${kpi.kpiNo || idx + 1}`}</span>
                       </button>
 
                       <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-100 px-3 py-1 rounded-full text-xs font-black">

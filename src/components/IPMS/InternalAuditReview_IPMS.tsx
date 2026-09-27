@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   ShieldAlert, 
   FileSearch, 
@@ -64,10 +64,19 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
   };
 
   useEffect(() => {
-    if (selectedPlan && selectedPlan.plan && Array.isArray(selectedPlan.plan.items) && selectedPlan.plan.items.length > 0) {
+    const visibleKpis = (selectedPlan && selectedPlan.plan && Array.isArray(selectedPlan.plan.items))
+      ? selectedPlan.plan.items.filter((item: any) => {
+          return item.reviewStatus === 'Approved' || 
+                 item.reviewStatus === 'Dispatched to Audit' || 
+                 item.internalAuditStatus || 
+                 item.internalAuditRating;
+        })
+      : [];
+
+    if (visibleKpis.length > 0) {
       setActiveKPIId((prev) => {
-        const exists = selectedPlan.plan.items.some((item: any) => item.id === prev);
-        return exists ? prev : selectedPlan.plan.items[0].id;
+        const exists = visibleKpis.some((item: any) => item.id === prev);
+        return exists ? prev : visibleKpis[0].id;
       });
     } else {
       setActiveKPIId(null);
@@ -102,11 +111,19 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
     try {
       const res = await fetch(`/api/tenant/${activeTenantId}/audit-ledger?t=${Date.now()}`);
       if (res.ok) {
-        const data = await res.json();
-        setAuditLedger(data.logs || []);
+        const text = await res.text();
+        if (text && text.trim().startsWith('{')) {
+          const data = JSON.parse(text);
+          setAuditLedger(data.logs || []);
+        } else {
+          setAuditLedger([]);
+        }
+      } else {
+        setAuditLedger([]);
       }
     } catch (e) {
       console.error("fetchAuditLedger err", e);
+      setAuditLedger([]);
     }
   };
 
@@ -894,6 +911,16 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
   const { plan } = selectedPlan;
   const isAudited = plan.metadata?.internalAuditStatus === 'Audited';
 
+  const visibleItems = useMemo(() => {
+    if (!plan || !Array.isArray(plan.items)) return [];
+    return plan.items.filter((item: any) => {
+      return item.reviewStatus === 'Approved' || 
+             item.reviewStatus === 'Dispatched to Audit' || 
+             item.internalAuditStatus || 
+             item.internalAuditRating;
+    });
+  }, [plan]);
+
   return (
     <div id="internal-audit-detail" className="flex flex-col h-full bg-slate-50 border border-gray-200 rounded-3xl overflow-hidden shadow-2xl text-stone-900">
       <div className="px-6 py-4 bg-white border-b border-gray-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shrink-0 select-text">
@@ -960,9 +987,9 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
             activeTenantId={activeTenantId}
             defaultEmployeeEmail={selectedPlan?.userId || ''}
           />
-        ) : (!plan.items || plan.items.length === 0) ? (
+        ) : (!visibleItems || visibleItems.length === 0) ? (
           <div className="bg-white p-8 rounded-2xl border border-gray-200 text-center">
-            <p className="text-slate-500 text-sm font-bold uppercase">No KPIs found in this plan</p>
+            <p className="text-slate-500 text-sm font-bold uppercase">No KPIs have been approved/pushed by the manager for audit review yet.</p>
           </div>
         ) : (
           <div className="space-y-6 w-full lg:flex lg:gap-6 lg:space-y-0">
@@ -990,7 +1017,7 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
                   onChange={(e) => setActiveKPIId(e.target.value)}
                   className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 font-semibold focus:border-indigo-500 focus:bg-white outline-none cursor-pointer"
                 >
-                  {plan.items.map((item: any, idx: number) => (
+                  {visibleItems.map((item: any, idx: number) => (
                     <option key={item.id} value={item.id}>
                       {item.kpiNo || `KPI-${idx + 1}`}: {item.kpi?.substring(0, 45)}...
                     </option>
@@ -1000,7 +1027,7 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
 
               {/* Highlight details of active KPI */}
               {(() => {
-                const activeKPI = plan.items.find((x: any) => x.id === activeKPIId);
+                const activeKPI = visibleItems.find((x: any) => x.id === activeKPIId);
                 if (!activeKPI) return null;
 
                 const activeQuartersList = [
@@ -1259,7 +1286,7 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
                   Audit Findings & Comments
                 </label>
                 {(() => {
-                  const activeKPI = plan.items.find((x: any) => x.id === activeKPIId);
+                  const activeKPI = visibleItems.find((x: any) => x.id === activeKPIId);
                   return (
                     <textarea
                       value={activeKPI?.internalAuditComment || ''}
@@ -1397,7 +1424,7 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
                       </tr>
                     </thead>
                     <tbody>
-                      {plan.items.map((kpi: any) => (
+                      {visibleItems.map((kpi: any) => (
                         <tr key={kpi.id} id={`kpi-row-${kpi.id}`} className="bg-white transition-all duration-300">
                           <td className="p-2 border border-black whitespace-normal align-top">{kpi.kpi}</td>
                           <td className="p-2 border border-black align-top text-center">{kpi.baseline || '-'}</td>
@@ -1442,14 +1469,14 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
                         <td colSpan={14} className="border-r-0"></td>
                         <td colSpan={2} className="p-2 border border-black text-right font-bold bg-[#dbeafe]">TOTAL SCORE</td>
                         <td className="p-2 text-center font-bold border border-black">
-                          {plan.items.reduce((sum: number, k: any) => sum + ((parseFloat(k.managerScore || '0') * parseFloat(k.weighting || '0')) / 5), 0).toFixed(2)}
+                          {visibleItems.reduce((sum: number, k: any) => sum + ((parseFloat(k.managerScore || '0') * parseFloat(k.weighting || '0')) / 5), 0).toFixed(2)}
                         </td>
                       </tr>
                       <tr>
                         <td colSpan={14} className="border-r-0 border-t-0"></td>
                         <td colSpan={2} className="p-2 border border-black text-right font-bold bg-[#bdd7ee]">Total KPI weight *5</td>
                         <td className="p-2 text-center font-bold border border-black bg-[#bdd7ee]">
-                          {plan.items.reduce((sum: number, k: any) => sum + (parseFloat(k.weighting || '0')), 0) * 5}
+                          {visibleItems.reduce((sum: number, k: any) => sum + (parseFloat(k.weighting || '0')), 0) * 5}
                         </td>
                       </tr>
                       <tr>
@@ -1457,8 +1484,8 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
                         <td colSpan={2} className="p-2 border border-black text-right font-bold bg-[#e2efda] min-w-[200px] whitespace-normal">Total final score divided by Total KPI weight (Total KPI weight *5) *80</td>
                         <td className="p-2 text-center font-bold border border-black bg-[#e2efda]">
                           {(() => {
-                             const totalScore = plan.items.reduce((sum: number, k: any) => sum + ((parseFloat(k.managerScore || '0') * parseFloat(k.weighting || '0')) / 5), 0);
-                             const totalWeightTimes5 = plan.items.reduce((sum: number, k: any) => sum + (parseFloat(k.weighting || '0')), 0) * 5;
+                             const totalScore = visibleItems.reduce((sum: number, k: any) => sum + ((parseFloat(k.managerScore || '0') * parseFloat(k.weighting || '0')) / 5), 0);
+                             const totalWeightTimes5 = visibleItems.reduce((sum: number, k: any) => sum + (parseFloat(k.weighting || '0')), 0) * 5;
                              return totalWeightTimes5 > 0 ? ((totalScore / totalWeightTimes5) * 80).toFixed(2) : '0';
                           })()}
                         </td>

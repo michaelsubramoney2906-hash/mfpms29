@@ -11733,6 +11733,117 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
     }
   });
 
+  // Audit Ledger and DPMC Ledger endpoints
+  app.get("/api/tenant/:tenantId/audit-ledger", async (req, res) => {
+    const { tenantId: routeTenantId } = req.params;
+    const tenantId = routeTenantId || 'nkangala_auto';
+    try {
+      const supabase = getSupabase();
+      const documentId = `audit_ledger_${tenantId}`;
+      const { data, error } = await supabase
+        .from('messages')
+        .select('content')
+        .eq('id', documentId)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (data && data.content) {
+        try {
+          const parsed = JSON.parse(data.content);
+          return res.json(parsed);
+        } catch (e) {
+          return res.json({ logs: [] });
+        }
+      }
+      return res.json({ logs: [] });
+    } catch (err: any) {
+      console.error("audit-ledger GET exception:", err);
+      res.json({ logs: [] });
+    }
+  });
+
+  app.post("/api/tenant/:tenantId/audit-ledger", async (req, res) => {
+    const { tenantId: routeTenantId } = req.params;
+    const tenantId = routeTenantId || 'nkangala_auto';
+    const { logs } = req.body;
+    try {
+      const supabase = getSupabase();
+      const documentId = `audit_ledger_${tenantId}`;
+      const { error } = await supabase
+        .from('messages')
+        .upsert({
+          id: documentId,
+          tenant_id: tenantId,
+          sender_id: 'audit_ledger_tool',
+          sender_email: 'audit@system.local',
+          sender_name: 'Audit Ledger',
+          content: JSON.stringify({ logs: logs || [] }),
+          message_type: 'audit_ledger_list',
+          created_at: new Date().toISOString()
+        });
+      if (error) throw error;
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error("audit-ledger POST exception:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get("/api/tenant/:tenantId/dpmc-ledger", async (req, res) => {
+    const { tenantId: routeTenantId } = req.params;
+    const tenantId = routeTenantId || 'nkangala_auto';
+    try {
+      const supabase = getSupabase();
+      const documentId = `dpmc_ledger_${tenantId}`;
+      const { data, error } = await supabase
+        .from('messages')
+        .select('content')
+        .eq('id', documentId)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (data && data.content) {
+        try {
+          const parsed = JSON.parse(data.content);
+          return res.json(parsed);
+        } catch (e) {
+          return res.json({ logs: [] });
+        }
+      }
+      return res.json({ logs: [] });
+    } catch (err: any) {
+      console.error("dpmc-ledger GET exception:", err);
+      res.json({ logs: [] });
+    }
+  });
+
+  app.post("/api/tenant/:tenantId/dpmc-ledger", async (req, res) => {
+    const { tenantId: routeTenantId } = req.params;
+    const tenantId = routeTenantId || 'nkangala_auto';
+    const { logs } = req.body;
+    try {
+      const supabase = getSupabase();
+      const documentId = `dpmc_ledger_${tenantId}`;
+      const { error } = await supabase
+        .from('messages')
+        .upsert({
+          id: documentId,
+          tenant_id: tenantId,
+          sender_id: 'dpmc_ledger_tool',
+          sender_email: 'dpmc@system.local',
+          sender_name: 'DPMC Ledger',
+          content: JSON.stringify({ logs: logs || [] }),
+          message_type: 'dpmc_ledger_list',
+          created_at: new Date().toISOString()
+        });
+      if (error) throw error;
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error("dpmc-ledger POST exception:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Team Performance Plan (TEAM-PPLAN) Dedicated Routes - Completely separate from normal Performance Plan
   app.get("/api/tenant/:tenantId/team-pplan", async (req, res) => {
     const { tenantId: routeTenantId } = req.params;
