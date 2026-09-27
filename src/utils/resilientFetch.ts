@@ -1,18 +1,9 @@
 /**
  * Resilient Network & Session Protection Layer (Zero-Kickout Guard)
  * - Automatic exponential backoff retries for transient 500, 502, 503, 504 and network blips
- * - Emits global connectivity events for seamless user experience
+ * - Fully silent background retries without intrusive popup notifications
  * - Guarantees user sessions are never wiped due to gateway/database hiccups
  */
-
-type NetworkStatusListener = (status: {
-  isReconnecting: boolean;
-  message?: string;
-  lastAttempt?: number;
-}) => void;
-
-const listeners: Set<NetworkStatusListener> = new Set();
-let reconnectingState = false;
 
 // Safe reference to the native fetch function
 const nativeFetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response> =
@@ -20,32 +11,13 @@ const nativeFetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Res
     ? window.fetch.bind(window)
     : (input: RequestInfo | URL, init?: RequestInit) => fetch(input, init);
 
-export function subscribeNetworkStatus(listener: NetworkStatusListener) {
-  listeners.add(listener);
-  return () => {
-    listeners.delete(listener);
-  };
-}
-
-function notifyListeners(isReconnecting: boolean, message?: string) {
-  reconnectingState = isReconnecting;
-  listeners.forEach(cb => {
-    try {
-      cb({ isReconnecting, message, lastAttempt: Date.now() });
-    } catch (e) {
-      console.error("[NetworkResilience] Error in status callback:", e);
-    }
-  });
-}
-
 export async function resilientFetch(
   input: RequestInfo | URL,
   init?: RequestInit,
-  options?: { maxRetries?: number; retryDelayMs?: number; silent?: boolean }
+  options?: { maxRetries?: number; retryDelayMs?: number }
 ): Promise<Response> {
   const maxRetries = options?.maxRetries ?? 3;
   const baseDelay = options?.retryDelayMs ?? 1000;
-  const silent = options?.silent ?? false;
 
   let attempt = 0;
   while (attempt <= maxRetries) {
@@ -59,15 +31,8 @@ export async function resilientFetch(
       if (isTransientError && attempt < maxRetries) {
         attempt++;
         const delay = baseDelay * Math.pow(1.5, attempt - 1);
-        if (!silent) {
-          notifyListeners(true, `Server busy (HTTP ${response.status}). Retrying (${attempt}/${maxRetries})...`);
-        }
         await new Promise(r => setTimeout(r, delay));
         continue;
-      }
-
-      if (reconnectingState && !silent) {
-        notifyListeners(false, "Connection restored");
       }
 
       return response;
@@ -76,15 +41,8 @@ export async function resilientFetch(
       if (attempt < maxRetries) {
         attempt++;
         const delay = baseDelay * Math.pow(1.5, attempt - 1);
-        if (!silent) {
-          notifyListeners(true, `Network glitch detected. Retrying (${attempt}/${maxRetries})...`);
-        }
         await new Promise(r => setTimeout(r, delay));
         continue;
-      }
-
-      if (!silent) {
-        notifyListeners(true, "Temporary network delay. Your session remains safely active.");
       }
       throw err;
     }

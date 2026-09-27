@@ -10,59 +10,10 @@ import { NEDAPortal } from './components/NEDAPortal';
 import { SecurityShield } from './components/SecurityShield';
 import { FinancialYearProvider } from './context/FinancialYearContext';
 import { performanceLogger } from './utils/performanceLogger';
-import { installResilientNetworkInterceptor } from './utils/resilientFetch';
-import { NetworkResilienceToast } from './components/NetworkResilienceToast';
 import type { User } from './types';
-
-// Initialize network resilience immediately on app boot
-installResilientNetworkInterceptor();
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
-
-  // Live auto-update listener: checks for new deployments and applies updates automatically without manual cache clearing
-  useEffect(() => {
-    let initialVersion: string | null = null;
-
-    const checkAppVersion = async () => {
-      try {
-        const res = await fetch(`/api/version?_t=${Date.now()}`, {
-          cache: 'no-store',
-          headers: { 'Cache-Control': 'no-cache, no-store' }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data && data.version) {
-            if (!initialVersion) {
-              initialVersion = data.version;
-            } else if (data.version !== initialVersion) {
-              console.log('[System] New version detected:', data.version, 'Refreshing client automatically...');
-              window.location.reload();
-            }
-          }
-        }
-      } catch (err) {
-        // Silently ignore network blips
-      }
-    };
-
-    // Check on startup, periodically every 30s, and whenever the user returns to the tab
-    checkAppVersion();
-    const versionInterval = setInterval(checkAppVersion, 30000);
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        checkAppVersion();
-      }
-    };
-    window.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', checkAppVersion);
-
-    return () => {
-      clearInterval(versionInterval);
-      window.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', checkAppVersion);
-    };
-  }, []);
 
   useEffect(() => {
     performanceLogger.init();
@@ -283,12 +234,7 @@ export default function App() {
   };
 
   if (!user) {
-    return (
-      <>
-        <LandingPage onLogin={handleSetUser} />
-        <NetworkResilienceToast />
-      </>
-    );
+    return <LandingPage onLogin={handleSetUser} />;
   }
 
   const isImpersonating = !!sessionStorage.getItem('originalAdminUser');
@@ -296,7 +242,6 @@ export default function App() {
   return (
     <FinancialYearProvider>
       <div className="flex flex-col min-h-screen">
-        <NetworkResilienceToast />
         {isImpersonating && (
           <div className="bg-amber-500 text-black px-8 py-2.5 flex items-center justify-between text-xs font-bold uppercase tracking-wider z-[999] shadow-md border-b border-amber-600 shrink-0">
             <div className="flex items-center gap-2">
