@@ -3121,13 +3121,13 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
                             }}
                             className="w-full bg-slate-50 border border-slate-200 rounded text-[9px] font-bold p-1 outline-none text-slate-800 transition"
                           >
-                            <option value="">-- Select mSCOA --</option>
-                            {uniqueMscoaCodes.map((code) => (
-                              <option key={code} value={code}>
+                            <option key="default_mscoa" value="">-- Select mSCOA --</option>
+                            {uniqueMscoaCodes.map((code, cIdx) => (
+                              <option key={code ? `mscoa_${code}_${cIdx}` : `mscoa_idx_${cIdx}`} value={code}>
                                 {code}
                               </option>
                             ))}
-                            <option value="__CUSTOM__">➕ [Type Custom mSCOA...]</option>
+                            <option key="custom_mscoa" value="__CUSTOM__">➕ [Type Custom mSCOA...]</option>
                           </select>
                           
                           <input

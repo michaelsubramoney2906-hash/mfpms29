@@ -314,6 +314,9 @@ export async function seedDemoDataInSupabase(supabase: SupabaseClient, tenantId:
         jobTitle: 'Performance Management Specialist',
         department: 'Corporate Services',
         manager: 'Demo Line Manager',
+        managerEmail: 'manager@mzansiflow.co.za',
+        reportTo: 'Demo Line Manager',
+        email: 'user@mzansiflow.co.za',
         reviewStatus: 'Draft'
       },
       items: state.agreement.kpis
@@ -359,13 +362,16 @@ export async function seedDemoDataInSupabase(supabase: SupabaseClient, tenantId:
   });
 
   // 6. Ensure the 4 users exist in Supabase 'users' table
-  const demoUsersList = [
+  const demoUsersList: Record<string, any>[] = [
     {
       id: 'demo-user-mzansiflow',
       full_name: 'Demo Standard User',
       email: 'user@mzansiflow.co.za',
       job_function: 'Performance Management Specialist',
       department: 'Corporate Services',
+      manager: 'Demo Line Manager',
+      manager_email: 'manager@mzansiflow.co.za',
+      report_to: 'Demo Line Manager',
       role: 'tenant_user',
       source: 'demo',
       tenant_id: tenantId === 'global' ? 'tenant-229' : tenantId
@@ -376,6 +382,9 @@ export async function seedDemoDataInSupabase(supabase: SupabaseClient, tenantId:
       email: 'manager@mzansiflow.co.za',
       job_function: 'Divisional Manager: Corporate Services',
       department: 'Corporate Services',
+      manager: 'Municipal Manager',
+      manager_email: 'mm@mzansiflow.co.za',
+      report_to: 'Municipal Manager',
       role: 'Manager',
       source: 'demo',
       tenant_id: tenantId === 'global' ? 'tenant-229' : tenantId
@@ -386,6 +395,9 @@ export async function seedDemoDataInSupabase(supabase: SupabaseClient, tenantId:
       email: 'audit@mzansiflow.co.za',
       job_function: 'Senior Internal Auditor',
       department: 'Internal Audit Services',
+      manager: 'Chief Audit Executive',
+      manager_email: 'cae@mzansiflow.co.za',
+      report_to: 'Chief Audit Executive',
       role: 'Auditor',
       source: 'demo',
       tenant_id: tenantId === 'global' ? 'tenant-229' : tenantId
@@ -396,6 +408,9 @@ export async function seedDemoDataInSupabase(supabase: SupabaseClient, tenantId:
       email: 'dpmc@mzansiflow.co.za',
       job_function: 'Committee Moderator',
       department: 'Performance Moderation (DPMC)',
+      manager: 'Audit Committee Chair',
+      manager_email: 'chair@mzansiflow.co.za',
+      report_to: 'Audit Committee Chair',
       role: 'DPMC',
       source: 'demo',
       tenant_id: tenantId === 'global' ? 'tenant-229' : tenantId
@@ -404,7 +419,7 @@ export async function seedDemoDataInSupabase(supabase: SupabaseClient, tenantId:
 
   try {
     for (const usr of demoUsersList) {
-      await supabase.from('users').upsert(usr, { onConflict: 'email' });
+      await (supabase.from('users') as any).upsert(usr, { onConflict: 'email' });
     }
   } catch (e) {
     console.error('Error upserting demo users to Supabase users table:', e);
@@ -503,9 +518,27 @@ export async function handleDemoWorkflowAction(req: any, res: any, supabase: Sup
     }
 
     // 2. Submit to Manager Action (by user@mzansiflow.co.za)
-    if (action === 'submit_to_manager') {
+    if (action === 'submit_to_manager' || action === 'submit_kpi') {
+      const isSingleKpi = action === 'submit_kpi';
+      const kpiId = req.body?.kpiId || 'kpi-demo-1';
+      const targetKpi = (state.agreement?.kpis || []).find((k: any) => k.id === kpiId) || state.agreement?.kpis?.[0];
+      const kpiNo = targetKpi?.kpiNo || 'KPI #1';
+      const kpiTitle = targetKpi?.kpi || 'Key Performance Indicator';
+
       state.status = 'SUBMITTED_TO_MANAGER';
       state.lastUpdated = timestamp;
+      state.lastSubmittedKpiId = isSingleKpi ? kpiId : (state.agreement?.kpis?.[0]?.id || 'kpi-demo-1');
+
+      // Update reviewStatus on agreement KPIs
+      if (Array.isArray(state.agreement?.kpis)) {
+        state.agreement.kpis = state.agreement.kpis.map((k: any) => {
+          if (!isSingleKpi || k.id === kpiId) {
+            return { ...k, reviewStatus: 'Submitted for Approval' };
+          }
+          return k;
+        });
+      }
+
       state.workflowHistory.unshift({
         id: `hist_${Date.now()}`,
         timestamp,
@@ -513,16 +546,34 @@ export async function handleDemoWorkflowAction(req: any, res: any, supabase: Sup
         actorName: 'Demo Standard User',
         role: 'Standard User (Submitter)',
         stage: 'Submitted to Manager',
-        action: 'Submitted Performance Agreement to Line Manager',
-        notes: notes || 'Submitted 2024/2025 Performance Agreement for line manager review and validation.'
+        action: isSingleKpi 
+          ? `Submitted ${kpiNo} to Line Manager for Approval`
+          : 'Submitted Performance Agreement to Line Manager',
+        notes: notes || (isSingleKpi 
+          ? `Submitted ${kpiNo} ("${kpiTitle}") for line manager review and validation.`
+          : 'Submitted 2024/2025 Performance Agreement for line manager review and validation.')
       });
 
-      // Update PPLAN reviewStatus
+      // Update PPLAN reviewStatus in Supabase messages
       try {
         const pplanRes = await supabase.from('messages').select('content').eq('id', `pplan_${tenantId}_user@mzansiflow.co.za`).maybeSingle();
         if (pplanRes.data && pplanRes.data.content) {
           const parsedPlan = JSON.parse(pplanRes.data.content);
-          parsedPlan.metadata = { ...parsedPlan.metadata, reviewStatus: 'Submitted' };
+          parsedPlan.metadata = { 
+            ...parsedPlan.metadata, 
+            reviewStatus: 'Submitted for Approval',
+            manager: 'Demo Line Manager',
+            managerEmail: 'manager@mzansiflow.co.za',
+            reportTo: 'Demo Line Manager'
+          };
+          if (Array.isArray(parsedPlan.items)) {
+            parsedPlan.items = parsedPlan.items.map((it: any) => {
+              if (!isSingleKpi || it.id === kpiId) {
+                return { ...it, reviewStatus: 'Submitted for Approval' };
+              }
+              return it;
+            });
+          }
           await supabase.from('messages').upsert({
             id: `pplan_${tenantId}_user@mzansiflow.co.za`,
             tenant_id: tenantId,
@@ -542,9 +593,15 @@ export async function handleDemoWorkflowAction(req: any, res: any, supabase: Sup
         senderName: 'Demo Standard User',
         recipientEmail: 'manager@mzansiflow.co.za',
         recipientName: 'Demo Line Manager',
-        title: '📥 Performance Agreement Submitted for Manager Approval',
-        message: `Demo Standard User (user@mzansiflow.co.za) has submitted their complete 2024/2025 Performance Agreement (5 KPAs, 5 KPIs, 4 JSCs, 3 PDPs) for your review and approval.\n\nSubordinate Notes: "${notes || 'Submitting performance agreement for formal approval.'}"`,
-        actionType: 'submission'
+        title: isSingleKpi 
+          ? `⚡ PoE Submitted for ${kpiNo} by Demo Standard User`
+          : '📥 Performance Agreement Submitted for Manager Approval',
+        message: isSingleKpi
+          ? `Demo Standard User (user@mzansiflow.co.za) has submitted ${kpiNo}: "${kpiTitle}" with verified Portfolio of Evidence (PoE) for manager review and approval.\n\nSubordinate Notes: "${notes || 'Submitting KPI evaluation for formal approval.'}"`
+          : `Demo Standard User (user@mzansiflow.co.za) has submitted their complete 2024/2025 Performance Agreement (5 KPAs, 5 KPIs, 4 JSCs, 3 PDPs) for your review and approval.\n\nSubordinate Notes: "${notes || 'Submitting performance agreement for formal approval.'}"`,
+        actionType: 'submission',
+        kpiId: isSingleKpi ? kpiId : (state.agreement?.kpis?.[0]?.id || 'kpi-demo-1'),
+        kpiNo: isSingleKpi ? kpiNo : 'KPI #1'
       });
 
       await supabase.from('messages').upsert({
@@ -558,7 +615,14 @@ export async function handleDemoWorkflowAction(req: any, res: any, supabase: Sup
         created_at: timestamp
       });
 
-      return res.json({ success: true, message: 'Performance agreement submitted to manager@mzansiflow.co.za. Notification dispatched.', state });
+      return res.json({ 
+        success: true, 
+        message: isSingleKpi 
+          ? `${kpiNo} submitted to manager@mzansiflow.co.za. Notification dispatched.` 
+          : 'Performance agreement submitted to manager@mzansiflow.co.za. Notification dispatched.', 
+        state,
+        submittedKpiId: isSingleKpi ? kpiId : state.agreement?.kpis?.[0]?.id
+      });
     }
 
     // 3. Manager Action (by manager@mzansiflow.co.za)
@@ -566,6 +630,8 @@ export async function handleDemoWorkflowAction(req: any, res: any, supabase: Sup
       const decision = actionType || 'approve';
 
       if (decision === 'approve') {
+        const incomingManagerScores = req.body?.managerScores || {};
+        const incomingManagerComments = req.body?.managerKpiComments || {};
         state.status = 'MANAGER_APPROVED';
         state.managerReview = {
           decision: 'Approved',
@@ -573,6 +639,16 @@ export async function handleDemoWorkflowAction(req: any, res: any, supabase: Sup
           timestamp,
           reviewer: 'manager@mzansiflow.co.za'
         };
+
+        if (Array.isArray(state.agreement?.kpis)) {
+          state.agreement.kpis = state.agreement.kpis.map((k: any) => ({
+            ...k,
+            managerScore: incomingManagerScores[k.id] ? String(incomingManagerScores[k.id]) : (k.managerScore || '4.0'),
+            managerComment: incomingManagerComments[k.id] || k.managerComment || comments || 'Target achieved; PoE verified.',
+            reviewStatus: 'Dispatched to Audit',
+            internalAuditStatus: 'Dispatched to Audit'
+          }));
+        }
 
         state.workflowHistory.unshift({
           id: `hist_${Date.now()}`,
@@ -590,7 +666,21 @@ export async function handleDemoWorkflowAction(req: any, res: any, supabase: Sup
           const pplanRes = await supabase.from('messages').select('content').eq('id', `pplan_${tenantId}_user@mzansiflow.co.za`).maybeSingle();
           if (pplanRes.data && pplanRes.data.content) {
             const parsedPlan = JSON.parse(pplanRes.data.content);
-            parsedPlan.metadata = { ...parsedPlan.metadata, reviewStatus: 'Approved' };
+            parsedPlan.metadata = { 
+              ...parsedPlan.metadata, 
+              reviewStatus: 'Dispatched to Audit',
+              internalAuditStatus: 'Dispatched to Audit',
+              managerReviewComments: comments
+            };
+            if (Array.isArray(parsedPlan.items)) {
+              parsedPlan.items = parsedPlan.items.map((it: any) => ({
+                ...it,
+                managerScore: incomingManagerScores[it.id] ? String(incomingManagerScores[it.id]) : (it.managerScore || '4.0'),
+                managerComment: incomingManagerComments[it.id] || it.managerComment || comments || 'Target achieved; PoE verified.',
+                reviewStatus: 'Dispatched to Audit',
+                internalAuditStatus: 'Dispatched to Audit'
+              }));
+            }
             await supabase.from('messages').upsert({
               id: `pplan_${tenantId}_user@mzansiflow.co.za`,
               tenant_id: tenantId,
@@ -731,13 +821,30 @@ export async function handleDemoWorkflowAction(req: any, res: any, supabase: Sup
       const decision = actionType || 'approve';
 
       if (decision === 'approve') {
+        const incomingAuditScores = req.body?.auditScores || {};
+        const incomingAuditComments = req.body?.auditKpiComments || {};
+        const incomingAuditCompliance = req.body?.auditKpiCompliance || {};
         state.status = 'AUDIT_APPROVED';
         state.auditReview = {
           decision: 'Audit Clearance Granted',
+          scores: incomingAuditScores,
+          kpiComments: incomingAuditComments,
+          compliance: incomingAuditCompliance,
           comments: comments || 'Quality assurance and compliance verified.',
           timestamp,
           auditor: 'audit@mzansiflow.co.za'
         };
+
+        if (Array.isArray(state.agreement?.kpis)) {
+          state.agreement.kpis = state.agreement.kpis.map((k: any) => ({
+            ...k,
+            auditScore: incomingAuditScores[k.id] ? String(incomingAuditScores[k.id]) : (k.auditScore || '4.0'),
+            internalAuditRating: incomingAuditScores[k.id] ? String(incomingAuditScores[k.id]) : (k.auditScore || '4.0'),
+            internalAuditComment: incomingAuditComments[k.id] || k.internalAuditComment || comments || 'Compliance verified and approved for DPMC.',
+            internalAuditCompliance: incomingAuditCompliance[k.id] || k.internalAuditCompliance || 'Compliant',
+            internalAuditStatus: 'Pushed to DPMC'
+          }));
+        }
 
         state.workflowHistory.unshift({
           id: `hist_${Date.now()}`,
@@ -749,6 +856,40 @@ export async function handleDemoWorkflowAction(req: any, res: any, supabase: Sup
           action: 'Granted Audit Clearance & Dispatched to DPMC',
           notes: comments || 'Audit findings confirm full regulatory alignment with SDBIP.'
         });
+
+        // Update PPLAN in Supabase
+        try {
+          const pplanRes = await supabase.from('messages').select('content').eq('id', `pplan_${tenantId}_user@mzansiflow.co.za`).maybeSingle();
+          if (pplanRes.data && pplanRes.data.content) {
+            const parsedPlan = JSON.parse(pplanRes.data.content);
+            parsedPlan.metadata = { 
+              ...parsedPlan.metadata, 
+              internalAuditStatus: 'Pushed to DPMC',
+              reviewStatus: 'Audited',
+              auditComments: comments
+            };
+            if (Array.isArray(parsedPlan.items)) {
+              parsedPlan.items = parsedPlan.items.map((it: any) => ({
+                ...it,
+                internalAuditStatus: 'Pushed to DPMC',
+                auditScore: incomingAuditScores[it.id] ? String(incomingAuditScores[it.id]) : (it.auditScore || '4.0'),
+                internalAuditRating: incomingAuditScores[it.id] ? String(incomingAuditScores[it.id]) : (it.auditScore || '4.0'),
+                internalAuditComment: incomingAuditComments[it.id] || it.internalAuditComment || comments || 'Compliance verified and approved for DPMC.',
+                internalAuditCompliance: incomingAuditCompliance[it.id] || it.internalAuditCompliance || 'Compliant'
+              }));
+            }
+            await supabase.from('messages').upsert({
+              id: `pplan_${tenantId}_user@mzansiflow.co.za`,
+              tenant_id: tenantId,
+              sender_id: 'ipms_demo_system',
+              sender_email: 'audit@mzansiflow.co.za',
+              sender_name: 'Demo Internal Auditor',
+              content: JSON.stringify(parsedPlan),
+              message_type: 'pplan_list',
+              created_at: timestamp
+            });
+          }
+        } catch (e) {}
 
         // Notification 1: To user@mzansiflow.co.za
         await addIpmsNotification(supabase, tenantId, {
@@ -900,14 +1041,24 @@ export async function handleDemoWorkflowAction(req: any, res: any, supabase: Sup
         ? (scoreValues.reduce((a, b) => a + Number(b), 0) / scoreValues.length).toFixed(1)
         : '4.3';
 
+      const incomingDpmcKpiComments = req.body?.dpmcKpiComments || {};
       state.status = 'DPMC_COMPLETED';
       state.dpmcReview = {
         scores: scores || {},
+        kpiComments: incomingDpmcKpiComments,
         averageScore: avgScore,
         comments: comments || 'Moderation approved with performance incentive rating.',
         timestamp,
         moderator: 'dpmc@mzansiflow.co.za'
       };
+
+      if (Array.isArray(state.agreement?.kpis)) {
+        state.agreement.kpis = state.agreement.kpis.map((k: any) => ({
+          ...k,
+          dpmcScore: scores && scores[k.id] ? String(scores[k.id]) : (k.dpmcScore || '4.0'),
+          dpmcComment: incomingDpmcKpiComments[k.id] || k.dpmcComment || comments || 'Approved by committee.'
+        }));
+      }
 
       state.workflowHistory.unshift({
         id: `hist_${Date.now()}`,
@@ -919,6 +1070,39 @@ export async function handleDemoWorkflowAction(req: any, res: any, supabase: Sup
         action: `Scored & Moderated by DPMC (Average Score: ${avgScore}/5.0)`,
         notes: comments || 'DPMC finalized moderation ratings, confirmed portfolio scores, and signed off resolutions.'
       });
+
+      // Update PPLAN in Supabase
+      try {
+        const pplanRes = await supabase.from('messages').select('content').eq('id', `pplan_${tenantId}_user@mzansiflow.co.za`).maybeSingle();
+        if (pplanRes.data && pplanRes.data.content) {
+          const parsedPlan = JSON.parse(pplanRes.data.content);
+          parsedPlan.metadata = { 
+            ...parsedPlan.metadata, 
+            dpmcStatus: 'Moderated',
+            dpmcScore: avgScore,
+            dpmcComments: comments || 'Moderation approved with performance incentive rating.',
+            reviewStatus: 'Moderated' 
+          };
+          if (Array.isArray(parsedPlan.items)) {
+            parsedPlan.items = parsedPlan.items.map((it: any) => ({
+              ...it,
+              dpmcScore: scores && scores[it.id] ? String(scores[it.id]) : (it.dpmcScore || '4.0'),
+              dpmcComment: incomingDpmcKpiComments[it.id] || it.dpmcComment || comments || 'Approved by committee.',
+              dpmcComments: incomingDpmcKpiComments[it.id] || it.dpmcComments || comments || 'Approved by committee.'
+            }));
+          }
+          await supabase.from('messages').upsert({
+            id: `pplan_${tenantId}_user@mzansiflow.co.za`,
+            tenant_id: tenantId,
+            sender_id: 'ipms_demo_system',
+            sender_email: 'dpmc@mzansiflow.co.za',
+            sender_name: 'Demo DPMC Moderator',
+            content: JSON.stringify(parsedPlan),
+            message_type: 'pplan_list',
+            created_at: timestamp
+          });
+        }
+      } catch (e) {}
 
       // Disclose official moderation outcome to all 3 parties:
       // 1. To Subordinate user@mzansiflow.co.za

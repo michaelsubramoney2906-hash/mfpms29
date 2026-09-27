@@ -123,6 +123,9 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
                          tp.userId?.toLowerCase().includes('zulu') ||
                          tp.plan?.metadata?.name?.toLowerCase().includes('zulu');
           if (isZulu) return true;
+          const isDemo = tp.userId?.toLowerCase().includes('user@mzansiflow') || 
+                         tp.plan?.metadata?.email?.toLowerCase().includes('user@mzansiflow');
+          if (isDemo) return true;
           const status = tp.plan?.metadata?.internalAuditStatus;
           return status !== 'Draft' && status !== 'Cleared';
         });
@@ -436,9 +439,48 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
         })
       });
 
+      // Notify DPMC if status is Pushed to DPMC
+      if (status === 'Pushed to DPMC') {
+        const dpmcRecipient = employeeEmail.includes('mzansiflow') ? 'dpmc@mzansiflow.co.za' : 'dpmc@nkangaladm.gov.za';
+        await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            notification: {
+              senderEmail: currentUser.email || 'audit@system.local',
+              senderName: auditorName,
+              recipientEmail: dpmcRecipient,
+              recipientName: 'DPMC Moderation Committee',
+              title: `📋 DPMC Docket: Audit-Cleared KPIs for ${employeeName}`,
+              message: `Internal Audit has cleared and forwarded ${isSingle ? `single KPI ${kpiNosText}` : `${targetItems.length} KPIs (${kpiNosText})`} for subordinate ${employeeName} (${employeeEmail}) to DPMC for final moderation and scoring.\n\nAverage Audit Rating: ${avgRating}/5.0\n\nAudit Findings:\n${auditDetails}`,
+              actionType: 'dpmc_docket',
+              senderCapacity: 'internal_auditor',
+              employeeEmail: employeeEmail,
+              kpiIds: targetKpiIds
+            }
+          })
+        });
+
+        if (employeeEmail.toLowerCase().includes('user@mzansiflow')) {
+          try {
+            await fetch(`/api/tenant/${activeTenantId}/demo-workflow/action`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'audit_action',
+                actionType: 'approve',
+                comments: `Internal Audit cleared ${targetItems.length} KPI(s) with average score ${avgRating}/5.0 in Audit Workspace.`
+              })
+            });
+          } catch (demoSyncErr) {
+            console.warn("Failed to sync demo state from audit review:", demoSyncErr);
+          }
+        }
+      }
+
       alert(isSingle 
-        ? `Internal Audit feedback for Single KPI (${kpiNosText}) saved & status marked as "${status}". Notifications sent to subordinate (${employeeEmail}) and manager (${managerEmail})!`
-        : `Internal Audit feedback for ${targetItems.length} KPI(s) (${kpiNosText}) saved & status marked as "${status}". Notifications sent to subordinate (${employeeEmail}) and manager (${managerEmail})!`
+        ? `Internal Audit feedback for Single KPI (${kpiNosText}) saved & status marked as "${status}". Notifications sent to subordinate (${employeeEmail}), manager (${managerEmail}), and DPMC!`
+        : `Internal Audit feedback for ${targetItems.length} KPI(s) (${kpiNosText}) saved & status marked as "${status}". Notifications sent to subordinate (${employeeEmail}), manager (${managerEmail}), and DPMC!`
       );
       
       const updatedPlans = teamPlans.map(tp => 

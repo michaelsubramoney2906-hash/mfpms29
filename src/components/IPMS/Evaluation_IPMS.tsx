@@ -559,12 +559,13 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
   const handleSaveKpi = async (kpiId: string, submitForReview = false) => {
     setSaving(true);
     try {
+      const isDemoUser = (currentUser.email || '').toLowerCase() === 'user@mzansiflow.co.za';
       const metadata = { 
         ...pplanData.metadata,
         email: pplanData.metadata?.email || currentUser.email,
-        manager: pplanData.metadata?.manager || currentUser.manager || currentUser.reportTo || 'Yena Khuboni',
-        managerEmail: pplanData.metadata?.managerEmail || 'KhuboniY@nkangaladm.gov.za',
-        reportTo: pplanData.metadata?.reportTo || currentUser.reportTo || currentUser.manager || ''
+        manager: pplanData.metadata?.manager || currentUser.manager || (isDemoUser ? 'Demo Line Manager' : 'Yena Khuboni'),
+        managerEmail: pplanData.metadata?.managerEmail || currentUser.managerEmail || (isDemoUser ? 'manager@mzansiflow.co.za' : 'KhuboniY@nkangaladm.gov.za'),
+        reportTo: pplanData.metadata?.reportTo || currentUser.reportTo || (isDemoUser ? 'Demo Line Manager' : '')
       };
       if (submitForReview) {
         metadata.reviewStatus = 'Submitted for Approval';
@@ -718,12 +719,13 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
     }
     setSaving(true);
     try {
+      const isDemoUser = (currentUser.email || '').toLowerCase() === 'user@mzansiflow.co.za';
       const metadata = { 
         ...pplanData.metadata,
         email: pplanData.metadata?.email || currentUser.email,
-        manager: pplanData.metadata?.manager || currentUser.manager || currentUser.reportTo || 'Yena Khuboni',
-        managerEmail: pplanData.metadata?.managerEmail || 'KhuboniY@nkangaladm.gov.za',
-        reportTo: pplanData.metadata?.reportTo || currentUser.reportTo || currentUser.manager || '',
+        manager: pplanData.metadata?.manager || currentUser.manager || (isDemoUser ? 'Demo Line Manager' : 'Yena Khuboni'),
+        managerEmail: pplanData.metadata?.managerEmail || currentUser.managerEmail || (isDemoUser ? 'manager@mzansiflow.co.za' : 'KhuboniY@nkangaladm.gov.za'),
+        reportTo: pplanData.metadata?.reportTo || currentUser.reportTo || (isDemoUser ? 'Demo Line Manager' : ''),
         reviewStatus: submitForReview ? 'Submitted for Approval' : (pplanData.metadata?.reviewStatus || 'Draft')
       };
 

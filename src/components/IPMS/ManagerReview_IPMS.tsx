@@ -130,6 +130,55 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
   useEffect(() => {
     fetchTeamPlans();
     fetchNotifications();
+
+    // Check for incoming target navigation from Demo or Notifications
+    try {
+      const storedTarget = sessionStorage.getItem('ipms_manager_review_target');
+      if (storedTarget) {
+        const parsed = JSON.parse(storedTarget);
+        sessionStorage.removeItem('ipms_manager_review_target');
+        if (parsed.userId) {
+          setTimeout(async () => {
+            const normTarget = parsed.userId.toLowerCase().trim();
+            try {
+              const fetchRes = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(normTarget)}`);
+              if (fetchRes.ok) {
+                const planData = await safeJson(fetchRes);
+                if (planData) {
+                  const matchingPlan = { userId: normTarget, plan: planData };
+                  setTeamPlans(prev => {
+                    const exists = prev.some(p => (p.userId || '').toLowerCase().trim() === normTarget);
+                    return exists ? prev : [...prev, matchingPlan];
+                  });
+                  handleSelectPlan(matchingPlan, () => {
+                    if (parsed.kpiId) {
+                      const targetId = `kpi-card-${parsed.kpiId}`;
+                      let attempts = 0;
+                      const interval = setInterval(() => {
+                        const el = document.getElementById(targetId);
+                        if (el) {
+                          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                          el.classList.add('ring-4', 'ring-indigo-500', 'transition-all');
+                          setTimeout(() => el.classList.remove('ring-4', 'ring-indigo-500'), 3500);
+                          clearInterval(interval);
+                        } else if (attempts > 30) {
+                          clearInterval(interval);
+                        }
+                        attempts++;
+                      }, 100);
+                    }
+                  }, parsed.kpiId);
+                }
+              }
+            } catch (err) {
+              console.error("Error loading targeted plan on mount:", err);
+            }
+          }, 350);
+        }
+      }
+    } catch (e) {
+      console.error("Error reading manager review target from sessionStorage:", e);
+    }
   }, [activeTenantId, currentUser]);
 
   const fetchNotifications = async () => {
@@ -328,13 +377,21 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
           khuboniSubordinates.forEach(email => mySubordinateEmails.add(email));
         }
 
+        // Explicit list for Demo Line Manager (manager@mzansiflow.co.za)
+        if (managerEmail === 'manager@mzansiflow.co.za' || managerEmail.includes('manager@mzansiflow')) {
+          mySubordinateEmails.add('user@mzansiflow.co.za');
+        }
+
+        const isExcludedDeveloper = (email: string) => 
+          ['mike@mzansiflow.co.za', 'mike@massivedynamixdistributors.com', 'audrey@mzansiflow.co.za', 'delphine@mzansiflow.co.za', 'ryanw@mzansiflow.co.za'].includes(email);
+
         // Build list of subordinate emails from User Directory
         allUsers.forEach(u => {
           const uEmail = (u.email || '').toLowerCase().trim();
           if (!uEmail || uEmail === managerEmail) return;
 
-          // Exclude any system developers/global administrators from being a subordinate
-          if (uEmail.endsWith('@mzansiflow.co.za') || uEmail.endsWith('@massivedynamixdistributors.com')) {
+          // Exclude internal dev accounts from appearing as municipal subordinates, but keep demo users
+          if (isExcludedDeveloper(uEmail)) {
             return;
           }
 
@@ -342,7 +399,8 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
           const isSub = Boolean(
             (uManager && normCurrent && (uManager === normCurrent || uManager.includes(normCurrent))) ||
             (uManager && managerEmail && uManager.includes(managerEmail)) ||
-            (managerEmail.includes('khuboni') && (uManager.includes('khuboni') || khuboniSubordinates.includes(uEmail)))
+            (managerEmail.includes('khuboni') && (uManager.includes('khuboni') || khuboniSubordinates.includes(uEmail))) ||
+            ((managerEmail === 'manager@mzansiflow.co.za' || managerEmail.includes('manager@mzansiflow')) && (uEmail === 'user@mzansiflow.co.za' || uManager.includes('demo line manager')))
           );
 
           if (isSub) {
@@ -358,8 +416,8 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
           const targetEmail = (p.userId || '').toLowerCase().trim();
           if (targetEmail === managerEmail) return false; // Never review oneself
 
-          // Exclude any system developers/global administrators from being a subordinate
-          if (targetEmail.endsWith('@mzansiflow.co.za') || targetEmail.endsWith('@massivedynamixdistributors.com')) {
+          // Exclude internal dev accounts unless testing
+          if (isExcludedDeveloper(targetEmail)) {
             return false;
           }
 
@@ -369,7 +427,8 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
             pManager && (
               (normCurrent && pManager.includes(normCurrent)) ||
               (managerEmail && pManager.includes(managerEmail)) ||
-              (managerEmail.includes('khuboni') && khuboniSubordinates.includes(targetEmail))
+              (managerEmail.includes('khuboni') && khuboniSubordinates.includes(targetEmail)) ||
+              ((managerEmail === 'manager@mzansiflow.co.za' || managerEmail.includes('manager@mzansiflow')) && (targetEmail === 'user@mzansiflow.co.za' || pManager.includes('demo line manager')))
             )
           );
 
@@ -390,7 +449,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
     }
   };
 
-  const handleSelectPlan = async (tp: any, onLoaded?: () => void) => {
+  const handleSelectPlan = async (tp: any, onLoaded?: () => void, targetKpiId?: string) => {
     // We must fetch the individual plan to get the full documents (including dataUrl)
     // because dataUrl is stripped from the team-pplans endpoint.
     setSelectedPlan(tp); // Set it initially for fast UI feedback
@@ -399,13 +458,16 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
     let autoSelectIds: string[] = [];
     if (tp.plan && Array.isArray(tp.plan.items)) {
       autoSelectIds = tp.plan.items.filter((it: any) => 
-        it.reviewStatus === 'Submitted for Approval' || it.reviewStatus === 'Submitted for Review'
+        it.reviewStatus === 'Submitted for Approval' || it.reviewStatus === 'Submitted for Review' || it.reviewStatus === 'Submitted'
       ).map((it: any) => it.id);
+    }
+    if (targetKpiId && !autoSelectIds.includes(targetKpiId)) {
+      autoSelectIds.push(targetKpiId);
     }
     setSelectedKpiIdsForReview(autoSelectIds);
 
     try {
-      const res = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${tp.userId}`);
+      const res = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(tp.userId)}`);
       if (res.ok) {
         const fullPlan = await safeJson(res) || {};
         if (fullPlan && fullPlan.items) {
@@ -414,8 +476,11 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
           let fullAutoSelectIds: string[] = [];
           if (Array.isArray(fullPlan.items)) {
             fullAutoSelectIds = fullPlan.items.filter((it: any) => 
-              it.reviewStatus === 'Submitted for Approval' || it.reviewStatus === 'Submitted for Review'
+              it.reviewStatus === 'Submitted for Approval' || it.reviewStatus === 'Submitted for Review' || it.reviewStatus === 'Submitted'
             ).map((it: any) => it.id);
+          }
+          if (targetKpiId && !fullAutoSelectIds.includes(targetKpiId)) {
+            fullAutoSelectIds.push(targetKpiId);
           }
           setSelectedKpiIdsForReview(fullAutoSelectIds);
         }
@@ -426,15 +491,15 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
       if (onLoaded) {
         setTimeout(onLoaded, 100);
       } else {
-        // Default scroll to first selected KPI if no specific callback provided
+        // Default scroll to target or first selected KPI if no specific callback provided
+        const scrollToId = targetKpiId || autoSelectIds[0];
         setTimeout(() => {
-          if (autoSelectIds.length > 0) {
-            const firstId = autoSelectIds[0];
-            const el = document.getElementById(`kpi-card-${firstId}`);
+          if (scrollToId) {
+            const el = document.getElementById(`kpi-card-${scrollToId}`);
             if (el) {
               el.scrollIntoView({ behavior: 'smooth', block: 'center' });
               el.classList.add('ring-4', 'ring-indigo-500', 'transition-all');
-              setTimeout(() => el.classList.remove('ring-4', 'ring-indigo-500'), 3000);
+              setTimeout(() => el.classList.remove('ring-4', 'ring-indigo-500'), 3500);
             }
           }
         }, 300);
@@ -1127,13 +1192,33 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
               role="manager"
               currentUser={currentUser}
               activeTenantId={activeTenantId}
-              onSelectUserPlan={(targetUserEmail, kpiId, quarter) => {
+              onSelectUserPlan={async (targetUserEmail, kpiId, quarter) => {
                 const normTarget = (targetUserEmail || '').toLowerCase().trim();
-                const matchingPlan = teamPlans.find(p => 
+                let matchingPlan = teamPlans.find(p => 
                   (p.userId || '').toLowerCase().trim() === normTarget ||
                   (p.plan?.metadata?.email || '').toLowerCase().trim() === normTarget ||
-                  (normTarget.includes('zulune') && (p.userId || '').includes('zulune'))
+                  (normTarget.includes('zulune') && (p.userId || '').includes('zulune')) ||
+                  (normTarget.includes('user@mzansiflow') && (p.userId || '').includes('user@mzansiflow'))
                 );
+
+                if (!matchingPlan) {
+                  try {
+                    const fetchRes = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(normTarget)}`);
+                    if (fetchRes.ok) {
+                      const fetchedPlanData = await safeJson(fetchRes);
+                      if (fetchedPlanData && (fetchedPlanData.items || fetchedPlanData.metadata)) {
+                        matchingPlan = { userId: normTarget, plan: fetchedPlanData };
+                        setTeamPlans(prev => {
+                          const exists = prev.some(p => (p.userId || '').toLowerCase().trim() === normTarget);
+                          return exists ? prev : [...prev, matchingPlan];
+                        });
+                      }
+                    }
+                  } catch (err) {
+                    console.error("Failed to load plan on demand:", err);
+                  }
+                }
+
                 if (matchingPlan) {
                   // Resolve the active quarter to show
                   let targetQuarter = quarter ? quarter.toUpperCase() : '';
@@ -1152,6 +1237,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
 
                   if (kpiId) {
                     setActiveKpiQuarter(prev => ({ ...prev, [kpiId]: targetQuarter }));
+                    setSelectedKpiIdsForReview(prev => prev.includes(kpiId) ? prev : [...prev, kpiId]);
                   }
 
                   handleSelectPlan(matchingPlan, () => {
@@ -1163,16 +1249,16 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
                       if (el) {
                         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
                         el.classList.add('ring-4', 'ring-indigo-500', 'transition-all');
-                        setTimeout(() => el.classList.remove('ring-4', 'ring-indigo-500'), 3000);
+                        setTimeout(() => el.classList.remove('ring-4', 'ring-indigo-500'), 3500);
                         clearInterval(interval);
                       } else if (attempts > 35) { // max 3.5 seconds
                         clearInterval(interval);
                       }
                       attempts++;
                     }, 100);
-                  });
+                  }, kpiId);
                 } else {
-                  alert(`Plan for ${targetUserEmail} is loaded in your team queue below.`);
+                  alert(`Plan for ${targetUserEmail} could not be loaded.`);
                 }
               }}
             />

@@ -90,9 +90,45 @@ export function IPMSDemo({ currentUser, activeTenantId, onImpersonate, onNavigat
   const [submitNotes, setSubmitNotes] = useState<string>('Submitting 2024/2025 Performance Agreement for line manager review and validation.');
   const [managerActionType, setManagerActionType] = useState<'approve' | 'request_changes' | 'reject'>('approve');
   const [managerComments, setManagerComments] = useState<string>('All KPAs align with departmental strategic priorities. Verified portfolio of evidence (PoE) for all KPIs and personal development goals.');
+  const [managerScores, setManagerScores] = useState<Record<string, number>>({
+    'kpi-demo-1': 4,
+    'kpi-demo-2': 4,
+    'kpi-demo-3': 5,
+    'kpi-demo-4': 4,
+    'kpi-demo-5': 4
+  });
+  const [managerKpiComments, setManagerKpiComments] = useState<Record<string, string>>({
+    'kpi-demo-1': 'Target achieved; PoE verified against municipal quarterly tracker.',
+    'kpi-demo-2': 'UIFW audit finding resolved; clear evidence attached.',
+    'kpi-demo-3': '100% compliance with statutory SDBIP deadlines verified.',
+    'kpi-demo-4': 'Community consultations and public register confirmed.',
+    'kpi-demo-5': 'Departmental automation goals fully delivered.'
+  });
+
   const [auditActionType, setAuditActionType] = useState<'approve' | 'request_resubmission' | 'reject'>('approve');
   const [auditComments, setAuditComments] = useState<string>('Audit verification completed. Sample evidence evaluated and statutory Section 57 / SDBIP consistency verified. Granted clean audit clearance for DPMC moderation.');
-  
+  const [auditScores, setAuditScores] = useState<Record<string, number>>({
+    'kpi-demo-1': 4,
+    'kpi-demo-2': 4,
+    'kpi-demo-3': 5,
+    'kpi-demo-4': 4,
+    'kpi-demo-5': 4
+  });
+  const [auditKpiComments, setAuditKpiComments] = useState<Record<string, string>>({
+    'kpi-demo-1': 'PoE authenticated against municipal SDBIP register; fully compliant.',
+    'kpi-demo-2': 'Audited against Auditor-General finding resolution file. Clear.',
+    'kpi-demo-3': 'Statutory verification passed with zero compliance discrepancies.',
+    'kpi-demo-4': 'Public consultation minutes verified in audit sample.',
+    'kpi-demo-5': 'System architecture logs and verification sign-off confirmed.'
+  });
+  const [auditKpiCompliance, setAuditKpiCompliance] = useState<Record<string, string>>({
+    'kpi-demo-1': 'Compliant',
+    'kpi-demo-2': 'Compliant',
+    'kpi-demo-3': 'Compliant',
+    'kpi-demo-4': 'Compliant',
+    'kpi-demo-5': 'Compliant'
+  });
+
   // DPMC scoring state (defaulting to scores between 4.0 and 5.0)
   const [dpmcScores, setDpmcScores] = useState<Record<string, number>>({
     'kpi-demo-1': 4,
@@ -104,6 +140,13 @@ export function IPMSDemo({ currentUser, activeTenantId, onImpersonate, onNavigat
     'jsc-demo-2': 4,
     'jsc-demo-3': 4,
     'jsc-demo-4': 5
+  });
+  const [dpmcKpiComments, setDpmcKpiComments] = useState<Record<string, string>>({
+    'kpi-demo-1': 'Committee concurs with line manager and internal auditor rating.',
+    'kpi-demo-2': 'Exceptional turnaround on UIFW reduction verified by committee.',
+    'kpi-demo-3': 'Outstanding statutory governance performance endorsed.',
+    'kpi-demo-4': 'Community consultation rating confirmed by moderation panel.',
+    'kpi-demo-5': 'Digital transformation milestone recognized for incentive calculation.'
   });
   const [dpmcComments, setDpmcComments] = useState<string>('The Departmental Performance Moderation Committee (DPMC) has reviewed the audited performance agreement. Outstanding achievements noted in Good Governance, SDBIP targets, and UIFW reduction. Performance score confirmed and signed off.');
 
@@ -614,28 +657,62 @@ export function IPMSDemo({ currentUser, activeTenantId, onImpersonate, onNavigat
                 </div>
 
                 {workflowStatus === 'DRAFT_CAPTURED' || workflowStatus === 'MANAGER_CHANGES_REQUESTED' || workflowStatus === 'AUDIT_RESUBMISSION_REQUESTED' ? (
-                  <div className="space-y-3 bg-blue-950/20 p-4 rounded-xl border border-blue-500/20">
-                    <label className="block text-xs font-bold text-blue-300">
-                      Submission Notes / Subordinate Remarks for Line Manager:
-                    </label>
-                    <textarea
-                      value={submitNotes}
-                      onChange={(e) => setSubmitNotes(e.target.value)}
-                      rows={2}
-                      className="w-full text-xs bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white focus:outline-none focus:border-blue-500"
-                      placeholder="Enter submission comments or details for your line manager..."
-                    />
-                    <div className="flex items-center justify-between">
+                  <div className="space-y-4 bg-blue-950/20 p-4 rounded-xl border border-blue-500/20">
+                    <div>
+                      <label className="block text-xs font-bold text-blue-300 mb-1">
+                        Submission Notes / Subordinate Remarks for Line Manager:
+                      </label>
+                      <textarea
+                        value={submitNotes}
+                        onChange={(e) => setSubmitNotes(e.target.value)}
+                        rows={2}
+                        className="w-full text-xs bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white focus:outline-none focus:border-blue-500"
+                        placeholder="Enter submission comments or details for your line manager..."
+                      />
+                    </div>
+
+                    {/* Individual KPI Submission Quick Bar */}
+                    <div className="pt-2 border-t border-blue-500/20">
+                      <span className="text-xs font-bold text-slate-300 block mb-2">Submit Individual KPIs with Portfolio of Evidence (PoE):</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                        {(demoState?.agreement?.kpis || []).map((kpi: any) => {
+                          const isSubmitted = kpi.reviewStatus === 'Submitted for Approval' || workflowStatus === 'SUBMITTED_TO_MANAGER';
+                          return (
+                            <div key={kpi.id} className="p-2.5 bg-slate-900/90 rounded-lg border border-slate-800 flex items-center justify-between gap-2">
+                              <div className="min-w-0">
+                                <span className="font-mono text-xs font-bold text-indigo-400 block">{kpi.kpiNo}</span>
+                                <span className="text-[11px] text-slate-300 truncate block max-w-[160px]">{kpi.kpi}</span>
+                                <span className="text-[10px] text-emerald-400 font-semibold">{kpi.poeStatus} ({kpi.poeDoc})</span>
+                              </div>
+                              <button
+                                type="button"
+                                disabled={actionLoading}
+                                onClick={() => handleExecuteAction('submit_kpi', { kpiId: kpi.id, notes: submitNotes })}
+                                className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded transition shrink-0 cursor-pointer ${
+                                  isSubmitted
+                                    ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/30'
+                                    : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-xs'
+                                }`}
+                              >
+                                {isSubmitted ? 'Submitted' : 'Submit KPI'}
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-blue-500/20">
                       <span className="text-[11px] text-slate-400">
                         Submitting pushes official notification to <strong className="text-amber-300">manager@mzansiflow.co.za</strong> in Supabase.
                       </span>
                       <button
                         onClick={() => handleExecuteAction('submit_to_manager', { notes: submitNotes })}
                         disabled={actionLoading}
-                        className="px-4 py-2 rounded-lg text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 flex items-center gap-1.5 shadow-md transition-colors cursor-pointer"
+                        className="px-4 py-2 rounded-lg text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 flex items-center justify-center gap-1.5 shadow-md transition-colors cursor-pointer"
                       >
                         <Send className="w-3.5 h-3.5" />
-                        Submit to Manager (manager@mzansiflow.co.za)
+                        <span>Submit All 5 KPIs to Manager</span>
                       </button>
                     </div>
                   </div>
@@ -685,6 +762,142 @@ export function IPMSDemo({ currentUser, activeTenantId, onImpersonate, onNavigat
               <div className="mt-4 pt-4 border-t border-slate-800">
                 {currentStage === 2 ? (
                   <div className="space-y-4 bg-amber-950/20 p-4 rounded-xl border border-amber-500/20">
+                    {/* Submitted KPIs for Review Section */}
+                    <div className="space-y-3 bg-slate-900/90 p-4 rounded-xl border border-amber-500/30">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-800">
+                        <div>
+                          <h4 className="text-xs font-bold text-amber-300 flex items-center gap-1.5 uppercase tracking-wide">
+                            <FileText className="w-4 h-4 text-amber-400" />
+                            <span>KPIs Submitted for Manager Review & Approval ({demoState?.agreement?.kpis?.length || 5})</span>
+                          </h4>
+                          <p className="text-[11px] text-slate-400">
+                            Submitted by <span className="font-mono text-indigo-300">user@mzansiflow.co.za</span> (Demo Standard User)
+                          </p>
+                        </div>
+
+                        {onNavigateToSubModule && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              sessionStorage.setItem('ipms_manager_review_target', JSON.stringify({
+                                userId: 'user@mzansiflow.co.za',
+                                kpiId: demoState?.lastSubmittedKpiId || 'kpi-demo-1'
+                              }));
+                              onNavigateToSubModule('ipms-manager-review');
+                            }}
+                            className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition flex items-center gap-1.5 shadow-md cursor-pointer shrink-0"
+                          >
+                            <span>Open Full Manager Approval Workspace</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="space-y-3">
+                        {(demoState?.agreement?.kpis || []).map((kpi: any) => {
+                          const isKpiSubmitted = kpi.reviewStatus === 'Submitted for Approval' || workflowStatus === 'SUBMITTED_TO_MANAGER';
+                          const currentScore = managerScores[kpi.id] || Number(kpi.managerScore) || 4;
+                          const currentComment = managerKpiComments[kpi.id] !== undefined ? managerKpiComments[kpi.id] : (kpi.managerComment || '');
+
+                          return (
+                            <div key={kpi.id} className="p-3.5 bg-slate-950/80 rounded-xl border border-slate-800 hover:border-slate-700 transition space-y-3">
+                              <div className="flex flex-col md:flex-row md:items-start justify-between gap-2.5">
+                                <div className="space-y-1 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-mono font-bold text-xs text-indigo-400">{kpi.kpiNo}</span>
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-950 text-indigo-300 border border-indigo-500/20 font-semibold">{kpi.kpa}</span>
+                                    {isKpiSubmitted && (
+                                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold uppercase tracking-wider">
+                                        Submitted for Approval
+                                      </span>
+                                    )}
+                                  </div>
+                                  <h5 className="text-xs font-bold text-white">{kpi.kpi}</h5>
+                                  <p className="text-[11px] text-slate-400">Target: <strong className="text-emerald-400">{kpi.annualTarget}</strong> • Base: {kpi.baseline}</p>
+                                </div>
+
+                                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                                  <div className="text-right px-2.5 py-1 rounded bg-slate-900 border border-slate-800">
+                                    <span className="text-[10px] text-slate-400 block">Self-Score</span>
+                                    <span className="text-xs font-bold text-blue-400">{kpi.selfScore} / 5.0</span>
+                                  </div>
+
+                                  <div className="flex items-center gap-1.5 text-xs text-indigo-300 bg-indigo-950/40 px-2.5 py-1.5 rounded-lg border border-indigo-500/20">
+                                    <FileText className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                                    <span className="text-[11px] font-medium max-w-[130px] truncate">{kpi.poeDoc}</span>
+                                    <span className="text-[10px] text-emerald-400 font-bold uppercase shrink-0">Verified</span>
+                                  </div>
+
+                                  {onNavigateToSubModule && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        sessionStorage.setItem('ipms_manager_review_target', JSON.stringify({
+                                          userId: 'user@mzansiflow.co.za',
+                                          kpiId: kpi.id
+                                        }));
+                                        onNavigateToSubModule('ipms-manager-review');
+                                      }}
+                                      className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-[11px] font-semibold rounded-lg border border-slate-700 transition flex items-center gap-1 cursor-pointer"
+                                      title="Review this specific KPI in standard Manager Approval module"
+                                    >
+                                      <span>Full Workspace</span>
+                                      <ArrowRight className="w-3 h-3 text-indigo-400" />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Manager Scoring & Comment row for this KPI */}
+                              <div className="pt-2 border-t border-slate-800/80 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+                                <div className="flex items-center gap-2">
+                                  <label className="text-[11px] font-bold text-amber-300 shrink-0">Manager Score:</label>
+                                  <select
+                                    value={currentScore}
+                                    onChange={(e) => setManagerScores({ ...managerScores, [kpi.id]: Number(e.target.value) })}
+                                    className="bg-slate-900 border border-amber-500/40 rounded px-2 py-1 text-amber-300 text-xs font-bold focus:outline-none"
+                                  >
+                                    <option value={1}>1.0 - Unacceptable</option>
+                                    <option value={2}>2.0 - Not Fully Effective</option>
+                                    <option value={3}>3.0 - Fully Effective</option>
+                                    <option value={4}>4.0 - Superior</option>
+                                    <option value={5}>5.0 - Outstanding</option>
+                                  </select>
+                                </div>
+
+                                <div className="flex-1 flex items-center gap-2">
+                                  <label className="text-[11px] font-bold text-slate-400 shrink-0">Manager Remark:</label>
+                                  <input
+                                    type="text"
+                                    value={currentComment}
+                                    onChange={(e) => setManagerKpiComments({ ...managerKpiComments, [kpi.id]: e.target.value })}
+                                    placeholder="Enter manager verification note for this indicator..."
+                                    className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1 text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-amber-500"
+                                  />
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleExecuteAction('manager_action', {
+                                    actionType: 'approve',
+                                    comments: currentComment || managerComments,
+                                    managerScores: { ...managerScores, [kpi.id]: currentScore },
+                                    managerKpiComments: { ...managerKpiComments, [kpi.id]: currentComment }
+                                  })}
+                                  disabled={actionLoading}
+                                  className="px-2.5 py-1 bg-amber-600/30 hover:bg-amber-600/50 text-amber-300 border border-amber-500/40 rounded text-[11px] font-bold flex items-center gap-1 transition cursor-pointer shrink-0"
+                                  title="Approve and send this single KPI to Internal Audit"
+                                >
+                                  <Send className="w-3 h-3" />
+                                  <span>Send to Audit</span>
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
                     <div>
                       <label className="block text-xs font-bold text-amber-300 mb-1.5">Select Manager Decision:</label>
                       <div className="flex flex-wrap gap-2">
@@ -698,7 +911,7 @@ export function IPMSDemo({ currentUser, activeTenantId, onImpersonate, onNavigat
                           }`}
                         >
                           <Check className="w-3.5 h-3.5" />
-                          Approve & Push to Internal Audit
+                          Approve & Send to Internal Audit for Review
                         </button>
                         <button
                           type="button"
@@ -729,7 +942,7 @@ export function IPMSDemo({ currentUser, activeTenantId, onImpersonate, onNavigat
 
                     <div>
                       <label className="block text-xs font-bold text-slate-300 mb-1">
-                        Manager Comments / Feedback (will be notified to user):
+                        Manager Overall Review Comments (Forwarded to Subordinate & Internal Audit):
                       </label>
                       <textarea
                         value={managerComments}
@@ -740,24 +953,26 @@ export function IPMSDemo({ currentUser, activeTenantId, onImpersonate, onNavigat
                       />
                     </div>
 
-                    <div className="flex items-center justify-between pt-1">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1 border-t border-amber-500/20">
                       <span className="text-[11px] text-slate-400">
                         {managerActionType === 'approve'
-                          ? 'Notifies user@mzansiflow.co.za AND dispatches audit request to audit@mzansiflow.co.za.'
+                          ? 'Notifies user@mzansiflow.co.za AND dispatches full docket to audit@mzansiflow.co.za with all KPIs, KPAs, and PoEs.'
                           : 'Notifies user@mzansiflow.co.za of the outcome with feedback.'}
                       </span>
                       <button
                         onClick={() => handleExecuteAction('manager_action', {
                           actionType: managerActionType,
-                          comments: managerComments
+                          comments: managerComments,
+                          managerScores,
+                          managerKpiComments
                         })}
                         disabled={actionLoading}
-                        className={`px-4 py-2 rounded-lg text-xs font-bold text-white shadow-md flex items-center gap-1.5 transition-colors cursor-pointer ${
+                        className={`px-4 py-2 rounded-lg text-xs font-bold text-white shadow-md flex items-center justify-center gap-1.5 transition-colors cursor-pointer shrink-0 ${
                           managerActionType === 'approve' ? 'bg-emerald-600 hover:bg-emerald-500' : (managerActionType === 'reject' ? 'bg-red-600 hover:bg-red-500' : 'bg-amber-600 hover:bg-amber-500')
                         }`}
                       >
                         <CheckSquare className="w-3.5 h-3.5" />
-                        Execute Manager Decision
+                        <span>{managerActionType === 'approve' ? 'Approve & Send All to Internal Audit for Review' : 'Execute Manager Decision'}</span>
                       </button>
                     </div>
                   </div>
@@ -795,7 +1010,7 @@ export function IPMSDemo({ currentUser, activeTenantId, onImpersonate, onNavigat
                       <span>Internal Audit Quality Assurance & Clearance</span>
                       {currentStage > 3 && <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">Cleared & Sent to DPMC</span>}
                     </h3>
-                    <p className="text-xs text-slate-400">Auditor: <span className="font-mono text-emerald-300">audit@mzansiflow.co.za</span> • Verifies statutory compliance, evidence sufficiency, and forwards to DPMC</p>
+                    <p className="text-xs text-slate-400">Auditor: <span className="font-mono text-emerald-300">audit@mzansiflow.co.za</span> • Audits KPIs, KPAs, PoEs & manager reviews, then sends to DPMC for moderation</p>
                   </div>
                 </div>
 
@@ -814,6 +1029,129 @@ export function IPMSDemo({ currentUser, activeTenantId, onImpersonate, onNavigat
               <div className="mt-4 pt-4 border-t border-slate-800">
                 {currentStage === 3 ? (
                   <div className="space-y-4 bg-emerald-950/20 p-4 rounded-xl border border-emerald-500/20">
+                    {/* Docket Overview Banner */}
+                    <div className="p-3.5 bg-slate-900/90 rounded-xl border border-emerald-500/30 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+                      <div>
+                        <h4 className="font-bold text-emerald-300 flex items-center gap-1.5">
+                          <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                          <span>Audit Docket: Manager-Approved KPIs, KPAs & Portfolio of Evidence (PoE)</span>
+                        </h4>
+                        <p className="text-[11px] text-slate-300 mt-0.5">
+                          Line Manager (<strong className="text-white">manager@mzansiflow.co.za</strong>) Assessment: <em>"{demoState?.managerReview?.comments || 'All KPAs align with departmental strategic priorities. Verified portfolio of evidence.'}"</em>
+                        </p>
+                      </div>
+                      <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 font-bold text-[11px] shrink-0">
+                        5 KPIs • 5 KPAs • 5 PoEs Attached
+                      </span>
+                    </div>
+
+                    {/* Audited KPIs Grid */}
+                    <div className="space-y-3 bg-slate-900/80 p-3.5 rounded-xl border border-emerald-500/20">
+                      <div className="flex items-center justify-between pb-1 border-b border-slate-800">
+                        <span className="text-xs font-bold text-emerald-300 uppercase tracking-wide">
+                          Internal Audit Indicator Verification & Scoring
+                        </span>
+                        <span className="text-[11px] text-slate-400">
+                          Verify statutory alignment, PoE authenticity & assign audit ratings
+                        </span>
+                      </div>
+
+                      <div className="space-y-3">
+                        {(demoState?.agreement?.kpis || []).map((kpi: any) => {
+                          const kpiAuditScore = auditScores[kpi.id] || Number(kpi.auditScore) || 4;
+                          const kpiAuditComment = auditKpiComments[kpi.id] !== undefined ? auditKpiComments[kpi.id] : (kpi.internalAuditComment || '');
+                          const kpiAuditCompliance = auditKpiCompliance[kpi.id] || kpi.internalAuditCompliance || 'Compliant';
+                          const mgrScore = kpi.managerScore || managerScores[kpi.id] || '4.0';
+                          const mgrComment = kpi.managerComment || managerKpiComments[kpi.id] || 'Verified against portfolio evidence.';
+
+                          return (
+                            <div key={kpi.id} className="p-3 bg-slate-950/80 rounded-xl border border-slate-800 hover:border-slate-700 transition space-y-2.5">
+                              <div className="flex flex-col md:flex-row md:items-start justify-between gap-2">
+                                <div className="space-y-1 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-mono font-bold text-xs text-indigo-400">{kpi.kpiNo}</span>
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-950 text-indigo-300 border border-indigo-500/20 font-semibold">{kpi.kpa}</span>
+                                    <span className={`text-[10px] px-2 py-0.5 rounded-full border font-bold uppercase ${
+                                      kpiAuditCompliance === 'Compliant'
+                                        ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+                                        : kpiAuditCompliance === 'Requires Proof'
+                                        ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                                        : 'bg-red-500/10 text-red-300 border-red-500/30'
+                                    }`}>
+                                      {kpiAuditCompliance}
+                                    </span>
+                                  </div>
+                                  <h5 className="text-xs font-bold text-white">{kpi.kpi}</h5>
+                                  <p className="text-[11px] text-slate-400">Target: <strong className="text-emerald-400">{kpi.annualTarget}</strong> • Baseline: {kpi.baseline}</p>
+                                </div>
+
+                                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                                  <div className="text-right px-2 py-1 rounded bg-slate-900 border border-slate-800">
+                                    <span className="text-[9px] text-slate-400 block">Self</span>
+                                    <span className="text-xs font-bold text-blue-400">{kpi.selfScore} / 5</span>
+                                  </div>
+                                  <div className="text-right px-2 py-1 rounded bg-slate-900 border border-amber-500/30">
+                                    <span className="text-[9px] text-amber-400 block">Manager</span>
+                                    <span className="text-xs font-bold text-amber-300">{mgrScore} / 5</span>
+                                  </div>
+                                  <div className="flex items-center gap-1 text-xs text-indigo-300 bg-indigo-950/40 px-2 py-1 rounded-lg border border-indigo-500/20">
+                                    <FileText className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                                    <span className="text-[11px] font-medium max-w-[120px] truncate">{kpi.poeDoc}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Manager remark display */}
+                              <div className="text-[11px] text-slate-300 bg-slate-900/60 p-2 rounded border border-slate-800 flex items-center gap-1.5">
+                                <span className="text-amber-400 font-bold shrink-0">Manager Review:</span>
+                                <span className="italic truncate">"{mgrComment}"</span>
+                              </div>
+
+                              {/* Auditor controls row */}
+                              <div className="pt-2 border-t border-slate-800/80 flex flex-col md:flex-row md:items-center justify-between gap-2.5 text-xs">
+                                <div className="flex items-center gap-2">
+                                  <label className="text-[11px] font-bold text-emerald-400 shrink-0">Audit Compliance:</label>
+                                  <select
+                                    value={kpiAuditCompliance}
+                                    onChange={(e) => setAuditKpiCompliance({ ...auditKpiCompliance, [kpi.id]: e.target.value })}
+                                    className="bg-slate-900 border border-emerald-500/40 rounded px-2 py-1 text-emerald-300 text-xs font-bold focus:outline-none"
+                                  >
+                                    <option value="Compliant">✅ Compliant</option>
+                                    <option value="Requires Proof">⚠️ Requires Proof</option>
+                                    <option value="Non-Compliant">❌ Non-Compliant</option>
+                                  </select>
+
+                                  <label className="text-[11px] font-bold text-emerald-400 shrink-0 ml-1">Score:</label>
+                                  <select
+                                    value={kpiAuditScore}
+                                    onChange={(e) => setAuditScores({ ...auditScores, [kpi.id]: Number(e.target.value) })}
+                                    className="bg-slate-900 border border-emerald-500/40 rounded px-2 py-1 text-emerald-300 text-xs font-bold focus:outline-none"
+                                  >
+                                    <option value={1}>1.0</option>
+                                    <option value={2}>2.0</option>
+                                    <option value={3}>3.0</option>
+                                    <option value={4}>4.0</option>
+                                    <option value={5}>5.0</option>
+                                  </select>
+                                </div>
+
+                                <div className="flex-1 flex items-center gap-1.5">
+                                  <label className="text-[11px] font-bold text-slate-400 shrink-0">Auditor Remark:</label>
+                                  <input
+                                    type="text"
+                                    value={kpiAuditComment}
+                                    onChange={(e) => setAuditKpiComments({ ...auditKpiComments, [kpi.id]: e.target.value })}
+                                    placeholder="Enter audit verification remark..."
+                                    className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-emerald-500"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
                     <div>
                       <label className="block text-xs font-bold text-emerald-300 mb-1.5">Select Audit Determination:</label>
                       <div className="flex flex-wrap gap-2">
@@ -858,7 +1196,7 @@ export function IPMSDemo({ currentUser, activeTenantId, onImpersonate, onNavigat
 
                     <div>
                       <label className="block text-xs font-bold text-slate-300 mb-1">
-                        Internal Audit Findings & Quality Assurance Opinion:
+                        Internal Audit Findings & Quality Assurance Opinion (Forwarded to DPMC):
                       </label>
                       <textarea
                         value={auditComments}
@@ -869,25 +1207,28 @@ export function IPMSDemo({ currentUser, activeTenantId, onImpersonate, onNavigat
                       />
                     </div>
 
-                    <div className="flex items-center justify-between pt-1">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1 border-t border-emerald-500/20">
                       <span className="text-[11px] text-slate-400">
-                        Approval sends docket directly to <strong className="text-purple-300">dpmc@mzansiflow.co.za</strong> with notification.
+                        Approval sends docket directly to <strong className="text-purple-300">dpmc@mzansiflow.co.za</strong> with verified audit ratings.
                       </span>
                       <button
                         onClick={() => handleExecuteAction('audit_action', {
                           actionType: auditActionType,
-                          comments: auditComments
+                          comments: auditComments,
+                          auditScores,
+                          auditKpiComments,
+                          auditKpiCompliance
                         })}
                         disabled={actionLoading}
-                        className="px-4 py-2 rounded-lg text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 shadow-md flex items-center gap-1.5 transition-colors cursor-pointer"
+                        className="px-4 py-2 rounded-lg text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 shadow-md flex items-center justify-center gap-1.5 transition-colors cursor-pointer shrink-0"
                       >
                         <Shield className="w-3.5 h-3.5" />
-                        Issue Audit Finding & Dispatch
+                        <span>Issue Audit Clearance & Send to DPMC for Review</span>
                       </button>
                     </div>
                   </div>
                 ) : currentStage > 3 ? (
-                  <div className="p-3 rounded-lg bg-emerald-950/20 border border-emerald-500/20 text-xs text-emerald-300 flex items-center justify-between">
+                  <div className="p-3.5 rounded-lg bg-emerald-950/20 border border-emerald-500/20 text-xs text-emerald-300 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                       <span>
@@ -920,7 +1261,7 @@ export function IPMSDemo({ currentUser, activeTenantId, onImpersonate, onNavigat
                       <span>DPMC Scoring, Moderation & Committee Comments</span>
                       {currentStage === 5 && <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">Moderation Finalized</span>}
                     </h3>
-                    <p className="text-xs text-slate-400">Moderator: <span className="font-mono text-purple-300">dpmc@mzansiflow.co.za</span> • Evaluates, inputs committee scores (1-5) on all KPIs & JSCs, issues official resolution</p>
+                    <p className="text-xs text-slate-400">Moderator: <span className="font-mono text-purple-300">dpmc@mzansiflow.co.za</span> • Reviews Manager & Audit scores, inputs committee ratings (1-5) and comments per KPI & JSC</p>
                   </div>
                 </div>
 
@@ -939,34 +1280,109 @@ export function IPMSDemo({ currentUser, activeTenantId, onImpersonate, onNavigat
               <div className="mt-4 pt-4 border-t border-slate-800">
                 {currentStage === 4 ? (
                   <div className="space-y-4 bg-purple-950/20 p-4 rounded-xl border border-purple-500/20">
+                    {/* Multi-Party Sign-off Summary */}
+                    <div className="p-3 bg-slate-900/90 rounded-xl border border-purple-500/30 text-xs space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-purple-300 flex items-center gap-1.5">
+                          <Award className="w-4 h-4 text-purple-400" />
+                          Audited Performance Docket for Committee Moderation
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-mono">DPMC Session 2024/2025</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] pt-1 border-t border-slate-800">
+                        <div>
+                          <span className="text-amber-400 font-bold block">Line Manager Verdict:</span>
+                          <span className="text-slate-300 italic truncate block">"{demoState?.managerReview?.comments || 'Verified all KPAs and portfolio evidence.'}"</span>
+                        </div>
+                        <div>
+                          <span className="text-emerald-400 font-bold block">Internal Audit Opinion:</span>
+                          <span className="text-slate-300 italic truncate block">"{demoState?.auditReview?.comments || 'Audit clearance granted for DPMC moderation.'}"</span>
+                        </div>
+                      </div>
+                    </div>
+
                     <p className="text-xs font-bold text-purple-300">
                       Input Official DPMC Ratings & Scores (Rating Scale: 1 = Unacceptable, 3 = Fully Effective, 5 = Outstanding):
                     </p>
 
-                    {/* KPI Scoring Grid */}
-                    <div className="space-y-2">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">KPI Performance Moderation</span>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        {(demoState?.agreement?.kpis || []).map((k: any) => (
-                          <div key={k.id} className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between text-xs">
-                            <div className="pr-2 truncate">
-                              <span className="font-bold text-white block truncate">{k.kpiNo}: {k.kpi}</span>
-                              <span className="text-[10px] text-slate-400">Self: {k.selfScore} • Weight: {k.weighting}%</span>
+                    {/* KPI Scoring Grid with Multi-role Comparison */}
+                    <div className="space-y-3">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
+                        KPI Performance Moderation & Scoring (Review Self, Manager, Audit & Committee)
+                      </span>
+                      <div className="space-y-3">
+                        {(demoState?.agreement?.kpis || []).map((k: any) => {
+                          const kpiDpmcScore = dpmcScores[k.id] || Number(k.dpmcScore) || 4;
+                          const kpiDpmcComment = dpmcKpiComments[k.id] !== undefined ? dpmcKpiComments[k.id] : (k.dpmcComment || '');
+                          const mgrScore = k.managerScore || managerScores[k.id] || '4.0';
+                          const auditScore = k.auditScore || auditScores[k.id] || '4.0';
+                          const auditRemark = k.internalAuditComment || auditKpiComments[k.id] || 'Audit verified';
+
+                          return (
+                            <div key={k.id} className="p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition space-y-2.5 text-xs">
+                              <div className="flex flex-col md:flex-row md:items-start justify-between gap-2">
+                                <div className="space-y-1 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-mono font-bold text-xs text-purple-400">{k.kpiNo}</span>
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-950 text-indigo-300 border border-indigo-500/20 font-semibold">{k.kpa}</span>
+                                    <span className="text-[10px] text-slate-400 font-mono">Weight: {k.weighting}%</span>
+                                  </div>
+                                  <h5 className="font-bold text-white text-xs">{k.kpi}</h5>
+                                  <p className="text-[11px] text-slate-400">Target: <strong className="text-emerald-400">{k.annualTarget}</strong> • Base: {k.baseline} • PoE: <span className="font-mono text-indigo-300">{k.poeDoc}</span></p>
+                                </div>
+
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <div className="text-center px-2 py-1 rounded bg-slate-950 border border-slate-800">
+                                    <span className="text-[9px] text-blue-400 block font-bold">Self</span>
+                                    <span className="text-xs font-bold text-white">{k.selfScore}</span>
+                                  </div>
+                                  <div className="text-center px-2 py-1 rounded bg-slate-950 border border-amber-500/30">
+                                    <span className="text-[9px] text-amber-400 block font-bold">Manager</span>
+                                    <span className="text-xs font-bold text-amber-300">{mgrScore}</span>
+                                  </div>
+                                  <div className="text-center px-2 py-1 rounded bg-slate-950 border border-emerald-500/30">
+                                    <span className="text-[9px] text-emerald-400 block font-bold">Audit</span>
+                                    <span className="text-xs font-bold text-emerald-300">{auditScore}</span>
+                                  </div>
+                                  <div className="text-center px-2.5 py-1 rounded bg-purple-950/60 border border-purple-500/50">
+                                    <span className="text-[9px] text-purple-300 block font-bold">DPMC</span>
+                                    <select
+                                      value={kpiDpmcScore}
+                                      onChange={(e) => setDpmcScores({ ...dpmcScores, [k.id]: Number(e.target.value) })}
+                                      className="bg-transparent text-purple-200 font-bold text-xs focus:outline-none cursor-pointer"
+                                    >
+                                      {[1, 2, 3, 4, 5].map(v => (
+                                        <option key={v} value={v} className="bg-slate-900 text-white">{v}.0</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Prior remarks display */}
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[10px] bg-slate-950/60 p-2 rounded border border-slate-850">
+                                <div>
+                                  <span className="text-slate-400 font-bold">Manager Note:</span> <span className="text-slate-300 italic">{k.managerComment || managerKpiComments[k.id] || 'Verified'}</span>
+                                </div>
+                                <div>
+                                  <span className="text-emerald-400 font-bold">Auditor Note:</span> <span className="text-slate-300 italic">{auditRemark}</span>
+                                </div>
+                              </div>
+
+                              {/* DPMC Committee Comment for this KPI */}
+                              <div className="flex items-center gap-2 pt-1 border-t border-slate-800/80">
+                                <label className="text-[11px] font-bold text-purple-300 shrink-0">DPMC Committee Note:</label>
+                                <input
+                                  type="text"
+                                  value={kpiDpmcComment}
+                                  onChange={(e) => setDpmcKpiComments({ ...dpmcKpiComments, [k.id]: e.target.value })}
+                                  placeholder="Enter committee moderation reason or confirmation..."
+                                  className="w-full bg-slate-950 border border-purple-500/30 rounded px-2.5 py-1 text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-purple-500"
+                                />
+                              </div>
                             </div>
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <span className="text-[10px] text-slate-400">Score:</span>
-                              <select
-                                value={dpmcScores[k.id] || 4}
-                                onChange={(e) => setDpmcScores({ ...dpmcScores, [k.id]: Number(e.target.value) })}
-                                className="bg-slate-800 text-purple-300 font-bold text-xs rounded border border-purple-500/40 px-2 py-1"
-                              >
-                                {[1, 2, 3, 4, 5].map(v => (
-                                  <option key={v} value={v}>{v}.0</option>
-                                ))}
-                              </select>
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
 
@@ -1010,20 +1426,21 @@ export function IPMSDemo({ currentUser, activeTenantId, onImpersonate, onNavigat
                       />
                     </div>
 
-                    <div className="flex items-center justify-between pt-1">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1 border-t border-purple-500/20">
                       <span className="text-[11px] text-slate-400">
                         Dispatches final notifications to user, manager, and internal audit. Locks agreement in Supabase.
                       </span>
                       <button
                         onClick={() => handleExecuteAction('dpmc_action', {
                           scores: dpmcScores,
+                          dpmcKpiComments,
                           comments: dpmcComments
                         })}
                         disabled={actionLoading}
-                        className="px-4 py-2 rounded-lg text-xs font-bold text-white bg-purple-600 hover:bg-purple-500 shadow-md flex items-center gap-1.5 transition-colors cursor-pointer"
+                        className="px-4 py-2 rounded-lg text-xs font-bold text-white bg-purple-600 hover:bg-purple-500 shadow-md flex items-center justify-center gap-1.5 transition-colors cursor-pointer shrink-0"
                       >
                         <Award className="w-3.5 h-3.5" />
-                        Finalize DPMC Moderation & Scores
+                        <span>Finalize DPMC Moderation & Scores</span>
                       </button>
                     </div>
                   </div>
@@ -1041,7 +1458,7 @@ export function IPMSDemo({ currentUser, activeTenantId, onImpersonate, onNavigat
                     <p className="text-slate-200">
                       <strong>Committee Verdict:</strong> <em>"{demoState?.dpmcReview?.comments || dpmcComments}"</em>
                     </p>
-                    <div className="pt-2 flex items-center gap-4 text-slate-400 text-[11px]">
+                    <div className="pt-2 flex flex-wrap items-center gap-4 text-slate-400 text-[11px]">
                       <span>Moderated by: <strong className="text-white">dpmc@mzansiflow.co.za</strong></span>
                       <span>Average Score: <strong className="text-purple-300">{demoState?.dpmcReview?.averageScore || '4.3'}/5.0 (86%)</strong></span>
                       <span>Outcome: <strong className="text-emerald-300">Performance Incentive & Moderation Approved</strong></span>
@@ -1153,8 +1570,10 @@ export function IPMSDemo({ currentUser, activeTenantId, onImpersonate, onNavigat
                       <th className="p-3 text-center">Q1 - Q4 Breakdown</th>
                       <th className="p-3 text-center">Self</th>
                       <th className="p-3 text-center">Mgr</th>
+                      <th className="p-3 text-center">Audit</th>
                       <th className="p-3 text-center">DPMC</th>
                       <th className="p-3">Portfolio of Evidence (PoE)</th>
+                      <th className="p-3 text-right">Review Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800 text-slate-200">
@@ -1179,14 +1598,46 @@ export function IPMSDemo({ currentUser, activeTenantId, onImpersonate, onNavigat
                           </div>
                         </td>
                         <td className="p-3 text-center font-bold text-blue-400">{kpi.selfScore}</td>
-                        <td className="p-3 text-center font-bold text-amber-400">{kpi.managerScore || '-'}</td>
-                        <td className="p-3 text-center font-bold text-purple-400">{demoState?.dpmcReview?.scores?.[kpi.id] || kpi.dpmcScore || '-'}</td>
+                        <td className="p-3 text-center font-bold text-amber-400">{kpi.managerScore || managerScores[kpi.id] || '-'}</td>
+                        <td className="p-3 text-center font-bold text-emerald-400">{kpi.auditScore || kpi.internalAuditRating || auditScores[kpi.id] || '-'}</td>
+                        <td className="p-3 text-center font-bold text-purple-400">{demoState?.dpmcReview?.scores?.[kpi.id] || kpi.dpmcScore || dpmcScores[kpi.id] || '-'}</td>
                         <td className="p-3">
                           <div className="flex items-center gap-1.5 text-xs text-indigo-300 bg-indigo-950/40 px-2 py-1 rounded border border-indigo-500/20 max-w-xs truncate">
                             <FileText className="w-3 h-3 shrink-0" />
                             <span className="truncate">{kpi.poeDoc}</span>
                             <span className="ml-auto text-[10px] text-emerald-400 font-bold shrink-0">{kpi.poeStatus}</span>
                           </div>
+                        </td>
+                        <td className="p-3 text-right">
+                          {currentActor.id === 'user' ? (
+                            <button
+                              type="button"
+                              onClick={() => handleExecuteAction('submit_kpi', { kpiId: kpi.id, notes: submitNotes })}
+                              disabled={actionLoading}
+                              className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded bg-indigo-600 hover:bg-indigo-500 text-white transition cursor-pointer"
+                            >
+                              {kpi.reviewStatus === 'Submitted for Approval' || workflowStatus === 'SUBMITTED_TO_MANAGER' ? 'Resubmit' : 'Submit KPI'}
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (onNavigateToSubModule) {
+                                  sessionStorage.setItem('ipms_manager_review_target', JSON.stringify({
+                                    userId: 'user@mzansiflow.co.za',
+                                    kpiId: kpi.id
+                                  }));
+                                  onNavigateToSubModule('ipms-manager-review');
+                                } else {
+                                  setActiveTab('console');
+                                }
+                              }}
+                              className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded bg-amber-600 hover:bg-amber-500 text-white transition flex items-center gap-1 shadow-xs cursor-pointer ml-auto"
+                            >
+                              <span>Review KPI</span>
+                              <ArrowRight className="w-3 h-3" />
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -1301,6 +1752,74 @@ export function IPMSDemo({ currentUser, activeTenantId, onImpersonate, onNavigat
                     </div>
 
                     <p className="text-xs text-slate-300 whitespace-pre-line leading-relaxed">{notif.message}</p>
+
+                    {notif.actionType === 'submission' && (
+                      <div className="pt-2 flex items-center justify-between border-t border-slate-800">
+                        <span className="text-[10px] text-amber-400 font-semibold flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" />
+                          <span>Submitted for Line Manager Verification</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveActorEmail('manager@mzansiflow.co.za');
+                            if (onNavigateToSubModule) {
+                              sessionStorage.setItem('ipms_manager_review_target', JSON.stringify({
+                                userId: 'user@mzansiflow.co.za',
+                                kpiId: notif.kpiId || 'kpi-demo-1'
+                              }));
+                              onNavigateToSubModule('ipms-manager-review');
+                            } else {
+                              setActiveTab('console');
+                            }
+                          }}
+                          className="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg transition flex items-center gap-1 shadow-xs cursor-pointer"
+                        >
+                          <span>Go to Submitted KPI & Review</span>
+                          <ArrowRight className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
+
+                    {notif.actionType === 'audit_request' && (
+                      <div className="pt-2 flex items-center justify-between border-t border-slate-800">
+                        <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
+                          <ShieldCheck className="w-3 h-3" />
+                          <span>Manager Approved — Pending Internal Audit Clearance</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveActorEmail('audit@mzansiflow.co.za');
+                            setActiveTab('console');
+                          }}
+                          className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg transition flex items-center gap-1 shadow-xs cursor-pointer"
+                        >
+                          <span>Open Internal Audit Console</span>
+                          <ArrowRight className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
+
+                    {notif.actionType === 'dpmc_docket' && (
+                      <div className="pt-2 flex items-center justify-between border-t border-slate-800">
+                        <span className="text-[10px] text-purple-400 font-semibold flex items-center gap-1">
+                          <Award className="w-3 h-3" />
+                          <span>Audit Cleared — Docket Awaiting DPMC Moderation</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveActorEmail('dpmc@mzansiflow.co.za');
+                            setActiveTab('console');
+                          }}
+                          className="px-3 py-1 bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg transition flex items-center gap-1 shadow-xs cursor-pointer"
+                        >
+                          <span>Open DPMC Moderation Console</span>
+                          <ArrowRight className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
 
                     <div className="pt-2 border-t border-slate-800/60 flex items-center justify-between text-[11px] text-slate-400">
                       <div>

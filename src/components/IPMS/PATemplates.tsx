@@ -2589,10 +2589,23 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
             loadedTemplates = [getMMTemplateDefault(), ...loadedTemplates];
           }
         }
-        setTemplates(loadedTemplates);
-        if (loadedTemplates.length > 0) {
-          setSelectedTemplateId(loadedTemplates[0].id);
-          loadTemplateIntoWorkspace(loadedTemplates[0]);
+        // Deduplicate and sanitize templates to ensure valid unique IDs
+        const seenIds = new Set<string>();
+        const sanitizedTemplates: PATemplate[] = [];
+        loadedTemplates.forEach((t, idx) => {
+          if (!t) return;
+          let safeId = t.id && String(t.id).trim() ? String(t.id).trim() : `template_${idx + 1}`;
+          if (seenIds.has(safeId)) {
+            safeId = `${safeId}_${idx + 1}`;
+          }
+          seenIds.add(safeId);
+          sanitizedTemplates.push({ ...t, id: safeId });
+        });
+
+        setTemplates(sanitizedTemplates);
+        if (sanitizedTemplates.length > 0) {
+          setSelectedTemplateId(sanitizedTemplates[0].id);
+          loadTemplateIntoWorkspace(sanitizedTemplates[0]);
         }
       } else {
         // Seed default MM for Mandla if fetch fails
@@ -2923,9 +2936,11 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
               }}
               className="text-xs p-1.5 border border-slate-300 rounded-lg bg-white font-bold text-slate-700 outline-none focus:ring-1 focus:ring-emerald-500"
             >
-              <option value="">-- Load from Templates --</option>
-              {templates.map(t => (
-                <option key={t.id} value={t.id}>{t.name}</option>
+              <option key="default_template_placeholder" value="">-- Load from Templates --</option>
+              {templates.map((t, idx) => (
+                <option key={t.id ? `template_key_${t.id}_${idx}` : `template_idx_${idx}`} value={t.id || `tpl_${idx}`}>
+                  {t.name || `Template ${idx + 1}`}
+                </option>
               ))}
             </select>
           )}
