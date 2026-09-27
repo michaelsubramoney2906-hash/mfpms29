@@ -1471,8 +1471,17 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
       return;
     }
 
+    // Locked targets and midterm expenditure
+    if (activeTab === 'reporting' && (field === 'q1' || field === 'midTermExpenditure')) {
+      const targetRow = rows.find(r => r.id === rowId);
+      setSuccessToast(`Field Locked: ${field === 'q1' ? 'Q1 Target' : 'Mid-Term Expenditure'} is locked in the reporting view for KPI ${targetRow?.refNum || ''}.`);
+      setTimeout(() => setSuccessToast(null), 4000);
+      return;
+    }
+
     // Strict Submitter reporting enforcement: Only designated submitter can report on actuals
     const actualsFields = [
+      'score',
       'q1Actual', 'q2Actual', 'midTermActual', 'q3Actual', 'q4Actual', 
       'q1Corrective', 'q2Corrective', 'q3Corrective', 'q4Corrective', 
       'poeDesc', 'q1PoeDesc', 'q2PoeDesc', 'q3PoeDesc', 'q4PoeDesc', 'midTermPoeDesc',
@@ -5579,14 +5588,16 @@ Timestamp: ${new Date().toLocaleString()}
                       <td className="p-2 border-r border-slate-100 bg-indigo-50/20 text-center">
                         <ExpandableCell
                           value={row.q1 || ''}
-                          onChange={(val) => handleCellChange(row.id, 'q1', val)}
-                          cellTitle="Q1 Target"
+                          readOnly={true}
+                          disabled={true}
+                          onChange={() => {}}
+                          cellTitle="Q1 Target (Locked)"
                           refNum={row.refNum}
                           isFitAll={isFitAllReportingCells}
                           minRows={1}
-                          placeholder="Q1 Target..."
+                          placeholder="Locked"
                           onOpenExpandModal={openCellExpandModal}
-                          className="font-bold text-indigo-900 text-center"
+                          className="font-bold text-slate-500 text-center bg-slate-100/90 cursor-not-allowed border-slate-200"
                         />
                       </td>
 
@@ -5895,15 +5906,16 @@ Timestamp: ${new Date().toLocaleString()}
                               const total = parseBudgetNum(row.budgetAllocation);
                               return total > 0 ? `R ${Math.round(total / 2).toLocaleString()}` : 'R 0';
                             })()}
-                            disabled={!isOpex(row.budgetAllocation) || !isQuarterActive('midTerm')}
-                            onChange={(val) => handleCellChange(row.id, 'midTermExpenditure', val)}
-                            cellTitle="Mid-Term Expenditure"
+                            readOnly={true}
+                            disabled={true}
+                            onChange={() => {}}
+                            cellTitle="Mid-Term Expenditure (Locked)"
                             refNum={row.refNum}
                             isFitAll={isFitAllReportingCells}
                             minRows={1}
-                            placeholder={!isQuarterActive('midTerm') ? "Locked" : "Mid Term Exp..."}
+                            placeholder="Locked"
                             onOpenExpandModal={openCellExpandModal}
-                            className={`font-bold ${!isQuarterActive('midTerm') || !isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-800'}`}
+                            className="font-bold bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200"
                           />
                         )}
                       </td>
@@ -6522,14 +6534,16 @@ Timestamp: ${new Date().toLocaleString()}
                       <td className="p-2 text-center text-[10px] text-slate-500">
                         <ExpandableCell
                           value={row.score || ''}
+                          disabled={!isRowSubmitter}
+                          readOnly={!isRowSubmitter}
                           onChange={(val) => handleCellChange(row.id, 'score', val)}
                           cellTitle="Score"
                           refNum={row.refNum}
                           isFitAll={isFitAllReportingCells}
                           minRows={1}
-                          placeholder="Score"
+                          placeholder={!isRowSubmitter ? "Submitter Only" : "Score"}
                           onOpenExpandModal={openCellExpandModal}
-                          className="font-bold text-center font-mono"
+                          className={`font-bold text-center font-mono ${!isRowSubmitter ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white text-slate-800'}`}
                         />
                       </td>
                     </tr>

@@ -8364,27 +8364,21 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
             continue;
           }
           
-          // A plan is in the quality assurance audit flow if its internalAuditStatus is set or reviewStatus is set
-          const auditStatus = content?.metadata?.internalAuditStatus || '';
-          const reviewStatus = content?.metadata?.reviewStatus || '';
-          const hasItemAudits = Array.isArray(content?.items) && content.items.some((item: any) => item.internalAuditStatus || item.internalAuditRating || item.reviewStatus === 'Approved' || item.reviewStatus === 'Submitted for Approval');
-
-          if ((auditStatus && auditStatus !== 'Draft' && auditStatus !== 'Cleared') || hasItemAudits || (reviewStatus && reviewStatus !== 'Draft' && reviewStatus !== 'In Progress')) {
-            if (content && Array.isArray(content.items)) {
-              content.items.forEach((item: any) => {
-                delete item.internalAuditRating;
-                delete item.internalAuditComment;
-                delete item.internalAuditStatus;
-                item.reviewStatus = 'In Progress';
-                changed = true;
-              });
-            }
-            
-            if (content?.metadata) {
-              content.metadata.internalAuditStatus = 'Draft';
-              content.metadata.reviewStatus = 'In Progress';
-              changed = true;
-            }
+          // Unconditionally clear and reset all non-Zulu plans to In Progress to make the clear button 100% reliable
+          if (content && Array.isArray(content.items)) {
+            content.items.forEach((item: any) => {
+              delete item.internalAuditRating;
+              delete item.internalAuditComment;
+              delete item.internalAuditStatus;
+              item.reviewStatus = 'In Progress';
+            });
+            changed = true;
+          }
+          
+          if (content?.metadata) {
+            content.metadata.internalAuditStatus = 'Draft';
+            content.metadata.reviewStatus = 'In Progress';
+            changed = true;
           }
           
           if (changed) {
@@ -8392,7 +8386,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
             if (row.id.includes('mock') || row.id.includes('temp') || row.id.includes('sample')) {
               await supabase.from('messages').delete().eq('id', row.id);
             } else {
-              const updatedContentStr = typeof row.content === 'string' ? JSON.stringify(content) : content;
+              const updatedContentStr = JSON.stringify(content);
               await supabase.from('messages').update({ content: updatedContentStr }).eq('id', row.id);
             }
             pplanCache.delete(row.id);

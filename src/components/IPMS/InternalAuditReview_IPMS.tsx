@@ -48,6 +48,21 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
   const [showClearKpiModal, setShowClearKpiModal] = useState(false);
   const [selectedKpiIdsForAudit, setSelectedKpiIdsForAudit] = useState<string[]>([]);
 
+  const visibleItems = useMemo(() => {
+    const plan = selectedPlan?.plan;
+    if (!plan || !Array.isArray(plan.items)) return [];
+    return plan.items.filter((item: any) => {
+      const status = item.reviewStatus || 'Draft';
+      return status === 'Approved' || 
+             status === 'Dispatched to Audit' || 
+             status === 'Submitted for Approval' || 
+             status === 'Submitted for Review' || 
+             status === 'Submitted' || 
+             item.internalAuditStatus || 
+             item.internalAuditRating;
+    });
+  }, [selectedPlan]);
+
   const toggleSelectKpiForAudit = (id: string) => {
     setSelectedKpiIdsForAudit(prev => 
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
@@ -66,8 +81,12 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
   useEffect(() => {
     const visibleKpis = (selectedPlan && selectedPlan.plan && Array.isArray(selectedPlan.plan.items))
       ? selectedPlan.plan.items.filter((item: any) => {
-          return item.reviewStatus === 'Approved' || 
-                 item.reviewStatus === 'Dispatched to Audit' || 
+          const status = item.reviewStatus || 'Draft';
+          return status === 'Approved' || 
+                 status === 'Dispatched to Audit' || 
+                 status === 'Submitted for Approval' || 
+                 status === 'Submitted for Review' || 
+                 status === 'Submitted' || 
                  item.internalAuditStatus || 
                  item.internalAuditRating;
         })
@@ -910,16 +929,6 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
   // DETAIL VIEW
   const { plan } = selectedPlan;
   const isAudited = plan.metadata?.internalAuditStatus === 'Audited';
-
-  const visibleItems = useMemo(() => {
-    if (!plan || !Array.isArray(plan.items)) return [];
-    return plan.items.filter((item: any) => {
-      return item.reviewStatus === 'Approved' || 
-             item.reviewStatus === 'Dispatched to Audit' || 
-             item.internalAuditStatus || 
-             item.internalAuditRating;
-    });
-  }, [plan]);
 
   return (
     <div id="internal-audit-detail" className="flex flex-col h-full bg-slate-50 border border-gray-200 rounded-3xl overflow-hidden shadow-2xl text-stone-900">
