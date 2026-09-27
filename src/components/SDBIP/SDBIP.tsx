@@ -10,6 +10,7 @@ import { AzureADPicker } from './AzureADPicker';
 import { SDBIPPagination } from './SDBIPPagination';
 import { ExpandableCell, CellExpandModal, ExpandModalState } from './ExpandableCell';
 import { isQuarterInReportingPeriod, getQuarterLockNotice, REPORTING_PERIOD_CONFIGS, getCurrentMunicipalQuarter, ReportingPhase } from '../../utils/reportingPeriods';
+import { PMS_TEAM_REVIEWERS, INTERNAL_AUDIT_USERS, isUserMatch } from '../../utils/sdbipWorkflowHelper';
 
 export const isTargetNA = (val: string | undefined | null): boolean => {
   if (!val) return false;
@@ -34,34 +35,11 @@ export const isTargetNA = (val: string | undefined | null): boolean => {
  * Specifically unlocked ONLY for KPI M_72 and P_07 (all other KPIs locked).
  */
 export const isKpiUnlockedForSubmitterApprover = (row: { refNum?: string; id?: string; kpi?: string } | null | undefined): boolean => {
-  if (!row) return false;
-  const clean = (val?: string) => (val || '').trim().toLowerCase().replace(/[\s_\-]+/g, '');
-  const refClean = clean(row.refNum);
-  const idClean = clean(row.id);
-
-  // Check M_72 variants (e.g. M_72, m_72, M72, m72, M-72, REF-M_72)
-  const isM72 = 
-    refClean === 'm72' || refClean === 'm072' || refClean.endsWith('m72') ||
-    idClean === 'm72' || idClean === 'm072' || idClean.endsWith('m72') ||
-    /\bm[_\-\s]?72\b/i.test(row.refNum || '') ||
-    /\bm[_\-\s]?72\b/i.test(row.id || '') ||
-    /\bm[_\-\s]?72\b/i.test(row.kpi || '') ||
-    (Boolean(row.kpi) && row.kpi!.toLowerCase().includes('municipal delegation register'));
-
-  // Check P_07 variants (e.g. P_07, p_07, P07, p07, P7, p7, P-07, REF-P_07)
-  const isP07 = 
-    refClean === 'p07' || refClean === 'p7' || refClean.endsWith('p07') || refClean.endsWith('p7') ||
-    idClean === 'p07' || idClean === 'p7' || idClean.endsWith('p07') || idClean.endsWith('p7') ||
-    /\bp[_\-\s]?0?7\b/i.test(row.refNum || '') ||
-    /\bp[_\-\s]?0?7\b/i.test(row.id || '') ||
-    /\bp[_\-\s]?0?7\b/i.test(row.kpi || '') ||
-    (Boolean(row.kpi) && row.kpi!.toLowerCase().includes('safety inspections conducted at municipal facilities'));
-
-  return Boolean(isM72 || isP07);
+  return false; // Submitter and Approver assignments are locked in reporting table
 };
 
 export const isSubmitterApproverLockedInReporting = (row: { refNum?: string; id?: string; kpi?: string } | null | undefined): boolean => {
-  return !isKpiUnlockedForSubmitterApprover(row);
+  return true; // Lock Submitter and Approver pickers in SDBIP Top Layer reporting view so responsibilities cannot be altered
 };
 
 interface SDBIPProps {
@@ -1418,13 +1396,26 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
       return;
     }
 
-    // Submitter and Approver are locked in the reporting table except for KPI M_72 and P_07
+    // Lock Submitter and Approver fields in reporting view to prevent changing assigned responsibilities
     if (activeTab === 'reporting' && (field === 'submitter' || field === 'approver')) {
       const targetRow = rows.find(r => r.id === rowId);
-      if (targetRow && isSubmitterApproverLockedInReporting(targetRow)) {
-        setSuccessToast(`Field Locked: Submitter and Approver are locked in the reporting table for KPI ${targetRow.refNum || ''} (Unlocked only for M_72 and P_07).`);
-        setTimeout(() => setSuccessToast(null), 4000);
-        return;
+      setSuccessToast(`Field Locked: Submitter and Approver assignments are locked in the reporting view for KPI ${targetRow?.refNum || ''} to preserve responsible personnel assignments.`);
+      setTimeout(() => setSuccessToast(null), 4000);
+      return;
+    }
+
+    // Strict Submitter reporting enforcement: Only designated submitter can report on actuals
+    const actualsFields = ['q1Actual', 'q2Actual', 'midTermActual', 'q3Actual', 'q4Actual', 'q1Corrective', 'q2Corrective', 'q3Corrective', 'q4Corrective', 'poeDesc', 'q1PoeDesc', 'q2PoeDesc', 'q3PoeDesc', 'q4PoeDesc'];
+    if (actualsFields.includes(field as string)) {
+      const targetRow = rows.find(r => r.id === rowId);
+      if (targetRow && (targetRow.submitter || targetRow.responsibleUnit)) {
+        const assignedSubmitter = targetRow.submitter || targetRow.responsibleUnit;
+        const isMatch = isUserMatch(assignedSubmitter, currentUser) || currentUser.role === 'admin';
+        if (!isMatch) {
+          setSuccessToast(`Reporting Restricted: Only the designated Submitter (${assignedSubmitter}) can report on actuals for KPI ${targetRow.refNum || ''}.`);
+          setTimeout(() => setSuccessToast(null), 4000);
+          return;
+        }
       }
     }
 

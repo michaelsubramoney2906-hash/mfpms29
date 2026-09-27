@@ -14,7 +14,8 @@ import {
   fetchSdbipNotifications, 
   dispatchSdbipNotification, 
   markSdbipNotificationRead,
-  extractKpiPoes 
+  extractKpiPoes,
+  PMS_TEAM_REVIEWERS
 } from '../../utils/sdbipWorkflowHelper';
 
 interface OPMSApproverProps {
@@ -327,15 +328,16 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
 
       if (!response.ok) throw new Error('Failed to push item to Reviewer');
 
-      // Dispatch real-time notification to the specified Reviewer
+      // Dispatch real-time notification to the specified Reviewer & PMS Team members
+      const reviewerTargets = Array.from(new Set([reviewerTarget, ...PMS_TEAM_REVIEWERS].filter(Boolean)));
       await dispatchSdbipNotification(activeTenantId, {
-        targetUser: reviewerTarget,
+        targetUser: reviewerTargets,
         senderUser: currentUser.fullName || currentUser.email,
         kpiId: selectedKpi.id,
         refNum: selectedKpi.refNum,
         kpiName: selectedKpi.kpi,
         phase: 'General',
-        message: `KPI ${selectedKpi.refNum} approved by Executive Approver ${currentUser.fullName || currentUser.email} and routed to you for PMU Review sign-off.`,
+        message: `KPI ${selectedKpi.refNum} approved by Executive Approver ${currentUser.fullName || currentUser.email} and routed to PMS Team for Review sign-off.`,
         comment: approverNotes,
         actionType: 'pushed_to_reviewer'
       });

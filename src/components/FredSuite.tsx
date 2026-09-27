@@ -13,8 +13,9 @@ import {
 import type { User } from '../types';
 import { FredPerformancePlanExtractor } from './FredPerformancePlanExtractor';
 import { FredSDBIPExtractor } from './FredSDBIPExtractor';
+import { FredGmPerformancePlanExtractor } from './FredGmPerformancePlanExtractor';
 
-export type FredSubModule = 'performance-plan' | 'sdbip';
+export type FredSubModule = 'performance-plan' | 'gm-extractor' | 'sdbip';
 
 interface FredSuiteProps {
   currentUser: User;
@@ -79,6 +80,23 @@ export function FredSuite({
             </button>
 
             <button
+              id="tab-fred-gm-extractor"
+              type="button"
+              onClick={() => setActiveSubModule('gm-extractor')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+                activeSubModule === 'gm-extractor'
+                  ? 'bg-amber-600 text-slate-950 shadow-md'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-200" />
+              <span>2. GM Extractor</span>
+              <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-950/80 text-amber-300 font-extrabold border border-amber-500/30">
+                Sec 56 GM
+              </span>
+            </button>
+
+            <button
               id="tab-fred-sdbip"
               type="button"
               onClick={() => setActiveSubModule('sdbip')}
@@ -89,7 +107,7 @@ export function FredSuite({
               }`}
             >
               <Landmark className="w-3.5 h-3.5 text-emerald-200" />
-              <span>2. SDBIP Extractor</span>
+              <span>3. SDBIP Extractor</span>
               <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-950/80 text-emerald-300 font-extrabold border border-emerald-500/30">
                 OPMS Top Layer
               </span>
@@ -111,6 +129,12 @@ export function FredSuite({
       <div className="flex-1 overflow-hidden">
         {activeSubModule === 'performance-plan' ? (
           <FredPerformancePlanExtractor
+            currentUser={currentUser}
+            activeTenantId={activeTenantId}
+            onNavigateToIPMS={onNavigateToIPMS}
+          />
+        ) : activeSubModule === 'gm-extractor' ? (
+          <FredGmPerformancePlanExtractor
             currentUser={currentUser}
             activeTenantId={activeTenantId}
             onNavigateToIPMS={onNavigateToIPMS}

@@ -1015,12 +1015,12 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                    }}
                 />
              </div>
-          ) : activeSubModule.id === 'fred' || activeSubModule.id === 'fred-ipp' || activeSubModule.id === 'fred-performance-plan' || activeSubModule.id === 'fred-sdbip' ? (
+          ) : activeSubModule.id === 'fred' || activeSubModule.id === 'fred-ipp' || activeSubModule.id === 'fred-gm' || activeSubModule.id === 'fred-performance-plan' || activeSubModule.id === 'fred-sdbip' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
                  <FredSuite 
                     currentUser={fullUserProfile} 
                     activeTenantId={activeTenantId} 
-                    initialSubModule={activeSubModule.id === 'fred-sdbip' ? 'sdbip' : 'performance-plan'}
+                    initialSubModule={activeSubModule.id === 'fred-sdbip' ? 'sdbip' : activeSubModule.id === 'fred-gm' ? 'gm-extractor' : 'performance-plan'}
                     onNavigateToIPMS={(subId) => {
                       const ipmsModule = modules.find(m => m.id === 'ipms');
                       if (ipmsModule) {

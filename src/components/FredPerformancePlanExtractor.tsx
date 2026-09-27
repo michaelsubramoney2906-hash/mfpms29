@@ -116,7 +116,7 @@ export function FredPerformancePlanExtractor({
       const result = await extractIppFromDocument(file);
       
       if (!result.items || result.items.length === 0) {
-        throw new Error('No performance plan items could be found in the uploaded agreement. Please verify the document has Annexure A / Section 4.2 Scorecard tables.');
+        throw new Error('No performance plan items could be found in the uploaded agreement. Please verify the document contains an Annexure A Performance Plan scorecard table.');
       }
 
       const formattedItems: ExtractedMappedKPI[] = result.items.map((item, idx) => ({
@@ -730,7 +730,7 @@ export function FredPerformancePlanExtractor({
               {isExtracting ? 'Extracting Verbatim Performance Plan...' : 'Upload Performance Agreement (PDF / DOCX / XLSX)'}
             </h3>
             <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
-              Drag & drop the signed Performance Agreement here, or click to browse. The engine extracts Functional KPAs (Section 4.2) and Scorecard KPIs (Annexure A) with 100% verbatim fidelity and zero dreaming.
+              Drag & drop the signed Performance Agreement here, or click to browse. The engine extracts Functional KPAs and Scorecard KPIs strictly from Annexure A (Performance Plan) with 100% verbatim fidelity and zero dreaming.
             </p>
           </div>
           {sourceFileName && (

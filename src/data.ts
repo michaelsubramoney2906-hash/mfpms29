@@ -381,6 +381,7 @@ export const modules: Module[] = [
     subModules: [
       { id: 'fred', name: 'Fred', icon: Bot },
       { id: 'fred-ipp', name: 'Performance Plan Extractor', icon: Cpu },
+      { id: 'fred-gm', name: 'GM Extractor', icon: Sparkles },
       { id: 'fred-sdbip', name: 'SDBIP Extractor', icon: Landmark },
       { id: 'ce', name: 'Calendar & Events', icon: Calendar },
       { id: 'ear', name: 'External Audit Room', icon: Search },

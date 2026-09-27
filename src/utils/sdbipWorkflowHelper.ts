@@ -1,7 +1,23 @@
 /**
  * SDBIP / OPMS Multi-Tier Workflow & Real-Time Notification Utilities
- * Handles Submitter -> Approver -> Reviewer -> Internal Audit pipeline with Supabase persistence.
+ * Handles Submitter -> Approver -> Reviewer (PMS Team) -> Internal Audit pipeline with Supabase persistence.
  */
+
+export const PMS_TEAM_REVIEWERS = [
+  'nsibandenp@nkangaladm.gov.za',
+  'zulune@nkangaladm.gov.za',
+  'shabangusm@nkangaladm.gov.za',
+  'lukhelema@nkangaladm.gov.za',
+  'khuboniy@nkangaladm.gov.za'
+];
+
+export const INTERNAL_AUDIT_USERS = [
+  'twalaad@nkangaladm.gov.za',
+  'seeranepl@nkangaladm.gov.za',
+  'morarj@nkanagaladm.gov.za',
+  'masemolak@nkangaladm.gov.za',
+  'mpanzacs@nkangaladm.gov.za'
+];
 
 export interface SdbipWorkflowNotification {
   id: string;
@@ -25,11 +41,27 @@ export function isUserMatch(
   targetUser: string | undefined | null,
   user: { email?: string; fullName?: string; username?: string; role?: string } | undefined | null
 ): boolean {
-  if (!targetUser || !user) return false;
+  if (!user) return false;
+  const email = (user.email || '').trim().toLowerCase();
+  const isPmsMember = PMS_TEAM_REVIEWERS.map(e => e.toLowerCase()).includes(email);
+  const isAuditMember = INTERNAL_AUDIT_USERS.map(e => e.toLowerCase()).includes(email);
+
+  // If targetUser is null or undefined or empty, check membership in role lists
+  if (!targetUser || !targetUser.trim()) {
+    if (isPmsMember) return true;
+    if (isAuditMember) return true;
+    return false;
+  }
+
+  // Support comma-separated target string
+  if (targetUser.includes(',')) {
+    const parts = targetUser.split(',').map(p => p.trim());
+    return parts.some(part => isUserMatch(part, user));
+  }
+
   const target = targetUser.trim().toLowerCase();
   if (target === 'all' || target === 'everyone' || target === '*') return true;
 
-  const email = (user.email || '').trim().toLowerCase();
   const emailPrefix = email.split('@')[0] || '';
   const fullName = (user.fullName || '').trim().toLowerCase();
   const username = (user.username || '').trim().toLowerCase();
@@ -40,13 +72,20 @@ export function isUserMatch(
   if (target === username) return true;
   if (target === emailPrefix) return true;
 
-  // Contains match for partial names like "Mike" in "Mike Ross"
+  // Contains match for partial names or emails
   if (fullName && (fullName.includes(target) || target.includes(fullName))) return true;
 
+  // PMS Reviewer matches
+  if (isPmsMember && (target.includes('reviewer') || target.includes('pms') || PMS_TEAM_REVIEWERS.some(r => r.toLowerCase() === target))) return true;
+
+  // Internal Audit matches
+  if (isAuditMember && (target.includes('audit') || target.includes('auditor') || INTERNAL_AUDIT_USERS.some(a => a.toLowerCase() === target))) return true;
+
   // Role based checks
-  if (target.includes('approver') && (user.role?.includes('approver') || user.role === 'admin')) return true;
-  if (target.includes('reviewer') && (user.role?.includes('reviewer') || user.role === 'admin')) return true;
-  if ((target.includes('audit') || target.includes('auditor')) && (user.role?.includes('audit') || user.role === 'admin')) return true;
+  if (target.includes('approver') && (user.role?.includes('approver') || user.role === 'admin' || user.role === 'superadmin')) return true;
+  if (target.includes('reviewer') && (user.role?.includes('reviewer') || user.role === 'admin' || user.role === 'superadmin' || isPmsMember)) return true;
+  if ((target.includes('audit') || target.includes('auditor')) && (user.role?.includes('audit') || user.role === 'admin' || user.role === 'superadmin' || isAuditMember)) return true;
+  if (target.includes('submitter') && (user.role?.includes('submitter') || user.role === 'admin' || user.role === 'superadmin')) return true;
 
   return false;
 }

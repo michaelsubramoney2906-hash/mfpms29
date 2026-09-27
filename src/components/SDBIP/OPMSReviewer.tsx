@@ -14,7 +14,8 @@ import {
   fetchSdbipNotifications, 
   dispatchSdbipNotification, 
   markSdbipNotificationRead,
-  extractKpiPoes 
+  extractKpiPoes,
+  INTERNAL_AUDIT_USERS
 } from '../../utils/sdbipWorkflowHelper';
 
 interface OPMSReviewerProps {
@@ -330,8 +331,9 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
       if (!response.ok) throw new Error('Failed to push item to Internal Audit');
 
       // Dispatch real-time notification to Internal Audit
+      const auditTargets = Array.from(new Set([auditorTarget, ...INTERNAL_AUDIT_USERS].filter(Boolean)));
       await dispatchSdbipNotification(activeTenantId, {
-        targetUser: auditorTarget,
+        targetUser: auditTargets,
         senderUser: currentUser.fullName || currentUser.email,
         kpiId: selectedKpi.id,
         refNum: selectedKpi.refNum,

@@ -283,7 +283,7 @@ export function deriveKpaSummaries(
   items: ExtractedMappedKPI[],
   predefinedKpas?: ExtractedKpaDefinition[]
 ): ExtractedKpaDefinition[] {
-  // 1. If predefined KPAs exist, preserve them 1:1 as defined in Section 4.2 of the agreement
+  // 1. If predefined KPAs exist, preserve them 1:1 as defined in Annexure A of the agreement
   if (predefinedKpas && predefinedKpas.length > 0) {
     const canonicalKpas: ExtractedKpaDefinition[] = predefinedKpas.map((kpa, idx) => {
       const rawTitle = kpa.title || kpa.fullTitle || kpa.kpaName || `KPA ${idx + 1}`;
@@ -344,7 +344,7 @@ export function deriveKpaSummaries(
     return canonicalKpas;
   }
 
-  // 2. Synthesize KPAs directly from extracted items if no Section 4.2 table was present
+  // 2. Synthesize KPAs directly from extracted items if no explicit KPA list was present
   const statsMap = new Map<string, { count: number; weight: number }>();
   items.forEach(it => {
     const rawKpa = (it['functional kpa'] || it['kpa'] || 'Functional Performance Area').trim();
