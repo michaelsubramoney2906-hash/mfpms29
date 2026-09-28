@@ -6,12 +6,13 @@ import {
   CheckCircle2, AlertCircle, Calendar, User, Folder, ShieldCheck, 
   ChevronLeft, ChevronRight, Sparkles, RefreshCw
 } from 'lucide-react';
+import { downloadOriginalFile } from '../../utils/documentBinaryHelper';
 
 export interface PoeDocument {
   id?: string;
   name: string;
   mimeType: string;
-  size?: number;
+  size?: number | string;
   dataUrl?: string;
   uploadedAt?: string | Date;
   uploadedBy?: string;
@@ -72,6 +73,8 @@ export function OfficeDocumentViewer({ doc, document: propDocument, onClose }: O
   const isExcel = ['xls', 'xlsx', 'csv'].includes(extension);
   const isWord = ['doc', 'docx', 'rtf', 'txt'].includes(extension);
   const isPowerPoint = ['ppt', 'pptx'].includes(extension);
+  const isPdf = extension === 'pdf' || targetDoc?.mimeType?.includes('pdf') || targetDoc?.dataUrl?.startsWith('data:application/pdf');
+  const isImage = ['png', 'jpg', 'jpeg', 'webp', 'svg', 'gif'].includes(extension) || targetDoc?.mimeType?.startsWith('image/') || targetDoc?.dataUrl?.startsWith('data:image/');
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -80,6 +83,58 @@ export function OfficeDocumentViewer({ doc, document: propDocument, onClose }: O
   const [activeXlsxSheetIdx, setActiveXlsxSheetIdx] = useState(0);
   const [renderedPptSlides, setRenderedPptSlides] = useState<ParsedSlide[]>([]);
   const [activePptSlideIdx, setActivePptSlideIdx] = useState(0);
+  const [displayUrl, setDisplayUrl] = useState<string>('');
+
+  useEffect(() => {
+    if (!targetDoc?.dataUrl) {
+      setDisplayUrl('');
+      return;
+    }
+    const dataUrlStr = targetDoc.dataUrl;
+    const extLower = extension.toLowerCase();
+    const isImg = ['png', 'jpg', 'jpeg', 'webp', 'svg', 'gif'].includes(extLower);
+    const isPdfDoc = extLower === 'pdf';
+
+    if (isImg || isPdfDoc) {
+      try {
+        let finalBase64 = '';
+        let mime = isImg ? `image/${extLower === 'svg' ? 'svg+xml' : extLower}` : 'application/pdf';
+        
+        if (dataUrlStr.startsWith('data:')) {
+          const parts = dataUrlStr.split(',');
+          finalBase64 = (parts[1] || parts[0]).trim().replace(/\s/g, '');
+          const mimeMatch = parts[0].match(/:(.*?);/);
+          if (mimeMatch) mime = mimeMatch[1];
+        } else if (/^[A-Za-z0-9+/=\s\r\n]+$/.test(dataUrlStr) && dataUrlStr.length > 50) {
+          finalBase64 = dataUrlStr.trim().replace(/\s/g, '');
+        }
+
+        if (finalBase64) {
+          const cleanB64 = finalBase64.replace(/[^A-Za-z0-9+/=]/g, '');
+          const binaryString = window.atob(cleanB64);
+          const len = binaryString.length;
+          const bytes = new Uint8Array(len);
+          for (let i = 0; i < len; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          const blob = new Blob([bytes], { type: mime });
+          const blobUrl = URL.createObjectURL(blob);
+          setDisplayUrl(blobUrl);
+
+          return () => {
+            URL.revokeObjectURL(blobUrl);
+          };
+        } else {
+          setDisplayUrl(dataUrlStr);
+        }
+      } catch (err) {
+        console.error("Failed to generate Blob URL for inline viewer, using standard fallback:", err);
+        setDisplayUrl(dataUrlStr);
+      }
+    } else {
+      setDisplayUrl('');
+    }
+  }, [targetDoc?.dataUrl, extension]);
 
   useEffect(() => {
     if (!targetDoc?.dataUrl) {
@@ -371,83 +426,29 @@ export function OfficeDocumentViewer({ doc, document: propDocument, onClose }: O
 
   if (!targetDoc) return null;
 
-  // Helper to format file size
-  const formatSize = (bytes?: number) => {
-    if (!bytes) return 'N/A';
+  // Helper to format file size supporting both string and number types
+  const formatSize = (sizeVal?: number | string) => {
+    if (!sizeVal) return 'N/A';
+    if (typeof sizeVal === 'string') {
+      if (sizeVal.toLowerCase().includes('kb') || sizeVal.toLowerCase().includes('mb')) {
+        return sizeVal;
+      }
+      // If it has spaces/labels but is string
+      if (sizeVal.trim().endsWith('B') || sizeVal.trim().endsWith('b')) {
+        return sizeVal;
+      }
+      const parsed = parseFloat(sizeVal);
+      if (isNaN(parsed)) return sizeVal;
+      sizeVal = parsed;
+    }
+    const bytes = sizeVal as number;
+    // If it is already small parsed float (like 0.09) from "0.09 MB", it represents MBs, not raw bytes!
+    if (bytes < 100) {
+      return `${bytes.toFixed(2)} MB`;
+    }
     const mb = bytes / (1024 * 1024);
     if (mb >= 1) return `${mb.toFixed(2)} MB`;
     return `${(bytes / 1024).toFixed(1)} KB`;
-  };
-
-  // Safe file download using lightweight memory-safe Blob Object URLs
-  const handleDownload = () => {
-    if (!targetDoc?.dataUrl) {
-      alert("No data available to download.");
-      return;
-    }
-    try {
-      let downloadUrl = targetDoc.dataUrl;
-      let cleanupUrl = false;
-      
-      // If pure base64 format, convert to Blob URL
-      if (!downloadUrl.startsWith('data:') && !downloadUrl.startsWith('http') && !downloadUrl.startsWith('/') && !downloadUrl.startsWith('.')) {
-        const cleanB64 = downloadUrl.trim().replace(/\s/g, '');
-        const binaryString = window.atob(cleanBase64String(cleanB64));
-        const len = binaryString.length;
-        const bytes = new Uint8Array(len);
-        for (let i = 0; i < len; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
-        }
-        const mime = targetDoc.mimeType || 'application/octet-stream';
-        const blob = new Blob([bytes], { type: mime });
-        downloadUrl = URL.createObjectURL(blob);
-        cleanupUrl = true;
-      } else if (downloadUrl.startsWith('data:')) {
-        // Convert to Blob URL to bypass browser payload size limits
-        const parts = downloadUrl.split(',');
-        const isBase64 = parts[0].includes('base64');
-        const mimeMatch = parts[0].match(/:(.*?);/);
-        const mime = mimeMatch ? mimeMatch[1] : (targetDoc.mimeType || 'application/octet-stream');
-        
-        if (isBase64) {
-          const cleanB64 = parts[1].trim().replace(/\s/g, '');
-          const binaryString = window.atob(cleanBase64String(cleanB64));
-          const len = binaryString.length;
-          const bytes = new Uint8Array(len);
-          for (let i = 0; i < len; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-          }
-          const blob = new Blob([bytes], { type: mime });
-          downloadUrl = URL.createObjectURL(blob);
-          cleanupUrl = true;
-        } else {
-          // If it is a text-encoded dataURL (e.g. SVG template), decode text safely
-          const decodedText = decodeURIComponent(parts[1] || parts[0]);
-          const blob = new Blob([decodedText], { type: mime });
-          downloadUrl = URL.createObjectURL(blob);
-          cleanupUrl = true;
-        }
-      }
-
-      const link = document.createElement('a');
-      link.href = downloadUrl;
-      link.download = targetDoc.name;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      if (cleanupUrl) {
-        setTimeout(() => URL.revokeObjectURL(downloadUrl), 100);
-      }
-    } catch (e: any) {
-      console.error("Advanced download helper failed, using standard fallback download:", e);
-      const link = document.createElement('a');
-      link.href = targetDoc.dataUrl;
-      link.download = targetDoc.name;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
   };
 
   // Metadata variables
@@ -457,6 +458,19 @@ export function OfficeDocumentViewer({ doc, document: propDocument, onClose }: O
   const uploadedDate = targetDoc.uploadedAt 
     ? new Date(targetDoc.uploadedAt).toLocaleDateString() 
     : new Date().toLocaleDateString();
+
+  // Safe file download using lightweight memory-safe Blob Object URLs
+  const handleDownload = () => {
+    if (!targetDoc) {
+      alert("No data available to download.");
+      return;
+    }
+    downloadOriginalFile(targetDoc.name, targetDoc.dataUrl, {
+      kpiName: kpiTitle,
+      quarter: quarterName,
+      mimeType: targetDoc.mimeType
+    });
+  };
 
   return (
     <div className="fixed inset-0 z-[110] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 lg:p-8 animate-fade-in text-slate-800" onClick={onClose}>
@@ -648,12 +662,12 @@ export function OfficeDocumentViewer({ doc, document: propDocument, onClose }: O
                 {/* Fallback for other file types */}
                 {!isWord && !isExcel && !isPowerPoint && (
                   <div className="flex-1 p-6 flex items-center justify-center overflow-hidden bg-slate-100">
-                    {targetDoc.dataUrl && targetDoc.dataUrl.startsWith('data:image/') ? (
+                    {isImage && displayUrl ? (
                       <div className="bg-white p-4 rounded-2xl shadow-md max-h-full max-w-full overflow-auto flex items-center justify-center">
-                        <img src={targetDoc.dataUrl} alt={targetDoc.name} className="max-h-[60vh] object-contain rounded-lg shadow-sm" referrerPolicy="no-referrer" />
+                        <img src={displayUrl} alt={targetDoc.name} className="max-h-[60vh] object-contain rounded-lg shadow-sm" referrerPolicy="no-referrer" />
                       </div>
-                    ) : targetDoc.mimeType?.includes('pdf') || targetDoc.dataUrl?.startsWith('data:application/pdf') ? (
-                      <iframe src={targetDoc.dataUrl} title={targetDoc.name} className="w-full h-full rounded-2xl bg-white shadow-lg border border-slate-300" />
+                    ) : isPdf && displayUrl ? (
+                      <iframe src={displayUrl} title={targetDoc.name} className="w-full h-full rounded-2xl bg-white shadow-lg border border-slate-300" />
                     ) : (
                       <div className="text-center bg-white p-8 rounded-2xl shadow-xl border border-slate-200 max-w-md w-full">
                         <File className="w-16 h-16 text-slate-300 mx-auto mb-4" />

@@ -8,6 +8,7 @@ import {
 import type { User } from '../../types';
 import { SdbipRow, SdbipPoeFile } from './SDBIP';
 import { OfficeDocumentViewer } from '../IPMS/OfficeDocumentViewer';
+import { downloadOriginalFile } from '../../utils/documentBinaryHelper';
 import { 
   SdbipWorkflowNotification, 
   isUserMatch, 
@@ -856,16 +857,20 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
                             <span>View PoE</span>
                           </button>
 
-                          {file.dataUrl && (
-                            <a
-                              href={file.dataUrl}
-                              download={file.name}
-                              className="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white p-1.5 rounded-lg text-[10px] flex items-center justify-center transition border border-slate-700"
-                              title="Download backup file"
-                            >
-                              <Download className="w-3.5 h-3.5" />
-                            </a>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              downloadOriginalFile(file.name, file.dataUrl, {
+                                kpiName: selectedKpi.kpi,
+                                refNum: selectedKpi.refNum,
+                                quarter: file.quarter || 'Current Quarter'
+                              });
+                            }}
+                            className="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white p-1.5 rounded-lg text-[10px] flex items-center justify-center transition border border-slate-700 cursor-pointer shadow-xs"
+                            title="Download original file in its exact native binary format"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </div>
                     ))}

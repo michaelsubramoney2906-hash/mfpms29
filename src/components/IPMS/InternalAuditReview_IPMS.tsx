@@ -28,6 +28,7 @@ import { IPMSWorkflowInbox } from './IPMSWorkflowInbox';
 import { OfficeDocumentViewer } from './OfficeDocumentViewer';
 import { JSCInternalAuditorReviewSection } from './JSCModules';
 import { calculateVariance } from './Evaluation_IPMS';
+import { downloadOriginalFile } from '../../utils/documentBinaryHelper';
 
 interface Props {
   currentUser: any;
@@ -47,23 +48,41 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
   const [clearingAudits, setClearingAudits] = useState(false);
   const [showClearKpiModal, setShowClearKpiModal] = useState(false);
   const [selectedKpiIdsForAudit, setSelectedKpiIdsForAudit] = useState<string[]>([]);
+  const [filterPushedKpiIds, setFilterPushedKpiIds] = useState<string[] | null>(null);
 
   const visibleItems = useMemo(() => {
     const plan = selectedPlan?.plan;
     if (!plan || !Array.isArray(plan.items)) return [];
-    return plan.items.filter((item: any) => {
-      const status = item.reviewStatus || 'Draft';
-      return status === 'Approved' || 
-             status === 'Dispatched to Audit' || 
-             status === 'Submitted for Approval' || 
-             status === 'Submitted for Review' || 
-             status === 'Submitted' || 
-             status === 'Reviewed' || 
-             status === 'Reviewed and Dispatched' || 
-             item.internalAuditStatus || 
-             item.internalAuditRating;
+
+    // 1. If explicit pushed KPI IDs are passed from manager dispatch:
+    if (filterPushedKpiIds && filterPushedKpiIds.length > 0) {
+      const filtered = plan.items.filter((item: any) => filterPushedKpiIds.includes(item.id));
+      if (filtered.length > 0) return filtered;
+    }
+
+    // 2. Otherwise check if specific items were marked Dispatched to Audit
+    const pushedItems = plan.items.filter((item: any) => {
+      const status = item.reviewStatus || item.internalAuditStatus;
+      return status === 'Dispatched to Audit' || status === 'Reviewed and Dispatched';
     });
-  }, [selectedPlan]);
+
+    if (pushedItems.length > 0) {
+      return pushedItems;
+    }
+
+    // 3. Fallback to all submitted/active items
+    return plan.items.filter((item: any) => {
+      if (item.id === activeKPIId) return true;
+      const status = item.reviewStatus || 'Draft';
+      return status === 'Dispatched to Audit' || 
+             status === 'Reviewed and Dispatched' || 
+             status === 'Approved' || 
+             status === 'Under Review' ||
+             status === 'Submitted' ||
+             !!item.internalAuditStatus || 
+             !!item.internalAuditRating;
+    });
+  }, [selectedPlan, activeKPIId, filterPushedKpiIds]);
 
   const toggleSelectKpiForAudit = (id: string) => {
     setSelectedKpiIdsForAudit(prev => 
@@ -81,30 +100,23 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
   };
 
   useEffect(() => {
-    const visibleKpis = (selectedPlan && selectedPlan.plan && Array.isArray(selectedPlan.plan.items))
-      ? selectedPlan.plan.items.filter((item: any) => {
-          const status = item.reviewStatus || 'Draft';
-          return status === 'Approved' || 
-                 status === 'Dispatched to Audit' || 
-                 status === 'Submitted for Approval' || 
-                 status === 'Submitted for Review' || 
-                 status === 'Submitted' || 
-                 status === 'Reviewed' || 
-                 status === 'Reviewed and Dispatched' || 
-                 item.internalAuditStatus || 
-                 item.internalAuditRating;
-        })
-      : [];
+    const plan = selectedPlan?.plan;
+    if (!plan || !Array.isArray(plan.items)) {
+      setActiveKPIId(null);
+      return;
+    }
 
-    if (visibleKpis.length > 0) {
+    if (visibleItems.length > 0) {
       setActiveKPIId((prev) => {
-        const exists = visibleKpis.some((item: any) => item.id === prev);
-        return exists ? prev : visibleKpis[0].id;
+        if (prev && visibleItems.some((item: any) => item.id === prev)) return prev;
+        return visibleItems[0].id;
       });
+    } else if (plan.items.length > 0) {
+      setActiveKPIId((prev) => prev || plan.items[0].id);
     } else {
       setActiveKPIId(null);
     }
-  }, [selectedPlan]);
+  }, [selectedPlan, visibleItems]);
 
   // Check authorization
   const isAuthorized = 
@@ -504,31 +516,11 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
 
   const handleDownloadDoc = (doc: any) => {
     if (!doc) return;
-    try {
-      let downloadUrl = doc.dataUrl;
-      let filename = doc.name || 'PoE-Evidence-Document.txt';
-      if (!downloadUrl) {
-        const textContent = `MZANSIFLOW IPMS PORTFOLIO OF EVIDENCE (PoE) DOCUMENT\n` +
-          `===================================================\n` +
-          `Document Name: ${filename}\n` +
-          `KPI Context: ${doc.kpiName || 'Performance Indicator Target'}\n` +
-          `Quarter Term: ${doc.quarter || 'Annual'}\n` +
-          `Uploaded By: ${doc.uploadedBy || 'Employee / Submitter'}\n` +
-          `Timestamp: ${new Date().toLocaleString()}\n` +
-          `Compliance Audit Verification: Validated and signed-off by Internal Audit\n`;
-        const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8;' });
-        downloadUrl = URL.createObjectURL(blob);
-      }
-      const anchor = document.createElement('a');
-      anchor.href = downloadUrl;
-      anchor.download = filename;
-      document.body.appendChild(anchor);
-      anchor.click();
-      document.body.removeChild(anchor);
-    } catch (e) {
-      console.error("Error triggering download:", e);
-      alert("Failed to initiate file download.");
-    }
+    downloadOriginalFile(doc.name, doc.dataUrl || doc.fileData || doc.fileDataUrl, {
+      kpiName: doc.kpiName || 'Performance Indicator Target',
+      quarter: doc.quarter || 'Annual',
+      mimeType: doc.fileType || doc.mimeType
+    });
   };
 
   const handleDispatchAuditReport = async (userId: string, target: 'manager' | 'subordinate') => {
@@ -730,15 +722,30 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
               role="auditor"
               currentUser={currentUser}
               activeTenantId={activeTenantId}
-              onSelectUserPlan={(targetUserEmail, kpiId, quarter) => {
+              onSelectUserPlan={(targetUserEmail, kpiId, quarter, targetKpiIds) => {
                 const normTarget = (targetUserEmail || '').toLowerCase().trim();
-                const matchingPlan = teamPlans.find(p => 
+                const kpiIdsToFilter = targetKpiIds && targetKpiIds.length > 0 
+                  ? targetKpiIds 
+                  : (kpiId ? [kpiId] : null);
+                
+                setFilterPushedKpiIds(kpiIdsToFilter);
+
+                let matchingPlan = teamPlans.find(p => 
                   (p.userId || '').toLowerCase().trim() === normTarget ||
                   (p.plan?.metadata?.email || '').toLowerCase().trim() === normTarget ||
-                  (normTarget.includes('zulune') && (p.userId || '').includes('zulune'))
+                  (normTarget.includes('zulune') && (p.userId || '').includes('zulune')) ||
+                  (normTarget && (p.userId || '').toLowerCase().includes(normTarget))
                 );
+
+                if (!matchingPlan && normTarget) {
+                  matchingPlan = {
+                    id: `plan-${normTarget}`,
+                    userId: normTarget,
+                    plan: { metadata: { name: normTarget, email: normTarget }, items: [] }
+                  };
+                }
+
                 if (matchingPlan) {
-                  // Resolve the active quarter to show
                   let targetQuarter = quarter ? quarter.toUpperCase() : '';
                   if (!targetQuarter && kpiId && Array.isArray(matchingPlan.plan?.items)) {
                     const targetKpi = matchingPlan.plan.items.find((i: any) => i.id === kpiId);
@@ -753,17 +760,23 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
                   }
                   if (!targetQuarter) targetQuarter = 'Q1';
 
-                  if (kpiId) {
-                    setActiveKPIId(kpiId);
+                  const resolvedKpiId = kpiId || (kpiIdsToFilter && kpiIdsToFilter[0]);
+                  if (resolvedKpiId) {
+                    setActiveKPIId(resolvedKpiId);
                   }
                   if (targetQuarter === 'Q1' || targetQuarter === 'Q2' || targetQuarter === 'Q3' || targetQuarter === 'Q4') {
                     setActiveQuarterTab(targetQuarter as any);
                   }
                   handleSelectPlan(matchingPlan, () => {
-                    // Try to scroll and highlight with interval retries to handle async react rendering
+                    if (resolvedKpiId) {
+                      setActiveKPIId(resolvedKpiId);
+                    }
+                    if (kpiIdsToFilter) {
+                      setFilterPushedKpiIds(kpiIdsToFilter);
+                    }
                     let attempts = 0;
                     const interval = setInterval(() => {
-                      const targetRow = kpiId ? document.getElementById(`kpi-row-${kpiId}`) : null;
+                      const targetRow = resolvedKpiId ? document.getElementById(`kpi-row-${resolvedKpiId}`) : null;
                       if (targetRow) {
                         targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
                         targetRow.classList.add('bg-amber-100', 'ring-4', 'ring-indigo-500');
@@ -784,8 +797,9 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
                       attempts++;
                     }, 100);
                   });
-                } else {
-                  alert(`Plan for ${targetUserEmail} is loaded in your audit queue below.`);
+                } else if (teamPlans.length > 0) {
+                  if (kpiIdsToFilter) setFilterPushedKpiIds(kpiIdsToFilter);
+                  handleSelectPlan(teamPlans[0]);
                 }
               }}
             />
@@ -939,8 +953,12 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
       <div className="px-6 py-4 bg-white border-b border-gray-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shrink-0 select-text">
         <div>
           <button 
-            onClick={() => setSelectedPlan(null)}
-            className="text-[10px] uppercase font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 mb-2"
+            onClick={() => {
+              setSelectedPlan(null);
+              setFilterPushedKpiIds(null);
+              setActiveKPIId(null);
+            }}
+            className="text-[10px] uppercase font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 mb-2 cursor-pointer"
           >
             ← Back to List
           </button>
@@ -1005,7 +1023,27 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
             <p className="text-slate-500 text-sm font-bold uppercase">No KPIs have been approved/pushed by the manager for audit review yet.</p>
           </div>
         ) : (
-          <div className="space-y-6 w-full lg:flex lg:gap-6 lg:space-y-0">
+          <div className="space-y-4">
+            {/* Banner when viewing only the pushed/dispatched KPI(s) from manager */}
+            {filterPushedKpiIds && filterPushedKpiIds.length > 0 && (
+              <div className="bg-amber-50 border border-amber-300 rounded-2xl p-3 px-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs animate-fade-in">
+                <div className="flex items-center gap-2.5 text-xs text-amber-900 font-extrabold">
+                  <span className="p-1.5 bg-amber-200 text-amber-900 rounded-lg">
+                    <ShieldCheck className="w-4 h-4" />
+                  </span>
+                  <span>Focused View: Reviewing only the {visibleItems.length} KPI(s) submitted &amp; pushed by Manager for Audit Review.</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setFilterPushedKpiIds(null)}
+                  className="text-[10.5px] font-bold text-amber-900 hover:text-indigo-700 bg-white hover:bg-amber-100/50 px-3 py-1.5 rounded-xl border border-amber-300 transition shadow-2xs cursor-pointer shrink-0 self-start sm:self-auto"
+                >
+                  Show All Plan KPIs ({plan?.items?.length || 0})
+                </button>
+              </div>
+            )}
+
+            <div className="space-y-6 w-full lg:flex lg:gap-6 lg:space-y-0">
             {/* Sidebar with rating, comments, and push to manager button */}
             <div className="w-full lg:w-[480px] bg-white p-5 rounded-2xl border border-slate-200 shadow-md space-y-5 shrink-0">
               <div className="border-b border-slate-150 pb-3">
@@ -1507,6 +1545,7 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
                   </table>
                 </div>
               </div>
+            </div>
             </div>
           </div>
         )}

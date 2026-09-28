@@ -14,6 +14,7 @@ import {
   markSdbipNotificationRead,
   extractKpiPoes 
 } from '../utils/sdbipWorkflowHelper';
+import { downloadOriginalFile } from '../utils/documentBinaryHelper';
 
 interface InternalAuditProps {
   currentUser: User;
@@ -41,12 +42,16 @@ export function InternalAudit({ currentUser, activeTenantId }: InternalAuditProp
   const fetchPoes = async () => {
     try {
       const res = await fetch(`/api/tenant/${activeTenantId}/sdbip-poes`);
+      if (res.status === 429) {
+        console.warn("HTTP 429: Rate limited while loading POEs. Retrying later.");
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         setPoes(data.poes || []);
       }
     } catch (e) {
-      console.error("Error fetching POEs in InternalAudit:", e);
+      console.warn("Error fetching POEs in InternalAudit:", e);
     }
   };
 
@@ -54,6 +59,10 @@ export function InternalAudit({ currentUser, activeTenantId }: InternalAuditProp
     if (!isBackground) setLoading(true);
     fetch(`/api/tenant/${activeTenantId}/sdbip`)
       .then(async res => {
+        if (res.status === 429) {
+          console.warn("HTTP 429: Rate limited while loading SDBIP. Postponing reload.");
+          return { items: sdbipRows }; // return existing state
+        }
         if (!res.ok) throw new Error(`HTTP error ${res.status}`);
         const contentType = res.headers.get("content-type");
         if (!contentType || !contentType.toLowerCase().includes("application/json")) {
@@ -62,6 +71,7 @@ export function InternalAudit({ currentUser, activeTenantId }: InternalAuditProp
         return await res.json();
       })
       .then(data => {
+        if (!data) return;
         const items = data.items || [];
         setSdbipRows(items);
         setSelectedAuditKpi(prev => {
@@ -69,7 +79,13 @@ export function InternalAudit({ currentUser, activeTenantId }: InternalAuditProp
           return items.find((x: any) => x.id === prev.id) || prev;
         });
       })
-      .catch(err => console.error("Error fetching SDBIP in InternalAudit:", err))
+      .catch(err => {
+        if (err.message && err.message.includes('429')) {
+          console.warn("Gracefully deferred SDBIP refresh due to 429 rate-limiting.");
+        } else {
+          console.warn("Error fetching SDBIP in InternalAudit:", err);
+        }
+      })
       .finally(() => {
         if (!isBackground) setLoading(false);
       });
@@ -724,26 +740,45 @@ export function InternalAudit({ currentUser, activeTenantId }: InternalAuditProp
                                       <span className="text-[9px] text-slate-400">{p.quarter} • {p.size || '1.5 MB'}</span>
                                     </div>
                                   </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setPreviewDoc({
-                                        id: p.id,
-                                        name: p.name,
-                                        mimeType: p.fileType || 'application/octet-stream',
-                                        dataUrl: p.dataUrl || p.fileData,
-                                        uploadedAt: p.date,
-                                        uploadedBy: 'Submitter',
-                                        kpiName: selectedAuditKpi.kpi,
-                                        quarter: p.quarter
-                                      });
-                                    }}
-                                    className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[10px] font-bold flex items-center gap-1 transition cursor-pointer shrink-0 ml-2 shadow-xs"
-                                    title="View Portfolio of Evidence on-system without downloading"
-                                  >
-                                    <Eye className="w-3 h-3" />
-                                    <span>View PoE</span>
-                                  </button>
+                                  <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setPreviewDoc({
+                                          id: p.id,
+                                          name: p.name,
+                                          mimeType: p.fileType || 'application/octet-stream',
+                                          dataUrl: p.dataUrl || p.fileData,
+                                          size: p.size,
+                                          uploadedAt: p.date,
+                                          uploadedBy: 'Submitter',
+                                          kpiName: selectedAuditKpi.kpi,
+                                          quarter: p.quarter
+                                        });
+                                      }}
+                                      className="px-2 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[10px] font-bold flex items-center gap-1 transition cursor-pointer shadow-xs"
+                                      title="View Portfolio of Evidence on-system without downloading"
+                                    >
+                                      <Eye className="w-3 h-3" />
+                                      <span>View</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        downloadOriginalFile(p.name, p.dataUrl || p.fileData, {
+                                          kpiName: selectedAuditKpi.kpi,
+                                          refNum: selectedAuditKpi.refNum,
+                                          quarter: p.quarter,
+                                          mimeType: p.fileType
+                                        });
+                                      }}
+                                      className="px-2 py-1 bg-slate-900 hover:bg-slate-800 text-white rounded text-[10px] font-bold flex items-center gap-1 transition cursor-pointer shadow-xs"
+                                      title="Download original file in its exact native binary format"
+                                    >
+                                      <Download className="w-3 h-3" />
+                                      <span>Download</span>
+                                    </button>
+                                  </div>
                                 </div>
                               );
                             })}

@@ -37,6 +37,7 @@ export interface IPMSNotification {
   title: string;
   message: string;
   kpiId?: string;
+  kpiIds?: string[];
   kpiNo?: string;
   quarter?: string;
   actionType: 'submission' | 'approval' | 'revision_requested' | 'audit_request' | 'audit_completed' | 'info' | 'planner_grid_sync' | 'redo_unlocked';
@@ -58,7 +59,7 @@ interface IPMSWorkflowInboxProps {
   role: 'manager' | 'auditor' | 'employee';
   currentUser: any;
   activeTenantId: string;
-  onSelectUserPlan?: (userId: string, kpiId?: string, quarter?: string) => void;
+  onSelectUserPlan?: (userId: string, kpiId?: string, quarter?: string, targetKpiIds?: string[]) => void;
   className?: string;
 }
 
@@ -1560,7 +1561,11 @@ export function IPMSWorkflowInbox({
                                     ? currentUser.email 
                                     : item.senderEmail || item.recipientEmail;
                               }
-                              onSelectUserPlan(targetUser, item.kpiId, item.quarter);
+                              const resolvedKpiIds = Array.isArray(item.kpiIds) && item.kpiIds.length > 0 
+                                ? item.kpiIds 
+                                : (item.kpiId ? [item.kpiId] : undefined);
+                              const resolvedKpiId = item.kpiId || (resolvedKpiIds && resolvedKpiIds.length > 0 ? resolvedKpiIds[0] : undefined);
+                              onSelectUserPlan(targetUser, resolvedKpiId, item.quarter, resolvedKpiIds);
                             }}
                             className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg transition flex items-center gap-1 shadow-xs cursor-pointer"
                           >

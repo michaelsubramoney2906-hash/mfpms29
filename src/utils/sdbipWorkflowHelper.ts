@@ -296,10 +296,17 @@ export function extractKpiPoes(kpi: any, globalPoes: any[]): Array<{
   const list: any[] = [];
   const seenNames = new Set<string>();
 
+  // Helper to resolve the correct original Base64/payload string
+  const resolvePayload = (p: any): string | undefined => {
+    if (!p) return undefined;
+    return p.fileData || p.dataUrl || p.fileDataUrl;
+  };
+
   // 1. From global poes matching this KPI's refNum
   (globalPoes || []).forEach(gp => {
     if (gp && gp.refNum === kpi.refNum && !seenNames.has(gp.name)) {
       seenNames.add(gp.name);
+      const payload = resolvePayload(gp) || generatePoeSvgDataUrl(gp.name, kpi.kpi, kpi.refNum, 'General');
       list.push({
         id: gp.id || `gpoe-${gp.name}`,
         name: gp.name,
@@ -307,15 +314,15 @@ export function extractKpiPoes(kpi: any, globalPoes: any[]): Array<{
         size: gp.size || '1.5 MB',
         date: gp.date || gp.uploadedAt || new Date().toLocaleDateString(),
         desc: gp.description || gp.desc || kpi.poeDesc,
-        dataUrl: gp.fileData || generatePoeSvgDataUrl(gp.name, kpi.kpi, kpi.refNum, 'General'),
-        fileData: gp.fileData || generatePoeSvgDataUrl(gp.name, kpi.kpi, kpi.refNum, 'General'),
-        fileType: gp.fileType
+        dataUrl: payload,
+        fileData: payload,
+        fileType: gp.fileType || gp.mimeType
       });
     }
   });
 
   // 2. From quarter specific arrays
-  const quarterMap: Record<string, string[] | undefined> = {
+  const quarterMap: Record<string, string[] | string | undefined> = {
     'Q1': kpi.q1Poes,
     'Q2': kpi.q2Poes,
     'Midterm': kpi.midTermPoes,
@@ -323,32 +330,42 @@ export function extractKpiPoes(kpi: any, globalPoes: any[]): Array<{
     'Q4': kpi.q4Poes
   };
 
-  Object.entries(quarterMap).forEach(([qKey, fileNames]) => {
-    if (Array.isArray(fileNames)) {
-      fileNames.forEach((fn, idx) => {
-        if (fn && !seenNames.has(fn)) {
-          seenNames.add(fn);
-          const matched = (globalPoes || []).find(p => {
-            if (!p || !p.name) return false;
-            const normPName = p.name.toLowerCase().trim();
-            const normFn = fn.toLowerCase().trim();
-            return normPName === normFn || normPName.replace(/\.[^/.]+$/, "") === normFn.replace(/\.[^/.]+$/, "");
-          });
-          const fallback = generatePoeSvgDataUrl(fn, kpi.kpi, kpi.refNum, `${qKey} Portfolio of Evidence`);
-          list.push({
-            id: matched?.id || `qpoe-${qKey}-${idx}-${fn}`,
-            name: fn,
-            quarter: `${qKey} Portfolio of Evidence`,
-            size: matched?.size || '1.2 MB',
-            date: matched?.date || matched?.uploadedAt || new Date().toLocaleDateString(),
-            desc: matched?.description || (kpi as any)[`${qKey.toLowerCase()}PoeDesc`] || kpi.poeDesc,
-            dataUrl: matched?.fileData || fallback,
-            fileData: matched?.fileData || fallback,
-            fileType: matched?.fileType
-          });
+  Object.entries(quarterMap).forEach(([qKey, rawValue]) => {
+    let fileNames: string[] = [];
+    if (Array.isArray(rawValue)) {
+      rawValue.forEach(item => {
+        if (typeof item === 'string') {
+          fileNames.push(...item.split(',').map(s => s.trim()));
         }
       });
+    } else if (typeof rawValue === 'string') {
+      fileNames = rawValue.split(',').map(s => s.trim());
     }
+
+    fileNames.forEach((fn, idx) => {
+      if (fn && !seenNames.has(fn)) {
+        seenNames.add(fn);
+        const matched = (globalPoes || []).find(p => {
+          if (!p || !p.name) return false;
+          const normPName = p.name.toLowerCase().trim();
+          const normFn = fn.toLowerCase().trim();
+          return normPName === normFn || normPName.replace(/\.[^/.]+$/, "") === normFn.replace(/\.[^/.]+$/, "");
+        });
+
+        const payload = resolvePayload(matched) || generatePoeSvgDataUrl(fn, kpi.kpi, kpi.refNum, `${qKey} Portfolio of Evidence`);
+        list.push({
+          id: matched?.id || `qpoe-${qKey}-${idx}-${fn}`,
+          name: fn,
+          quarter: `${qKey} Portfolio of Evidence`,
+          size: matched?.size || '1.2 MB',
+          date: matched?.date || matched?.uploadedAt || new Date().toLocaleDateString(),
+          desc: matched?.description || (kpi as any)[`${qKey.toLowerCase()}PoeDesc`] || kpi.poeDesc,
+          dataUrl: payload,
+          fileData: payload,
+          fileType: matched?.fileType || matched?.mimeType
+        });
+      }
+    });
   });
 
   return list;
