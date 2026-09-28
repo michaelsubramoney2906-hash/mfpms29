@@ -341,8 +341,8 @@ export function OfficeDocumentViewer({ doc, document: propDocument, onClose }: O
                <File className="w-5 h-5" />}
             </div>
             <div>
-              <h3 className="font-extrabold text-xs uppercase tracking-wider text-white m-0 max-w-[280px] sm:max-w-md truncate" title={doc.name}>
-                {doc.name}
+              <h3 className="font-extrabold text-xs uppercase tracking-wider text-white m-0 max-w-[280px] sm:max-w-md truncate" title={targetDoc.name}>
+                {targetDoc.name}
               </h3>
               <p className="text-[9px] text-slate-400 font-mono m-0 uppercase tracking-widest mt-0.5">
                 PORTFOLIO OF EVIDENCE • AUDITED READ-ONLY WORKSPACE
@@ -352,7 +352,7 @@ export function OfficeDocumentViewer({ doc, document: propDocument, onClose }: O
 
           <div className="flex items-center gap-2">
             <span className="hidden sm:inline-block text-[9.5px] font-mono text-slate-400 bg-slate-800 px-2.5 py-1 rounded-lg">
-              Size: {formatSize(doc.size)}
+              Size: {formatSize(targetDoc.size)}
             </span>
             <button
               onClick={handleDownload}
@@ -482,7 +482,7 @@ export function OfficeDocumentViewer({ doc, document: propDocument, onClose }: O
                   <WordDocumentViewer 
                     kpiName={kpiTitle} 
                     quarter={quarterName} 
-                    fileName={doc.name} 
+                    fileName={targetDoc.name} 
                     uploader={uploader} 
                     date={uploadedDate}
                     renderedHtml={renderedWordHtml}
@@ -492,7 +492,7 @@ export function OfficeDocumentViewer({ doc, document: propDocument, onClose }: O
                   <ExcelSpreadsheetViewer 
                     kpiName={kpiTitle} 
                     quarter={quarterName} 
-                    fileName={doc.name} 
+                    fileName={targetDoc.name} 
                     renderedSheets={renderedXlsxSheets}
                     activeSheetIdx={activeXlsxSheetIdx}
                     setActiveSheetIdx={setActiveXlsxSheetIdx}
@@ -502,7 +502,7 @@ export function OfficeDocumentViewer({ doc, document: propDocument, onClose }: O
                   <PowerPointPresentationViewer 
                     kpiName={kpiTitle} 
                     quarter={quarterName} 
-                    fileName={doc.name} 
+                    fileName={targetDoc.name} 
                     uploader={uploader} 
                     renderedSlides={renderedPptSlides}
                   />
@@ -511,18 +511,18 @@ export function OfficeDocumentViewer({ doc, document: propDocument, onClose }: O
                 {/* Fallback for other file types */}
                 {!isWord && !isExcel && !isPowerPoint && (
                   <div className="flex-1 p-6 flex items-center justify-center overflow-hidden bg-slate-100">
-                    {doc.dataUrl && doc.dataUrl.startsWith('data:image/') ? (
+                    {targetDoc.dataUrl && targetDoc.dataUrl.startsWith('data:image/') ? (
                       <div className="bg-white p-4 rounded-2xl shadow-md max-h-full max-w-full overflow-auto flex items-center justify-center">
-                        <img src={doc.dataUrl} alt={doc.name} className="max-h-[60vh] object-contain rounded-lg shadow-sm" referrerPolicy="no-referrer" />
+                        <img src={targetDoc.dataUrl} alt={targetDoc.name} className="max-h-[60vh] object-contain rounded-lg shadow-sm" referrerPolicy="no-referrer" />
                       </div>
-                    ) : doc.mimeType?.includes('pdf') || doc.dataUrl?.startsWith('data:application/pdf') ? (
-                      <iframe src={doc.dataUrl} title={doc.name} className="w-full h-full rounded-2xl bg-white shadow-lg border border-slate-300" />
+                    ) : targetDoc.mimeType?.includes('pdf') || targetDoc.dataUrl?.startsWith('data:application/pdf') ? (
+                      <iframe src={targetDoc.dataUrl} title={targetDoc.name} className="w-full h-full rounded-2xl bg-white shadow-lg border border-slate-300" />
                     ) : (
                       <div className="text-center bg-white p-8 rounded-2xl shadow-xl border border-slate-200 max-w-md w-full">
                         <File className="w-16 h-16 text-slate-300 mx-auto mb-4" />
                         <h4 className="text-lg font-black text-slate-800 mb-2">Pre-Render Fallback</h4>
                         <p className="text-xs text-slate-600 mb-6">
-                          This specific format ({doc.mimeType || 'unknown'}) was successfully audited. You can download the pristine byte-stream archive directly.
+                          This specific format ({targetDoc.mimeType || 'unknown'}) was successfully audited. You can download the pristine byte-stream archive directly.
                         </p>
                         <button
                           onClick={handleDownload}

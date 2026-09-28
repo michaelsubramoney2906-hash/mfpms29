@@ -11,6 +11,7 @@ import { SDBIPPagination } from './SDBIPPagination';
 import { ExpandableCell, CellExpandModal, ExpandModalState } from './ExpandableCell';
 import { isQuarterInReportingPeriod, getQuarterLockNotice, REPORTING_PERIOD_CONFIGS, getCurrentMunicipalQuarter, ReportingPhase } from '../../utils/reportingPeriods';
 import { PMS_TEAM_REVIEWERS, INTERNAL_AUDIT_USERS, isUserMatch } from '../../utils/sdbipWorkflowHelper';
+import { OfficeDocumentViewer } from '../IPMS/OfficeDocumentViewer';
 
 export const isTargetNA = (val: string | undefined | null): boolean => {
   if (!val) return false;
@@ -269,6 +270,8 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     description: '',
     activeFileIndex: 0
   });
+
+  const [previewDoc, setPreviewDoc] = useState<any | null>(null);
 
   // Expandable cells inspector modal state
   const [cellModal, setCellModal] = useState<ExpandModalState>({
@@ -6981,6 +6984,27 @@ Timestamp: ${new Date().toLocaleString()}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const sizeBytes = activeFile.size ? parseFloat(activeFile.size) * 1024 * 1024 : 1500000;
+                          setPreviewDoc({
+                            name: activeFile.name,
+                            mimeType: activeFile.fileType || getMimeTypeFromExtension(activeFile.name),
+                            size: sizeBytes,
+                            dataUrl: activeFile.fileData,
+                            kpiName: viewPoeModal.kpiTitle || 'Municipal Service Delivery Target',
+                            quarter: viewPoeModal.quarterLabel,
+                            uploadedAt: activeFile.date || new Date().toISOString(),
+                            uploadedBy: 'Performance Officer'
+                          });
+                        }}
+                        className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase tracking-wide rounded-md transition shadow-xs flex items-center gap-1.5 cursor-pointer"
+                        title="Open document in gorgeous full-screen system workspace"
+                      >
+                        <Maximize2 className="w-3.5 h-3.5" />
+                        <span>View on System</span>
+                      </button>
                       <a
                         href={activeFileBlobUrl || activeFile.fileData}
                         target="_blank"
@@ -7127,6 +7151,10 @@ Timestamp: ${new Date().toLocaleString()}
 
           </div>
         </div>
+      )}
+
+      {previewDoc && (
+        <OfficeDocumentViewer doc={previewDoc} onClose={() => setPreviewDoc(null)} />
       )}
 
       {/* Clear Top Layer Modal */}
