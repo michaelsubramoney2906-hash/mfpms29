@@ -760,7 +760,7 @@ async function startServer() {
     });
   });
 
-  // Robust Helper for Gemini API with double backoff retry on transient errors and model-rotation fallback
+  // Robust Helper for Fred AI Engine with double backoff retry on transient errors and model-rotation fallback
   async function generateContentWithRetry(ai: GoogleGenAI, params: any, maxRetries = 6, delayMs = 1200) {
     let attempt = 0;
     
@@ -771,7 +771,7 @@ async function startServer() {
       "gemini-3.1-flash-lite"
     ];
     
-    // Ensure initial model is valid, prioritizing gemini-2.5-flash for maximum quality, speed and schema compliance
+    // Ensure initial model is valid, prioritizing high speed, schema compliance and quality
     if (!params.model || !fallbackModels.includes(params.model)) {
       params.model = "gemini-2.5-flash";
     }
@@ -2401,7 +2401,7 @@ CRITICAL MAPPING & EXTRACTION RULES:
         }
       }
 
-      // 5. Optional Gemini Deep Audit (if API key available)
+      // 5. Optional Fred Deep Audit (if API key available)
       let aiAuditNotes = '';
       const apiKey = process.env.GEMINI_API_KEY || process.env.GEMINI || process.env.gemini;
 
@@ -2780,7 +2780,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
             }
           }
         } catch (aiCallErr: any) {
-          console.warn("[/api/extract-sdbip Gemini Warning]:", aiCallErr.message || aiCallErr);
+          console.warn("[/api/extract-sdbip Fred AI Warning]:", aiCallErr.message || aiCallErr);
         }
       }
 
@@ -12596,7 +12596,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
     }
   });
 
-  // Extract from PA document via Gemini API (Actual extraction)
+  // Extract from PA document via Fred Engine (Actual extraction)
   app.post("/api/tenant/:tenantId/performance-agreements/extract", async (req, res) => {
     const { tenantId } = req.params;
     const { fileName, mimeType, fileData, sdbipLayer } = req.body;
@@ -12604,7 +12604,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
     try {
       const apiKey = process.env.GEMINI_API_KEY || process.env.GEMINI || process.env.gemini;
       if (!apiKey) {
-        throw new Error("GEMINI_API_KEY environment variable is not configured on this server. If you deployed this app to external hosting (like cPanel, Vercel, or a VPS), please make sure to add GEMINI_API_KEY to your environment variables or .env file there. AI Extraction requires the Gemini API.");
+        throw new Error("FRED_API_KEY environment variable is not configured on this server. If you deployed this app to external hosting (like cPanel, Vercel, or a VPS), please make sure to add the API key to your environment variables or .env file there. AI Extraction requires the Fred Engine.");
       }
       
       if (!fileData) {
@@ -12796,7 +12796,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       });
 
       if (!response) {
-        throw new Error("No response returned from Gemini API");
+        throw new Error("No response returned from Fred AI engine");
       }
 
       console.log("AI Extraction complete.");
@@ -13750,7 +13750,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       const { prompt, fileData, mimeType } = req.body;
       const apiKey = process.env.GEMINI_API_KEY || process.env.GEMINI || process.env.gemini;
       if (!apiKey) {
-        return res.status(500).json({ error: "Gemini API key is missing." });
+        return res.status(500).json({ error: "Fred AI Engine API key is missing." });
       }
       const genai = new GoogleGenAI({ 
         apiKey,

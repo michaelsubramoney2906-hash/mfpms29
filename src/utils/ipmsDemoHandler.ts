@@ -248,8 +248,8 @@ export function getInitialDemoState(tenantId: string) {
         {
           id: 'pdp-demo-2',
           pdpNo: 'PDP 2',
-          developmentNeed: 'Automated IPMS Analytics & AI-Assisted SDBIP Verification',
-          intervention: 'Hands-on AI Studio & PowerBI Municipal Dashboard Architecture Masterclass',
+          developmentNeed: 'Automated IPMS Analytics & Fred AI-Assisted SDBIP Verification',
+          intervention: 'Hands-on Fred AI & PowerBI Municipal Dashboard Architecture Masterclass',
           targetQuarter: 'Q3 (January - March)',
           progress: 'In Progress (85% completed)',
           outcome: 'Engineered automated evidence extraction pipelines that reduced audit prep turnaround by 40%.'
