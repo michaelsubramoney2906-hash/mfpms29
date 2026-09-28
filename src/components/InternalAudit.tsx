@@ -76,19 +76,30 @@ export function InternalAudit({ currentUser, activeTenantId }: InternalAuditProp
   };
 
   useEffect(() => {
+    let lastLoaded = Date.now();
+    
     fetchSdbip(false);
     fetchPoes();
     loadNotifications();
+
     const interval = setInterval(() => {
-      fetchSdbip(true);
-      fetchPoes();
-      loadNotifications();
-    }, 4000);
+      // Only poll in the background if the tab is active/visible
+      if (document.visibilityState === 'visible') {
+        fetchSdbip(true);
+        fetchPoes();
+        loadNotifications();
+        lastLoaded = Date.now();
+      }
+    }, 30000); // Poll every 30 seconds instead of 4 seconds to avoid HTTP 429 rate limits
 
     const handleFocus = () => {
-      fetchSdbip(true);
-      fetchPoes();
-      loadNotifications();
+      // Throttle window focus fetch to once every 15 seconds
+      if (Date.now() - lastLoaded > 15000 && document.visibilityState === 'visible') {
+        fetchSdbip(true);
+        fetchPoes();
+        loadNotifications();
+        lastLoaded = Date.now();
+      }
     };
     window.addEventListener('focus', handleFocus);
 
@@ -105,11 +116,37 @@ export function InternalAudit({ currentUser, activeTenantId }: InternalAuditProp
     const updatedRows = sdbipRows.map(r => {
       if (r.id === rowId) {
         const workflows = r.workflows || {};
+        let updatedAny = false;
         ['q1', 'q2', 'midTerm', 'q3', 'q4', 'annual'].forEach(ph => {
-          if (workflows[ph]) {
-            workflows[ph] = { ...workflows[ph], status: isCleared ? 'approved' : 'draft', auditedBy: currentUser.fullName || currentUser.email };
+          if (workflows[ph] && (workflows[ph].status === 'pending_audit' || workflows[ph].status === 'reviewed' || workflows[ph].status === 'pending_review')) {
+            workflows[ph] = { 
+              ...workflows[ph], 
+              status: isCleared ? 'approved' : 'draft', 
+              auditedBy: currentUser.fullName || currentUser.email,
+              auditedAt: new Date().toLocaleDateString(),
+              comments: auditNotes || (isCleared ? 'Cleared by Internal Audit' : 'Returned with audit findings')
+            };
+            updatedAny = true;
           }
         });
+
+        // Fallback: if no quarter was matching, target the first available workflow
+        if (!updatedAny) {
+          const phs = ['q1', 'q2', 'midTerm', 'q3', 'q4', 'annual'];
+          for (const ph of phs) {
+            if (workflows[ph]) {
+              workflows[ph] = { 
+                ...workflows[ph], 
+                status: isCleared ? 'approved' : 'draft', 
+                auditedBy: currentUser.fullName || currentUser.email,
+                auditedAt: new Date().toLocaleDateString(),
+                comments: auditNotes || (isCleared ? 'Cleared by Internal Audit' : 'Returned with audit findings')
+              };
+              break;
+            }
+          }
+        }
+
         const currentHistory = r.workflowHistory || [];
         const newHistoryItem = {
           date: new Date().toISOString(),

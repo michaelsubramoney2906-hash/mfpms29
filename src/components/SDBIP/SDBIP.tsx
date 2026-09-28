@@ -7005,16 +7005,34 @@ Timestamp: ${new Date().toLocaleString()}
                         <Maximize2 className="w-3.5 h-3.5" />
                         <span>View on System</span>
                       </button>
-                      <a
-                        href={activeFileBlobUrl || activeFile.fileData}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const extLower = ext.toLowerCase();
+                          const isNativeBrowserOpenable = ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'svg', 'gif'].includes(extLower);
+
+                          if (isNativeBrowserOpenable) {
+                            window.open(activeFileBlobUrl || activeFile.fileData, '_blank');
+                          } else {
+                            const sizeBytes = activeFile.size ? parseFloat(activeFile.size) * 1024 * 1024 : 1500000;
+                            setPreviewDoc({
+                              name: activeFile.name,
+                              mimeType: activeFile.fileType || getMimeTypeFromExtension(activeFile.name),
+                              size: sizeBytes,
+                              dataUrl: activeFile.fileData,
+                              kpiName: viewPoeModal.kpiTitle || 'Municipal Service Delivery Target',
+                              quarter: viewPoeModal.quarterLabel,
+                              uploadedAt: activeFile.date || new Date().toISOString(),
+                              uploadedBy: 'Performance Officer'
+                            });
+                          }
+                        }}
                         className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black uppercase tracking-wide rounded-md transition shadow-xs flex items-center gap-1.5 cursor-pointer"
-                        title="View original file in its native format in a new browser tab"
+                        title="View original file in its native format in a new browser tab or on-system viewer"
                       >
                         <Eye className="w-3.5 h-3.5" />
                         <span>View Original File</span>
-                      </a>
+                      </button>
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-500/20 text-emerald-300 text-[10px] font-black rounded-full border border-emerald-500/30">
                         <ShieldCheck className="w-3 h-3" /> VERIFIED POE
                       </span>

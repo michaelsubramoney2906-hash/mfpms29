@@ -65,19 +65,27 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
   };
 
   useEffect(() => {
+    let lastLoaded = Date.now();
     fetchSDBIPData(false);
     fetchPoes();
     loadNotifications();
+
     const interval = setInterval(() => {
-      fetchSDBIPData(true);
-      fetchPoes();
-      loadNotifications();
-    }, 4000);
+      if (document.visibilityState === 'visible') {
+        fetchSDBIPData(true);
+        fetchPoes();
+        loadNotifications();
+        lastLoaded = Date.now();
+      }
+    }, 30000); // 30s polling instead of 4s to avoid HTTP 429 rate limit issues
 
     const handleFocus = () => {
-      fetchSDBIPData(true);
-      fetchPoes();
-      loadNotifications();
+      if (Date.now() - lastLoaded > 15000 && document.visibilityState === 'visible') {
+        fetchSDBIPData(true);
+        fetchPoes();
+        loadNotifications();
+        lastLoaded = Date.now();
+      }
     };
     window.addEventListener('focus', handleFocus);
 

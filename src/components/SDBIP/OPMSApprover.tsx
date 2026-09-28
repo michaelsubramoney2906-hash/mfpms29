@@ -44,16 +44,24 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
   };
 
   useEffect(() => {
+    let lastLoaded = Date.now();
     fetchSDBIPData(false);
     loadNotifications();
+
     const interval = setInterval(() => {
-      fetchSDBIPData(true);
-      loadNotifications();
-    }, 4000);
+      if (document.visibilityState === 'visible') {
+        fetchSDBIPData(true);
+        loadNotifications();
+        lastLoaded = Date.now();
+      }
+    }, 30000); // 30s polling instead of 4s to avoid HTTP 429 rate limit issues
 
     const handleFocus = () => {
-      fetchSDBIPData(true);
-      loadNotifications();
+      if (Date.now() - lastLoaded > 15000 && document.visibilityState === 'visible') {
+        fetchSDBIPData(true);
+        loadNotifications();
+        lastLoaded = Date.now();
+      }
     };
     window.addEventListener('focus', handleFocus);
 
@@ -73,6 +81,27 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
 
   const generateFallbackSvgDataUrl = (fileName: string, kpiName: string, refNum: string, quarter: string) => {
     const ext = fileName.split('.').pop()?.toUpperCase() || 'POE';
+    
+    // HTML/XML Escape Helper to prevent malformed SVG documents
+    const escapeXml = (unsafe: string): string => {
+      if (!unsafe) return '';
+      return unsafe.replace(/[<>&'"]/g, (c) => {
+        switch (c) {
+          case '<': return '&lt;';
+          case '>': return '&gt;';
+          case '&': return '&amp;';
+          case '\'': return '&apos;';
+          case '"': return '&quot;';
+          default: return c;
+        }
+      });
+    };
+
+    const cleanFileName = escapeXml(fileName);
+    const cleanKpiName = escapeXml(kpiName);
+    const cleanRefNum = escapeXml(refNum);
+    const cleanQuarter = escapeXml(quarter);
+
     const svgString = `
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1100" width="100%" height="100%">
       <defs>
@@ -86,16 +115,16 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
       
       <text x="50" y="55" font-family="sans-serif" font-size="20" font-weight="900" fill="#ffffff" letter-spacing="2">NKANGALA DISTRICT MUNICIPALITY</text>
       <text x="50" y="85" font-family="sans-serif" font-size="12" font-weight="700" fill="#10b981" letter-spacing="1">OFFICIAL PORTFOLIO OF EVIDENCE (POE) • FIDUCIARY AUDIT LOG</text>
-      <text x="50" y="108" font-family="sans-serif" font-size="10" font-weight="500" fill="#94a3b8">EXECUTIVE APPROVAL & OVERSIGHT PORTAL</text>
+      <text x="50" y="108" font-family="sans-serif" font-size="10" font-weight="500" fill="#94a3b8">EXECUTIVE APPROVAL &amp; OVERSIGHT PORTAL</text>
       
       <rect x="50" y="160" width="700" height="2" fill="#e2e8f0" />
       
       <rect x="50" y="180" width="700" height="140" rx="12" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5" />
       <text x="75" y="210" font-family="sans-serif" font-size="10" font-weight="800" fill="#64748b" letter-spacing="1">DOCUMENT IDENTIFIER</text>
-      <text x="75" y="235" font-family="sans-serif" font-size="14" font-weight="900" fill="#0f172a">${fileName}</text>
+      <text x="75" y="235" font-family="sans-serif" font-size="14" font-weight="900" fill="#0f172a">${cleanFileName}</text>
       
       <text x="75" y="275" font-family="sans-serif" font-size="10" font-weight="800" fill="#64748b" letter-spacing="1">INDICATOR REFERENCE</text>
-      <text x="75" y="298" font-family="sans-serif" font-size="12" font-weight="800" fill="#4338ca">REF: ${refNum} • ${quarter}</text>
+      <text x="75" y="298" font-family="sans-serif" font-size="12" font-weight="800" fill="#4338ca">REF: ${cleanRefNum} • ${cleanQuarter}</text>
       
       <text x="450" y="210" font-family="sans-serif" font-size="10" font-weight="800" fill="#64748b" letter-spacing="1">FILE FORMAT</text>
       <text x="450" y="235" font-family="sans-serif" font-size="14" font-weight="900" fill="#059669">${ext} DOCUMENT</text>
@@ -105,7 +134,7 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
       
       <text x="50" y="360" font-family="sans-serif" font-size="13" font-weight="900" fill="#0f172a">1. PERFORMANCE KPI SUMMARY</text>
       <rect x="50" y="375" width="700" height="70" rx="8" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1" />
-      <text x="70" y="405" font-family="sans-serif" font-size="11" font-weight="700" fill="#1e3a8a">${kpiName.substring(0, 85)}</text>
+      <text x="70" y="405" font-family="sans-serif" font-size="11" font-weight="700" fill="#1e3a8a">${cleanKpiName.substring(0, 85)}</text>
       <text x="70" y="425" font-family="sans-serif" font-size="10" font-weight="500" fill="#3b82f6">Audited performance milestone and deliverables recorded for statutory oversight.</text>
       
       <text x="50" y="485" font-family="sans-serif" font-size="13" font-weight="900" fill="#0f172a">2. FIDUCIARY EVIDENCE COMPLIANCE STATEMENT</text>
@@ -124,7 +153,7 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
       
       <g transform="translate(75, 760)">
         <line x1="0" y1="50" x2="300" y2="50" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4,4" />
-        <text x="0" y="70" font-family="sans-serif" font-size="10" font-weight="800" fill="#475569">EXECUTIVE MAYORAL & MUNICIPAL MANAGER OFFICE</text>
+        <text x="0" y="70" font-family="sans-serif" font-size="10" font-weight="800" fill="#475569">EXECUTIVE MAYORAL &amp; MUNICIPAL MANAGER OFFICE</text>
         <text x="0" y="85" font-family="sans-serif" font-size="9" font-weight="500" fill="#94a3b8">Statutory Top Layer Evidence Filing</text>
       </g>
       

@@ -207,10 +207,32 @@ export async function clearAllSdbipNotifications(
 }
 
 /**
+ * Simple XML/HTML escape utility to prevent unescaped ampersands or brackets from corrupting generated SVG XML documents
+ */
+const escapeForXml = (unsafe: string): string => {
+  if (!unsafe) return '';
+  return unsafe.replace(/[<>&'"]/g, (c) => {
+    switch (c) {
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '&': return '&amp;';
+      case '\'': return '&apos;';
+      case '"': return '&quot;';
+      default: return c;
+    }
+  });
+};
+
+/**
  * Generate fallback SVG data URL for documents without raw binary so they can always be inspected on system
  */
 export function generatePoeSvgDataUrl(fileName: string, kpiName: string, refNum: string, quarterLabel: string): string {
   const ext = fileName.split('.').pop()?.toUpperCase() || 'POE';
+  const cleanFileName = escapeForXml(fileName);
+  const cleanKpiName = escapeForXml(kpiName);
+  const cleanRefNum = escapeForXml(refNum || 'SDBIP-KPI');
+  const cleanQuarterLabel = escapeForXml(quarterLabel || 'General');
+
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1100" viewBox="0 0 800 1100">
     <rect width="100%" height="100%" fill="#f8fafc"/>
     <rect x="40" y="40" width="720" height="1020" rx="16" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>
@@ -222,21 +244,21 @@ export function generatePoeSvgDataUrl(fileName: string, kpiName: string, refNum:
     
     <rect x="80" y="160" width="640" height="120" rx="8" fill="#f1f5f9" stroke="#e2e8f0"/>
     <text x="100" y="190" fill="#64748b" font-family="sans-serif" font-size="12" font-weight="bold">KPI REFERENCE:</text>
-    <text x="220" y="190" fill="#0f172a" font-family="monospace" font-size="14" font-weight="bold">${refNum || 'SDBIP-KPI'}</text>
+    <text x="220" y="190" fill="#0f172a" font-family="monospace" font-size="14" font-weight="bold">${cleanRefNum}</text>
     <text x="100" y="220" fill="#64748b" font-family="sans-serif" font-size="12" font-weight="bold">QUARTER PHASE:</text>
-    <text x="220" y="220" fill="#2563eb" font-family="sans-serif" font-size="13" font-weight="bold">${quarterLabel || 'General'}</text>
+    <text x="220" y="220" fill="#2563eb" font-family="sans-serif" font-size="13" font-weight="bold">${cleanQuarterLabel}</text>
     <text x="100" y="250" fill="#64748b" font-family="sans-serif" font-size="12" font-weight="bold">DOCUMENT NAME:</text>
-    <text x="220" y="250" fill="#0f172a" font-family="sans-serif" font-size="13" font-weight="bold">${fileName}</text>
+    <text x="220" y="250" fill="#0f172a" font-family="sans-serif" font-size="13" font-weight="bold">${cleanFileName}</text>
 
     <text x="80" y="320" fill="#334155" font-family="sans-serif" font-size="14" font-weight="bold">KPI Title / Description:</text>
     <foreignObject x="80" y="335" width="640" height="90">
       <div xmlns="http://www.w3.org/1999/xhtml" style="font-family:sans-serif;font-size:13px;color:#475569;line-height:1.5;">
-        ${kpiName || 'Official Performance Indicator'}
+        ${cleanKpiName || 'Official Performance Indicator'}
       </div>
     </foreignObject>
 
     <rect x="80" y="440" width="640" height="420" rx="8" fill="#fafafa" stroke="#e2e8f0"/>
-    <text x="100" y="480" fill="#0f172a" font-family="sans-serif" font-size="14" font-weight="bold">Verification & Authenticity Certificate</text>
+    <text x="100" y="480" fill="#0f172a" font-family="sans-serif" font-size="14" font-weight="bold">Verification &amp; Authenticity Certificate</text>
     <line x1="100" y1="495" x2="700" y2="495" stroke="#cbd5e1" stroke-width="1"/>
 
     <text x="100" y="530" fill="#475569" font-family="sans-serif" font-size="13">Document Format: ${ext} Format File</text>
@@ -251,7 +273,7 @@ export function generatePoeSvgDataUrl(fileName: string, kpiName: string, refNum:
     <text x="120" y="780" fill="#15803d" font-family="monospace" font-size="11">Hash: SHA256-${Math.random().toString(36).substring(2, 10).toUpperCase()}-VERIFIED</text>
 
     <text x="400" y="940" fill="#94a3b8" font-family="sans-serif" font-size="12" text-anchor="middle">Republic of South Africa • Local Government Municipal Performance System</text>
-    <text x="400" y="965" fill="#cbd5e1" font-family="monospace" font-size="11" text-anchor="middle">ID: ${refNum}-${Date.now().toString().slice(-6)} • Automated Verification Signature</text>
+    <text x="400" y="965" fill="#cbd5e1" font-family="monospace" font-size="11" text-anchor="middle">ID: ${cleanRefNum}-${Date.now().toString().slice(-6)} • Automated Verification Signature</text>
   </svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
@@ -306,7 +328,12 @@ export function extractKpiPoes(kpi: any, globalPoes: any[]): Array<{
       fileNames.forEach((fn, idx) => {
         if (fn && !seenNames.has(fn)) {
           seenNames.add(fn);
-          const matched = (globalPoes || []).find(p => p.name === fn);
+          const matched = (globalPoes || []).find(p => {
+            if (!p || !p.name) return false;
+            const normPName = p.name.toLowerCase().trim();
+            const normFn = fn.toLowerCase().trim();
+            return normPName === normFn || normPName.replace(/\.[^/.]+$/, "") === normFn.replace(/\.[^/.]+$/, "");
+          });
           const fallback = generatePoeSvgDataUrl(fn, kpi.kpi, kpi.refNum, `${qKey} Portfolio of Evidence`);
           list.push({
             id: matched?.id || `qpoe-${qKey}-${idx}-${fn}`,
