@@ -46,6 +46,65 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
   const [incomingNotifications, setIncomingNotifications] = useState<any[]>([]);
   const [activeDetailTab, setActiveDetailTab] = useState<'kpis' | 'history'>('kpis');
   const [selectedKpiIdsForReview, setSelectedKpiIdsForReview] = useState<string[]>([]);
+  const [filterSubmittedKpiIds, setFilterSubmittedKpiIds] = useState<string[] | null>(null);
+  const [showAllKpis, setShowAllKpis] = useState(false);
+
+  const matchesKpiIdentifier = (item: any, targetIdOrNo: string) => {
+    if (!targetIdOrNo || !item) return false;
+    const cleanTarget = String(targetIdOrNo).replace(/^#/, '').trim().toLowerCase();
+    const cleanItemId = String(item.id || '').replace(/^#/, '').trim().toLowerCase();
+    const cleanKpiNo = String(item.kpiNo || '').replace(/^#/, '').trim().toLowerCase();
+    
+    return cleanItemId === cleanTarget || 
+           cleanKpiNo === cleanTarget || 
+           cleanItemId === `kpi-${cleanTarget}` ||
+           cleanItemId.endsWith(`-${cleanTarget}`) ||
+           cleanItemId.replace(/[^a-z0-9]/g, '') === cleanTarget.replace(/[^a-z0-9]/g, '') ||
+           cleanKpiNo.replace(/[^a-z0-9]/g, '') === cleanTarget.replace(/[^a-z0-9]/g, '');
+  };
+
+  const visibleManagerItems = useMemo(() => {
+    const plan = selectedPlan?.plan;
+    if (!plan || !Array.isArray(plan.items)) return [];
+
+    if (showAllKpis) {
+      return plan.items;
+    }
+
+    // 1. Explicitly filtered from inbox notification or select plan callback
+    if (filterSubmittedKpiIds && filterSubmittedKpiIds.length > 0) {
+      const filtered = plan.items.filter((item: any) => 
+        filterSubmittedKpiIds.some(f => matchesKpiIdentifier(item, f))
+      );
+      if (filtered.length > 0) return filtered;
+    }
+
+    // 2. Metadata submittedKpiIds
+    if (plan.metadata?.submittedKpiIds && Array.isArray(plan.metadata.submittedKpiIds) && plan.metadata.submittedKpiIds.length > 0) {
+      const filtered = plan.items.filter((item: any) => 
+        plan.metadata.submittedKpiIds.some((f: any) => matchesKpiIdentifier(item, f))
+      );
+      if (filtered.length > 0) return filtered;
+    }
+
+    // 3. Items currently in Submitted for Approval/Review state (and not already Approved or Dispatched)
+    const submittedItems = plan.items.filter((it: any) => 
+      it.reviewStatus === 'Submitted for Approval' || 
+      it.reviewStatus === 'Submitted for Review' || 
+      it.reviewStatus === 'Submitted'
+    );
+    if (submittedItems.length > 0) {
+      return submittedItems;
+    }
+
+    // 4. If target KPI is explicitly selected
+    if (selectedKpiIdsForReview.length === 1) {
+      const targeted = plan.items.filter((item: any) => matchesKpiIdentifier(item, selectedKpiIdsForReview[0]));
+      if (targeted.length > 0) return targeted;
+    }
+
+    return plan.items;
+  }, [selectedPlan, filterSubmittedKpiIds, showAllKpis, selectedKpiIdsForReview]);
 
   const toggleSelectKpiForReview = (id: string) => {
     setSelectedKpiIdsForReview(prev => 
@@ -69,7 +128,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
   };
 
   const toggleSelectAllKpisForReview = () => {
-    const items = selectedPlan?.plan?.items || [];
+    const items = visibleManagerItems.length > 0 ? visibleManagerItems : (selectedPlan?.plan?.items || []);
     if (selectedKpiIdsForReview.length === items.length) {
       setSelectedKpiIdsForReview([]);
     } else {
@@ -455,14 +514,22 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
     }
   };
 
-  const handleSelectPlan = async (tp: any, onLoaded?: () => void, targetKpiId?: string) => {
+  const handleSelectPlan = async (tp: any, onLoaded?: () => void, targetKpiId?: string, targetKpiIds?: string[]) => {
     // We must fetch the individual plan to get the full documents (including dataUrl)
     // because dataUrl is stripped from the team-pplans endpoint.
     setSelectedPlan(tp); // Set it initially for fast UI feedback
     
+    const kpiIdsToFilter = targetKpiIds && targetKpiIds.length > 0 
+      ? targetKpiIds 
+      : (targetKpiId ? [targetKpiId] : (tp.plan?.metadata?.submittedKpiIds && Array.isArray(tp.plan.metadata.submittedKpiIds) && tp.plan.metadata.submittedKpiIds.length > 0 ? tp.plan.metadata.submittedKpiIds : null));
+    setFilterSubmittedKpiIds(kpiIdsToFilter);
+    setShowAllKpis(false);
+
     // Auto-select KPIs that are in Submitted for Approval/Review state
     let autoSelectIds: string[] = [];
-    if (tp.plan && Array.isArray(tp.plan.items)) {
+    if (kpiIdsToFilter && kpiIdsToFilter.length > 0) {
+      autoSelectIds = kpiIdsToFilter;
+    } else if (tp.plan && Array.isArray(tp.plan.items)) {
       autoSelectIds = tp.plan.items.filter((it: any) => 
         it.reviewStatus === 'Submitted for Approval' || it.reviewStatus === 'Submitted for Review' || it.reviewStatus === 'Submitted'
       ).map((it: any) => it.id);
@@ -480,7 +547,11 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
           setSelectedPlan({ userId: tp.userId, plan: fullPlan });
           
           let fullAutoSelectIds: string[] = [];
-          if (Array.isArray(fullPlan.items)) {
+          const effectiveKpiFilter = kpiIdsToFilter || (fullPlan.metadata?.submittedKpiIds && Array.isArray(fullPlan.metadata.submittedKpiIds) && fullPlan.metadata.submittedKpiIds.length > 0 ? fullPlan.metadata.submittedKpiIds : null);
+          if (effectiveKpiFilter && effectiveKpiFilter.length > 0) {
+            fullAutoSelectIds = effectiveKpiFilter;
+            setFilterSubmittedKpiIds(effectiveKpiFilter);
+          } else if (Array.isArray(fullPlan.items)) {
             fullAutoSelectIds = fullPlan.items.filter((it: any) => 
               it.reviewStatus === 'Submitted for Approval' || it.reviewStatus === 'Submitted for Review' || it.reviewStatus === 'Submitted'
             ).map((it: any) => it.id);
@@ -1016,12 +1087,20 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
             reviewStatus: 'Dispatched to Audit',
             internalAuditStatus: 'Dispatched to Audit'
           };
+        } else {
+          return {
+            ...item,
+            reviewStatus: item.reviewStatus === 'Dispatched to Audit' ? 'Reviewed' : (item.reviewStatus || 'Draft'),
+            internalAuditStatus: item.internalAuditStatus === 'Dispatched to Audit' ? '' : (item.internalAuditStatus || '')
+          };
         }
-        return item;
       });
 
+      if (!payload.metadata) payload.metadata = {};
       payload.metadata.reviewStatus = 'Dispatched to Audit';
       payload.metadata.internalAuditStatus = 'Dispatched to Audit';
+      payload.metadata.dispatchedKpiIds = isTargeted ? targetIds : allItems.map((i: any) => i.id);
+      payload.metadata.lastDispatchedKpiId = isTargeted && targetIds.length === 1 ? targetIds[0] : undefined;
 
       if (!payload.metadata) payload.metadata = {};
       if (!payload.metadata.history) payload.metadata.history = [];
@@ -1097,6 +1176,8 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
               actionType: 'audit_dispatch',
               senderCapacity: 'manager_as_subordinate',
               kpiIds: targetIds,
+              kpiId: targetIds.length > 0 ? targetIds[0] : '',
+              kpiNo: targetItems.length > 0 ? (targetItems[0].kpiNo || targetItems[0].id) : '',
               employeeEmail: submitterEmail
             }
           })
@@ -1228,8 +1309,15 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
               role="manager"
               currentUser={currentUser}
               activeTenantId={activeTenantId}
-              onSelectUserPlan={async (targetUserEmail, kpiId, quarter) => {
+              onSelectUserPlan={async (targetUserEmail, kpiId, quarter, targetKpiIds) => {
                 const normTarget = (targetUserEmail || '').toLowerCase().trim();
+                const kpiIdsToFilter = targetKpiIds && targetKpiIds.length > 0 
+                  ? targetKpiIds 
+                  : (kpiId ? [kpiId] : null);
+                
+                setFilterSubmittedKpiIds(kpiIdsToFilter);
+                setShowAllKpis(false);
+
                 let matchingPlan = teamPlans.find(p => 
                   (p.userId || '').toLowerCase().trim() === normTarget ||
                   (p.plan?.metadata?.email || '').toLowerCase().trim() === normTarget ||
@@ -1271,14 +1359,18 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
                   }
                   if (!targetQuarter) targetQuarter = 'Q1';
 
-                  if (kpiId) {
-                    setActiveKpiQuarter(prev => ({ ...prev, [kpiId]: targetQuarter }));
-                    setSelectedKpiIdsForReview(prev => prev.includes(kpiId) ? prev : [...prev, kpiId]);
+                  const resolvedKpiId = kpiId || (kpiIdsToFilter && kpiIdsToFilter[0]);
+                  if (resolvedKpiId) {
+                    setActiveKpiQuarter(prev => ({ ...prev, [resolvedKpiId]: targetQuarter }));
+                    setSelectedKpiIdsForReview(prev => prev.includes(resolvedKpiId) ? prev : [...prev, resolvedKpiId]);
                   }
 
                   handleSelectPlan(matchingPlan, () => {
+                    if (kpiIdsToFilter) {
+                      setFilterSubmittedKpiIds(kpiIdsToFilter);
+                    }
                     // Try to scroll and highlight with interval retries to handle async react rendering
-                    const targetId = kpiId ? `kpi-card-${kpiId}` : 'manager-review-detail';
+                    const targetId = resolvedKpiId ? `kpi-card-${resolvedKpiId}` : 'manager-review-detail';
                     let attempts = 0;
                     const interval = setInterval(() => {
                       const el = document.getElementById(targetId) || document.getElementById('manager-review-detail');
@@ -1292,7 +1384,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
                       }
                       attempts++;
                     }, 100);
-                  }, kpiId);
+                  }, resolvedKpiId, kpiIdsToFilter || undefined);
                 } else {
                   alert(`Plan for ${targetUserEmail} could not be loaded.`);
                 }
@@ -1425,7 +1517,12 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
       <div className="px-6 py-4 bg-white border-b border-gray-200 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 shrink-0 select-text">
         <div>
           <button 
-            onClick={() => { setSelectedPlan(null); setActiveDetailTab('kpis'); }}
+            onClick={() => {
+              setSelectedPlan(null);
+              setFilterSubmittedKpiIds(null);
+              setShowAllKpis(false);
+              setActiveDetailTab('kpis');
+            }}
             className="text-[10px] uppercase font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 mb-2 bg-transparent border-0 cursor-pointer"
           >
             ← Back to List
@@ -1530,12 +1627,58 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
         </div>
 
         {activeDetailTab === 'kpis' ? (
-          (!plan.items || plan.items.length === 0) ? (
+          (!visibleManagerItems || visibleManagerItems.length === 0) ? (
             <div className="bg-white p-8 rounded-2xl border border-gray-200 text-center">
-              <p className="text-slate-500 text-sm font-bold uppercase">No KPIs found in this plan</p>
+              <p className="text-slate-500 text-sm font-bold uppercase">No KPIs currently pending manager approval in this plan</p>
+              {plan?.items && plan.items.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllKpis(true)}
+                  className="mt-3 text-xs font-bold text-indigo-600 hover:text-indigo-800 underline cursor-pointer"
+                >
+                  View all {plan.items.length} plan KPIs
+                </button>
+              )}
             </div>
           ) : (
           <div className="space-y-4">
+            {/* Banner when viewing only the pushed/submitted single KPI(s) */}
+            {!showAllKpis && plan?.items && plan.items.length > visibleManagerItems.length && (
+              <div className="bg-amber-50 border border-amber-300 rounded-2xl p-3 px-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs animate-fade-in">
+                <div className="flex items-center gap-2.5 text-xs text-amber-900 font-extrabold">
+                  <span className="p-1.5 bg-amber-200 text-amber-900 rounded-lg">
+                    <UserCheck className="w-4 h-4" />
+                  </span>
+                  <span>Focused Manager Review: Displaying only the {visibleManagerItems.length} single KPI submitted for approval by Subordinate ({visibleManagerItems.map((i: any) => `#${i.kpiNo || i.id}`).join(', ')}).</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAllKpis(true)}
+                  className="text-[10.5px] font-bold text-amber-900 hover:text-indigo-700 bg-white hover:bg-amber-100/50 px-3 py-1.5 rounded-xl border border-amber-300 transition shadow-2xs cursor-pointer shrink-0 self-start sm:self-auto"
+                >
+                  Show All Plan KPIs ({plan.items.length})
+                </button>
+              </div>
+            )}
+
+            {showAllKpis && plan?.items && plan.items.length > 1 && (
+              <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-3 px-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs animate-fade-in">
+                <div className="flex items-center gap-2.5 text-xs text-indigo-900 font-extrabold">
+                  <span className="p-1.5 bg-indigo-200 text-indigo-900 rounded-lg">
+                    <FileText className="w-4 h-4" />
+                  </span>
+                  <span>Viewing All {plan.items.length} KPIs in Performance Plan.</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAllKpis(false)}
+                  className="text-[10.5px] font-bold text-indigo-900 hover:text-indigo-700 bg-white hover:bg-indigo-100/50 px-3 py-1.5 rounded-xl border border-indigo-300 transition shadow-2xs cursor-pointer shrink-0 self-start sm:self-auto"
+                >
+                  Focus Only on Submitted KPI(s)
+                </button>
+              </div>
+            )}
+
             {/* Multi-Selection & Batch Manager Review Action Bar */}
             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -1544,16 +1687,16 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
                   onClick={toggleSelectAllKpisForReview}
                   className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-300 text-slate-700 bg-slate-50 hover:bg-slate-100 font-bold text-xs cursor-pointer transition"
                 >
-                  {selectedKpiIdsForReview.length === plan.items.length ? (
+                  {selectedKpiIdsForReview.length === visibleManagerItems.length ? (
                     <CheckSquare className="w-4 h-4 text-emerald-600" />
                   ) : (
                     <Square className="w-4 h-4 text-slate-400" />
                   )}
-                  <span>{selectedKpiIdsForReview.length === plan.items.length ? 'Deselect All' : 'Select All KPIs'}</span>
+                  <span>{selectedKpiIdsForReview.length === visibleManagerItems.length ? 'Deselect All' : 'Select All KPIs'}</span>
                 </button>
 
                 <span className="text-xs text-slate-500 font-bold">
-                  {selectedKpiIdsForReview.length} of {plan.items.length} KPI(s) selected for review
+                  {selectedKpiIdsForReview.length} of {visibleManagerItems.length} KPI(s) selected for review
                 </span>
               </div>
 
@@ -1594,10 +1737,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
               </div>
             </div>
 
-            {plan.items
-              .filter((kpi: any) => {
-                return true;
-              })
+            {visibleManagerItems
               .map((kpi: any, idx: number) => {
               // Retrieve active selected quarter tab for auditing this specific KPI
               const currentQuarterTab = activeKpiQuarter[kpi.id] || 'Q1';

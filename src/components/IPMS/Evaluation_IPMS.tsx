@@ -617,8 +617,16 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
         return updatedItem;
       });
 
+      const updatedMetadata = {
+        ...metadata,
+        ...(submitForReview ? {
+          submittedKpiIds: [kpiId],
+          lastSubmittedKpiId: kpiId
+        } : {})
+      };
+
       const payload = {
-        metadata,
+        metadata: updatedMetadata,
         items: updatedItems
       };
 
@@ -663,6 +671,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
                 actionType: 'submission',
                 senderCapacity: isManagerOfAnyone ? (isTeamEvaluation ? 'team_lead' : 'manager_as_self') : 'standard_user',
                 kpiId,
+                kpiIds: [kpiId],
                 kpiNo: targetItem?.kpiNo || '',
                 poeDocsCount: poeCount,
                 employeeEmail: submitterEmail
@@ -742,7 +751,11 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
         manager: pplanData.metadata?.manager || currentUser.manager || (isDemoUser ? 'Demo Line Manager' : 'Yena Khuboni'),
         managerEmail: pplanData.metadata?.managerEmail || currentUser.managerEmail || (isDemoUser ? 'manager@mzansiflow.co.za' : 'KhuboniY@nkangaladm.gov.za'),
         reportTo: pplanData.metadata?.reportTo || currentUser.reportTo || (isDemoUser ? 'Demo Line Manager' : ''),
-        reviewStatus: submitForReview ? 'Submitted for Approval' : (pplanData.metadata?.reviewStatus || 'Draft')
+        reviewStatus: submitForReview ? 'Submitted for Approval' : (pplanData.metadata?.reviewStatus || 'Draft'),
+        ...(submitForReview ? {
+          submittedKpiIds: targetIds,
+          lastSubmittedKpiId: targetIds.length === 1 ? targetIds[0] : undefined
+        } : {})
       };
 
       const submittedItems = pplanData.items.filter(it => targetIds.includes(it.id));
@@ -834,6 +847,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
                     : `${submitterName} (${submitterEmail}) submitted ${targetIds.length} KPIs (${kpiNosText}) and associated Portfolios of Evidence for manager review (${managerName}).`,
                   actionType: 'submission',
                   kpiId: targetIds[0],
+                  kpiIds: targetIds,
                   kpiNo: kpiNosText,
                   senderCapacity: 'standard_user',
                   employeeEmail: submitterEmail

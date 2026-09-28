@@ -22,7 +22,17 @@ import {
   FileCode,
   CheckSquare,
   Square,
-  Trash2
+  Trash2,
+  Search,
+  Calendar,
+  Filter,
+  ArrowUpDown,
+  RotateCcw,
+  User,
+  AtSign,
+  UserCheck,
+  Briefcase,
+  CalendarDays
 } from 'lucide-react';
 import { IPMSWorkflowInbox } from './IPMSWorkflowInbox';
 import { OfficeDocumentViewer } from './OfficeDocumentViewer';
@@ -49,40 +59,223 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
   const [showClearKpiModal, setShowClearKpiModal] = useState(false);
   const [selectedKpiIdsForAudit, setSelectedKpiIdsForAudit] = useState<string[]>([]);
   const [filterPushedKpiIds, setFilterPushedKpiIds] = useState<string[] | null>(null);
+  const [showAllKpis, setShowAllKpis] = useState(false);
+
+  // Filters for Assessed Performance Plans Awaiting QA Audit
+  const [planSearchName, setPlanSearchName] = useState('');
+  const [planSearchUsername, setPlanSearchUsername] = useState('');
+  const [planFilterDate, setPlanFilterDate] = useState('');
+  const [planFilterTime, setPlanFilterTime] = useState('');
+  const [planSortBy, setPlanSortBy] = useState<'recent' | 'oldest' | 'name_asc' | 'name_desc' | 'username_asc' | 'username_desc'>('recent');
+  const [planFilterStatus, setPlanFilterStatus] = useState<string>('all');
+
+  const getPlanDetails = (tp: any) => {
+    const meta = tp.plan?.metadata || {};
+    const items = tp.plan?.items || [];
+    const ownerName = meta.name || tp.userId || 'Employee';
+    const ownerEmail = tp.userId || meta.email || '';
+    const position = meta.position || 'Employee';
+    const department = meta.department || 'Department';
+    
+    // Find manager who sent/dispatched it
+    const history = Array.isArray(meta.history) ? meta.history : [];
+    const dispatchEntry = [...history].reverse().find((h: any) => 
+      (h.status === 'Dispatched to Audit' || h.action?.includes('Dispatched') || h.action?.includes('Internal Audit')) &&
+      h.userEmail && !h.userEmail.includes('audit')
+    ) || [...history].reverse().find((h: any) => h.userEmail && !h.userEmail.includes('audit'));
+
+    const managerName = meta.manager || meta.reportTo || dispatchEntry?.userName || 'Line Manager';
+    const managerEmail = meta.managerEmail || dispatchEntry?.userEmail || '';
+    const latestAction = dispatchEntry?.action || history[history.length - 1]?.action || 'Dispatched for Audit';
+
+    // Dispatched / Activity timestamp
+    const rawTimestamp = dispatchEntry?.timestamp || 
+                         history[history.length - 1]?.timestamp || 
+                         meta.updatedAt || 
+                         meta.lastDispatchedAt || 
+                         meta.lastPushedFromTemplate || 
+                         meta.createdAt || 
+                         tp.updatedAt || 
+                         tp.createdAt;
+
+    let dateStr = '';
+    let timeStr = '';
+    let formattedDate = 'N/A';
+    let formattedTime = '';
+    let iso = '';
+
+    if (rawTimestamp) {
+      try {
+        const d = new Date(rawTimestamp);
+        if (!isNaN(d.getTime())) {
+          iso = d.toISOString();
+          dateStr = d.toISOString().split('T')[0]; // YYYY-MM-DD
+          const hours = String(d.getHours()).padStart(2, '0');
+          const minutes = String(d.getMinutes()).padStart(2, '0');
+          timeStr = `${hours}:${minutes}`;
+          formattedDate = d.toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' });
+          formattedTime = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+      } catch {}
+    }
+
+    // Single KPI / Multi KPI info
+    const dispatchedKpiIds = meta.dispatchedKpiIds || [];
+    const pendingKpiItems = items.filter((i: any) => i.internalAuditStatus === 'Dispatched to Audit' || i.reviewStatus === 'Dispatched to Audit');
+    const isSingle = dispatchedKpiIds.length === 1 || pendingKpiItems.length === 1;
+    const targetKpiNo = isSingle ? (pendingKpiItems[0]?.kpiNo || dispatchedKpiIds[0] || '1') : null;
+
+    return {
+      ownerName,
+      ownerEmail,
+      position,
+      department,
+      managerName,
+      managerEmail,
+      latestAction,
+      dateStr,
+      timeStr,
+      formattedDate,
+      formattedTime,
+      iso,
+      isSingle,
+      targetKpiNo,
+      itemsCount: items.length,
+      pendingCount: pendingKpiItems.length
+    };
+  };
+
+  const filteredTeamPlans = useMemo(() => {
+    return teamPlans.filter((tp: any) => {
+      const details = getPlanDetails(tp);
+      
+      // 1. Filter by Name (Employee owner name)
+      if (planSearchName.trim()) {
+        const q = planSearchName.trim().toLowerCase();
+        if (!details.ownerName.toLowerCase().includes(q)) return false;
+      }
+
+      // 2. Filter by Username (Username / Email / Manager username)
+      if (planSearchUsername.trim()) {
+        const q = planSearchUsername.trim().toLowerCase();
+        const matchesUser = details.ownerEmail.toLowerCase().includes(q) || 
+                            details.managerEmail.toLowerCase().includes(q) ||
+                            details.managerName.toLowerCase().includes(q);
+        if (!matchesUser) return false;
+      }
+
+      // 3. Filter by Date
+      if (planFilterDate) {
+        if (planFilterDate === 'today') {
+          const today = new Date().toISOString().split('T')[0];
+          if (details.dateStr !== today) return false;
+        } else if (planFilterDate === 'yesterday') {
+          const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+          if (details.dateStr !== yesterday) return false;
+        } else if (planFilterDate === 'last7days') {
+          const d = new Date(details.dateStr);
+          if (isNaN(d.getTime()) || (Date.now() - d.getTime() > 7 * 86400000)) return false;
+        } else if (planFilterDate === 'last30days') {
+          const d = new Date(details.dateStr);
+          if (isNaN(d.getTime()) || (Date.now() - d.getTime() > 30 * 86400000)) return false;
+        } else {
+          // Explicit YYYY-MM-DD
+          if (details.dateStr !== planFilterDate) return false;
+        }
+      }
+
+      // 4. Filter by Time (HH:MM prefix)
+      if (planFilterTime) {
+        if (!details.timeStr.startsWith(planFilterTime)) return false;
+      }
+
+      // 5. Filter by Status
+      if (planFilterStatus !== 'all') {
+        const status = (tp.plan?.metadata?.internalAuditStatus || 'Pending Audit').toLowerCase();
+        if (planFilterStatus === 'pending' && !status.includes('pending') && !status.includes('dispatched')) return false;
+        if (planFilterStatus === 'audited' && !status.includes('audited')) return false;
+        if (planFilterStatus === 'dpmc' && !status.includes('dpmc')) return false;
+      }
+
+      return true;
+    }).sort((a: any, b: any) => {
+      const detailsA = getPlanDetails(a);
+      const detailsB = getPlanDetails(b);
+      const timeA = new Date(detailsA.iso || 0).getTime();
+      const timeB = new Date(detailsB.iso || 0).getTime();
+
+      if (planSortBy === 'recent') return timeB - timeA;
+      if (planSortBy === 'oldest') return timeA - timeB;
+      if (planSortBy === 'name_asc') return detailsA.ownerName.localeCompare(detailsB.ownerName);
+      if (planSortBy === 'name_desc') return detailsB.ownerName.localeCompare(detailsA.ownerName);
+      if (planSortBy === 'username_asc') return detailsA.ownerEmail.localeCompare(detailsB.ownerEmail);
+      if (planSortBy === 'username_desc') return detailsB.ownerEmail.localeCompare(detailsA.ownerEmail);
+      return 0;
+    });
+  }, [teamPlans, planSearchName, planSearchUsername, planFilterDate, planFilterTime, planSortBy, planFilterStatus]);
+
+  const matchesKpiIdentifier = (item: any, targetIdOrNo: string) => {
+    if (!targetIdOrNo || !item) return false;
+    const cleanTarget = String(targetIdOrNo).replace(/^#/, '').trim().toLowerCase();
+    const cleanItemId = String(item.id || '').replace(/^#/, '').trim().toLowerCase();
+    const cleanKpiNo = String(item.kpiNo || '').replace(/^#/, '').trim().toLowerCase();
+    
+    return cleanItemId === cleanTarget || 
+           cleanKpiNo === cleanTarget || 
+           cleanItemId === `kpi-${cleanTarget}` ||
+           cleanItemId.endsWith(`-${cleanTarget}`) ||
+           cleanItemId.replace(/[^a-z0-9]/g, '') === cleanTarget.replace(/[^a-z0-9]/g, '') ||
+           cleanKpiNo.replace(/[^a-z0-9]/g, '') === cleanTarget.replace(/[^a-z0-9]/g, '');
+  };
 
   const visibleItems = useMemo(() => {
     const plan = selectedPlan?.plan;
     if (!plan || !Array.isArray(plan.items)) return [];
 
-    // 1. If explicit pushed KPI IDs are passed from manager dispatch:
+    if (showAllKpis) {
+      return plan.items;
+    }
+
+    // 1. If explicit pushed KPI IDs/Numbers are passed from manager dispatch (e.g. from inbox Open & Review):
     if (filterPushedKpiIds && filterPushedKpiIds.length > 0) {
-      const filtered = plan.items.filter((item: any) => filterPushedKpiIds.includes(item.id));
+      const filtered = plan.items.filter((item: any) => 
+        filterPushedKpiIds.some(f => matchesKpiIdentifier(item, f))
+      );
       if (filtered.length > 0) return filtered;
     }
 
-    // 2. Otherwise check if specific items were marked Dispatched to Audit
-    const pushedItems = plan.items.filter((item: any) => {
-      const status = item.reviewStatus || item.internalAuditStatus;
-      return status === 'Dispatched to Audit' || status === 'Reviewed and Dispatched';
-    });
-
-    if (pushedItems.length > 0) {
-      return pushedItems;
+    // 2. If plan metadata specifies dispatchedKpiIds from the manager's targeted dispatch:
+    if (plan.metadata?.dispatchedKpiIds && Array.isArray(plan.metadata.dispatchedKpiIds) && plan.metadata.dispatchedKpiIds.length > 0) {
+      const filtered = plan.items.filter((item: any) => 
+        plan.metadata.dispatchedKpiIds.some((f: any) => matchesKpiIdentifier(item, f))
+      );
+      if (filtered.length > 0) return filtered;
     }
 
-    // 3. Fallback to all submitted/active items
-    return plan.items.filter((item: any) => {
-      if (item.id === activeKPIId) return true;
-      const status = item.reviewStatus || 'Draft';
-      return status === 'Dispatched to Audit' || 
-             status === 'Reviewed and Dispatched' || 
-             status === 'Approved' || 
-             status === 'Under Review' ||
-             status === 'Submitted' ||
-             !!item.internalAuditStatus || 
-             !!item.internalAuditRating;
+    // 3. Check for specific items that are ACTUALLY pending audit dispatch (excluding already completed/moderated items like 'Pushed to DPMC' or 'Audited')
+    const pendingAuditItems = plan.items.filter((item: any) => {
+      const auditStatus = item.internalAuditStatus;
+      const reviewStatus = item.reviewStatus;
+      
+      // If already pushed to DPMC or Audited, it is NOT awaiting initial audit
+      if (auditStatus === 'Pushed to DPMC' || auditStatus === 'Audited') {
+        return false;
+      }
+      return auditStatus === 'Dispatched to Audit' || reviewStatus === 'Dispatched to Audit' || reviewStatus === 'Reviewed and Dispatched';
     });
-  }, [selectedPlan, activeKPIId, filterPushedKpiIds]);
+
+    if (pendingAuditItems.length > 0) {
+      return pendingAuditItems;
+    }
+
+    // 4. If only 1 active KPI is targeted
+    if (activeKPIId) {
+      const activeItem = plan.items.filter((item: any) => matchesKpiIdentifier(item, activeKPIId));
+      if (activeItem.length > 0) return activeItem;
+    }
+
+    return plan.items.slice(0, 1);
+  }, [selectedPlan, activeKPIId, filterPushedKpiIds, showAllKpis]);
 
   const toggleSelectKpiForAudit = (id: string) => {
     setSelectedKpiIdsForAudit(prev => 
@@ -722,13 +915,14 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
               role="auditor"
               currentUser={currentUser}
               activeTenantId={activeTenantId}
-              onSelectUserPlan={(targetUserEmail, kpiId, quarter, targetKpiIds) => {
+              onSelectUserPlan={async (targetUserEmail, kpiId, quarter, targetKpiIds) => {
                 const normTarget = (targetUserEmail || '').toLowerCase().trim();
                 const kpiIdsToFilter = targetKpiIds && targetKpiIds.length > 0 
                   ? targetKpiIds 
                   : (kpiId ? [kpiId] : null);
                 
                 setFilterPushedKpiIds(kpiIdsToFilter);
+                setShowAllKpis(false);
 
                 let matchingPlan = teamPlans.find(p => 
                   (p.userId || '').toLowerCase().trim() === normTarget ||
@@ -736,6 +930,24 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
                   (normTarget.includes('zulune') && (p.userId || '').includes('zulune')) ||
                   (normTarget && (p.userId || '').toLowerCase().includes(normTarget))
                 );
+
+                if (!matchingPlan && normTarget) {
+                  try {
+                    const fetchRes = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(normTarget)}`);
+                    if (fetchRes.ok) {
+                      const fetchedPlanData = await fetchRes.json();
+                      if (fetchedPlanData && (fetchedPlanData.items || fetchedPlanData.metadata)) {
+                        matchingPlan = { userId: normTarget, plan: fetchedPlanData };
+                        setTeamPlans(prev => {
+                          const exists = prev.some(p => (p.userId || '').toLowerCase().trim() === normTarget);
+                          return exists ? prev : [...prev, matchingPlan];
+                        });
+                      }
+                    }
+                  } catch (err) {
+                    console.error("Failed to load plan on demand:", err);
+                  }
+                }
 
                 if (!matchingPlan && normTarget) {
                   matchingPlan = {
@@ -748,7 +960,7 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
                 if (matchingPlan) {
                   let targetQuarter = quarter ? quarter.toUpperCase() : '';
                   if (!targetQuarter && kpiId && Array.isArray(matchingPlan.plan?.items)) {
-                    const targetKpi = matchingPlan.plan.items.find((i: any) => i.id === kpiId);
+                    const targetKpi = matchingPlan.plan.items.find((i: any) => matchesKpiIdentifier(i, kpiId));
                     if (targetKpi) {
                       if (targetKpi.q1PoeDocs?.length > 0 || targetKpi.q1Poe) targetQuarter = 'Q1';
                       else if (targetKpi.q2PoeDocs?.length > 0 || targetKpi.q2Poe) targetQuarter = 'Q2';
@@ -768,6 +980,7 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
                     setActiveQuarterTab(targetQuarter as any);
                   }
                   handleSelectPlan(matchingPlan, () => {
+                    setShowAllKpis(false);
                     if (resolvedKpiId) {
                       setActiveKPIId(resolvedKpiId);
                     }
@@ -798,6 +1011,7 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
                     }, 100);
                   });
                 } else if (teamPlans.length > 0) {
+                  setShowAllKpis(false);
                   if (kpiIdsToFilter) setFilterPushedKpiIds(kpiIdsToFilter);
                   handleSelectPlan(teamPlans[0]);
                 }
@@ -807,10 +1021,15 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
 
           <div className="max-w-4xl mx-auto space-y-4">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-              <h2 className="text-xs font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
-                <span className="inline-block w-2.5 h-2.5 bg-indigo-600 rounded-full animate-pulse"></span>
-                Assessed Performance Plans Awaiting Quality Assurance Audit
-              </h2>
+              <div>
+                <h2 className="text-xs font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
+                  <span className="inline-block w-2.5 h-2.5 bg-indigo-600 rounded-full animate-pulse"></span>
+                  Assessed Performance Plans Awaiting Quality Assurance Audit
+                </h2>
+                <p className="text-[10px] text-slate-500 font-semibold mt-0.5">
+                  Filter by date, time, employee name, or username to quickly locate dispatched KPI reviews
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={handleClearAwaitingAudits}
@@ -820,35 +1039,363 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
                 <span>{clearingAudits ? "Clearing..." : "🗑️ Clear Awaiting Audits"}</span>
               </button>
             </div>
-            {teamPlans.length === 0 ? (
-              <div className="bg-white p-8 rounded-2xl border border-gray-200 text-center shadow-sm">
-                <CheckCircle className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                <p className="text-slate-500 font-bold uppercase text-sm">No Plans Found</p>
-                <p className="text-[10px] text-slate-400 mt-1">There are no employee performance plans available.</p>
+
+            {/* FILTER TOOLBAR */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
+              <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+                <div className="flex items-center gap-2 text-xs font-black text-slate-800 uppercase tracking-tight">
+                  <Filter className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Filter Performance Plans</span>
+                </div>
+                {(planSearchName || planSearchUsername || planFilterDate || planFilterTime || planFilterStatus !== 'all' || planSortBy !== 'recent') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPlanSearchName('');
+                      setPlanSearchUsername('');
+                      setPlanFilterDate('');
+                      setPlanFilterTime('');
+                      setPlanFilterStatus('all');
+                      setPlanSortBy('recent');
+                    }}
+                    className="text-[10px] font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1 bg-rose-50 hover:bg-rose-100 px-2.5 py-1 rounded-lg border border-rose-200 transition cursor-pointer"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Reset Filters</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Input Filters Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                {/* 1. Filter by Name */}
+                <div className="space-y-1">
+                  <label className="text-[9.5px] font-black uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                    <User className="w-3 h-3 text-indigo-500" />
+                    <span>Employee Name</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={planSearchName}
+                      onChange={(e) => setPlanSearchName(e.target.value)}
+                      placeholder="Filter by name..."
+                      className="w-full text-xs pl-8 pr-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-indigo-500 outline-none text-slate-800 font-medium placeholder:text-slate-400"
+                    />
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                    {planSearchName && (
+                      <button
+                        type="button"
+                        onClick={() => setPlanSearchName('')}
+                        className="absolute right-2 top-2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* 2. Filter by Username / Email */}
+                <div className="space-y-1">
+                  <label className="text-[9.5px] font-black uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                    <AtSign className="w-3 h-3 text-indigo-500" />
+                    <span>Username / Email</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={planSearchUsername}
+                      onChange={(e) => setPlanSearchUsername(e.target.value)}
+                      placeholder="Filter by username..."
+                      className="w-full text-xs pl-8 pr-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-indigo-500 outline-none text-slate-800 font-medium placeholder:text-slate-400"
+                    />
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                    {planSearchUsername && (
+                      <button
+                        type="button"
+                        onClick={() => setPlanSearchUsername('')}
+                        className="absolute right-2 top-2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* 3. Filter by Date */}
+                <div className="space-y-1">
+                  <label className="text-[9.5px] font-black uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                    <Calendar className="w-3 h-3 text-indigo-500" />
+                    <span>Filter Date</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="date"
+                      value={planFilterDate}
+                      onChange={(e) => setPlanFilterDate(e.target.value)}
+                      className="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-indigo-500 outline-none text-slate-800 font-medium cursor-pointer"
+                    />
+                    {planFilterDate && (
+                      <button
+                        type="button"
+                        onClick={() => setPlanFilterDate('')}
+                        className="absolute right-8 top-2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* 4. Filter by Time (HH:MM) */}
+                <div className="space-y-1">
+                  <label className="text-[9.5px] font-black uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                    <Clock className="w-3 h-3 text-indigo-500" />
+                    <span>Filter Time (HH:MM)</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="time"
+                      value={planFilterTime}
+                      onChange={(e) => setPlanFilterTime(e.target.value)}
+                      className="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-indigo-500 outline-none text-slate-800 font-medium cursor-pointer"
+                    />
+                    {planFilterTime && (
+                      <button
+                        type="button"
+                        onClick={() => setPlanFilterTime('')}
+                        className="absolute right-8 top-2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Date Presets & Sorting */}
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mr-1">Quick Date:</span>
+                  {[
+                    { label: 'All Dates', value: '' },
+                    { label: 'Today', value: 'today' },
+                    { label: 'Yesterday', value: 'yesterday' },
+                    { label: 'Last 7 Days', value: 'last7days' },
+                    { label: 'Last 30 Days', value: 'last30days' }
+                  ].map(preset => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => setPlanFilterDate(preset.value)}
+                      className={`text-[9.5px] font-bold px-2 py-0.5 rounded-lg border transition cursor-pointer ${
+                        planFilterDate === preset.value
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
+                          : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                    <ArrowUpDown className="w-3 h-3" />
+                    Sort:
+                  </span>
+                  <select
+                    value={planSortBy}
+                    onChange={(e: any) => setPlanSortBy(e.target.value)}
+                    className="text-[10px] font-bold p-1 px-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 outline-none cursor-pointer"
+                  >
+                    <option value="recent">Most Recent Date/Time</option>
+                    <option value="oldest">Oldest Date/Time</option>
+                    <option value="name_asc">Name (A → Z)</option>
+                    <option value="name_desc">Name (Z → A)</option>
+                    <option value="username_asc">Username (A → Z)</option>
+                    <option value="username_desc">Username (Z → A)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Status Pills and Count Summary */}
+              <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 text-[10px]">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mr-1">Status:</span>
+                  {[
+                    { label: 'All Statuses', value: 'all' },
+                    { label: 'Pending Audit', value: 'pending' },
+                    { label: 'Audited', value: 'audited' },
+                    { label: 'Pushed to DPMC', value: 'dpmc' }
+                  ].map(st => (
+                    <button
+                      key={st.value}
+                      type="button"
+                      onClick={() => setPlanFilterStatus(st.value)}
+                      className={`text-[9.5px] font-bold px-2 py-0.5 rounded-lg border transition cursor-pointer ${
+                        planFilterStatus === st.value
+                          ? 'bg-slate-800 text-white border-slate-800'
+                          : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      {st.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 rounded-full">
+                  Showing {filteredTeamPlans.length} of {teamPlans.length} plans
+                </div>
+              </div>
+            </div>
+
+            {filteredTeamPlans.length === 0 ? (
+              <div className="bg-white p-8 rounded-2xl border border-gray-200 text-center shadow-sm space-y-2">
+                <CheckCircle className="w-12 h-12 text-slate-300 mx-auto mb-2" />
+                <p className="text-slate-700 font-black uppercase text-xs">No Performance Plans Match Your Filter Criteria</p>
+                <p className="text-[10.5px] text-slate-400 max-w-md mx-auto">
+                  Try adjusting your name, username, date, or time filter parameters to see available plans.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPlanSearchName('');
+                    setPlanSearchUsername('');
+                    setPlanFilterDate('');
+                    setPlanFilterTime('');
+                    setPlanFilterStatus('all');
+                  }}
+                  className="mt-2 text-[10.5px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-xl transition cursor-pointer border border-indigo-200"
+                >
+                  Clear All Filters
+                </button>
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-4">
-                {teamPlans.map((tp, idx) => (
-                  <div key={tp.id || `${tp.userId}-${idx}`} className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm flex items-center justify-between hover:shadow-md transition group cursor-pointer" onClick={() => handleSelectPlan(tp)}>
-                    <div className="flex items-center gap-4">
-                      <div className={`p-3 rounded-xl border ${tp.plan.metadata?.internalAuditStatus === 'Audited' || tp.plan.metadata?.internalAuditStatus === 'Pushed to DPMC' ? 'bg-indigo-50 border-indigo-100 text-indigo-600' : 'bg-slate-50 border-slate-200 text-slate-400'}`}>
-                        {tp.plan.metadata?.internalAuditStatus === 'Audited' || tp.plan.metadata?.internalAuditStatus === 'Pushed to DPMC' ? <CheckCircle className="w-6 h-6" /> : <FileSearch className="w-6 h-6" />}
+                {filteredTeamPlans.map((tp, idx) => {
+                  const details = getPlanDetails(tp);
+                  const isAuditedStatus = tp.plan?.metadata?.internalAuditStatus === 'Audited';
+                  const isDpmcStatus = tp.plan?.metadata?.internalAuditStatus === 'Pushed to DPMC';
+
+                  return (
+                    <div 
+                      key={tp.id || `${tp.userId}-${idx}`} 
+                      className="bg-white border border-slate-200 hover:border-indigo-400 p-5 rounded-2xl shadow-xs hover:shadow-md transition-all group cursor-pointer space-y-3" 
+                      onClick={() => {
+                        setShowAllKpis(false);
+                        setFilterPushedKpiIds(null);
+                        handleSelectPlan(tp);
+                      }}
+                    >
+                      {/* Top Row: Employee Owner Info + Status */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-start sm:items-center gap-3.5">
+                          <div className={`p-3 rounded-2xl border shrink-0 ${
+                            isDpmcStatus 
+                              ? 'bg-emerald-50 border-emerald-200 text-emerald-600' 
+                              : isAuditedStatus 
+                                ? 'bg-indigo-50 border-indigo-200 text-indigo-600' 
+                                : 'bg-amber-50 border-amber-200 text-amber-600'
+                          }`}>
+                            {isDpmcStatus ? (
+                              <ShieldCheck className="w-6 h-6" />
+                            ) : isAuditedStatus ? (
+                              <CheckCircle className="w-6 h-6" />
+                            ) : (
+                              <FileSearch className="w-6 h-6" />
+                            )}
+                          </div>
+                          <div>
+                            {/* Employee (Who the KPI belongs to) */}
+                            <div className="flex items-center gap-2">
+                              <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100 flex items-center gap-1">
+                                <User className="w-2.5 h-2.5" />
+                                Subordinate Owner
+                              </span>
+                              <h3 className="font-black text-slate-900 text-sm md:text-base group-hover:text-indigo-600 transition">
+                                {details.ownerName}
+                              </h3>
+                            </div>
+                            
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10.5px] text-slate-500 font-semibold mt-0.5">
+                              <span className="font-mono text-slate-600 flex items-center gap-0.5">
+                                <AtSign className="w-3 h-3 text-slate-400" />
+                                {details.ownerEmail}
+                              </span>
+                              <span>•</span>
+                              <span>{details.position}</span>
+                              <span>•</span>
+                              <span>{details.department}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Status Badge & Arrow */}
+                        <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+                          <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider border ${
+                            isDpmcStatus 
+                              ? 'bg-emerald-100 text-emerald-800 border-emerald-300' 
+                              : isAuditedStatus 
+                                ? 'bg-indigo-100 text-indigo-800 border-indigo-300' 
+                                : 'bg-amber-100 text-amber-800 border-amber-300 animate-pulse'
+                          }`}>
+                            {tp.plan?.metadata?.internalAuditStatus || 'Pending Audit'}
+                          </span>
+                          <div className="p-1.5 bg-slate-50 group-hover:bg-indigo-600 group-hover:text-white text-slate-400 rounded-xl transition">
+                            <ChevronRight className="w-4 h-4" />
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="font-bold text-slate-800 text-sm">{tp.plan.metadata?.name || tp.userId}</h3>
-                        <p className="text-[10px] text-slate-500 font-medium uppercase">
-                          {tp.plan.metadata?.position || 'Employee'} • {tp.plan.metadata?.department || 'Department'}
-                        </p>
+
+                      {/* Bottom Row: Manager Who Sent It + Date & Time Badges */}
+                      <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-[10.5px] bg-slate-50/60 p-3 rounded-xl">
+                        {/* Manager Dispatched Info */}
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
+                            <UserCheck className="w-3.5 h-3.5" />
+                          </div>
+                          <div className="min-w-0 truncate">
+                            <span className="text-[9px] font-black uppercase text-slate-400 block tracking-wider">
+                              Dispatched by Line Manager
+                            </span>
+                            <span className="font-bold text-slate-800 truncate">
+                              {details.managerName}
+                            </span>
+                            {details.managerEmail && (
+                              <span className="font-mono text-[9.5px] text-slate-500 ml-1 truncate hidden md:inline">
+                                ({details.managerEmail})
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Date, Time & KPI Scope Badges */}
+                        <div className="flex flex-wrap items-center gap-2 shrink-0">
+                          {/* Scope */}
+                          {details.isSingle && (
+                            <span className="bg-amber-100 text-amber-900 border border-amber-200 px-2 py-0.5 rounded-lg text-[9.5px] font-black uppercase">
+                              🎯 Single KPI #{details.targetKpiNo}
+                            </span>
+                          )}
+
+                          {/* Date Badge */}
+                          <div className="bg-white border border-slate-200 text-slate-700 px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 shadow-2xs">
+                            <CalendarDays className="w-3 h-3 text-indigo-600" />
+                            <span>{details.formattedDate}</span>
+                          </div>
+
+                          {/* Time Badge */}
+                          {details.formattedTime && (
+                            <div className="bg-white border border-slate-200 text-slate-700 px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 shadow-2xs font-mono">
+                              <Clock className="w-3 h-3 text-indigo-600" />
+                              <span>{details.formattedTime}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <span className={`text-[10px] font-bold px-3 py-1 rounded-full ${tp.plan.metadata?.internalAuditStatus === 'Pushed to DPMC' ? 'bg-emerald-100 text-emerald-700' : tp.plan.metadata?.internalAuditStatus === 'Audited' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-600'}`}>
-                        {tp.plan.metadata?.internalAuditStatus || 'Pending Audit'}
-                      </span>
-                      <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-indigo-500 transition" />
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -947,6 +1494,28 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
   // DETAIL VIEW
   const { plan } = selectedPlan;
   const isAudited = plan.metadata?.internalAuditStatus === 'Audited';
+  const ownerName = plan.metadata?.name || selectedPlan.userId;
+  const ownerEmail = selectedPlan.userId || plan.metadata?.email;
+  const managerName = plan.metadata?.manager || plan.metadata?.reportTo || 'Line Manager';
+  const managerEmail = plan.metadata?.managerEmail || '';
+  const period = plan.metadata?.period || '2025/2026 Financial Year';
+
+  // Get dispatch history entry
+  const history = Array.isArray(plan.metadata?.history) ? plan.metadata.history : [];
+  const latestDispatch = [...history].reverse().find((h: any) => 
+    (h.status === 'Dispatched to Audit' || h.action?.includes('Dispatched')) &&
+    h.userEmail && !h.userEmail.includes('audit')
+  );
+  const dispatchTimestamp = latestDispatch?.timestamp || history[history.length - 1]?.timestamp;
+  let formattedDispatchDate = '';
+  if (dispatchTimestamp) {
+    try {
+      const d = new Date(dispatchTimestamp);
+      if (!isNaN(d.getTime())) {
+        formattedDispatchDate = `${d.toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' })} at ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+      }
+    } catch {}
+  }
 
   return (
     <div id="internal-audit-detail" className="flex flex-col h-full bg-slate-50 border border-gray-200 rounded-3xl overflow-hidden shadow-2xl text-stone-900">
@@ -956,29 +1525,63 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
             onClick={() => {
               setSelectedPlan(null);
               setFilterPushedKpiIds(null);
+              setShowAllKpis(false);
               setActiveKPIId(null);
             }}
-            className="text-[10px] uppercase font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 mb-2 cursor-pointer"
+            className="text-[10px] uppercase font-black text-indigo-600 hover:text-indigo-800 flex items-center gap-1 mb-1.5 cursor-pointer"
           >
-            ← Back to List
+            ← Back to Filtered Plan List
           </button>
-          <h1 className="text-lg md:text-xl font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
-            <FileText className="w-5 h-5 text-indigo-500" />
-            Audit Review: {plan.metadata?.name || selectedPlan.userId}
-          </h1>
-          <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wider mt-0.5 ml-[28px]">
-            {plan.metadata?.position} • FY {plan.metadata?.period}
-          </p>
+          
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-lg md:text-xl font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
+              <FileText className="w-5 h-5 text-indigo-500" />
+              Audit Review: {ownerName}
+            </h1>
+            <span className="text-[10px] font-mono font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-lg border border-slate-200">
+              {ownerEmail}
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10.5px] text-slate-500 font-semibold mt-1">
+            <span className="text-slate-700 font-bold">{plan.metadata?.position}</span>
+            <span>•</span>
+            <span>{plan.metadata?.department}</span>
+            <span>•</span>
+            <span>FY {period}</span>
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 shrink-0">
+        {/* Manager & Subordinate Routing Identity Header Card */}
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0 bg-slate-50 border border-slate-200 p-2.5 px-3 rounded-2xl">
+          <div className="text-right">
+            <span className="text-[9px] font-black uppercase text-indigo-600 block tracking-wider">
+              Dispatched by Line Manager
+            </span>
+            <span className="text-xs font-black text-slate-800">
+              {managerName}
+            </span>
+            {managerEmail && (
+              <span className="text-[9.5px] font-mono text-slate-500 block">
+                {managerEmail}
+              </span>
+            )}
+            {formattedDispatchDate && (
+              <span className="text-[9px] text-slate-400 font-medium block">
+                📅 {formattedDispatchDate}
+              </span>
+            )}
+          </div>
+          
+          <div className="h-9 w-px bg-slate-200 hidden sm:block mx-1"></div>
+
           <button 
             type="button" 
             onClick={() => setShowClearKpiModal(true)}
-            className="bg-white border border-slate-300 text-slate-700 hover:bg-indigo-50 font-bold px-3 py-2 rounded-xl text-[10px] uppercase tracking-wide flex items-center gap-1.5 transition shadow-sm cursor-pointer border-0"
+            className="bg-white border border-slate-300 text-slate-700 hover:bg-indigo-50 font-bold px-3 py-2 rounded-xl text-[10px] uppercase tracking-wide flex items-center gap-1.5 transition shadow-sm cursor-pointer"
           >
             <Eye className="w-3.5 h-3.5 text-indigo-600" />
-            <span>📋 See / Clear KPIs</span>
+            <span>📋 Clear KPIs</span>
           </button>
         </div>
       </div>
@@ -1025,20 +1628,48 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
         ) : (
           <div className="space-y-4">
             {/* Banner when viewing only the pushed/dispatched KPI(s) from manager */}
-            {filterPushedKpiIds && filterPushedKpiIds.length > 0 && (
+            {!showAllKpis && plan?.items && plan.items.length > visibleItems.length && (
               <div className="bg-amber-50 border border-amber-300 rounded-2xl p-3 px-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs animate-fade-in">
                 <div className="flex items-center gap-2.5 text-xs text-amber-900 font-extrabold">
                   <span className="p-1.5 bg-amber-200 text-amber-900 rounded-lg">
                     <ShieldCheck className="w-4 h-4" />
                   </span>
-                  <span>Focused View: Reviewing only the {visibleItems.length} KPI(s) submitted &amp; pushed by Manager for Audit Review.</span>
+                  <div>
+                    <span>Focused Audit View: Displaying {visibleItems.length} single KPI ({visibleItems.map((i: any) => `#${i.kpiNo || i.id}`).join(', ')})</span>
+                    <span className="block text-[10.5px] font-semibold text-amber-800 mt-0.5">
+                      Belongs to: <strong className="text-amber-950">{ownerName}</strong> ({ownerEmail}) • Dispatched by Manager: <strong className="text-amber-950">{managerName}</strong> {managerEmail ? `(${managerEmail})` : ''}
+                    </span>
+                  </div>
                 </div>
                 <button
                   type="button"
-                  onClick={() => setFilterPushedKpiIds(null)}
+                  onClick={() => setShowAllKpis(true)}
                   className="text-[10.5px] font-bold text-amber-900 hover:text-indigo-700 bg-white hover:bg-amber-100/50 px-3 py-1.5 rounded-xl border border-amber-300 transition shadow-2xs cursor-pointer shrink-0 self-start sm:self-auto"
                 >
-                  Show All Plan KPIs ({plan?.items?.length || 0})
+                  Show All Plan KPIs ({plan.items.length})
+                </button>
+              </div>
+            )}
+
+            {showAllKpis && plan?.items && plan.items.length > 1 && (
+              <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-3 px-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs animate-fade-in">
+                <div className="flex items-center gap-2.5 text-xs text-indigo-900 font-extrabold">
+                  <span className="p-1.5 bg-indigo-200 text-indigo-900 rounded-lg">
+                    <FileText className="w-4 h-4" />
+                  </span>
+                  <div>
+                    <span>Viewing All {plan.items.length} KPIs in Performance Plan</span>
+                    <span className="block text-[10.5px] font-semibold text-indigo-800 mt-0.5">
+                      Belongs to: {ownerName} ({ownerEmail}) • Manager: {managerName} {managerEmail ? `(${managerEmail})` : ''}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAllKpis(false)}
+                  className="text-[10.5px] font-bold text-indigo-900 hover:text-indigo-700 bg-white hover:bg-indigo-100/50 px-3 py-1.5 rounded-xl border border-indigo-300 transition shadow-2xs cursor-pointer shrink-0 self-start sm:self-auto"
+                >
+                  Focus Only on Pushed KPI(s)
                 </button>
               </div>
             )}

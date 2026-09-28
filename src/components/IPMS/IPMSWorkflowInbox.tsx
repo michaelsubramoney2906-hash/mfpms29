@@ -1539,32 +1539,71 @@ export function IPMSWorkflowInbox({
                                 if (item.employeeEmail) {
                                   targetUser = item.employeeEmail;
                                 } else {
-                                  const emailRegex = /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9._-]+)/g;
-                                  const matches = ((item.message || '') + ' ' + (item.title || '')).match(emailRegex) || [];
-                                  const senderNorm = (item.senderEmail || '').toLowerCase().trim();
-                                  const filtered = matches.filter((m: string) => {
-                                    const mNorm = m.toLowerCase().trim();
-                                    return mNorm !== senderNorm && 
-                                           mNorm !== 'audit@system.local' && 
-                                           !mNorm.includes('audit');
-                                  });
-                                  if (filtered.length > 0) {
-                                    targetUser = filtered[0].toLowerCase().trim();
+                                  const textToSearch = `${item.title || ''} ${item.message || ''}`;
+                                  // Try to match Submitter / Owner / Employee email
+                                  const submitterMatch = textToSearch.match(/(?:Submitter|Owner|Subordinate|Employee|User)[^:]*:\s*[^(\n]*\(([^)]+@[^)]+)\)/i) ||
+                                                         textToSearch.match(/(?:Submitter|Owner|Subordinate|Employee|User)[^:]*:\s*([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9._-]+)/i);
+                                  if (submitterMatch && submitterMatch[1]) {
+                                    targetUser = submitterMatch[1].toLowerCase().trim();
                                   } else {
-                                    targetUser = item.senderEmail || item.recipientEmail;
+                                    const emailRegex = /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9._-]+)/g;
+                                    const matches = textToSearch.match(emailRegex) || [];
+                                    const senderNorm = (item.senderEmail || '').toLowerCase().trim();
+                                    const filtered = matches.filter((m: string) => {
+                                      const mNorm = m.toLowerCase().trim();
+                                      return mNorm !== senderNorm && 
+                                             mNorm !== 'audit@system.local' && 
+                                             !mNorm.includes('audit');
+                                    });
+                                    if (filtered.length > 0) {
+                                      targetUser = filtered[0].toLowerCase().trim();
+                                    } else {
+                                      targetUser = item.senderEmail || item.recipientEmail;
+                                    }
                                   }
                                 }
                               } else {
-                                targetUser = item.senderEmail && role === 'manager' 
-                                  ? item.senderEmail 
-                                  : item.recipientEmail && role === 'employee' 
-                                    ? currentUser.email 
-                                    : item.senderEmail || item.recipientEmail;
+                                targetUser = (role === 'manager' && item.employeeEmail)
+                                  ? item.employeeEmail
+                                  : item.senderEmail && role === 'manager' 
+                                    ? item.senderEmail 
+                                    : item.recipientEmail && role === 'employee' 
+                                      ? currentUser.email 
+                                      : item.senderEmail || item.recipientEmail;
                               }
-                              const resolvedKpiIds = Array.isArray(item.kpiIds) && item.kpiIds.length > 0 
-                                ? item.kpiIds 
-                                : (item.kpiId ? [item.kpiId] : undefined);
-                              const resolvedKpiId = item.kpiId || (resolvedKpiIds && resolvedKpiIds.length > 0 ? resolvedKpiIds[0] : undefined);
+
+                              // Extract KPI IDs / Numbers from all sources
+                              const extractedIds: string[] = [];
+                              if (Array.isArray(item.kpiIds) && item.kpiIds.length > 0) {
+                                item.kpiIds.forEach((id: string) => { if (id && !extractedIds.includes(id)) extractedIds.push(id); });
+                              }
+                              if (item.kpiId && typeof item.kpiId === 'string' && item.kpiId.trim() && !extractedIds.includes(item.kpiId.trim())) {
+                                extractedIds.push(item.kpiId.trim());
+                              }
+                              if (item.kpiNo && typeof item.kpiNo === 'string' && item.kpiNo.trim() && !extractedIds.includes(item.kpiNo.trim())) {
+                                extractedIds.push(item.kpiNo.trim());
+                              }
+
+                              // If still empty or single KPI text, parse from title and message
+                              const fullText = `${item.title || ''} ${item.message || ''}`;
+                              const kpiRegexes = [
+                                /(?:Single KPI|KPI\(s\)|PoE Submitted for KPI|dispatched single KPI|approved single KPI|approved KPI\(s\))\s*#?([a-zA-Z0-9_\-/]+)/gi,
+                                /•\s*KPI\s*#?([a-zA-Z0-9_\-/]+):/gi,
+                                /\bKPI\s*#([a-zA-Z0-9_\-/]+)\b/gi
+                              ];
+                              for (const reg of kpiRegexes) {
+                                let match: RegExpExecArray | null;
+                                while ((match = reg.exec(fullText)) !== null) {
+                                  const num = match[1]?.trim();
+                                  if (num && num.toLowerCase() !== 'and' && num.toLowerCase() !== 'the' && !extractedIds.includes(num)) {
+                                    extractedIds.push(num);
+                                  }
+                                }
+                              }
+
+                              const resolvedKpiIds = extractedIds.length > 0 ? extractedIds : undefined;
+                              const resolvedKpiId = extractedIds.length > 0 ? extractedIds[0] : (item.kpiId || undefined);
+                              
                               onSelectUserPlan(targetUser, resolvedKpiId, item.quarter, resolvedKpiIds);
                             }}
                             className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg transition flex items-center gap-1 shadow-xs cursor-pointer"
