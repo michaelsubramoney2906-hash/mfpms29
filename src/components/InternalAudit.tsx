@@ -516,12 +516,24 @@ export function InternalAudit({ currentUser, activeTenantId }: InternalAuditProp
                           let matchesStatus = true;
                           if (auditFilter === 'Pending Audit') {
                             matchesStatus = wfStatus === 'Pending Audit' || 
+                              wfStatus === 'Reviewed' || 
+                              wfStatus === 'Submitted' || 
                               row.workflows?.q1?.status === 'pending_audit' || 
+                              row.workflows?.q1?.status === 'reviewed' ||
                               row.workflows?.q2?.status === 'pending_audit' || 
+                              row.workflows?.q2?.status === 'reviewed' ||
                               row.workflows?.q3?.status === 'pending_audit' || 
-                              row.workflows?.q4?.status === 'pending_audit';
+                              row.workflows?.q3?.status === 'reviewed' ||
+                              row.workflows?.q4?.status === 'pending_audit' ||
+                              row.workflows?.q4?.status === 'reviewed';
                           } else if (auditFilter !== 'ALL') {
-                            matchesStatus = wfStatus === auditFilter;
+                            if (auditFilter === 'Reviewed') {
+                              matchesStatus = wfStatus === 'Reviewed' || wfStatus === 'Pending Audit' || wfStatus === 'Approved';
+                            } else if (auditFilter === 'Submitted') {
+                              matchesStatus = wfStatus === 'Submitted' || wfStatus === 'Reviewed' || wfStatus === 'Pending Audit';
+                            } else {
+                              matchesStatus = wfStatus === auditFilter;
+                            }
                           }
                           const matchesSearch = !auditSearchQuery ||
                             (row.refNum && row.refNum.toLowerCase().includes(auditSearchQuery.toLowerCase())) ||

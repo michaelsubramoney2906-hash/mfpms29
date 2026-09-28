@@ -11567,24 +11567,30 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
         }
 
         const normUser = userId.toLowerCase().trim();
-        const matchesUser = userIds.some(u => u.toLowerCase().trim() === normUser);
+        const matchesUser = userIds.some((u: any) => {
+          const normU = u.toLowerCase().trim();
+          return normU === normUser || row.id.toLowerCase().includes(normU);
+        });
 
         if (matchesUser) {
           let content = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
           if (content) {
             let changed = false;
             if (!content.metadata) content.metadata = {};
-            if (content.metadata.reviewStatus && content.metadata.reviewStatus !== 'In Progress') {
-              content.metadata.reviewStatus = 'In Progress';
-              changed = true;
-            }
+            
+            // Unconditionally reset metadata and items' statuses to make sure they are cleared
+            content.metadata.reviewStatus = 'In Progress';
+            content.metadata.internalAuditStatus = 'Draft';
+            changed = true;
+            
             if (Array.isArray(content.items)) {
               content.items.forEach((item: any) => {
-                if (item.reviewStatus && item.reviewStatus !== 'In Progress') {
-                  item.reviewStatus = 'In Progress';
-                  changed = true;
-                }
+                item.reviewStatus = 'In Progress';
+                delete item.internalAuditStatus;
+                delete item.internalAuditRating;
+                delete item.internalAuditComment;
               });
+              changed = true;
             }
             if (changed) {
               const updatedContentStr = typeof row.content === 'string' ? JSON.stringify(content) : content;
@@ -11642,7 +11648,10 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
         }
 
         const normUser = userId.toLowerCase().trim();
-        const matchesUser = userIds.some(u => u.toLowerCase().trim() === normUser);
+        const matchesUser = userIds.some((u: any) => {
+          const normU = u.toLowerCase().trim();
+          return normU === normUser || row.id.toLowerCase().includes(normU);
+        });
 
         if (matchesUser) {
           let content = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
@@ -11650,16 +11659,18 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
             let changed = false;
             if (Array.isArray(content.items)) {
               content.items.forEach((item: any) => {
-                if (item.reviewStatus === 'Submitted for Approval' || item.reviewStatus === 'Submitted for Review') {
+                if (item.reviewStatus === 'Submitted for Approval' || item.reviewStatus === 'Submitted for Review' || item.reviewStatus === 'Submitted' || item.reviewStatus === 'Approved' || item.reviewStatus === 'Reviewed') {
                   item.reviewStatus = 'In Progress';
                   changed = true;
                 }
               });
             }
+            if (changed || (content.metadata && content.metadata.reviewStatus !== 'In Progress')) {
+              if (!content.metadata) content.metadata = {};
+              content.metadata.reviewStatus = 'In Progress';
+              changed = true;
+            }
             if (changed) {
-              if (content.metadata && content.metadata.reviewStatus && content.metadata.reviewStatus !== 'In Progress') {
-                content.metadata.reviewStatus = 'In Progress';
-              }
               const updatedContentStr = typeof row.content === 'string' ? JSON.stringify(content) : content;
               await supabase.from('messages').update({ content: updatedContentStr }).eq('id', row.id);
               pplanCache.delete(row.id);

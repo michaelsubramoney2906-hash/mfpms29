@@ -58,6 +58,8 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
              status === 'Submitted for Approval' || 
              status === 'Submitted for Review' || 
              status === 'Submitted' || 
+             status === 'Reviewed' || 
+             status === 'Reviewed and Dispatched' || 
              item.internalAuditStatus || 
              item.internalAuditRating;
     });
@@ -87,6 +89,8 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
                  status === 'Submitted for Approval' || 
                  status === 'Submitted for Review' || 
                  status === 'Submitted' || 
+                 status === 'Reviewed' || 
+                 status === 'Reviewed and Dispatched' || 
                  item.internalAuditStatus || 
                  item.internalAuditRating;
         })
