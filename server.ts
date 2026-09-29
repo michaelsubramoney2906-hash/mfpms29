@@ -7793,37 +7793,74 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       
       // 1. Get all consolidated municipal users
       const allUsers = await getConsolidatedUsersList(tenantId, forceRefresh);
+
+      let tenantIds = [tenantId];
+      if (tenantId === 'nkangala_auto' || tenantId === 'tenant-229' || tenantId === 'nkangala') {
+        tenantIds = ['nkangala_auto', 'tenant-229', 'nkangala', 'default'];
+      } else if (tenantId === 'mzansiflow' || tenantId === 'mzansiflow_auto') {
+        tenantIds = ['mzansiflow', 'mzansiflow_auto', 'default'];
+      }
       
-      // 2. Query messages from Supabase using resilient pagination to inspect real compliance documents for all users
+      // 2. Query messages from Supabase using resilient, safe-sized chunking to inspect real compliance documents for all users
       let messageDocs: any[] = [];
       if (supabase) {
         let page = 0;
-        const pageSize = 1000;
-        while (true) {
-          const { data, error } = await supabase
-            .from('messages')
-            .select('id, tenant_id, sender_email, sender_name, message_type, content, created_at')
-            .in('message_type', [
-              'drafting_suite_doc', 
-              'pa_templates',
-              'pplan_list', 
-              'job_specific_competencies', 
-              'job_competencies_list', 
-              'pdp_list', 
-              'kpas_list', 
-              'ipms_progress', 
-              'kpis_list'
-            ])
-            .range(page * pageSize, (page + 1) * pageSize - 1);
-          if (error) {
-            logSupabaseError("command-center-matrix", error);
+        const pageSize = 100; // Safe batch size to prevent network buffer overflow / terminated errors
+        while (page < 30) {
+          try {
+            const { data, error } = await supabase
+              .from('messages')
+              .select('id, tenant_id, sender_email, sender_name, message_type, content, created_at')
+              .in('tenant_id', tenantIds)
+              .in('message_type', [
+                'drafting_suite_doc', 
+                'pa_templates',
+                'pplan_list', 
+                'job_specific_competencies', 
+                'job_competencies_list', 
+                'pdp_list', 
+                'kpas_list', 
+                'ipms_progress', 
+                'kpis_list'
+              ])
+              .range(page * pageSize, (page + 1) * pageSize - 1);
+
+            if (error) {
+              logSupabaseError("command-center-matrix", error);
+              break;
+            }
+            if (!data || data.length === 0) break;
+            messageDocs.push(...data);
+            if (data.length < pageSize) break;
+            page++;
+          } catch (batchErr: any) {
+            console.warn("[command-center-matrix] Batch load notice:", batchErr?.message || batchErr);
             break;
           }
-          if (!data || data.length === 0) break;
-          messageDocs.push(...data);
-          if (data.length < pageSize) break;
-          page++;
-          if (page > 10) break; // safety ceiling
+        }
+
+        // Fallback: If no docs found with scoped tenantIds, do a bounded query
+        if (messageDocs.length === 0) {
+          try {
+            const { data: fallbackData } = await supabase
+              .from('messages')
+              .select('id, tenant_id, sender_email, sender_name, message_type, content, created_at')
+              .in('message_type', [
+                'drafting_suite_doc', 
+                'pa_templates',
+                'pplan_list', 
+                'job_specific_competencies', 
+                'job_competencies_list', 
+                'pdp_list', 
+                'kpas_list', 
+                'ipms_progress', 
+                'kpis_list'
+              ])
+              .limit(100);
+            if (fallbackData && fallbackData.length > 0) {
+              messageDocs.push(...fallbackData);
+            }
+          } catch (_) {}
         }
       }
 
