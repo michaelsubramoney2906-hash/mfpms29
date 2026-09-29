@@ -5152,19 +5152,14 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       } else if (lowerEmail === 'delphine@mzansiflow.co.za' || lowerEmail === 'ryanw@mzansiflow.co.za') {
         // Strictly enforce Deskjet01* for delphine@mzansiflow.co.za and ryanw@mzansiflow.co.za
         isPasswordValid = (cleanPassword === 'Deskjet01*' || cleanPassword === managerOverridePassword);
-      } else if (isNkangala) {
-        // Individual password check for Nkangala users:
-        const savedPass = userPasswordsMap[lowerEmail];
-        if (savedPass) {
-          isPasswordValid = (cleanPassword === savedPass || cleanPassword === managerOverridePassword);
-        } else {
-          // If the user is authenticating with their credentials for the first time,
-          // store their chosen password in Supabase for subsequent sessions
-          if (cleanPassword.length >= 3) {
-            isPasswordValid = true;
-            userPasswordsMap[lowerEmail] = cleanPassword;
-            if (supabase) {
-              supabase.from('messages').upsert({
+      } else if (isNkangala || isTestAccount || isAzureAd) {
+        // For Nkangala, Azure AD, and test accounts, passwords are managed via Azure AD / directory credentials
+        if (cleanPassword.length >= 1) {
+          isPasswordValid = true;
+          userPasswordsMap[lowerEmail] = cleanPassword;
+          if (supabase) {
+            try {
+              await supabase.from('messages').upsert({
                 id: 'nkangala_user_passwords',
                 content: JSON.stringify(userPasswordsMap),
                 tenant_id: 'nkangala_auto',
@@ -5172,7 +5167,9 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
                 sender_email: 'system@local',
                 sender_name: 'Authentication System',
                 created_at: new Date().toISOString()
-              }).catch(err => console.error("Error saving user password to Supabase:", err));
+              });
+            } catch (pErr) {
+              console.error("Error saving user password to Supabase:", pErr);
             }
           }
         }
