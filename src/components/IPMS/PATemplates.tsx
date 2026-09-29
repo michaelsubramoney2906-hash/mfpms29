@@ -422,36 +422,53 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
   }, [currentUser]);
 
   useEffect(() => {
-    if (userManagementUsers && userManagementUsers.length > 0) {
-      if (!employeeSignature && currentUser) {
-        const matchedEmp = userManagementUsers.find(u => u.email?.toLowerCase() === currentUser.email?.toLowerCase());
-        if (matchedEmp) {
+    if (userManagementUsers && userManagementUsers.length > 0 && currentUser) {
+      const matchedEmp = userManagementUsers.find(u => u.email?.toLowerCase().trim() === currentUser.email?.toLowerCase().trim());
+      if (matchedEmp) {
+        if (!employeeSignature || employeeSignature.length < 5) {
           setEmployeeSignature(matchedEmp.signatureData || matchedEmp.fullName);
-          setEmployeeName(matchedEmp.fullName);
-          setEmployeePosition(matchedEmp.jobFunction || matchedEmp.job_function || matchedEmp.position || matchedEmp.title || "Senior Manager");
-          setEmployeeDate('29 July 2026');
         }
-      }
-      if (!supervisorSignature) {
-        let matchedSup = null;
-        if (isYenaKhuboni) {
-          matchedSup = userManagementUsers.find(u => (u.email || '').toLowerCase().includes('shabangusm'));
-        }
-        if (!matchedSup) {
+        setEmployeeName(matchedEmp.fullName || currentUser.fullName);
+        setEmployeePosition(matchedEmp.jobFunction || matchedEmp.job_function || matchedEmp.position || matchedEmp.title || "Senior Manager");
+        setEmployeeDate('29 July 2026');
+
+        // Look up supervisor dynamically based on user management assignment
+        let matchedSup: any = null;
+        if (matchedEmp.managerEmail || matchedEmp.manager || matchedEmp.reportTo) {
+          const mEmail = (matchedEmp.managerEmail || '').toLowerCase().trim();
+          const mName = (matchedEmp.manager || matchedEmp.reportTo || '').toLowerCase().trim();
           matchedSup = userManagementUsers.find(u => 
+            (mEmail && u.email?.toLowerCase().trim() === mEmail) ||
+            (mName && (u.fullName?.toLowerCase().trim() === mName || u.fullName?.toLowerCase().includes(mName) || mName.includes(u.fullName?.toLowerCase().trim())))
+          );
+        }
+
+        if (matchedSup) {
+          setSupervisorSignature(matchedSup.signatureData || matchedSup.fullName);
+          setSupervisorName(matchedSup.fullName);
+          setSupervisorPosition(matchedSup.jobFunction || matchedSup.job_function || matchedSup.position || "Line Manager");
+          setSupervisorDate('29 July 2026');
+        } else if (isYenaKhuboni) {
+          const shabangu = userManagementUsers.find(u => (u.email || '').toLowerCase().includes('shabangusm'));
+          if (shabangu) {
+            setSupervisorSignature(shabangu.signatureData || shabangu.fullName);
+            setSupervisorName("S Shabangu");
+            setSupervisorPosition("Divisional Manager");
+            setSupervisorDate('29 July 2026');
+          }
+        } else if (!supervisorSignature) {
+          const defaultSup = userManagementUsers.find(u => 
             (u.jobFunction || u.position || '').toLowerCase().includes('municipal manager') ||
             (u.jobFunction || u.position || '').toLowerCase().includes('mayor') ||
             (u.email || '').toLowerCase().includes('mandlaml') ||
             (u.email || '').toLowerCase().includes('manager')
           );
-        }
-        if (matchedSup) {
-          const resolvedName = isYenaKhuboni && matchedSup.email?.toLowerCase().includes('shabangusm') ? "S Shabangu" : matchedSup.fullName;
-          const resolvedPosition = isYenaKhuboni && matchedSup.email?.toLowerCase().includes('shabangusm') ? "Divisional Manager" : (matchedSup.jobFunction || matchedSup.job_function || matchedSup.position || matchedSup.title || "Municipal Manager");
-          setSupervisorSignature(matchedSup.signatureData || matchedSup.fullName);
-          setSupervisorName(resolvedName);
-          setSupervisorPosition(resolvedPosition);
-          setSupervisorDate('29 July 2026');
+          if (defaultSup) {
+            setSupervisorSignature(defaultSup.signatureData || defaultSup.fullName);
+            setSupervisorName(defaultSup.fullName);
+            setSupervisorPosition(defaultSup.jobFunction || defaultSup.job_function || defaultSup.position || "Municipal Manager");
+            setSupervisorDate('29 July 2026');
+          }
         }
       }
     }

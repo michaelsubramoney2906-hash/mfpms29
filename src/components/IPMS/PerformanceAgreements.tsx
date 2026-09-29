@@ -593,21 +593,36 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
 
         if (res.ok) {
           const data = await safeJson(res) || {};
-          if (data.metadata && Object.keys(data.metadata).length > 0) {
-            setMetadata(data.metadata);
-          } else {
-            // pre-populate with current logged-in user information
-            setMetadata({
-              name: currentUser?.fullName || 'Cllr. Mike Mzansi',
-              period: '2025/2026 Financial Year',
-              department: currentUser?.department || 'Finance & Treasury Department',
-              position: currentUser?.jobFunction || 'Director: Supply Chain Management',
-              level: currentUser?.level || 'Section 56 Senior Manager (Level 1)',
-              email: currentUser?.email || 'mike@massivedynamixdistributors.com',
-              manager: currentUser?.manager || 'Mr. Jacob Chief Financial Officer',
-              reportTo: currentUser?.reportTo || ''
-            });
+          let baseMeta = (data.metadata && Object.keys(data.metadata).length > 0) ? { ...data.metadata } : {
+            name: currentUser?.fullName || 'Cllr. Mike Mzansi',
+            period: '2025/2026 Financial Year',
+            department: currentUser?.department || 'Finance & Treasury Department',
+            position: currentUser?.jobFunction || 'Director: Supply Chain Management',
+            level: currentUser?.level || 'Section 56 Senior Manager (Level 1)',
+            email: currentUser?.email || 'mike@massivedynamixdistributors.com',
+            manager: currentUser?.manager || 'Mr. Jacob Chief Financial Officer',
+            reportTo: currentUser?.reportTo || ''
+          };
+
+          if (usersRes.ok) {
+            try {
+              const usersList = await safeJson(usersRes) || [];
+              if (Array.isArray(usersList)) {
+                const matchedUser = usersList.find((u: any) => (u.email || '').toLowerCase().trim() === targetEmail.toLowerCase().trim());
+                if (matchedUser) {
+                  if (matchedUser.fullName) baseMeta.name = matchedUser.fullName;
+                  if (matchedUser.jobFunction) baseMeta.position = matchedUser.jobFunction;
+                  if (matchedUser.department) baseMeta.department = matchedUser.department;
+                  if (matchedUser.directorate) baseMeta.directorate = matchedUser.directorate;
+                  if (matchedUser.manager) baseMeta.manager = matchedUser.manager;
+                  if (matchedUser.reportTo || matchedUser.manager) baseMeta.reportTo = matchedUser.reportTo || matchedUser.manager;
+                  if (matchedUser.managerEmail) baseMeta.managerEmail = matchedUser.managerEmail;
+                }
+              }
+            } catch (e) {}
           }
+
+          setMetadata(baseMeta);
 
           let currentItems = [];
           if (data.items && Array.isArray(data.items) && data.items.length > 0) {
