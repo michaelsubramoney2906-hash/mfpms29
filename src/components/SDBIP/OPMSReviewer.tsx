@@ -1009,6 +1009,6 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
           onClose={() => setPreviewDoc(null)}
         />
       )}
-</div>
+    </div>
   );
 }

@@ -986,3 +986,4 @@ export function InternalAudit({ currentUser, activeTenantId }: InternalAuditProp
     </div>
   );
 }
+

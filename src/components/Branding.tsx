@@ -1,22 +1,20 @@
-import React from 'react';
+import { clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 
-export function cn(...classes: (string | boolean | undefined | null)[]) {
-  return classes.filter(Boolean).join(' ');
+export function cn(...inputs: (string | undefined | null | false)[]) {
+  return twMerge(clsx(inputs));
 }
 
-export function Logo({ className = '' }: { className?: string }) {
+export function Logo({ className }: { className?: string }) {
   return (
-    <div className={`flex items-center gap-3 ${className}`}>
-      <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white font-black text-sm shadow-md">
-        NDM
-      </div>
-      <div className="flex flex-col">
-        <span className="font-extrabold text-sm text-slate-900 tracking-tight leading-none uppercase">
-          Nkangala
-        </span>
-        <span className="text-[10px] font-bold text-emerald-700 tracking-wider uppercase leading-tight mt-0.5">
-          District Municipality
-        </span>
+    <div className={cn("inline-flex flex-col items-stretch leading-none select-none", className)}>
+      <h1 className="text-5xl font-black font-sans tracking-tighter whitespace-nowrap mb-2">
+        <span className="text-black">Mzansi</span><span className="text-green-600 ml-1.5">Flow</span>
+      </h1>
+      <div className="text-[11px] font-black text-gray-800 uppercase flex justify-between tracking-widest w-full opacity-90">
+        {"PERFORMANCE MANAGEMENT SYSTEM".split('').map((char, i) => (
+          <span key={i}>{char === ' ' ? '\u00A0' : char}</span>
+        ))}
       </div>
     </div>
   );

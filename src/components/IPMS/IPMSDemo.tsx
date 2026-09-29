@@ -1876,3 +1876,7 @@ export function IPMSDemo({ currentUser, activeTenantId, onImpersonate, onNavigat
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+}

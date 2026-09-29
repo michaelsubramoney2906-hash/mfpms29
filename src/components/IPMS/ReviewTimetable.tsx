@@ -821,3 +821,6 @@ export function ReviewTimetable({ currentUser, activeTenantId }: ReviewTimetable
           )}
         </div>
       )}
+    </div>
+  );
+}

@@ -815,6 +815,6 @@ export function PerformanceAssessment({ currentUser, activeTenantId }: Performan
           )}
         </div>
       )}
-</div>
+    </div>
   );
 }

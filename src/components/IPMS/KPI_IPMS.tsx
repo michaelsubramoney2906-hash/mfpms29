@@ -1,3 +1,367 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  Activity, Trash2, Plus, Info, CheckCircle2, Database, HelpCircle, Save, Sparkles, 
+  FileText, ClipboardList, TrendingUp, Upload, X, File, FileSpreadsheet, Image, Paperclip, Search, Presentation,
+  Eye, Download, AlertCircle, Flag, Lock
+} from 'lucide-react';
+import type { User } from '../../types';
+import { OfficeDocumentViewer } from './OfficeDocumentViewer';
+
+export const isCellNA = (val: any): boolean => {
+  if (val === null || val === undefined) return false;
+  const s = String(val).trim().toUpperCase();
+  return s === 'N/A' || s === 'NA' || s === 'N / A' || s === 'NOT APPLICABLE' || s.startsWith('N/A') || s.startsWith('NOT APPLICABLE') || s.includes('LOCKED (NOT REPORTABLE)');
+};
+
+export interface PoeDocument {
+  id: string;
+  name: string;
+  mimeType: string;
+  size?: number;
+  dataUrl?: string;
+  uploadedAt: string;
+  uploadedBy: string;
+}
+
+interface KPIIPMSProps {
+  currentUser: User;
+  activeTenantId: string;
+}
+
+export interface KpiItem {
+  id: string;
+  kpiNo: string;
+  kpi: string; // Description
+  baseline: string;
+  baselineYear: string;
+  annualTarget: string;
+  annualRequiredPoe?: string;
+  budget?: string;
+  q1Target: string;
+  q1Actual?: string;
+  q2Target: string;
+  q2Actual?: string;
+  midtermTarget?: string;
+  midtermActual?: string;
+  midtermComment?: string;
+  midtermRequiredPoe?: string;
+  q3Target: string;
+  q3Actual?: string;
+  q4Target: string;
+  q4Actual?: string;
+  q1Poe: string;
+  q2Poe: string;
+  q3Poe: string;
+  q4Poe: string;
+  midtermPoe?: string;
+  annualPoe?: string;
+  q1RequiredPoe?: string;
+  q2RequiredPoe?: string;
+  q3RequiredPoe?: string;
+  q4RequiredPoe?: string;
+  q1PoeDocs?: PoeDocument[];
+  q2PoeDocs?: PoeDocument[];
+  q3PoeDocs?: PoeDocument[];
+  q4PoeDocs?: PoeDocument[];
+  midtermPoeDocs?: PoeDocument[];
+  annualPoeDocs?: PoeDocument[];
+  weighting: string;
+  myScore: string;
+  createdAt: string;
+  kpa?: string;
+  q1Comment?: string;
+  q2Comment?: string;
+  q3Comment?: string;
+  q4Comment?: string;
+  q1PoeComment?: string;
+  q2PoeComment?: string;
+  q3PoeComment?: string;
+  q4PoeComment?: string;
+  evaluationComment?: string;
+  reviewComment?: string;
+  reviewApprovalStatus?: string;
+}
+
+interface QuarterPoeSelectorProps {
+  label: string;
+  placeholderRef: string;
+  quarterName: string; // "Q1", "Q2", "Q3", "Q4"
+  textValue: string;
+  setTextValue: (v: string) => void;
+  files: PoeDocument[];
+  setFiles: (files: PoeDocument[]) => void;
+  currentUser: User;
+}
+
+export function QuarterPoeSelector({
+  label,
+  placeholderRef,
+  quarterName,
+  textValue,
+  setTextValue,
+  files,
+  setFiles,
+  currentUser
+}: QuarterPoeSelectorProps) {
+  const [dragActive, setDragActive] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState<PoeDocument | null>(null);
+
+  const MAX_FILE_SIZE = 200 * 1024 * 1024; // 200MB limit per file / per upload
+
+  const formatFileSize = (bytes?: number) => {
+    if (!bytes) return '';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const handleFilesSelected = async (fileListParam: FileList | File[] | null) => {
+    if (!fileListParam) return;
+
+    const fileList = Array.from(fileListParam);
+    if (fileList.length === 0) return;
+
+    if (fileList.length > 20) {
+      alert(`File Upload Limits Notice:\n\n• You can upload at most 20 files at a time. Please select fewer files.`);
+      return;
+    }
+
+    if (files.length + fileList.length > 20) {
+      alert(`File Upload Limits Notice:\n\n• You can have a maximum of 20 PoE files per KPI.`);
+      return;
+    }
+
+    const currentTotalSize = files.reduce((sum, f) => sum + (f.size || 0), 0);
+    let runningTotalSize = currentTotalSize;
+
+    const errors: string[] = [];
+
+    const promises = fileList.map((file) => {
+      if (file.size > MAX_FILE_SIZE) {
+        errors.push(`"${file.name}" (${(file.size / (1024 * 1024)).toFixed(1)} MB) exceeds the 200MB maximum file size limit.`);
+        return Promise.resolve(null);
+      }
+
+      if (runningTotalSize + file.size > MAX_FILE_SIZE) {
+        errors.push(`Adding "${file.name}" would cause total PoE files for this KPI section to exceed 200MB.`);
+        return Promise.resolve(null);
+      }
+
+      runningTotalSize += file.size;
+
+      return new Promise<PoeDocument | null>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          resolve({
+            id: `poe_doc_${quarterName}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            name: file.name,
+            mimeType: file.type || 'application/octet-stream',
+            size: file.size,
+            dataUrl: reader.result as string,
+            uploadedAt: new Date().toISOString(),
+            uploadedBy: currentUser?.email || 'System'
+          });
+        };
+        reader.onerror = () => {
+          errors.push(`Failed to read "${file.name}".`);
+          resolve(null);
+        };
+        reader.readAsDataURL(file);
+      });
+    });
+
+    const results = await Promise.all(promises);
+    const newDocs = results.filter((doc): doc is PoeDocument => doc !== null);
+
+    if (errors.length > 0) {
+      alert(`File Upload Limits Notice:\n\n` + errors.map(e => `• ${e}`).join('\n'));
+    }
+
+    if (newDocs.length > 0) {
+      setFiles([...files, ...newDocs]);
+    }
+  };
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFilesSelected(e.dataTransfer.files);
+    }
+  };
+
+  const removeFile = (id: string) => {
+    setFiles(files.filter(f => f.id !== id));
+  };
+
+  const getFileIcon = (mimeType: string, name: string) => {
+    const ext = name.split('.').pop()?.toLowerCase() || '';
+    if (['ppt', 'pptx', 'pps', 'key', 'odp'].includes(ext) || mimeType.includes('presentation') || mimeType.includes('powerpoint')) {
+      return <Presentation className="w-3.5 h-3.5 text-orange-500 shrink-0" />;
+    }
+    if (mimeType.startsWith('image/') || ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'].includes(ext)) {
+      return <Image className="w-3.5 h-3.5 text-sky-500 shrink-0" />;
+    }
+    if (['xls', 'xlsx', 'csv', 'ods'].includes(ext) || mimeType.includes('spreadsheet') || mimeType.includes('excel')) {
+      return <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-500 shrink-0" />;
+    }
+    if (['doc', 'docx', 'odt', 'rtf'].includes(ext) || mimeType.includes('word') || mimeType.includes('wordprocessingml')) {
+      return <FileText className="w-3.5 h-3.5 text-indigo-500 shrink-0" />;
+    }
+    if (['pdf'].includes(ext) || mimeType.includes('pdf')) {
+      return <FileText className="w-3.5 h-3.5 text-rose-500 shrink-0" />;
+    }
+    return <File className="w-3.5 h-3.5 text-slate-500 shrink-0" />;
+  };
+
+  const totalBytes = files.reduce((sum, f) => sum + (f.size || 0), 0);
+
+  return (
+    <div className="flex flex-col gap-2 p-3 bg-white border border-slate-200 rounded-xl shadow-xs text-slate-900">
+      <div className="flex justify-between items-center">
+        <label className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wide flex items-center gap-1.5 matches-label mb-0">
+          <span className="w-5 h-5 bg-emerald-100 text-emerald-800 rounded-full flex items-center justify-center font-black text-[9px] shrink-0">
+            {quarterName}
+          </span>
+          <span className="truncate">{label}</span>
+        </label>
+        <span className="text-[9px] font-mono font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded shrink-0">
+          {files.length} attached {totalBytes > 0 ? `(${formatFileSize(totalBytes)})` : ''}
+        </span>
+      </div>
+
+      {/* Description text input */}
+      <input
+        type="text"
+        placeholder={placeholderRef}
+        value={textValue}
+        onChange={(e) => setTextValue(e.target.value)}
+        required
+        className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 focus:border-emerald-600 rounded-lg text-xs font-semibold text-slate-900 shadow-inner outline-none transition"
+      />
+
+      {/* Drag & Drop zone */}
+      <div
+        onDragEnter={handleDrag}
+        onDragOver={handleDrag}
+        onDragLeave={handleDrag}
+        onDrop={handleDrop}
+        className={`border border-dashed p-2.5 rounded-lg text-center cursor-pointer transition ${
+          dragActive
+            ? 'border-emerald-500 bg-emerald-50/50'
+            : 'border-slate-300 bg-slate-50/30 hover:bg-slate-50'
+        }`}
+      >
+        <label className="cursor-pointer block m-0">
+          <Upload className="w-4 h-4 mx-auto text-slate-400 mb-0.5" />
+          <p className="text-[9px] font-bold text-slate-650 mb-0">
+            Drag &amp; drop multiple files or <span className="text-emerald-700 underline">browse</span>
+          </p>
+          <p className="text-[7.5px] text-slate-500 mt-0.5 mb-0 leading-tight">
+            All file formats supported (Word, Excel, PDF, PowerPoint, Images, Zip, Audio/Video, Emails, etc.) • 200MB limit per KPI
+          </p>
+          <input
+            type="file"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              const selected = e.target.files ? Array.from(e.target.files) : null;
+              e.target.value = '';
+              if (selected && selected.length > 0) {
+                handleFilesSelected(selected);
+              }
+            }}
+          />
+        </label>
+      </div>
+
+      {/* Uploaded file items */}
+      {files.length > 0 && (
+        <div className="space-y-1 mt-1 max-h-[140px] overflow-y-auto pr-1">
+          {files.map((file) => {
+            const ext = file.name.split('.').pop()?.toUpperCase() || 'FILE';
+            return (
+              <div
+                key={file.id}
+                className="flex items-center justify-between p-1.5 bg-slate-100/75 border border-slate-200 rounded-md hover:bg-slate-100 transition group text-[10px]"
+              >
+                <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                  {getFileIcon(file.mimeType, file.name)}
+                  <span className="font-semibold text-slate-700 truncate block max-w-[150px]" title={file.name}>
+                    {file.name}
+                  </span>
+                  <span className="font-mono text-[8px] font-bold text-slate-400">
+                    ({ext}{file.size ? ` • ${formatFileSize(file.size)}` : ''})
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); setPreviewDoc(file); }}
+                    className="p-1 hover:bg-emerald-50 rounded text-slate-400 hover:text-emerald-650 transition"
+                    title="View Document"
+                  >
+                    <Eye className="w-3 h-3" />
+                  </button>
+                  {file.dataUrl && (
+                    <a
+                      href={file.dataUrl}
+                      download={file.name}
+                      onClick={(e) => e.stopPropagation()}
+                      className="p-1 hover:bg-emerald-50 rounded text-slate-400 hover:text-emerald-650 transition"
+                      title="Download Document"
+                    >
+                      <Download className="w-3 h-3" />
+                    </a>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => removeFile(file.id)}
+                    className="p-1 hover:bg-rose-105 rounded text-slate-400 hover:text-red-650 transition"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Preview Modal */}
+      {previewDoc && (
+        <OfficeDocumentViewer doc={previewDoc} onClose={() => setPreviewDoc(null)} />
+      )}
+    </div>
+  );
+}
+
+
+const DUAL_LAYER_USERS = [
+  'hlezard@nkangaladm.gov.za',
+  'dimpems@nkangaladm.gov.za',
+  'madihlabapk@nkangaladm.gov.za',
+  'mazwitc@nkangaladm.gov.za',
+  'bembem@nkangaladm.gov.za',
+  'masanabol@nkangaladm.gov.za'
+].map(e => e.toLowerCase());
+
+function getIsDualLayerTeamLeader(email) {
+  if (!email) return false;
+  return DUAL_LAYER_USERS.includes(email.toLowerCase().trim());
+}
+
 export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
   const [kpis, setKpis] = useState<KpiItem[]>([]);
   const [loading, setLoading] = useState(false);

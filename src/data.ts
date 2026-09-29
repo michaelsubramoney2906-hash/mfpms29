@@ -1,3 +1,12 @@
+import {
+  FileText, Archive, Upload, PieChart, RefreshCw, CheckSquare,
+  FileBadge, FlaskConical, LayoutTemplate, Map, Flag, Activity,
+  Briefcase, Target, Building, AlertTriangle, Layers,
+  Users, Landmark, Search, ShieldAlert, Users2, Mic, Settings,
+  MessageCircle, HelpCircle, Calendar, Database, Box, GraduationCap,
+  Shield, Key, Ticket, List, MessageSquare, FileBarChart, UserCheck, LayoutGrid, BadgePlus, Mail,
+  Cpu, GitFork, ClipboardCheck, CalendarDays, FolderTree, Building2, Cloud, Share2, Bot, Sparkles
+} from 'lucide-react';
 import type { Module, Tenant } from './types';
 
 const municipalityNames = [
@@ -259,118 +268,140 @@ const municipalityNames = [
   "Nelson Mandela Bay Metropolitan Municipality"
 ];
 
-export const tenants: Tenant[] = [
-  { id: 'nkangala_auto', name: 'Nkangala District Municipality', code: 'DC31', domain: 'nkangaladm.gov.za' },
-  { id: 'tenant-229', name: 'MzansiFlow Demo Authority', code: 'MF01', domain: 'mzansiflow.co.za' }
-];
+export const tenants: Tenant[] = municipalityNames.map((name, index) => ({
+  id: `tenant-${index + 1}`,
+  name: name
+}));
 
 export const modules: Module[] = [
   {
+    id: 'dashboard',
+    name: 'Dashboard',
+    icon: LayoutGrid,
+    subModules: []
+  },
+  {
+    id: 'opms-admin',
+    name: 'OPMS Admin',
+    icon: Building,
+    subModules: [
+      { id: 'apr', name: 'Annual Performance Report', icon: FileText },
+      { id: 'ar', name: 'Annual Report', icon: FileBadge },
+      { id: 'ba', name: 'Backup Archive', icon: Archive },
+      { id: 'bi', name: 'Budget Import', icon: Upload },
+      { id: 'cm', name: 'Change Management', icon: RefreshCw },
+      { id: 'ct', name: 'Compliance Tracker', icon: CheckSquare },
+      { id: 'cp', name: 'Cover Pages', icon: LayoutTemplate },
+      { id: 'gl', name: 'Graph Laboratory', icon: FlaskConical },
+      { id: 'idp', name: 'IDP', icon: Map },
+      { id: 'kpa', name: 'Key Performance Area', icon: Flag },
+      { id: 'kpi', name: 'Key Performance Indicator', icon: Activity },
+      { id: 'led', name: 'LED Projects', icon: Briefcase },
+      { id: 'mtas', name: 'MTAS', icon: Target },
+      { id: 'omm', name: 'Office of the MM', icon: UserCheck },
+      { id: 'rep', name: 'Reports', icon: FileBarChart },
+      { id: 'rm', name: 'Risk Management', icon: AlertTriangle },
+      { id: 'sdbip-tl', name: 'SDBIP Top Layer', icon: Layers },
+      { id: 'sdbip-23', name: '2nd & 3rd Layer SDBIP', icon: Database },
+      { id: 'so', name: 'Strategic Objectives', icon: Target },
+      { id: 'opms-submitter', name: 'Submitter', icon: FileText },
+      { id: 'opms-approver', name: 'Approver', icon: UserCheck },
+      { id: 'opms-reviewer', name: 'Reviewer', icon: Search },
+      { id: 'opms-audit', name: 'Internal Audit', icon: ShieldAlert },
+    ]
+  },
+  {
+    id: 'opms-political',
+    name: 'OPMS Political',
+    icon: Landmark,
+    subModules: [
+      { id: 'cc', name: 'Council Committees', icon: Users },
+      { id: 'cr', name: 'Council Resolutions', icon: FileText },
+      { id: 'mpac', name: 'MPAC Oversight', icon: Search },
+      { id: 'om', name: 'Office of the Mayor', icon: Landmark },
+      { id: 'cmem', name: 'Council Members', icon: Users2 },
+      { id: 'pp', name: 'Public Participation', icon: Mic },
+      { id: 'ss', name: 'Speakers Suite', icon: Settings },
+      { id: 'wc', name: 'Ward Committees', icon: Users },
+    ]
+  },
+  {
     id: 'ipms',
-    name: 'IPMS (Performance Management)',
+    name: 'IPMS',
+    icon: Target,
     subModules: [
-      { id: 'ipms-dashboard', name: 'My Performance Dashboard' },
-      { id: 'ipms-evaluation', name: 'Self Evaluation' },
-      { id: 'ipms-manager-review', name: 'Manager Review' },
-      { id: 'ipms-audit-review', name: 'Internal Audit Review' },
-      { id: 'ipms-moderation', name: 'Department Moderation' },
-      { id: 'ipms-inbox', name: 'Workflow Inbox & Approvals' },
-      { id: 'pa', name: 'Performance Agreements (Individual)' },
-      { id: 'pdp', name: 'Personal Development Plan (PDP)' },
-      { id: 'jsc', name: 'Job Specific Competencies (JSC)' },
-      { id: 'cc-module', name: 'Core Competencies' },
-      { id: 'pat', name: 'Performance Assessment' },
-      { id: 'pa-templates', name: 'PA Templates' },
-      { id: 'review-timetable', name: 'Review Timetable' },
-      { id: 'firefighter-pa', name: 'Firefighters PA' },
-      { id: 'lead-firefighter-pa', name: 'Lead Firefighter Drafting' },
-      { id: 'team-pa-cds', name: 'Team PA (CDS / Fire)' },
-      { id: 'team-pa-technical', name: 'Team PA (Technical)' },
-      { id: 'team-pa-corporate', name: 'Team PA (Corporate)' },
-      { id: 'team-pa-pms', name: 'Team PA (PMS)' },
-      { id: 'team-hierarchy', name: 'Team Hierarchy' },
-      { id: 'dept-report', name: 'Departmental Reports' },
-      { id: 'organogram', name: 'Municipal Organogram' }
+      { id: 'ipms-demo', name: 'Demo', icon: Sparkles },
+      { id: 'ipms-team-dashboard', name: 'Team Dashboard', icon: Users },
+      { id: 'organogram', name: 'Organogram', icon: GitFork },
+      { id: 'ipms-inbox', name: 'Inbox', icon: Mail },
+      { id: 'ipms-kpa', name: 'IPMS KPA', icon: Flag },
+      { id: 'jsc', name: 'Job Specific Competencies', icon: FileBadge },
+      { id: 'team-jsc', name: 'Team JSC', icon: FileBadge },
+      { id: 'team-jsc-2', name: 'Team JSC 2', icon: FileBadge },
+      { id: 'ccomp', name: 'Core Competencies', icon: BadgePlus },
+      { id: 'ipms-kpi', name: 'IPMS KPI', icon: Activity },
+      { id: 'performance-assessment', name: 'Performance Assessment', icon: ClipboardCheck },
+      { id: 'review-timetable', name: 'Review Timetable', icon: CalendarDays },
+      { id: 'pplan', name: 'Performance Plan', icon: LayoutTemplate },
+      { id: 'team-pplan', name: 'Team Performance Plan', icon: Users },
+      { id: 'team-pplan-2', name: 'Team Performance Plan 2', icon: Users },
+      { id: 'pdp', name: 'Personal Development Plans', icon: GraduationCap },
+      { id: 'team-pdp', name: 'Team PDP', icon: GraduationCap },
+      { id: 'team-pdp-2', name: 'Team PDP 2', icon: GraduationCap },
+      { id: 'pa', name: 'Performance Agreement', icon: FileText },
+      { id: 'pa-cds-team', name: 'CDS Team PA', icon: Shield },
+      { id: 'pa-technical-services', name: 'Technical Services Team PA', icon: Layers },
+      { id: 'pa-corporate-services', name: 'Corporate Services Team PA', icon: Briefcase },
+      { id: 'pa-pms-team', name: 'PMS Team PA', icon: Users },
+      { id: 'pa-templates', name: 'PA Templates', icon: LayoutTemplate },
+      { id: 'ipms-evaluation', name: 'Self Evaluation', icon: MessageCircle },
+      { id: 'team-evaluation', name: 'Team Evaluation', icon: MessageCircle },
+      { id: 'ipms-manager-review', name: 'Manager Approval', icon: UserCheck },
+      { id: 'ipms-internal-audit', name: 'Internal Audit Review', icon: ShieldAlert },
+      { id: 'ipms-dpmc', name: 'DPMC', icon: Users },
+      { id: 'ipms-reports', name: 'Reports', icon: FileBarChart },
+      { id: 'sdbip-23', name: '2nd & 3rd Layer SDBIP', icon: Database },
+    ]
+  },
+
+  {
+    id: 'sharepoint',
+    name: 'Share Point',
+    icon: FolderTree,
+    subModules: [
+      { id: 'sharepoint-drives', name: 'Share Point Drives', icon: FolderTree },
+      { id: 'sharepoint-nkangala', name: 'Nkangala District Municipality', icon: Building2 },
+      { id: 'sharepoint-mzansiflow', name: 'Mzansi Flow Drive', icon: Cloud },
     ]
   },
   {
-    id: 'sdbip',
-    name: 'SDBIP (OPMS)',
+    id: 'more',
+    name: 'More',
+    icon: Box,
     subModules: [
-      { id: 'sdbip-app', name: 'Service Delivery Scorecard' },
-      { id: 'opms-submitter', name: 'OPMS Submitter' },
-      { id: 'opms-reviewer', name: 'OPMS Reviewer' },
-      { id: 'opms-approver', name: 'OPMS Approver' },
-      { id: 'sdbip23', name: 'Top-Layer Scorecard' }
-    ]
-  },
-  {
-    id: 'idp',
-    name: 'IDP & Strategy',
-    subModules: [
-      { id: 'idp', name: 'Integrated Development Plan' },
-      { id: 'kpa', name: 'Key Performance Areas' },
-      { id: 'kpi', name: 'Key Performance Indicators' },
-      { id: 'so', name: 'Strategic Objectives' }
-    ]
-  },
-  {
-    id: 'audit',
-    name: 'Audit & Compliance',
-    subModules: [
-      { id: 'internal-audit', name: 'Internal Audit Portal' },
-      { id: 'compliance-tracker', name: 'Compliance Tracker' },
-      { id: 'risk-management', name: 'Enterprise Risk Management' }
-    ]
-  },
-  {
-    id: 'governance',
-    name: 'Governance & Council',
-    subModules: [
-      { id: 'cc', name: 'Council Committees' },
-      { id: 'council-members', name: 'Council Members' },
-      { id: 'council-resolutions', name: 'Council Resolutions' },
-      { id: 'mpac', name: 'MPAC Oversight' },
-      { id: 'speakers-suite', name: 'Speaker\'s Suite' },
-      { id: 'office-mayor', name: 'Office of Executive Mayor' },
-      { id: 'office-mm', name: 'Office of the MM' }
-    ]
-  },
-  {
-    id: 'reporting',
-    name: 'Statutory Reports',
-    subModules: [
-      { id: 'apr', name: 'Annual Performance Report (APR)' },
-      { id: 'ar', name: 'Annual Report Suite' },
-      { id: 'reports', name: 'IPMS Quarterly Reports' },
-      { id: 'opms-admin', name: 'OPMS Admin Reports' },
-      { id: 'cover-pages', name: 'Cover Pages Designer' },
-      { id: 'gl', name: 'GraphLab Analytics' }
-    ]
-  },
-  {
-    id: 'tools',
-    name: 'Enterprise Cloud',
-    subModules: [
-      { id: 'sharepoint', name: 'Municipal SharePoint' },
-      { id: 'chat', name: 'Secure Municipal Messenger' },
-      { id: 'calendar-events', name: 'Municipal Calendar' },
-      { id: 'budget-import', name: 'Budget Import Suite' },
-      { id: 'backup-archive', name: 'Backup Archive' },
-      { id: 'change-management', name: 'Change Management' },
-      { id: 'academy', name: 'MzansiFlow Academy' },
-      { id: 'fred-suite', name: 'Fred AI Suite' }
+      { id: 'fred', name: 'Fred', icon: Bot },
+      { id: 'fred-ipp', name: 'Performance Plan Extractor', icon: Cpu },
+      { id: 'fred-gm', name: 'GM Extractor', icon: Sparkles },
+      { id: 'fred-sdbip', name: 'SDBIP Extractor', icon: Landmark },
+      { id: 'ce', name: 'Calendar & Events', icon: Calendar },
+      { id: 'ear', name: 'External Audit Room', icon: Search },
+      { id: 'ia', name: 'Internal Audit', icon: ShieldAlert },
+      { id: 'psa', name: 'Prior System Archive', icon: Database },
+      { id: 'mfa', name: 'Mzansi Flow Academy', icon: GraduationCap },
+      { id: 'slat', name: 'System ledger Audit Trail', icon: List },
     ]
   },
   {
     id: 'admin',
-    name: 'System Admin',
+    name: 'Administrator',
+    icon: Shield,
     subModules: [
-      { id: 'user-management', name: 'User & Directorate Management' },
-      { id: 'system-control', name: 'System Control' },
-      { id: 'batch-restoration', name: 'Batch Restoration' },
-      { id: 'performance-monitor', name: 'Performance Monitor' },
-      { id: 'audit-logs', name: 'Audit Logs' }
+      { id: 'perf', name: 'Performance & Bottlenecks', icon: Activity },
+      { id: 'um', name: 'User Management', icon: Users },
+      { id: 'scp', name: 'System control panel', icon: Settings },
+      { id: 'al', name: 'Audit Logs', icon: FileText },
+      { id: 'tl', name: 'Tickets ledger', icon: Ticket },
+      { id: 'admin-chat', name: 'Global Chat', icon: MessageSquare },
     ]
   }
 ];

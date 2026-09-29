@@ -1,3 +1,375 @@
+import React, { useState, useEffect } from 'react';
+import { User } from '../../types';
+import { 
+  FileText, Shield, Info, BookOpen, Compass, Layers,
+  Plus, Trash2, Save, Send, Download, Lock, CheckSquare, 
+  HelpCircle, Archive, ClipboardList, Briefcase, FileDown,
+  Check, Edit2, Sparkles, CheckCircle2, ShieldCheck, XSquare, Eye, EyeOff,
+  Maximize2, Minimize2, Paperclip, Upload, RefreshCw
+} from 'lucide-react';
+import * as XLSX from 'xlsx';
+import { PADraftingSuite } from './PADraftingSuite';
+import { LeadFireFighterPADraftingSuite } from './LeadFireFighterPADraftingSuite';
+import { DraftingSuiteFirefighters } from './DraftingSuiteFirefighters';
+import { DraftingSuiteTeam } from './DraftingSuiteTeam';
+import { PATemplates } from './PATemplates';
+import { NKANGALA_LOGO_BASE64 } from './nkangala_logo_base64';
+import { PoeDocument } from './Evaluation_IPMS';
+
+
+const DUAL_LAYER_USERS = [
+  'hlezard@nkangaladm.gov.za',
+  'dimpems@nkangaladm.gov.za',
+  'madihlabapk@nkangaladm.gov.za',
+  'mazwitc@nkangaladm.gov.za',
+  'bembem@nkangaladm.gov.za',
+  'masanabol@nkangaladm.gov.za'
+].map(e => e.toLowerCase());
+
+export const hasVariance = (target?: string, actual?: string): boolean => {
+  if (!target || !actual || !target.toString().trim() || !actual.toString().trim()) return false;
+  const cleanNum = (val: string) => {
+    const trimmed = val.trim();
+    const standardFormat = trimmed.replace(/,/g, '').replace(/\s/g, '');
+    const match = standardFormat.match(/-?\d+(\.\d+)?/);
+    if (match) {
+      const parsed = parseFloat(match[0]);
+      return isNaN(parsed) ? null : parsed;
+    }
+    return null;
+  };
+  const tNum = cleanNum(target.toString());
+  const aNum = cleanNum(actual.toString());
+  if (tNum !== null && aNum !== null) {
+    return Math.abs(tNum - aNum) > 0.0001;
+  }
+  const tNorm = target.toString().trim().toLowerCase();
+  const aNorm = actual.toString().trim().toLowerCase();
+  return tNorm !== aNorm;
+};
+
+export const calculateVariance = (target?: string, actual?: string): string => {
+  if (!target || !actual || !target.toString().trim() || !actual.toString().trim()) return '0';
+  const cleanNum = (val: string) => {
+    const standardFormat = val.toString().replace(/,/g, '').replace(/\s/g, '');
+    const match = standardFormat.match(/-?\d+(\.\d+)?/);
+    if (match) {
+      const parsed = parseFloat(match[0]);
+      return isNaN(parsed) ? null : parsed;
+    }
+    return null;
+  };
+  const tNum = cleanNum(target.toString());
+  const aNum = cleanNum(actual.toString());
+  if (tNum !== null && aNum !== null) {
+    const diff = tNum - aNum;
+    if (Math.abs(diff) < 0.0001) return '0';
+    return Number(diff.toFixed(2)).toString();
+  }
+  const tNorm = target.toString().trim().toLowerCase();
+  const aNorm = actual.toString().trim().toLowerCase();
+  if (tNorm === aNorm) return '0';
+  return 'Variance (Target not met)';
+};
+
+interface CompactPoeUploaderProps {
+  label: string;
+  poeDescription?: string;
+  files: PoeDocument[];
+  onUpload: (newDocs: PoeDocument[]) => void;
+  onRemove: (id: string) => void;
+  disabled?: boolean;
+}
+
+export function CompactPoeUploader({
+  label,
+  poeDescription,
+  files,
+  onUpload,
+  onRemove,
+  disabled
+}: CompactPoeUploaderProps) {
+  const fileInputId = `compact_poe_${label.replace(/\s+/g, '_')}_${Math.random().toString(36).substr(2, 9)}`;
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const fileList = e.target.files;
+    const newDocs: PoeDocument[] = [];
+    for (let i = 0; i < fileList.length; i++) {
+      const file = fileList[i];
+      if (file.size > 200 * 1024 * 1024) {
+        alert(`File "${file.name}" exceeds 200MB limit.`);
+        continue;
+      }
+      try {
+        const doc = await new Promise<PoeDocument>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            resolve({
+              id: `poe_doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              name: file.name,
+              mimeType: file.type || 'application/octet-stream',
+              size: file.size,
+              dataUrl: reader.result as string,
+              uploadedAt: new Date().toISOString(),
+              uploadedBy: 'System'
+            });
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        newDocs.push(doc);
+      } catch (err) {
+        console.error("File reading failed:", err);
+      }
+    }
+    if (newDocs.length > 0) {
+      onUpload(newDocs);
+    }
+    e.target.value = '';
+  };
+
+  return (
+    <div className="mt-1.5 pt-1.5 border-t border-slate-200/60 w-full text-left">
+      <div className="flex items-center justify-between gap-1 mb-1">
+        <span className="text-[8px] font-extrabold text-slate-500 uppercase tracking-tight flex items-center gap-1">
+          <Lock className="w-2.5 h-2.5 text-amber-600 shrink-0" />
+          {label} (Locked):
+        </span>
+        {!disabled && (
+          <label htmlFor={fileInputId} className="flex items-center gap-0.5 text-[8px] font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer bg-indigo-50 hover:bg-indigo-100 px-1 py-0.5 rounded transition">
+            <Upload className="w-2 h-2" />
+            <span>Upload</span>
+            <input
+              id={fileInputId}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={handleFileChange}
+            />
+          </label>
+        )}
+      </div>
+
+      {/* Locked Unique POE Description per KPI */}
+      {poeDescription ? (
+        <div className="mb-1.5 p-1 bg-amber-50/70 border border-amber-200/80 rounded text-[8px] text-slate-700 leading-snug">
+          <span className="font-semibold text-slate-800 select-text break-words line-clamp-3 hover:line-clamp-none" title={poeDescription}>
+            {poeDescription}
+          </span>
+        </div>
+      ) : null}
+
+      {files && files.length > 0 ? (
+        <div className="flex flex-col gap-1 max-h-[60px] overflow-y-auto">
+          {files.map((file) => (
+            <div key={file.id} className="flex items-center justify-between gap-1 bg-slate-50 border border-slate-150 rounded px-1 py-0.5 text-[8px]">
+              <a
+                href={file.dataUrl}
+                download={file.name}
+                className="font-medium text-blue-600 hover:underline truncate max-w-[90px] flex items-center gap-0.5"
+                title={file.name}
+              >
+                <Paperclip className="w-2 h-2 shrink-0 text-slate-400" />
+                <span className="truncate">{file.name}</span>
+              </a>
+              {!disabled && (
+                <button
+                  type="button"
+                  onClick={() => onRemove(file.id)}
+                  className="text-red-500 hover:text-red-700 font-bold shrink-0"
+                >
+                  <Trash2 className="w-2 h-2" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <span className="text-[8px] text-slate-400 italic">No POE files</span>
+      )}
+    </div>
+  );
+}
+
+export const DEFAULT_TECHNICAL_SERVICES_ROWS = [
+  ['1', 'Eng. Sipho Mthembu (Chief Engineer / General Manager)', 'TS-0100', 'Team Leader'],
+  ['2', 'Johan Botha (Senior Water Network Superintendent)', 'TS-0205', 'Team Member'],
+  ['3', 'Nolwazi Dube (Water Distribution Supervisor)', 'TS-0312', 'Team Member'],
+  ['4', 'Tebogo Radebe (Pipe Fitting & Valve Specialist)', 'TS-0418', 'Team Member'],
+  ['5', 'Farai Moyo (Wastewater Plant Process Controller)', 'TS-0525', 'Team Member'],
+  ['6', 'Mandla Ndlovu (Water Quality Testing Tech)', 'TS-0630', 'Team Member']
+];
+
+export const DEFAULT_CORPORATE_SERVICES_ROWS = [
+  ['1', 'Audrey Mpanza (Director: Corporate Services)', 'CS-0101', 'Team Leader'],
+  ['2', 'Mike Thompson (Senior HR & Governance Lead)', 'CS-0205', 'Team Member'],
+  ['3', 'Fatima Patel (Legal & Administration Officer)', 'CS-0312', 'Team Member'],
+  ['4', 'Sipho Dlamini (IT & Records Systems Administrator)', 'CS-0418', 'Team Member'],
+  ['5', 'Zama Khumalo (Committee & Secretariat Specialist)', 'CS-0522', 'Team Member'],
+  ['6', 'Thabo Mokoena (Auxiliary Services & Logistics Coordinator)', 'CS-0630', 'Team Member']
+];
+
+export const DEFAULT_PMS_TEAM_ROWS = [
+  ['1', 'Delphine Naidoo (PMS Manager / Performance Lead)', 'PM-0100', 'Team Leader'],
+  ['2', 'Qiniso Sithole (SDBIP & Reporting Specialist)', 'PM-0210', 'Team Member'],
+  ['3', 'Marlan Botha (M&E Data Analyst)', 'PM-0320', 'Team Member'],
+  ['4', 'Nomvula Khumalo (Institutional Performance Officer)', 'PM-0415', 'Team Member'],
+  ['5', 'Brandon Pillay (Quality Assurance & Audit Liaison)', 'PM-0530', 'Team Member']
+];
+
+const STRATEGIC_OBJECTIVES = [
+  "To ensure reliable bulk water and electricity infrastructure",
+  "To promote local agrarian, manufacturing, and tourism hospitality economy",
+  "To achieve unqualified AG audit with zero recurring findings",
+  "To enable deep responsive community consultation across all wards",
+  "To improve professional competency and human capital retention",
+  "To enforce optimal sustainable land use management aligned with SPLUMA",
+  "To implement standard mSCOA compliance and cash-backed budgeting"
+];
+
+const MSCOA_CODES = [
+  "Funding",
+  "Functions",
+  "Municipal Standard Classification/Responsibility",
+  "Project",
+  "Costing",
+  "Regional Indicator",
+  "Item"
+];
+
+interface PerformanceAgreementsProps {
+  currentUser: User;
+  activeTenantId: string;
+  isPlan?: boolean;
+  isTeamPlan?: boolean;
+  isTeamPlan2?: boolean;
+}
+
+interface PlanMetadata {
+  name: string;
+  period: string;
+  department: string;
+  position: string;
+  level: string;
+  email: string;
+  manager: string;
+  reportTo?: string;
+  managerEmail?: string;
+  dateSignedEmployee?: string;
+  dateSignedManager?: string;
+  _isCleared?: boolean;
+  _isFredExtracted?: boolean;
+}
+
+interface PlanKPIItem {
+  id: string;
+  strategicGoal: string;
+  kpiNo: string;
+  kpi: string;
+  bsd: boolean;
+  led: boolean;
+  mfvm: boolean;
+  ggpp: boolean;
+  midt: boolean;
+  sr: boolean;
+  kpa: string;
+  mscoaCode?: string;
+  baseline: string;
+  baselineYear?: string;
+  budget?: string;
+  
+  // annual/quarterly target columns
+  annualTarget?: string;
+  q1Target?: string;
+  q1Actual?: string;
+  q1ActualExpense?: string;
+  q1Comment?: string;
+  q1Score?: string;
+  q1Corrective?: string;
+  q2Target?: string;
+  q2Actual?: string;
+  q2ActualExpense?: string;
+  q2Comment?: string;
+  q2Score?: string;
+  q2Corrective?: string;
+  midtermTarget?: string;
+  midtermActual?: string;
+  midtermActualExpense?: string;
+  midtermComment?: string;
+  midtermScore?: string;
+  midtermCorrective?: string;
+  q3Target?: string;
+  q3Actual?: string;
+  q3ActualExpense?: string;
+  q3Comment?: string;
+  q3Score?: string;
+  q3Corrective?: string;
+  q4Target?: string;
+  q4Actual?: string;
+  q4ActualExpense?: string;
+  q4Comment?: string;
+  q4Score?: string;
+  q4Corrective?: string;
+
+  // Annual Summary Metrics
+  annualActual?: string;
+  annualActualExpense?: string;
+  annualActualExp?: string;
+  annualVariance?: string;
+  annualCorrective?: string;
+
+  // Quarterly POEs
+  q1Poe?: string;
+  q2Poe?: string;
+  midtermPoe?: string;
+  q3Poe?: string;
+  q4Poe?: string;
+  annualRequiredPoe?: string;
+
+  q1PoeDocs?: PoeDocument[];
+  q2PoeDocs?: PoeDocument[];
+  midtermPoeDocs?: PoeDocument[];
+  q3PoeDocs?: PoeDocument[];
+  q4PoeDocs?: PoeDocument[];
+
+  q1Locked?: boolean;
+  q2Locked?: boolean;
+  q3Locked?: boolean;
+  q4Locked?: boolean;
+
+  poe: string;
+  poeDocs?: PoeDocument[];
+  poeFileBase64?: string;
+  poeFileName?: string;
+  weighting: string;
+  myScore: string;
+  
+  evaluation?: string;
+  review?: string;
+}
+
+const safeJson = async (res: Response) => {
+  if (!res || res.bodyUsed) return null;
+  try {
+    const contentType = res.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+      return await res.json();
+    }
+  } catch (e: any) {
+    if (!String(e).includes('consumed')) {
+      console.warn("Error parsing JSON:", e);
+    }
+  }
+  return null;
+};
+
+export const isCellNA = (val: any): boolean => {
+  if (val === null || val === undefined) return false;
+  const s = String(val).trim().toUpperCase();
+  return s === 'N/A' || s === 'NA' || s === 'N / A' || s === 'NOT APPLICABLE' || s.startsWith('N/A') || s.startsWith('NOT APPLICABLE') || s.includes('LOCKED (NOT REPORTABLE)');
+};
+
 export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isTeamPlan, isTeamPlan2 }: PerformanceAgreementsProps) {
   const headingTitle = isTeamPlan2 ? "Team Performance Plan 2" : isTeamPlan ? "Team Performance Plan" : isPlan ? "Performance Plan" : "Performance Agreement";
   const subTitle = isTeamPlan2

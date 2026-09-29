@@ -1,3 +1,283 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  LayoutTemplate, CheckCircle2, Loader2, Save, FileText, 
+  Settings, Image, Sliders, Palette, RefreshCw, Layers, ShieldAlert,
+  Download, Eye, ArrowRight, UserCheck, HelpCircle, Plus, Upload, Trash2,
+  ChevronDown
+} from 'lucide-react';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
+import { cn } from '../Branding';
+import { tenants } from '../../data';
+
+// --- ROBUST UNIFIED RUNTIME OVERRIDES TO PREVENT HTML2CANVAS OKLCH / OKLAB PARSING CRASH ---
+if (typeof window !== 'undefined') {
+  const sanitizeValue = (val: any): any => {
+    if (typeof val !== 'string') return val;
+    if (val.includes('oklch') || val.includes('oklab')) {
+      return val
+        .replace(/oklch\s*\([^)]+\)/gi, 'rgb(100, 116, 139)')
+        .replace(/oklab\s*\([^)]+\)/gi, 'rgb(100, 116, 139)');
+    }
+    return val;
+  };
+
+  try {
+    const originalGetComputedStyle = window.getComputedStyle;
+    window.getComputedStyle = function(elt, pseudoElt) {
+      const style = originalGetComputedStyle.call(window, elt, pseudoElt);
+      if (!style) return style;
+
+      return new Proxy(style, {
+        get(target, prop) {
+          if (prop === 'getPropertyValue') {
+            return function(propertyName: string) {
+              const originalValue = target.getPropertyValue(propertyName);
+              return sanitizeValue(originalValue);
+            };
+          }
+          const val = Reflect.get(target, prop);
+          if (typeof val === 'string') {
+            return sanitizeValue(val);
+          }
+          if (typeof val === 'function') {
+            return val.bind(target);
+          }
+          return val;
+        }
+      });
+    };
+  } catch (e) {
+    console.warn('Failed override of global window.getComputedStyle:', e);
+  }
+
+  try {
+    if (window.CSSStyleDeclaration) {
+      const originalGetPropertyValue = window.CSSStyleDeclaration.prototype.getPropertyValue;
+      window.CSSStyleDeclaration.prototype.getPropertyValue = function(this: CSSStyleDeclaration, property: string) {
+        const val = originalGetPropertyValue.call(this, property);
+        return sanitizeValue(val);
+      };
+    }
+  } catch (e) {
+    console.warn('Failed override of CSSStyleDeclaration.prototype.getPropertyValue:', e);
+  }
+}
+
+interface CoverPagesProps {
+  currentUser: any;
+  activeTenantId: string;
+}
+
+const DEFAULT_BG = '/api/proxy-image?url=' + encodeURIComponent('https://images.unsplash.com/photo-1580618672501-eb180b1a973f?w=1920&auto=format&fit=crop&q=80');
+const DEFAULT_BACK_BG = '/api/proxy-image?url=' + encodeURIComponent('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1920&auto=format&fit=crop&q=80');
+
+const onCloneHtml2Canvas = (clonedDoc: Document) => {
+  try {
+    // 1. Inject authoritative Google Fonts link inside the cloned document head
+    const googleLink = clonedDoc.createElement('link');
+    googleLink.rel = 'stylesheet';
+    googleLink.crossOrigin = 'anonymous';
+    googleLink.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700;800;900&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Cinzel:wght@405..900&family=Montserrat:wght@400..900&family=Outfit:wght@400..900&display=swap';
+    clonedDoc.head.appendChild(googleLink);
+
+    // 2. Lock capture canvases strictly to high-resolution standard A4 paper dimensions (794px x 1123px)
+    const frontEl = clonedDoc.getElementById('front-page-capture');
+    const backEl = clonedDoc.getElementById('back-page-capture');
+    
+    [frontEl, backEl].forEach((el) => {
+      if (el) {
+        (el as HTMLElement).style.width = '794px';
+        (el as HTMLElement).style.height = '1123px';
+        (el as HTMLElement).style.minWidth = '794px';
+        (el as HTMLElement).style.minHeight = '1123px';
+        (el as HTMLElement).style.maxWidth = '794px';
+        (el as HTMLElement).style.maxHeight = '1123px';
+        (el as HTMLElement).style.boxSizing = 'border-box';
+        (el as HTMLElement).style.borderRadius = '0px';
+        (el as HTMLElement).style.margin = '0px';
+        if (el.id === 'back-page-capture') {
+          (el as HTMLElement).style.padding = '48px';
+          (el as HTMLElement).style.display = 'flex';
+          (el as HTMLElement).style.flexDirection = 'column';
+        } else {
+          (el as HTMLElement).style.padding = '0px';
+        }
+        (el as HTMLElement).style.position = 'relative';
+        (el as HTMLElement).style.overflow = 'hidden';
+        (el as HTMLElement).style.transform = 'none';
+      }
+    });
+
+    // 3. Disable all CSS transitions and animations during capture to prevent half-finished frames
+    const disableAnimStyle = clonedDoc.createElement('style');
+    disableAnimStyle.textContent = `
+      * {
+        transition: none !important;
+        transition-duration: 0s !important;
+        transition-delay: 0s !important;
+        animation: none !important;
+        animation-duration: 0s !important;
+        animation-delay: 0s !important;
+      }
+    `;
+    clonedDoc.head.appendChild(disableAnimStyle);
+
+    // 1. Sanitize textContent of style tags directly
+    const styleTags = clonedDoc.getElementsByTagName('style');
+    for (let i = 0; i < styleTags.length; i++) {
+      const tag = styleTags[i];
+      if (tag.textContent) {
+        tag.textContent = tag.textContent
+          .replace(/oklch\s*\([^)]+\)/gi, 'rgb(100, 116, 139)')
+          .replace(/oklab\s*\([^)]+\)/gi, 'rgb(100, 116, 139)');
+      }
+    }
+
+    // 2. Sanitize inline styles of elements and enhance backdrop-blur readability
+    const allElements = clonedDoc.getElementsByTagName('*');
+    for (let i = 0; i < allElements.length; i++) {
+      const el = allElements[i] as HTMLElement;
+      
+      // Sanitizing oklch/oklab
+      if (el.style) {
+        const inlineStyle = el.getAttribute('style');
+        if (inlineStyle && (inlineStyle.includes('oklch') || inlineStyle.includes('oklab'))) {
+          const cleanStyle = inlineStyle
+            .replace(/oklch\s*\([^)]+\)/gi, 'rgb(100, 116, 139)')
+            .replace(/oklab\s*\([^)]+\)/gi, 'rgb(100, 116, 139)');
+          el.setAttribute('style', cleanStyle);
+        }
+      }
+
+      // Handle backdrop-blur fallback for html2canvas
+      if (el.className && typeof el.className === 'string') {
+        const cls = el.className;
+        if (cls.includes('backdrop-blur') || cls.includes('backdrop-filter')) {
+          if (cls.includes('bg-white/5')) {
+            el.style.backgroundColor = 'rgba(255, 255, 255, 0.65)';
+          } else if (cls.includes('bg-white/10') || cls.includes('bg-white/15')) {
+            el.style.backgroundColor = 'rgba(255, 255, 255, 0.75)';
+          } else if (cls.includes('bg-white/20')) {
+            el.style.backgroundColor = 'rgba(255, 255, 255, 0.80)';
+          } else if (cls.includes('bg-white/80') || cls.includes('bg-white/95')) {
+            el.style.backgroundColor = 'rgba(255, 255, 255, 0.96)';
+          } else if (cls.includes('bg-black/35')) {
+            el.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+          } else if (cls.includes('bg-white/')) {
+            el.style.backgroundColor = 'rgba(255, 255, 255, 0.85)';
+          }
+        }
+      }
+    }
+
+    // 3. Robustly scrub all rules in all accessible cloned stylesheets
+    for (let i = 0; i < clonedDoc.styleSheets.length; i++) {
+      const sheet = clonedDoc.styleSheets[i] as CSSStyleSheet;
+      try {
+        const rules = sheet.cssRules || sheet.rules;
+        if (!rules) continue;
+        for (let j = rules.length - 1; j >= 0; j--) {
+          const rule = rules[j];
+          if (rule.cssText && (rule.cssText.includes('oklch') || rule.cssText.includes('oklab'))) {
+            try {
+              const replacedText = rule.cssText
+                .replace(/oklch\s*\([^)]+\)/gi, 'rgb(100, 116, 139)')
+                .replace(/oklab\s*\([^)]+\)/gi, 'rgb(100, 116, 139)');
+              sheet.deleteRule(j);
+              sheet.insertRule(replacedText, j);
+            } catch (ruleErr) {
+              try {
+                sheet.deleteRule(j);
+              } catch (delErr) {}
+            }
+          }
+        }
+      } catch (sheetErr) {}
+    }
+  } catch (err) {
+    console.warn('Error sanitizing oklch/oklab in html2canvas clone:', err);
+  }
+
+  // 4. Wrap getComputedStyle on the cloned view window to sanitize any computed color values
+  try {
+    const win = clonedDoc.defaultView;
+    if (win) {
+      const originalGetComputedStyle = win.getComputedStyle;
+      
+      const sanitizeValue = (val: string): string => {
+        if (!val) return val;
+        return val
+          .replace(/oklch\s*\([^)]+\)/gi, 'rgb(100, 116, 139)')
+          .replace(/oklab\s*\([^)]+\)/gi, 'rgb(100, 116, 139)');
+      };
+
+      win.getComputedStyle = function(elt, pseudoElt) {
+        const style = originalGetComputedStyle.call(win, elt, pseudoElt);
+        if (!style) return style;
+
+        return new Proxy(style, {
+          get(target, prop) {
+            if (prop === 'getPropertyValue') {
+              return function(propertyName: string) {
+                const originalValue = target.getPropertyValue(propertyName);
+                return sanitizeValue(originalValue);
+              };
+            }
+            const val = Reflect.get(target, prop);
+            if (typeof val === 'string') {
+              return sanitizeValue(val);
+            }
+            if (typeof val === 'function') {
+              return val.bind(target);
+            }
+            return val;
+          }
+        });
+      };
+    }
+  } catch (err) {
+    console.warn('Error overriding getComputedStyle in html2canvas clone:', err);
+  }
+};
+
+const renderPatternCSS = (pattern: string, scale: number = 16) => {
+  switch (pattern) {
+    case 'dots':
+      return {
+        backgroundImage: `radial-gradient(rgba(0, 0, 0, 0.12) ${Math.max(1, scale * 0.09)}px, transparent ${Math.max(1, scale * 0.09)}px)`,
+        backgroundSize: `${scale}px ${scale}px`,
+      };
+    case 'grid':
+      return {
+        backgroundImage: 'linear-gradient(rgba(0, 0, 0, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 0, 0, 0.05) 1px, transparent 1px)',
+        backgroundSize: `${scale}px ${scale}px`,
+      };
+    case 'stripes':
+      return {
+        backgroundImage: `repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.04) 0px, rgba(0, 0, 0, 0.04) 2px, transparent 2px, transparent ${scale}px)`,
+      };
+    case 'double-border':
+      return {
+        outline: '2.5px dashed rgba(0,0,0,0.12)',
+        outlineOffset: `-${scale}px`,
+      };
+    case 'luxury-frame':
+      return {
+        border: '4px double rgba(0,0,0,0.08)',
+        position: 'absolute',
+        top: `${scale}px`,
+        left: `${scale}px`,
+        right: `${scale}px`,
+        bottom: `${scale}px`,
+        borderRadius: '12px',
+        pointerEvents: 'none',
+      } as React.CSSProperties;
+    default:
+      return {};
+  }
+};
+
 export function CoverPages({ currentUser, activeTenantId }: CoverPagesProps) {
   const [isFrontPage, setIsFrontPage] = useState<boolean>(true);
   
@@ -2619,12 +2899,13 @@ export function CoverPages({ currentUser, activeTenantId }: CoverPagesProps) {
                  </div>
                  <div className="text-right">
                    <p style={{ color: backSystemGeneratedColor, fontSize: `${backSystemGeneratedFontSize}px` }} className="font-bold tracking-wide">{backSystemGenerated}</p>
+                 </div>
+              </div>
+           </div>
 
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
+        </div>
+      </div>
+
+    </div>
   );
 }

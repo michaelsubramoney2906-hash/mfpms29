@@ -5658,3 +5658,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
           </div>
         </div>
       )}
+
+    </div>
+  );
+}

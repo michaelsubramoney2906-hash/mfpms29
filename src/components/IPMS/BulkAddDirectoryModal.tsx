@@ -302,3 +302,7 @@ export const BulkAddDirectoryModal: React.FC<BulkAddDirectoryModalProps> = ({
             </div>
           </form>
         )}
+      </div>
+    </div>
+  );
+};

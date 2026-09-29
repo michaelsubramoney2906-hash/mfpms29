@@ -2048,3 +2048,10 @@ export function LeadFireFighterPADraftingSuite({ currentUser, activeTenantId }: 
                 {ff.fullName?.split(' ')[0] || ff.email?.split('@')[0]}: ________
               </div>
             ))}
+            <div className="whitespace-nowrap font-bold">Page <span className="counter"></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

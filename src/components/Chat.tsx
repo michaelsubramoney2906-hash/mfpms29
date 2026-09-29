@@ -1026,13 +1026,14 @@ export function Chat({ currentUser, activeTenantId }: ChatProps) {
                      className="w-full py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-[10px] font-extrabold uppercase tracking-wider transition-all flex items-center justify-center gap-1 disabled:opacity-50 shadow-sm mt-2"
                    >
                      {isUpdating ? "Saving status..." : updateSuccess ? "Status Saved ✓" : "Commit Status"}
+                   </button>
+                </div>
+             </div>
+          </div>
+        </div>
 
-                    </button>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
+      </div>
+
+    </div>
   );
 }
