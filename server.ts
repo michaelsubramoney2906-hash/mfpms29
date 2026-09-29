@@ -6579,10 +6579,156 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
     }
   });
 
+  // Helper to synchronize User Management profile changes directly into IPMS performance plans and profile caches
+  async function syncUserProfileToIpms(user: {
+    id?: string;
+    email: string;
+    fullName?: string;
+    jobFunction?: string;
+    department?: string;
+    directorate?: string;
+    manager?: string;
+    reportTo?: string;
+    level?: string;
+    signatureData?: string;
+    managerEmail?: string;
+  }) {
+    try {
+      const supabase = getSupabase();
+      if (!supabase) return;
+      const userEmail = (user.email || '').toLowerCase().trim();
+      if (!userEmail) return;
+
+      let resolvedManagerEmail = (user.managerEmail || '').toLowerCase().trim();
+      const managerName = (user.manager || user.reportTo || '').toLowerCase().trim();
+      if (!resolvedManagerEmail && managerName) {
+        if (managerName.includes('nkosi') || managerName.includes('elmon')) {
+          resolvedManagerEmail = 'nkosije@nkangaladm.gov.za';
+        } else if (managerName.includes('khuboni') || managerName.includes('yena')) {
+          resolvedManagerEmail = 'khuboniy@nkangaladm.gov.za';
+        } else if (managerName.includes('shabangu')) {
+          resolvedManagerEmail = 'shabangusm@nkangaladm.gov.za';
+        } else if (managerName.includes('ndabezitha')) {
+          resolvedManagerEmail = 'ndabezithake@nkangaladm.gov.za';
+        } else if (managerName.includes('mahlanguml') || managerName.includes('mandla')) {
+          resolvedManagerEmail = 'mahlanguml@nkangaladm.gov.za';
+        }
+      }
+
+      // 1. Sync PPLAN messages for user
+      const pplanKeys = [
+        `pplan_nkangala_auto_${userEmail}`,
+        `pplan_tenant-229_${userEmail}`,
+        `pplan_nkangala_${userEmail}`,
+        `pplan_global_${userEmail}`
+      ];
+
+      for (const key of pplanKeys) {
+        const { data: pplanMsg } = await supabase
+          .from('messages')
+          .select('content, tenant_id')
+          .eq('id', key)
+          .maybeSingle();
+
+        if (pplanMsg && pplanMsg.content) {
+          try {
+            const parsed = JSON.parse(pplanMsg.content);
+            if (parsed) {
+              if (!parsed.metadata) parsed.metadata = {};
+              if (user.fullName) parsed.metadata.name = user.fullName;
+              if (user.email) parsed.metadata.email = user.email;
+              if (user.jobFunction) {
+                parsed.metadata.position = user.jobFunction;
+                parsed.metadata.jobTitle = user.jobFunction;
+              }
+              if (user.department) parsed.metadata.department = user.department;
+              if (user.directorate) parsed.metadata.directorate = user.directorate;
+              if (user.manager) parsed.metadata.manager = user.manager;
+              if (user.reportTo || user.manager) parsed.metadata.reportTo = user.reportTo || user.manager;
+              if (resolvedManagerEmail) parsed.metadata.managerEmail = resolvedManagerEmail;
+              if (user.level) parsed.metadata.level = user.level;
+
+              await supabase.from('messages').upsert({
+                id: key,
+                tenant_id: pplanMsg.tenant_id || 'nkangala_auto',
+                sender_id: 'pplan_profile_sync',
+                sender_email: userEmail,
+                sender_name: user.fullName || userEmail,
+                content: JSON.stringify(parsed),
+                message_type: 'pplan_list',
+                created_at: new Date().toISOString()
+              });
+            }
+          } catch (err) {}
+        }
+      }
+
+      // 2. Sync PA templates and drafting suite documents
+      const paKeys = [
+        `pa_templates_tenant-229_${userEmail}`,
+        `pa_templates_nkangala_auto_${userEmail}`,
+        `pa_templates_global_${userEmail}`,
+        `draft_doc_tenant-229_${userEmail}`,
+        `draft_doc_nkangala_auto_${userEmail}`,
+        `draft_doc_global_${userEmail}`
+      ];
+
+      for (const key of paKeys) {
+        const { data: paMsg } = await supabase
+          .from('messages')
+          .select('content, tenant_id, message_type')
+          .eq('id', key)
+          .maybeSingle();
+
+        if (paMsg && paMsg.content) {
+          try {
+            const parsed = JSON.parse(paMsg.content);
+            if (parsed) {
+              if (user.fullName) {
+                parsed.employeeName = user.fullName;
+                parsed.employeeFullName = user.fullName;
+              }
+              if (user.jobFunction) {
+                parsed.employeePosition = user.jobFunction;
+              }
+              if (user.signatureData) {
+                parsed.employeeSignature = user.signatureData;
+              }
+              if (user.manager) {
+                parsed.supervisorName = user.manager;
+                parsed.manager = user.manager;
+              }
+              if (user.reportTo || user.manager) {
+                parsed.reportTo = user.reportTo || user.manager;
+              }
+              if (resolvedManagerEmail) {
+                parsed.supervisorEmail = resolvedManagerEmail;
+                parsed.managerEmail = resolvedManagerEmail;
+              }
+
+              await supabase.from('messages').upsert({
+                id: key,
+                tenant_id: paMsg.tenant_id || 'tenant-229',
+                sender_id: 'pa_profile_sync',
+                sender_email: userEmail,
+                sender_name: user.fullName || userEmail,
+                content: JSON.stringify(parsed),
+                message_type: paMsg.message_type || 'pa_templates',
+                created_at: new Date().toISOString()
+              });
+            }
+          } catch (err) {}
+        }
+      }
+    } catch (syncErr) {
+      console.error("[syncUserProfileToIpms] Error syncing user profile to IPMS:", syncErr);
+    }
+  }
+
   // 4b. Update user (edit API)
   app.put("/api/tenant/:tenantId/users/:userId", async (req, res) => {
     const { tenantId, userId } = req.params;
-    const { fullName, email, jobFunction, department, manager, systemRole, signatureType, signatureData } = req.body;
+    const { fullName, email, jobFunction, department, manager, systemRole, signatureType, signatureData, directorate, reportTo, level, managerEmail } = req.body;
 
     try {
       const supabase = getSupabase();
@@ -6605,7 +6751,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       }
 
       // 2. Save direct manager / level / directorate / digital signature to extra definitions in the messages table
-      if (manager !== undefined || req.body.level !== undefined || req.body.directorate !== undefined || signatureType !== undefined || signatureData !== undefined) {
+      if (manager !== undefined || level !== undefined || directorate !== undefined || signatureType !== undefined || signatureData !== undefined || reportTo !== undefined || managerEmail !== undefined) {
         let extraMap: Record<string, any> = {};
         try {
           const { data: currentMsg } = await supabase
@@ -6623,11 +6769,24 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
           extraMap[userId] = {};
         }
         if (manager !== undefined) extraMap[userId].manager = manager;
-        if (req.body.directorate !== undefined) extraMap[userId].directorate = req.body.directorate;
-        if (req.body.reportTo !== undefined) extraMap[userId].reportTo = req.body.reportTo;
-        if (req.body.level !== undefined) extraMap[userId].level = req.body.level;
+        if (directorate !== undefined) extraMap[userId].directorate = directorate;
+        if (reportTo !== undefined) extraMap[userId].reportTo = reportTo;
+        if (level !== undefined) extraMap[userId].level = level;
         if (signatureType !== undefined) extraMap[userId].signatureType = signatureType;
         if (signatureData !== undefined) extraMap[userId].signatureData = signatureData;
+        if (managerEmail !== undefined) extraMap[userId].managerEmail = managerEmail;
+
+        if (email) {
+          const eKey = email.toLowerCase().trim();
+          if (!extraMap[eKey]) extraMap[eKey] = {};
+          if (manager !== undefined) extraMap[eKey].manager = manager;
+          if (directorate !== undefined) extraMap[eKey].directorate = directorate;
+          if (reportTo !== undefined) extraMap[eKey].reportTo = reportTo;
+          if (level !== undefined) extraMap[eKey].level = level;
+          if (signatureType !== undefined) extraMap[eKey].signatureType = signatureType;
+          if (signatureData !== undefined) extraMap[eKey].signatureData = signatureData;
+          if (managerEmail !== undefined) extraMap[eKey].managerEmail = managerEmail;
+        }
 
         const { error: upsertError } = await supabase
           .from('messages')
@@ -6645,7 +6804,23 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
         if (upsertError) throw upsertError;
       }
 
-      // 3. Re-fetch all users to sync updated status to local files
+      // 3. Automatically synchronize updated profile details into IPMS performance plans and templates
+      const targetUserEmail = email || '';
+      await syncUserProfileToIpms({
+        id: userId,
+        email: targetUserEmail,
+        fullName,
+        jobFunction,
+        department,
+        directorate,
+        manager,
+        reportTo: reportTo || manager,
+        level,
+        signatureData,
+        managerEmail
+      });
+
+      // 4. Re-fetch all users to sync updated status to local files
       const { data: fetchedUsers } = await supabase.from('users').select('*');
       if (fetchedUsers) {
         let extraMap: Record<string, any> = {};
@@ -6670,12 +6845,13 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
           source: u.source,
           role: u.role,
           tenantId: u.tenant_id,
-          manager: extraMap[u.id]?.manager || '',
-          directorate: extraMap[u.id]?.directorate || '',
-          reportTo: extraMap[u.id]?.reportTo || '',
-          level: extraMap[u.id]?.level || '1',
-          signatureType: extraMap[u.id]?.signatureType || 'draw',
-          signatureData: extraMap[u.id]?.signatureData || ''
+          manager: extraMap[u.id]?.manager || extraMap[u.email?.toLowerCase().trim()]?.manager || '',
+          directorate: extraMap[u.id]?.directorate || extraMap[u.email?.toLowerCase().trim()]?.directorate || '',
+          reportTo: extraMap[u.id]?.reportTo || extraMap[u.email?.toLowerCase().trim()]?.reportTo || '',
+          level: extraMap[u.id]?.level || extraMap[u.email?.toLowerCase().trim()]?.level || '1',
+          signatureType: extraMap[u.id]?.signatureType || extraMap[u.email?.toLowerCase().trim()]?.signatureType || 'draw',
+          signatureData: extraMap[u.id]?.signatureData || extraMap[u.email?.toLowerCase().trim()]?.signatureData || '',
+          managerEmail: extraMap[u.id]?.managerEmail || extraMap[u.email?.toLowerCase().trim()]?.managerEmail || ''
         }));
         saveNkangalaToDisk(formatted);
         
@@ -11397,6 +11573,37 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       }
 
       if (parsed) {
+        // Automatically sync live profile details from User Management directory into metadata
+        try {
+          const consolidated = await getConsolidatedUsersList(tenantId);
+          const uProfile = consolidated.find((u: any) => (u.email || '').toLowerCase().trim() === userId.toLowerCase().trim());
+          if (uProfile) {
+            if (!parsed.metadata) parsed.metadata = {};
+            if (uProfile.fullName && (!parsed.metadata.name || parsed.metadata.name.includes('Cllr') || parsed.metadata.name.includes('Placeholder'))) {
+              parsed.metadata.name = uProfile.fullName;
+            }
+            if (uProfile.jobFunction && (!parsed.metadata.position || parsed.metadata.position.includes('Placeholder'))) {
+              parsed.metadata.position = uProfile.jobFunction;
+              parsed.metadata.jobTitle = uProfile.jobFunction;
+            }
+            if (uProfile.department && !parsed.metadata.department) {
+              parsed.metadata.department = uProfile.department;
+            }
+            if (uProfile.directorate && !parsed.metadata.directorate) {
+              parsed.metadata.directorate = uProfile.directorate;
+            }
+            if (uProfile.manager) {
+              parsed.metadata.manager = uProfile.manager;
+            }
+            if (uProfile.reportTo || uProfile.manager) {
+              parsed.metadata.reportTo = uProfile.reportTo || uProfile.manager;
+            }
+            if (uProfile.managerEmail) {
+              parsed.metadata.managerEmail = uProfile.managerEmail;
+            }
+          }
+        } catch (profErr) {}
+
         const rawItems = Array.isArray(parsed) ? parsed : (parsed.items || parsed.rows || parsed.kpis || []);
         const sanitizedItems = rawItems.map((it: any) => sanitizePplanItem(it, userId));
         parsed.items = sanitizedItems;
