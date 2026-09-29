@@ -1,21 +1,22 @@
-import { LucideIcon } from 'lucide-react';
-
 export interface SubModule {
   id: string;
   name: string;
-  icon: LucideIcon;
+  icon?: any;
+  component?: any;
 }
 
 export interface Module {
   id: string;
   name: string;
-  icon: LucideIcon;
-  subModules: SubModule[];
+  icon?: any;
+  subModules?: SubModule[];
 }
 
 export interface Tenant {
   id: string;
   name: string;
+  code?: string;
+  domain?: string;
 }
 
 export interface User {
@@ -77,6 +78,3 @@ export interface UserAuditSummary {
   totalActions: number;
   modulesAccessed: { id: string; name: string; count: number }[];
   subModulesAccessed: { id: string; name: string; count: number }[];
-  timeline: AuditLogEntry[];
-}
-

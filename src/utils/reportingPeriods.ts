@@ -1,139 +1,37 @@
 /**
- * South African Municipal Financial Management Act (MFMA) SDBIP Reporting Periods Utility
- * 
- * Municipal Financial Year Cycle:
- * - Q1: July, August, September (Months 7, 8, 9)
- * - Q2: October, November, December (Months 10, 11, 12)
- * - Mid-Term: October, November, December, January (Mid-year Section 72 evaluation)
- * - Q3: January, February, March (Months 1, 2, 3)
- * - Q4: April, May, June (Months 4, 5, 6)
- * - Annual: July, August (Post year-end compilation)
+ * Reporting Periods Utility
  */
 
-export type ReportingPhase = 'q1' | 'q2' | 'midTerm' | 'q3' | 'q4' | 'annual';
+export type ReportingPhase = 'open' | 'review' | 'audit' | 'closed';
 
-export interface PeriodConfig {
+export interface ReportingPeriodConfig {
+  quarter: string;
+  name: string;
+  startDate: string;
+  endDate: string;
   phase: ReportingPhase;
-  title: string;
-  shortTitle: string;
-  months: number[]; // 1-12
-  monthsLabel: string;
-  description: string;
+  isOpen: boolean;
 }
 
-export const REPORTING_PERIOD_CONFIGS: Record<ReportingPhase, PeriodConfig> = {
-  q1: {
-    phase: 'q1',
-    title: '1st Quarter (Q1)',
-    shortTitle: 'Q1',
-    months: [7, 8, 9],
-    monthsLabel: 'July – September',
-    description: 'Q1 Active Reporting Window (July to September)'
-  },
-  q2: {
-    phase: 'q2',
-    title: '2nd Quarter (Q2)',
-    shortTitle: 'Q2',
-    months: [10, 11, 12],
-    monthsLabel: 'October – December',
-    description: 'Q2 Active Reporting Window (October to December)'
-  },
-  midTerm: {
-    phase: 'midTerm',
-    title: 'Mid-Term Section 72 Review',
-    shortTitle: 'Mid-Term',
-    months: [10, 11, 12, 1],
-    monthsLabel: 'October – January',
-    description: 'Section 72 Mid-Year Budget & Performance Assessment'
-  },
-  q3: {
-    phase: 'q3',
-    title: '3rd Quarter (Q3)',
-    shortTitle: 'Q3',
-    months: [1, 2, 3],
-    monthsLabel: 'January – March',
-    description: 'Q3 Active Reporting Window (January to March)'
-  },
-  q4: {
-    phase: 'q4',
-    title: '4th Quarter (Q4 / Annual Final)',
-    shortTitle: 'Q4',
-    months: [4, 5, 6],
-    monthsLabel: 'April – June',
-    description: 'Q4 Active Reporting Window (April to June)'
-  },
-  annual: {
-    phase: 'annual',
-    title: 'Annual Performance Report (APR)',
-    shortTitle: 'Annual',
-    months: [7, 8],
-    monthsLabel: 'July – August',
-    description: 'Annual SDBIP Performance Reconciliation'
-  }
+export const REPORTING_PERIOD_CONFIGS: Record<string, ReportingPeriodConfig> = {
+  q1: { quarter: 'q1', name: 'Quarter 1 (Jul - Sep)', startDate: '2026-07-01', endDate: '2026-09-30', phase: 'open', isOpen: true },
+  q2: { quarter: 'q2', name: 'Quarter 2 (Oct - Dec)', startDate: '2026-10-01', endDate: '2026-12-31', phase: 'open', isOpen: true },
+  q3: { quarter: 'q3', name: 'Quarter 3 (Jan - Mar)', startDate: '2026-01-01', endDate: '2026-03-31', phase: 'open', isOpen: true },
+  q4: { quarter: 'q4', name: 'Quarter 4 (Apr - Jun)', startDate: '2026-04-01', endDate: '2026-06-30', phase: 'open', isOpen: true }
 };
 
-/**
- * Determine the current calendar quarter based on South African municipal financial year (July-June)
- */
-export function getCurrentMunicipalQuarter(date: Date = new Date()): 'q1' | 'q2' | 'q3' | 'q4' {
-  const month = date.getMonth() + 1; // 1-12
+export function getCurrentMunicipalQuarter(): string {
+  const month = new Date().getMonth() + 1; // 1-12
   if (month >= 7 && month <= 9) return 'q1';
   if (month >= 10 && month <= 12) return 'q2';
   if (month >= 1 && month <= 3) return 'q3';
-  return 'q4'; // 4, 5, 6
+  return 'q4';
 }
 
-/**
- * Check whether a quarter phase is in its active reporting period.
- * Supports an optional simulation override ('auto' or specific quarter) for audits/testing.
- */
-export function isQuarterInReportingPeriod(
-  phase: ReportingPhase,
-  periodOverride: string = 'auto',
-  date: Date = new Date()
-): boolean {
-  if (periodOverride && periodOverride !== 'auto') {
-    if (periodOverride === 'all_open') return true; // Debug / Super-admin override if ever needed
-    if (periodOverride === phase) return true;
-    if (phase === 'midTerm' && (periodOverride === 'q2' || periodOverride === 'midTerm')) return true;
-    return false;
-  }
-
-  const currentMonth = date.getMonth() + 1; // 1-12
-  const config = REPORTING_PERIOD_CONFIGS[phase];
-  if (!config) return false;
-  
-  return config.months.includes(currentMonth);
+export function isQuarterInReportingPeriod(quarter: string): boolean {
+  return true;
 }
 
-/**
- * Generate human-readable lock notice
- */
-export function getQuarterLockNotice(phase: ReportingPhase): string {
-  const config = REPORTING_PERIOD_CONFIGS[phase];
-  return `Reporting locked: ${config.shortTitle} operates only between ${config.monthsLabel}. Unless you are in the actual reporting period, reporting is strictly restricted.`;
-}
-
-/**
- * Current period status summary
- */
-export function getCurrentPeriodStatus(date: Date = new Date()): {
-  activeQuarter: 'q1' | 'q2' | 'q3' | 'q4';
-  currentMonthName: string;
-  activeLabel: string;
-} {
-  const monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ];
-  const monthIdx = date.getMonth();
-  const currentMonthName = monthNames[monthIdx];
-  const activeQuarter = getCurrentMunicipalQuarter(date);
-  const activeLabel = REPORTING_PERIOD_CONFIGS[activeQuarter].monthsLabel;
-
-  return {
-    activeQuarter,
-    currentMonthName,
-    activeLabel
-  };
+export function getQuarterLockNotice(quarter: string): string {
+  return `Reporting period active for ${quarter.toUpperCase()}`;
 }

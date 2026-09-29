@@ -1133,4 +1133,3 @@ export const AuditLogs: React.FC<AuditLogsProps> = ({ currentUser, activeTenantI
     </div>
   );
 };
-

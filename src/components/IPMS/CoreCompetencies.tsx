@@ -1086,12 +1086,8 @@ export function CoreCompetencies({ currentUser, activeTenantId }: CoreCompetenci
                   
                   {corpRows.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="p-8 text-center bg-slate-50 border-b-2 border-dashed border-slate-300">
-                        <div className="flex flex-col items-center justify-center text-slate-400">
-                          <AlertTriangle className="w-8 h-8 mb-2 text-slate-300" />
-                          <p className="text-sm font-bold text-slate-500">No Corporate Services Competencies Configured</p>
-                          <p className="text-xs mt-1 max-w-sm">Use the Fred Extraction Agent to import from a performance agreement, or add manually.</p>
-                        </div>
+                      <td colSpan={5} className="py-8 text-center text-slate-400 italic text-xs">
+                        No competencies found. Click "Add Custom Competency" above.
                       </td>
                     </tr>
                   )}
@@ -1099,44 +1095,8 @@ export function CoreCompetencies({ currentUser, activeTenantId }: CoreCompetenci
               </table>
             </div>
           )}
-
-          {activeTab === 'corp' && corpRows.length > 0 && (
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Corporate Weight:</span>
-                <span className={`text-lg font-black ${totalCorpWeight === 100 ? 'text-emerald-600' : 'text-red-500'}`}>
-                  {totalCorpWeight}%
-                </span>
-                {totalCorpWeight !== 100 && (
-                  <span className="text-[10px] text-red-500 font-bold ml-2 bg-red-50 px-2 py-0.5 rounded-full border border-red-100">
-                    Must equal 100%
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'ped' && pedRows.length > 0 && (
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Status verification:</span>
-                {totalPedWeight === 100 ? (
-                  <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 text-[10.5px] font-black px-2.5 py-0.5 rounded-full">
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> Weights sum is exactly 100%
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-800 text-[10.5px] font-black px-2.5 py-0.5 rounded-full animate-pulse">
-                    <AlertTriangle className="w-3.5 h-3.5 text-amber-600" /> Weights total must equal 100% (Current: {totalPedWeight}%)
-                  </span>
-                )}
-              </div>
-              <div className="text-sm font-black text-slate-800">
-                Total Weighting: <span className={totalPedWeight === 100 ? "text-emerald-600 text-base" : "text-amber-600 text-base"}>{totalPedWeight}%</span>
-              </div>
-            </div>
-          )}
         </div>
-        )}
+      )}
       </div>
     </div>
   );

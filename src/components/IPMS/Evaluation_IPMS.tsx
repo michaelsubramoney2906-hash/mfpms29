@@ -613,6 +613,12 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
 
         if (item.id === kpiId && submitForReview) {
           updatedItem.reviewStatus = 'Submitted for Approval';
+          updatedItem.pushedToManager = true;
+          updatedItem.pushedToManagerAt = new Date().toISOString();
+        } else if (submitForReview) {
+          if (updatedItem.reviewStatus !== 'Submitted for Approval' && updatedItem.reviewStatus !== 'Approved') {
+            updatedItem.pushedToManager = false;
+          }
         }
         return updatedItem;
       });
@@ -780,9 +786,16 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
           return {
             ...item,
             reviewStatus: submitForReview ? 'Submitted for Approval' : (item.reviewStatus || 'Draft'),
+            pushedToManager: submitForReview ? true : item.pushedToManager,
+            pushedToManagerAt: submitForReview ? new Date().toISOString() : item.pushedToManagerAt,
             poe: aggregatePoe || item.poe,
             poeFileBase64: firstDoc ? firstDoc.dataUrl : item.poeFileBase64,
             poeFileName: firstDoc ? firstDoc.name : item.poeFileName
+          };
+        } else if (submitForReview) {
+          return {
+            ...item,
+            pushedToManager: item.pushedToManager && item.reviewStatus === 'Submitted for Approval' ? true : false
           };
         }
         return item;

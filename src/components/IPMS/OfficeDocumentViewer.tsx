@@ -1423,10 +1423,3 @@ function PowerPointPresentationViewer({ kpiName, quarter, fileName, uploader, re
         </div>
 
         {/* Slide Controls Footer */}
-        <span className="text-[8.5px] text-slate-400 text-center select-none font-bold uppercase mt-2">
-          Press 'Next' or 'Prev' to browse slides. Click thumbnails on the left to navigate.
-        </span>
-      </div>
-    </div>
-  );
-}

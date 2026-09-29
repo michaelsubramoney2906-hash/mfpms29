@@ -90,8 +90,9 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
       if (filtered.length > 0) return filtered;
     }
 
-    // 3. Items currently in Submitted for Approval/Review state (and not already Approved or Dispatched)
+    // 3. Items explicitly pushed to manager or in Submitted for Approval/Review state
     const submittedItems = plan.items.filter((it: any) => 
+      it.pushedToManager === true ||
       it.reviewStatus === 'Submitted for Approval' || 
       it.reviewStatus === 'Submitted for Review' || 
       it.reviewStatus === 'Submitted'
@@ -106,7 +107,8 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
       if (targeted.length > 0) return targeted;
     }
 
-    return plan.items;
+    // Return empty array when no KPIs have been pushed yet (do NOT show all plan items)
+    return [];
   }, [selectedPlan, filterSubmittedKpiIds, showAllKpis, selectedKpiIdsForReview]);
 
   const toggleSelectKpiForReview = (id: string) => {
@@ -536,9 +538,19 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
     // because dataUrl is stripped from the team-pplans endpoint.
     setSelectedPlan(tp); // Set it initially for fast UI feedback
     
-    const kpiIdsToFilter = targetKpiIds && targetKpiIds.length > 0 
+    let kpiIdsToFilter = targetKpiIds && targetKpiIds.length > 0 
       ? targetKpiIds 
       : (targetKpiId ? [targetKpiId] : (tp.plan?.metadata?.submittedKpiIds && Array.isArray(tp.plan.metadata.submittedKpiIds) && tp.plan.metadata.submittedKpiIds.length > 0 ? tp.plan.metadata.submittedKpiIds : null));
+
+    if (!kpiIdsToFilter && tp.plan && Array.isArray(tp.plan.items)) {
+      const pushedItems = tp.plan.items.filter((it: any) => 
+        it.pushedToManager === true || it.reviewStatus === 'Submitted for Approval' || it.reviewStatus === 'Submitted for Review' || it.reviewStatus === 'Submitted'
+      );
+      if (pushedItems.length > 0) {
+        kpiIdsToFilter = pushedItems.map((it: any) => it.id);
+      }
+    }
+
     setFilterSubmittedKpiIds(kpiIdsToFilter);
     setShowAllKpis(false);
 
@@ -548,7 +560,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
       autoSelectIds = kpiIdsToFilter;
     } else if (tp.plan && Array.isArray(tp.plan.items)) {
       autoSelectIds = tp.plan.items.filter((it: any) => 
-        it.reviewStatus === 'Submitted for Approval' || it.reviewStatus === 'Submitted for Review' || it.reviewStatus === 'Submitted'
+        it.pushedToManager === true || it.reviewStatus === 'Submitted for Approval' || it.reviewStatus === 'Submitted for Review' || it.reviewStatus === 'Submitted'
       ).map((it: any) => it.id);
     }
     if (targetKpiId && !autoSelectIds.includes(targetKpiId)) {
@@ -564,13 +576,23 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
           setSelectedPlan({ userId: tp.userId, plan: fullPlan });
           
           let fullAutoSelectIds: string[] = [];
-          const effectiveKpiFilter = kpiIdsToFilter || (fullPlan.metadata?.submittedKpiIds && Array.isArray(fullPlan.metadata.submittedKpiIds) && fullPlan.metadata.submittedKpiIds.length > 0 ? fullPlan.metadata.submittedKpiIds : null);
+          let effectiveKpiFilter = kpiIdsToFilter || (fullPlan.metadata?.submittedKpiIds && Array.isArray(fullPlan.metadata.submittedKpiIds) && fullPlan.metadata.submittedKpiIds.length > 0 ? fullPlan.metadata.submittedKpiIds : null);
+
+          if (!effectiveKpiFilter && Array.isArray(fullPlan.items)) {
+            const pushedItems = fullPlan.items.filter((it: any) => 
+              it.pushedToManager === true || it.reviewStatus === 'Submitted for Approval' || it.reviewStatus === 'Submitted for Review' || it.reviewStatus === 'Submitted'
+            );
+            if (pushedItems.length > 0) {
+              effectiveKpiFilter = pushedItems.map((it: any) => it.id);
+            }
+          }
+
           if (effectiveKpiFilter && effectiveKpiFilter.length > 0) {
             fullAutoSelectIds = effectiveKpiFilter;
             setFilterSubmittedKpiIds(effectiveKpiFilter);
           } else if (Array.isArray(fullPlan.items)) {
             fullAutoSelectIds = fullPlan.items.filter((it: any) => 
-              it.reviewStatus === 'Submitted for Approval' || it.reviewStatus === 'Submitted for Review' || it.reviewStatus === 'Submitted'
+              it.pushedToManager === true || it.reviewStatus === 'Submitted for Approval' || it.reviewStatus === 'Submitted for Review' || it.reviewStatus === 'Submitted'
             ).map((it: any) => it.id);
           }
           if (targetKpiId && !fullAutoSelectIds.includes(targetKpiId)) {
@@ -1102,11 +1124,14 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
             myScore: item.myScore || (selfScore !== 'N/A' ? selfScore : ''),
             managerScore: mScore,
             reviewStatus: 'Dispatched to Audit',
-            internalAuditStatus: 'Dispatched to Audit'
+            internalAuditStatus: 'Dispatched to Audit',
+            pushedToAudit: true,
+            pushedToAuditAt: new Date().toISOString()
           };
         } else {
           return {
             ...item,
+            pushedToAudit: item.pushedToAudit && item.internalAuditStatus === 'Dispatched to Audit' ? true : false,
             reviewStatus: item.reviewStatus === 'Dispatched to Audit' ? 'Reviewed' : (item.reviewStatus || 'Draft'),
             internalAuditStatus: item.internalAuditStatus === 'Dispatched to Audit' ? '' : (item.internalAuditStatus || '')
           };
@@ -1116,7 +1141,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
       if (!payload.metadata) payload.metadata = {};
       payload.metadata.reviewStatus = 'Dispatched to Audit';
       payload.metadata.internalAuditStatus = 'Dispatched to Audit';
-      payload.metadata.dispatchedKpiIds = isTargeted ? targetIds : allItems.map((i: any) => i.id);
+      payload.metadata.dispatchedKpiIds = isTargeted ? targetIds : targetItems.map((i: any) => i.id);
       payload.metadata.lastDispatchedKpiId = isTargeted && targetIds.length === 1 ? targetIds[0] : undefined;
 
       if (!payload.metadata) payload.metadata = {};

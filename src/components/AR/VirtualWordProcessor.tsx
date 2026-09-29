@@ -1702,6 +1702,3 @@ export function VirtualWordProcessor({ currentUser, activeTenantId }: { currentU
               </div>
           </div>
       )}
-    </div>
-  );
-}

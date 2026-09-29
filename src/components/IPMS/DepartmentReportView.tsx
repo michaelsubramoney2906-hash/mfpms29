@@ -433,4 +433,4 @@ export const DepartmentReportView: React.FC<DepartmentReportViewProps> = ({
 
     </div>
   );
-};
+}

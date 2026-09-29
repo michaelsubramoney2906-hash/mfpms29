@@ -276,8 +276,3 @@ export function HelpDeskSupport({ currentUser, activeTenantId }: HelpDeskSupport
              </div>
           </div>
         )}
-
-      </div>
-    </div>
-  );
-}

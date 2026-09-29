@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, UserCheck, UserPlus, Loader2, Sparkles, PlusCircle } from 'lucide-react';
+import { Search, UserCheck, Loader2 } from 'lucide-react';
 
 export interface AzureUser {
   id?: string;
@@ -52,151 +52,78 @@ export const TeamAzureSearchInput: React.FC<TeamAzureSearchInputProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const delayDebounce = setTimeout(async () => {
-      setLoading(true);
-      try {
-        const res = await fetch(`/api/azure-search?q=${encodeURIComponent(query)}`);
-        if (res.ok) {
-          const data = await res.json();
-          setResults(data || []);
-        }
-      } catch (err) {
-        console.error("Azure AD Search error:", err);
-      } finally {
-        setLoading(false);
-      }
-    }, 200);
-
-    return () => clearTimeout(delayDebounce);
-  }, [query, isOpen]);
-
-  const handleSelect = (user: AzureUser) => {
-    setQuery(user.fullName);
-    onChange(user.fullName);
-    if (onSelectUser) {
-      onSelectUser(user);
+  const handleSearch = async (text: string) => {
+    setQuery(text);
+    onChange(text);
+    if (!text || text.length < 2) {
+      setResults([]);
+      setIsOpen(false);
+      return;
     }
-    setIsOpen(false);
+
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/users/search?q=${encodeURIComponent(text)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setResults(data.users || []);
+        setIsOpen(true);
+      }
+    } catch (e) {
+      console.warn("User search error:", e);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleManualAdd = () => {
-    const trimmed = query.trim();
-    if (!trimmed) return;
-    const manualUser: AzureUser = {
-      fullName: trimmed,
-      email: '',
-      jobFunction: 'Custom Municipal Official',
-      department: 'Manual Entry'
-    };
-    onChange(trimmed);
-    if (onSelectUser) {
-      onSelectUser(manualUser);
-    }
+  const handleSelect = (u: AzureUser) => {
+    setQuery(u.fullName || u.email);
+    onChange(u.fullName || u.email);
+    if (onSelectUser) onSelectUser(u);
     setIsOpen(false);
   };
 
   return (
-    <div ref={containerRef} className="relative w-full">
-      <div className={`flex items-center gap-1.5 ${disabled ? 'bg-slate-100 cursor-not-allowed border-slate-200' : 'bg-white border-slate-300 focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500'} border rounded transition shadow-xs ${className}`}>
-        <Search className={`${compact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-slate-400 ml-2 shrink-0`} />
+    <div ref={containerRef} className={`relative ${className}`}>
+      <div className="relative">
         <input
           type="text"
           value={query}
+          onChange={(e) => handleSearch(e.target.value)}
+          onFocus={() => {
+            if (results.length > 0) setIsOpen(true);
+          }}
           disabled={disabled}
-          onFocus={() => { if (!disabled) setIsOpen(true); }}
-          onChange={(e) => {
-            if (disabled) return;
-            setQuery(e.target.value);
-            onChange(e.target.value);
-            setIsOpen(true);
-          }}
-          onKeyDown={(e) => {
-            if (disabled) return;
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              if (results.length > 0) {
-                handleSelect(results[0]);
-              } else if (query.trim()) {
-                handleManualAdd();
-              }
-            }
-          }}
           placeholder={placeholder}
-          className={`w-full bg-transparent outline-none text-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed ${compact ? 'text-[11px] py-1 px-1' : 'text-xs py-1.5 px-2'}`}
+          className={`w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 transition ${
+            compact ? 'py-1 text-[11px]' : ''
+          }`}
         />
-        {loading && <Loader2 className="w-3 h-3 text-emerald-600 animate-spin mr-2 shrink-0" />}
+        <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+          {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+        </div>
       </div>
 
-      {isOpen && !disabled && (
-        <div className="absolute left-0 top-full mt-1 w-full min-w-[290px] max-h-64 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-xl z-50 divide-y divide-slate-100 animate-in fade-in zoom-in-95 duration-100">
-          <div className="p-1.5 bg-slate-50 text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center justify-between">
-            <span className="flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-emerald-600" /> Azure AD Directory ({results.length})
-            </span>
-            {loading && <span className="text-[9px] text-emerald-600 font-normal">Searching...</span>}
-          </div>
-
-          {results.length === 0 && !loading ? (
-            <div className="p-3 text-center space-y-2">
-              <div className="text-xs text-slate-500">
-                No matching users found in Azure AD directory for &ldquo;<span className="font-semibold text-slate-700">{query}</span>&rdquo;
+      {isOpen && results.length > 0 && (
+        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-48 overflow-y-auto divide-y divide-slate-100">
+          {results.map((u, i) => (
+            <button
+              key={u.id || i}
+              type="button"
+              onClick={() => handleSelect(u)}
+              className="w-full text-left p-2.5 hover:bg-indigo-50/60 transition flex items-center justify-between text-xs"
+            >
+              <div>
+                <div className="font-bold text-slate-900">{u.fullName}</div>
+                <div className="text-[10px] text-slate-500 font-mono">{u.email}</div>
               </div>
-              {query.trim() && (
-                <button
-                  type="button"
-                  onClick={handleManualAdd}
-                  className="w-full py-1.5 px-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
-                >
-                  <PlusCircle className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Use &ldquo;{query.trim()}&rdquo; (Manual Add)</span>
-                </button>
+              {u.department && (
+                <span className="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-medium">
+                  {u.department}
+                </span>
               )}
-            </div>
-          ) : (
-            <>
-              {results.map((user, idx) => (
-                <button
-                  key={`${user.email || user.fullName}-${idx}`}
-                  type="button"
-                  onClick={() => handleSelect(user)}
-                  className="w-full text-left p-2 hover:bg-emerald-50/80 transition flex items-start justify-between gap-2 group cursor-pointer"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="text-xs font-semibold text-slate-800 group-hover:text-emerald-900 truncate flex items-center gap-1.5">
-                      {user.fullName}
-                      {user.signatureData && (
-                        <span className="inline-flex items-center gap-0.5 px-1 py-0.2 bg-emerald-100 text-emerald-800 text-[9px] font-bold rounded" title="Signature on file">
-                          ✍️ Signed
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-[10px] text-slate-500 truncate">
-                      {user.jobFunction || user.department || 'Municipal Employee'}
-                    </div>
-                    <div className="text-[9px] text-slate-400 truncate">
-                      {user.email}
-                    </div>
-                  </div>
-                  <UserCheck className="w-4 h-4 text-slate-300 group-hover:text-emerald-600 shrink-0 mt-1" />
-                </button>
-              ))}
-
-              {query.trim() && (
-                <div className="p-1.5 bg-slate-50 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={handleManualAdd}
-                    className="w-full py-1 px-2 text-left text-xs font-semibold text-slate-600 hover:text-emerald-800 hover:bg-emerald-50 rounded transition flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <UserPlus className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Or use &ldquo;<strong>{query.trim()}</strong>&rdquo; as Custom Official</span>
-                  </button>
-                </div>
-              )}
-            </>
-          )}
+            </button>
+          ))}
         </div>
       )}
     </div>

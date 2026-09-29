@@ -1,8 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import React, { useState, useEffect, useRef } from 'react';
 import { LandingPage } from './components/LandingPage';
 import { Dashboard } from './components/Dashboard';
@@ -277,5 +272,5 @@ export default function App() {
         </div>
       </div>
     </FinancialYearProvider>
-  );
+    );
 }

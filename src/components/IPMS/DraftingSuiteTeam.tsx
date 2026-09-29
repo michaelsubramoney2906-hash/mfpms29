@@ -5356,4 +5356,3 @@ export function DraftingSuiteTeam({
     </div>
   );
 }
-export default DraftingSuiteTeam;

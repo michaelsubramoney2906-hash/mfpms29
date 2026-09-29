@@ -261,7 +261,7 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
       if (auditStatus === 'Pushed to DPMC' || auditStatus === 'Audited') {
         return false;
       }
-      return auditStatus === 'Dispatched to Audit' || reviewStatus === 'Dispatched to Audit' || reviewStatus === 'Reviewed and Dispatched';
+      return item.pushedToAudit === true || auditStatus === 'Dispatched to Audit' || reviewStatus === 'Dispatched to Audit' || reviewStatus === 'Reviewed and Dispatched';
     });
 
     if (pendingAuditItems.length > 0) {
@@ -274,7 +274,8 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
       if (activeItem.length > 0) return activeItem;
     }
 
-    return plan.items.slice(0, 1);
+    // Return empty array when no KPIs have been dispatched to internal audit yet
+    return [];
   }, [selectedPlan, activeKPIId, filterPushedKpiIds, showAllKpis]);
 
   const toggleSelectKpiForAudit = (id: string) => {
@@ -449,16 +450,46 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
     }
   };
 
-  const handleSelectPlan = async (tp: any, onLoaded?: () => void) => {
+  const handleSelectPlan = async (tp: any, onLoaded?: () => void, targetKpiId?: string, targetKpiIds?: string[]) => {
     // We must fetch the individual plan to get the full documents (including dataUrl)
     // because dataUrl is stripped from the team-pplans endpoint.
     setSelectedPlan(tp); 
+    
+    let kpiIdsToFilter = targetKpiIds && targetKpiIds.length > 0 
+      ? targetKpiIds 
+      : (targetKpiId ? [targetKpiId] : (tp.plan?.metadata?.dispatchedKpiIds && Array.isArray(tp.plan.metadata.dispatchedKpiIds) && tp.plan.metadata.dispatchedKpiIds.length > 0 ? tp.plan.metadata.dispatchedKpiIds : null));
+
+    if (!kpiIdsToFilter && tp.plan && Array.isArray(tp.plan.items)) {
+      const dispatchedItems = tp.plan.items.filter((it: any) => 
+        it.pushedToAudit === true || it.internalAuditStatus === 'Dispatched to Audit' || it.reviewStatus === 'Dispatched to Audit'
+      );
+      if (dispatchedItems.length > 0) {
+        kpiIdsToFilter = dispatchedItems.map((it: any) => it.id);
+      }
+    }
+
+    setFilterPushedKpiIds(kpiIdsToFilter);
+    setShowAllKpis(false);
+
     try {
       const res = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${tp.userId}`);
       if (res.ok) {
         const fullPlan = await res.json();
         if (fullPlan && fullPlan.items) {
           setSelectedPlan({ userId: tp.userId, plan: fullPlan });
+
+          let fullDispatchedFilter = kpiIdsToFilter || (fullPlan.metadata?.dispatchedKpiIds && Array.isArray(fullPlan.metadata.dispatchedKpiIds) && fullPlan.metadata.dispatchedKpiIds.length > 0 ? fullPlan.metadata.dispatchedKpiIds : null);
+
+          if (!fullDispatchedFilter && Array.isArray(fullPlan.items)) {
+            const dispatchedItems = fullPlan.items.filter((it: any) => 
+              it.pushedToAudit === true || it.internalAuditStatus === 'Dispatched to Audit' || it.reviewStatus === 'Dispatched to Audit'
+            );
+            if (dispatchedItems.length > 0) {
+              fullDispatchedFilter = dispatchedItems.map((it: any) => it.id);
+            }
+          }
+
+          setFilterPushedKpiIds(fullDispatchedFilter);
         }
       }
     } catch (e) {
@@ -1283,7 +1314,6 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
                       className="bg-white border border-slate-200 hover:border-indigo-400 p-5 rounded-2xl shadow-xs hover:shadow-md transition-all group cursor-pointer space-y-3" 
                       onClick={() => {
                         setShowAllKpis(false);
-                        setFilterPushedKpiIds(null);
                         handleSelectPlan(tp);
                       }}
                     >

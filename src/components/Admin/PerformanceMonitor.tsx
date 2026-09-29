@@ -867,6 +867,3 @@ export function PerformanceMonitor({ currentUser, activeTenantId }: PerformanceM
           </div>
         </div>
       )}
-    </div>
-  );
-}

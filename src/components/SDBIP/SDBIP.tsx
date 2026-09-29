@@ -285,6 +285,12 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
   const [isFitAllTopLayerCells, setIsFitAllTopLayerCells] = useState<boolean>(true);
   const [isFitAllReportingCells, setIsFitAllReportingCells] = useState<boolean>(true);
 
+  // Submitter & Approver unlock state in SDBIP Top Layer Reporting Table
+  const [isSubmitterApproverUnlocked, setIsSubmitterApproverUnlocked] = useState<boolean>(false);
+  const [showLockPasswordModal, setShowLockPasswordModal] = useState<boolean>(false);
+  const [passwordInput, setPasswordInput] = useState<string>('');
+  const [passwordError, setPasswordError] = useState<string>('');
+
   // Clear modal states for Top Layer Table and Reporting Table
   const [clearTopLayerModal, setClearTopLayerModal] = useState<{
     isOpen: boolean;
@@ -1466,10 +1472,10 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
       return;
     }
 
-    // Lock Submitter and Approver fields in reporting view to prevent changing assigned responsibilities
-    if (activeTab === 'reporting' && (field === 'submitter' || field === 'approver')) {
+    // Lock Submitter and Approver fields in reporting view unless explicitly unlocked
+    if (activeTab === 'reporting' && (field === 'submitter' || field === 'approver') && !isSubmitterApproverUnlocked) {
       const targetRow = rows.find(r => r.id === rowId);
-      setSuccessToast(`Field Locked: Submitter and Approver assignments are locked in the reporting view for KPI ${targetRow?.refNum || ''} to preserve responsible personnel assignments.`);
+      setSuccessToast(`Field Locked: Submitter and Approver assignments are locked in the reporting view for KPI ${targetRow?.refNum || ''}. Click "Unlock Submitter & Approver Editing" button with password authorization to edit.`);
       setTimeout(() => setSuccessToast(null), 4000);
       return;
     }
@@ -4721,6 +4727,35 @@ Timestamp: ${new Date().toLocaleString()}
                     </span>
                   )}
                 </button>
+                {!isSubmitterApproverUnlocked ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPasswordError('');
+                      setPasswordInput('');
+                      setShowLockPasswordModal(true);
+                    }}
+                    className="px-3.5 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-800 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition"
+                    title="Unlock Submitter and Approver fields to select responsible personnel for each KPI"
+                  >
+                    <Lock className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Unlock Submitter & Approver Editing</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSubmitterApproverUnlocked(false);
+                      setSuccessToast("Submitter & Approver editing locked.");
+                      setTimeout(() => setSuccessToast(null), 3000);
+                    }}
+                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 border border-emerald-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition animate-pulse"
+                    title="Click to lock Submitter and Approver fields again"
+                  >
+                    <KeyRound className="w-3.5 h-3.5" />
+                    <span>🔒 Lock Submitter & Approver Editing (Active)</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setClearReportingModal({ isOpen: true, scope: 'all_quarters' })}
@@ -6471,7 +6506,7 @@ Timestamp: ${new Date().toLocaleString()}
                       </td>
 
                       {/* Submitter */}
-                      <td className={`p-1.5 border-r border-slate-100 ${isSubmitterApproverLockedInReporting(row) ? 'bg-slate-100/40' : 'bg-emerald-50/20'}`}>
+                      <td className={`p-1.5 border-r border-slate-100 ${!isSubmitterApproverUnlocked ? 'bg-slate-100/40' : 'bg-emerald-50/20'}`}>
                         <div className="flex flex-col gap-1">
                           <AzureADPicker 
                             value={row.submitter || row.responsibleUnit || ''}
@@ -6479,12 +6514,18 @@ Timestamp: ${new Date().toLocaleString()}
                             roleType="submitter"
                             activeTenantId={activeTenantId}
                             isFitAll={isFitAllReportingCells}
-                            disabled={isSubmitterApproverLockedInReporting(row)}
+                            disabled={!isSubmitterApproverUnlocked}
                           />
-                          {!isSubmitterApproverLockedInReporting(row) && (
+                          {isSubmitterApproverUnlocked ? (
                             <div className="flex items-center gap-1 justify-center">
                               <span className="text-[8px] font-bold font-mono px-1 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
-                                EXCEPTION UNLOCKED
+                                🔓 UNLOCKED FOR EDITING
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 justify-center">
+                              <span className="text-[8px] font-bold font-mono px-1 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200">
+                                🔒 LOCKED
                               </span>
                             </div>
                           )}
@@ -6492,7 +6533,7 @@ Timestamp: ${new Date().toLocaleString()}
                       </td>
 
                       {/* Approver */}
-                      <td className={`p-1.5 border-r border-slate-100 ${isSubmitterApproverLockedInReporting(row) ? 'bg-slate-100/40' : 'bg-emerald-50/20'}`}>
+                      <td className={`p-1.5 border-r border-slate-100 ${!isSubmitterApproverUnlocked ? 'bg-slate-100/40' : 'bg-emerald-50/20'}`}>
                         <div className="flex flex-col gap-1">
                           <AzureADPicker 
                             value={row.approver || ''}
@@ -6500,12 +6541,18 @@ Timestamp: ${new Date().toLocaleString()}
                             roleType="approver"
                             activeTenantId={activeTenantId}
                             isFitAll={isFitAllReportingCells}
-                            disabled={isSubmitterApproverLockedInReporting(row)}
+                            disabled={!isSubmitterApproverUnlocked}
                           />
-                          {!isSubmitterApproverLockedInReporting(row) && (
+                          {isSubmitterApproverUnlocked ? (
                             <div className="flex items-center gap-1 justify-center">
                               <span className="text-[8px] font-bold font-mono px-1 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
-                                EXCEPTION UNLOCKED
+                                🔓 UNLOCKED FOR EDITING
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 justify-center">
+                              <span className="text-[8px] font-bold font-mono px-1 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200">
+                                🔒 LOCKED
                               </span>
                             </div>
                           )}
@@ -7384,6 +7431,92 @@ Timestamp: ${new Date().toLocaleString()}
                 <span>{isClearing ? 'Clearing...' : 'Confirm & Clear Reporting'}</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Submitter & Approver Authorization Password Modal */}
+      {showLockPasswordModal && (
+        <div className="fixed inset-0 bg-black/60 z-[100000] flex items-center justify-center p-4 backdrop-blur-xs select-text">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4 animate-fade-in text-slate-800">
+            <div className="flex items-start gap-3 border-b border-slate-100 pb-3">
+              <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-700 shrink-0">
+                <KeyRound className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">
+                  Unlock Submitter & Approver Assignments
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Enter administrator password for mike@mzansiflow.co.za to edit Submitter and Approver fields in the SDBIP Top Layer Reporting Table.
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (passwordInput === '8655M9sznnes01*') {
+                setIsSubmitterApproverUnlocked(true);
+                setShowLockPasswordModal(false);
+                setPasswordInput('');
+                setPasswordError('');
+                setSuccessToast("Submitter & Approver fields successfully unlocked for editing across all SDBIP Top Layer KPIs!");
+                setTimeout(() => setSuccessToast(null), 4000);
+              } else {
+                setPasswordError("Invalid password. Access restricted to authorized administrator (mike@mzansiflow.co.za).");
+              }
+            }} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Administrator Password (mike@mzansiflow.co.za)
+                </label>
+                <div className="relative">
+                  <input
+                    type="password"
+                    value={passwordInput}
+                    onChange={(e) => {
+                      setPasswordInput(e.target.value);
+                      if (passwordError) setPasswordError('');
+                    }}
+                    placeholder="Enter password..."
+                    autoFocus
+                    className="w-full text-sm p-3 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none font-mono"
+                  />
+                </div>
+                {passwordError && (
+                  <p className="text-xs font-bold text-rose-600 mt-1.5 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{passwordError}</span>
+                  </p>
+                )}
+              </div>
+
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-600 text-xs leading-relaxed">
+                <span className="font-bold text-slate-800">Note: </span>
+                Once unlocked, you can freely select or reassign Submitter and Approver personnel for each KPI line. Click "Lock" again after making adjustments to secure the assignments.
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowLockPasswordModal(false);
+                    setPasswordInput('');
+                    setPasswordError('');
+                  }}
+                  className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl cursor-pointer transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5 transition"
+                >
+                  <KeyRound className="w-3.5 h-3.5" />
+                  <span>Authorize & Unlock</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
