@@ -141,7 +141,7 @@ export function checkRosterRole(
       leaderName: leaderName || defaultLeaderName || 'Team Leader',
       leaderEmail: leaderEmail || defaultLeaderEmail || '',
       userRoleInTeam: 'Team Member',
-      canReportOrEdit: false
+      canReportOrEdit: true
     };
   }
 
@@ -154,7 +154,7 @@ export function checkRosterRole(
       leaderName: globalStatus.teamLeaderName || defaultLeaderName || 'Team Leader',
       leaderEmail: globalStatus.teamLeaderEmail || defaultLeaderEmail || '',
       userRoleInTeam: globalStatus.isLeader ? 'Team Leader' : 'Team Member',
-      canReportOrEdit: globalStatus.canReportOrEdit
+      canReportOrEdit: true
     };
   }
 
@@ -252,7 +252,7 @@ export function resolveGlobalTeamStatus(user: any): UserTeamStatus {
             teamName: team.name,
             teamLeaderName: isLeader ? (user.fullName || r[1]) : leaderName,
             teamLeaderEmail: isLeader ? user.email : leaderEmail,
-            canReportOrEdit: isLeader
+            canReportOrEdit: true
           };
         }
       }
@@ -270,7 +270,7 @@ export function resolveGlobalTeamStatus(user: any): UserTeamStatus {
       teamName: 'Alpha Shift - Fire & Rescue Platoon',
       teamLeaderName: isLeader ? user.fullName : 'Captain Sibusiso Sithole (Shift Commander)',
       teamLeaderEmail: isLeader ? user.email : 'sitholes@nkangaladm.gov.za',
-      canReportOrEdit: isLeader
+      canReportOrEdit: true
     };
   }
 
@@ -284,7 +284,7 @@ export function resolveGlobalTeamStatus(user: any): UserTeamStatus {
       teamName: 'Bulk Water & Sanitation Operations',
       teamLeaderName: isLeader ? user.fullName : 'Eng. Sipho Mthembu (Chief Engineer / General Manager)',
       teamLeaderEmail: isLeader ? user.email : 'mthembu@nkangaladm.gov.za',
-      canReportOrEdit: isLeader
+      canReportOrEdit: true
     };
   }
 
@@ -298,7 +298,7 @@ export function resolveGlobalTeamStatus(user: any): UserTeamStatus {
       teamName: 'Human Resources, Labor Relations & Employee Wellness',
       teamLeaderName: isLeader ? user.fullName : 'HR Manager Thandiwe Sithole',
       teamLeaderEmail: isLeader ? user.email : 'sitholet@nkangaladm.gov.za',
-      canReportOrEdit: isLeader
+      canReportOrEdit: true
     };
   }
 
@@ -312,7 +312,7 @@ export function resolveGlobalTeamStatus(user: any): UserTeamStatus {
       teamName: 'Statutory Performance Reporting & Section 52(d) Unit',
       teamLeaderName: isLeader ? user.fullName : 'Performance Specialist Audrey Mpanza',
       teamLeaderEmail: isLeader ? user.email : 'mpanzaa@nkangaladm.gov.za',
-      canReportOrEdit: isLeader
+      canReportOrEdit: true
     };
   }
 

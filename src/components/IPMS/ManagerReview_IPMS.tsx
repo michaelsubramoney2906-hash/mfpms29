@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   UserCheck, FileText, CheckCircle, Clock, ChevronRight,
   FolderOpen, FileSpreadsheet, Image, File, Download, Search,
@@ -17,13 +17,16 @@ interface Props {
 }
 
 const safeJson = async (res: Response) => {
+  if (!res || res.bodyUsed) return null;
   try {
     const contentType = res.headers.get("content-type");
     if (contentType && contentType.includes("application/json")) {
       return await res.json();
     }
-  } catch (e) {
-    console.error("Error parsing JSON:", e);
+  } catch (e: any) {
+    if (!String(e).includes('consumed')) {
+      console.warn("Error parsing JSON:", e);
+    }
   }
   return null;
 };

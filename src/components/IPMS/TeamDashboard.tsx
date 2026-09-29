@@ -11,9 +11,16 @@ interface TeamDashboardProps {
 }
 
 const safeJson = async (res: Response) => {
-  const contentType = res.headers.get("content-type");
-  if (contentType && contentType.includes("application/json")) {
-    return await res.json();
+  if (!res || res.bodyUsed) return null;
+  try {
+    const contentType = res.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+      return await res.json();
+    }
+  } catch (e: any) {
+    if (!String(e).includes('consumed')) {
+      console.warn("Error parsing JSON:", e);
+    }
   }
   return null;
 };

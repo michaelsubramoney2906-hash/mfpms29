@@ -733,8 +733,8 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     if (!isBackground) setLoading(true);
 
     const safeJson = async (res: Response, fallback: any) => {
-      if (!res.ok) {
-        console.warn(`Fetch to ${res.url} failed with status ${res.status}`);
+      if (!res || res.bodyUsed || !res.ok) {
+        if (res && !res.ok) console.warn(`Fetch to ${res.url} failed with status ${res.status}`);
         return fallback;
       }
       const contentType = res.headers.get("content-type");

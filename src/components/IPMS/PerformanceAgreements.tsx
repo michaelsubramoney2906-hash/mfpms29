@@ -350,13 +350,16 @@ interface PlanKPIItem {
 }
 
 const safeJson = async (res: Response) => {
+  if (!res || res.bodyUsed) return null;
   try {
     const contentType = res.headers.get("content-type");
     if (contentType && contentType.includes("application/json")) {
       return await res.json();
     }
-  } catch (e) {
-    console.error("Error parsing JSON:", e);
+  } catch (e: any) {
+    if (!String(e).includes('consumed')) {
+      console.warn("Error parsing JSON:", e);
+    }
   }
   return null;
 };
@@ -555,10 +558,12 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
           fetch(`/api/tenant/${activeTenantId}/${apiEndpoint}?userId=${encodeURIComponent(targetEmail)}&t=${Date.now()}`)
         ]);
 
+        let usersData: any[] = [];
         if (usersRes.ok) {
           try {
-            const usersData = await safeJson(usersRes) || {};
-            if (Array.isArray(usersData)) {
+            const parsedUsers = await safeJson(usersRes);
+            if (Array.isArray(parsedUsers)) {
+              usersData = parsedUsers;
               setUsers(usersData);
             }
           } catch (e) {}
@@ -604,22 +609,17 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
             reportTo: currentUser?.reportTo || ''
           };
 
-          if (usersRes.ok) {
-            try {
-              const usersList = await safeJson(usersRes) || [];
-              if (Array.isArray(usersList)) {
-                const matchedUser = usersList.find((u: any) => (u.email || '').toLowerCase().trim() === targetEmail.toLowerCase().trim());
-                if (matchedUser) {
-                  if (matchedUser.fullName) baseMeta.name = matchedUser.fullName;
-                  if (matchedUser.jobFunction) baseMeta.position = matchedUser.jobFunction;
-                  if (matchedUser.department) baseMeta.department = matchedUser.department;
-                  if (matchedUser.directorate) baseMeta.directorate = matchedUser.directorate;
-                  if (matchedUser.manager) baseMeta.manager = matchedUser.manager;
-                  if (matchedUser.reportTo || matchedUser.manager) baseMeta.reportTo = matchedUser.reportTo || matchedUser.manager;
-                  if (matchedUser.managerEmail) baseMeta.managerEmail = matchedUser.managerEmail;
-                }
-              }
-            } catch (e) {}
+          if (Array.isArray(usersData) && usersData.length > 0) {
+            const matchedUser = usersData.find((u: any) => (u.email || '').toLowerCase().trim() === targetEmail.toLowerCase().trim());
+            if (matchedUser) {
+              if (matchedUser.fullName) baseMeta.name = matchedUser.fullName;
+              if (matchedUser.jobFunction) baseMeta.position = matchedUser.jobFunction;
+              if (matchedUser.department) baseMeta.department = matchedUser.department;
+              if (matchedUser.directorate) baseMeta.directorate = matchedUser.directorate;
+              if (matchedUser.manager) baseMeta.manager = matchedUser.manager;
+              if (matchedUser.reportTo || matchedUser.manager) baseMeta.reportTo = matchedUser.reportTo || matchedUser.manager;
+              if (matchedUser.managerEmail) baseMeta.managerEmail = matchedUser.managerEmail;
+            }
           }
 
           setMetadata(baseMeta);

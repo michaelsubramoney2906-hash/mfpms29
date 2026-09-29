@@ -31,6 +31,41 @@ export interface TeamMemberSignatory {
   date: string;
 }
 
+export interface MemberPdpItem {
+  id: string;
+  skillsGap: string;
+  outcomes: string;
+  suggestedTraining: string;
+  modeOfDelivery: string;
+  timeFrame: string;
+  workOpportunity: string;
+  supportPerson: string;
+}
+
+export interface MemberPdpRecord {
+  memberIndex: number;
+  memberName: string;
+  memberDesignation: string;
+  items: MemberPdpItem[];
+}
+
+export interface BusinessDisclosureItem {
+  id: string;
+  businessName: string;
+  ckNumber: string;
+  percentageOwned: string;
+  natureOfBusiness: string;
+  directorship: string;
+}
+
+export interface MemberDisclosureRecord {
+  memberIndex: number;
+  memberName: string;
+  memberRole: string;
+  memberDesignation: string;
+  disclosures: BusinessDisclosureItem[];
+}
+
 export interface InstitutionalSignatory {
   id: string;
   name: string;
@@ -151,9 +186,10 @@ export function DraftingSuiteTeam({
   const [headingAnnexureC, setHeadingAnnexureC] = useState<string>('Annexure C - Disclosure of Financial Interest');
 
   // Core Document State
+  const [financialYear, setFinancialYear] = useState<string>('2026/2027 Financial Year');
   const [coverPage, setCoverPage] = useState<string>('');
   const [purpose, setPurpose] = useState<string>('');
-  const [validity, setValidity] = useState<string>('This agreement will be valid for the 2025/2026 financial year or until superseded by a revised team agreement.');
+  const [validity, setValidity] = useState<string>('This agreement will be valid for the 2026/2027 financial year or until superseded by a revised team agreement.');
   const [reporting, setReporting] = useState<string>('');
   const [framework, setFramework] = useState<string>('4.1 The Employee agrees to participate in the performance assessment and development system of the Municipality.');
   const [frameworkBelowKpa, setFrameworkBelowKpa] = useState<string>('4.3 The Employee\'s assessment will further be based on the following Job Specific Competencies Matrix. Each competency has been weighted as indicated below:');
@@ -184,7 +220,17 @@ export function DraftingSuiteTeam({
   const isTeamMemberOnly = rosterRoleInfo.isMember && !rosterRoleInfo.isLeader;
   const currentTeamLeaderName = rosterRoleInfo.leaderName || 'Team Leader';
 
-  // Review quarters table
+  // Section 8 Dynamic Timetable State (Add / Delete / Edit Columns & Rows)
+  const [reviewHeaders, setReviewHeaders] = useState<string[]>([
+    'Review Term', 'Period', 'Type', 'Activities', 'Due Date', 'Responsible'
+  ]);
+  const [reviewGridRows, setReviewGridRows] = useState<string[][]>([
+    ['1st Quarter', 'July - September', 'Informal', 'Quarterly Performance Review', 'October', 'Manager'],
+    ['2nd Quarter', 'October - December', 'Formal', 'Mid-Year Review & POE Verification', 'January', 'Manager'],
+    ['3rd Quarter', 'January - March', 'Informal', 'Quarterly Performance Review', 'April', 'Manager'],
+    ['4th Quarter', 'April - June', 'Formal', 'Annual Assessment & Final Scoring', 'August', 'Manager']
+  ]);
+  // Backward-compatible fallback state
   const [reviewRows, setReviewRows] = useState<any[]>([
     { term: '1st Quarter', desc: 'July - September', type: 'Informal', activities: 'Review', date: 'October', responsible: 'Manager' },
     { term: '2nd Quarter', desc: 'October - December', type: 'Formal', activities: 'Review', date: 'January', responsible: 'Manager' },
@@ -383,15 +429,115 @@ export function DraftingSuiteTeam({
     }
   };
 
+  // Helper to create default PDP items for a team member
+  const createDefaultPdpItemsForMember = (idx: number, name: string, desig: string): MemberPdpItem[] => [
+    {
+      id: `pdp_item_${idx}_1_${Date.now()}`,
+      skillsGap: 'Operational Compliance & Technical Proficiency',
+      outcomes: `Demonstrated competency in ${desig || 'team duties'} and municipal governance`,
+      suggestedTraining: 'Municipal Operational Standards & Safety Protocol Workshop',
+      modeOfDelivery: 'Workplace Training / Mentorship',
+      timeFrame: 'Q2 / Q3 2026/2027',
+      workOpportunity: 'Direct daily operations & task execution',
+      supportPerson: 'Line Manager / Team Supervisor'
+    },
+    {
+      id: `pdp_item_${idx}_2_${Date.now()}`,
+      skillsGap: 'Performance Monitoring, Evidence Verification & Reporting',
+      outcomes: 'Timely submission of verifiable quarterly performance deliverables and POE files',
+      suggestedTraining: 'IPMS System & Portfolio of Evidence (POE) Standard Training',
+      modeOfDelivery: 'Internal Coaching / Seminar',
+      timeFrame: 'Continuous 2026/2027',
+      workOpportunity: 'Quarterly review submissions & audit checks',
+      supportPerson: 'PMS Manager / Supervisor'
+    }
+  ];
+
+  // Helper to create default Disclosure of Interest items for a team member
+  const createDefaultDisclosuresForMember = (idx: number): BusinessDisclosureItem[] => [
+    {
+      id: `disc_item_${idx}_1_${Date.now()}`,
+      businessName: 'Nil / None Disclosed',
+      ckNumber: 'N/A',
+      percentageOwned: '0%',
+      natureOfBusiness: 'None',
+      directorship: 'None'
+    }
+  ];
+
+  // Multi-Member PDP State (up to 8 PDPs synchronized with team roster)
+  const [memberPdps, setMemberPdps] = useState<MemberPdpRecord[]>(() => {
+    const initRows = currentTeam.defaultRows || defaultRows || [];
+    return initRows.map((r, idx) => ({
+      memberIndex: idx,
+      memberName: r[1] || `Member #${idx + 1}`,
+      memberDesignation: r[2] || '',
+      items: createDefaultPdpItemsForMember(idx, r[1] || '', r[2] || '')
+    }));
+  });
+
+  // Keep memberPdps in sync with roster (tableRows)
+  useEffect(() => {
+    setMemberPdps(prev => {
+      return tableRows.map((row, idx) => {
+        const rawName = row[1] || `Member #${idx + 1}`;
+        const rawDesig = row[2] || '';
+        const existing = prev[idx];
+        return {
+          memberIndex: idx,
+          memberName: rawName,
+          memberDesignation: rawDesig,
+          items: existing && existing.items && existing.items.length > 0 
+            ? existing.items 
+            : createDefaultPdpItemsForMember(idx, rawName, rawDesig)
+        };
+      });
+    });
+  }, [tableRows]);
+
+  // Annexure C: Multi-Member Disclosure of Interest State (synchronized with roster: Team Leader + Members)
+  const [memberDisclosures, setMemberDisclosures] = useState<MemberDisclosureRecord[]>(() => {
+    const initRows = currentTeam.defaultRows || defaultRows || [];
+    return initRows.map((r, idx) => ({
+      memberIndex: idx,
+      memberName: r[1] || (idx === 0 ? 'Team Leader' : `Member #${idx + 1}`),
+      memberRole: idx === 0 ? 'Team Leader' : 'Team Member',
+      memberDesignation: r[2] || '',
+      disclosures: createDefaultDisclosuresForMember(idx)
+    }));
+  });
+
+  // Keep memberDisclosures in sync with roster (tableRows)
+  useEffect(() => {
+    setMemberDisclosures(prev => {
+      return tableRows.map((row, idx) => {
+        const rawName = row[1] || (idx === 0 ? 'Team Leader' : `Member #${idx + 1}`);
+        const rawDesig = row[2] || '';
+        const role = (row[3] === 'Team Leader' || row[3] === 'Team Member') ? row[3] : (idx === 0 ? 'Team Leader' : 'Team Member');
+        const existing = prev[idx];
+        return {
+          memberIndex: idx,
+          memberName: rawName,
+          memberRole: role,
+          memberDesignation: rawDesig,
+          disclosures: existing && existing.disclosures && existing.disclosures.length > 0 
+            ? existing.disclosures 
+            : createDefaultDisclosuresForMember(idx)
+        };
+      });
+    });
+  }, [tableRows]);
+
   // Annexures & Extras
-  const [annexureA, setAnnexureA] = useState(true);
-  const [annexureB, setAnnexureB] = useState(true);
-  const [annexureC, setAnnexureC] = useState('Disclosure of interest form...\n\nOther Interests:\nI hereby certify that the above information is complete and correct to the best of my knowledge.');
-  const [includeJSC, setIncludeJSC] = useState(true);
+  const [annexureA, setAnnexureA] = useState<boolean>(true);
+  const [annexureB, setAnnexureB] = useState<boolean>(true);
+  const [annexureC, setAnnexureC] = useState<string>('');
+  const [includeJSC, setIncludeJSC] = useState<boolean>(true);
+  const [teamRosterNotes, setTeamRosterNotes] = useState<string>('');
   const [isPdpAdopted, setIsPdpAdopted] = useState<boolean>(false);
   const [isJscAdopted, setIsJscAdopted] = useState<boolean>(false);
   const [isPPlanAdopted, setIsPPlanAdopted] = useState<boolean>(false);
-  const [teamRosterNotes, setTeamRosterNotes] = useState<string>('Operational notes and descriptions regarding the roster assignments above.');
+  const [isPerfAssessmentAdopted, setIsPerfAssessmentAdopted] = useState<boolean>(false);
 
   // Custom additional section text boxes & tables (Dual: Above & Below for every section)
   const [sectionExtras, setSectionExtras] = useState<Record<string, DualSectionExtras>>({
@@ -433,6 +579,171 @@ export function DraftingSuiteTeam({
     return normalizeSectionExtras(sectionExtras, sectionKey);
   };
 
+  // --- Handlers for Member PDPs (up to 8 PDPs per roster members) ---
+  const handleAddMemberPdpItem = (memberIdx: number) => {
+    setMemberPdps(prev => {
+      const updated = [...prev];
+      if (updated[memberIdx]) {
+        const nextId = `pdp_item_${memberIdx}_${Date.now()}`;
+        updated[memberIdx] = {
+          ...updated[memberIdx],
+          items: [
+            ...updated[memberIdx].items,
+            {
+              id: nextId,
+              skillsGap: '',
+              outcomes: '',
+              suggestedTraining: '',
+              modeOfDelivery: 'Workplace Training / Mentorship',
+              timeFrame: '2026/2027',
+              workOpportunity: 'Direct daily operations & task execution',
+              supportPerson: 'Line Manager / Team Supervisor'
+            }
+          ]
+        };
+      }
+      return updated;
+    });
+    triggerNotification(`Added PDP competency row for ${memberPdps[memberIdx]?.memberName || 'member'}`, 'success');
+  };
+
+  const handleUpdateMemberPdpItem = (memberIdx: number, itemIdx: number, field: keyof MemberPdpItem, value: string) => {
+    setMemberPdps(prev => {
+      const updated = [...prev];
+      if (updated[memberIdx] && updated[memberIdx].items[itemIdx]) {
+        const newItems = [...updated[memberIdx].items];
+        newItems[itemIdx] = { ...newItems[itemIdx], [field]: value };
+        updated[memberIdx] = { ...updated[memberIdx], items: newItems };
+      }
+      return updated;
+    });
+  };
+
+  const handleDeleteMemberPdpItem = (memberIdx: number, itemIdx: number) => {
+    setMemberPdps(prev => {
+      const updated = [...prev];
+      if (updated[memberIdx]) {
+        updated[memberIdx] = {
+          ...updated[memberIdx],
+          items: updated[memberIdx].items.filter((_, i) => i !== itemIdx)
+        };
+      }
+      return updated;
+    });
+  };
+
+  // --- Handlers for Member Disclosures (Annexure C) ---
+  const handleAddMemberDisclosure = (memberIdx: number) => {
+    setMemberDisclosures(prev => {
+      const updated = [...prev];
+      if (updated[memberIdx]) {
+        const nextId = `disc_item_${memberIdx}_${Date.now()}`;
+        updated[memberIdx] = {
+          ...updated[memberIdx],
+          disclosures: [
+            ...updated[memberIdx].disclosures,
+            {
+              id: nextId,
+              businessName: '',
+              ckNumber: '',
+              percentageOwned: '',
+              natureOfBusiness: '',
+              directorship: 'Director'
+            }
+          ]
+        };
+      }
+      return updated;
+    });
+    triggerNotification(`Added business interest entry for ${memberDisclosures[memberIdx]?.memberName || 'member'}`, 'success');
+  };
+
+  const handleUpdateMemberDisclosure = (memberIdx: number, discIdx: number, field: keyof BusinessDisclosureItem, value: string) => {
+    setMemberDisclosures(prev => {
+      const updated = [...prev];
+      if (updated[memberIdx] && updated[memberIdx].disclosures[discIdx]) {
+        const newDiscs = [...updated[memberIdx].disclosures];
+        newDiscs[discIdx] = { ...newDiscs[discIdx], [field]: value };
+        updated[memberIdx] = { ...updated[memberIdx], disclosures: newDiscs };
+      }
+      return updated;
+    });
+  };
+
+  const handleDeleteMemberDisclosure = (memberIdx: number, discIdx: number) => {
+    setMemberDisclosures(prev => {
+      const updated = [...prev];
+      if (updated[memberIdx]) {
+        updated[memberIdx] = {
+          ...updated[memberIdx],
+          disclosures: updated[memberIdx].disclosures.filter((_, i) => i !== discIdx)
+        };
+      }
+      return updated;
+    });
+  };
+
+  // --- Handlers for Dynamic Section 8 Timetable (Add / Delete / Edit Columns & Rows) ---
+  const handleAddTimetableColumn = () => {
+    const colName = window.prompt("Enter new timetable column header:", "Review Notes / Comments");
+    if (!colName || !colName.trim()) return;
+    const cleanCol = colName.trim();
+    setReviewHeaders(prev => [...prev, cleanCol]);
+    setReviewGridRows(prev => prev.map(r => [...r, '']));
+    triggerNotification(`Added column "${cleanCol}" to Section 8 Timetable`, 'success');
+  };
+
+  const handleDeleteTimetableColumn = (colIdx: number) => {
+    if (reviewHeaders.length <= 1) {
+      triggerNotification("Timetable must retain at least one column", "error");
+      return;
+    }
+    const targetCol = reviewHeaders[colIdx];
+    setReviewHeaders(prev => prev.filter((_, i) => i !== colIdx));
+    setReviewGridRows(prev => prev.map(r => r.filter((_, i) => i !== colIdx)));
+    triggerNotification(`Removed column "${targetCol}" from Timetable`, 'success');
+  };
+
+  const handleUpdateTimetableHeader = (colIdx: number, value: string) => {
+    setReviewHeaders(prev => {
+      const updated = [...prev];
+      updated[colIdx] = value;
+      return updated;
+    });
+  };
+
+  const handleAddTimetableRow = () => {
+    const nextRowIdx = reviewGridRows.length + 1;
+    const newRow = reviewHeaders.map((h, i) => {
+      if (i === 0) return `${nextRowIdx}th Quarter`;
+      if (i === 1) return 'Month - Month';
+      if (i === 2) return 'Formal';
+      if (i === 3) return 'Review';
+      if (i === 4) return 'Due Date';
+      if (i === 5) return 'Manager';
+      return '';
+    });
+    setReviewGridRows(prev => [...prev, newRow]);
+    triggerNotification("Added review row to Section 8 Timetable", "success");
+  };
+
+  const handleDeleteTimetableRow = (rowIdx: number) => {
+    setReviewGridRows(prev => prev.filter((_, i) => i !== rowIdx));
+    triggerNotification("Removed row from Section 8 Timetable", "success");
+  };
+
+  const handleUpdateTimetableCell = (rowIdx: number, colIdx: number, value: string) => {
+    setReviewGridRows(prev => {
+      const updated = [...prev];
+      if (updated[rowIdx]) {
+        const rowCopy = [...updated[rowIdx]];
+        rowCopy[colIdx] = value;
+        updated[rowIdx] = rowCopy;
+      }
+      return updated;
+    });
+  };
+
   // Dynamic KPA & Competencies Table states
   const [dynTableHeaders, setDynTableHeaders] = useState<string[]>(['KPA No', 'National KPA', 'Functional Area KPA', 'Weighting']);
   const [dynTableRows, setDynTableRows] = useState<string[][]>([
@@ -467,7 +778,6 @@ export function DraftingSuiteTeam({
     "6.2 The personal development plan (PDP) will address any developmental needs identified during the performance assessment process.\n6.3 Performance evaluation results are subject to institutional moderation by the Departmental Performance Management Committee (DPMC) and Internal Audit verification."
   );
   const [pullingPerfAssessment, setPullingPerfAssessment] = useState(false);
-  const [isPerfAssessmentAdopted, setIsPerfAssessmentAdopted] = useState<boolean>(false);
 
   const [notification, setNotification] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const triggerNotification = (text: string, type: 'success' | 'error') => {
@@ -1321,9 +1631,14 @@ export function DraftingSuiteTeam({
         }
 
         if (state) {
+          if (state.financialYear !== undefined) setFinancialYear(state.financialYear);
           if (state.coverPage !== undefined) setCoverPage(state.coverPage);
           if (Array.isArray(state.headers) && state.headers.length > 0) setHeaders(state.headers);
           if (Array.isArray(state.tableRows) && state.tableRows.length > 0) setTableRows(state.tableRows);
+          if (Array.isArray(state.memberPdps) && state.memberPdps.length > 0) setMemberPdps(state.memberPdps);
+          if (Array.isArray(state.memberDisclosures) && state.memberDisclosures.length > 0) setMemberDisclosures(state.memberDisclosures);
+          if (Array.isArray(state.reviewHeaders) && state.reviewHeaders.length > 0) setReviewHeaders(state.reviewHeaders);
+          if (Array.isArray(state.reviewGridRows) && state.reviewGridRows.length > 0) setReviewGridRows(state.reviewGridRows);
           if (state.purpose !== undefined) setPurpose(state.purpose);
           if (state.validity !== undefined) setValidity(state.validity);
           if (state.reporting !== undefined) setReporting(state.reporting);
@@ -1459,7 +1774,9 @@ export function DraftingSuiteTeam({
       // If no saved draft, set fresh team default
       const teamPreset = teamList[teamIdx] || initialTeams[teamIdx] || initialTeams[0];
       const defaultTeamName = teamPreset.name.toUpperCase();
-      setCoverPage(`PERFORMANCE AGREEMENT\n\nENTERED INTO BY AND BETWEEN:\nThe Municipality herein represented by the Municipal Manager\n\n&\n\n${currentUser?.fullName || '[Employee / Team Representative]'}\n\n${teamTitle.toUpperCase()} — ${defaultTeamName}\n\nFOR THE FINANCIAL YEAR: 2025/2026`);
+      setFinancialYear('2026/2027 Financial Year');
+      setCoverPage(`PERFORMANCE AGREEMENT\n\nENTERED INTO BY AND BETWEEN:\nThe Municipality herein represented by the Municipal Manager\n\n&\n\n${currentUser?.fullName || '[Employee / Team Representative]'}\n\n${teamTitle.toUpperCase()} — ${defaultTeamName}\n\nFOR THE FINANCIAL YEAR: 2026/2027`);
+      setValidity('This agreement will be valid for the 2026/2027 financial year or until superseded by a revised team agreement.');
       setPurpose(`The purpose of this agreement is to specify performance expectations and operational standards for members of the ${teamTitle} (${teamPreset.name}), aligning operational deliverables with municipal strategic goals.`);
       setReporting(`Members of the ${teamTitle} (${teamPreset.name}) will report directly through their designated team leaders and line managers to the Municipal Manager and Executive Leadership.`);
       setTableRows(teamPreset.defaultRows || defaultRows);
@@ -1484,6 +1801,7 @@ export function DraftingSuiteTeam({
         logoUrl,
         customTeamName: activeTeamName,
         teamIndex: activeTeamIndex,
+        financialYear,
         headingMainTitle,
         headingRoster,
         headingPurpose,
@@ -1508,6 +1826,10 @@ export function DraftingSuiteTeam({
         coverPage,
         headers,
         tableRows,
+        memberPdps,
+        memberDisclosures,
+        reviewHeaders,
+        reviewGridRows,
         purpose,
         validity,
         reporting,
@@ -1586,6 +1908,7 @@ export function DraftingSuiteTeam({
         logoUrl,
         customTeamName: activeTeamName,
         teamIndex: activeTeamIndex,
+        financialYear,
         headingMainTitle,
         headingRoster,
         headingPurpose,
@@ -1610,6 +1933,10 @@ export function DraftingSuiteTeam({
         coverPage,
         headers,
         tableRows,
+        memberPdps,
+        memberDisclosures,
+        reviewHeaders,
+        reviewGridRows,
         purpose,
         validity,
         reporting,
@@ -1676,7 +2003,7 @@ export function DraftingSuiteTeam({
     setTeamList(updated);
     setEditingTeamNameIdx(null);
     // Update cover page & purpose text
-    setCoverPage(`PERFORMANCE AGREEMENT\n\nENTERED INTO BY AND BETWEEN:\nThe Municipality herein represented by the Municipal Manager\n\n&\n\n${currentUser?.fullName || '[Employee / Team Representative]'}\n\n${teamTitle.toUpperCase()} — ${tempTeamName.trim().toUpperCase()}\n\nFOR THE FINANCIAL YEAR: 2025/2026`);
+    setCoverPage(`PERFORMANCE AGREEMENT\n\nENTERED INTO BY AND BETWEEN:\nThe Municipality herein represented by the Municipal Manager\n\n&\n\n${currentUser?.fullName || '[Employee / Team Representative]'}\n\n${teamTitle.toUpperCase()} — ${tempTeamName.trim().toUpperCase()}\n\nFOR THE FINANCIAL YEAR: 2026/2027`);
   };
 
   // Add Directory Members from Bulk Modal
@@ -1810,35 +2137,6 @@ export function DraftingSuiteTeam({
           </div>
         )}
 
-        {/* Top View-Only Notice Banner for Team Members */}
-        {isTeamMemberOnly && (
-          <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-xl shadow-xs border border-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 select-text">
-            <div className="flex items-start sm:items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 mt-0.5 sm:mt-0">
-                <ShieldAlert className="w-5 h-5 text-amber-600" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h4 className="text-xs font-black text-amber-950 uppercase tracking-wide">
-                    Team Member Profile — View-Only Mode
-                  </h4>
-                  <span className="px-2 py-0.5 bg-amber-200 text-amber-900 text-[9px] font-extrabold rounded-full uppercase">
-                    Reporting &amp; Edits Restricted
-                  </span>
-                </div>
-                <p className="text-[11px] text-amber-900/90 mt-0.5">
-                  As a <strong>Team Member</strong> in {teamTitle}, you have read access to observe the team performance agreement, roster, KPIs, and reporting updates submitted by your Team Leader (<strong>{currentTeamLeaderName}</strong>). Only the Team Leader has authority to report actuals, update deliverables, or modify contract clauses.
-                </p>
-              </div>
-            </div>
-            <div className="shrink-0 flex items-center gap-2">
-              <span className="px-3 py-1 bg-amber-200/80 border border-amber-300 text-amber-950 text-[10px] font-extrabold rounded-lg flex items-center gap-1.5 uppercase tracking-wider">
-                <Eye className="w-3.5 h-3.5 text-amber-800" /> Read-Only Access
-              </span>
-            </div>
-          </div>
-        )}
-
         {/* Top Header Bar with Save & Actions */}
         <div className="bg-white p-4 rounded-xl shadow-xs border border-slate-200 flex justify-between items-center flex-wrap gap-3">
           <div className="flex items-center gap-2.5">
@@ -1859,24 +2157,18 @@ export function DraftingSuiteTeam({
           </div>
 
           <div className="flex items-center gap-2">
-            {!canReportOrEdit ? (
-              <span className="px-3.5 py-1.5 rounded-lg text-xs font-extrabold bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1.5 shadow-2xs">
-                <Lock className="w-3.5 h-3.5 text-amber-700" /> Read-Only Mode (Team Leader Authority Only)
-              </span>
-            ) : (
-              <button
-                onClick={saveToProfile}
-                disabled={saving}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs ${
-                  saveStatus === 'success' ? 'bg-emerald-600 text-white' :
-                  saveStatus === 'error' ? 'bg-rose-600 text-white' :
-                  'bg-emerald-700 hover:bg-emerald-800 text-white active:scale-95'
-                }`}
-              >
-                <Save className="w-3.5 h-3.5" />
-                {saving ? 'Saving...' : saveStatus === 'success' ? 'Saved to Supabase!' : 'Save Team Draft'}
-              </button>
-            )}
+            <button
+              onClick={saveToProfile}
+              disabled={saving}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs ${
+                saveStatus === 'success' ? 'bg-emerald-600 text-white' :
+                saveStatus === 'error' ? 'bg-rose-600 text-white' :
+                'bg-emerald-700 hover:bg-emerald-800 text-white active:scale-95'
+              }`}
+            >
+              <Save className="w-3.5 h-3.5" />
+              {saving ? 'Saving...' : saveStatus === 'success' ? 'Saved to Supabase!' : 'Save Team Draft'}
+            </button>
             <button
               onClick={() => syncSignaturesFromDirectory()}
               disabled={isRefreshingSignatures}
@@ -2450,7 +2742,19 @@ export function DraftingSuiteTeam({
 
         {/* COVER PAGE EDITOR */}
         <div className="bg-white p-5 rounded-xl shadow-xs border border-slate-200 space-y-4">
-          <label className="text-xs font-bold text-slate-700 uppercase">Cover Page Text</label>
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-bold text-slate-700 uppercase">Cover Page Text &amp; Financial Year</label>
+            <div className="flex items-center gap-2">
+              <label className="text-[10px] font-bold text-slate-500 uppercase">Financial Year:</label>
+              <input
+                type="text"
+                value={financialYear}
+                onChange={e => setFinancialYear(e.target.value)}
+                className="text-xs font-bold text-emerald-900 bg-emerald-50 border border-emerald-300 rounded px-2.5 py-1 focus:border-emerald-600 outline-none w-48 text-center"
+                placeholder="2026/2027 Financial Year"
+              />
+            </div>
+          </div>
           <SectionCustomBlockEditor
             label="Additional Table & Text (Above Cover Page)"
             position="above"
@@ -2853,15 +3157,6 @@ export function DraftingSuiteTeam({
             </div>
 
             {/* Reporting Form Controls */}
-            {!canReportOrEdit && (
-              <div className="p-3 bg-amber-500/15 border border-amber-500/30 rounded-xl text-amber-200 text-xs flex items-center gap-2.5 select-text">
-                <Lock className="w-4 h-4 text-amber-400 shrink-0" />
-                <span>
-                  <strong>View-Only Reporting Access:</strong> Only your Team Leader (<strong>{currentTeamLeaderName}</strong>) can dispatch quarterly performance reports and update milestones. Team members can see what the team leader is reporting on below, but cannot report in their own profiles.
-                </span>
-              </div>
-            )}
-
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-slate-950/50 p-3.5 rounded-xl border border-indigo-900/40">
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-300 uppercase block font-mono">Reporting Period</label>
@@ -2870,13 +3165,12 @@ export function DraftingSuiteTeam({
                     <button
                       key={q}
                       type="button"
-                      disabled={!canReportOrEdit}
                       onClick={() => setReportingPeriod(q)}
-                      className={`px-2 py-1 rounded text-[11px] font-bold transition text-center ${
+                      className={`px-2 py-1 rounded text-[11px] font-bold transition text-center cursor-pointer ${
                         reportingPeriod === q 
                           ? 'bg-indigo-600 text-white shadow-sm border border-indigo-400' 
                           : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                      } ${!canReportOrEdit ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'}`}
+                      }`}
                     >
                       {q}
                     </button>
@@ -2889,26 +3183,22 @@ export function DraftingSuiteTeam({
                 <input
                   type="text"
                   value={reportingHeadline}
-                  readOnly={!canReportOrEdit}
-                  disabled={!canReportOrEdit}
                   onChange={e => setReportingHeadline(e.target.value)}
                   placeholder="e.g. Q1 Operational Targets 100% Met, Deliverables Recorded"
-                  className="w-full text-xs p-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 placeholder-slate-500 focus:border-indigo-400 outline-none disabled:bg-slate-950 disabled:text-slate-300 disabled:cursor-not-allowed"
+                  className="w-full text-xs p-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 placeholder-slate-500 focus:border-indigo-400 outline-none"
                 />
               </div>
 
               <div className="md:col-span-3 space-y-1">
                 <label className="text-[10px] font-bold text-slate-300 uppercase block font-mono">
-                  Team Leader Reporting Narrative &amp; Actual Deliverables Summary
+                  Team Leader / Member Reporting Narrative &amp; Actual Deliverables Summary
                 </label>
                 <textarea
                   value={reportingProgress}
-                  readOnly={!canReportOrEdit}
-                  disabled={!canReportOrEdit}
                   onChange={e => setReportingProgress(e.target.value)}
                   placeholder={reporting || "Detail the actual quarterly deliverables, achievements, SLA turnaround times, and verified performance metrics for this reporting period..."}
                   rows={3}
-                  className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 placeholder-slate-500 focus:border-indigo-400 outline-none disabled:bg-slate-950 disabled:text-slate-300 disabled:cursor-not-allowed"
+                  className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 placeholder-slate-500 focus:border-indigo-400 outline-none"
                 />
               </div>
             </div>
@@ -2936,31 +3226,24 @@ export function DraftingSuiteTeam({
                 Dispatches real-time IPMS notifications &amp; inbox communiques to each member's verified email.
               </span>
 
-              {!canReportOrEdit ? (
-                <div className="w-full sm:w-auto px-5 py-2.5 bg-slate-900 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-not-allowed shadow-inner">
-                  <Lock className="w-4 h-4 text-amber-400" />
-                  <span>Only Team Leader Can Report (View Only for Members)</span>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleDispatchTeamReport}
-                  disabled={isDispatchingReport || getTeamAzureMembers().length === 0}
-                  className="w-full sm:w-auto px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-extrabold transition flex items-center justify-center gap-2 shadow-md cursor-pointer active:scale-95"
-                >
-                  {isDispatchingReport ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Dispatching Notifications...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-4 h-4" />
-                      <span>Dispatch Team Report &amp; Notify Members ({getTeamAzureMembers().length})</span>
-                    </>
-                  )}
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={handleDispatchTeamReport}
+                disabled={isDispatchingReport || getTeamAzureMembers().length === 0}
+                className="w-full sm:w-auto px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-extrabold transition flex items-center justify-center gap-2 shadow-md cursor-pointer active:scale-95"
+              >
+                {isDispatchingReport ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Dispatching Notifications...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    <span>Dispatch Team Report &amp; Notify Members ({getTeamAzureMembers().length})</span>
+                  </>
+                )}
+              </button>
             </div>
 
             {/* Historical Dispatched Reports Log */}
@@ -3091,12 +3374,12 @@ export function DraftingSuiteTeam({
               value={headingFramework44}
               onChange={e => setHeadingFramework44(e.target.value)}
               className="w-full text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded px-2 py-1 focus:border-emerald-500 outline-none"
-              placeholder="4.4 Performance Weightings & Core Assessment Principles"
+              placeholder="4.4 Developmental Framework & Personal Development Plan"
             />
           </div>
 
           <div className="flex justify-between items-center flex-wrap gap-2">
-            <label className="text-xs font-bold text-slate-700 uppercase block">4.4 Framework Footer Text &amp; PDP</label>
+            <label className="text-xs font-bold text-slate-700 uppercase block">4.4 Developmental Framework Commentary</label>
             <div className="flex items-center gap-2">
               <button
                 id="btn-inline-adopt-team-pdp-2"
@@ -3143,6 +3426,146 @@ export function DraftingSuiteTeam({
             extra={getSectionExtra('framework_4_4').below}
             onChange={val => updateSectionExtra('framework_4_4', 'below', val)}
           />
+
+          {/* MULTI-MEMBER PDP MATRIX: Up to 8 PDPs corresponding to names in the team roster */}
+          <div className="mt-6 border-2 border-amber-300 rounded-xl p-4 bg-amber-50/40 space-y-5">
+            <div className="flex justify-between items-center flex-wrap gap-2 border-b border-amber-200 pb-3">
+              <div>
+                <span className="text-xs font-black uppercase text-amber-950 flex items-center gap-1.5">
+                  <GraduationCap className="w-4 h-4 text-amber-700" />
+                  Team Members Personal Development Plans (PDP) Matrix ({memberPdps.length} Team Members)
+                </span>
+                <p className="text-[10.5px] text-amber-800 font-medium">
+                  Individual PDP matrix automatically configured for each member captured in the deployment roster above (up to 8 members).
+                </p>
+              </div>
+            </div>
+
+            {memberPdps.map((mpdp, mIdx) => (
+              <div key={mIdx} className="bg-white rounded-lg border border-amber-200 p-3.5 shadow-xs space-y-3">
+                <div className="flex justify-between items-center bg-amber-100/70 p-2 rounded-md border border-amber-200">
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-amber-600 text-white text-[10px] font-black flex items-center justify-center">
+                      {mIdx + 1}
+                    </span>
+                    <span className="text-xs font-black text-amber-950">
+                      {mpdp.memberName || `Team Member #${mIdx + 1}`}
+                    </span>
+                    <span className="text-[10px] bg-amber-200/80 text-amber-900 px-2 py-0.5 rounded font-semibold">
+                      {mpdp.memberDesignation || 'Team Member'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleAddMemberPdpItem(mIdx)}
+                    className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-[11px] font-bold transition flex items-center gap-1 cursor-pointer shadow-2xs"
+                  >
+                    <Plus className="w-3 h-3" /> Add PDP Row
+                  </button>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse border border-slate-300 text-[10.5px]">
+                    <thead className="bg-slate-100 text-slate-800 font-bold uppercase text-[9px]">
+                      <tr>
+                        <th className="border border-slate-300 p-1.5 text-center w-7">No.</th>
+                        <th className="border border-slate-300 p-1.5 min-w-[130px]">Identified Skills Gap</th>
+                        <th className="border border-slate-300 p-1.5 min-w-[130px]">Desired Outcomes</th>
+                        <th className="border border-slate-300 p-1.5 min-w-[130px]">Suggested Training / Intervention</th>
+                        <th className="border border-slate-300 p-1.5 min-w-[110px]">Mode of Delivery</th>
+                        <th className="border border-slate-300 p-1.5 min-w-[90px] text-center">Time Frame</th>
+                        <th className="border border-slate-300 p-1.5 min-w-[130px]">Work Opportunity / Practice</th>
+                        <th className="border border-slate-300 p-1.5 min-w-[110px]">Support Person</th>
+                        <th className="border border-slate-300 p-1.5 text-center w-8">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                      {mpdp.items.map((item, itemIdx) => (
+                        <tr key={item.id || itemIdx} className={itemIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
+                          <td className="border border-slate-300 p-1 text-center font-bold text-slate-600">
+                            {itemIdx + 1}
+                          </td>
+                          <td className="border border-slate-300 p-1">
+                            <input
+                              type="text"
+                              value={item.skillsGap || ''}
+                              onChange={e => handleUpdateMemberPdpItem(mIdx, itemIdx, 'skillsGap', e.target.value)}
+                              placeholder="Identified skills gap"
+                              className="w-full text-[10px] p-1 border border-slate-200 rounded focus:border-amber-500 outline-none"
+                            />
+                          </td>
+                          <td className="border border-slate-300 p-1">
+                            <input
+                              type="text"
+                              value={item.outcomes || ''}
+                              onChange={e => handleUpdateMemberPdpItem(mIdx, itemIdx, 'outcomes', e.target.value)}
+                              placeholder="Desired outcomes"
+                              className="w-full text-[10px] p-1 border border-slate-200 rounded focus:border-amber-500 outline-none"
+                            />
+                          </td>
+                          <td className="border border-slate-300 p-1">
+                            <input
+                              type="text"
+                              value={item.suggestedTraining || ''}
+                              onChange={e => handleUpdateMemberPdpItem(mIdx, itemIdx, 'suggestedTraining', e.target.value)}
+                              placeholder="Suggested training"
+                              className="w-full text-[10px] p-1 border border-slate-200 rounded focus:border-amber-500 outline-none"
+                            />
+                          </td>
+                          <td className="border border-slate-300 p-1">
+                            <input
+                              type="text"
+                              value={item.modeOfDelivery || ''}
+                              onChange={e => handleUpdateMemberPdpItem(mIdx, itemIdx, 'modeOfDelivery', e.target.value)}
+                              placeholder="Mode of delivery"
+                              className="w-full text-[10px] p-1 border border-slate-200 rounded focus:border-amber-500 outline-none"
+                            />
+                          </td>
+                          <td className="border border-slate-300 p-1">
+                            <input
+                              type="text"
+                              value={item.timeFrame || ''}
+                              onChange={e => handleUpdateMemberPdpItem(mIdx, itemIdx, 'timeFrame', e.target.value)}
+                              placeholder="Time frame"
+                              className="w-full text-[10px] p-1 text-center font-semibold text-amber-900 border border-slate-200 rounded focus:border-amber-500 outline-none"
+                            />
+                          </td>
+                          <td className="border border-slate-300 p-1">
+                            <input
+                              type="text"
+                              value={item.workOpportunity || ''}
+                              onChange={e => handleUpdateMemberPdpItem(mIdx, itemIdx, 'workOpportunity', e.target.value)}
+                              placeholder="Work opportunity"
+                              className="w-full text-[10px] p-1 border border-slate-200 rounded focus:border-amber-500 outline-none"
+                            />
+                          </td>
+                          <td className="border border-slate-300 p-1">
+                            <input
+                              type="text"
+                              value={item.supportPerson || ''}
+                              onChange={e => handleUpdateMemberPdpItem(mIdx, itemIdx, 'supportPerson', e.target.value)}
+                              placeholder="Support person"
+                              className="w-full text-[10px] p-1 border border-slate-200 rounded focus:border-amber-500 outline-none"
+                            />
+                          </td>
+                          <td className="border border-slate-300 p-1 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteMemberPdpItem(mIdx, itemIdx)}
+                              className="text-slate-400 hover:text-rose-600 p-1"
+                              title="Delete Row"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
+          </div>
 
           {/* ADOPT PROFILE JSC TABLE BLOCK - PLACED DIRECTLY BELOW POINT NUMBER 4.4 */}
           <div className="mt-6 border-2 border-indigo-200 rounded-xl p-4 bg-indigo-50/40 space-y-3">
@@ -3409,21 +3832,27 @@ export function DraftingSuiteTeam({
             />
           </div>
 
-          <div className="flex justify-between items-center">
-            <label className="text-xs font-bold text-slate-700 uppercase">Review Quarters Schedule</label>
-            <button
-              type="button"
-              onClick={() => {
-                const nextNum = reviewRows.length + 1;
-                setReviewRows([
-                  ...reviewRows,
-                  { term: `${nextNum}th Quarter`, desc: 'Month - Month', type: 'Formal', activities: 'Review', date: 'Month', responsible: 'Manager' }
-                ]);
-              }}
-              className="px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded text-xs font-bold hover:bg-emerald-100 flex items-center gap-1 cursor-pointer"
-            >
-              <Plus className="w-3 h-3" /> Add Review Quarter
-            </button>
+          <div className="flex justify-between items-center flex-wrap gap-2">
+            <div>
+              <label className="text-xs font-bold text-slate-700 uppercase block">Review Quarters Schedule &amp; Timetable</label>
+              <p className="text-[10.5px] text-slate-500">Fully customizable timetable matrix: Add or delete review rows and columns dynamically.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleAddTimetableColumn}
+                className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+              >
+                <Plus className="w-3 h-3 text-slate-600" /> Add Column
+              </button>
+              <button
+                type="button"
+                onClick={handleAddTimetableRow}
+                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-xs"
+              >
+                <Plus className="w-3 h-3" /> Add Review Period
+              </button>
+            </div>
           </div>
 
           <SectionCustomBlockEditor
@@ -3434,100 +3863,59 @@ export function DraftingSuiteTeam({
           />
 
           <div className="overflow-x-auto border border-slate-200 rounded-lg">
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-left text-xs border-collapse">
               <thead className="bg-slate-100 text-slate-700 uppercase font-bold text-[10px]">
                 <tr>
-                  <th className="p-2">Review Term</th>
-                  <th className="p-2">Period</th>
-                  <th className="p-2">Type</th>
-                  <th className="p-2">Activities</th>
-                  <th className="p-2">Due Date</th>
-                  <th className="p-2">Responsible</th>
-                  <th className="p-2 text-center">Action</th>
+                  <th className="p-2 w-8 text-center border-b border-slate-200">#</th>
+                  {reviewHeaders.map((header, colIdx) => (
+                    <th key={colIdx} className="p-2 border-b border-r border-slate-200 min-w-[130px]">
+                      <div className="flex items-center justify-between gap-1">
+                        <input
+                          type="text"
+                          value={header}
+                          onChange={e => handleUpdateTimetableHeader(colIdx, e.target.value)}
+                          className="w-full text-[10.5px] font-bold text-slate-800 bg-transparent border-b border-transparent focus:border-emerald-500 outline-none uppercase"
+                          placeholder={`Column ${colIdx + 1}`}
+                        />
+                        {reviewHeaders.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteTimetableColumn(colIdx)}
+                            className="text-slate-400 hover:text-rose-600 p-0.5 rounded cursor-pointer"
+                            title="Delete Column"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    </th>
+                  ))}
+                  <th className="p-2 text-center w-12 border-b border-slate-200">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
-                {reviewRows.map((r, rowIdx) => (
-                  <tr key={rowIdx}>
-                    <td className="p-1.5">
-                      <input
-                        type="text"
-                        value={r.term || ''}
-                        onChange={e => {
-                          const updated = [...reviewRows];
-                          updated[rowIdx] = { ...updated[rowIdx], term: e.target.value };
-                          setReviewRows(updated);
-                        }}
-                        className="w-full text-xs p-1 border border-slate-200 rounded"
-                      />
+                {reviewGridRows.map((row, rowIdx) => (
+                  <tr key={rowIdx} className={rowIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                    <td className="p-2 text-center font-bold text-slate-400 text-xs">
+                      {rowIdx + 1}
                     </td>
-                    <td className="p-1.5">
-                      <input
-                        type="text"
-                        value={r.desc || ''}
-                        onChange={e => {
-                          const updated = [...reviewRows];
-                          updated[rowIdx] = { ...updated[rowIdx], desc: e.target.value };
-                          setReviewRows(updated);
-                        }}
-                        className="w-full text-xs p-1 border border-slate-200 rounded"
-                      />
-                    </td>
-                    <td className="p-1.5">
-                      <select
-                        value={r.type || 'Informal'}
-                        onChange={e => {
-                          const updated = [...reviewRows];
-                          updated[rowIdx] = { ...updated[rowIdx], type: e.target.value };
-                          setReviewRows(updated);
-                        }}
-                        className="w-full text-xs p-1 border border-slate-200 rounded bg-white"
-                      >
-                        <option value="Informal">Informal</option>
-                        <option value="Formal">Formal</option>
-                      </select>
-                    </td>
-                    <td className="p-1.5">
-                      <input
-                        type="text"
-                        value={r.activities || ''}
-                        onChange={e => {
-                          const updated = [...reviewRows];
-                          updated[rowIdx] = { ...updated[rowIdx], activities: e.target.value };
-                          setReviewRows(updated);
-                        }}
-                        className="w-full text-xs p-1 border border-slate-200 rounded"
-                      />
-                    </td>
-                    <td className="p-1.5">
-                      <input
-                        type="text"
-                        value={r.date || ''}
-                        onChange={e => {
-                          const updated = [...reviewRows];
-                          updated[rowIdx] = { ...updated[rowIdx], date: e.target.value };
-                          setReviewRows(updated);
-                        }}
-                        className="w-full text-xs p-1 border border-slate-200 rounded"
-                      />
-                    </td>
-                    <td className="p-1.5">
-                      <input
-                        type="text"
-                        value={r.responsible || 'Manager'}
-                        onChange={e => {
-                          const updated = [...reviewRows];
-                          updated[rowIdx] = { ...updated[rowIdx], responsible: e.target.value };
-                          setReviewRows(updated);
-                        }}
-                        className="w-full text-xs p-1 border border-slate-200 rounded"
-                      />
-                    </td>
+                    {reviewHeaders.map((_, colIdx) => (
+                      <td key={colIdx} className="p-1.5 border-r border-slate-100">
+                        <input
+                          type="text"
+                          value={row[colIdx] || ''}
+                          onChange={e => handleUpdateTimetableCell(rowIdx, colIdx, e.target.value)}
+                          className="w-full text-xs p-1.5 border border-slate-200 rounded focus:border-emerald-500 outline-none bg-white"
+                          placeholder="Enter details..."
+                        />
+                      </td>
+                    ))}
                     <td className="p-1.5 text-center">
                       <button
                         type="button"
-                        onClick={() => setReviewRows(reviewRows.filter((_, i) => i !== rowIdx))}
+                        onClick={() => handleDeleteTimetableRow(rowIdx)}
                         className="text-slate-400 hover:text-rose-600 p-1"
+                        title="Delete Row"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -4106,7 +4494,7 @@ export function DraftingSuiteTeam({
           />
         </div>
 
-        {/* ANNEXURES */}
+        {/* ANNEXURE C: DISCLOSURE OF INTEREST EDITOR */}
         <div className="bg-white p-5 rounded-xl shadow-xs border border-slate-200 space-y-4">
           <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
             <Edit3 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
@@ -4125,7 +4513,116 @@ export function DraftingSuiteTeam({
             extra={getSectionExtra('annexureC').above}
             onChange={val => updateSectionExtra('annexureC', 'above', val)}
           />
-          <textarea value={annexureC} onChange={e => setAnnexureC(e.target.value)} rows={4} className="w-full text-xs p-3 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none" />
+
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <span className="text-xs font-bold text-slate-700 uppercase block">Declaration &amp; Disclosure for All Team Members</span>
+                <p className="text-[10.5px] text-slate-500">Each team member in the roster (including the Team Leader) must have their statutory financial and business interests recorded.</p>
+              </div>
+            </div>
+
+            {memberDisclosures.map((mDisc, dIdx) => (
+              <div key={dIdx} className="bg-slate-50/80 rounded-lg border border-slate-200 p-3.5 space-y-2.5">
+                <div className="flex justify-between items-center bg-white p-2 rounded border border-slate-200">
+                  <div className="flex items-center gap-2">
+                    <span className={`w-5 h-5 rounded-full text-white text-[10px] font-black flex items-center justify-center ${mDisc.memberRole === 'Team Leader' ? 'bg-amber-600' : 'bg-emerald-700'}`}>
+                      {dIdx + 1}
+                    </span>
+                    <span className="text-xs font-bold text-slate-900">
+                      {mDisc.memberName || `Member #${dIdx + 1}`}
+                    </span>
+                    <span className={`text-[9px] px-2 py-0.5 rounded font-bold ${mDisc.memberRole === 'Team Leader' ? 'bg-amber-100 text-amber-900' : 'bg-blue-50 text-blue-800'}`}>
+                      {mDisc.memberRole}
+                    </span>
+                    <span className="text-[10px] text-slate-500">
+                      {mDisc.memberDesignation}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleAddMemberDisclosure(dIdx)}
+                    className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10.5px] font-bold transition flex items-center gap-1 cursor-pointer shadow-2xs"
+                  >
+                    <Plus className="w-3 h-3" /> Add Business Interest
+                  </button>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse border border-slate-200 text-xs bg-white rounded">
+                    <thead className="bg-slate-100 text-slate-700 uppercase font-bold text-[9.5px]">
+                      <tr>
+                        <th className="border border-slate-200 p-1.5 w-7 text-center">No.</th>
+                        <th className="border border-slate-200 p-1.5 min-w-[150px]">Name of Business / Company</th>
+                        <th className="border border-slate-200 p-1.5 min-w-[130px]">CK / Registration Number</th>
+                        <th className="border border-slate-200 p-1.5 min-w-[100px] text-center">Percentage Owned (%)</th>
+                        <th className="border border-slate-200 p-1.5 min-w-[140px]">Nature of Business / Directorship</th>
+                        <th className="border border-slate-200 p-1.5 text-center w-8">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {mDisc.disclosures.map((disc, discIdx) => (
+                        <tr key={disc.id || discIdx}>
+                          <td className="border border-slate-200 p-1 text-center font-bold text-slate-500 text-[10px]">
+                            {discIdx + 1}
+                          </td>
+                          <td className="border border-slate-200 p-1">
+                            <input
+                              type="text"
+                              value={disc.businessName || ''}
+                              onChange={e => handleUpdateMemberDisclosure(dIdx, discIdx, 'businessName', e.target.value)}
+                              placeholder="e.g. Acme Enterprise (Pty) Ltd / None"
+                              className="w-full text-xs p-1 border border-slate-200 rounded focus:border-emerald-500 outline-none"
+                            />
+                          </td>
+                          <td className="border border-slate-200 p-1">
+                            <input
+                              type="text"
+                              value={disc.ckNumber || ''}
+                              onChange={e => handleUpdateMemberDisclosure(dIdx, discIdx, 'ckNumber', e.target.value)}
+                              placeholder="e.g. 2020/123456/07 / N/A"
+                              className="w-full text-xs p-1 border border-slate-200 rounded focus:border-emerald-500 outline-none"
+                            />
+                          </td>
+                          <td className="border border-slate-200 p-1">
+                            <input
+                              type="text"
+                              value={disc.percentageOwned || ''}
+                              onChange={e => handleUpdateMemberDisclosure(dIdx, discIdx, 'percentageOwned', e.target.value)}
+                              placeholder="e.g. 50% / 0%"
+                              className="w-full text-xs p-1 text-center font-bold text-emerald-900 border border-slate-200 rounded focus:border-emerald-500 outline-none"
+                            />
+                          </td>
+                          <td className="border border-slate-200 p-1">
+                            <input
+                              type="text"
+                              value={disc.natureOfBusiness || ''}
+                              onChange={e => handleUpdateMemberDisclosure(dIdx, discIdx, 'natureOfBusiness', e.target.value)}
+                              placeholder="e.g. Director / Consulting / None"
+                              className="w-full text-xs p-1 border border-slate-200 rounded focus:border-emerald-500 outline-none"
+                            />
+                          </td>
+                          <td className="border border-slate-200 p-1 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteMemberDisclosure(dIdx, discIdx)}
+                              className="text-slate-400 hover:text-rose-600 p-1"
+                              title="Delete Row"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <label className="text-[10px] font-bold text-slate-500 uppercase block mt-3">Statutory Declaration Text:</label>
+          <textarea value={annexureC} onChange={e => setAnnexureC(e.target.value)} rows={3} className="w-full text-xs p-3 border border-slate-300 rounded-lg focus:border-emerald-500 outline-none font-mono" />
           <SectionCustomBlockEditor
             label="Additional Table & Text (Below Annexure C)"
             position="below"
@@ -4201,7 +4698,7 @@ export function DraftingSuiteTeam({
               {teamList[activeTeamIndex]?.name || `Team ${activeTeamIndex + 1}`}
             </div>
             <p className="text-xs font-semibold text-slate-600">
-              Financial Year: 2025/2026
+              Financial Year: {financialYear ? financialYear.replace(/financial year/i, '').trim() || '2026/2027' : '2026/2027'}
             </p>
           </div>
 
@@ -4506,23 +5003,23 @@ export function DraftingSuiteTeam({
               <table className="w-full text-left border-collapse border border-slate-300 text-[11px] my-3">
                 <thead className="bg-slate-100 text-slate-800 font-bold uppercase text-[9.5px]">
                   <tr>
-                    <th className="border border-slate-300 p-2">Term</th>
-                    <th className="border border-slate-300 p-2">Period</th>
-                    <th className="border border-slate-300 p-2">Type</th>
-                    <th className="border border-slate-300 p-2">Activities</th>
-                    <th className="border border-slate-300 p-2">Due Date</th>
-                    <th className="border border-slate-300 p-2">Responsible</th>
+                    <th className="border border-slate-300 p-2 w-8 text-center">#</th>
+                    {reviewHeaders.map((h, hIdx) => (
+                      <th key={hIdx} className="border border-slate-300 p-2">
+                        {h}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {reviewRows.map((r, i) => (
+                  {reviewGridRows.map((r, i) => (
                     <tr key={i} className="border-b border-slate-200">
-                      <td className="border border-slate-300 p-2 font-bold">{r.term}</td>
-                      <td className="border border-slate-300 p-2">{r.desc}</td>
-                      <td className="border border-slate-300 p-2">{r.type}</td>
-                      <td className="border border-slate-300 p-2">{r.activities}</td>
-                      <td className="border border-slate-300 p-2">{r.date}</td>
-                      <td className="border border-slate-300 p-2">{r.responsible}</td>
+                      <td className="border border-slate-300 p-2 text-center font-bold text-slate-500">{i + 1}</td>
+                      {reviewHeaders.map((_, colIdx) => (
+                        <td key={colIdx} className="border border-slate-300 p-2 font-medium">
+                          {r[colIdx] || '—'}
+                        </td>
+                      ))}
                     </tr>
                   ))}
                 </tbody>
@@ -4724,60 +5221,123 @@ export function DraftingSuiteTeam({
               </div>
             )}
 
-            {/* Annexure B: Personal Development Plan (PDP) Preview */}
-            {pulledPdpItems && pulledPdpItems.length > 0 && (
-              <div className="pt-6 border-t border-slate-200 text-xs">
-                <div className="my-3 border border-amber-300 rounded-lg p-3 bg-amber-50/20">
-                  <div className="flex justify-between items-center mb-2 pb-1 border-b border-amber-200">
-                    <span className="text-[11px] font-extrabold uppercase text-amber-950 flex items-center gap-1.5">
-                      <GraduationCap className="w-3.5 h-3.5 text-amber-700" />
-                      Annexure B: Adopted Personal Development Plan (PDP) Matrix
+            {/* Annexure B: Personal Development Plan (PDP) Preview for Team Members */}
+            {annexureB && (
+              <div className="pt-6 border-t border-slate-200 text-xs space-y-4">
+                <SectionCustomBlockViewer extra={getSectionExtra('framework_4_4').above} />
+                <div className="flex justify-between items-center border-b-2 border-amber-800/60 pb-1.5 mb-2">
+                  <h4 className="font-extrabold uppercase text-amber-950 text-xs flex items-center gap-1.5">
+                    <GraduationCap className="w-4 h-4 text-amber-700" />
+                    Annexure B: Personal Development Plan (PDP) &amp; Competency Matrix
+                  </h4>
+                  <span className="text-[9.5px] bg-amber-100 text-amber-900 font-bold px-2 py-0.5 rounded">
+                    {memberPdps.length} Team Members Captured
+                  </span>
+                </div>
+
+                {memberPdps.map((mpdp, mIdx) => (
+                  <div key={mIdx} className="my-3 border border-amber-300 rounded-lg p-3 bg-amber-50/20">
+                    <div className="flex justify-between items-center mb-2 pb-1 border-b border-amber-200">
+                      <span className="text-[10.5px] font-black uppercase text-amber-950 flex items-center gap-1.5">
+                        <span className="w-4 h-4 rounded-full bg-amber-700 text-white text-[9px] font-bold flex items-center justify-center">
+                          {mIdx + 1}
+                        </span>
+                        Personal Development Plan (PDP) — {mpdp.memberName || `Member #${mIdx + 1}`}
+                      </span>
+                      <span className="text-[9px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded">
+                        {mpdp.memberDesignation || 'Team Member'}
+                      </span>
+                    </div>
+                    <table className="w-full text-left border-collapse border border-slate-300 text-[10px]">
+                      <thead className="bg-slate-100 text-slate-800 font-black uppercase text-[9px]">
+                        <tr>
+                          <th className="border border-slate-300 p-1.5 text-center w-8">No.</th>
+                          <th className="border border-slate-300 p-1.5 min-w-[130px]">Identified Skills Gap</th>
+                          <th className="border border-slate-300 p-1.5 min-w-[130px]">Desired Outcomes</th>
+                          <th className="border border-slate-300 p-1.5 min-w-[120px]">Suggested Training / Intervention</th>
+                          <th className="border border-slate-300 p-1.5 text-center">Mode of Delivery</th>
+                          <th className="border border-slate-300 p-1.5 text-center">Time Frame</th>
+                          <th className="border border-slate-300 p-1.5">Work Opportunity / Practice</th>
+                          <th className="border border-slate-300 p-1.5 text-center">Support Person</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {mpdp.items.map((pdp, idx) => (
+                          <tr key={pdp.id || idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'}>
+                            <td className="border border-slate-300 p-1.5 text-center font-bold text-slate-600">{idx + 1}</td>
+                            <td className="border border-slate-300 p-1.5 font-bold text-slate-900">{pdp.skillsGap || '—'}</td>
+                            <td className="border border-slate-300 p-1.5 text-slate-700">{pdp.outcomes || '—'}</td>
+                            <td className="border border-slate-300 p-1.5 text-slate-700">{pdp.suggestedTraining || '—'}</td>
+                            <td className="border border-slate-300 p-1.5 text-center">{pdp.modeOfDelivery || '—'}</td>
+                            <td className="border border-slate-300 p-1.5 text-center font-semibold text-amber-900">{pdp.timeFrame || '—'}</td>
+                            <td className="border border-slate-300 p-1.5 text-slate-700">{pdp.workOpportunity || '—'}</td>
+                            <td className="border border-slate-300 p-1.5 text-center font-semibold text-slate-800">{pdp.supportPerson || '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Annexure C: Disclosure of Financial Interest Preview */}
+            <div className="pt-6 border-t border-slate-200 text-xs space-y-4">
+              <SectionCustomBlockViewer extra={getSectionExtra('annexureC').above} />
+              <div className="flex justify-between items-center border-b-2 border-emerald-800/60 pb-1.5 mb-2">
+                <h4 className="font-extrabold uppercase text-emerald-950 text-xs flex items-center gap-1.5">
+                  <Briefcase className="w-4 h-4 text-emerald-700" />
+                  {headingAnnexureC || "Annexure C: Disclosure of Financial Interest"}
+                </h4>
+                <span className="text-[9.5px] bg-emerald-100 text-emerald-900 font-bold px-2 py-0.5 rounded">
+                  {memberDisclosures.length} Declarations
+                </span>
+              </div>
+
+              {memberDisclosures.map((disc, dIdx) => (
+                <div key={dIdx} className="mb-4 border border-slate-200 rounded-lg p-3 bg-white shadow-2xs">
+                  <div className="flex justify-between items-center mb-2 pb-1 border-b border-slate-200">
+                    <span className="font-extrabold text-[11px] text-emerald-950 uppercase flex items-center gap-1.5">
+                      <span className={`w-4 h-4 rounded-full text-white text-[9px] font-bold flex items-center justify-center ${disc.memberRole === 'Team Leader' ? 'bg-amber-600' : 'bg-emerald-700'}`}>
+                        {dIdx + 1}
+                      </span>
+                      {disc.memberName || `Member #${dIdx + 1}`} ({disc.memberRole})
                     </span>
-                    <span className="text-[9px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded">
-                      {pulledPdpItems.length} PDP Items Adopted
-                    </span>
+                    <span className="text-[9.5px] text-slate-600 font-semibold">{disc.memberDesignation || '—'}</span>
                   </div>
                   <table className="w-full text-left border-collapse border border-slate-300 text-[10px]">
-                    <thead className="bg-slate-100 text-slate-800 font-black uppercase text-[9px]">
+                    <thead className="bg-slate-100 text-slate-800 font-bold uppercase text-[9px]">
                       <tr>
-                        <th className="border border-slate-300 p-1.5 text-center w-8">No.</th>
-                        <th className="border border-slate-300 p-1.5 min-w-[130px]">Identified Skills Gap</th>
-                        <th className="border border-slate-300 p-1.5 min-w-[130px]">Desired Outcomes</th>
-                        <th className="border border-slate-300 p-1.5 min-w-[120px]">Suggested Training / Intervention</th>
-                        <th className="border border-slate-300 p-1.5 text-center">Mode of Delivery</th>
-                        <th className="border border-slate-300 p-1.5 text-center">Time Frame</th>
-                        <th className="border border-slate-300 p-1.5">Work Opportunity / Practice</th>
-                        <th className="border border-slate-300 p-1.5 text-center">Support Person</th>
+                        <th className="border border-slate-300 p-1.5 w-8 text-center">No.</th>
+                        <th className="border border-slate-300 p-1.5">Name of Business / Company</th>
+                        <th className="border border-slate-300 p-1.5">CK / Registration Number</th>
+                        <th className="border border-slate-300 p-1.5 text-center min-w-[90px]">Percentage Owned (%)</th>
+                        <th className="border border-slate-300 p-1.5">Nature of Business / Directorship</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {pulledPdpItems.map((pdp, idx) => (
-                        <tr key={pdp.id || idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'}>
-                          <td className="border border-slate-300 p-1.5 text-center font-bold text-slate-600">{idx + 1}</td>
-                          <td className="border border-slate-300 p-1.5 font-bold text-slate-900">{pdp.skillsGap || pdp.need || '—'}</td>
-                          <td className="border border-slate-300 p-1.5 text-slate-700">{pdp.outcomes || pdp.outcome || '—'}</td>
-                          <td className="border border-slate-300 p-1.5 text-slate-700">{pdp.suggestedTraining || pdp.training || '—'}</td>
-                          <td className="border border-slate-300 p-1.5 text-center">{pdp.modeOfDelivery || pdp.mode || '—'}</td>
-                          <td className="border border-slate-300 p-1.5 text-center font-semibold text-amber-900">{pdp.timeFrame || pdp.timing || '—'}</td>
-                          <td className="border border-slate-300 p-1.5 text-slate-700">{pdp.workOpportunity || pdp.workExperience || '—'}</td>
-                          <td className="border border-slate-300 p-1.5 text-center font-semibold text-slate-800">{pdp.supportPerson || pdp.support || '—'}</td>
+                      {disc.disclosures.map((item, itemIdx) => (
+                        <tr key={item.id || itemIdx} className={itemIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'}>
+                          <td className="border border-slate-300 p-1.5 text-center font-bold text-slate-600">{itemIdx + 1}</td>
+                          <td className="border border-slate-300 p-1.5 font-bold text-slate-900">{item.businessName || 'Nil / None Disclosed'}</td>
+                          <td className="border border-slate-300 p-1.5 text-slate-700">{item.ckNumber || 'N/A'}</td>
+                          <td className="border border-slate-300 p-1.5 text-center font-bold text-emerald-900">{item.percentageOwned || '0%'}</td>
+                          <td className="border border-slate-300 p-1.5 text-slate-700">{item.natureOfBusiness || '—'}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
+                  <p className="text-[9px] italic text-slate-500 mt-2">
+                    Declaration: I hereby certify that the above information is complete, accurate, and correct to the best of my knowledge.
+                  </p>
                 </div>
-              </div>
-            )}
+              ))}
 
-            {/* Annexure C Preview */}
-            <div className="pt-6 border-t border-slate-200 text-xs">
-              <SectionCustomBlockViewer extra={getSectionExtra('annexureC').above} />
-              <h4 className="font-bold uppercase text-emerald-900 mb-2">
-                {headingAnnexureC || "Annexure C: Financial Disclosure"}
-              </h4>
-              <div className="whitespace-pre-wrap text-slate-700 bg-slate-50 p-4 rounded border border-slate-200">
-                {annexureC}
-              </div>
+              {annexureC && (
+                <div className="whitespace-pre-wrap text-[10px] text-slate-700 bg-slate-50 p-3 rounded border border-slate-200 mt-2 font-mono">
+                  {annexureC}
+                </div>
+              )}
               <SectionCustomBlockViewer extra={getSectionExtra('annexureC').below} />
             </div>
 
