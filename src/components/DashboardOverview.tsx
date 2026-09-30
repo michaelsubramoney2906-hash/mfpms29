@@ -13,6 +13,8 @@ export const COMMAND_CENTER_AUTHORIZED_PROFILES = [
   'qiniso@mzansiflow.co.za',
   'delphine@mzansiflow.co.za',
   'ryanw@mzansiflow.co.za',
+  'bongani@mzansiflow.co.za',
+  'bonganim@mzansiflow.co.za',
   'mike@mzansiflow.co.za',
   'marlan@mzansiflow.co.za',
   'mike@massivedynamixdistributors.com'

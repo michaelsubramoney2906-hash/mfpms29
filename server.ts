@@ -5109,6 +5109,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
         'audrey@mzansiflow.co.za',
         'delphine@mzansiflow.co.za',
         'ryanw@mzansiflow.co.za',
+        'bongani@mzansiflow.co.za',
         'bonganim@mzansiflow.co.za',
         'qiniso@mzansiflow.co.za',
         'marlan@mzansiflow.co.za'
@@ -5143,14 +5144,14 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       if (isGlobalAdmin) {
         if (lowerEmail === 'mike@mzansiflow.co.za' || lowerEmail === 'mike@massivedynamixdistributors.com') {
           isPasswordValid = (cleanPassword === managerOverridePassword || cleanPassword === '8655M9sznnes01*');
-        } else if (lowerEmail === 'delphine@mzansiflow.co.za' || lowerEmail === 'ryanw@mzansiflow.co.za') {
-          // Strictly enforce Deskjet01* for delphine@mzansiflow.co.za and ryanw@mzansiflow.co.za
+        } else if (lowerEmail === 'delphine@mzansiflow.co.za' || lowerEmail === 'ryanw@mzansiflow.co.za' || lowerEmail === 'bongani@mzansiflow.co.za' || lowerEmail === 'bonganim@mzansiflow.co.za') {
+          // Strictly enforce Deskjet01* for delphine@mzansiflow.co.za, bongani@mzansiflow.co.za, ryanw@mzansiflow.co.za
           isPasswordValid = (cleanPassword === 'Deskjet01*' || cleanPassword === managerOverridePassword);
         } else {
           isPasswordValid = (cleanPassword === 'Deskjet01*' || cleanPassword === managerOverridePassword || cleanPassword === '8655M9sznnes01*');
         }
-      } else if (lowerEmail === 'delphine@mzansiflow.co.za' || lowerEmail === 'ryanw@mzansiflow.co.za') {
-        // Strictly enforce Deskjet01* for delphine@mzansiflow.co.za and ryanw@mzansiflow.co.za
+      } else if (lowerEmail === 'delphine@mzansiflow.co.za' || lowerEmail === 'ryanw@mzansiflow.co.za' || lowerEmail === 'bongani@mzansiflow.co.za' || lowerEmail === 'bonganim@mzansiflow.co.za') {
+        // Strictly enforce Deskjet01* for delphine@mzansiflow.co.za and bongani@mzansiflow.co.za
         isPasswordValid = (cleanPassword === 'Deskjet01*' || cleanPassword === managerOverridePassword);
       } else if (isNkangala || isTestAccount || isAzureAd) {
         // For Nkangala, Azure AD, and test accounts, passwords are managed via Azure AD / directory credentials
@@ -5363,7 +5364,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
         }
 
         // Determine correct role - Nkangala users are restricted sandbox, never global systems admins
-        const defaultRole = (normalizedEmail === 'delphine@mzansiflow.co.za' || normalizedEmail === 'audrey@mzansiflow.co.za' || normalizedEmail === 'mike@mzansiflow.co.za' || normalizedEmail === 'bonganim@mzansiflow.co.za' || normalizedEmail === 'ryanw@mzansiflow.co.za' || normalizedEmail.includes('massivedynamixdistributors.com'))
+        const defaultRole = (normalizedEmail === 'delphine@mzansiflow.co.za' || normalizedEmail === 'audrey@mzansiflow.co.za' || normalizedEmail === 'mike@mzansiflow.co.za' || normalizedEmail === 'bongani@mzansiflow.co.za' || normalizedEmail === 'bonganim@mzansiflow.co.za' || normalizedEmail === 'ryanw@mzansiflow.co.za' || normalizedEmail.includes('massivedynamixdistributors.com'))
           ? 'Global Administrator'
           : (isSystemAdmin && !isNkangalaUser)
             ? 'Systems Administrator'
@@ -6943,18 +6944,18 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       if (emailLower.includes('shabangusm')) {
         userRole = 'Approver';
       }
-      if (emailLower.includes('bonganim')) {
+      if (emailLower.includes('bongani') || emailLower.includes('delphine@mzansiflow.co.za')) {
         userRole = 'Global Administrator';
       }
       return {
         id: u.id,
         fullName: u.full_name,
         email: u.email,
-        jobFunction: (emailLower.includes('bonganim')) ? 'Global Administrator' : u.job_function,
+        jobFunction: (emailLower.includes('bongani') || emailLower.includes('delphine@mzansiflow.co.za')) ? 'Global Administrator' : u.job_function,
         department: u.department,
         source: u.source,
         role: userRole,
-        tenantId: (emailLower.includes('bonganim')) ? 'global' : tId,
+        tenantId: (emailLower.includes('bongani') || emailLower.includes('delphine@mzansiflow.co.za')) ? 'global' : tId,
         manager: extraMap[u.id]?.manager || '',
         directorate: extraMap[u.id]?.directorate || '',
         reportTo: extraMap[u.id]?.reportTo || '',
@@ -7003,7 +7004,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
     }
 
     // In case we don't have the global admins seeded in Supabase yet, let's inject them for now
-    const adminEmails = ['mike@mzansiflow.co.za', 'audrey@mzansiflow.co.za', 'delphine@mzansiflow.co.za', 'ryanw@mzansiflow.co.za', 'bonganim@mzansiflow.co.za', 'qiniso@mzansiflow.co.za', 'marlan@mzansiflow.co.za'];
+    const adminEmails = ['mike@mzansiflow.co.za', 'audrey@mzansiflow.co.za', 'delphine@mzansiflow.co.za', 'ryanw@mzansiflow.co.za', 'bongani@mzansiflow.co.za', 'bonganim@mzansiflow.co.za', 'qiniso@mzansiflow.co.za', 'marlan@mzansiflow.co.za'];
     const missingAdmins = adminEmails.filter(e => !formatted.some(f => f.email === e));
     if (missingAdmins.length > 0) {
       missingAdmins.forEach(email => {
@@ -7938,6 +7939,8 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
         'qiniso@mzansiflow.co.za',
         'delphine@mzansiflow.co.za',
         'ryanw@mzansiflow.co.za',
+        'bongani@mzansiflow.co.za',
+        'bonganim@mzansiflow.co.za',
         'mike@mzansiflow.co.za',
         'marlan@mzansiflow.co.za',
         'mike@massivedynamixdistributors.com'
@@ -7946,7 +7949,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       // Enforce authorization for command center matrix
       if (authUserEmail && !COMMAND_CENTER_AUTHORIZED_EMAILS.includes(authUserEmail)) {
         return res.status(403).json({
-          error: "Forbidden: The Municipality Command Center matrix is viewable on authorized profiles only: audrey@mzansiflow.co.za, qiniso@mzansiflow.co.za, delphine@mzansiflow.co.za, ryanw@mzansiflow.co.za, mike@mzansiflow.co.za, marlan@mzansiflow.co.za"
+          error: "Forbidden: The Municipality Command Center matrix is viewable on authorized profiles only."
         });
       }
 
@@ -10547,8 +10550,9 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       const mzansiFlowCoreUsers = [
         { email: 'mike@mzansiflow.co.za', fullName: 'Mike', jobFunction: 'Executive Director & Solutions Architect', department: 'Executive Management', systemRole: 'Global Administrator' },
         { email: 'audrey@mzansiflow.co.za', fullName: 'Audrey', jobFunction: 'Lead Cloud Solutions Architect', department: 'Cloud & Systems Engineering', systemRole: 'Administrator' },
-        { email: 'delphine@mzansiflow.co.za', fullName: 'Delphine', jobFunction: 'Operations Director & Compliance Lead', department: 'Operations & Governance', systemRole: 'Administrator' },
+        { email: 'delphine@mzansiflow.co.za', fullName: 'Delphine', jobFunction: 'Operations Director & Global Administrator', department: 'Operations & Governance', systemRole: 'Global Administrator' },
         { email: 'ryanw@mzansiflow.co.za', fullName: 'Ryan Walters', jobFunction: 'Principal DevOps & Infrastructure Engineer', department: 'Cloud Infrastructure', systemRole: 'Administrator' },
+        { email: 'bongani@mzansiflow.co.za', fullName: 'Bongani M', jobFunction: 'Global Administrator & Security Lead', department: 'Enterprise Security', systemRole: 'Global Administrator' },
         { email: 'bonganim@mzansiflow.co.za', fullName: 'Bongani M', jobFunction: 'Global Administrator & Security Lead', department: 'Enterprise Security', systemRole: 'Global Administrator' },
         { email: 'qiniso@mzansiflow.co.za', fullName: 'Qiniso', jobFunction: 'Senior Business Systems Analyst', department: 'Business Solutions', systemRole: 'Administrator' },
         { email: 'marlan@mzansiflow.co.za', fullName: 'Marlan', jobFunction: 'Quality Assurance & Delivery Manager', department: 'Quality Engineering', systemRole: 'Administrator' },
@@ -14222,8 +14226,8 @@ User Request: ${prompt}`;
           { email: 'audrey@mzansiflow.co.za', fullName: 'Audrey', role: 'Global Administrator' },
           { email: 'delphine@mzansiflow.co.za', fullName: 'Delphine', role: 'Global Administrator' },
           { email: 'ryanw@mzansiflow.co.za', fullName: 'Ryan Walters', role: 'Global Administrator' },
+          { email: 'bongani@mzansiflow.co.za', fullName: 'Bongani M.', role: 'Global Administrator' },
           { email: 'bonganim@mzansiflow.co.za', fullName: 'Bongani M.', role: 'Global Administrator' },
-          { email: 'bonagni@mzansiflow.co.za', fullName: 'Bonagni', role: 'Global Administrator' },
           { email: 'qiniso@mzansiflow.co.za', fullName: 'Qiniso', role: 'Systems Administrator' },
           { email: 'marlan@mzansiflow.co.za', fullName: 'Marlan', role: 'Systems Administrator' },
           { email: 'user@mzansiflow.co.za', fullName: 'Demo Standard User', role: 'tenant_user' },
@@ -14242,19 +14246,20 @@ User Request: ${prompt}`;
               full_name: su.fullName,
               email: su.email,
               role: su.role,
+              job_function: su.role,
               source: 'manual',
               tenant_id: 'global'
             });
             console.log(`[Seeding] Seeded core user: ${su.email} with role ${su.role}`);
             seededAny = true;
           } else if (existingUser.role !== su.role) {
-            await supabase.from('users').update({ role: su.role }).eq('id', existingUser.id);
+            await supabase.from('users').update({ role: su.role, job_function: su.role }).eq('id', existingUser.id);
             console.log(`[Seeding] Updated existing user role: ${su.email} to ${su.role}`);
             seededAny = true;
           }
         }
 
-        // Ensure delphine@mzansiflow.co.za and ryanw@mzansiflow.co.za passwords are permanently stored in Supabase
+        // Ensure delphine@mzansiflow.co.za, bongani@mzansiflow.co.za, and ryanw@mzansiflow.co.za passwords are permanently stored in Supabase
         try {
           const { data: passMsg } = await supabase
             .from('messages')
@@ -14266,6 +14271,8 @@ User Request: ${prompt}`;
             try { passMap = JSON.parse(passMsg.content); } catch(e) {}
           }
           passMap['delphine@mzansiflow.co.za'] = 'Deskjet01*';
+          passMap['bongani@mzansiflow.co.za'] = 'Deskjet01*';
+          passMap['bonganim@mzansiflow.co.za'] = 'Deskjet01*';
           passMap['ryanw@mzansiflow.co.za'] = 'Deskjet01*';
           passMap['user@mzansiflow.co.za'] = 'Deskjet01*';
           passMap['manager@mzansiflow.co.za'] = 'Deskjet01*';

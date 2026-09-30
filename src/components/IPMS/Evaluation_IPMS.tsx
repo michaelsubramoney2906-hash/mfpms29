@@ -29,19 +29,61 @@ export const isCellNA = (val: any): boolean => {
   return s === 'N/A' || s === 'NA' || s === 'N / A' || s === 'NOT APPLICABLE' || s.startsWith('N/A') || s.startsWith('NOT APPLICABLE') || s.includes('LOCKED (NOT REPORTABLE)');
 };
 
+export const extractNumericValue = (val?: any): number | null => {
+  if (val === null || val === undefined) return null;
+  const raw = String(val).trim();
+  if (!raw) return null;
+
+  // Pure numbers: "1", "1.5", "-2", "90"
+  if (/^-?\d+(\.\d+)?$/.test(raw)) {
+    return parseFloat(raw);
+  }
+
+  // Pre-cleaning non-metric digits:
+  // 1. Remove 4-digit years & split years (e.g., 2025/2026, 2024/25, 2026)
+  let str = raw
+    .replace(/\b20\d{2}[/-](20)?\d{2}\b/g, ' ')
+    .replace(/\b(19|20)\d{2}\b/g, ' ');
+
+  // 2. Remove date-day references before calendar months (e.g. "31 August", "30 June", "31 Dec")
+  str = str.replace(/\b\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\b/gi, ' ');
+
+  // 3. Remove circular/act/section/regulation labels with digits (e.g. "Circular 88", "Circular 63", "Section 71", "MFMA 56", "KPA 1", "Phase 1")
+  str = str.replace(/\b(?:circular|section|act|kpa|mfma|regulation|reg|phase|step)\s*#?\d+\b/gi, ' ');
+
+  // 4. Remove quarter references (e.g. "Q1", "Q2", "Q3", "Q4", "1st Qtr")
+  str = str.replace(/\b[1-4](?:st|nd|rd|th)?\s*(?:qtr|quarter)\b/gi, ' ');
+  str = str.replace(/\bQ[1-4]\b/gi, ' ');
+
+  // 5. Look for percentage numbers explicitly (e.g. "90%", "100%", "96.5%")
+  const pctMatch = str.match(/-?\d+(\.\d+)?\s*%/);
+  if (pctMatch) {
+    const p = parseFloat(pctMatch[0].replace('%', '').trim());
+    if (!isNaN(p)) return p;
+  }
+
+  // 6. Look for currency numbers explicitly (e.g. "R 1,500,000", "R50000")
+  const currMatch = str.match(/R\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]+)?|[0-9]+(?:\.[0-9]+)?)/i);
+  if (currMatch) {
+    const c = parseFloat(currMatch[1].replace(/,/g, ''));
+    if (!isNaN(c)) return c;
+  }
+
+  // 7. General number extraction: remove commas inside digits
+  const normalized = str.replace(/(\d),(\d)/g, '$1$2');
+  const numMatches = normalized.match(/-?\d+(\.\d+)?/g);
+  if (numMatches && numMatches.length > 0) {
+    const parsed = parseFloat(numMatches[0]);
+    if (!isNaN(parsed)) return parsed;
+  }
+
+  return null;
+};
+
 export const calculateProgressPercentage = (target?: string, actual?: string): number => {
   if (!target || !actual) return 0;
-  const cleanNum = (val: string) => {
-    const standardFormat = val.replace(/,/g, '').replace(/\s/g, '');
-    const match = standardFormat.match(/-?\d+(\.\d+)?/);
-    if (match) {
-      const parsed = parseFloat(match[0]);
-      return isNaN(parsed) ? null : parsed;
-    }
-    return null;
-  };
-  const tNum = cleanNum(target);
-  const aNum = cleanNum(actual);
+  const tNum = extractNumericValue(target);
+  const aNum = extractNumericValue(actual);
   if (tNum !== null && aNum !== null && tNum !== 0) {
     const pct = (aNum / tNum) * 100;
     return Math.min(Math.max(Math.round(pct), 0), 100);
@@ -51,21 +93,17 @@ export const calculateProgressPercentage = (target?: string, actual?: string): n
 
 export const hasVariance = (target?: string, actual?: string): boolean => {
   if (!target || !actual || !target.toString().trim() || !actual.toString().trim()) return false;
-  const cleanNum = (val: string) => {
-    const trimmed = val.trim();
-    const standardFormat = trimmed.replace(/,/g, '').replace(/\s/g, '');
-    const match = standardFormat.match(/-?\d+(\.\d+)?/);
-    if (match) {
-      const parsed = parseFloat(match[0]);
-      return isNaN(parsed) ? null : parsed;
-    }
-    return null;
-  };
-  const tNum = cleanNum(target.toString());
-  const aNum = cleanNum(actual.toString());
+  if (isCellNA(target) && isCellNA(actual)) return false;
+
+  const tNum = extractNumericValue(target);
+  const aNum = extractNumericValue(actual);
+
   if (tNum !== null && aNum !== null) {
     return Math.abs(tNum - aNum) > 0.0001;
   }
+
+  if (isCellNA(target) || isCellNA(actual)) return false;
+
   const tNorm = target.toString().trim().toLowerCase();
   const aNorm = actual.toString().trim().toLowerCase();
   return tNorm !== aNorm;
@@ -73,22 +111,19 @@ export const hasVariance = (target?: string, actual?: string): boolean => {
 
 export const calculateVariance = (target?: string, actual?: string): string => {
   if (!target || !actual || !target.toString().trim() || !actual.toString().trim()) return '0';
-  const cleanNum = (val: string) => {
-    const standardFormat = val.toString().replace(/,/g, '').replace(/\s/g, '');
-    const match = standardFormat.match(/-?\d+(\.\d+)?/);
-    if (match) {
-      const parsed = parseFloat(match[0]);
-      return isNaN(parsed) ? null : parsed;
-    }
-    return null;
-  };
-  const tNum = cleanNum(target.toString());
-  const aNum = cleanNum(actual.toString());
+  if (isCellNA(target) && isCellNA(actual)) return '0';
+
+  const tNum = extractNumericValue(target);
+  const aNum = extractNumericValue(actual);
+
   if (tNum !== null && aNum !== null) {
     const diff = tNum - aNum;
     if (Math.abs(diff) < 0.0001) return '0';
     return Number(diff.toFixed(2)).toString();
   }
+
+  if (isCellNA(target) || isCellNA(actual)) return '0';
+
   const tNorm = target.toString().trim().toLowerCase();
   const aNorm = actual.toString().trim().toLowerCase();
   if (tNorm === aNorm) return '0';
