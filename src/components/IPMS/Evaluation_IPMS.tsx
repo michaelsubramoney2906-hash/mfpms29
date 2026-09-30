@@ -462,6 +462,23 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
   const [activeTabs, setActiveTabs] = useState<Record<string, string>>({});
   const [toastMessage, setToastMessage] = useState<{ text: string, type: 'success' | 'info' | 'warning' } | null>(null);
   const [selectedKpiIds, setSelectedKpiIds] = useState<string[]>([]);
+  const [selectedKpiIdFilter, setSelectedKpiIdFilter] = useState<string | null>(null);
+
+  // Automatically default filter to a single submitted KPI if applicable for target profiles
+  useEffect(() => {
+    if (pplanData && pplanData.metadata && pplanData.items && pplanData.items.length > 0) {
+      const email = (currentUser?.email || '').toLowerCase().trim();
+      const isTargetDomain = email.endsWith('@nkangaladm.gov.za') || email.endsWith('@mzansiflow.co.za');
+      if (isTargetDomain && !selectedKpiIdFilter) {
+        const subIds = pplanData.metadata.submittedKpiIds;
+        if (Array.isArray(subIds) && subIds.length === 1) {
+          setSelectedKpiIdFilter(subIds[0]);
+        } else if (pplanData.metadata.lastSubmittedKpiId) {
+          setSelectedKpiIdFilter(pplanData.metadata.lastSubmittedKpiId);
+        }
+      }
+    }
+  }, [pplanData, currentUser]);
 
   const toggleSelectKpi = (id: string) => {
     setSelectedKpiIds(prev => 
@@ -1313,6 +1330,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
             activeTenantId={activeTenantId}
             onSelectUserPlan={(targetUserEmail, kpiId, quarter) => {
               if (kpiId) {
+                setSelectedKpiIdFilter(kpiId);
                 if (quarter) {
                   setActiveTabs(prev => ({ ...prev, [kpiId]: quarter.toLowerCase() }));
                 }
@@ -1424,17 +1442,41 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
               </div>
             </div>
 
-            {items.map((kpi, idx) => {
-              const currentTab = activeTabs[kpi.id] || 'q1';
-              const setTab = (tab: string) => {
-                setActiveTabs(prev => ({ ...prev, [kpi.id]: tab }));
-              };
-              const kpiIsReadOnly = kpi.reviewStatus === 'Submitted for Approval' || 
-                                    kpi.reviewStatus === 'Reviewed' || 
-                                    kpi.reviewStatus === 'Approved';
-              const isSelected = selectedKpiIds.includes(kpi.id);
+            {selectedKpiIdFilter && (
+              <div className="bg-indigo-50 border border-indigo-200 p-4 rounded-2xl flex items-center justify-between text-xs text-indigo-900 shadow-sm animate-fade-in mb-4">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-2 h-2 bg-indigo-600 rounded-full animate-ping shrink-0" />
+                  <span>Currently filtered to active KPI submission:</span>
+                  <span className="font-mono bg-indigo-100 px-2 py-0.5 rounded text-indigo-700 font-extrabold text-[10px]">
+                    KPI #{items.find(i => String(i.id) === String(selectedKpiIdFilter))?.kpiNo || selectedKpiIdFilter}
+                  </span>
+                </div>
+                <button
+                  onClick={() => setSelectedKpiIdFilter(null)}
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-black px-3 py-1.5 rounded-xl text-[9px] uppercase tracking-wider transition cursor-pointer border-0"
+                >
+                  Show Complete Performance Plan
+                </button>
+              </div>
+            )}
 
-              return (
+            {(() => {
+              const visibleItems = selectedKpiIdFilter 
+                ? items.filter(kpi => String(kpi.id) === String(selectedKpiIdFilter))
+                : items;
+              const renderList = visibleItems.length > 0 ? visibleItems : items;
+
+              return renderList.map((kpi, idx) => {
+                const currentTab = activeTabs[kpi.id] || 'q1';
+                const setTab = (tab: string) => {
+                  setActiveTabs(prev => ({ ...prev, [kpi.id]: tab }));
+                };
+                const kpiIsReadOnly = kpi.reviewStatus === 'Submitted for Approval' || 
+                                      kpi.reviewStatus === 'Reviewed' || 
+                                      kpi.reviewStatus === 'Approved';
+                const isSelected = selectedKpiIds.includes(kpi.id);
+
+                return (
                 <div key={kpi.id} id={`kpi-card-${kpi.id}`} className={`bg-white p-5 rounded-2xl border ${isSelected ? 'border-emerald-500 ring-2 ring-emerald-500/20' : 'border-slate-200'} shadow-sm flex flex-col gap-5 transition-all duration-300`}>
                   {/* Header metadata layout */}
                   <div className="flex flex-wrap justify-between items-start gap-3 pb-3 border-b border-slate-100">
@@ -2521,7 +2563,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
                   </div>
                 </div>
               );
-            })}
+            })})()}
           </div>
         )}
         </>

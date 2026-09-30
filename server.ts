@@ -11599,7 +11599,23 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
         } catch (profErr) {}
 
         const rawItems = Array.isArray(parsed) ? parsed : (parsed.items || parsed.rows || parsed.kpis || []);
-        const sanitizedItems = rawItems.map((it: any) => sanitizePplanItem(it, userId));
+        let sanitizedItems = rawItems.map((it: any) => sanitizePplanItem(it, userId));
+
+        // Filter items dynamically to prevent transferring unnecessary historical data structure
+        if (req.query.kpiId) {
+          const targetKpiId = String(req.query.kpiId).trim().toLowerCase();
+          sanitizedItems = sanitizedItems.filter((it: any) => 
+            String(it.id).toLowerCase() === targetKpiId || 
+            String(it.kpiNo).toLowerCase() === targetKpiId
+          );
+        } else if (req.query.onlySubmitted === 'true') {
+          sanitizedItems = sanitizedItems.filter((it: any) => 
+            it.reviewStatus === 'Submitted for Approval' || 
+            it.reviewStatus === 'Submitted for Review' || 
+            it.reviewStatus === 'Submitted'
+          );
+        }
+
         parsed.items = sanitizedItems;
         parsed.rows = sanitizedItems;
         return res.json(parsed);
