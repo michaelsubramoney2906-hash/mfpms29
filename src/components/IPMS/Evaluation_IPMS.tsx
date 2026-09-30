@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { IPMSWorkflowInbox } from './IPMSWorkflowInbox';
 import { OfficeDocumentViewer } from './OfficeDocumentViewer';
+import { viewOriginalFile } from '../../utils/documentBinaryHelper';
 import { 
   JSCSelfEvaluationSection, 
   JSCManagerApprovalSection, 
@@ -369,9 +370,9 @@ export function QuarterPoeSelector({
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
-                    onClick={(e) => { e.preventDefault(); setPreviewDoc(file); }}
-                    className="p-1 hover:bg-emerald-50 rounded text-slate-400 hover:text-emerald-650 transition"
-                    title="View Document"
+                    onClick={(e) => { e.preventDefault(); viewOriginalFile(file.name, file.dataUrl); }}
+                    className="p-1 hover:bg-indigo-50 rounded text-slate-400 hover:text-indigo-650 transition"
+                    title="View Document in New Window"
                   >
                     <Eye className="w-3.5 h-3.5" />
                   </button>

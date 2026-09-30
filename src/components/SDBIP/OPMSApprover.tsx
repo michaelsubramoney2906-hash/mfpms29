@@ -8,7 +8,7 @@ import {
 import type { User } from '../../types';
 import { SdbipRow, SdbipPoeFile } from './SDBIP';
 import { OfficeDocumentViewer } from '../IPMS/OfficeDocumentViewer';
-import { downloadOriginalFile } from '../../utils/documentBinaryHelper';
+import { downloadOriginalFile, viewOriginalFile } from '../../utils/documentBinaryHelper';
 import { 
   SdbipWorkflowNotification, 
   isUserMatch, 
@@ -38,6 +38,30 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
   const [searchQuery, setSearchQuery] = useState('');
   const [approverNotes, setApproverNotes] = useState('');
   const [showCertificate, setShowCertificate] = useState(false);
+
+  const calcVar = (target: string | undefined, actual: string | undefined) => {
+    const tVal = (target || '').trim();
+    const aVal = (actual || '').trim();
+    if (!tVal && !aVal) return '';
+    
+    const parseNum = (s: string) => {
+      const cleaned = s.replace(/[^0-9.-]/g, '');
+      return cleaned ? parseFloat(cleaned) : NaN;
+    };
+
+    const nT = parseNum(tVal);
+    const nA = parseNum(aVal);
+
+    if (isNaN(nT) || isNaN(nA)) return '';
+
+    const diff = nA - nT;
+    const isPercentage = tVal.includes('%') || aVal.includes('%') || (selectedKpi?.uom && selectedKpi.uom.toLowerCase().includes('percent'));
+
+    if (isPercentage) {
+      return `${diff > 0 ? '+' : ''}${diff}%`;
+    }
+    return `${diff > 0 ? '+' : ''}${diff.toLocaleString()}`;
+  };
 
   const loadNotifications = async () => {
     const list = await fetchSdbipNotifications(activeTenantId);
@@ -771,11 +795,39 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
               <p className="text-slate-400"><strong>Unit of Measure:</strong> {selectedKpi.uom}</p>
               
               {/* Performance Actual values side by side */}
-              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-900 text-slate-300">
-                {selectedKpi.q1Actual && <div>Q1 Actual: <strong className="text-emerald-400 font-bold">{selectedKpi.q1Actual}</strong> <span className="text-slate-500">(Target: {selectedKpi.q1})</span></div>}
-                {selectedKpi.q2Actual && <div>Q2 Actual: <strong className="text-emerald-400 font-bold">{selectedKpi.q2Actual}</strong> <span className="text-slate-500">(Target: {selectedKpi.q2})</span></div>}
-                {selectedKpi.q3Actual && <div>Q3 Actual: <strong className="text-emerald-400 font-bold">{selectedKpi.q3Actual}</strong> <span className="text-slate-500">(Target: {selectedKpi.q3})</span></div>}
-                {selectedKpi.q4Actual && <div>Q4 Actual: <strong className="text-emerald-400 font-bold">{selectedKpi.q4Actual}</strong> <span className="text-slate-500">(Target: {selectedKpi.q4})</span></div>}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-slate-900 text-slate-350">
+                {selectedKpi.q1Actual && (
+                  <div className="bg-slate-900/60 p-2.5 rounded border border-slate-850/50">
+                    <div className="font-bold text-slate-300">Quarter 1 Performance:</div>
+                    <div>Target: <strong className="text-white">{selectedKpi.q1}</strong></div>
+                    <div>Actual: <strong className="text-emerald-400 font-bold">{selectedKpi.q1Actual}</strong></div>
+                    <div className="text-[10px] text-indigo-400 font-extrabold mt-0.5">Calculated Variance: {calcVar(selectedKpi.q1, selectedKpi.q1Actual) || '0'}</div>
+                  </div>
+                )}
+                {selectedKpi.q2Actual && (
+                  <div className="bg-slate-900/60 p-2.5 rounded border border-slate-850/50">
+                    <div className="font-bold text-slate-300">Quarter 2 Performance:</div>
+                    <div>Target: <strong className="text-white">{selectedKpi.q2}</strong></div>
+                    <div>Actual: <strong className="text-emerald-400 font-bold">{selectedKpi.q2Actual}</strong></div>
+                    <div className="text-[10px] text-indigo-400 font-extrabold mt-0.5">Calculated Variance: {calcVar(selectedKpi.q2, selectedKpi.q2Actual) || '0'}</div>
+                  </div>
+                )}
+                {selectedKpi.q3Actual && (
+                  <div className="bg-slate-900/60 p-2.5 rounded border border-slate-850/50">
+                    <div className="font-bold text-slate-300">Quarter 3 Performance:</div>
+                    <div>Target: <strong className="text-white">{selectedKpi.q3}</strong></div>
+                    <div>Actual: <strong className="text-emerald-400 font-bold">{selectedKpi.q3Actual}</strong></div>
+                    <div className="text-[10px] text-indigo-400 font-extrabold mt-0.5">Calculated Variance: {calcVar(selectedKpi.q3, selectedKpi.q3Actual) || '0'}</div>
+                  </div>
+                )}
+                {selectedKpi.q4Actual && (
+                  <div className="bg-slate-900/60 p-2.5 rounded border border-slate-850/50">
+                    <div className="font-bold text-slate-300">Quarter 4 Performance:</div>
+                    <div>Target: <strong className="text-white">{selectedKpi.q4}</strong></div>
+                    <div>Actual: <strong className="text-emerald-400 font-bold">{selectedKpi.q4Actual}</strong></div>
+                    <div className="text-[10px] text-indigo-400 font-extrabold mt-0.5">Calculated Variance: {calcVar(selectedKpi.q4, selectedKpi.q4Actual) || '0'}</div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -842,16 +894,13 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
                         <div className="flex items-center gap-1.5 shrink-0">
                           <button
                             type="button"
-                            onClick={() => setPreviewDoc({
-                              name: file.name,
-                              dataUrl: file.dataUrl,
-                              fileData: file.dataUrl,
+                            onClick={() => viewOriginalFile(file.name, file.dataUrl, {
                               kpiName: selectedKpi.kpi,
                               refNum: selectedKpi.refNum,
-                              quarter: file.quarter
+                              quarter: file.quarter || 'Current Quarter'
                             })}
                             className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-wide flex items-center gap-1.5 cursor-pointer transition shadow-sm"
-                            title="View Portfolio of Evidence on-screen without downloading"
+                            title="Open Portfolio of Evidence in a new window natively"
                           >
                             <Eye className="w-3.5 h-3.5" />
                             <span>View PoE</span>

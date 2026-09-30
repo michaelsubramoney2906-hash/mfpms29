@@ -8,7 +8,7 @@ import {
 import type { User } from '../../types';
 import { SdbipRow, SdbipPoeFile } from './SDBIP';
 import { OfficeDocumentViewer } from '../IPMS/OfficeDocumentViewer';
-import { downloadOriginalFile } from '../../utils/documentBinaryHelper';
+import { downloadOriginalFile, viewOriginalFile } from '../../utils/documentBinaryHelper';
 import { 
   SdbipWorkflowNotification, 
   isUserMatch, 
@@ -38,6 +38,30 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
   const [statusFilter, setStatusFilter] = useState('ALL'); // default to ALL to show all pending items immediately!
   const [searchQuery, setSearchQuery] = useState('');
   const [reviewerNotes, setReviewerNotes] = useState('');
+
+  const calcVar = (target: string | undefined, actual: string | undefined) => {
+    const tVal = (target || '').trim();
+    const aVal = (actual || '').trim();
+    if (!tVal && !aVal) return '';
+    
+    const parseNum = (s: string) => {
+      const cleaned = s.replace(/[^0-9.-]/g, '');
+      return cleaned ? parseFloat(cleaned) : NaN;
+    };
+
+    const nT = parseNum(tVal);
+    const nA = parseNum(aVal);
+
+    if (isNaN(nT) || isNaN(nA)) return '';
+
+    const diff = nA - nT;
+    const isPercentage = tVal.includes('%') || aVal.includes('%') || (selectedKpi?.uom && selectedKpi.uom.toLowerCase().includes('percent'));
+
+    if (isPercentage) {
+      return `${diff > 0 ? '+' : ''}${diff}%`;
+    }
+    return `${diff > 0 ? '+' : ''}${diff.toLocaleString()}`;
+  };
 
   const loadNotifications = async () => {
     const list = await fetchSdbipNotifications(activeTenantId);
@@ -787,33 +811,37 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
               <div className="space-y-2">
                 {selectedKpi.q1Actual && (
                   <div className="bg-slate-900/60 p-2 rounded border border-slate-850/50">
-                    <p className="text-[10.5px] font-bold text-slate-400">Quarter 1 (Target: {selectedKpi.q1}):</p>
+                    <p className="text-[10.5px] font-bold text-slate-400">Quarter 1 (Target: {selectedKpi.q1} vs Actual: {selectedKpi.q1Actual}):</p>
                     <p className="text-white mt-0.5 font-sans">Actual: <span className="text-emerald-400 font-bold">{selectedKpi.q1Actual}</span></p>
-                    {selectedKpi.q1Variance && <p className="text-slate-400 text-[10px]">Variance: {selectedKpi.q1Variance}</p>}
+                    <p className="text-[10px] text-indigo-400 font-bold">Calculated Variance: {calcVar(selectedKpi.q1, selectedKpi.q1Actual) || '0'}</p>
+                    {selectedKpi.q1Variance && <p className="text-slate-400 text-[10px]">Variance Explanation: {selectedKpi.q1Variance}</p>}
                     {selectedKpi.q1Corrective && <p className="text-amber-400 text-[10px]">Correction: {selectedKpi.q1Corrective}</p>}
                   </div>
                 )}
                 {selectedKpi.q2Actual && (
                   <div className="bg-slate-900/60 p-2 rounded border border-slate-850/50">
-                    <p className="text-[10.5px] font-bold text-slate-400">Quarter 2 (Target: {selectedKpi.q2}):</p>
+                    <p className="text-[10.5px] font-bold text-slate-400">Quarter 2 (Target: {selectedKpi.q2} vs Actual: {selectedKpi.q2Actual}):</p>
                     <p className="text-white mt-0.5 font-sans">Actual: <span className="text-emerald-400 font-bold">{selectedKpi.q2Actual}</span></p>
-                    {selectedKpi.q2Variance && <p className="text-slate-400 text-[10px]">Variance: {selectedKpi.q2Variance}</p>}
+                    <p className="text-[10px] text-indigo-400 font-bold">Calculated Variance: {calcVar(selectedKpi.q2, selectedKpi.q2Actual) || '0'}</p>
+                    {selectedKpi.q2Variance && <p className="text-slate-400 text-[10px]">Variance Explanation: {selectedKpi.q2Variance}</p>}
                     {selectedKpi.q2Corrective && <p className="text-amber-400 text-[10px]">Correction: {selectedKpi.q2Corrective}</p>}
                   </div>
                 )}
                 {selectedKpi.q3Actual && (
                   <div className="bg-slate-900/60 p-2 rounded border border-slate-850/50">
-                    <p className="text-[10.5px] font-bold text-slate-400">Quarter 3 (Target: {selectedKpi.q3}):</p>
+                    <p className="text-[10.5px] font-bold text-slate-400">Quarter 3 (Target: {selectedKpi.q3} vs Actual: {selectedKpi.q3Actual}):</p>
                     <p className="text-white mt-0.5 font-sans">Actual: <span className="text-emerald-400 font-bold">{selectedKpi.q3Actual}</span></p>
-                    {selectedKpi.q3Variance && <p className="text-slate-400 text-[10px]">Variance: {selectedKpi.q3Variance}</p>}
+                    <p className="text-[10px] text-indigo-400 font-bold">Calculated Variance: {calcVar(selectedKpi.q3, selectedKpi.q3Actual) || '0'}</p>
+                    {selectedKpi.q3Variance && <p className="text-slate-400 text-[10px]">Variance Explanation: {selectedKpi.q3Variance}</p>}
                     {selectedKpi.q3Corrective && <p className="text-amber-400 text-[10px]">Correction: {selectedKpi.q3Corrective}</p>}
                   </div>
                 )}
                 {selectedKpi.q4Actual && (
                   <div className="bg-slate-900/60 p-2 rounded border border-slate-850/50">
-                    <p className="text-[10.5px] font-bold text-slate-400">Quarter 4 (Target: {selectedKpi.q4}):</p>
+                    <p className="text-[10.5px] font-bold text-slate-400">Quarter 4 (Target: {selectedKpi.q4} vs Actual: {selectedKpi.q4Actual}):</p>
                     <p className="text-white mt-0.5 font-sans">Actual: <span className="text-emerald-400 font-bold">{selectedKpi.q4Actual}</span></p>
-                    {selectedKpi.q4Variance && <p className="text-slate-400 text-[10px]">Variance: {selectedKpi.q4Variance}</p>}
+                    <p className="text-[10px] text-indigo-400 font-bold">Calculated Variance: {calcVar(selectedKpi.q4, selectedKpi.q4Actual) || '0'}</p>
+                    {selectedKpi.q4Variance && <p className="text-slate-400 text-[10px]">Variance Explanation: {selectedKpi.q4Variance}</p>}
                     {selectedKpi.q4Corrective && <p className="text-amber-400 text-[10px]">Correction: {selectedKpi.q4Corrective}</p>}
                   </div>
                 )}
@@ -870,16 +898,13 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
                         <div className="flex items-center gap-1.5 shrink-0">
                           <button
                             type="button"
-                            onClick={() => setPreviewDoc({
-                              name: file.name,
-                              dataUrl: file.dataUrl,
-                              fileData: file.dataUrl,
+                            onClick={() => viewOriginalFile(file.name, file.dataUrl, {
                               kpiName: selectedKpi.kpi,
                               refNum: selectedKpi.refNum,
-                              quarter: file.quarter
+                              quarter: file.quarter || 'Current Quarter'
                             })}
                             className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-wide flex items-center gap-1.5 cursor-pointer transition shadow-sm"
-                            title="View Portfolio of Evidence on-screen without downloading"
+                            title="Open Portfolio of Evidence in a new window natively"
                           >
                             <Eye className="w-3.5 h-3.5" />
                             <span>View PoE</span>

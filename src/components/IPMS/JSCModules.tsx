@@ -5,6 +5,7 @@ import {
   Search, Eye, Edit3, MessageSquare, Award, RotateCcw, Upload, FileText
 } from 'lucide-react';
 import { PoeDocument, QuarterPoeSelector } from './Evaluation_IPMS';
+import { viewOriginalFile } from '../../utils/documentBinaryHelper';
 
 export interface CompetencyQuarterData {
   selfScore: number;
@@ -871,16 +872,34 @@ export function JSCManagerApprovalSection({ currentUser, activeTenantId, default
                                   <span className="text-[9px] font-extrabold text-slate-500 uppercase tracking-tight block">PoE Files:</span>
                                   <div className="flex flex-col gap-1 max-h-[80px] overflow-y-auto">
                                     {qData.poeDocs.map((file) => (
-                                      <div key={file.id} className="flex items-center justify-between gap-1 bg-white border border-slate-200 rounded p-1 text-[9px]">
-                                        <a
-                                          href={file.dataUrl}
-                                          download={file.name}
-                                          className="font-semibold text-blue-600 hover:underline truncate max-w-[120px] flex items-center gap-1"
-                                          title={file.name}
+                                      <div key={file.id} className="flex items-center justify-between gap-1 bg-white border border-slate-200 rounded p-1 text-[9px] hover:bg-slate-50 transition duration-75">
+                                        <button
+                                          type="button"
+                                          onClick={() => viewOriginalFile(file.name, file.dataUrl)}
+                                          className="font-bold text-slate-800 hover:text-indigo-600 truncate max-w-[120px] flex items-center gap-1 cursor-pointer text-left border-none bg-transparent p-0"
+                                          title={`Click to view ${file.name} in a new window`}
                                         >
                                           <FileText className="w-2.5 h-2.5 text-slate-400 shrink-0" />
-                                          <span>{file.name}</span>
-                                        </a>
+                                          <span className="truncate">{file.name}</span>
+                                        </button>
+                                        <div className="flex items-center gap-1 shrink-0">
+                                          <button
+                                            type="button"
+                                            onClick={() => viewOriginalFile(file.name, file.dataUrl)}
+                                            className="text-indigo-600 hover:text-indigo-800 font-black cursor-pointer text-[8px] bg-indigo-50 px-1 py-0.2 rounded border-none"
+                                            title="View in browser"
+                                          >
+                                            View
+                                          </button>
+                                          <a
+                                            href={file.dataUrl}
+                                            download={file.name}
+                                            className="text-emerald-600 hover:text-emerald-800 font-black text-[8px] bg-emerald-50 px-1 py-0.2 rounded"
+                                            title="Download original file"
+                                          >
+                                            Down
+                                          </a>
+                                        </div>
                                       </div>
                                     ))}
                                   </div>
@@ -1235,13 +1254,57 @@ export function JSCInternalAuditorReviewSection({ currentUser, activeTenantId, d
                         </td>
                         <td className="px-4 py-3 text-xs">
                           {qData.selfScore ? (
-                            <div className="space-y-0.5">
+                            <div className="space-y-1.5">
                               <span className="inline-block bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-black text-[10px]">
                                 Self Score: {qData.selfScore}/5
                               </span>
                               <p className="text-[10px] text-gray-500 leading-tight italic break-words">
                                 "{qData.selfComments || 'No self comment'}"
                               </p>
+                              {qData.poeText && (
+                                <div className="bg-slate-50 border border-slate-200 rounded p-1.5 text-[9.5px] mt-1 text-slate-700">
+                                  <span className="font-extrabold text-slate-800 block">PoE Note:</span>
+                                  {qData.poeText}
+                                </div>
+                              )}
+                              {qData.poeDocs && qData.poeDocs.length > 0 && (
+                                <div className="space-y-1 mt-1">
+                                  <span className="text-[9px] font-extrabold text-slate-500 uppercase tracking-tight block">PoE Files:</span>
+                                  <div className="flex flex-col gap-1 max-h-[80px] overflow-y-auto">
+                                    {qData.poeDocs.map((file) => (
+                                      <div key={file.id} className="flex items-center justify-between gap-1 bg-white border border-slate-200 rounded p-1 text-[9px] hover:bg-slate-50 transition duration-75">
+                                        <button
+                                          type="button"
+                                          onClick={() => viewOriginalFile(file.name, file.dataUrl)}
+                                          className="font-bold text-slate-800 hover:text-indigo-600 truncate max-w-[120px] flex items-center gap-1 cursor-pointer text-left border-none bg-transparent p-0"
+                                          title={`Click to view ${file.name} in a new window`}
+                                        >
+                                          <FileText className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                                          <span className="truncate">{file.name}</span>
+                                        </button>
+                                        <div className="flex items-center gap-1 shrink-0">
+                                          <button
+                                            type="button"
+                                            onClick={() => viewOriginalFile(file.name, file.dataUrl)}
+                                            className="text-indigo-600 hover:text-indigo-800 font-black cursor-pointer text-[8px] bg-indigo-50 px-1 py-0.2 rounded border-none"
+                                            title="View in browser"
+                                          >
+                                            View
+                                          </button>
+                                          <a
+                                            href={file.dataUrl}
+                                            download={file.name}
+                                            className="text-emerald-600 hover:text-emerald-800 font-black text-[8px] bg-emerald-50 px-1 py-0.2 rounded"
+                                            title="Download original file"
+                                          >
+                                            Down
+                                          </a>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           ) : (
                             <span className="text-gray-400 italic font-medium text-[10px]">Not evaluated by employee</span>
@@ -1589,13 +1652,57 @@ export function JSCDpmcReviewSection({ currentUser, activeTenantId, defaultEmplo
                         </td>
                         <td className="px-4 py-3 text-xs">
                           {qData.selfScore ? (
-                            <div className="space-y-0.5">
+                            <div className="space-y-1.5">
                               <span className="inline-block bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-black text-[10px]">
                                 Self: {qData.selfScore}/5
                               </span>
                               <p className="text-[10px] text-gray-500 leading-tight italic break-words">
                                 "{qData.selfComments || 'No self comment'}"
                               </p>
+                              {qData.poeText && (
+                                <div className="bg-slate-50 border border-slate-200 rounded p-1.5 text-[9.5px] mt-1 text-slate-700">
+                                  <span className="font-extrabold text-slate-800 block">PoE Note:</span>
+                                  {qData.poeText}
+                                </div>
+                              )}
+                              {qData.poeDocs && qData.poeDocs.length > 0 && (
+                                <div className="space-y-1 mt-1">
+                                  <span className="text-[9px] font-extrabold text-slate-500 uppercase tracking-tight block">PoE Files:</span>
+                                  <div className="flex flex-col gap-1 max-h-[80px] overflow-y-auto">
+                                    {qData.poeDocs.map((file) => (
+                                      <div key={file.id} className="flex items-center justify-between gap-1 bg-white border border-slate-200 rounded p-1 text-[9px] hover:bg-slate-50 transition duration-75">
+                                        <button
+                                          type="button"
+                                          onClick={() => viewOriginalFile(file.name, file.dataUrl)}
+                                          className="font-bold text-slate-800 hover:text-indigo-600 truncate max-w-[120px] flex items-center gap-1 cursor-pointer text-left border-none bg-transparent p-0"
+                                          title={`Click to view ${file.name} in a new window`}
+                                        >
+                                          <FileText className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                                          <span className="truncate">{file.name}</span>
+                                        </button>
+                                        <div className="flex items-center gap-1 shrink-0">
+                                          <button
+                                            type="button"
+                                            onClick={() => viewOriginalFile(file.name, file.dataUrl)}
+                                            className="text-indigo-600 hover:text-indigo-800 font-black cursor-pointer text-[8px] bg-indigo-50 px-1 py-0.2 rounded border-none"
+                                            title="View in browser"
+                                          >
+                                            View
+                                          </button>
+                                          <a
+                                            href={file.dataUrl}
+                                            download={file.name}
+                                            className="text-emerald-600 hover:text-emerald-800 font-black text-[8px] bg-emerald-50 px-1 py-0.2 rounded"
+                                            title="Download original file"
+                                          >
+                                            Down
+                                          </a>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           ) : (
                             <span className="text-gray-400 italic font-medium text-[10px]">Not evaluated</span>

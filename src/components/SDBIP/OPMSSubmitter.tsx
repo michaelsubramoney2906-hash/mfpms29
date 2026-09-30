@@ -59,6 +59,30 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
   const [poeDesc, setPoeDesc] = useState('');
   const [submitterNotes, setSubmitterNotes] = useState('');
 
+  const autoCalculateVariance = (target: string | undefined, actual: string | undefined) => {
+    const tVal = (target || '').trim();
+    const aVal = (actual || '').trim();
+    if (!tVal && !aVal) return '';
+    
+    const parseNum = (s: string) => {
+      const cleaned = s.replace(/[^0-9.-]/g, '');
+      return cleaned ? parseFloat(cleaned) : NaN;
+    };
+
+    const nT = parseNum(tVal);
+    const nA = parseNum(aVal);
+
+    if (isNaN(nT) || isNaN(nA)) return '';
+
+    const diff = nA - nT; 
+    const isPercentage = tVal.includes('%') || aVal.includes('%') || (selectedKpi?.uom && selectedKpi.uom.toLowerCase().includes('percent'));
+
+    if (isPercentage) {
+      return `${diff > 0 ? '+' : ''}${diff}%`;
+    }
+    return `${diff > 0 ? '+' : ''}${diff.toLocaleString()}`;
+  };
+
   const loadNotifications = async () => {
     const list = await fetchSdbipNotifications(activeTenantId);
     setNotifications(list);
@@ -756,12 +780,22 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                       <input
                         type="text"
                         value={q1Actual}
-                        onChange={(e) => setQ1Actual(e.target.value)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setQ1Actual(val);
+                          const calculated = autoCalculateVariance(selectedKpi.q1, val);
+                          if (calculated) {
+                            setQ1Variance(calculated);
+                          }
+                        }}
                         disabled={!isQuarterInReportingPeriod('q1') || (selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
                         placeholder={!isQuarterInReportingPeriod('q1') ? "Locked for this period" : "Log performance..."}
                         title={!isQuarterInReportingPeriod('q1') ? getQuarterLockNotice('q1') : undefined}
                         className={`w-full border rounded p-1.5 text-xs ${!isQuarterInReportingPeriod('q1') ? 'bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic' : 'bg-slate-950 border-slate-800 focus:border-indigo-500 text-white'}`}
                       />
+                      <span className="text-[9px] font-bold text-indigo-400 block mt-0.5">
+                        Target: {selectedKpi.q1 || '0'} vs Actual: {q1Actual || '-'} (Var: {autoCalculateVariance(selectedKpi.q1, q1Actual) || '0'})
+                      </span>
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] text-slate-500 font-bold uppercase">Variance explanation</label>
@@ -808,12 +842,22 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                       <input
                         type="text"
                         value={q2Actual}
-                        onChange={(e) => setQ2Actual(e.target.value)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setQ2Actual(val);
+                          const calculated = autoCalculateVariance(selectedKpi.q2, val);
+                          if (calculated) {
+                            setQ2Variance(calculated);
+                          }
+                        }}
                         disabled={!isQuarterInReportingPeriod('q2') || (selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
                         placeholder={!isQuarterInReportingPeriod('q2') ? "Locked for this period" : "Log performance..."}
                         title={!isQuarterInReportingPeriod('q2') ? getQuarterLockNotice('q2') : undefined}
                         className={`w-full border rounded p-1.5 text-xs ${!isQuarterInReportingPeriod('q2') ? 'bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic' : 'bg-slate-950 border-slate-800 focus:border-indigo-500 text-white'}`}
                       />
+                      <span className="text-[9px] font-bold text-indigo-400 block mt-0.5">
+                        Target: {selectedKpi.q2 || '0'} vs Actual: {q2Actual || '-'} (Var: {autoCalculateVariance(selectedKpi.q2, q2Actual) || '0'})
+                      </span>
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] text-slate-500 font-bold uppercase">Variance explanation</label>
@@ -860,12 +904,22 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                       <input
                         type="text"
                         value={q3Actual}
-                        onChange={(e) => setQ3Actual(e.target.value)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setQ3Actual(val);
+                          const calculated = autoCalculateVariance(selectedKpi.q3, val);
+                          if (calculated) {
+                            setQ3Variance(calculated);
+                          }
+                        }}
                         disabled={!isQuarterInReportingPeriod('q3') || (selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
                         placeholder={!isQuarterInReportingPeriod('q3') ? "Locked for this period" : "Log performance..."}
                         title={!isQuarterInReportingPeriod('q3') ? getQuarterLockNotice('q3') : undefined}
                         className={`w-full border rounded p-1.5 text-xs ${!isQuarterInReportingPeriod('q3') ? 'bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic' : 'bg-slate-950 border-slate-800 focus:border-indigo-500 text-white'}`}
                       />
+                      <span className="text-[9px] font-bold text-indigo-400 block mt-0.5">
+                        Target: {selectedKpi.q3 || '0'} vs Actual: {q3Actual || '-'} (Var: {autoCalculateVariance(selectedKpi.q3, q3Actual) || '0'})
+                      </span>
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] text-slate-500 font-bold uppercase">Variance explanation</label>
@@ -912,12 +966,22 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                       <input
                         type="text"
                         value={q4Actual}
-                        onChange={(e) => setQ4Actual(e.target.value)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setQ4Actual(val);
+                          const calculated = autoCalculateVariance(selectedKpi.q4, val);
+                          if (calculated) {
+                            setQ4Variance(calculated);
+                          }
+                        }}
                         disabled={!isQuarterInReportingPeriod('q4') || (selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
                         placeholder={!isQuarterInReportingPeriod('q4') ? "Locked for this period" : "Log performance..."}
                         title={!isQuarterInReportingPeriod('q4') ? getQuarterLockNotice('q4') : undefined}
                         className={`w-full border rounded p-1.5 text-xs ${!isQuarterInReportingPeriod('q4') ? 'bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic' : 'bg-slate-950 border-slate-800 focus:border-indigo-500 text-white'}`}
                       />
+                      <span className="text-[9px] font-bold text-indigo-400 block mt-0.5">
+                        Target: {selectedKpi.q4 || '0'} vs Actual: {q4Actual || '-'} (Var: {autoCalculateVariance(selectedKpi.q4, q4Actual) || '0'})
+                      </span>
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] text-slate-500 font-bold uppercase">Variance explanation</label>

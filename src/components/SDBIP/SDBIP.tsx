@@ -3514,7 +3514,7 @@ Timestamp: ${new Date().toLocaleString()}
                                         <div className="space-y-1.5 leading-relaxed text-indigo-955">
                                           <p><strong className="font-bold">Phase Target:</strong> {pData.target}</p>
                                           <p><strong className="font-bold">Reported Actual:</strong> <span className="bg-indigo-100 px-2 py-0.5 rounded font-black text-indigo-900">{pData.actual || '-'}</span></p>
-                                          <p><strong className="font-bold">Variance:</strong> {pData.variance || '-'}</p>
+                                          <p><strong className="font-bold">Variance:</strong> {pData.variance || '-'} (Calculated: <span className="font-bold text-indigo-700">{calcVar(pData.target, pData.actual, row.uom) || '0'}</span>)</p>
                                           <p><strong className="font-bold">Corrective Action:</strong> {pData.corrective || '-'}</p>
                                           <p><strong className="font-bold">Actual Expenditure:</strong> {pData.expenditure || 'R0'}</p>
                                         </div>
@@ -3662,7 +3662,7 @@ Timestamp: ${new Date().toLocaleString()}
                                         <div className="space-y-1.5 leading-relaxed text-slate-800">
                                           <p><strong className="font-bold">Phase Target:</strong> {pData.target}</p>
                                           <p><strong className="font-bold">Reported Actual:</strong> <span className="bg-emerald-100 px-2 py-0.5 rounded font-black text-emerald-900">{pData.actual || '-'}</span></p>
-                                          <p><strong className="font-bold">Variance:</strong> {pData.variance || '-'}</p>
+                                          <p><strong className="font-bold">Variance:</strong> {pData.variance || '-'} (Calculated: <span className="font-bold text-indigo-700">{calcVar(pData.target, pData.actual, row.uom) || '0'}</span>)</p>
                                           <p><strong className="font-bold">Corrective Action:</strong> {pData.corrective || '-'}</p>
                                           <p><strong className="font-bold">Expenditure:</strong> {pData.expenditure || 'R0'}</p>
                                         </div>
@@ -3876,7 +3876,7 @@ Timestamp: ${new Date().toLocaleString()}
                                         <div className="space-y-1.5 leading-relaxed text-slate-800">
                                           <p><strong className="font-bold">Phase Target:</strong> {pData.target}</p>
                                           <p><strong className="font-bold">Reported Actual:</strong> <span className="bg-emerald-100 px-2 py-0.5 rounded font-black text-emerald-900">{pData.actual || '-'}</span></p>
-                                          <p><strong className="font-bold">Variance:</strong> {pData.variance || '-'}</p>
+                                          <p><strong className="font-bold">Variance:</strong> {pData.variance || '-'} (Calculated: <span className="font-bold text-indigo-700">{calcVar(pData.target, pData.actual, row.uom) || '0'}</span>)</p>
                                           <p><strong className="font-bold">Corrective Action:</strong> {pData.corrective || '-'}</p>
                                           <p><strong className="font-bold">Expenditure:</strong> {pData.expenditure || 'R0'}</p>
                                         </div>

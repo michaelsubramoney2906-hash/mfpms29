@@ -2000,7 +2000,7 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
                       className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-extrabold uppercase text-[9px] py-1.5 rounded-lg flex items-center justify-center gap-1 tracking-wider shadow-sm transition-all cursor-pointer"
                     >
                       <Check className="w-3 h-3 shrink-0" />
-                      <span>Approve Single KPI</span>
+                      <span>Achieved Single KPI</span>
                     </button>
                     <button
                       type="button"
@@ -2009,7 +2009,7 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
                       className="bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-extrabold uppercase text-[9px] py-1.5 rounded-lg flex items-center justify-center gap-1 tracking-wider shadow-sm transition-all cursor-pointer"
                     >
                       <X className="w-3 h-3 shrink-0" />
-                      <span>Reject Single KPI</span>
+                      <span>Not Achieved Single KPI</span>
                     </button>
                   </div>
                 </div>
