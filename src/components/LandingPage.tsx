@@ -38,6 +38,10 @@ export function LandingPage({ onLogin }: LandingPageProps) {
   const [passwordError, setPasswordError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [overridePassword, setOverridePassword] = useState('8655M9sznnes01*');
+  
+  // Extra security flags to prevent saved browser/programmatic password autofills
+  const [isKeystrokeHuman, setIsKeystrokeHuman] = useState(false);
+  const [passwordInputType, setPasswordInputType] = useState('text');
 
   useEffect(() => {
     fetch('/api/config/manager-password')
@@ -74,6 +78,12 @@ export function LandingPage({ onLogin }: LandingPageProps) {
 
     if (!password || !password.trim()) {
       setPasswordError('Password is required. Every user (including all @nkangaladm.gov.za accounts) must enter their password prior to logging in.');
+      return;
+    }
+
+    // Force real human password typing (prevents saved browser password autofills from logging in instantly)
+    if ((isNkangala || isMzansiFlow) && !isKeystrokeHuman) {
+      setPasswordError('Saved password autofill detected. For security, please manually type your password in the input field.');
       return;
     }
 
@@ -334,11 +344,27 @@ export function LandingPage({ onLogin }: LandingPageProps) {
                   </span>
                 </div>
                 <input 
-                  type="password" 
+                  type={passwordInputType} 
                   required
-                  autoComplete="current-password"
+                  autoComplete="new-password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onFocus={() => setPasswordInputType('password')}
+                  onKeyDown={(e) => {
+                    if (e.nativeEvent.isTrusted) {
+                      setIsKeystrokeHuman(true);
+                    }
+                  }}
+                  onInput={(e) => {
+                    if (e.nativeEvent.isTrusted) {
+                      setIsKeystrokeHuman(true);
+                    }
+                  }}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (e.nativeEvent.isTrusted) {
+                      setIsKeystrokeHuman(true);
+                    }
+                  }}
                   placeholder="Enter your Azure AD / municipal password..."
                   className="w-full px-4 py-3 bg-transparent border-b-2 border-gray-200 focus:border-green-600 transition-colors outline-none font-medium text-gray-900 rounded-none font-mono"
                 />

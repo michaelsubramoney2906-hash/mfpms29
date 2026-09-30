@@ -17,15 +17,15 @@ export default function App() {
 
   useEffect(() => {
     performanceLogger.init();
-    const userStr = localStorage.getItem('currentUser');
+    const userStr = sessionStorage.getItem('currentUser');
     if (userStr && !user && userStr !== 'undefined' && userStr !== '[object Object]') {
       try {
         const parsed = JSON.parse(userStr);
         setUser(parsed);
         performanceLogger.setUserContext(parsed.email, parsed.tenantId);
       } catch (e) {
-        console.error("Failed to parse currentUser from localStorage", e);
-        localStorage.removeItem('currentUser');
+        console.error("Failed to parse currentUser from sessionStorage", e);
+        sessionStorage.removeItem('currentUser');
       }
     }
   }, []);
@@ -35,15 +35,65 @@ export default function App() {
       if (!u.loginTime) {
         u.loginTime = new Date().toISOString();
       }
-      localStorage.setItem('currentUser', JSON.stringify(u));
+      sessionStorage.setItem('currentUser', JSON.stringify(u));
       performanceLogger.setUserContext(u.email, u.tenantId);
     } else {
-      localStorage.removeItem('currentUser');
+      sessionStorage.removeItem('currentUser');
       sessionStorage.removeItem('originalAdminUser');
       performanceLogger.setUserContext('anonymous', 'default');
     }
     setUser(u);
   };
+
+  // Background Version Checker & Auto-Updater to deploy new updates immediately in real-time
+  useEffect(() => {
+    let activeVersion: string | null = null;
+    let isChecking = false;
+
+    const runCheck = async () => {
+      if (isChecking) return;
+      isChecking = true;
+      try {
+        const res = await fetch('/api/version');
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.version) {
+            if (!activeVersion) {
+              activeVersion = data.version;
+            } else if (activeVersion !== data.version) {
+              console.log("[Auto-Updater]: New app deployment version detected!", data.version);
+              window.location.reload();
+            }
+          }
+        }
+      } catch (err) {
+        // Silently capture failures (e.g. offline) to prevent breaking workspace sessions
+      } finally {
+        isChecking = false;
+      }
+    };
+
+    // Run version poll check immediately
+    runCheck();
+
+    // Check every 60 seconds
+    const checkerInterval = setInterval(runCheck, 60000);
+
+    // Also run immediate check when user focuses or wakes up the tab
+    const handleFocusCheck = () => {
+      if (!document.hidden && navigator.onLine) {
+        runCheck();
+      }
+    };
+    window.addEventListener('visibilitychange', handleFocusCheck);
+    window.addEventListener('focus', handleFocusCheck);
+
+    return () => {
+      clearInterval(checkerInterval);
+      window.removeEventListener('visibilitychange', handleFocusCheck);
+      window.removeEventListener('focus', handleFocusCheck);
+    };
+  }, []);
 
   // High-concurrency zero-kickout session keep-alive ping
   useEffect(() => {
@@ -101,7 +151,7 @@ export default function App() {
     if (!user) return;
 
     const refreshSession = async () => {
-      const savedToken = localStorage.getItem('azure_ad_token');
+      const savedToken = sessionStorage.getItem('azure_ad_token');
       if (!savedToken) return;
 
       try {
@@ -143,7 +193,7 @@ export default function App() {
       const state = params.get('state');
       
       if (accessToken) {
-        localStorage.setItem('azure_ad_token', accessToken); // Save for background handshake!
+        sessionStorage.setItem('azure_ad_token', accessToken); // Save for background handshake!
         // If opened as a popup, post message to parent and close
         if (window.opener) {
           window.opener.postMessage({ type: 'OAUTH_AUTH_SUCCESS', accessToken, state }, '*');
@@ -196,7 +246,7 @@ export default function App() {
       // Listen for popup messages in the main window
       const handleMessage = (event: MessageEvent) => {
         if (event.data?.type === 'OAUTH_AUTH_SUCCESS' && event.data.accessToken) {
-          localStorage.setItem('azure_ad_token', event.data.accessToken); // Save for background handshake!
+          sessionStorage.setItem('azure_ad_token', event.data.accessToken); // Save for background handshake!
           fetch('/api/auth/verify', {
             method: 'POST',
             headers: { 
@@ -270,7 +320,7 @@ export default function App() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('azure_ad_token');
+    sessionStorage.removeItem('azure_ad_token');
     sessionStorage.removeItem('originalAdminUser');
     handleSetUser(null);
   };

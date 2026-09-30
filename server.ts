@@ -3093,7 +3093,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       
       const redirectUrl = `${baseUrl}/api/auth/azure/callback`;
       
-      const authUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUrl)}&response_mode=query&scope=${encodeURIComponent('User.Read openid profile email')}&state=${encodeURIComponent(selectedTenant)}&domain_hint=nkangaladm.gov.za`;
+      const authUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUrl)}&response_mode=query&scope=${encodeURIComponent('User.Read openid profile email')}&state=${encodeURIComponent(selectedTenant)}&domain_hint=nkangaladm.gov.za&prompt=login`;
       
       res.json({ url: authUrl });
     } catch (err: any) {

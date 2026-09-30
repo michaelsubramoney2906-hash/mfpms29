@@ -1019,6 +1019,10 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
   };
 
   const handleSave = async (submitForReview = false) => {
+    if (submitForReview && selectedKpiIds.length === 0) {
+      alert("Please select at least one KPI using the checkboxes next to each KPI to submit for review.");
+      return;
+    }
     setSaving(true);
     try {
       const metadata = { 
@@ -1059,11 +1063,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
           ? item.myScore
           : (qScores.length > 0 ? (qScores.reduce((a, b) => a + b, 0) / qScores.length).toFixed(1) : '');
 
-        const shouldSubmitItem = submitForReview && (
-          selectedKpiIds.length > 0 
-            ? selectedKpiIds.includes(item.id) 
-            : !!(item.q1Score || item.q2Score || item.midtermScore || item.q3Score || item.q4Score)
-        );
+        const shouldSubmitItem = submitForReview && selectedKpiIds.includes(item.id);
 
         if (shouldSubmitItem) {
           submittedIds.push(item.id);
@@ -1099,6 +1099,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
       }
 
       setPplanData(payload);
+      setSelectedKpiIds([]);
       window.dispatchEvent(new CustomEvent(isTeamEvaluation ? 'team-pplan-updated' : 'pplan-updated', { detail: { tenantId: activeTenantId, userId: currentUser.email } }));
       
       if (submitForReview) {
@@ -1400,7 +1401,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
               </div>
 
               <div className="flex items-center gap-2">
-                {selectedKpiIds.length > 0 && (
+                {selectedKpiIds.length > 0 ? (
                   <button
                     type="button"
                     onClick={() => handleBatchSubmitSelectedKpis(selectedKpiIds, true)}
@@ -1410,17 +1411,16 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
                     <Send className="w-3.5 h-3.5" />
                     <span>Submit {selectedKpiIds.length} Selected KPI(s) to Manager</span>
                   </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => alert("Please check the checkbox next to the KPI card(s) you wish to submit.")}
+                    className="bg-slate-300 text-slate-500 font-bold px-4 py-2 rounded-xl text-xs uppercase tracking-wider flex items-center gap-2 border border-slate-200 cursor-pointer"
+                  >
+                    <Send className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Select KPIs via Checkbox to Submit</span>
+                  </button>
                 )}
-                
-                <button
-                  type="button"
-                  onClick={() => handleSave(true)}
-                  disabled={saving}
-                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2 rounded-xl text-xs uppercase tracking-wider flex items-center gap-2 shadow-sm cursor-pointer transition disabled:opacity-50"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                  <span>Submit All ({items.length}) KPIs to Manager</span>
-                </button>
               </div>
             </div>
 
