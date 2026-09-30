@@ -9,6 +9,7 @@ import {
   ArrowRight, FileSpreadsheet, Lock, AlertTriangle, Settings, Table2,
   ClipboardCheck, CalendarDays
 } from 'lucide-react';
+import { isUserUnrestricted } from '../../utils/unrestrictedHelper';
 
 interface PADraftingSuiteProps {
   currentUser: {
@@ -142,7 +143,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
   const isMikeViewer = React.useMemo(() => {
     if (!currentUser) return false;
     const email = (currentUser.email || '').toLowerCase().trim();
-    return email === 'mike@massivedynamixdistributors.com' || email === 'rampedimr@nkangaladm.gov.za';
+    return isUserUnrestricted(currentUser) || email === 'rampedimr@nkangaladm.gov.za';
   }, [currentUser]);
 
   // Checks if the logged-in user is the Municipal Manager (Mandla L. Mahlangu)

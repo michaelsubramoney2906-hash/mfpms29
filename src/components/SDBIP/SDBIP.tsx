@@ -3368,18 +3368,36 @@ Timestamp: ${new Date().toLocaleString()}
                                       <Lock className="w-2.5 h-2.5 text-slate-400" /> <KeyRound className="w-2.5 h-2.5 text-amber-500" /> <span>Locked</span>
                                     </div>
                                   ) : (
-                                    <input 
-                                      type="text"
-                                      disabled={!isOpex(row.budgetAllocation) || !isQuarterActive(workflowPhase)}
-                                      value={isOpex(row.budgetAllocation) ? (getPhaseFieldValue(row, workflowPhase, 'exp') || '') : (() => {
-                                        const total = parseBudgetNum(row.budgetAllocation);
-                                        return total > 0 ? `R ${Math.round(total / 4).toLocaleString()}` : 'R 0';
-                                      })()}
-                                      onChange={(e) => handlePhaseFieldChange(row.id, workflowPhase, 'exp', e.target.value)}
-                                      title={!isQuarterActive(workflowPhase) ? getQuarterLockNotice(workflowPhase) : undefined}
-                                      className={`w-full border p-1 rounded text-[11px] font-bold ${!isQuarterActive(workflowPhase) || !isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white text-slate-800 border-slate-200'}`}
-                                      placeholder={!isQuarterActive(workflowPhase) ? "Locked" : "Exp..."}
-                                    />
+                                    (() => {
+                                      const breakdown = getRowBudgetBreakdown(row);
+                                      const expVal = getPhaseFieldValue(row, workflowPhase, 'exp') || '';
+                                      return (
+                                        <div className="space-y-1">
+                                          <input 
+                                            type="text"
+                                            disabled={!isQuarterActive(workflowPhase)}
+                                            value={expVal}
+                                            onChange={(e) => handlePhaseFieldChange(row.id, workflowPhase, 'exp', e.target.value)}
+                                            title={!isQuarterActive(workflowPhase) ? getQuarterLockNotice(workflowPhase) : undefined}
+                                            className={`w-full border p-1 rounded text-[11px] font-bold ${!isQuarterActive(workflowPhase) ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white text-slate-800 border-slate-200'}`}
+                                            placeholder={!isQuarterActive(workflowPhase) ? "Locked" : "e.g. R 150 000"}
+                                          />
+                                          {breakdown.totalBudget > 0 && (
+                                            <div className="text-[9px]">
+                                              {breakdown.isExceeded ? (
+                                                <div className="text-rose-700 font-bold bg-rose-50 px-1 py-0.5 rounded border border-rose-200">
+                                                  Exceeded (+R {breakdown.excessAmount.toLocaleString()})
+                                                </div>
+                                              ) : (
+                                                <div className="text-teal-700 font-semibold bg-teal-50/70 px-1 py-0.5 rounded border border-teal-200/50">
+                                                  Avail: R {breakdown.remainingBudget.toLocaleString()}
+                                                </div>
+                                              )}
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })()
                                   )}
                                 </td>
 
@@ -5410,16 +5428,42 @@ Timestamp: ${new Date().toLocaleString()}
                         />
                       </td>
                       <td className="p-2 border-r border-slate-150">
-                        <ExpandableCell
-                          value={row.budgetAllocation || 'Opex'}
-                          readOnly
-                          cellTitle="Total Budget Allocation"
-                          refNum={row.refNum}
-                          isFitAll={isFitAllReportingCells}
-                          minRows={1}
-                          onOpenExpandModal={openCellExpandModal}
-                          className="font-bold text-slate-700"
-                        />
+                        {(() => {
+                          const breakdown = getRowBudgetBreakdown(row);
+                          return (
+                            <div className="flex flex-col gap-1">
+                              <ExpandableCell
+                                value={row.budgetAllocation || row.budget || 'Opex'}
+                                readOnly
+                                cellTitle="Total Budget Allocation"
+                                refNum={row.refNum}
+                                isFitAll={isFitAllReportingCells}
+                                minRows={1}
+                                onOpenExpandModal={openCellExpandModal}
+                                className="font-bold text-slate-800"
+                              />
+                              {breakdown.totalBudget > 0 && (
+                                <div className="text-[10px] space-y-0.5 mt-0.5">
+                                  <div className="flex justify-between items-center text-slate-500 font-mono text-[9px]">
+                                    <span>Spent:</span>
+                                    <span className="font-bold text-slate-700">R {breakdown.totalSpent.toLocaleString()}</span>
+                                  </div>
+                                  {breakdown.isExceeded ? (
+                                    <div className="flex items-center justify-between text-rose-700 font-bold bg-rose-50 px-1 py-0.5 rounded border border-rose-200 text-[9px]">
+                                      <span>Overrun:</span>
+                                      <span>+R {breakdown.excessAmount.toLocaleString()}</span>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center justify-between text-emerald-700 font-bold bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200 text-[9px]">
+                                      <span>Avail:</span>
+                                      <span>R {breakdown.remainingBudget.toLocaleString()}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
                       
                       {/* RAG Status */}
@@ -5711,32 +5755,7 @@ Timestamp: ${new Date().toLocaleString()}
 
                       {/* Q1 Expenditure (Moved before POE) */}
                       <td className="p-2 border-r border-slate-100 bg-teal-50/10">
-                        {isTargetNA(row.q1) ? (
-                          <div className="flex flex-col items-center justify-center p-2 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none" title="Expenditure reporting locked (Q1 Target is N/A)">
-                            <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500">
-                              <Lock className="w-3 h-3 text-slate-400" />
-                              <KeyRound className="w-3 h-3 text-amber-600" />
-                              <span>Locked</span>
-                            </div>
-                            <span className="text-[9px] text-slate-400 font-mono">N/A</span>
-                          </div>
-                        ) : (
-                          <ExpandableCell
-                            value={isOpex(row.budgetAllocation) ? (row.q1Expenditure || '') : (() => {
-                              const total = parseBudgetNum(row.budgetAllocation);
-                              return total > 0 ? `R ${Math.round(total / 4).toLocaleString()}` : 'R 0';
-                            })()}
-                            disabled={!isRowSubmitter || !isOpex(row.budgetAllocation) || !isQuarterActive('q1')}
-                            onChange={(val) => handleCellChange(row.id, 'q1Expenditure', val)}
-                            cellTitle="Q1 Expenditure"
-                            refNum={row.refNum}
-                            isFitAll={isFitAllReportingCells}
-                            minRows={1}
-                            placeholder={!isRowSubmitter ? `Submitter Only (${row.submitter || row.responsibleUnit || 'Assigned'})` : !isQuarterActive('q1') ? "Locked" : "Q1 Exp..."}
-                            onOpenExpandModal={openCellExpandModal}
-                            className={`font-bold ${!isRowSubmitter || !isQuarterActive('q1') || !isOpex(row.budgetAllocation) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-800'}`}
-                          />
-                        )}
+                        {renderQuarterExpenditureCell(row, 'q1', row.q1, isRowSubmitter)}
                       </td>
 
                       {/* Q1 POE Column */}
@@ -5948,35 +5967,9 @@ Timestamp: ${new Date().toLocaleString()}
                         {renderQuarterWorkflowCell(row, 'q1')}
                       </td>
 
-                      {/* Q2 Expenditure (Locked) */}
-                      <td className="p-2 border-r border-slate-100 bg-slate-100/50">
-                        {isTargetNA(row.q2) ? (
-                          <div className="flex flex-col items-center justify-center p-2 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none" title="Expenditure reporting locked (Q2 Target is N/A)">
-                            <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500">
-                              <Lock className="w-3 h-3 text-slate-400" />
-                              <KeyRound className="w-3 h-3 text-amber-600" />
-                              <span>Locked</span>
-                            </div>
-                            <span className="text-[9px] text-slate-400 font-mono">N/A</span>
-                          </div>
-                        ) : (
-                          <ExpandableCell
-                            value={isOpex(row.budgetAllocation) ? (row.q2Expenditure || '') : (() => {
-                              const total = parseBudgetNum(row.budgetAllocation);
-                              return total > 0 ? `R ${Math.round(total / 4).toLocaleString()}` : 'R 0';
-                            })()}
-                            readOnly={true}
-                            disabled={true}
-                            onChange={() => {}}
-                            cellTitle="Q2 Expenditure (Locked)"
-                            refNum={row.refNum}
-                            isFitAll={isFitAllReportingCells}
-                            minRows={1}
-                            placeholder="Locked"
-                            onOpenExpandModal={openCellExpandModal}
-                            className="font-bold bg-slate-100/90 text-slate-500 cursor-not-allowed border-slate-200"
-                          />
-                        )}
+                      {/* Q2 Expenditure */}
+                      <td className="p-2 border-r border-slate-100 bg-teal-50/10">
+                        {renderQuarterExpenditureCell(row, 'q2', row.q2, isRowSubmitter)}
                       </td>
 
                       {/* Q2 POE Column (Locked) */}
@@ -6153,22 +6146,27 @@ Timestamp: ${new Date().toLocaleString()}
                             <span className="text-[9px] text-slate-400 font-mono">N/A</span>
                           </div>
                         ) : (
-                          <ExpandableCell
-                            value={isOpex(row.budgetAllocation) ? (row.midTermExpenditure || '') : (() => {
-                              const total = parseBudgetNum(row.budgetAllocation);
-                              return total > 0 ? `R ${Math.round(total / 2).toLocaleString()}` : 'R 0';
-                            })()}
-                            readOnly={true}
-                            disabled={true}
-                            onChange={() => {}}
-                            cellTitle="Mid-Term Expenditure (Locked)"
-                            refNum={row.refNum}
-                            isFitAll={isFitAllReportingCells}
-                            minRows={1}
-                            placeholder="Locked"
-                            onOpenExpandModal={openCellExpandModal}
-                            className="font-bold bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200"
-                          />
+                          (() => {
+                            const q1Val = parseBudgetNum(row.q1Expenditure);
+                            const q2Val = parseBudgetNum(row.q2Expenditure);
+                            const midSum = q1Val + q2Val;
+                            const displayVal = midSum > 0 ? `R ${midSum.toLocaleString()}` : (row.midTermExpenditure || 'R 0');
+                            return (
+                              <ExpandableCell
+                                value={displayVal}
+                                readOnly={true}
+                                disabled={true}
+                                onChange={() => {}}
+                                cellTitle="Mid-Term Total Expenditure (Q1 + Q2)"
+                                refNum={row.refNum}
+                                isFitAll={isFitAllReportingCells}
+                                minRows={1}
+                                placeholder="R 0"
+                                onOpenExpandModal={openCellExpandModal}
+                                className="font-bold bg-slate-100/90 text-slate-700 cursor-not-allowed border-slate-200"
+                              />
+                            );
+                          })()
                         )}
                       </td>
 
@@ -6333,35 +6331,9 @@ Timestamp: ${new Date().toLocaleString()}
                         {renderQuarterWorkflowCell(row, 'midTerm', true)}
                       </td>
 
-                      {/* Q3 Expenditure (Locked) */}
-                      <td className="p-2 border-r border-slate-100 bg-slate-100/50">
-                        {isTargetNA(row.q3) ? (
-                          <div className="flex flex-col items-center justify-center p-2 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none" title="Expenditure reporting locked (Q3 Target is N/A)">
-                            <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500">
-                              <Lock className="w-3 h-3 text-slate-400" />
-                              <KeyRound className="w-3 h-3 text-amber-600" />
-                              <span>Locked</span>
-                            </div>
-                            <span className="text-[9px] text-slate-400 font-mono">N/A</span>
-                          </div>
-                        ) : (
-                          <ExpandableCell
-                            value={isOpex(row.budgetAllocation) ? (row.q3Expenditure || '') : (() => {
-                              const total = parseBudgetNum(row.budgetAllocation);
-                              return total > 0 ? `R ${Math.round(total / 4).toLocaleString()}` : 'R 0';
-                            })()}
-                            readOnly={true}
-                            disabled={true}
-                            onChange={() => {}}
-                            cellTitle="Q3 Expenditure (Locked)"
-                            refNum={row.refNum}
-                            isFitAll={isFitAllReportingCells}
-                            minRows={1}
-                            placeholder="Locked"
-                            onOpenExpandModal={openCellExpandModal}
-                            className="font-bold bg-slate-100/90 text-slate-500 cursor-not-allowed border-slate-200"
-                          />
-                        )}
+                      {/* Q3 Expenditure */}
+                      <td className="p-2 border-r border-slate-100 bg-teal-50/10">
+                        {renderQuarterExpenditureCell(row, 'q3', row.q3, isRowSubmitter)}
                       </td>
 
                       {/* Q3 POE Column (Locked) */}
@@ -6526,35 +6498,9 @@ Timestamp: ${new Date().toLocaleString()}
                         {renderQuarterWorkflowCell(row, 'q3', true)}
                       </td>
 
-                      {/* Q4 Expenditure (Locked) */}
-                      <td className="p-2 border-r border-slate-100 bg-slate-100/50">
-                        {isTargetNA(row.q4) ? (
-                          <div className="flex flex-col items-center justify-center p-2 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none" title="Expenditure reporting locked (Q4 Target is N/A)">
-                            <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500">
-                              <Lock className="w-3 h-3 text-slate-400" />
-                              <KeyRound className="w-3 h-3 text-amber-600" />
-                              <span>Locked</span>
-                            </div>
-                            <span className="text-[9px] text-slate-400 font-mono">N/A</span>
-                          </div>
-                        ) : (
-                          <ExpandableCell
-                            value={isOpex(row.budgetAllocation) ? (row.q4Expenditure || '') : (() => {
-                              const total = parseBudgetNum(row.budgetAllocation);
-                              return total > 0 ? `R ${Math.round(total / 4).toLocaleString()}` : 'R 0';
-                            })()}
-                            readOnly={true}
-                            disabled={true}
-                            onChange={() => {}}
-                            cellTitle="Q4 Expenditure (Locked)"
-                            refNum={row.refNum}
-                            isFitAll={isFitAllReportingCells}
-                            minRows={1}
-                            placeholder="Locked"
-                            onOpenExpandModal={openCellExpandModal}
-                            className="font-bold bg-slate-100/90 text-slate-500 cursor-not-allowed border-slate-200"
-                          />
-                        )}
+                      {/* Q4 Expenditure */}
+                      <td className="p-2 border-r border-slate-100 bg-teal-50/10">
+                        {renderQuarterExpenditureCell(row, 'q4', row.q4, isRowSubmitter)}
                       </td>
 
                       {/* Q4 POE Column (Locked) */}
@@ -7707,6 +7653,205 @@ Timestamp: ${new Date().toLocaleString()}
           </form>
         </div>
       )}
+
+      {/* Budget Override Modal */}
+      {budgetOverrideModalRow && (() => {
+        const row = budgetOverrideModalRow;
+        const breakdown = getRowBudgetBreakdown(row);
+        const isMikeMzansi = (currentUser.email || '').toLowerCase().includes('mike@mzansiflow.co.za') ||
+                             (currentUser.email || '').toLowerCase().includes('mike@massivedynamixdistributors.com');
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+            <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+              <div className="bg-gradient-to-r from-slate-900 to-indigo-950 p-4 text-white flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 bg-rose-500/20 rounded-lg text-rose-400 border border-rose-500/30">
+                    <AlertTriangle className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm text-white">Budget Override Permission</h3>
+                    <p className="text-[11px] text-slate-300">Required Authorization from mike@mzansiflow.co.za</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setBudgetOverrideModalRow(null)}
+                  className="p-1 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="p-5 space-y-4">
+                {/* KPI Info */}
+                <div className="bg-slate-50 rounded-lg p-3 border border-slate-200 space-y-1 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-700 font-mono">{row.refNum}</span>
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider">{row.responsibleUnit || row.submitter || 'Official'}</span>
+                  </div>
+                  <p className="text-slate-600 line-clamp-2">{row.kpi}</p>
+                </div>
+
+                {/* Financial Overview Cards */}
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+                    <span className="text-[10px] text-slate-500 block uppercase font-medium">Total Budget</span>
+                    <span className="font-bold text-slate-800 text-sm">R {breakdown.totalBudget.toLocaleString()}</span>
+                  </div>
+                  <div className="p-2.5 bg-indigo-50 rounded-lg border border-indigo-200">
+                    <span className="text-[10px] text-indigo-600 block uppercase font-medium">Total Spent</span>
+                    <span className="font-bold text-indigo-900 text-sm">R {breakdown.totalSpent.toLocaleString()}</span>
+                  </div>
+                  <div className="p-2.5 bg-rose-50 rounded-lg border border-rose-200">
+                    <span className="text-[10px] text-rose-600 block uppercase font-medium">Excess Overrun</span>
+                    <span className="font-bold text-rose-700 text-sm">+R {breakdown.excessAmount.toLocaleString()}</span>
+                  </div>
+                </div>
+
+                {/* Status Message */}
+                {row.budgetOverride?.approved ? (
+                  <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-lg text-xs text-emerald-800 flex items-start gap-2">
+                    <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold block">Override Approved by {row.budgetOverride.approvedBy || 'mike@mzansiflow.co.za'}</span>
+                      <span className="text-[11px] text-emerald-700">{row.budgetOverride.reason || 'Authorized budget variance.'}</span>
+                    </div>
+                  </div>
+                ) : row.budgetOverride?.requested ? (
+                  <div className="p-3 bg-amber-50 border border-amber-300 rounded-lg text-xs text-amber-800 flex items-start gap-2">
+                    <Clock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold block">Permission Request Sent to mike@mzansiflow.co.za</span>
+                      <span className="text-[11px] text-amber-700">Requested by {row.budgetOverride.requestedBy} on {new Date(row.budgetOverride.requestedAt || '').toLocaleDateString()}. Reason: "{row.budgetOverride.reason || 'None provided'}"</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-600 space-y-1">
+                    <p className="font-semibold text-slate-800">
+                      Expenditure input of <span className="font-mono font-bold text-indigo-700">R {breakdown.totalSpent.toLocaleString()}</span> has been accepted, but exceeds allocated budget of <span className="font-mono font-bold text-slate-700">R {breakdown.totalBudget.toLocaleString()}</span> by <span className="font-mono font-bold text-rose-700">R {breakdown.excessAmount.toLocaleString()}</span>.
+                    </p>
+                    <p className="text-[11px] text-slate-500">
+                      An official permission request will be delivered to <strong className="text-slate-700 font-semibold">mike@mzansiflow.co.za</strong> for audit compliance sign-off.
+                    </p>
+                  </div>
+                )}
+
+                {/* Justification note */}
+                {!row.budgetOverride?.approved && (
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-700">
+                      Justification / Motivation for Budget Overrun:
+                    </label>
+                    <textarea
+                      value={overrideReason}
+                      onChange={(e) => setOverrideReason(e.target.value)}
+                      placeholder="e.g. SCM price escalation, emergency infrastructure repairs, or contingency reallocation..."
+                      rows={3}
+                      className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                    />
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setBudgetOverrideModalRow(null)}
+                    className="px-3 py-1.5 text-xs text-slate-600 hover:text-slate-900 rounded-lg font-medium transition cursor-pointer"
+                  >
+                    Close
+                  </button>
+
+                  <div className="flex items-center gap-2">
+                    {/* Direct approval button if logged-in user is mike@mzansiflow.co.za or admin */}
+                    {isMikeMzansi && !row.budgetOverride?.approved && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const updated = rows.map(r => {
+                            if (r.id === row.id) {
+                              return {
+                                ...r,
+                                budgetOverride: {
+                                  approved: true,
+                                  approvedBy: 'mike@mzansiflow.co.za',
+                                  approvedAt: new Date().toISOString(),
+                                  excessAmount: breakdown.excessAmount,
+                                  reason: overrideReason || 'Approved by mike@mzansiflow.co.za'
+                                }
+                              };
+                            }
+                            return r;
+                          });
+                          setRows(updated);
+                          await debouncedSaveRows(updated);
+                          setSuccessToast('✓ Budget override successfully authorized and approved by mike@mzansiflow.co.za.');
+                          setBudgetOverrideModalRow(null);
+                        }}
+                        className="px-3 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition flex items-center gap-1 cursor-pointer shadow-sm"
+                      >
+                        <ShieldCheck className="w-3.5 h-3.5" /> Approve Override (as mike@mzansiflow.co.za)
+                      </button>
+                    )}
+
+                    {!row.budgetOverride?.approved && !isMikeMzansi && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setIsSubmittingOverride(true);
+                          try {
+                            const updated = rows.map(r => {
+                              if (r.id === row.id) {
+                                return {
+                                  ...r,
+                                  budgetOverride: {
+                                    requested: true,
+                                    requestedBy: currentUser.email || 'submitter',
+                                    requestedAt: new Date().toISOString(),
+                                    excessAmount: breakdown.excessAmount,
+                                    reason: overrideReason || 'Budget overrun requiring authorization'
+                                  }
+                                };
+                              }
+                              return r;
+                            });
+                            setRows(updated);
+                            await debouncedSaveRows(updated);
+
+                            await dispatchSdbipNotification(activeTenantId, {
+                              targetUser: 'mike@mzansiflow.co.za',
+                              senderUser: currentUser.email || currentUser.fullName || 'Submitter',
+                              kpiId: row.id,
+                              refNum: row.refNum,
+                              kpiName: row.kpi || '',
+                              phase: 'Budget Override',
+                              message: `Budget Override Request: Total expenditure (R ${breakdown.totalSpent.toLocaleString()}) exceeds budget (R ${breakdown.totalBudget.toLocaleString()}) by R ${breakdown.excessAmount.toLocaleString()}.`,
+                              comment: overrideReason || 'Please review and authorize budget override.',
+                              actionType: 'submitted'
+                            });
+
+                            setSuccessToast('✓ Permission request successfully delivered to mike@mzansiflow.co.za.');
+                            setBudgetOverrideModalRow(null);
+                          } catch (e) {
+                            setSuccessToast('Permission request recorded on system for mike@mzansiflow.co.za.');
+                            setBudgetOverrideModalRow(null);
+                          } finally {
+                            setIsSubmittingOverride(false);
+                          }
+                        }}
+                        disabled={isSubmittingOverride}
+                        className="px-3 py-1.5 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition flex items-center gap-1 cursor-pointer shadow-sm disabled:opacity-50"
+                      >
+                        <Send className="w-3.5 h-3.5" /> Request Permission from mike@mzansiflow.co.za
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
     </div>
   );

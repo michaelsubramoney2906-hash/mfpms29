@@ -9,6 +9,7 @@ import {
   ArrowRight, FileSpreadsheet, Lock, AlertTriangle, Settings, Table2,
   ClipboardCheck, CalendarDays
 } from 'lucide-react';
+import { isUserUnrestricted } from '../../utils/unrestrictedHelper';
 
 interface PATemplatesProps {
   currentUser: {
@@ -141,8 +142,7 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
 
   const isMikeViewer = React.useMemo(() => {
     if (!currentUser) return false;
-    const email = (currentUser.email || '').toLowerCase().trim();
-    return email === 'mike@massivedynamixdistributors.com';
+    return isUserUnrestricted(currentUser);
   }, [currentUser]);
 
   // Checks if the logged-in user is the Municipal Manager (Mandla L. Mahlangu)

@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { ShieldAlert, AlertTriangle, Lock, EyeOff } from 'lucide-react';
+import { ShieldAlert, AlertTriangle, EyeOff } from 'lucide-react';
+import { isUserUnrestricted, isCopyAllowed, shouldHideWatermark } from '../utils/unrestrictedHelper';
 
 interface SecurityShieldProps {
   user: {
     email: string;
-    role: string;
+    role?: string;
+    systemRole?: string;
+    jobFunction?: string;
     tenantId?: string;
   };
   children: React.ReactNode;
@@ -16,7 +19,13 @@ export function SecurityShield({ user, children }: SecurityShieldProps) {
   const [showWarning, setShowWarning] = useState(false);
   const [warningCount, setWarningCount] = useState(0);
 
+  const unrestricted = isUserUnrestricted(user);
+  const copyAllowed = isCopyAllowed(user);
+  const hideWatermark = shouldHideWatermark(user);
+
   useEffect(() => {
+    if (unrestricted) return;
+
     // 1. Fetch visitor IP to populate watermark
     fetch('/api/auth/client-ip')
       .then(res => res.ok ? res.json() : ({} as any))
@@ -27,7 +36,7 @@ export function SecurityShield({ user, children }: SecurityShieldProps) {
       })
       .catch(() => {});
 
-    // 2. Prevent right-click context menu
+    // 2. Prevent right-click context menu (only for restricted users)
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
       setIsBlurred(true);
@@ -35,13 +44,16 @@ export function SecurityShield({ user, children }: SecurityShieldProps) {
     };
     document.addEventListener('contextmenu', handleContextMenu);
 
-    // 3. Prevent copying, cutting, of page content
+    // 3. Prevent copying, cutting of page content only if copy is NOT allowed
     const handleCopyCut = (e: ClipboardEvent) => {
+      if (copyAllowed) return;
       e.preventDefault();
       alert("Nkangala Municipal Guard: Copying sensitive compliance content is restricted.");
     };
-    document.addEventListener('copy', handleCopyCut);
-    document.addEventListener('cut', handleCopyCut);
+    if (!copyAllowed) {
+      document.addEventListener('copy', handleCopyCut);
+      document.addEventListener('cut', handleCopyCut);
+    }
 
     // 4. Handle Escape and click on warning
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -64,7 +76,9 @@ export function SecurityShield({ user, children }: SecurityShieldProps) {
       // Check for PrintScreen button press (on older keyboards or browsers recognizing it)
       if (e.key === 'PrintScreen' || e.key === 'Snapshot') {
         e.preventDefault();
-        navigator.clipboard?.writeText?.("prohibited");
+        if (!copyAllowed) {
+          navigator.clipboard?.writeText?.("prohibited");
+        }
         setShowWarning(true);
         setWarningCount(c => c + 1);
         setIsBlurred(true);
@@ -86,18 +100,24 @@ export function SecurityShield({ user, children }: SecurityShieldProps) {
 
     return () => {
       document.removeEventListener('contextmenu', handleContextMenu);
-      document.removeEventListener('copy', handleCopyCut);
-      document.removeEventListener('cut', handleCopyCut);
+      if (!copyAllowed) {
+        document.removeEventListener('copy', handleCopyCut);
+        document.removeEventListener('cut', handleCopyCut);
+      }
       window.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, []);
+  }, [unrestricted, copyAllowed]);
+
+  if (unrestricted) {
+    return <>{children}</>;
+  }
 
   // Watermark text
   const watermarkText = `${user.email} | CLASSIFIED | IP: ${clientIp} | SECURE ARCHIVE`;
 
   return (
-    <div id="security-canvas-container" className="relative min-h-screen selection:bg-red-500 selection:text-white">
+    <div id="security-canvas-container" className="relative min-h-screen selection:bg-emerald-600 selection:text-white">
       {/* 1. Print Media Query Injection */}
       <style>{`
         @media print {
@@ -114,20 +134,22 @@ export function SecurityShield({ user, children }: SecurityShieldProps) {
         }
       `}</style>
 
-      {/* 2. Transparent Tiled Security Watermark Grid */}
-      <div 
-        id="bg-security-watermark-overlay" 
-        className="pointer-events-none fixed inset-0 z-40 overflow-hidden opacity-[0.04] select-none flex flex-wrap justify-between gap-x-20 gap-y-16 p-8"
-      >
-        {Array.from({ length: 120 }).map((_, i) => (
-          <span 
-            key={i} 
-            className="text-[11px] font-mono font-extrabold uppercase tracking-widest text-slate-800 transform -rotate-12 select-none"
-          >
-            {watermarkText}
-          </span>
-        ))}
-      </div>
+      {/* 2. Transparent Tiled Security Watermark Grid (Hidden for @nkangaladm.gov.za and mzansiflow.co.za users) */}
+      {!hideWatermark && (
+        <div 
+          id="bg-security-watermark-overlay" 
+          className="pointer-events-none fixed inset-0 z-40 overflow-hidden opacity-[0.04] select-none flex flex-wrap justify-between gap-x-20 gap-y-16 p-8"
+        >
+          {Array.from({ length: 120 }).map((_, i) => (
+            <span 
+              key={i} 
+              className="text-[11px] font-mono font-extrabold uppercase tracking-widest text-slate-800 transform -rotate-12 select-none"
+            >
+              {watermarkText}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* 3. Screen content container - supports focus blurs */}
       <div 

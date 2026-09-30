@@ -15,6 +15,7 @@ import { DraftingSuiteTeam } from './DraftingSuiteTeam';
 import { PATemplates } from './PATemplates';
 import { NKANGALA_LOGO_BASE64 } from './nkangala_logo_base64';
 import { PoeDocument } from './Evaluation_IPMS';
+import { isUserUnrestricted } from '../../utils/unrestrictedHelper';
 
 
 const DUAL_LAYER_USERS = [
@@ -371,6 +372,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
   const [users, setUsers] = useState<any[]>([]);
   const [selectedUserEmail, setSelectedUserEmail] = useState<string>('');
   const [agreementScope, setAgreementScope] = useState<'individual' | 'team'>('individual');
+  const isUnrestricted = isUserUnrestricted(currentUser);
 
   const effectiveUser = React.useMemo(() => {
     if (selectedUserEmail) {
@@ -402,6 +404,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
 
   const canCurrentUserReview = React.useCallback(() => {
     if (!currentUser) return false;
+    if (isUserUnrestricted(currentUser)) return true;
 
     const email = (currentUser.email || '').toLowerCase().trim();
     const fullName = (currentUser.fullName || '').toLowerCase().trim();
@@ -3458,15 +3461,16 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
                         </div>
                       </td>
 
-                      {/* 2nd Qtr Actual Expense Column - Locked */}
-                      <td className="p-1 border-r border-slate-205 min-w-[140px] bg-slate-100/50 cursor-not-allowed">
+                      {/* 2nd Qtr Actual Expense Column */}
+                      <td className={`p-1 border-r border-slate-205 min-w-[140px] ${!isUnrestricted ? 'bg-slate-100/50 cursor-not-allowed' : 'bg-transparent'}`}>
                         <textarea
                           rows={1}
                           value={item.q2ActualExpense || ''}
-                          readOnly
-                          disabled
-                          placeholder="Locked"
-                          className="w-full font-bold bg-transparent p-1 border-0 outline-none text-center text-slate-600 text-[10px] cursor-not-allowed resize-none"
+                          readOnly={!isUnrestricted}
+                          disabled={!isUnrestricted}
+                          onChange={(e) => handleRowChange(item.id, 'q2ActualExpense', e.target.value)}
+                          placeholder={isUnrestricted ? "e.g. R 45,000" : "Locked"}
+                          className={`w-full font-bold bg-transparent p-1 border-0 outline-none text-center text-slate-600 text-[10px] resize-none ${!isUnrestricted ? 'cursor-not-allowed' : 'focus:bg-white'}`}
                           style={{ minHeight: '20px', overflow: 'hidden' }}
                         />
                       </td>
@@ -3486,15 +3490,16 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
                         </div>
                       </td>
 
-                      {/* Q2 Corrective Column - Locked */}
-                      <td className="p-1 border-r border-slate-205 min-w-[180px] bg-slate-100/50 cursor-not-allowed">
+                      {/* Q2 Corrective Column */}
+                      <td className={`p-1 border-r border-slate-205 min-w-[180px] ${!isUnrestricted ? 'bg-slate-100/50 cursor-not-allowed' : 'bg-transparent'}`}>
                         <textarea
                           rows={2}
                           value={item.q2Corrective || ''}
-                          readOnly
-                          disabled
-                          placeholder="Locked"
-                          className="w-full text-[9.5px] font-medium p-1 border border-slate-200/50 text-slate-400 bg-slate-50/60 opacity-80 cursor-not-allowed italic rounded outline-none resize-none"
+                          readOnly={!isUnrestricted}
+                          disabled={!isUnrestricted}
+                          onChange={(e) => handleRowChange(item.id, 'q2Corrective', e.target.value)}
+                          placeholder={isUnrestricted ? "Enter corrective action..." : "Locked"}
+                          className={`w-full text-[9.5px] font-medium p-1 border border-slate-200/50 text-slate-600 rounded outline-none resize-none ${!isUnrestricted ? 'bg-slate-50/60 opacity-80 cursor-not-allowed italic' : 'bg-white focus:bg-white'}`}
                           style={{ minHeight: '35px', overflow: 'hidden' }}
                         />
                       </td>
@@ -3556,15 +3561,16 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
                         </div>
                       </td>
 
-                      {/* Midterm Actual Expense Column - Locked */}
-                      <td className="p-1 border-r border-slate-205 min-w-[140px] bg-slate-100/50 cursor-not-allowed">
+                      {/* Midterm Actual Expense Column */}
+                      <td className={`p-1 border-r border-slate-205 min-w-[140px] ${!isUnrestricted ? 'bg-slate-100/50 cursor-not-allowed' : 'bg-transparent'}`}>
                         <textarea
                           rows={1}
                           value={item.midtermActualExpense || ''}
-                          readOnly
-                          disabled
-                          placeholder="Locked"
-                          className="w-full font-bold bg-transparent p-1 border-0 outline-none text-center text-slate-600 text-[10px] cursor-not-allowed resize-none"
+                          readOnly={!isUnrestricted}
+                          disabled={!isUnrestricted}
+                          onChange={(e) => handleRowChange(item.id, 'midtermActualExpense', e.target.value)}
+                          placeholder={isUnrestricted ? "e.g. R 45,000" : "Locked"}
+                          className={`w-full font-bold bg-transparent p-1 border-0 outline-none text-center text-slate-600 text-[10px] resize-none ${!isUnrestricted ? 'cursor-not-allowed' : 'focus:bg-white'}`}
                           style={{ minHeight: '20px', overflow: 'hidden' }}
                         />
                       </td>
@@ -3584,15 +3590,16 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
                         </div>
                       </td>
 
-                      {/* Midterm Corrective Column - Locked */}
-                      <td className="p-1 border-r border-slate-205 min-w-[180px] bg-slate-100/50 cursor-not-allowed">
+                      {/* Midterm Corrective Column */}
+                      <td className={`p-1 border-r border-slate-205 min-w-[180px] ${!isUnrestricted ? 'bg-slate-100/50 cursor-not-allowed' : 'bg-transparent'}`}>
                         <textarea
                           rows={2}
                           value={item.midtermCorrective || ''}
-                          readOnly
-                          disabled
-                          placeholder="Locked"
-                          className="w-full text-[9.5px] font-medium p-1 border border-slate-200/50 text-slate-400 bg-slate-50/60 opacity-80 cursor-not-allowed italic rounded outline-none resize-none"
+                          readOnly={!isUnrestricted}
+                          disabled={!isUnrestricted}
+                          onChange={(e) => handleRowChange(item.id, 'midtermCorrective', e.target.value)}
+                          placeholder={isUnrestricted ? "Enter corrective action..." : "Locked"}
+                          className={`w-full text-[9.5px] font-medium p-1 border border-slate-200/50 text-slate-600 rounded outline-none resize-none ${!isUnrestricted ? 'bg-slate-50/60 opacity-80 cursor-not-allowed italic' : 'bg-white focus:bg-white'}`}
                           style={{ minHeight: '35px', overflow: 'hidden' }}
                         />
                       </td>
@@ -3752,15 +3759,16 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
                         </div>
                       </td>
 
-                      {/* 4th Qtr Actual Expense Column - Locked */}
-                      <td className="p-1 border-r border-slate-205 min-w-[140px] bg-slate-100/50 cursor-not-allowed">
+                      {/* 4th Qtr Actual Expense Column */}
+                      <td className={`p-1 border-r border-slate-205 min-w-[140px] ${!isUnrestricted ? 'bg-slate-100/50 cursor-not-allowed' : 'bg-transparent'}`}>
                         <textarea
                           rows={1}
                           value={item.q4ActualExpense || ''}
-                          readOnly
-                          disabled
-                          placeholder="Locked"
-                          className="w-full font-bold bg-transparent p-1 border-0 outline-none text-center text-slate-600 text-[10px] cursor-not-allowed resize-none"
+                          readOnly={!isUnrestricted}
+                          disabled={!isUnrestricted}
+                          onChange={(e) => handleRowChange(item.id, 'q4ActualExpense', e.target.value)}
+                          placeholder={isUnrestricted ? "e.g. R 45,000" : "Locked"}
+                          className={`w-full font-bold bg-transparent p-1 border-0 outline-none text-center text-slate-600 text-[10px] resize-none ${!isUnrestricted ? 'cursor-not-allowed' : 'focus:bg-white'}`}
                           style={{ minHeight: '20px', overflow: 'hidden' }}
                         />
                       </td>
@@ -3780,15 +3788,16 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
                         </div>
                       </td>
 
-                      {/* Q4 Corrective Column - Locked */}
-                      <td className="p-1 border-r border-slate-205 min-w-[180px] bg-slate-100/50 cursor-not-allowed">
+                      {/* Q4 Corrective Column */}
+                      <td className={`p-1 border-r border-slate-205 min-w-[180px] ${!isUnrestricted ? 'bg-slate-100/50 cursor-not-allowed' : 'bg-transparent'}`}>
                         <textarea
                           rows={2}
                           value={item.q4Corrective || ''}
-                          readOnly
-                          disabled
-                          placeholder="Locked"
-                          className="w-full text-[9.5px] font-medium p-1 border border-slate-200/50 text-slate-400 bg-slate-50/60 opacity-80 cursor-not-allowed italic rounded outline-none resize-none"
+                          readOnly={!isUnrestricted}
+                          disabled={!isUnrestricted}
+                          onChange={(e) => handleRowChange(item.id, 'q4Corrective', e.target.value)}
+                          placeholder={isUnrestricted ? "Enter corrective action..." : "Locked"}
+                          className={`w-full text-[9.5px] font-medium p-1 border border-slate-200/50 text-slate-600 rounded outline-none resize-none ${!isUnrestricted ? 'bg-slate-50/60 opacity-80 cursor-not-allowed italic' : 'bg-white focus:bg-white'}`}
                           style={{ minHeight: '35px', overflow: 'hidden' }}
                         />
                       </td>
@@ -3806,15 +3815,19 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
                         </div>
                       </td>
 
-                      {/* Annual Actual Exp Column - Locked */}
-                      <td className="p-1 border-r border-slate-205 min-w-[140px] bg-slate-100/50 cursor-not-allowed">
+                      {/* Annual Actual Exp Column */}
+                      <td className={`p-1 border-r border-slate-205 min-w-[140px] ${!isUnrestricted ? 'bg-slate-100/50 cursor-not-allowed' : 'bg-transparent'}`}>
                         <textarea
                           rows={1}
                           value={item.annualActualExpense || item.annualActualExp || ''}
-                          readOnly
-                          disabled
-                          placeholder="Locked"
-                          className="w-full font-bold bg-transparent p-1 border-0 outline-none text-center text-slate-600 text-[10px] cursor-not-allowed resize-none"
+                          readOnly={!isUnrestricted}
+                          disabled={!isUnrestricted}
+                          onChange={(e) => {
+                            handleRowChange(item.id, 'annualActualExpense', e.target.value);
+                            handleRowChange(item.id, 'annualActualExp', e.target.value);
+                          }}
+                          placeholder={isUnrestricted ? "e.g. R 45,000" : "Locked"}
+                          className={`w-full font-bold bg-transparent p-1 border-0 outline-none text-center text-slate-600 text-[10px] resize-none ${!isUnrestricted ? 'cursor-not-allowed' : 'focus:bg-white'}`}
                           style={{ minHeight: '20px', overflow: 'hidden' }}
                         />
                       </td>
@@ -3834,15 +3847,16 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
                         </div>
                       </td>
 
-                      {/* Annual Corrective Column - Locked */}
-                      <td className="p-1 border-r border-slate-205 min-w-[180px] bg-slate-100/50 cursor-not-allowed">
+                      {/* Annual Corrective Column */}
+                      <td className={`p-1 border-r border-slate-205 min-w-[180px] ${!isUnrestricted ? 'bg-slate-100/50 cursor-not-allowed' : 'bg-transparent'}`}>
                         <textarea
                           rows={2}
                           value={item.annualCorrective || ''}
-                          readOnly
-                          disabled
-                          placeholder="Locked"
-                          className="w-full text-[9.5px] font-medium p-1 border border-slate-200/50 text-slate-400 bg-slate-50/60 opacity-80 cursor-not-allowed italic rounded outline-none resize-none"
+                          readOnly={!isUnrestricted}
+                          disabled={!isUnrestricted}
+                          onChange={(e) => handleRowChange(item.id, 'annualCorrective', e.target.value)}
+                          placeholder={isUnrestricted ? "Enter corrective action..." : "Locked"}
+                          className={`w-full text-[9.5px] font-medium p-1 border border-slate-200/50 text-slate-600 rounded outline-none resize-none ${!isUnrestricted ? 'bg-slate-50/60 opacity-80 cursor-not-allowed italic' : 'bg-white focus:bg-white'}`}
                           style={{ minHeight: '35px', overflow: 'hidden' }}
                         />
                       </td>

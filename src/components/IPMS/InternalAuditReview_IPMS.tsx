@@ -39,6 +39,7 @@ import { OfficeDocumentViewer } from './OfficeDocumentViewer';
 import { JSCInternalAuditorReviewSection } from './JSCModules';
 import { calculateVariance } from './Evaluation_IPMS';
 import { downloadOriginalFile } from '../../utils/documentBinaryHelper';
+import { isUserUnrestricted } from '../../utils/unrestrictedHelper';
 
 interface Props {
   currentUser: any;
@@ -313,7 +314,8 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
 
   // Check authorization
   const isAuthorized = 
-    (currentUser.email === 'audit@mzansiflow.co.za' ||
+    isUserUnrestricted(currentUser) ||
+    ((currentUser.email === 'audit@mzansiflow.co.za' ||
     currentUser.email === 'test.auditor@local' ||
     currentUser.role === 'admin' || 
     currentUser.systemRole === 'Global Administrator' ||
@@ -324,7 +326,7 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
     (currentUser.department && currentUser.department.toLowerCase().includes('audit')) ||
     (currentUser.systemRole && currentUser.systemRole.toLowerCase().includes('audit'))) &&
     currentUser.email !== 'user@mzansiflow.co.za' &&
-    currentUser.email !== 'manager@mzansiflow.co.za';
+    currentUser.email !== 'manager@mzansiflow.co.za');
 
   useEffect(() => {
     if (isAuthorized) {

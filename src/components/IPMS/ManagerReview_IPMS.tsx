@@ -10,6 +10,7 @@ import { IPMSWorkflowInbox } from './IPMSWorkflowInbox';
 import { OfficeDocumentViewer } from './OfficeDocumentViewer';
 import { JSCManagerApprovalSection } from './JSCModules';
 import { calculateVariance } from './Evaluation_IPMS';
+import { isUserUnrestricted } from '../../utils/unrestrictedHelper';
 
 interface Props {
   currentUser: any;
@@ -489,16 +490,16 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
           }
         });
 
-        // Developer override only for test system developer accounts (mike@mzansiflow.co.za / mike@massivedynamixdistributors.com)
-        const isSystemDeveloper = ['mike@mzansiflow.co.za', 'mike@massivedynamixdistributors.com', 'audrey@mzansiflow.co.za', 'delphine@mzansiflow.co.za', 'ryanw@mzansiflow.co.za', 'bongani@mzansiflow.co.za', 'bonganim@mzansiflow.co.za'].includes(managerEmail);
+        // Developer override for unrestricted users (Delphine, Mike, and all admins / when impersonating)
+        const isSystemDeveloper = isUserUnrestricted(currentUser) || ['mike@mzansiflow.co.za', 'mike@massivedynamixdistributors.com', 'audrey@mzansiflow.co.za', 'delphine@mzansiflow.co.za', 'ryanw@mzansiflow.co.za', 'bongani@mzansiflow.co.za', 'bonganim@mzansiflow.co.za'].includes(managerEmail);
 
-        // Filter team plans strictly to this manager's subordinates
+        // Filter team plans strictly to this manager's subordinates (unrestricted users see all)
         let myTeamPlans = plans.filter((p: any) => {
           const targetEmail = (p.userId || '').toLowerCase().trim();
-          if (targetEmail === managerEmail) return false; // Never review oneself
+          if (targetEmail === managerEmail && !isSystemDeveloper) return false; // Never review oneself unless unrestricted
 
-          // Exclude internal dev accounts unless testing
-          if (isExcludedDeveloper(targetEmail)) {
+          // Exclude internal dev accounts unless testing or unrestricted
+          if (isExcludedDeveloper(targetEmail) && !isSystemDeveloper) {
             return false;
           }
 
@@ -514,7 +515,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
             ((managerEmail === 'manager@mzansiflow.co.za' || managerEmail.includes('manager@mzansiflow')) && (targetEmail === 'user@mzansiflow.co.za' || pManager.includes('demo line manager')))
           );
 
-          // Rule: Managers must ONLY see their subordinates. Clear all other users.
+          // Rule: Managers must ONLY see their subordinates. Unrestricted sees all.
           if (!isDirectSubordinate && !isSystemDeveloper) {
             return false;
           }

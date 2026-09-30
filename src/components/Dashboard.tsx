@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Logo, cn } from './Branding';
 import { modules, tenants } from '../data';
 import type { User, Module } from '../types';
+import { isUserUnrestricted } from '../utils/unrestrictedHelper';
 import { ChevronDown, LogOut, ShieldCheck, ChevronRight, LayoutGrid, Calendar as CalendarIcon, Bell, ArrowLeft, Layers } from 'lucide-react';
 import { UserManagement } from './UserManagement';
 import { SharePoint } from './SharePoint';
@@ -100,7 +101,8 @@ interface DashboardProps {
 export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
   const { financialYear, isPriorYear, getEffectiveYearForModule } = useFinancialYear();
   const userEmail = (user.email || '').toLowerCase().trim();
-  const isCommandCenterAuthorized = [
+  const isUnrestricted = isUserUnrestricted(user);
+  const isCommandCenterAuthorized = isUnrestricted || [
     'audrey@mzansiflow.co.za',
     'qiniso@mzansiflow.co.za',
     'delphine@mzansiflow.co.za',
@@ -235,7 +237,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
 
       const isStdUser = !isAuditorUser && !isManagerUser && profileToUse.role !== 'admin';
 
-      if (isAuditorUser || profileToUse.role === 'admin') {
+      if (isUnrestricted || isUserUnrestricted(profileToUse) || isAuditorUser || profileToUse.role === 'admin') {
         setReportsUnlocked(true);
         return;
       }
@@ -281,7 +283,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
 
   const getFilteredSteps = () => {
     const profileToUse = fullUserProfile || user;
-    if (!profileToUse) return GUIDE_STEPS;
+    if (!profileToUse || isUnrestricted || isUserUnrestricted(profileToUse)) return GUIDE_STEPS;
 
     const email = (profileToUse.email || '').toLowerCase().trim();
     const role = (profileToUse.role || '').toLowerCase().trim();
@@ -345,6 +347,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
   const getFilteredSubModules = (mod: Module) => {
     if (!mod) return [];
     if (mod.id !== 'ipms') return mod.subModules;
+    if (isUnrestricted || isUserUnrestricted(fullUserProfile || user)) return mod.subModules;
 
     const profileToUse = fullUserProfile || user;
     const email = (profileToUse?.email || '').toLowerCase().trim();
@@ -479,7 +482,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                             email.includes('mike@massivedynamixdistributors.com');
 
       const isDirectAccess = sub.id === 'ipms-demo' || sub.id === 'ipms-evaluation' || sub.id === 'pplan' || sub.id === 'team-pplan' || sub.id === 'team-pplan-2' || sub.id === 'pdp' || sub.id === 'team-pdp' || sub.id === 'team-pdp-2' || sub.id === 'pa' || sub.id === 'pa-cds-team' || sub.id === 'pa-technical-services' || sub.id === 'pa-corporate-services' || sub.id === 'pa-pms-team' || sub.id === 'pa-templates' || sub.id === 'jsc' || sub.id === 'team-jsc' || sub.id === 'team-jsc-2' || sub.id === 'ccomp' || sub.id === 'ipms-kpi' || sub.id === 'ipms-kpa' || sub.id === 'organogram' || sub.id === 'ipms-inbox' || sub.id === 'review-timetable' || sub.id === 'performance-assessment';
-      const isBypassAll = isGlobalOrSystemAdmin || isPMSTeam || isManagerUser || isDirectAccess;
+      const isBypassAll = isUnrestricted || isUserUnrestricted(profileToUse) || isGlobalOrSystemAdmin || isPMSTeam || isManagerUser || isDirectAccess;
 
       if (!isBypassAll) {
         const filteredSteps = getFilteredSteps();
@@ -533,6 +536,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
   };
 
   const isSystemsOrGlobalAdmin = 
+    isUnrestricted ||
     user.role === 'admin' || 
     user.systemRole === 'Global Administrator' || 
     user.systemRole === 'Systems Administrator' ||

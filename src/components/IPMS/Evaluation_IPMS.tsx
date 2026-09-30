@@ -7,6 +7,7 @@ import {
 import { IPMSWorkflowInbox } from './IPMSWorkflowInbox';
 import { OfficeDocumentViewer } from './OfficeDocumentViewer';
 import { viewOriginalFile } from '../../utils/documentBinaryHelper';
+import { isUserUnrestricted } from '../../utils/unrestrictedHelper';
 import { 
   JSCSelfEvaluationSection, 
   JSCManagerApprovalSection, 
@@ -370,17 +371,18 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
     ? 'Capture actual team quarterly deliverables, portfolios of evidence (POE), & collective assessments'
     : 'Capture actual quarterly deliverables, portfolios of evidence (POE), & assessments';
   const currentMonth = new Date().getMonth(); // 0-11
-  const isQ1TimeLocked = !(currentMonth >= 6 && currentMonth <= 8);
+  const isUnrestrictedUser = isUserUnrestricted(currentUser);
+  const isQ1TimeLocked = !isUnrestrictedUser && !(currentMonth >= 6 && currentMonth <= 8);
   const q1ActivePeriod = "July - September";
-  const isQ2TimeLocked = !(currentMonth >= 9 && currentMonth <= 11);
+  const isQ2TimeLocked = !isUnrestrictedUser && !(currentMonth >= 9 && currentMonth <= 11);
   const q2ActivePeriod = "October - December";
-  const isMidtermTimeLocked = !(currentMonth >= 0 && currentMonth <= 5);
+  const isMidtermTimeLocked = !isUnrestrictedUser && !(currentMonth >= 0 && currentMonth <= 5);
   const midtermActivePeriod = "January - June (Post-Q2)";
-  const isQ3TimeLocked = !(currentMonth >= 0 && currentMonth <= 2);
+  const isQ3TimeLocked = !isUnrestrictedUser && !(currentMonth >= 0 && currentMonth <= 2);
   const q3ActivePeriod = "January - March";
-  const isQ4TimeLocked = !(currentMonth >= 3 && currentMonth <= 5);
+  const isQ4TimeLocked = !isUnrestrictedUser && !(currentMonth >= 3 && currentMonth <= 5);
   const q4ActivePeriod = "April - June";
-  const isAnnualTimeLocked = !(currentMonth >= 6 && currentMonth <= 8);
+  const isAnnualTimeLocked = !isUnrestrictedUser && !(currentMonth >= 6 && currentMonth <= 8);
   const annualActivePeriod = "July - September (Post-Q4)";
 
   const renderTimeLockBanner = (isLocked, periodName) => {
@@ -1439,9 +1441,12 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
                 const setTab = (tab: string) => {
                   setActiveTabs(prev => ({ ...prev, [kpi.id]: tab }));
                 };
-                const kpiIsReadOnly = kpi.reviewStatus === 'Submitted for Approval' || 
-                                      kpi.reviewStatus === 'Reviewed' || 
-                                      kpi.reviewStatus === 'Approved';
+                const isUnrestricted = isUserUnrestricted(currentUser);
+                const kpiIsReadOnly = !isUnrestricted && (
+                  kpi.reviewStatus === 'Submitted for Approval' || 
+                  kpi.reviewStatus === 'Reviewed' || 
+                  kpi.reviewStatus === 'Approved'
+                );
                 const isSelected = selectedKpiIds.includes(kpi.id);
 
                 return (

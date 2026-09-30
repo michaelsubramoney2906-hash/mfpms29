@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Lock, Unlock, ShieldAlert, X, AlertTriangle } from 'lucide-react';
 import type { User } from '../types';
+import { isUserUnrestricted } from '../utils/unrestrictedHelper';
 
 interface RestrictedModuleWrapperProps {
   currentUser: User;
@@ -41,6 +42,11 @@ const SUBMODULE_TO_PARENT_MAP: Record<string, string> = {
 };
 
 export function RestrictedModuleWrapper({ currentUser, item, unlockedModules, onUnlock, onClose, children }: RestrictedModuleWrapperProps) {
+  const isUnrestricted = isUserUnrestricted(currentUser);
+  if (isUnrestricted) {
+    return <>{children}</>;
+  }
+
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [overridePassword, setOverridePassword] = useState('8655M9sznnes01*');

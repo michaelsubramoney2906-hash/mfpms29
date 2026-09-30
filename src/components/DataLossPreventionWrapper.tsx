@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { User } from '../types';
+import { isUserUnrestricted, isCopyAllowed, shouldHideWatermark } from '../utils/unrestrictedHelper';
 
 interface DLPProps {
   user: User | null;
@@ -10,33 +11,43 @@ export function DataLossPreventionWrapper({ user, children }: DLPProps) {
   const [isBlurred, setIsBlurred] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   
-  // Mouse tracking state for Dynamic Watermarking & Focus Masking
+  // Mouse tracking state for Focus Masking
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [secureLensActive, setSecureLensActive] = useState(false);
+
+  const unrestricted = isUserUnrestricted(user);
+  const copyAllowed = isCopyAllowed(user);
+  const hideWatermark = shouldHideWatermark(user);
 
   // Check if current user is subject to DLP rules
   const dlpEnabled = (() => {
     if (!user || !user.email) return false;
+    if (unrestricted) return false;
     const lowerEmail = user.email.trim().toLowerCase();
     
-    // Explicit exclusions requested by the user
+    // Explicit exclusions
     const excludedEmails = [
       'mike@mzansiflow.co.za',
       'qiniso@mzansiflow.co.za',
-      'audrey@mzansiflow.co.za'
+      'audrey@mzansiflow.co.za',
+      'delphine@mzansiflow.co.za',
+      'ryanw@mzansiflow.co.za',
+      'bongani@mzansiflow.co.za',
+      'bonganim@mzansiflow.co.za',
+      'mike@massivedynamixdistributors.com'
     ];
     
     if (excludedEmails.includes(lowerEmail)) {
       return false;
     }
 
-    // Apply to all other @nkangaladm.gov.za and @mzansiflow.co.za accounts
+    // If copying is allowed and watermark is hidden, check if other DLP rules apply
     return lowerEmail.endsWith('@nkangaladm.gov.za') || lowerEmail.endsWith('@mzansiflow.co.za');
   })();
 
-  // Track mouse coordinates globally for the dynamic cursor watermark and focus mask lens
+  // Track mouse coordinates for focus mask lens if active
   useEffect(() => {
-    if (!dlpEnabled) return;
+    if (!dlpEnabled && !secureLensActive) return;
     
     const handleMouseMove = (e: MouseEvent) => {
       setMousePos({ x: e.clientX, y: e.clientY });
@@ -44,16 +55,16 @@ export function DataLossPreventionWrapper({ user, children }: DLPProps) {
 
     window.addEventListener('mousemove', handleMouseMove, { passive: true });
     return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, [dlpEnabled]);
+  }, [dlpEnabled, secureLensActive]);
 
   // Keep watermark timestamp updated every second
   useEffect(() => {
-    if (!dlpEnabled) return;
+    if (!dlpEnabled || hideWatermark) return;
     const interval = setInterval(() => {
       setCurrentTime(new Date());
     }, 1000);
     return () => clearInterval(interval);
-  }, [dlpEnabled]);
+  }, [dlpEnabled, hideWatermark]);
 
   // Block Page Printing & PDF Export, Clipboard management, and Key interceptors
   useEffect(() => {
@@ -97,8 +108,10 @@ export function DataLossPreventionWrapper({ user, children }: DLPProps) {
       alert("Printing is disabled on this secure municipality workspace due to document protection rules.");
     };
 
-    // C. Intercept and wipe Clipboard to prevent "Paste" leaks
+    // C. Intercept and wipe Clipboard if copying is NOT allowed
+    let clipboardInterval: any = null;
     const clearClipboard = async () => {
+      if (copyAllowed) return;
       try {
         await navigator.clipboard.writeText(`SECURE WORKSPACE - COPY/PASTE IS RESTRICTED FOR ${user?.email}`);
       } catch (e) {
@@ -106,13 +119,17 @@ export function DataLossPreventionWrapper({ user, children }: DLPProps) {
       }
     };
 
-    // Periodically clear clipboard
-    const clipboardInterval = setInterval(clearClipboard, 3000);
-    window.addEventListener('focus', clearClipboard);
-    window.addEventListener('copy', (e) => {
+    const handleCopyEvent = (e: ClipboardEvent) => {
+      if (copyAllowed) return; // Allow copying for @mzansiflow.co.za users
       e.preventDefault();
       clearClipboard();
-    });
+    };
+
+    if (!copyAllowed) {
+      clipboardInterval = setInterval(clearClipboard, 3000);
+      window.addEventListener('focus', clearClipboard);
+      window.addEventListener('copy', handleCopyEvent);
+    }
 
     // D. Intercept keyboard shortcuts
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -122,7 +139,7 @@ export function DataLossPreventionWrapper({ user, children }: DLPProps) {
       if (e.key === 'PrintScreen' || e.keyCode === 44 || e.code === 'PrintScreen') {
         e.preventDefault();
         e.stopPropagation();
-        clearClipboard();
+        if (!copyAllowed) clearClipboard();
         alert("Screenshots and PrintScreen commands are prohibited on this secure municipality workspace.");
       }
 
@@ -141,7 +158,7 @@ export function DataLossPreventionWrapper({ user, children }: DLPProps) {
       ) {
         e.preventDefault();
         e.stopPropagation();
-        clearClipboard();
+        if (!copyAllowed) clearClipboard();
         alert("Snipping and active screen capturing tools are blocked.");
       }
     };
@@ -154,11 +171,12 @@ export function DataLossPreventionWrapper({ user, children }: DLPProps) {
       if (style) style.remove();
       window.print = originalPrint;
       
-      clearInterval(clipboardInterval);
+      if (clipboardInterval) clearInterval(clipboardInterval);
       window.removeEventListener('focus', clearClipboard);
+      window.removeEventListener('copy', handleCopyEvent);
       window.removeEventListener('keydown', handleKeyDown, true);
     };
-  }, [dlpEnabled, user]);
+  }, [dlpEnabled, user, copyAllowed]);
 
   // Privacy Blur Screen on Tab Defocus / Mouse Exit
   useEffect(() => {
@@ -199,8 +217,7 @@ export function DataLossPreventionWrapper({ user, children }: DLPProps) {
   // Format watermark string for standard low-opacity grid watermarks
   const watermarkText = `SECURE WORKSPACE • NKANGALA DISTRICT • ${user?.email} • CONFIDENTIAL SYSTEM • ${currentTime.toLocaleDateString()} ${currentTime.toLocaleTimeString()}`;
 
-  // 1. Digital Forensic Stenographic Invisible Watermark String (Nearly transparent white on white / dark on black)
-  // Repeat this intensely in the background - if users snap with a camera and adjust contrast/gamma, these hidden names emerge.
+  // 1. Digital Forensic Stenographic Invisible Watermark String
   const forensicText = `${user?.email} • MUNICIPAL CONFIDENTIAL • SECURE LOG: [${currentTime.toISOString()}]`;
   const forensicGrid = Array.from({ length: 120 }).map((_, i) => (
     <span 
@@ -227,19 +244,23 @@ export function DataLossPreventionWrapper({ user, children }: DLPProps) {
   return (
     <div className="relative min-h-screen w-full overflow-hidden">
       
-      {/* 4. Moire Effect Interrupter Mesh (causes camera lens diffraction rendering phone captures distorted) */}
-      <div 
-        className="fixed inset-0 pointer-events-none z-[998] select-none"
-        style={{
-          background: 'repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.006) 0px, rgba(255, 255, 255, 0.006) 1px, transparent 1px, transparent 4px)',
-          mixBlendMode: 'overlay'
-        }}
-      />
+      {/* Moire Effect Interrupter Mesh (if watermark is not hidden) */}
+      {!hideWatermark && (
+        <div 
+          className="fixed inset-0 pointer-events-none z-[998] select-none"
+          style={{
+            background: 'repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.006) 0px, rgba(255, 255, 255, 0.006) 1px, transparent 1px, transparent 4px)',
+            mixBlendMode: 'overlay'
+          }}
+        />
+      )}
 
-      {/* 1. Digital Forensic Stenographic Background Grid */}
-      <div className="fixed inset-0 pointer-events-none z-[1] flex flex-wrap justify-center overflow-hidden leading-none select-none">
-        {forensicGrid}
-      </div>
+      {/* Digital Forensic Stenographic Background Grid (if watermark is not hidden) */}
+      {!hideWatermark && (
+        <div className="fixed inset-0 pointer-events-none z-[1] flex flex-wrap justify-center overflow-hidden leading-none select-none">
+          {forensicGrid}
+        </div>
+      )}
 
       {/* Privacy Blur Overlay Screen */}
       {isBlurred && (
@@ -278,22 +299,14 @@ export function DataLossPreventionWrapper({ user, children }: DLPProps) {
         {children}
       </div>
 
-      {/* 5. Dynamic Transparent Watermarking overlay */}
-      <div className="fixed inset-0 pointer-events-none z-[996] overflow-hidden flex flex-wrap justify-center items-center content-center gap-12 select-none">
-        {watermarks}
-      </div>
+      {/* Dynamic Transparent Watermarking overlay (if watermark is not hidden) */}
+      {!hideWatermark && (
+        <div className="fixed inset-0 pointer-events-none z-[996] overflow-hidden flex flex-wrap justify-center items-center content-center gap-12 select-none">
+          {watermarks}
+        </div>
+      )}
 
-      {/* 2. Aggressive Dynamic Watermark following the cursor directly */}
-      <div 
-        className="fixed pointer-events-none z-[99999] opacity-15 bg-slate-950/80 border border-slate-800 text-[9px] font-mono font-bold text-emerald-400 px-2 py-0.5 rounded shadow-lg whitespace-nowrap"
-        style={{
-          left: `${mousePos.x + 16}px`,
-          top: `${mousePos.y + 16}px`,
-          textShadow: '1px 1px 0 rgba(0,0,0,0.5)'
-        }}
-      >
-        {user?.email} • CONFIDENTIAL • IP MAPPED
-      </div>
+      {/* Note: Arrow / floating watermark following cursor with username is removed for all users */}
 
       {/* Focus Mask Lens Toggle (Fixed control on bottom right) */}
       <div className="fixed bottom-4 right-4 z-[99999] flex items-center gap-2">

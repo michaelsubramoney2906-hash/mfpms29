@@ -10,6 +10,7 @@ import {
 import { cn } from './Branding';
 import { PerformanceMonitor } from './Admin/PerformanceMonitor';
 import { NkangalaBatchRestorationPanel } from './Admin/NkangalaBatchRestorationPanel';
+import { isUserUnrestricted } from '../utils/unrestrictedHelper';
 
 interface UserManagementProps {
   currentUser: User;
@@ -1122,7 +1123,7 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                         </td>
                         <td className="px-6 py-4 text-center">
                           <div className="flex items-center justify-center gap-1">
-                            {(currentUser.role === 'admin' || currentUser.systemRole === 'Global Administrator') && onImpersonate && (
+                            {(currentUser.role === 'admin' || currentUser.systemRole === 'Global Administrator' || isUserUnrestricted(currentUser)) && onImpersonate && (
                               <button 
                                 onClick={() => {
                                   const resolvedTenant = (u.tenantId === 'nkangala_auto' || u.email?.toLowerCase().includes('nkangala')) ? 'tenant-229' : (u.tenantId || municipalities[0]?.id || '');
@@ -1711,7 +1712,7 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                           </span>
                         </td>
                         <td className="px-6 py-4 text-center">
-                          {(currentUser.role === 'admin' || currentUser.systemRole === 'Global Administrator') && onImpersonate && (
+                          {(currentUser.role === 'admin' || currentUser.systemRole === 'Global Administrator' || isUserUnrestricted(currentUser)) && onImpersonate && (
                             <button 
                               onClick={() => {
                                 const resolvedTenant = (session.tenantId === 'nkangala_auto' || session.email?.toLowerCase().includes('nkangala')) ? 'tenant-229' : (session.tenantId || municipalities[0]?.id || '');
