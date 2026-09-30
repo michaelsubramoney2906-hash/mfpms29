@@ -5,7 +5,8 @@ import {
   CheckSquare, Plus, Save, Trash2, Edit2, Upload, FileSignature, 
   Layers, Database, Calendar, TrendingUp, AlertTriangle, ChevronRight, 
   Info, Check, HelpCircle, ArrowLeft, ArrowUpRight, DollarSign,
-  PieChart as PieIcon, Eye, CheckCircle2, AlertCircle, RefreshCw, Download, FileSpreadsheet
+  PieChart as PieIcon, Eye, CheckCircle2, AlertCircle, RefreshCw, Download, FileSpreadsheet,
+  Bot, Users, KeyRound
 } from 'lucide-react';
 import { 
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, 
@@ -26,6 +27,8 @@ import { CoreCompetencies } from './IPMS/CoreCompetencies';
 import { EvaluationIPMS } from './IPMS/Evaluation_IPMS';
 import { ManagerReviewIPMS } from './IPMS/ManagerReview_IPMS';
 import { InternalAuditReviewIPMS } from './IPMS/InternalAuditReview_IPMS';
+import { Fred2Suite } from './Fred2Suite';
+import { UserManagement2 } from './UserManagement2';
 
 interface NEDAPortalProps {
   user: User;
@@ -38,7 +41,7 @@ type PillarId = 'organisational' | 'individual' | 'financial' | 'reporting';
 
 type SubModuleId = 
   // Organisational PMS
-  | 'annual_report' | 'annual_perf_report' | 'idp' | 'sdbip'
+  | 'annual_report' | 'annual_perf_report' | 'idp' | 'sdbip' | 'fred2'
   // Individual PMS
   | 'ipms_kpi_capture' | 'ipms_kpa_capture' | 'pdp' | 'performance_plan' 
   | 'core_competencies' | 'performance_agreement' | 'self_evaluation' 
@@ -46,7 +49,7 @@ type SubModuleId =
   // Financial & SCM
   | 'budget_tracking' | 'scm_performance' | 'audit_risk'
   // Governance & Analytics
-  | 'dashboard_analytics' | 'statutory_reporting' | 'stakeholder_oversight';
+  | 'dashboard_analytics' | 'statutory_reporting' | 'stakeholder_oversight' | 'administrator2';
 
 interface Pillar {
   id: PillarId;
@@ -60,14 +63,14 @@ interface Pillar {
   }[];
 }
 
-export function NEDAPortal({ user, onLogout }: NEDAPortalProps) {
+export function NEDAPortal({ user, onLogout, onImpersonate }: NEDAPortalProps) {
   const [activePillar, setActivePillar] = useState<PillarId>('organisational');
   const [activeSub, setActiveSub] = useState<SubModuleId>('annual_report');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
-  const tenantId = user.tenantId || 'nkangala_auto';
+  const tenantId = 'neda'; // Strict separation: all NEDA data is stored under 'neda' tenant ID
 
   // --- Dynamic states for custom functional sub-modules (Financial, SCM, Governance & Analytics, PoE) ---
   
@@ -350,6 +353,7 @@ export function NEDAPortal({ user, onLogout }: NEDAPortalProps) {
         { id: 'annual_perf_report', name: 'Annual Performance Report', desc: 'Evaluates top-tier corporate performance and annual targets.', icon: <BarChart3 className="w-4 h-4" /> },
         { id: 'idp', name: 'IDP Module', desc: 'Formulate, review, and align NEDA’s strategic development plans.', icon: <Layers className="w-4 h-4" /> },
         { id: 'sdbip', name: 'SDBIP Module', desc: 'Monitors Service Delivery and Budget Implementation Plan indicators.', icon: <CheckSquare className="w-4 h-4" /> },
+        { id: 'fred2', name: 'Fred 2 Extractor', desc: 'NEDA Autonomous AI cognitive extraction engine.', icon: <Bot className="w-4 h-4 text-emerald-600" /> },
       ]
     },
     {
@@ -387,6 +391,7 @@ export function NEDAPortal({ user, onLogout }: NEDAPortalProps) {
         { id: 'dashboard_analytics', name: 'KPI Analytics & Early Warning', desc: 'Visual analytics dashboard of organizational budgets, tenders, and performance metrics.', icon: <BarChart3 className="w-4 h-4" /> },
         { id: 'statutory_reporting', name: 'Statutory Reports Compiler', desc: 'Review and compile Section 46 and quarterly progress packs.', icon: <FileText className="w-4 h-4" /> },
         { id: 'stakeholder_oversight', name: 'Board & Stakeholder Oversight', desc: 'Track formal submissions and approval stages for NEDA board and council.', icon: <Eye className="w-4 h-4" /> },
+        { id: 'administrator2', name: 'Administrator 2', desc: 'NEDA secure staff directory, Entra ID Sync & Node telemetry.', icon: <Users className="w-4 h-4 text-emerald-600" /> },
       ]
     }
   ];
@@ -586,6 +591,12 @@ export function NEDAPortal({ user, onLogout }: NEDAPortalProps) {
                 <div className="animate-fade-in bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
                   <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4">Integrated Service Delivery and Budget Implementation Plan Module</h3>
                   <SDBIP currentUser={user} activeTenantId={tenantId} />
+                </div>
+              )}
+
+              {activeSub === 'fred2' && (
+                <div className="animate-fade-in">
+                  <Fred2Suite currentUser={user} activeTenantId={tenantId} />
                 </div>
               )}
 
@@ -1555,6 +1566,12 @@ export function NEDAPortal({ user, onLogout }: NEDAPortalProps) {
                       </table>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {activeSub === 'administrator2' && (
+                <div className="animate-fade-in">
+                  <UserManagement2 currentUser={user} onImpersonate={onImpersonate} />
                 </div>
               )}
 
