@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { 
   ArrowRight, CheckCircle, BarChart2, Check, RefreshCw, Send,
   User, Shield, FileBadge, Info, Layers, AlertCircle, ShieldAlert,
-  Search, Eye, Edit3, MessageSquare, Award, RotateCcw
+  Search, Eye, Edit3, MessageSquare, Award, RotateCcw, Upload, FileText
 } from 'lucide-react';
+import { PoeDocument, QuarterPoeSelector } from './Evaluation_IPMS';
 
 export interface CompetencyQuarterData {
   selfScore: number;
@@ -15,6 +16,8 @@ export interface CompetencyQuarterData {
   dpmcScore?: number;
   dpmcComments?: string;
   status: 'draft' | 'pending_approval' | 'approved' | 'audited' | 'moderated';
+  poeDocs?: PoeDocument[];
+  poeText?: string;
 }
 
 export interface JscSubsection {
@@ -345,6 +348,7 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId, isTeamJS
                   <th className="px-4 py-3 font-black text-center w-20">Weight (%)</th>
                   <th className="px-4 py-3 font-black text-center w-40">{isTeamJSC ? 'Team Score (1-5)' : 'Self Score (1-5)'}</th>
                   <th className="px-4 py-3 font-black">{isTeamJSC ? 'Team Comments' : 'Self Comments'}</th>
+                  <th className="px-4 py-3 font-black text-center w-72 bg-emerald-950 text-white">Portfolio of Evidence (PoE)</th>
                   <th className="px-4 py-3 font-black text-center w-48">Audit & DPMC Reviews</th>
                   <th className="px-4 py-3 font-black text-center w-24">Status</th>
                 </tr>
@@ -352,7 +356,7 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId, isTeamJS
               <tbody>
                 {rows.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-8 text-xs text-gray-400 font-semibold italic">
+                    <td colSpan={8} className="text-center py-8 text-xs text-gray-400 font-semibold italic">
                       No competencies defined yet.
                     </td>
                   </tr>
@@ -403,7 +407,7 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId, isTeamJS
                             <option value="5">5 - Outstanding</option>
                           </select>
                         </td>
-                        <td className="px-4 py-3">
+                         <td className="px-4 py-3">
                           <input
                             type="text"
                             placeholder={isLocked ? "No comment added." : (isTeamJSC ? "Enter team evaluation comments..." : "Enter self evaluation comments...")}
@@ -422,6 +426,43 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId, isTeamJS
                             }}
                             className="w-full bg-white border border-gray-200 rounded-lg px-3 py-1 text-xs text-gray-800 placeholder-gray-400 focus:outline-none focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
                           />
+                        </td>
+                        <td className="px-4 py-3 font-sans">
+                          <div className="bg-slate-50 border border-slate-200 rounded-xl p-2 max-w-sm">
+                            <QuarterPoeSelector
+                              label="Competency Evidence"
+                              placeholderRef="Describe supporting proof of competency..."
+                              quarterName={selectedQuarter.toUpperCase()}
+                              requiredPoeDescription="Upload certificates, project files, or reports backing up your evaluation rating"
+                              textValue={qData.poeText || ''}
+                              setTextValue={(val) => {
+                                const updated = rows.map(r => r.id === row.id ? {
+                                  ...r,
+                                  [selectedQuarter]: {
+                                    ...(r[selectedQuarter] || { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', internalAuditorScore: 0, internalAuditorComments: '', dpmcScore: 0, dpmcComments: '', status: 'draft' }),
+                                    poeText: val
+                                  }
+                                } : r);
+                                setRows(updated);
+                                handleSaveToDatabase(updated);
+                              }}
+                              files={qData.poeDocs || []}
+                              setFiles={(newFiles) => {
+                                const updated = rows.map(r => r.id === row.id ? {
+                                  ...r,
+                                  [selectedQuarter]: {
+                                    ...(r[selectedQuarter] || { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', internalAuditorScore: 0, internalAuditorComments: '', dpmcScore: 0, dpmcComments: '', status: 'draft' }),
+                                    poeDocs: newFiles
+                                  }
+                                } : r);
+                                setRows(updated);
+                                handleSaveToDatabase(updated);
+                              }}
+                              currentUser={currentUser}
+                              disabled={isLocked}
+                              poeStatus={qData.status === 'approved' ? 'Approved' : undefined}
+                            />
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-xs space-y-1">
                           {qData.internalAuditorScore ? (
@@ -812,13 +853,39 @@ export function JSCManagerApprovalSection({ currentUser, activeTenantId, default
                         </td>
                         <td className="px-4 py-3 text-xs">
                           {qData.selfScore ? (
-                            <div className="space-y-0.5">
+                            <div className="space-y-1.5">
                               <span className="inline-block bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-black text-[10px]">
                                 Score: {qData.selfScore}/5
                               </span>
                               <p className="text-[10px] text-gray-500 leading-tight italic break-words">
                                 "{qData.selfComments || 'No comment added'}"
                               </p>
+                              {qData.poeText && (
+                                <div className="bg-slate-50 border border-slate-200 rounded p-1.5 text-[9.5px] mt-1 text-slate-700">
+                                  <span className="font-extrabold text-slate-800 block">PoE Note:</span>
+                                  {qData.poeText}
+                                </div>
+                              )}
+                              {qData.poeDocs && qData.poeDocs.length > 0 && (
+                                <div className="space-y-1 mt-1">
+                                  <span className="text-[9px] font-extrabold text-slate-500 uppercase tracking-tight block">PoE Files:</span>
+                                  <div className="flex flex-col gap-1 max-h-[80px] overflow-y-auto">
+                                    {qData.poeDocs.map((file) => (
+                                      <div key={file.id} className="flex items-center justify-between gap-1 bg-white border border-slate-200 rounded p-1 text-[9px]">
+                                        <a
+                                          href={file.dataUrl}
+                                          download={file.name}
+                                          className="font-semibold text-blue-600 hover:underline truncate max-w-[120px] flex items-center gap-1"
+                                          title={file.name}
+                                        >
+                                          <FileText className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                                          <span>{file.name}</span>
+                                        </a>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           ) : (
                             <span className="text-gray-400 italic font-medium text-[10px]">Not evaluated yet</span>

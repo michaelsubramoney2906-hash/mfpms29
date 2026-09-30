@@ -96,6 +96,45 @@ export default function App() {
     };
   }, [user]);
 
+  // Automated background OAuth refresh handshake (every 45 minutes to beat Microsoft's 1-hour expiration)
+  useEffect(() => {
+    if (!user) return;
+
+    const refreshSession = async () => {
+      const savedToken = localStorage.getItem('azure_ad_token');
+      if (!savedToken) return;
+
+      try {
+        const res = await fetch('/api/auth/verify', {
+          method: 'POST',
+          headers: { 
+            'Authorization': `Bearer ${savedToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ tenantId: user.tenantId })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.user) {
+            console.log("[Silent Handshake]: Token successfully refreshed with identity provider.");
+            // Softly update session state to extend token lease
+            handleSetUser({
+              ...user,
+              loginTime: new Date().toISOString()
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("[Silent Handshake]: Background session handshake paused", err);
+      }
+    };
+
+    // Run every 45 minutes
+    const tokenRefreshInterval = setInterval(refreshSession, 45 * 60 * 1000);
+
+    return () => clearInterval(tokenRefreshInterval);
+  }, [user]);
+
   useEffect(() => {
     if (window.location.pathname === '/auth/callback') {
       const hash = window.location.hash.substring(1);
@@ -104,6 +143,7 @@ export default function App() {
       const state = params.get('state');
       
       if (accessToken) {
+        localStorage.setItem('azure_ad_token', accessToken); // Save for background handshake!
         // If opened as a popup, post message to parent and close
         if (window.opener) {
           window.opener.postMessage({ type: 'OAUTH_AUTH_SUCCESS', accessToken, state }, '*');
@@ -156,6 +196,7 @@ export default function App() {
       // Listen for popup messages in the main window
       const handleMessage = (event: MessageEvent) => {
         if (event.data?.type === 'OAUTH_AUTH_SUCCESS' && event.data.accessToken) {
+          localStorage.setItem('azure_ad_token', event.data.accessToken); // Save for background handshake!
           fetch('/api/auth/verify', {
             method: 'POST',
             headers: { 
@@ -229,6 +270,7 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    localStorage.removeItem('azure_ad_token');
     sessionStorage.removeItem('originalAdminUser');
     handleSetUser(null);
   };

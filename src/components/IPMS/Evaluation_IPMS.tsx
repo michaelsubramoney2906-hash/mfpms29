@@ -1033,6 +1033,8 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
         metadata.reviewStatus = 'Draft';
       }
 
+      let submittedIds: string[] = [];
+
       // Automatically construct the aggregated 'poe' string based on quarterly portfolios
       const updatedItems = pplanData.items.map(item => {
         const q1Text = item.q1Poe || '';
@@ -1056,15 +1058,30 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
           ? item.myScore
           : (qScores.length > 0 ? (qScores.reduce((a, b) => a + b, 0) / qScores.length).toFixed(1) : '');
 
+        const shouldSubmitItem = submitForReview && (
+          selectedKpiIds.length > 0 
+            ? selectedKpiIds.includes(item.id) 
+            : !!(item.q1Score || item.q2Score || item.midtermScore || item.q3Score || item.q4Score)
+        );
+
+        if (shouldSubmitItem) {
+          submittedIds.push(item.id);
+        }
+
         return {
           ...item,
           myScore: resolvedMyScore,
-          reviewStatus: submitForReview ? 'Submitted for Approval' : (item.reviewStatus || 'Draft'),
+          reviewStatus: shouldSubmitItem ? 'Submitted for Approval' : (item.reviewStatus || 'Draft'),
           poe: aggregatePoe || item.poe,
           poeFileBase64: firstDoc ? firstDoc.dataUrl : item.poeFileBase64,
           poeFileName: firstDoc ? firstDoc.name : item.poeFileName
         };
       });
+
+      if (submitForReview) {
+        metadata.submittedKpiIds = submittedIds;
+        metadata.lastSubmittedKpiId = submittedIds.length === 1 ? submittedIds[0] : undefined;
+      }
 
       const payload = {
         metadata,

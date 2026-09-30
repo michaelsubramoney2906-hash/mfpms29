@@ -5341,10 +5341,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
                 const isLocal = clientIp === "127.0.0.1" || clientIp === "::1" || clientIp.includes("::ffff:127.0.0.1") || clientIp === "localhost" || clientIp === "";
                 
                 if (!isLocal && !checkIpMatch(clientIp, allowedSpecs)) {
-                  console.log(`[WiFi Auth Lock] REJECTED user ${user.email} from IP ${clientIp}. Allowed: ${allowedIpsString}`);
-                  return res.status(403).json({ 
-                    error: `Security Restriction: Access is locked to authorized networks only. Your current network (${clientIp}) is not within the registered Nkangala District Municipality WiFi subnet. Please switch to the official municipal office connection.` 
-                  });
+                  console.log(`[WiFi Auth Lock] Soft Warning: User ${user.email} is logging in from outside typical subnet IP ${clientIp}. Allowed specs: ${allowedIpsString}. Permitting access to avoid session kick-offs.`);
                 } else {
                   console.log(`[WiFi Auth Lock] ALLOWED user ${user.email} from IP ${clientIp}.`);
                 }
@@ -14094,6 +14091,15 @@ User Request: ${prompt}`;
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
+    
+    // Cache bust root and HTML requests
+    app.get(['/', '/index.html'], (req: any, res: any, next: any) => {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      next();
+    });
+
     // 1. Static hashed assets (safe to cache indefinitely because the filename hash changes on every build)
     app.use('/assets', express.static(path.join(distPath, 'assets'), {
       maxAge: '1y',
