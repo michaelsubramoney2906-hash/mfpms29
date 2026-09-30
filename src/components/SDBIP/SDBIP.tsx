@@ -10,8 +10,9 @@ import { AzureADPicker } from './AzureADPicker';
 import { SDBIPPagination } from './SDBIPPagination';
 import { ExpandableCell, CellExpandModal, ExpandModalState } from './ExpandableCell';
 import { isQuarterInReportingPeriod, getQuarterLockNotice, REPORTING_PERIOD_CONFIGS, getCurrentMunicipalQuarter, ReportingPhase } from '../../utils/reportingPeriods';
-import { PMS_TEAM_REVIEWERS, INTERNAL_AUDIT_USERS, isUserMatch } from '../../utils/sdbipWorkflowHelper';
+import { PMS_TEAM_REVIEWERS, INTERNAL_AUDIT_USERS, isUserMatch, dispatchSdbipNotification } from '../../utils/sdbipWorkflowHelper';
 import { OfficeDocumentViewer } from '../IPMS/OfficeDocumentViewer';
+import { calcVar, extractNumericValue } from '../../utils/varianceCalculator';
 
 export const isTargetNA = (val: string | undefined | null): boolean => {
   if (!val) return false;
@@ -141,17 +142,94 @@ export interface SdbipRow {
   workflows?: {
     [key: string]: SdbipWorkflow;
   };
+  budgetOverride?: {
+    requested?: boolean;
+    requestedBy?: string;
+    requestedAt?: string;
+    reason?: string;
+    excessAmount?: number;
+    approved?: boolean;
+    approvedBy?: string;
+    approvedAt?: string;
+    rejected?: boolean;
+    rejectedBy?: string;
+    rejectedAt?: string;
+  };
 }
 
 const isOpex = (budget: string): boolean => {
   return budget ? budget.toLowerCase().includes('opex') : false;
 };
 
-const parseBudgetNum = (budgetStr: string): number => {
-  if (!budgetStr) return 0;
-  const clean = budgetStr.replace(/[^\d]/g, '');
-  return parseInt(clean, 10) || 0;
+export const parseBudgetNum = (val: any): number => {
+  if (val === null || val === undefined) return 0;
+  if (typeof val === 'number') return isNaN(val) ? 0 : Math.round(val);
+  const s = String(val).trim();
+  if (!s || s.toLowerCase() === 'opex' || s.toLowerCase() === 'capex') return 0;
+  const clean = s.replace(/[^\d]/g, '');
+  return clean ? parseInt(clean, 10) : 0;
 };
+
+export interface BudgetBreakdown {
+  totalBudget: number;
+  q1Exp: number;
+  q2Exp: number;
+  q3Exp: number;
+  q4Exp: number;
+  totalSpent: number;
+  remainingBudget: number;
+  isExceeded: boolean;
+  excessAmount: number;
+  remainingQuarterCount: number;
+  suggestedPerQuarter: number;
+  hasOverrideApproval: boolean;
+  overrideApprovedBy?: string;
+  overrideRequested?: boolean;
+}
+
+export function getRowBudgetBreakdown(row: SdbipRow): BudgetBreakdown {
+  const totalBudget = parseBudgetNum(row.budgetAllocation || row.budget || '');
+  const q1Exp = parseBudgetNum(row.q1Expenditure || '');
+  const q2Exp = parseBudgetNum(row.q2Expenditure || '');
+  const q3Exp = parseBudgetNum(row.q3Expenditure || '');
+  const q4Exp = parseBudgetNum(row.q4Expenditure || '');
+
+  const totalSpent = q1Exp + q2Exp + q3Exp + q4Exp;
+  const remainingBudget = totalBudget - totalSpent;
+  const isExceeded = totalBudget > 0 && totalSpent > totalBudget;
+  const excessAmount = isExceeded ? totalSpent - totalBudget : 0;
+
+  // Count which future quarters haven't been reported yet (among Q2, Q3, Q4)
+  const unfilledFuture = [
+    { q: 'q2', val: q2Exp },
+    { q: 'q3', val: q3Exp },
+    { q: 'q4', val: q4Exp }
+  ].filter(item => item.val === 0).length;
+
+  const remainingQuarterCount = unfilledFuture > 0 ? unfilledFuture : 3;
+  const suggestedPerQuarter = remainingBudget > 0 ? Math.round(remainingBudget / remainingQuarterCount) : 0;
+
+  const hasOverrideApproval = !!row.budgetOverride?.approved;
+  const overrideApprovedBy = row.budgetOverride?.approvedBy;
+  const overrideRequested = !!row.budgetOverride?.requested;
+
+  return {
+    totalBudget,
+    q1Exp,
+    q2Exp,
+    q3Exp,
+    q4Exp,
+    totalSpent,
+    remainingBudget,
+    isExceeded,
+    excessAmount,
+    remainingQuarterCount,
+    suggestedPerQuarter,
+    hasOverrideApproval,
+    overrideApprovedBy,
+    overrideRequested
+  };
+}
 
 const isFieldDisabled = (variance: string | undefined): boolean => {
   if (!variance) return true;
@@ -205,6 +283,13 @@ export function sanitizeSdbipRow(row: SdbipRow): SdbipRow {
     else chosenKpa = 'bsd';
   }
 
+  // Auto-sanitize existing and incoming quarterly variances so legacy corruptions (e.g. "2065%") are healed
+  const sanitizedQ1Var = (row.q1Actual && String(row.q1Actual).trim()) ? calcVar(row.q1, row.q1Actual, row.uom) : (row.q1Variance || '');
+  const sanitizedQ2Var = (row.q2Actual && String(row.q2Actual).trim()) ? calcVar(row.q2, row.q2Actual, row.uom) : (row.q2Variance || '');
+  const sanitizedMidVar = (row.midTermActual && String(row.midTermActual).trim()) ? calcVar(row.midTermTarget || row.midTerm, row.midTermActual, row.uom) : (row.midTermVariance || '');
+  const sanitizedQ3Var = (row.q3Actual && String(row.q3Actual).trim()) ? calcVar(row.q3, row.q3Actual, row.uom) : (row.q3Variance || '');
+  const sanitizedQ4Var = (row.q4Actual && String(row.q4Actual).trim()) ? calcVar(row.q4, row.q4Actual, row.uom) : (row.q4Variance || '');
+
   return {
     ...row,
     bsd: chosenKpa === 'bsd' ? 'X' : '',
@@ -213,7 +298,12 @@ export function sanitizeSdbipRow(row: SdbipRow): SdbipRow {
     ggpp: chosenKpa === 'ggpp' ? 'X' : '',
     midt: chosenKpa === 'midt' ? 'X' : '',
     sr: chosenKpa === 'sr' ? 'X' : '',
-    kpas: KPA_DESCRIPTIONS[chosenKpa]
+    kpas: KPA_DESCRIPTIONS[chosenKpa],
+    q1Variance: sanitizedQ1Var,
+    q2Variance: sanitizedQ2Var,
+    midTermVariance: sanitizedMidVar,
+    q3Variance: sanitizedQ3Var,
+    q4Variance: sanitizedQ4Var
   };
 }
 
@@ -428,6 +518,11 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
   const [isSavingRows, setIsSavingRows] = useState(false);
   const saveDebounceTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const lastUserEditTimeRef = React.useRef<number>(0);
+
+  // Budget Override Modal states
+  const [budgetOverrideModalRow, setBudgetOverrideModalRow] = useState<SdbipRow | null>(null);
+  const [overrideReason, setOverrideReason] = useState<string>('');
+  const [isSubmittingOverride, setIsSubmittingOverride] = useState<boolean>(false);
 
   const currentUserDisplayName = currentUser.fullName || currentUser.email.split('@')[0];
 
@@ -1286,17 +1381,12 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     const q4Val = (q4 || '').trim();
     if (!q1Val && !q2Val && !q3Val && !q4Val) return '';
 
-    const parseNum = (s: string) => {
-      const cleaned = s.replace(/[^0-9.-]/g, '');
-      return cleaned ? parseFloat(cleaned) : NaN;
-    };
+    const n1 = extractNumericValue(q1Val);
+    const n2 = extractNumericValue(q2Val);
+    const n3 = extractNumericValue(q3Val);
+    const n4 = extractNumericValue(q4Val);
 
-    const n1 = parseNum(q1Val);
-    const n2 = parseNum(q2Val);
-    const n3 = parseNum(q3Val);
-    const n4 = parseNum(q4Val);
-
-    const numbers = [n1, n2, n3, n4].filter(n => !isNaN(n));
+    const numbers = [n1, n2, n3, n4].filter((n): n is number => n !== null && !isNaN(n));
     if (numbers.length > 0) {
       const total = numbers.reduce((sum, val) => sum + val, 0);
       const hasR = q1Val.startsWith('R') || q2Val.startsWith('R') || q3Val.startsWith('R') || q4Val.startsWith('R');
@@ -1326,22 +1416,15 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
       { target: row.q4, actual: row.q4Actual }
     ];
 
-    const parseNum = (s: string | undefined) => {
-      if (s === undefined || s === null) return NaN;
-      const cleaned = s.toString().replace(/[^0-9.-]/g, '');
-      if (!cleaned) return NaN;
-      return parseFloat(cleaned);
-    };
-
     let totalTarget = 0;
     let totalActual = 0;
     let hasReportingData = false;
 
     for (const q of quarters) {
-      const t = parseNum(q.target);
-      const a = parseNum(q.actual);
+      const t = extractNumericValue(q.target);
+      const a = extractNumericValue(q.actual);
 
-      if (!isNaN(t) && !isNaN(a)) {
+      if (t !== null && a !== null && !isNaN(t) && !isNaN(a)) {
         totalTarget += t;
         totalActual += a;
         hasReportingData = true;
@@ -1426,32 +1509,6 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
       return 'red';
     }
     return details.status;
-  };
-
-  const calcVar = (target: string | undefined, actual: string | undefined, uom?: string) => {
-    const tVal = (target || '').trim();
-    const aVal = (actual || '').trim();
-    if (!tVal && !aVal) return '';
-    
-    const parseNum = (s: string) => {
-      const cleaned = s.replace(/[^0-9.-]/g, '');
-      return cleaned ? parseFloat(cleaned) : NaN;
-    };
-
-    const nT = parseNum(tVal);
-    const nA = parseNum(aVal);
-
-    if (isNaN(nT) || isNaN(nA)) return '';
-
-    const diff = nT - nA;
-    const isPercentage = tVal.includes('%') || aVal.includes('%') || (uom && uom.toLowerCase().includes('percent'));
-
-    if (isPercentage) {
-      return `${diff}%`;
-    }
-
-    const prefix = tVal.startsWith('R') || aVal.startsWith('R') ? 'R ' : '';
-    return prefix + diff.toLocaleString();
   };
 
   const handleCellChange = (rowId: string, field: keyof SdbipRow, value: any) => {
@@ -1581,6 +1638,20 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
         if (field === 'q1' || field === 'q2' || field === 'q3' || field === 'q4' ||
             field === 'q1Actual' || field === 'q2Actual' || field === 'q3Actual' || field === 'q4Actual') {
           updatedRow.ragStatus = calculateRagStatus(updatedRow);
+        }
+
+        // Budget monitoring and overrun notification
+        const expFields = ['q1Expenditure', 'q2Expenditure', 'midTermExpenditure', 'q3Expenditure', 'q4Expenditure'];
+        if (expFields.includes(field as string)) {
+          const breakdown = getRowBudgetBreakdown(updatedRow);
+          if (breakdown.isExceeded) {
+            if (!breakdown.hasOverrideApproval) {
+              setSuccessToast(`⚠️ Budget Exceeded by R ${breakdown.excessAmount.toLocaleString()}! Requires permission from mike@mzansiflow.co.za.`);
+              setBudgetOverrideModalRow(updatedRow);
+            }
+          } else if (breakdown.totalBudget > 0 && breakdown.remainingBudget >= 0) {
+            setSuccessToast(`Expenditure saved. R ${breakdown.remainingBudget.toLocaleString()} available for remaining ${breakdown.remainingQuarterCount} quarters (~R ${breakdown.suggestedPerQuarter.toLocaleString()} / qtr).`);
+          }
         }
 
         return updatedRow;
@@ -2335,6 +2406,141 @@ Timestamp: ${new Date().toLocaleString()}
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const applyBudgetSuggestion = (rowId: string) => {
+    const targetRow = rows.find(r => r.id === rowId);
+    if (!targetRow) return;
+    const breakdown = getRowBudgetBreakdown(targetRow);
+    if (breakdown.remainingBudget <= 0) return;
+
+    const perQtr = breakdown.suggestedPerQuarter;
+    const updated = rows.map(r => {
+      if (r.id === rowId) {
+        const u = { ...r };
+        const emptyQuarters: ('q2' | 'q3' | 'q4')[] = [];
+        if (!parseBudgetNum(u.q2Expenditure || '')) emptyQuarters.push('q2');
+        if (!parseBudgetNum(u.q3Expenditure || '')) emptyQuarters.push('q3');
+        if (!parseBudgetNum(u.q4Expenditure || '')) emptyQuarters.push('q4');
+
+        const targetQtrs = emptyQuarters.length > 0 ? emptyQuarters : (['q2', 'q3', 'q4'] as const);
+
+        targetQtrs.forEach((q, idx) => {
+          const amount = (idx === targetQtrs.length - 1)
+            ? (breakdown.remainingBudget - perQtr * (targetQtrs.length - 1))
+            : perQtr;
+          const fieldKey = `${q}Expenditure` as 'q2Expenditure' | 'q3Expenditure' | 'q4Expenditure';
+          u[fieldKey] = `R ${amount.toLocaleString()}`;
+        });
+        return u;
+      }
+      return r;
+    });
+    setRows(updated);
+    debouncedSaveRows(updated);
+    setSuccessToast(`Suggested budget allocation of ~R ${perQtr.toLocaleString()}/qtr applied across remaining quarters.`);
+  };
+
+  const renderQuarterExpenditureCell = (
+    row: SdbipRow,
+    quarter: 'q1' | 'q2' | 'q3' | 'q4',
+    targetVal: string | undefined,
+    isRowSubmitter: boolean
+  ) => {
+    if (isTargetNA(targetVal)) {
+      return (
+        <div className="flex flex-col items-center justify-center p-2 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none" title={`Expenditure reporting locked (${quarter.toUpperCase()} Target is N/A)`}>
+          <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500">
+            <Lock className="w-3 h-3 text-slate-400" />
+            <KeyRound className="w-3 h-3 text-amber-600" />
+            <span>Locked</span>
+          </div>
+          <span className="text-[9px] text-slate-400 font-mono">N/A</span>
+        </div>
+      );
+    }
+
+    const fieldKey = `${quarter}Expenditure` as 'q1Expenditure' | 'q2Expenditure' | 'q3Expenditure' | 'q4Expenditure';
+    const cellVal = row[fieldKey] || '';
+    const isActive = isQuarterActive(quarter);
+    const breakdown = getRowBudgetBreakdown(row);
+
+    return (
+      <div className="space-y-1">
+        <ExpandableCell
+          value={cellVal}
+          disabled={!isRowSubmitter || !isActive}
+          onChange={(val) => handleCellChange(row.id, fieldKey, val)}
+          cellTitle={`${quarter.toUpperCase()} Expenditure`}
+          refNum={row.refNum}
+          isFitAll={isFitAllReportingCells}
+          minRows={1}
+          placeholder={!isRowSubmitter ? `Submitter Only (${row.submitter || row.responsibleUnit || 'Assigned'})` : !isActive ? "Locked" : "e.g. R 150 000"}
+          onOpenExpandModal={openCellExpandModal}
+          className={`font-bold ${!isRowSubmitter || !isActive ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-800'}`}
+        />
+        {breakdown.totalBudget > 0 && (
+          <div className="text-[10px] space-y-1">
+            {breakdown.isExceeded ? (
+              breakdown.hasOverrideApproval ? (
+                <div className="flex items-center gap-1 text-emerald-800 bg-emerald-50 border border-emerald-300 rounded px-1.5 py-0.5 font-bold text-[9px]">
+                  <CheckCircle className="w-3 h-3 text-emerald-600 shrink-0" />
+                  <span>Override Approved (+R ${breakdown.excessAmount.toLocaleString()}) by {breakdown.overrideApprovedBy || 'mike@mzansiflow.co.za'}</span>
+                </div>
+              ) : breakdown.overrideRequested ? (
+                <button
+                  type="button"
+                  onClick={() => setBudgetOverrideModalRow(row)}
+                  className="w-full flex items-center justify-between gap-1 text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded px-1.5 py-0.5 font-bold text-[9px] cursor-pointer transition shadow-2xs"
+                  title="Override requested from mike@mzansiflow.co.za. Click to view."
+                >
+                  <span className="flex items-center gap-1">
+                    <Clock className="w-3 h-3 text-amber-600 shrink-0 animate-pulse" />
+                    <span>Override Pending (+R ${breakdown.excessAmount.toLocaleString()})</span>
+                  </span>
+                  <span className="underline">View</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setBudgetOverrideModalRow(row)}
+                  className="w-full flex items-center justify-between gap-1 text-rose-800 bg-rose-50 hover:bg-rose-100 border border-rose-300 rounded px-1.5 py-0.5 font-bold text-[9px] cursor-pointer transition shadow-2xs"
+                  title="Exceeded! Ask mike@mzansiflow.co.za for override permission."
+                >
+                  <span className="flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3 text-rose-600 shrink-0" />
+                    <span>Exceeded by R ${breakdown.excessAmount.toLocaleString()}</span>
+                  </span>
+                  <span className="underline text-[8.5px]">Request Override</span>
+                </button>
+              )
+            ) : (
+              <div className="bg-slate-50 border border-slate-200 rounded p-1 text-[9px] text-slate-600 space-y-0.5">
+                <div className="flex justify-between font-semibold text-slate-700">
+                  <span>Avail for next {breakdown.remainingQuarterCount} Qtrs:</span>
+                  <span className="font-bold text-teal-700">R ${breakdown.remainingBudget.toLocaleString()}</span>
+                </div>
+                {breakdown.remainingBudget > 0 && breakdown.remainingQuarterCount > 0 && (
+                  <div className="flex items-center justify-between gap-1 pt-0.5 border-t border-slate-200">
+                    <span className="text-slate-500 italic">💡 ~R ${breakdown.suggestedPerQuarter.toLocaleString()} / qtr</span>
+                    {isRowSubmitter && (
+                      <button
+                        type="button"
+                        onClick={() => applyBudgetSuggestion(row.id)}
+                        className="text-[8.5px] px-1 py-0.5 bg-teal-600 hover:bg-teal-700 text-white rounded font-medium cursor-pointer transition"
+                        title={`Auto-fill remaining quarters with ~R ${breakdown.suggestedPerQuarter.toLocaleString()} each`}
+                      >
+                        Apply
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
   };
 
   const renderQuarterWorkflowCell = (row: SdbipRow, phase: 'q1' | 'q2' | 'midTerm' | 'q3' | 'q4' | 'annual', isLocked = false) => {

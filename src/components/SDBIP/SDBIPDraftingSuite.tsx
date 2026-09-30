@@ -11,6 +11,7 @@ import {
 } from 'recharts';
 import type { SdbipRow } from './SDBIP';
 import { WordProcessor } from './WordProcessor';
+import { extractNumericValue } from '../../utils/varianceCalculator';
 
 const DEFAULT_COVER_IMAGE = "https://images.unsplash.com/photo-1547471080-7cc2caa01a7e?auto=format&fit=crop&q=80";
 
@@ -515,9 +516,8 @@ function getRagDetails(row: SdbipRow) {
 
   const parseNum = (s: string | undefined | null) => {
     if (s === undefined || s === null) return NaN;
-    const cleaned = s.toString().replace(/[^0-9.-]/g, '');
-    if (!cleaned) return NaN;
-    return parseFloat(cleaned);
+    const val = extractNumericValue(s);
+    return val !== null ? val : NaN;
   };
 
   let totalTarget = 0;

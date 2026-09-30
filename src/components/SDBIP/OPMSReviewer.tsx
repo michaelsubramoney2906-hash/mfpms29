@@ -18,6 +18,7 @@ import {
   extractKpiPoes,
   INTERNAL_AUDIT_USERS
 } from '../../utils/sdbipWorkflowHelper';
+import { calcOpmsVariance } from '../../utils/varianceCalculator';
 
 interface OPMSReviewerProps {
   currentUser: User;
@@ -40,27 +41,7 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
   const [reviewerNotes, setReviewerNotes] = useState('');
 
   const calcVar = (target: string | undefined, actual: string | undefined) => {
-    const tVal = (target || '').trim();
-    const aVal = (actual || '').trim();
-    if (!tVal && !aVal) return '';
-    
-    const parseNum = (s: string) => {
-      const cleaned = s.replace(/[^0-9.-]/g, '');
-      return cleaned ? parseFloat(cleaned) : NaN;
-    };
-
-    const nT = parseNum(tVal);
-    const nA = parseNum(aVal);
-
-    if (isNaN(nT) || isNaN(nA)) return '';
-
-    const diff = nA - nT;
-    const isPercentage = tVal.includes('%') || aVal.includes('%') || (selectedKpi?.uom && selectedKpi.uom.toLowerCase().includes('percent'));
-
-    if (isPercentage) {
-      return `${diff > 0 ? '+' : ''}${diff}%`;
-    }
-    return `${diff > 0 ? '+' : ''}${diff.toLocaleString()}`;
+    return calcOpmsVariance(target, actual, selectedKpi?.uom);
   };
 
   const loadNotifications = async () => {

@@ -26,71 +26,16 @@ const DUAL_LAYER_USERS = [
   'masanabol@nkangaladm.gov.za'
 ].map(e => e.toLowerCase());
 
-export const extractNumericValue = (val?: any): number | null => {
-  if (val === null || val === undefined) return null;
-  const raw = String(val).trim();
-  if (!raw) return null;
+import {
+  extractNumericValue,
+  hasVariance,
+  calculateVariance
+} from '../../utils/varianceCalculator';
 
-  if (/^-?\d+(\.\d+)?$/.test(raw)) {
-    return parseFloat(raw);
-  }
-
-  let str = raw
-    .replace(/\b20\d{2}[/-](20)?\d{2}\b/g, ' ')
-    .replace(/\b(19|20)\d{2}\b/g, ' ');
-
-  str = str.replace(/\b\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\b/gi, ' ');
-  str = str.replace(/\b(?:circular|section|act|kpa|mfma|regulation|reg|phase|step)\s*#?\d+\b/gi, ' ');
-  str = str.replace(/\b[1-4](?:st|nd|rd|th)?\s*(?:qtr|quarter)\b/gi, ' ');
-  str = str.replace(/\bQ[1-4]\b/gi, ' ');
-
-  const pctMatch = str.match(/-?\d+(\.\d+)?\s*%/);
-  if (pctMatch) {
-    const p = parseFloat(pctMatch[0].replace('%', '').trim());
-    if (!isNaN(p)) return p;
-  }
-
-  const currMatch = str.match(/R\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]+)?|[0-9]+(?:\.[0-9]+)?)/i);
-  if (currMatch) {
-    const c = parseFloat(currMatch[1].replace(/,/g, ''));
-    if (!isNaN(c)) return c;
-  }
-
-  const normalized = str.replace(/(\d),(\d)/g, '$1$2');
-  const numMatches = normalized.match(/-?\d+(\.\d+)?/g);
-  if (numMatches && numMatches.length > 0) {
-    const parsed = parseFloat(numMatches[0]);
-    if (!isNaN(parsed)) return parsed;
-  }
-
-  return null;
-};
-
-export const hasVariance = (target?: string, actual?: string): boolean => {
-  if (!target || !actual || !target.toString().trim() || !actual.toString().trim()) return false;
-  const tNum = extractNumericValue(target.toString());
-  const aNum = extractNumericValue(actual.toString());
-  if (tNum !== null && aNum !== null) {
-    return Math.abs(tNum - aNum) > 0.0001;
-  }
-  const tNorm = target.toString().trim().toLowerCase();
-  const aNorm = actual.toString().trim().toLowerCase();
-  return tNorm !== aNorm;
-};
-
-export const calculateVariance = (target?: string, actual?: string): string => {
-  if (!target || !actual || !target.toString().trim() || !actual.toString().trim()) return '0';
-  const tNum = extractNumericValue(target.toString());
-  const aNum = extractNumericValue(actual.toString());
-  if (tNum !== null && aNum !== null) {
-    const diff = tNum - aNum;
-    if (Math.abs(diff) < 0.0001) return '0';
-    return Number(diff.toFixed(2)).toString();
-  }
-  const tNorm = target.toString().trim().toLowerCase();
-  const aNorm = actual.toString().trim().toLowerCase();
-  if (tNorm === aNorm) return '0';
-  return 'Variance (Target not met)';
+export {
+  extractNumericValue,
+  hasVariance,
+  calculateVariance
 };
 
 interface CompactPoeUploaderProps {
