@@ -600,10 +600,18 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
       }
 
       const updatedItems = pplanData.items.map(item => {
-        const q1Text = item.q1Poe || '';
-        const q2Text = item.q2Poe || '';
-        const q3Text = item.q3Poe || '';
-        const q4Text = item.q4Poe || '';
+        const cleanVal = (val: string) => {
+          if (!val) return '';
+          const tokens = val.split(/(?:Q1:|Q2:|Q3:|Q4:|midterm:|annual:|\n|\r)/gi);
+          const cleanPieces = tokens
+            .map(t => t.trim())
+            .filter(t => t.length > 0 && !t.match(/^(?:Q\d|midterm|annual)$/i));
+          return cleanPieces.length > 0 ? cleanPieces[0] : '';
+        };
+        const q1Text = cleanVal(item.q1Poe);
+        const q2Text = cleanVal(item.q2Poe);
+        const q3Text = cleanVal(item.q3Poe);
+        const q4Text = cleanVal(item.q4Poe);
         const aggregatePoe = [
           q1Text ? `Q1: ${q1Text}` : '',
           q2Text ? `Q2: ${q2Text}` : '',
@@ -781,10 +789,18 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
 
       const updatedItems = pplanData.items.map(item => {
         if (targetIds.includes(item.id)) {
-          const q1Text = item.q1Poe || '';
-          const q2Text = item.q2Poe || '';
-          const q3Text = item.q3Poe || '';
-          const q4Text = item.q4Poe || '';
+          const cleanVal = (val: string) => {
+            if (!val) return '';
+            const tokens = val.split(/(?:Q1:|Q2:|Q3:|Q4:|midterm:|annual:|\n|\r)/gi);
+            const cleanPieces = tokens
+              .map(t => t.trim())
+              .filter(t => t.length > 0 && !t.match(/^(?:Q\d|midterm|annual)$/i));
+            return cleanPieces.length > 0 ? cleanPieces[0] : '';
+          };
+          const q1Text = cleanVal(item.q1Poe);
+          const q2Text = cleanVal(item.q2Poe);
+          const q3Text = cleanVal(item.q3Poe);
+          const q4Text = cleanVal(item.q4Poe);
           const aggregatePoe = [
             q1Text ? `Q1: ${q1Text}` : '',
             q2Text ? `Q2: ${q2Text}` : '',
@@ -1059,10 +1075,18 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
 
       // Automatically construct the aggregated 'poe' string based on quarterly portfolios
       const updatedItems = pplanData.items.map(item => {
-        const q1Text = item.q1Poe || '';
-        const q2Text = item.q2Poe || '';
-        const q3Text = item.q3Poe || '';
-        const q4Text = item.q4Poe || '';
+        const cleanVal = (val: string) => {
+          if (!val) return '';
+          const tokens = val.split(/(?:Q1:|Q2:|Q3:|Q4:|midterm:|annual:|\n|\r)/gi);
+          const cleanPieces = tokens
+            .map(t => t.trim())
+            .filter(t => t.length > 0 && !t.match(/^(?:Q\d|midterm|annual)$/i));
+          return cleanPieces.length > 0 ? cleanPieces[0] : '';
+        };
+        const q1Text = cleanVal(item.q1Poe);
+        const q2Text = cleanVal(item.q2Poe);
+        const q3Text = cleanVal(item.q3Poe);
+        const q4Text = cleanVal(item.q4Poe);
         const aggregatePoe = [
           q1Text ? `Q1: ${q1Text}` : '',
           q2Text ? `Q2: ${q2Text}` : '',

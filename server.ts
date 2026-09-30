@@ -11413,32 +11413,62 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
   // Performance Plan (PPLAN) Helper to propagate and lock unique POE descriptions per KPI across all 4 quarters
   const sanitizePplanItem = (item: any, userEmail?: string): any => {
     if (!item) return item;
-    let poeDesc = (
-      item.poe ||
-      item.annualRequiredPoe ||
-      item.q1Poe ||
-      item.q2Poe ||
-      item.midtermPoe ||
-      item.q3Poe ||
-      item.q4Poe ||
-      ''
-    ).toString().trim();
+    
+    // Fallback default description if absolutely nothing is specified
+    const defaultFallback = item.kpi 
+      ? `Signed verification report and evidence portfolio for: ${item.kpi}`
+      : `Signed verification report and approved oversight portfolio files`;
 
-    if (!poeDesc && item.kpi) {
-      poeDesc = `Signed verification report and evidence portfolio for: ${item.kpi}`;
-    } else if (!poeDesc) {
-      poeDesc = `Signed verification report and approved oversight portfolio files`;
-    }
+    // Ensure we keep existing distinct values, or fallback to the general 'poe' (but only if 'poe' is not an aggregated string)
+    let parentPoe = (item.poe || '').toString().trim();
+    const isAggregated = parentPoe.includes('Q1:') || parentPoe.includes('Q2:') || parentPoe.includes('Q3:') || parentPoe.includes('Q4:');
+    
+    // Safe quarter fallbacks
+    const q1Val = (item.q1Poe || (isAggregated ? '' : parentPoe) || defaultFallback).toString().trim();
+    const q2Val = (item.q2Poe || (isAggregated ? '' : parentPoe) || defaultFallback).toString().trim();
+    const midtermVal = (item.midtermPoe || (isAggregated ? '' : parentPoe) || defaultFallback).toString().trim();
+    const q3Val = (item.q3Poe || (isAggregated ? '' : parentPoe) || defaultFallback).toString().trim();
+    const q4Val = (item.q4Poe || (isAggregated ? '' : parentPoe) || defaultFallback).toString().trim();
+    const annualVal = (item.annualRequiredPoe || (isAggregated ? '' : parentPoe) || defaultFallback).toString().trim();
+
+    // Clean up any double/triple "Q1: Q1: Q1:" or multi-quarter aggregated repeating segments to completely restore/heal original texts!
+    const cleanQuarterlyValue = (val: string): string => {
+      if (!val) return defaultFallback;
+      const tokens = val.split(/(?:Q1:|Q2:|Q3:|Q4:|midterm:|annual:|\n|\r)/gi);
+      const cleanPieces = tokens
+        .map(t => t.trim())
+        .filter(t => t.length > 0 && !t.match(/^(?:Q\d|midterm|annual)$/i));
+      
+      if (cleanPieces.length > 0) {
+        return cleanPieces[0];
+      }
+      return defaultFallback;
+    };
+
+    const finalQ1 = cleanQuarterlyValue(q1Val);
+    const finalQ2 = cleanQuarterlyValue(q2Val);
+    const finalMidterm = cleanQuarterlyValue(midtermVal);
+    const finalQ3 = cleanQuarterlyValue(q3Val);
+    const finalQ4 = cleanQuarterlyValue(q4Val);
+    const finalAnnual = cleanQuarterlyValue(annualVal);
+
+    // Regenerate a clean non-recursive parent poe
+    const cleanParentPoe = [
+      `Q1: ${finalQ1}`,
+      `Q2: ${finalQ2}`,
+      `Q3: ${finalQ3}`,
+      `Q4: ${finalQ4}`
+    ].join('\n');
 
     return {
       ...item,
-      poe: poeDesc,
-      annualRequiredPoe: poeDesc,
-      q1Poe: poeDesc,
-      q2Poe: poeDesc,
-      midtermPoe: poeDesc,
-      q3Poe: poeDesc,
-      q4Poe: poeDesc
+      poe: cleanParentPoe,
+      annualRequiredPoe: finalAnnual,
+      q1Poe: finalQ1,
+      q2Poe: finalQ2,
+      midtermPoe: finalMidterm,
+      q3Poe: finalQ3,
+      q4Poe: finalQ4
     };
   };
 
