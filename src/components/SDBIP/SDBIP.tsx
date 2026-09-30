@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import mammoth from 'mammoth';
-import { Layers, Info, CheckCircle, Upload, Download, ArrowRight, Shield, ShieldCheck, AlertTriangle, HelpCircle, Check, CheckSquare, FileText, Plus, Trash2, Database, FolderArchive, AlertCircle, Sparkles, Send, Inbox, Bell, Eye, Lock, RefreshCw, XCircle, Clock, Maximize2, Minimize2, Calendar, CalendarDays, ShieldAlert, KeyRound, BellOff, Key } from 'lucide-react';
+import { Layers, Info, CheckCircle, Upload, Download, ArrowRight, Shield, ShieldCheck, AlertTriangle, HelpCircle, Check, CheckSquare, FileText, Plus, Trash2, Database, FolderArchive, AlertCircle, Sparkles, Send, Inbox, Bell, Eye, Lock, Unlock, RefreshCw, XCircle, Clock, Maximize2, Minimize2, Calendar, CalendarDays, ShieldAlert, KeyRound, BellOff, Key } from 'lucide-react';
 import type { User } from '../../types';
 import { SDBIPDraftingSuite } from './SDBIPDraftingSuite';
 import { WordProcessor } from './WordProcessor';
@@ -31,16 +31,18 @@ export const isTargetNA = (val: string | undefined | null): boolean => {
   return false;
 };
 
+let globalReportingAssignmentsUnlocked = false;
+
 /**
  * Determines whether Submitter & Approver are unlocked in the SDBIP Top Layer reporting table.
  * Specifically unlocked ONLY for KPI M_72 and P_07 (all other KPIs locked).
  */
 export const isKpiUnlockedForSubmitterApprover = (row: { refNum?: string; id?: string; kpi?: string } | null | undefined): boolean => {
-  return false; // Submitter and Approver assignments are locked in reporting table
+  return globalReportingAssignmentsUnlocked; 
 };
 
 export const isSubmitterApproverLockedInReporting = (row: { refNum?: string; id?: string; kpi?: string } | null | undefined): boolean => {
-  return true; // Lock Submitter and Approver pickers in SDBIP Top Layer reporting view so responsibilities cannot be altered
+  return !globalReportingAssignmentsUnlocked; 
 };
 
 interface SDBIPProps {
@@ -229,6 +231,34 @@ export interface SdbipPoeFile {
 
 export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
   const [activeTab, setActiveTab] = useState<'brief' | 'table' | 'reporting' | 'drafting'>('brief');
+  const [isReportingAssignmentsUnlocked, setIsReportingAssignmentsUnlocked] = useState(globalReportingAssignmentsUnlocked);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [enteredPassword, setEnteredPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+
+  const handleToggleAssignmentsLock = () => {
+    if (isReportingAssignmentsUnlocked) {
+      globalReportingAssignmentsUnlocked = false;
+      setIsReportingAssignmentsUnlocked(false);
+      setSuccessToast("Submitter & Approver columns have been LOCKED again successfully!");
+      return;
+    }
+    setEnteredPassword('');
+    setPasswordError('');
+    setIsPasswordModalOpen(true);
+  };
+
+  const handleUnlockSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (enteredPassword === '8655M9sznnes01*') {
+      globalReportingAssignmentsUnlocked = true;
+      setIsReportingAssignmentsUnlocked(true);
+      setIsPasswordModalOpen(false);
+      setSuccessToast("Submitter & Approver columns have been UNLOCKED successfully!");
+    } else {
+      setPasswordError("Invalid password. Unlock rejected.");
+    }
+  };
   const [draftingSubTab, setDraftingSubTab] = useState<'chapters' | 'memo'>('chapters');
   const [rows, setRows] = useState<SdbipRow[]>([]);
   const [poes, setPoes] = useState<SdbipPoeFile[]>([]);
@@ -1467,7 +1497,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     }
 
     // Lock Submitter and Approver fields in reporting view to prevent changing assigned responsibilities
-    if (activeTab === 'reporting' && (field === 'submitter' || field === 'approver')) {
+    if (activeTab === 'reporting' && (field === 'submitter' || field === 'approver') && !isReportingAssignmentsUnlocked) {
       const targetRow = rows.find(r => r.id === rowId);
       setSuccessToast(`Field Locked: Submitter and Approver assignments are locked in the reporting view for KPI ${targetRow?.refNum || ''} to preserve responsible personnel assignments.`);
       setTimeout(() => setSuccessToast(null), 4000);
@@ -4680,6 +4710,19 @@ Timestamp: ${new Date().toLocaleString()}
                   <RefreshCw className={`w-3.5 h-3.5 ${isPulling ? 'animate-spin' : ''}`} />
                   <span>{isPulling ? 'Pulling Data...' : 'Pull SDBIP Top Layer Data'}</span>
                 </button>
+                <button
+                  type="button"
+                  onClick={handleToggleAssignmentsLock}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-all border ${
+                    isReportingAssignmentsUnlocked 
+                      ? 'bg-amber-500 hover:bg-amber-600 text-black border-amber-400' 
+                      : 'bg-slate-800 hover:bg-slate-900 text-white border-slate-700'
+                  }`}
+                  title="Unlock/Lock Submitter and Approver column assignments"
+                >
+                  {isReportingAssignmentsUnlocked ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+                  <span>{isReportingAssignmentsUnlocked ? 'Lock Assignments' : 'Unlock Submitter/Approver'}</span>
+                </button>
                 <button 
                   type="button"
                   onClick={() => setIsFitAllReportingCells(!isFitAllReportingCells)}
@@ -6471,7 +6514,7 @@ Timestamp: ${new Date().toLocaleString()}
                       </td>
 
                       {/* Submitter */}
-                      <td className={`p-1.5 border-r border-slate-100 ${isSubmitterApproverLockedInReporting(row) ? 'bg-slate-100/40' : 'bg-emerald-50/20'}`}>
+                      <td className={`p-1.5 border-r border-slate-100 ${(!isReportingAssignmentsUnlocked && isSubmitterApproverLockedInReporting(row)) ? 'bg-slate-100/40' : 'bg-emerald-50/20'}`}>
                         <div className="flex flex-col gap-1">
                           <AzureADPicker 
                             value={row.submitter || row.responsibleUnit || ''}
@@ -6479,9 +6522,9 @@ Timestamp: ${new Date().toLocaleString()}
                             roleType="submitter"
                             activeTenantId={activeTenantId}
                             isFitAll={isFitAllReportingCells}
-                            disabled={isSubmitterApproverLockedInReporting(row)}
+                            disabled={!isReportingAssignmentsUnlocked && isSubmitterApproverLockedInReporting(row)}
                           />
-                          {!isSubmitterApproverLockedInReporting(row) && (
+                          {(!isSubmitterApproverLockedInReporting(row) || isReportingAssignmentsUnlocked) && (
                             <div className="flex items-center gap-1 justify-center">
                               <span className="text-[8px] font-bold font-mono px-1 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
                                 EXCEPTION UNLOCKED
@@ -6492,7 +6535,7 @@ Timestamp: ${new Date().toLocaleString()}
                       </td>
 
                       {/* Approver */}
-                      <td className={`p-1.5 border-r border-slate-100 ${isSubmitterApproverLockedInReporting(row) ? 'bg-slate-100/40' : 'bg-emerald-50/20'}`}>
+                      <td className={`p-1.5 border-r border-slate-100 ${(!isReportingAssignmentsUnlocked && isSubmitterApproverLockedInReporting(row)) ? 'bg-slate-100/40' : 'bg-emerald-50/20'}`}>
                         <div className="flex flex-col gap-1">
                           <AzureADPicker 
                             value={row.approver || ''}
@@ -6500,9 +6543,9 @@ Timestamp: ${new Date().toLocaleString()}
                             roleType="approver"
                             activeTenantId={activeTenantId}
                             isFitAll={isFitAllReportingCells}
-                            disabled={isSubmitterApproverLockedInReporting(row)}
+                            disabled={!isReportingAssignmentsUnlocked && isSubmitterApproverLockedInReporting(row)}
                           />
-                          {!isSubmitterApproverLockedInReporting(row) && (
+                          {(!isSubmitterApproverLockedInReporting(row) || isReportingAssignmentsUnlocked) && (
                             <div className="flex items-center gap-1 justify-center">
                               <span className="text-[8px] font-bold font-mono px-1 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
                                 EXCEPTION UNLOCKED
@@ -7393,6 +7436,71 @@ Timestamp: ${new Date().toLocaleString()}
         modalState={cellModal}
         onClose={() => setCellModal(m => ({ ...m, isOpen: false }))}
       />
+
+      {/* Password Modal for Submitter/Approver Unlock */}
+      {isPasswordModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <form 
+            onSubmit={handleUnlockSubmit}
+            className="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in duration-200"
+          >
+            <div className="flex items-start gap-3">
+              <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
+                <KeyRound className="w-6 h-6" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">
+                  Unlock Submitter/Approver Assignments
+                </h3>
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                  Only authorized administration personnel are allowed to modify responsibility assignments for active KPIs. Please provide the bypass credential.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase text-slate-400 block tracking-wider">
+                Enter Bypass Password
+              </label>
+              <input
+                type="password"
+                required
+                autoFocus
+                placeholder="••••••••••••••"
+                value={enteredPassword}
+                onChange={(e) => {
+                  setEnteredPassword(e.target.value);
+                  setPasswordError('');
+                }}
+                className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm bg-slate-50/50 text-slate-900"
+              />
+              {passwordError && (
+                <div className="text-[11px] font-semibold text-rose-600 flex items-center gap-1 mt-1 animate-in slide-in-from-top-1">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  <span>{passwordError}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setIsPasswordModalOpen(false)}
+                className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl cursor-pointer transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-slate-900 hover:bg-black text-white text-xs font-black rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5 transition"
+              >
+                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Unlock Columns</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
     </div>
   );

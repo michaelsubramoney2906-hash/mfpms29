@@ -1,0 +1,14 @@
+{
+  "id": "seed_43eq0tpuwel",
+  "fullName": "Demo Standard User",
+  "email": "user@mzansiflow.co.za",
+  "jobFunction": null,
+  "department": null,
+  "source": "manual",
+  "role": "tenant_user",
+  "tenantId": "global",
+  "manager": "",
+  "directorate": "",
+  "reportTo": "",
+  "level": "1"
+}

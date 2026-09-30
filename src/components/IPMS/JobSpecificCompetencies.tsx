@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { PoeDocument } from './Evaluation_IPMS';
 import { 
   JSCSelfEvaluationSection, 
   JSCManagerApprovalSection, 
@@ -8,7 +9,7 @@ import {
   FileBadge, Shield, Info, BookOpen, Clock, CheckCircle, Plus, Trash2, 
   Edit2, Check, ArrowRight, Save, Layout, HelpCircle, FileText, 
   ChevronRight, BarChart2, TrendingUp, Calculator, Settings, Keyboard,
-  ArrowUp, ArrowDown, Sparkles, RefreshCw, AlertTriangle
+  ArrowUp, ArrowDown, Sparkles, RefreshCw, AlertTriangle, Upload, Paperclip
 } from 'lucide-react';
 
 interface JobSpecificCompetenciesProps {
@@ -85,6 +86,7 @@ interface CompetencyRow {
   level: string;
   weight: number; 
   customFields?: Record<string, string>;
+  poeDocs?: PoeDocument[];
   q1?: CompetencyQuarterData;
   q2?: CompetencyQuarterData;
   q3?: CompetencyQuarterData;
@@ -1176,6 +1178,62 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
     setRows(updated);
   };
 
+  const handlePoeUpload = async (rowId: string, files: FileList) => {
+    const newDocs: PoeDocument[] = [];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (file.size > 200 * 1024 * 1024) {
+        alert(`File "${file.name}" exceeds 200MB limit.`);
+        continue;
+      }
+      try {
+        const doc = await new Promise<PoeDocument>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            resolve({
+              id: `poe_doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              name: file.name,
+              mimeType: file.type || 'application/octet-stream',
+              size: file.size,
+              dataUrl: reader.result as string,
+              uploadedAt: new Date().toISOString(),
+              uploadedBy: (currentUser as any)?.fullName || currentUser?.email || 'System'
+            });
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        newDocs.push(doc);
+      } catch (err) {
+        console.error("File reading failed:", err);
+      }
+    }
+
+    if (newDocs.length > 0) {
+      const updatedRows = rows.map(r => {
+        if (r.id === rowId) {
+          const currentDocs = r.poeDocs || [];
+          return { ...r, poeDocs: [...currentDocs, ...newDocs] };
+        }
+        return r;
+      });
+      setRows(updatedRows);
+      handleSaveToDatabase(updatedRows);
+    }
+  };
+
+  const handlePoeRemove = (rowId: string, docId: string) => {
+    const updatedRows = rows.map(r => {
+      if (r.id === rowId) {
+        const currentDocs = r.poeDocs || [];
+        return { ...r, poeDocs: currentDocs.filter(f => f.id !== docId) };
+      }
+      return r;
+    });
+    setRows(updatedRows);
+    handleSaveToDatabase(updatedRows);
+  };
+
   // Left Sidebar Master Operations
 
   // A. JSC Masters
@@ -2110,6 +2168,7 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
                           <th className="py-3 px-4 text-left w-[35%]">COMPETENCY DEFINITION (NESTED)</th>
                           <th className="py-3 px-3 text-left w-28">LEVEL OF CAPABILITY</th>
                           <th className="py-3 px-3 text-left w-24">WEIGHTING</th>
+                          <th className="py-3 px-3 text-left w-64 bg-emerald-50/40 text-emerald-950 font-extrabold uppercase">PORTFOLIO OF EVIDENCE (POE)</th>
                           {/* Dynamic Custom Column Headers */}
                           {customColumns.map(col => (
                             <th key={col.id} className="py-3 px-3 text-left min-w-[140px] bg-indigo-50/40 border-l border-indigo-100 text-indigo-900">
@@ -2325,6 +2384,56 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
                                     }`}
                                   />
                                   <span className="text-gray-400 font-bold">%</span>
+                                </div>
+                              </td>
+
+                              {/* PORTFOLIO OF EVIDENCE (POE) upload, view, add, and delete */}
+                              <td className="py-3 px-3 min-w-[200px] border-r border-gray-150">
+                                <div className="flex flex-col gap-1.5 text-left">
+                                  <div className="flex items-center justify-between gap-1">
+                                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-tight">POE Files:</span>
+                                    <label className="flex items-center gap-1 text-[9px] font-extrabold text-indigo-700 hover:text-indigo-900 cursor-pointer bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded transition select-none">
+                                      <Upload className="w-2.5 h-2.5" />
+                                      <span>Upload</span>
+                                      <input
+                                        type="file"
+                                        multiple
+                                        accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,image/*"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                          if (e.target.files) handlePoeUpload(row.id, e.target.files);
+                                        }}
+                                      />
+                                    </label>
+                                  </div>
+
+                                  {row.poeDocs && row.poeDocs.length > 0 ? (
+                                    <div className="flex flex-col gap-1 max-h-[100px] overflow-y-auto">
+                                      {row.poeDocs.map((file) => (
+                                        <div key={file.id} className="flex items-center justify-between gap-1 bg-slate-50 border border-slate-200 rounded p-1 text-[9px]">
+                                          <a
+                                            href={file.dataUrl}
+                                            download={file.name}
+                                            className="font-semibold text-blue-600 hover:underline truncate max-w-[150px] flex items-center gap-1"
+                                            title={file.name}
+                                          >
+                                            <Paperclip className="w-3 h-3 shrink-0 text-slate-400" />
+                                            <span className="truncate">{file.name}</span>
+                                          </a>
+                                          <button
+                                            type="button"
+                                            onClick={() => handlePoeRemove(row.id, file.id)}
+                                            className="text-red-500 hover:text-red-700 font-bold shrink-0 p-0.5"
+                                            title="Delete POE file"
+                                          >
+                                            <Trash2 className="w-3 h-3" />
+                                          </button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <span className="text-[10px] text-gray-400 italic">No evidence uploaded yet.</span>
+                                  )}
                                 </div>
                               </td>
 

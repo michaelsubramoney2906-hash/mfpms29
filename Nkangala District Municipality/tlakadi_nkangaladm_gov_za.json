@@ -5,7 +5,7 @@
   "jobFunction": "Clerk Grade I",
   "department": "Finance Services",
   "source": "azure_ad",
-  "role": "Standard User",
+  "role": "tenant_user",
   "tenantId": "nkangala_auto",
   "manager": "Maphalala NP",
   "directorate": "Finance",

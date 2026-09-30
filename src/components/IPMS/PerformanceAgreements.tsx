@@ -1373,6 +1373,46 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
     handleSaveToDatabase(metadata, updatedItems);
   };
 
+  const handlePlanPoeUpload = async (rowId: string, files: FileList, currentPoeDocs: PoeDocument[] = []) => {
+    const newDocs: PoeDocument[] = [];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (file.size > 200 * 1024 * 1024) {
+        alert(`File "${file.name}" exceeds 200MB limit.`);
+        continue;
+      }
+      try {
+        const doc = await new Promise<PoeDocument>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            resolve({
+              id: `poe_doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              name: file.name,
+              mimeType: file.type || 'application/octet-stream',
+              size: file.size,
+              dataUrl: reader.result as string,
+              uploadedAt: new Date().toISOString(),
+              uploadedBy: currentUser?.fullName || currentUser?.email || 'System'
+            });
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        newDocs.push(doc);
+      } catch (err) {
+        console.error("File reading failed:", err);
+      }
+    }
+
+    if (newDocs.length > 0) {
+      handleRowChange(rowId, 'poeDocs', [...currentPoeDocs, ...newDocs]);
+    }
+  };
+
+  const handlePlanPoeRemove = (rowId: string, docId: string, currentPoeDocs: PoeDocument[] = []) => {
+    handleRowChange(rowId, 'poeDocs', currentPoeDocs.filter(f => f.id !== docId));
+  };
+
   const addRow = () => {
     const newId = `kpi-${Date.now()}`;
     const defaultPoe = 'Signed verification report and approved portfolio of evidence files';
@@ -3841,21 +3881,61 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
                         />
                       </td>
 
-                      {/* Portfolio of Evidence - Locked */}
-                      <td className="p-1.5 border-r border-slate-205 min-w-[200px] bg-slate-100/50 cursor-not-allowed">
+                      {/* Portfolio of Evidence */}
+                      <td className="p-1.5 border-r border-slate-205 min-w-[200px] bg-slate-50/20">
                         <textarea
                           rows={2}
                           value={item.annualRequiredPoe || item.poe || ''}
-                          readOnly
-                          disabled
-                          placeholder="Evidence guidelines (Locked)"
-                          className="w-full bg-transparent p-1 shadow-none outline-none border border-transparent rounded text-[10px] font-medium text-slate-600 mb-1.5 cursor-not-allowed resize-none"
+                          onChange={(e) => handleRowChange(item.id, 'annualRequiredPoe', e.target.value)}
+                          placeholder="Evidence guidelines (e.g. Approved workshop attendance registers)"
+                          className="w-full bg-white p-1 border border-slate-200 rounded text-[10px] font-medium text-slate-800 mb-1.5 outline-none focus:ring-1 focus:ring-blue-500 resize-none"
                           style={{ minHeight: '35px', overflow: 'hidden' }}
                         />
 
-                        {/* File view / download interface (Locked upload) */}
-                        <div className="flex flex-col gap-1 items-start bg-white/70 p-1.5 rounded-lg border border-slate-200">
-                          {item.poeFileBase64 ? (
+                        {/* File view / upload interface */}
+                        <div className="flex flex-col gap-1.5 items-start bg-white/70 p-1.5 rounded-lg border border-slate-200">
+                          <div className="flex items-center justify-between gap-1 w-full border-b border-slate-100 pb-1">
+                            <span className="text-[9px] font-black text-slate-500 uppercase tracking-tight">Evidence Files:</span>
+                            <label className="flex items-center gap-1 text-[9px] font-extrabold text-indigo-700 hover:text-indigo-900 cursor-pointer bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded transition select-none">
+                              <Upload className="w-2.5 h-2.5" />
+                              <span>Upload</span>
+                              <input
+                                type="file"
+                                multiple
+                                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,image/*"
+                                className="hidden"
+                                onChange={(e) => {
+                                  if (e.target.files) handlePlanPoeUpload(item.id, e.target.files, item.poeDocs || []);
+                                }}
+                              />
+                            </label>
+                          </div>
+
+                          {item.poeDocs && item.poeDocs.length > 0 ? (
+                            <div className="flex flex-col gap-1 max-h-[100px] overflow-y-auto w-full">
+                              {item.poeDocs.map((file) => (
+                                <div key={file.id} className="flex items-center justify-between gap-1 bg-white border border-slate-200 rounded p-1 text-[9px] w-full">
+                                  <a
+                                    href={file.dataUrl}
+                                    download={file.name}
+                                    className="font-semibold text-blue-600 hover:underline truncate max-w-[130px] flex items-center gap-1"
+                                    title={file.name}
+                                  >
+                                    <Paperclip className="w-3 h-3 shrink-0 text-slate-400" />
+                                    <span className="truncate">{file.name}</span>
+                                  </a>
+                                  <button
+                                    type="button"
+                                    onClick={() => handlePlanPoeRemove(item.id, file.id, item.poeDocs || [])}
+                                    className="text-red-500 hover:text-red-700 font-bold shrink-0 p-0.5"
+                                    title="Delete POE file"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          ) : item.poeFileBase64 ? (
                             <div className="flex items-center gap-1.5 justify-between w-full">
                               <button
                                 type="button"
@@ -3879,10 +3959,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
                               </button>
                             </div>
                           ) : (
-                            <div className="flex items-center justify-center gap-1 w-full text-[9px] font-bold text-slate-400 py-1 bg-slate-100 border border-slate-200 rounded cursor-not-allowed select-none">
-                              <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" />
-                              <span>Upload Locked</span>
-                            </div>
+                            <span className="text-[10px] text-gray-400 italic w-full text-center">No evidence uploaded yet.</span>
                           )}
                         </div>
                       </td>
