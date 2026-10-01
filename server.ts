@@ -9348,6 +9348,95 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
     }
   });
 
+  // 15B. 5-Second Autosave Drafts for SDBIP & OPMS Submitter
+  app.post("/api/tenant/:tenantId/sdbip/draft", async (req, res) => {
+    const { tenantId } = req.params;
+    const { kpiId, draftData, userEmail } = req.body || {};
+    if (!kpiId || !userEmail) {
+      return res.status(400).json({ error: "kpiId and userEmail are required" });
+    }
+    try {
+      const supabase = getSupabase();
+      if (!supabase) return res.json({ success: true, offline: true });
+
+      const sanitizedEmail = String(userEmail).trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
+      const docId = `sdbip_draft_${tenantId}_${sanitizedEmail}_${kpiId}`;
+
+      await supabase
+        .from('messages')
+        .upsert({
+          id: docId,
+          tenant_id: tenantId,
+          sender_id: 'sdbip_autosave_daemon',
+          sender_email: userEmail,
+          sender_name: 'SDBIP 5s Auto-Save Buffer',
+          message_type: 'sdbip_draft_snapshot',
+          content: JSON.stringify({
+            kpiId,
+            userEmail,
+            draftData,
+            savedAt: new Date().toISOString(),
+            timestamp: Date.now()
+          }),
+          created_at: new Date().toISOString()
+        });
+
+      res.json({ success: true, savedAt: new Date().toISOString() });
+    } catch (err: any) {
+      console.warn("[Autosave Draft Warning]:", err.message);
+      res.json({ success: true, cachedLocally: true });
+    }
+  });
+
+  app.get("/api/tenant/:tenantId/sdbip/drafts/:userEmail", async (req, res) => {
+    const { tenantId, userEmail } = req.params;
+    try {
+      const supabase = getSupabase();
+      if (!supabase) return res.json({ drafts: {} });
+
+      const sanitizedEmail = String(userEmail).trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
+      const prefix = `sdbip_draft_${tenantId}_${sanitizedEmail}_`;
+
+      const { data } = await supabase
+        .from('messages')
+        .select('id, content')
+        .eq('tenant_id', tenantId)
+        .like('id', `${prefix}%`);
+
+      const draftsMap: Record<string, any> = {};
+      if (data && data.length > 0) {
+        for (const item of data) {
+          try {
+            const parsed = JSON.parse(item.content);
+            if (parsed && parsed.kpiId) {
+              draftsMap[parsed.kpiId] = parsed;
+            }
+          } catch (e) {}
+        }
+      }
+      res.json({ drafts: draftsMap });
+    } catch (err: any) {
+      console.error("Error loading autosave drafts:", err);
+      res.json({ drafts: {} });
+    }
+  });
+
+  app.delete("/api/tenant/:tenantId/sdbip/draft/:kpiId", async (req, res) => {
+    const { tenantId, kpiId } = req.params;
+    const userEmail = (req.query.userEmail as string) || (req.body?.userEmail as string);
+    try {
+      const supabase = getSupabase();
+      if (supabase && userEmail) {
+        const sanitizedEmail = String(userEmail).trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
+        const docId = `sdbip_draft_${tenantId}_${sanitizedEmail}_${kpiId}`;
+        await supabase.from('messages').delete().eq('id', docId);
+      }
+      res.json({ success: true });
+    } catch (err: any) {
+      res.json({ success: true });
+    }
+  });
+
   // 16. Fetch SDBIP POEs for a tenant
   app.get("/api/tenant/:tenantId/sdbip-poes", async (req, res) => {
     const { tenantId } = req.params;

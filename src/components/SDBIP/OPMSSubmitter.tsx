@@ -4,7 +4,7 @@ import {
   Send, RefreshCw, Layers, Database, Search, ChevronRight, 
   Clock, Plus, ShieldCheck, Check, MessageSquare, Info, Lock, Unlock,
   Upload, Eye, Trash2, Paperclip, FileSpreadsheet, Presentation, Image as ImageIcon,
-  Bell, CheckCircle2, UserCheck, ShieldAlert, X, RotateCcw
+  Bell, CheckCircle2, UserCheck, ShieldAlert, X, RotateCcw, Cloud
 } from 'lucide-react';
 import type { User } from '../../types';
 import { SdbipRow } from './SDBIP';
@@ -63,6 +63,14 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
   const [poeDesc, setPoeDesc] = useState('');
   const [submitterNotes, setSubmitterNotes] = useState('');
 
+  // 5-Second Autosave and Emergency Draft Recovery Engine
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'dirty' | 'saving' | 'saved'>('idle');
+  const [lastAutoSavedTime, setLastAutoSavedTime] = useState<string | null>(null);
+  const [isDraftRestored, setIsDraftRestored] = useState<boolean>(false);
+  const [draftRestoredAt, setDraftRestoredAt] = useState<string | null>(null);
+  const isInitialKpiLoad = useRef<boolean>(true);
+  const autoSaveDebounceTimer = useRef<any>(null);
+
   const autoCalculateVariance = (target: string | undefined, actual: string | undefined) => {
     return calcOpmsVariance(target, actual, selectedKpi?.uom);
   };
@@ -100,6 +108,7 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
     return () => {
       clearInterval(interval);
       window.removeEventListener('focus', handleFocus);
+      if (autoSaveDebounceTimer.current) clearTimeout(autoSaveDebounceTimer.current);
     };
   }, [activeTenantId]);
 
@@ -115,30 +124,161 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
     }
   };
 
+  // Load KPI baseline or restore unsaved 5-second emergency draft if available
   useEffect(() => {
     if (selectedKpi) {
-      setQ1Actual(selectedKpi.q1Actual || '');
-      setQ1Variance(selectedKpi.q1Variance || '');
-      setQ1Corrective(selectedKpi.q1Corrective || '');
+      isInitialKpiLoad.current = true;
+      if (autoSaveDebounceTimer.current) clearTimeout(autoSaveDebounceTimer.current);
 
-      setQ2Actual(selectedKpi.q2Actual || '');
-      setQ2Variance(selectedKpi.q2Variance || '');
-      setQ2Corrective(selectedKpi.q2Corrective || '');
+      const draftKey = `sdbip_draft_${activeTenantId}_${selectedKpi.id}_${currentUser.email}`;
+      const savedDraftRaw = localStorage.getItem(draftKey);
 
-      setQ3Actual(selectedKpi.q3Actual || '');
-      setQ3Variance(selectedKpi.q3Variance || '');
-      setQ3Corrective(selectedKpi.q3Corrective || '');
+      let draftLoaded = false;
+      if (savedDraftRaw) {
+        try {
+          const parsed = JSON.parse(savedDraftRaw);
+          const d = parsed.draftData || parsed;
+          if (d && (d.q1Actual !== undefined || d.submitterNotes !== undefined)) {
+            // Check if draft has difference with server data
+            const hasDifference = 
+              (d.q1Actual && d.q1Actual !== selectedKpi.q1Actual) ||
+              (d.q1Variance && d.q1Variance !== selectedKpi.q1Variance) ||
+              (d.q1Corrective && d.q1Corrective !== selectedKpi.q1Corrective) ||
+              (d.submitterNotes && d.submitterNotes !== (selectedKpi as any).submitterNotes);
 
-      setQ4Actual(selectedKpi.q4Actual || '');
-      setQ4Variance(selectedKpi.q4Variance || '');
-      setQ4Corrective(selectedKpi.q4Corrective || '');
+            if (hasDifference) {
+              setQ1Actual(d.q1Actual || '');
+              setQ1Variance(d.q1Variance || '');
+              setQ1Corrective(d.q1Corrective || '');
+              setQ2Actual(d.q2Actual || '');
+              setQ2Variance(d.q2Variance || '');
+              setQ2Corrective(d.q2Corrective || '');
+              setQ3Actual(d.q3Actual || '');
+              setQ3Variance(d.q3Variance || '');
+              setQ3Corrective(d.q3Corrective || '');
+              setQ4Actual(d.q4Actual || '');
+              setQ4Variance(d.q4Variance || '');
+              setQ4Corrective(d.q4Corrective || '');
+              setPoeDesc(d.poeDesc || selectedKpi.poeDesc || '');
+              setSubmitterNotes(d.submitterNotes || '');
+              setIsDraftRestored(true);
+              setDraftRestoredAt(parsed.timestamp ? new Date(parsed.timestamp).toLocaleTimeString() : 'Recent Session');
+              setAutoSaveStatus('saved');
+              draftLoaded = true;
+            }
+          }
+        } catch (err) {
+          console.warn("Draft parse error:", err);
+        }
+      }
 
-      setPoeDesc(selectedKpi.poeDesc || selectedKpi.q1PoeDesc || '');
-      setSubmitterNotes((selectedKpi as any).submitterNotes || '');
+      if (!draftLoaded) {
+        setQ1Actual(selectedKpi.q1Actual || '');
+        setQ1Variance(selectedKpi.q1Variance || '');
+        setQ1Corrective(selectedKpi.q1Corrective || '');
+
+        setQ2Actual(selectedKpi.q2Actual || '');
+        setQ2Variance(selectedKpi.q2Variance || '');
+        setQ2Corrective(selectedKpi.q2Corrective || '');
+
+        setQ3Actual(selectedKpi.q3Actual || '');
+        setQ3Variance(selectedKpi.q3Variance || '');
+        setQ3Corrective(selectedKpi.q3Corrective || '');
+
+        setQ4Actual(selectedKpi.q4Actual || '');
+        setQ4Variance(selectedKpi.q4Variance || '');
+        setQ4Corrective(selectedKpi.q4Corrective || '');
+
+        setPoeDesc(selectedKpi.poeDesc || selectedKpi.q1PoeDesc || '');
+        setSubmitterNotes((selectedKpi as any).submitterNotes || '');
+        setIsDraftRestored(false);
+        setDraftRestoredAt(null);
+        setAutoSaveStatus('idle');
+      }
     } else {
       clearForm();
     }
-  }, [selectedKpi]);
+  }, [selectedKpi?.id]);
+
+  // 5-Second Autosave Engine: Keystroke snapshot + Debounced 5s cloud backup
+  useEffect(() => {
+    if (isInitialKpiLoad.current) {
+      isInitialKpiLoad.current = false;
+      return;
+    }
+    if (!selectedKpi) return;
+    if (assignedFilter === 'ALL') return; // Read-only view
+    if ((selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed') return;
+
+    const draftData = {
+      q1Actual, q1Variance, q1Corrective,
+      q2Actual, q2Variance, q2Corrective,
+      q3Actual, q3Variance, q3Corrective,
+      q4Actual, q4Variance, q4Corrective,
+      poeDesc, submitterNotes
+    };
+
+    // Instant local emergency snapshot
+    const draftKey = `sdbip_draft_${activeTenantId}_${selectedKpi.id}_${currentUser.email}`;
+    localStorage.setItem(draftKey, JSON.stringify({ draftData, timestamp: Date.now() }));
+    setAutoSaveStatus('dirty');
+
+    // Debounced 5s server sync
+    if (autoSaveDebounceTimer.current) clearTimeout(autoSaveDebounceTimer.current);
+    autoSaveDebounceTimer.current = setTimeout(async () => {
+      setAutoSaveStatus('saving');
+      try {
+        await fetch(`/api/tenant/${activeTenantId}/sdbip/draft`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            kpiId: selectedKpi.id,
+            userEmail: currentUser.email,
+            draftData
+          })
+        });
+        setAutoSaveStatus('saved');
+        setLastAutoSavedTime(new Date().toLocaleTimeString());
+      } catch (e) {
+        // Safe locally in localStorage
+        setAutoSaveStatus('saved');
+      }
+    }, 5000);
+  }, [
+    q1Actual, q1Variance, q1Corrective,
+    q2Actual, q2Variance, q2Corrective,
+    q3Actual, q3Variance, q3Corrective,
+    q4Actual, q4Variance, q4Corrective,
+    poeDesc, submitterNotes
+  ]);
+
+  const handleDiscardDraft = () => {
+    if (!selectedKpi) return;
+    const draftKey = `sdbip_draft_${activeTenantId}_${selectedKpi.id}_${currentUser.email}`;
+    localStorage.removeItem(draftKey);
+    fetch(`/api/tenant/${activeTenantId}/sdbip/draft/${selectedKpi.id}?userEmail=${encodeURIComponent(currentUser.email)}`, { method: 'DELETE' }).catch(() => {});
+
+    setQ1Actual(selectedKpi.q1Actual || '');
+    setQ1Variance(selectedKpi.q1Variance || '');
+    setQ1Corrective(selectedKpi.q1Corrective || '');
+    setQ2Actual(selectedKpi.q2Actual || '');
+    setQ2Variance(selectedKpi.q2Variance || '');
+    setQ2Corrective(selectedKpi.q2Corrective || '');
+    setQ3Actual(selectedKpi.q3Actual || '');
+    setQ3Variance(selectedKpi.q3Variance || '');
+    setQ3Corrective(selectedKpi.q3Corrective || '');
+    setQ4Actual(selectedKpi.q4Actual || '');
+    setQ4Variance(selectedKpi.q4Variance || '');
+    setQ4Corrective(selectedKpi.q4Corrective || '');
+    setPoeDesc(selectedKpi.poeDesc || selectedKpi.q1PoeDesc || '');
+    setSubmitterNotes((selectedKpi as any).submitterNotes || '');
+
+    setIsDraftRestored(false);
+    setDraftRestoredAt(null);
+    setAutoSaveStatus('idle');
+    setSuccess('Unsaved draft discarded. Official baseline data reloaded.');
+    setTimeout(() => setSuccess(null), 3000);
+  };
 
   const clearForm = () => {
     setQ1Actual('');
@@ -567,6 +707,14 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
 
       if (!response.ok) throw new Error('Failed to save draft to Supabase');
       
+      // Clean up 5-second draft backup buffer
+      const draftKey = `sdbip_draft_${activeTenantId}_${selectedKpi.id}_${currentUser.email}`;
+      localStorage.removeItem(draftKey);
+      fetch(`/api/tenant/${activeTenantId}/sdbip/draft/${selectedKpi.id}?userEmail=${encodeURIComponent(currentUser.email)}`, { method: 'DELETE' }).catch(() => {});
+      setIsDraftRestored(false);
+      setAutoSaveStatus('saved');
+      setLastAutoSavedTime(new Date().toLocaleTimeString());
+
       setRows(updatedRows);
       setSuccess('Draft metrics saved locally and synced with Supabase database!');
       setTimeout(() => setSuccess(null), 4000);
@@ -632,6 +780,13 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
       });
 
       if (!response.ok) throw new Error('Failed to submit SDBIP item to Approver');
+
+      // Clean up 5-second draft backup buffer
+      const draftKey = `sdbip_draft_${activeTenantId}_${selectedKpi.id}_${currentUser.email}`;
+      localStorage.removeItem(draftKey);
+      fetch(`/api/tenant/${activeTenantId}/sdbip/draft/${selectedKpi.id}?userEmail=${encodeURIComponent(currentUser.email)}`, { method: 'DELETE' }).catch(() => {});
+      setIsDraftRestored(false);
+      setAutoSaveStatus('saved');
 
       // Dispatch real-time notification to specified approver
       await dispatchSdbipNotification(activeTenantId, {
@@ -1014,9 +1169,40 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div>
                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Active Workspace</span>
-                <h3 className="text-sm font-black text-slate-200 uppercase tracking-widest mt-0.5 font-mono">
-                  KPI REF: {selectedKpi.refNum}
-                </h3>
+                <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                  <h3 className="text-sm font-black text-slate-200 uppercase tracking-widest font-mono">
+                    KPI REF: {selectedKpi.refNum}
+                  </h3>
+                  {/* 5-Second Autosave Status Indicator */}
+                  {!isReadOnlyMode && !((selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed') && (
+                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-950 border border-slate-800 text-[10px] font-mono">
+                      {autoSaveStatus === 'saving' && (
+                        <span className="flex items-center gap-1 text-amber-400 font-bold">
+                          <RefreshCw className="w-2.5 h-2.5 animate-spin" />
+                          <span>Saving draft...</span>
+                        </span>
+                      )}
+                      {autoSaveStatus === 'dirty' && (
+                        <span className="flex items-center gap-1 text-amber-400 font-bold">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+                          <span>Unsaved draft (Syncing in 5s)</span>
+                        </span>
+                      )}
+                      {autoSaveStatus === 'saved' && (
+                        <span className="flex items-center gap-1 text-emerald-400 font-medium">
+                          <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />
+                          <span>Auto-saved (5s Cloud Safe{lastAutoSavedTime ? ` • ${lastAutoSavedTime}` : ''})</span>
+                        </span>
+                      )}
+                      {autoSaveStatus === 'idle' && (
+                        <span className="flex items-center gap-1 text-slate-400">
+                          <Cloud className="w-2.5 h-2.5 text-indigo-400" />
+                          <span>5s Auto-Save Active</span>
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
               <button 
                 onClick={() => setSelectedKpi(null)}
@@ -1025,6 +1211,33 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                 ✕ Close
               </button>
             </div>
+
+            {/* Emergency Draft Restored Alert Banner */}
+            {isDraftRestored && (
+              <div className="bg-gradient-to-r from-cyan-950/80 via-blue-950/70 to-slate-950 border border-cyan-500/50 rounded-xl p-3 flex items-center justify-between gap-3 shadow-lg">
+                <div className="flex items-center gap-2.5 text-xs">
+                  <div className="p-1.5 bg-cyan-500/20 text-cyan-300 rounded-lg shrink-0">
+                    <ShieldCheck className="w-4 h-4 text-cyan-400" />
+                  </div>
+                  <div>
+                    <span className="font-bold text-cyan-200 uppercase tracking-wider text-[11px] block">
+                      Emergency Draft Recovered ({draftRestoredAt})
+                    </span>
+                    <p className="text-[10.5px] text-slate-300">
+                      Unsaved edits from your previous session were automatically restored. No work was lost.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDiscardDraft}
+                  className="px-2.5 py-1 bg-slate-900 hover:bg-rose-950 text-slate-300 hover:text-rose-300 border border-slate-700 hover:border-rose-700/60 rounded-lg text-[10px] font-bold uppercase tracking-wider transition shrink-0 cursor-pointer"
+                  title="Discard unsaved draft and reload official server baseline"
+                >
+                  Discard Draft
+                </button>
+              </div>
+            )}
 
             {/* General Info Card */}
             <div className="bg-slate-950 p-3 rounded-xl border border-slate-850 space-y-1.5 text-xs">

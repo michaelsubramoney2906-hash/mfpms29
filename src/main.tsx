@@ -2,6 +2,10 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
+import { installResilientNetworkInterceptor } from './utils/resilientFetch';
+
+// Initialize zero-kickout resilient network & fetch interceptor (Layer 3: Network Resilience)
+installResilientNetworkInterceptor();
 
 // Prevent cross-origin stylesheet security errors when inspecting document.styleSheets
 if (typeof window !== 'undefined' && 'CSSStyleSheet' in window) {
