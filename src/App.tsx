@@ -268,6 +268,9 @@ export default function App() {
                 roleToUse = (data.internalUser.role === 'admin' || data.internalUser.role === 'Global Administrator' || data.internalUser.role === 'Systems Administrator') ? 'admin' : 'tenant_user';
                 tenantToUse = data.internalUser.tenant_id;
               }
+              if (data.user?.email?.toLowerCase().endsWith('@mzansiflow.co.za') || data.user?.email?.toLowerCase().includes('mzansiflow')) {
+                roleToUse = 'admin';
+              }
               
               const prefMode = localStorage.getItem('preferredPortalMode') || sessionStorage.getItem('preferredPortalMode') || 'municipality';
               handleSetUser({ 
@@ -280,7 +283,7 @@ export default function App() {
                 manager: data.internalUser?.manager,
                 reportTo: data.internalUser?.reportTo || data.internalUser?.report_to,
                 level: data.internalUser?.level,
-                systemRole: data.internalUser?.system_role || data.internalUser?.systemRole || data.internalUser?.role || 'Standard User',
+                systemRole: data.internalUser?.system_role || data.internalUser?.systemRole || data.internalUser?.role || (roleToUse === 'admin' ? 'Global Administrator' : 'Standard User'),
                 portalMode: prefMode as any
               });
               try {
@@ -316,6 +319,9 @@ export default function App() {
                 roleToUse = (data.internalUser.role === 'admin' || data.internalUser.role === 'Global Administrator' || data.internalUser.role === 'Systems Administrator') ? 'admin' : 'tenant_user';
                 tenantToUse = data.internalUser.tenant_id;
               }
+              if (data.user?.email?.toLowerCase().endsWith('@mzansiflow.co.za') || data.user?.email?.toLowerCase().includes('mzansiflow')) {
+                roleToUse = 'admin';
+              }
               
               const prefMode = localStorage.getItem('preferredPortalMode') || sessionStorage.getItem('preferredPortalMode') || 'municipality';
               handleSetUser({ 
@@ -328,7 +334,7 @@ export default function App() {
                 manager: data.internalUser?.manager,
                 reportTo: data.internalUser?.reportTo || data.internalUser?.report_to,
                 level: data.internalUser?.level,
-                systemRole: data.internalUser?.system_role || data.internalUser?.systemRole || data.internalUser?.role || 'Standard User',
+                systemRole: data.internalUser?.system_role || data.internalUser?.systemRole || data.internalUser?.role || (roleToUse === 'admin' ? 'Global Administrator' : 'Standard User'),
                 portalMode: prefMode as any
               });
             }
@@ -442,14 +448,12 @@ export default function App() {
             <SecurityShield user={user}>
               {user.portalMode === 'neda' ? (
                 <NEDAPortal 
-                  key={`${user.email}_neda`}
                   user={user} 
                   onLogout={handleLogout} 
                   onImpersonate={handleImpersonate} 
                 />
               ) : (
                 <Dashboard 
-                  key={user.email} 
                   user={user} 
                   onLogout={handleLogout} 
                   onImpersonate={handleImpersonate} 

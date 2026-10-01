@@ -114,12 +114,52 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
     'mike@massivedynamixdistributors.com'
   ].includes(userEmail);
 
-  const initialModule = isCommandCenterAuthorized 
-    ? modules[0] 
-    : (modules.find(m => m.id === 'ipms') || modules[1]);
+  const getSavedModule = (): Module => {
+    try {
+      const savedModId = sessionStorage.getItem('dashboard_active_module_id') || localStorage.getItem('dashboard_active_module_id');
+      if (savedModId) {
+        const found = modules.find(m => m.id === savedModId);
+        if (found) return found;
+      }
+    } catch (e) {}
+    return isCommandCenterAuthorized 
+      ? modules[0] 
+      : (modules.find(m => m.id === 'ipms') || modules[1]);
+  };
 
-  const [activeModule, setActiveModule] = useState<Module>(initialModule);
-  const [activeSubModule, setActiveSubModule] = useState<any>(null);
+  const getSavedSubModule = (): any => {
+    try {
+      const savedSubModStr = sessionStorage.getItem('dashboard_active_submodule') || localStorage.getItem('dashboard_active_submodule');
+      if (savedSubModStr) {
+        return JSON.parse(savedSubModStr);
+      }
+    } catch (e) {}
+    return null;
+  };
+
+  const [activeModule, setActiveModuleState] = useState<Module>(getSavedModule);
+  const [activeSubModule, setActiveSubModuleState] = useState<any>(getSavedSubModule);
+
+  const setActiveModule = (mod: Module) => {
+    try {
+      sessionStorage.setItem('dashboard_active_module_id', mod.id);
+      localStorage.setItem('dashboard_active_module_id', mod.id);
+    } catch (e) {}
+    setActiveModuleState(mod);
+  };
+
+  const setActiveSubModule = (subMod: any) => {
+    try {
+      if (subMod) {
+        sessionStorage.setItem('dashboard_active_submodule', JSON.stringify(subMod));
+        localStorage.setItem('dashboard_active_submodule', JSON.stringify(subMod));
+      } else {
+        sessionStorage.removeItem('dashboard_active_submodule');
+        localStorage.removeItem('dashboard_active_submodule');
+      }
+    } catch (e) {}
+    setActiveSubModuleState(subMod);
+  };
   const [unlockedModules, setUnlockedModules] = useState<string[]>([]);
   const [fullUserProfile, setFullUserProfile] = useState<User>(user);
   const [completedIPMSSteps, setCompletedIPMSSteps] = useState<string[]>([]);

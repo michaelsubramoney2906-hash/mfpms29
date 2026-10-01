@@ -19,6 +19,7 @@ import {
   extractKpiPoes,
   isMasterAdminMike
 } from '../../utils/sdbipWorkflowHelper';
+import { isUserUnrestricted } from '../../utils/unrestrictedHelper';
 import { calcOpmsVariance } from '../../utils/varianceCalculator';
 
 interface OPMSSubmitterProps {
@@ -835,16 +836,18 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
   const approvedCount = rows.filter(r => (r as any).workflowStatus === 'Approved').length;
   const returnedCount = rows.filter(r => (r as any).workflowStatus === 'Returned').length;
 
-  // Check if currentUser is the specifically assigned Submitter or Unit for the selected KPI (strict assignment check)
+  // Check if currentUser is the specifically assigned Submitter or Unit for the selected KPI, OR if user is an unrestricted admin/impersonator
+  const isUnrestrictedAdmin = isUserUnrestricted(currentUser) || isMasterAdminMike(currentUser);
   const isActualDesignatedSubmitter = Boolean(
     selectedKpi && (
+      isUnrestrictedAdmin ||
       isUserMatch(selectedKpi.submitter, currentUser) ||
       isUserMatch(selectedKpi.responsibleUnit, currentUser)
     )
   );
 
-  // Read-only mode: When selecting "All KPIs" (assignedFilter === 'ALL'), or when not the designated submitter of this KPI
-  const isReadOnlyMode = assignedFilter === 'ALL' || !isActualDesignatedSubmitter;
+  // Read-only mode: When selecting "All KPIs" (and not an unrestricted admin), or when not the designated submitter of this KPI
+  const isReadOnlyMode = (assignedFilter === 'ALL' && !isUnrestrictedAdmin) || !isActualDesignatedSubmitter;
 
   // Q1 is currently active for municipal reporting
   const isQ1ActivePeriod = isQuarterInReportingPeriod('q1');
