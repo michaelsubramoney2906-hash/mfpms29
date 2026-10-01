@@ -200,6 +200,37 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
     fetchProfile();
   }, [activeTenantId, user.email]);
 
+  useEffect(() => {
+    const fetchUnlocks = async () => {
+      try {
+        const email = (fullUserProfile?.email || user?.email || '').trim().toLowerCase();
+        if (!email) return;
+        const tenantToQuery = activeTenantId === 'global' ? (tenants[0]?.id || 'tenant-229') : activeTenantId;
+        const res = await fetch(`/api/tenant/${tenantToQuery}/user-module-unlocks?userEmail=${encodeURIComponent(email)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.unlockedModuleIds) && data.unlockedModuleIds.length > 0) {
+            setUnlockedModules(prev => Array.from(new Set([...prev, ...data.unlockedModuleIds])));
+          }
+        }
+      } catch (e) {
+        console.error("Failed to load user module unlocks:", e);
+      }
+    };
+    fetchUnlocks();
+
+    const handleModuleUnlocked = (evt: any) => {
+      const detail = evt?.detail;
+      if (detail?.unlockedModule?.id) {
+        setUnlockedModules(prev => Array.from(new Set([...prev, detail.unlockedModule.id])));
+      }
+      fetchUnlocks();
+    };
+
+    window.addEventListener('sdbip_module_unlocked', handleModuleUnlocked);
+    return () => window.removeEventListener('sdbip_module_unlocked', handleModuleUnlocked);
+  }, [user.email, fullUserProfile.email, activeTenantId]);
+
   const [reportsUnlocked, setReportsUnlocked] = useState(false);
 
   // Fetch whether reports are unlocked for standard users or managers

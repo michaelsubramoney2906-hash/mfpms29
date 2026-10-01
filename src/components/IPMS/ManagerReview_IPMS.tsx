@@ -4,7 +4,7 @@ import {
   FolderOpen, FileSpreadsheet, Image, File, Download, Search,
   Award, ShieldCheck, AlertTriangle, ExternalLink, Lock, Check,
   Eye, Sparkles, FolderIcon, HardDrive, ThumbsUp, ThumbsDown, X, Info, AlertCircle,
-  XCircle, Save, ShieldAlert, History, CheckSquare, Square, Send, Trash2
+  XCircle, Save, ShieldAlert, History, CheckSquare, Square, Send, Trash2, RotateCcw
 } from 'lucide-react';
 import { IPMSWorkflowInbox } from './IPMSWorkflowInbox';
 import { OfficeDocumentViewer } from './OfficeDocumentViewer';
@@ -1220,6 +1220,65 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
     }
   };
 
+  const handleRedoApprovalRejection = async (targetIds?: string[]) => {
+    if (!selectedPlan) return;
+    setSaving(true);
+    try {
+      const payload = { ...selectedPlan.plan };
+      const allItems = payload.items || [];
+      const isTargeted = targetIds && targetIds.length > 0;
+      const targetItems = isTargeted ? allItems.filter((i: any) => targetIds.includes(i.id)) : allItems;
+      const kpiNosText = targetItems.map((i: any) => `#${i.kpiNo || i.id}`).join(', ');
+
+      payload.items = allItems.map((item: any) => {
+        if (!isTargeted || targetIds.includes(item.id)) {
+          return {
+            ...item,
+            reviewStatus: 'Draft / Resubmitting',
+            internalAuditStatus: ''
+          };
+        }
+        return item;
+      });
+
+      payload.metadata.reviewStatus = 'Draft / Resubmitting';
+      if (!payload.metadata) payload.metadata = {};
+      if (!payload.metadata.history) payload.metadata.history = [];
+      payload.metadata.history.push({
+        timestamp: new Date().toISOString(),
+        userEmail: (currentUser?.email || '').toLowerCase().trim(),
+        userName: currentUser?.fullName || currentUser?.full_name || 'Line Manager',
+        role: currentUser?.systemRole || currentUser?.role || 'Line Manager',
+        action: isTargeted ? `Unlocked KPI(s) (${kpiNosText}) for Redo` : 'Unlocked Performance Agreement for Redo',
+        status: 'Draft / Resubmitting',
+        comment: `Manager unlocked ${isTargeted ? `${targetItems.length} KPI(s) (${kpiNosText})` : 'performance plan'} to redo approval or rejection decisions.`
+      });
+
+      await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${selectedPlan.userId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: selectedPlan.userId } }));
+
+      alert(isTargeted 
+        ? `KPI(s) (${kpiNosText}) unlocked to redo approval or rejection!`
+        : `Performance plan unlocked to redo approval or rejection decisions!`
+      );
+
+      const updatedPlans = teamPlans.map(tp => 
+        tp.userId === selectedPlan.userId ? { ...tp, plan: payload } : tp
+      );
+      setTeamPlans(updatedPlans);
+      setSelectedPlan({ ...selectedPlan, plan: payload });
+    } catch (e) {
+      console.error(e);
+      alert("Error unlocking KPI for redo: " + String(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const getFileIconComponent = (fileName: string) => {
     const ext = fileName.split('.').pop()?.toLowerCase();
     if (['xls', 'xlsx', 'csv'].includes(ext || '')) {
@@ -1598,6 +1657,16 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
           </button>
 
           <button 
+            onClick={() => handleRedoApprovalRejection()}
+            disabled={saving}
+            className="bg-amber-500 hover:bg-amber-600 text-white font-bold px-3 py-2 rounded-xl text-[10px] uppercase tracking-wide flex items-center gap-1.5 transition disabled:opacity-50 shadow-sm cursor-pointer border-0"
+            title="Unlock review decision to redo approval or rejection"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Redo Approval / Rejection</span>
+          </button>
+
+          <button 
             onClick={() => handlePushToAudit()}
             disabled={saving}
             className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-2 rounded-xl text-[10px] uppercase tracking-wide flex items-center gap-1.5 transition disabled:opacity-50 shadow-sm cursor-pointer border-0"
@@ -1739,6 +1808,17 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
                     >
                       <XCircle className="w-3.5 h-3.5" />
                       <span>Reject Selected ({selectedKpiIdsForReview.length})</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleRedoApprovalRejection(selectedKpiIdsForReview)}
+                      disabled={saving}
+                      className="bg-amber-500 hover:bg-amber-600 text-white font-bold px-3 py-1.5 rounded-xl text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-sm cursor-pointer transition disabled:opacity-50"
+                      title="Unlock selected KPIs to redo approval or rejection decisions"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Redo Selected ({selectedKpiIdsForReview.length})</span>
                     </button>
 
                     <button
@@ -2150,6 +2230,53 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
                         />
                       </div>
                     </div>
+                  </div>
+
+                  {/* Actions per KPI */}
+                  <div className="flex flex-wrap items-center justify-end gap-2.5 pt-3 mt-3 border-t border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => handleApproveReview([kpi.id])}
+                      disabled={saving}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 rounded-lg text-[9.5px] uppercase tracking-wide flex items-center gap-1.5 transition disabled:opacity-50 shadow-xs cursor-pointer border-0"
+                      title="Approve this single KPI"
+                    >
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      <span>Approve Single KPI</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleRejectReview([kpi.id])}
+                      disabled={saving}
+                      className="bg-rose-600 hover:bg-rose-500 text-white font-bold px-3 py-1.5 rounded-lg text-[9.5px] uppercase tracking-wide flex items-center gap-1.5 transition disabled:opacity-50 shadow-xs cursor-pointer border-0"
+                      title="Request revisions on this single KPI"
+                    >
+                      <XCircle className="w-3.5 h-3.5" />
+                      <span>Reject / Revision</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handlePushToAudit([kpi.id])}
+                      disabled={saving}
+                      className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3 py-1.5 rounded-lg text-[9.5px] uppercase tracking-wide flex items-center gap-1.5 transition disabled:opacity-50 shadow-xs cursor-pointer border-0"
+                      title="Dispatch this single KPI to Internal Audit review"
+                    >
+                      <ShieldAlert className="w-3.5 h-3.5" />
+                      <span>Push to Internal Audit</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleRedoApprovalRejection([kpi.id])}
+                      disabled={saving}
+                      className="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 font-bold px-3 py-1.5 rounded-lg text-[9.5px] uppercase tracking-wide flex items-center gap-1.5 transition shadow-2xs cursor-pointer"
+                      title="Unlock this KPI to redo manager approval or rejection"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Redo Approval or Rejection</span>
+                    </button>
                   </div>
                 </div>
               );

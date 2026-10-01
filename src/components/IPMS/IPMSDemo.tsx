@@ -673,7 +673,7 @@ export function IPMSDemo({ currentUser, activeTenantId, onImpersonate, onNavigat
 
                     {/* Individual KPI Submission Quick Bar */}
                     <div className="pt-2 border-t border-blue-500/20">
-                      <span className="text-xs font-bold text-slate-300 block mb-2">Submit Individual KPIs with Portfolio of Evidence (PoE):</span>
+                      <span className="text-xs font-bold text-slate-300 block mb-2">KPI Self-Evaluation Actions (Redo & Push / Submit to Manager):</span>
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                         {(demoState?.agreement?.kpis || []).map((kpi: any) => {
                           const isSubmitted = kpi.reviewStatus === 'Submitted for Approval' || workflowStatus === 'SUBMITTED_TO_MANAGER';
@@ -681,21 +681,33 @@ export function IPMSDemo({ currentUser, activeTenantId, onImpersonate, onNavigat
                             <div key={kpi.id} className="p-2.5 bg-slate-900/90 rounded-lg border border-slate-800 flex items-center justify-between gap-2">
                               <div className="min-w-0">
                                 <span className="font-mono text-xs font-bold text-indigo-400 block">{kpi.kpiNo}</span>
-                                <span className="text-[11px] text-slate-300 truncate block max-w-[160px]">{kpi.kpi}</span>
+                                <span className="text-[11px] text-slate-300 truncate block max-w-[140px]">{kpi.kpi}</span>
                                 <span className="text-[10px] text-emerald-400 font-semibold">{kpi.poeStatus} ({kpi.poeDoc})</span>
                               </div>
-                              <button
-                                type="button"
-                                disabled={actionLoading}
-                                onClick={() => handleExecuteAction('submit_kpi', { kpiId: kpi.id, notes: submitNotes })}
-                                className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded transition shrink-0 cursor-pointer ${
-                                  isSubmitted
-                                    ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/30'
-                                    : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-xs'
-                                }`}
-                              >
-                                {isSubmitted ? 'Submitted' : 'Submit KPI'}
-                              </button>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                  type="button"
+                                  disabled={actionLoading}
+                                  onClick={() => handleExecuteAction('redo_kpi', { kpiId: kpi.id })}
+                                  className="px-2 py-1 text-[9.5px] font-bold uppercase tracking-wider rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 transition cursor-pointer"
+                                  title="Unlock this single KPI to redo self-evaluation"
+                                >
+                                  Redo
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={actionLoading}
+                                  onClick={() => handleExecuteAction('submit_kpi', { kpiId: kpi.id, notes: submitNotes })}
+                                  className={`px-2 py-1 text-[9.5px] font-bold uppercase tracking-wider rounded transition cursor-pointer ${
+                                    isSubmitted
+                                      ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/30'
+                                      : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-xs'
+                                  }`}
+                                  title="Submit / Push this single KPI to Line Manager"
+                                >
+                                  {isSubmitted ? 'Pushed' : 'Push'}
+                                </button>
+                              </div>
                             </div>
                           );
                         })}
@@ -706,22 +718,43 @@ export function IPMSDemo({ currentUser, activeTenantId, onImpersonate, onNavigat
                       <span className="text-[11px] text-slate-400">
                         Submitting pushes official notification to <strong className="text-amber-300">manager@mzansiflow.co.za</strong> in Supabase.
                       </span>
-                      <button
-                        onClick={() => handleExecuteAction('submit_to_manager', { notes: submitNotes })}
-                        disabled={actionLoading}
-                        className="px-4 py-2 rounded-lg text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 flex items-center justify-center gap-1.5 shadow-md transition-colors cursor-pointer"
-                      >
-                        <Send className="w-3.5 h-3.5" />
-                        <span>Submit All 5 KPIs to Manager</span>
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleExecuteAction('user_redo')}
+                          disabled={actionLoading}
+                          className="px-3 py-2 rounded-lg text-xs font-bold text-amber-300 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                          title="Redo self evaluation for all KPIs"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          <span>Redo All KPIs</span>
+                        </button>
+                        <button
+                          onClick={() => handleExecuteAction('submit_to_manager', { notes: submitNotes })}
+                          disabled={actionLoading}
+                          className="px-4 py-2 rounded-lg text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 flex items-center justify-center gap-1.5 shadow-md transition-colors cursor-pointer"
+                        >
+                          <Send className="w-3.5 h-3.5" />
+                          <span>Submit / Push All to Manager</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ) : (
-                  <div className="p-3 rounded-lg bg-emerald-950/20 border border-emerald-500/20 text-xs text-emerald-300 flex items-center justify-between">
+                  <div className="p-3 rounded-lg bg-emerald-950/20 border border-emerald-500/20 text-xs text-emerald-300 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                      <span>Performance Agreement successfully submitted to Line Manager <strong className="text-white">manager@mzansiflow.co.za</strong>. Subordinate profile locked for editing.</span>
+                      <span>Performance Agreement successfully submitted to Line Manager <strong className="text-white">manager@mzansiflow.co.za</strong>.</span>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => handleExecuteAction('user_redo')}
+                      disabled={actionLoading}
+                      className="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-sm transition cursor-pointer self-start sm:self-auto"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Redo Self Evaluation</span>
+                    </button>
                   </div>
                 )}
               </div>
@@ -876,21 +909,33 @@ export function IPMSDemo({ currentUser, activeTenantId, onImpersonate, onNavigat
                                   />
                                 </div>
 
-                                <button
-                                  type="button"
-                                  onClick={() => handleExecuteAction('manager_action', {
-                                    actionType: 'approve',
-                                    comments: currentComment || managerComments,
-                                    managerScores: { ...managerScores, [kpi.id]: currentScore },
-                                    managerKpiComments: { ...managerKpiComments, [kpi.id]: currentComment }
-                                  })}
-                                  disabled={actionLoading}
-                                  className="px-2.5 py-1 bg-amber-600/30 hover:bg-amber-600/50 text-amber-300 border border-amber-500/40 rounded text-[11px] font-bold flex items-center gap-1 transition cursor-pointer shrink-0"
-                                  title="Approve and send this single KPI to Internal Audit"
-                                >
-                                  <Send className="w-3 h-3" />
-                                  <span>Send to Audit</span>
-                                </button>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleExecuteAction('manager_redo', { kpiId: kpi.id })}
+                                      disabled={actionLoading}
+                                      className="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 rounded text-[10px] font-bold flex items-center gap-1 transition cursor-pointer"
+                                      title="Reset manager approval/rejection on this KPI to redo assessment"
+                                    >
+                                      <RotateCcw className="w-3 h-3" />
+                                      <span>Redo</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleExecuteAction('manager_action', {
+                                        actionType: 'approve',
+                                        comments: currentComment || managerComments,
+                                        managerScores: { ...managerScores, [kpi.id]: currentScore },
+                                        managerKpiComments: { ...managerKpiComments, [kpi.id]: currentComment }
+                                      })}
+                                      disabled={actionLoading}
+                                      className="px-2.5 py-1 bg-amber-600/30 hover:bg-amber-600/50 text-amber-300 border border-amber-500/40 rounded text-[11px] font-bold flex items-center gap-1 transition cursor-pointer"
+                                      title="Approve and push this single KPI to Internal Audit"
+                                    >
+                                      <Send className="w-3 h-3" />
+                                      <span>Push to Audit</span>
+                                    </button>
+                                  </div>
                               </div>
                             </div>
                           );
@@ -959,34 +1004,52 @@ export function IPMSDemo({ currentUser, activeTenantId, onImpersonate, onNavigat
                           ? 'Notifies user@mzansiflow.co.za AND dispatches full docket to audit@mzansiflow.co.za with all KPIs, KPAs, and PoEs.'
                           : 'Notifies user@mzansiflow.co.za of the outcome with feedback.'}
                       </span>
-                      <button
-                        onClick={() => handleExecuteAction('manager_action', {
-                          actionType: managerActionType,
-                          comments: managerComments,
-                          managerScores,
-                          managerKpiComments
-                        })}
-                        disabled={actionLoading}
-                        className={`px-4 py-2 rounded-lg text-xs font-bold text-white shadow-md flex items-center justify-center gap-1.5 transition-colors cursor-pointer shrink-0 ${
-                          managerActionType === 'approve' ? 'bg-emerald-600 hover:bg-emerald-500' : (managerActionType === 'reject' ? 'bg-red-600 hover:bg-red-500' : 'bg-amber-600 hover:bg-amber-500')
-                        }`}
-                      >
-                        <CheckSquare className="w-3.5 h-3.5" />
-                        <span>{managerActionType === 'approve' ? 'Approve & Send All to Internal Audit for Review' : 'Execute Manager Decision'}</span>
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleExecuteAction('manager_redo')}
+                          disabled={actionLoading}
+                          className="px-3 py-2 rounded-lg text-xs font-bold text-amber-300 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 flex items-center justify-center gap-1.5 transition cursor-pointer"
+                          title="Reset manager approval/rejection decisions to redo review"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          <span>Redo Approval / Rejection</span>
+                        </button>
+                        <button
+                          onClick={() => handleExecuteAction('manager_action', {
+                            actionType: managerActionType,
+                            comments: managerComments,
+                            managerScores,
+                            managerKpiComments
+                          })}
+                          disabled={actionLoading}
+                          className={`px-4 py-2 rounded-lg text-xs font-bold text-white shadow-md flex items-center justify-center gap-1.5 transition-colors cursor-pointer shrink-0 ${
+                            managerActionType === 'approve' ? 'bg-emerald-600 hover:bg-emerald-500' : (managerActionType === 'reject' ? 'bg-red-600 hover:bg-red-500' : 'bg-amber-600 hover:bg-amber-500')
+                          }`}
+                        >
+                          <Send className="w-3.5 h-3.5" />
+                          <span>{managerActionType === 'approve' ? 'Approve & Push to Internal Audit' : 'Execute Manager Decision'}</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ) : currentStage > 2 ? (
-                  <div className="p-3 rounded-lg bg-emerald-950/20 border border-emerald-500/20 text-xs text-emerald-300 flex items-center justify-between">
+                  <div className="p-3.5 rounded-lg bg-emerald-950/20 border border-emerald-500/20 text-xs text-emerald-300 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                       <span>
                         Line Manager Approved: <em>"{demoState?.managerReview?.comments || 'All KPAs and evidence verified.'}"</em>. Dispatched to Internal Audit.
                       </span>
                     </div>
-                    <span className="text-[11px] text-slate-400 font-mono">
-                      {demoState?.managerReview?.timestamp ? new Date(demoState.managerReview.timestamp).toLocaleTimeString() : ''}
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleExecuteAction('manager_redo')}
+                      disabled={actionLoading}
+                      className="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-sm transition cursor-pointer self-start sm:self-auto"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Redo Approval / Rejection</span>
+                    </button>
                   </div>
                 ) : (
                   <p className="text-xs text-slate-500 italic">Waiting for standard user to submit their performance agreement...</p>
@@ -1145,6 +1208,29 @@ export function IPMSDemo({ currentUser, activeTenantId, onImpersonate, onNavigat
                                     className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-emerald-500"
                                   />
                                 </div>
+
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleExecuteAction('audit_redo', { kpiId: kpi.id })}
+                                    disabled={actionLoading}
+                                    className="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 rounded text-[10px] font-bold flex items-center gap-1 transition cursor-pointer"
+                                    title="Reset audit verification on this single KPI to redo assessment"
+                                  >
+                                    <RotateCcw className="w-3 h-3" />
+                                    <span>Redo</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleExecuteAction('audit_push_to_manager', { kpiId: kpi.id, comments: kpiAuditComment || auditComments })}
+                                    disabled={actionLoading}
+                                    className="px-2 py-1 bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 border border-blue-500/40 rounded text-[10px] font-bold flex items-center gap-1 transition cursor-pointer"
+                                    title="Push audit findings for this single KPI back to Line Manager"
+                                  >
+                                    <Send className="w-3 h-3" />
+                                    <span>Push to Mgr</span>
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           );
@@ -1211,33 +1297,61 @@ export function IPMSDemo({ currentUser, activeTenantId, onImpersonate, onNavigat
                       <span className="text-[11px] text-slate-400">
                         Approval sends docket directly to <strong className="text-purple-300">dpmc@mzansiflow.co.za</strong> with verified audit ratings.
                       </span>
-                      <button
-                        onClick={() => handleExecuteAction('audit_action', {
-                          actionType: auditActionType,
-                          comments: auditComments,
-                          auditScores,
-                          auditKpiComments,
-                          auditKpiCompliance
-                        })}
-                        disabled={actionLoading}
-                        className="px-4 py-2 rounded-lg text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 shadow-md flex items-center justify-center gap-1.5 transition-colors cursor-pointer shrink-0"
-                      >
-                        <Shield className="w-3.5 h-3.5" />
-                        <span>Issue Audit Clearance & Send to DPMC for Review</span>
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleExecuteAction('audit_redo')}
+                          disabled={actionLoading}
+                          className="px-3 py-2 rounded-lg text-xs font-bold text-amber-300 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 flex items-center justify-center gap-1.5 transition cursor-pointer"
+                          title="Reset all KPI audit assessments to redo verification"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          <span>Redo Achieved & Not Achieved</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleExecuteAction('audit_push_to_manager', { comments: auditComments })}
+                          disabled={actionLoading}
+                          className="px-3 py-2 rounded-lg text-xs font-bold text-blue-300 bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/40 flex items-center justify-center gap-1.5 transition cursor-pointer"
+                          title="Push audit findings back to Line Manager"
+                        >
+                          <Send className="w-3.5 h-3.5" />
+                          <span>Push to Manager</span>
+                        </button>
+                        <button
+                          onClick={() => handleExecuteAction('audit_action', {
+                            actionType: auditActionType,
+                            comments: auditComments,
+                            auditScores,
+                            auditKpiComments,
+                            auditKpiCompliance
+                          })}
+                          disabled={actionLoading}
+                          className="px-4 py-2 rounded-lg text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 shadow-md flex items-center justify-center gap-1.5 transition-colors cursor-pointer shrink-0"
+                        >
+                          <Shield className="w-3.5 h-3.5" />
+                          <span>Issue Audit Clearance & Send to DPMC</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ) : currentStage > 3 ? (
-                  <div className="p-3.5 rounded-lg bg-emerald-950/20 border border-emerald-500/20 text-xs text-emerald-300 flex items-center justify-between">
+                  <div className="p-3.5 rounded-lg bg-emerald-950/20 border border-emerald-500/20 text-xs text-emerald-300 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                       <span>
                         Internal Audit Cleared: <em>"{demoState?.auditReview?.comments || 'All compliance checks verified.'}"</em>. Docket forwarded to DPMC.
                       </span>
                     </div>
-                    <span className="text-[11px] text-slate-400 font-mono">
-                      {demoState?.auditReview?.timestamp ? new Date(demoState.auditReview.timestamp).toLocaleTimeString() : ''}
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleExecuteAction('audit_redo')}
+                      disabled={actionLoading}
+                      className="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-sm transition cursor-pointer self-start sm:self-auto"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Redo Achieved & Not Achieved</span>
+                    </button>
                   </div>
                 ) : (
                   <p className="text-xs text-slate-500 italic">Waiting for line manager approval before internal audit QA...</p>

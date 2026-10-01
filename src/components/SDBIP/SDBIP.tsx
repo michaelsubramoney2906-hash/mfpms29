@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import mammoth from 'mammoth';
-import { Layers, Info, CheckCircle, Upload, Download, ArrowRight, Shield, ShieldCheck, AlertTriangle, HelpCircle, Check, CheckSquare, FileText, Plus, Trash2, Database, FolderArchive, AlertCircle, Sparkles, Send, Inbox, Bell, Eye, Lock, Unlock, RefreshCw, XCircle, Clock, Maximize2, Minimize2, Calendar, CalendarDays, ShieldAlert, KeyRound, BellOff, Key } from 'lucide-react';
+import { Layers, Info, CheckCircle, Upload, Download, ArrowRight, Shield, ShieldCheck, AlertTriangle, HelpCircle, Check, CheckSquare, FileText, Plus, Trash2, Database, FolderArchive, AlertCircle, Sparkles, Send, Inbox, Bell, Eye, Lock, Unlock, RefreshCw, XCircle, Clock, Maximize2, Minimize2, Calendar, CalendarDays, ShieldAlert, KeyRound, BellOff, Key, X, RotateCcw } from 'lucide-react';
 import type { User } from '../../types';
 import { SDBIPDraftingSuite } from './SDBIPDraftingSuite';
 import { WordProcessor } from './WordProcessor';
@@ -10,7 +10,7 @@ import { AzureADPicker } from './AzureADPicker';
 import { SDBIPPagination } from './SDBIPPagination';
 import { ExpandableCell, CellExpandModal, ExpandModalState } from './ExpandableCell';
 import { isQuarterInReportingPeriod, getQuarterLockNotice, REPORTING_PERIOD_CONFIGS, getCurrentMunicipalQuarter, ReportingPhase } from '../../utils/reportingPeriods';
-import { PMS_TEAM_REVIEWERS, INTERNAL_AUDIT_USERS, isUserMatch, dispatchSdbipNotification } from '../../utils/sdbipWorkflowHelper';
+import { PMS_TEAM_REVIEWERS, INTERNAL_AUDIT_USERS, isUserMatch, dispatchSdbipNotification, isMasterAdminMike } from '../../utils/sdbipWorkflowHelper';
 import { OfficeDocumentViewer } from '../IPMS/OfficeDocumentViewer';
 import { calcVar, extractNumericValue } from '../../utils/varianceCalculator';
 
@@ -142,6 +142,10 @@ export interface SdbipRow {
   workflows?: {
     [key: string]: SdbipWorkflow;
   };
+  workflowStatus?: string;
+  approvedBy?: string;
+  adminLocked?: boolean;
+  workflowHistory?: any[];
   budgetOverride?: {
     requested?: boolean;
     requestedBy?: string;
@@ -188,7 +192,7 @@ export interface BudgetBreakdown {
 }
 
 export function getRowBudgetBreakdown(row: SdbipRow): BudgetBreakdown {
-  const totalBudget = parseBudgetNum(row.budgetAllocation || row.budget || '');
+  const totalBudget = parseBudgetNum(row.budgetAllocation || (row as any).budget || '');
   const q1Exp = parseBudgetNum(row.q1Expenditure || '');
   const q2Exp = parseBudgetNum(row.q2Expenditure || '');
   const q3Exp = parseBudgetNum(row.q3Expenditure || '');
@@ -498,8 +502,8 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
   const [showAllKpisInDesk, setShowAllKpisInDesk] = useState(true);
   const [isTableExpanded, setIsTableExpanded] = useState(false);
 
-  // Municipal Reporting Period & Calendar Temporal Control
-  const [periodOverride, setPeriodOverride] = useState<string>('all_open');
+  // Municipal Reporting Period & Calendar Temporal Control (Defaults to Quarter 1 active, Q2-Q4 locked)
+  const [periodOverride, setPeriodOverride] = useState<string>('q1');
   const isQuarterActive = (phase: string): boolean => {
     return isQuarterInReportingPeriod(phase as any, periodOverride);
   };
@@ -1192,6 +1196,373 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     }
   };
 
+  const isSuperAdminMike = isMasterAdminMike(currentUser);
+
+  // Global Administrator Mike Master Override: Undo submission and return KPI to Draft
+  const handleMasterUndoSubmission = async (rowId: string, phase = workflowPhase) => {
+    const targetRow = rows.find(r => r.id === rowId);
+    if (!targetRow) return;
+    const phaseLabel = phase === 'midTerm' ? 'Mid-Term' : phase === 'annual' ? 'Annual' : phase.toUpperCase();
+
+    const currentHistory = (targetRow as any).workflowHistory || [];
+    const newHistoryItem = {
+      date: new Date().toISOString(),
+      action: `Submission Undone by Global Admin (${phaseLabel})`,
+      user: currentUserDisplayName,
+      notes: `Global Administrator Mike reverted KPI ${targetRow.refNum} submission to Draft state.`
+    };
+
+    const updatedRows = rows.map(r => {
+      if (r.id === rowId) {
+        const workflows = { ...(r.workflows || {}) };
+        if (workflows[phase]) {
+          workflows[phase] = { ...workflows[phase], status: 'draft', approvedBy: undefined };
+        }
+        ['q1', 'q2', 'midTerm', 'q3', 'q4', 'annual'].forEach(ph => {
+          if (workflows[ph] && (workflows[ph].status === 'pending_approval' || workflows[ph].status === 'pending_review' || workflows[ph].status === 'pending_audit')) {
+            workflows[ph] = { ...workflows[ph], status: 'draft' };
+          }
+        });
+        return {
+          ...r,
+          workflowStatus: 'Draft',
+          workflows,
+          workflowHistory: [...currentHistory, newHistoryItem]
+        } as SdbipRow;
+      }
+      return r;
+    });
+
+    setRows(updatedRows);
+    await saveRows(updatedRows);
+
+    fetch('/api/audit/log-access', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: currentUser.email,
+        fullName: currentUser.fullName,
+        tenantId: activeTenantId,
+        role: 'Global Administrator',
+        action: 'SUPERADMIN_UNDO_SUBMISSION',
+        moduleId: 'sdbip-reporting',
+        moduleName: 'SDBIP Reporting Table',
+        subModuleId: 'sdbip-table',
+        subModuleName: 'SDBIP Main Table',
+        details: `Global Administrator Mike reverted KPI ${targetRow.refNum} (${phaseLabel}) from Submitted to Draft state.`
+      })
+    }).catch(console.error);
+
+    setSuccessToast(`🔓 Master Override: Submission undone for KPI ${targetRow.refNum}! It is now in Draft workspace.`);
+    setTimeout(() => setSuccessToast(null), 4000);
+  };
+
+  // Global Administrator Mike Master Override: Revoke approval and unlock KPI
+  const handleMasterUnlockApproval = async (rowId: string, phase = workflowPhase) => {
+    const targetRow = rows.find(r => r.id === rowId);
+    if (!targetRow) return;
+    const phaseLabel = phase === 'midTerm' ? 'Mid-Term' : phase === 'annual' ? 'Annual' : phase.toUpperCase();
+
+    const currentHistory = (targetRow as any).workflowHistory || [];
+    const newHistoryItem = {
+      date: new Date().toISOString(),
+      action: `Approval Revoked by Global Admin (${phaseLabel})`,
+      user: currentUserDisplayName,
+      notes: `Global Administrator Mike revoked approval seal and unlocked KPI ${targetRow.refNum} for revision.`
+    };
+
+    const updatedRows = rows.map(r => {
+      if (r.id === rowId) {
+        const workflows = { ...(r.workflows || {}) };
+        if (workflows[phase]) {
+          workflows[phase] = { ...workflows[phase], status: 'draft', approvedBy: undefined };
+        }
+        ['q1', 'q2', 'midTerm', 'q3', 'q4', 'annual'].forEach(ph => {
+          if (workflows[ph] && (workflows[ph].status === 'approved' || workflows[ph].status === 'pending_review' || workflows[ph].status === 'pending_audit')) {
+            workflows[ph] = { ...workflows[ph], status: 'draft', approvedBy: undefined };
+          }
+        });
+        return {
+          ...r,
+          workflowStatus: 'Draft',
+          approvedBy: undefined,
+          workflows,
+          workflowHistory: [...currentHistory, newHistoryItem]
+        } as SdbipRow;
+      }
+      return r;
+    });
+
+    setRows(updatedRows);
+    await saveRows(updatedRows);
+
+    fetch('/api/audit/log-access', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: currentUser.email,
+        fullName: currentUser.fullName,
+        tenantId: activeTenantId,
+        role: 'Global Administrator',
+        action: 'SUPERADMIN_UNLOCK_APPROVAL',
+        moduleId: 'sdbip-reporting',
+        moduleName: 'SDBIP Reporting Table',
+        subModuleId: 'sdbip-table',
+        subModuleName: 'SDBIP Main Table',
+        details: `Global Administrator Mike revoked approval and unlocked KPI ${targetRow.refNum} (${phaseLabel}) for revision.`
+      })
+    }).catch(console.error);
+
+    setSuccessToast(`🔓 Master Override: Approval revoked & unlocked for KPI ${targetRow.refNum}! Reopened for revision.`);
+    setTimeout(() => setSuccessToast(null), 4000);
+  };
+
+  // Global Administrator Mike Master Override: Lock / Unlock row toggle
+  const handleMasterToggleRowLock = async (rowId: string) => {
+    const targetRow = rows.find(r => r.id === rowId);
+    if (!targetRow) return;
+    const isCurrentlyLocked = (targetRow as any).workflowStatus === 'Approved' || (targetRow as any).adminLocked;
+    const newStatus = isCurrentlyLocked ? 'Draft' : 'Approved';
+
+    const currentHistory = (targetRow as any).workflowHistory || [];
+    const newHistoryItem = {
+      date: new Date().toISOString(),
+      action: isCurrentlyLocked ? 'Unlocked by Global Admin' : 'Locked by Global Admin',
+      user: currentUserDisplayName,
+      notes: isCurrentlyLocked ? 'Global Administrator Mike unlocked KPI.' : 'Global Administrator Mike locked KPI.'
+    };
+
+    const updatedRows = rows.map(r => {
+      if (r.id === rowId) {
+        const workflows = { ...(r.workflows || {}) };
+        ['q1', 'q2', 'midTerm', 'q3', 'q4', 'annual'].forEach(ph => {
+          if (workflows[ph]) {
+            workflows[ph] = { ...workflows[ph], status: isCurrentlyLocked ? 'draft' : 'approved', approvedBy: isCurrentlyLocked ? undefined : currentUserDisplayName };
+          }
+        });
+        return {
+          ...r,
+          workflowStatus: newStatus,
+          approvedBy: isCurrentlyLocked ? undefined : (r.approvedBy || currentUserDisplayName),
+          adminLocked: !isCurrentlyLocked,
+          workflows,
+          workflowHistory: [...currentHistory, newHistoryItem]
+        } as SdbipRow;
+      }
+      return r;
+    });
+
+    setRows(updatedRows);
+    await saveRows(updatedRows);
+
+    fetch('/api/audit/log-access', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: currentUser.email,
+        fullName: currentUser.fullName,
+        tenantId: activeTenantId,
+        role: 'Global Administrator',
+        action: isCurrentlyLocked ? 'SUPERADMIN_UNLOCK_KPI' : 'SUPERADMIN_LOCK_KPI',
+        moduleId: 'sdbip-reporting',
+        moduleName: 'SDBIP Reporting Table',
+        subModuleId: 'sdbip-table',
+        subModuleName: 'SDBIP Main Table',
+        details: `Global Administrator Mike ${isCurrentlyLocked ? 'unlocked' : 'locked'} KPI ${targetRow.refNum}.`
+      })
+    }).catch(console.error);
+
+    setSuccessToast(`🔓 Master Override: KPI ${targetRow.refNum} successfully ${isCurrentlyLocked ? 'unlocked and opened for editing' : 'locked'}!`);
+    setTimeout(() => setSuccessToast(null), 4000);
+  };
+
+  // Bulk Master Overrides
+  const handleMasterUnlockAllApproved = async () => {
+    if (!window.confirm('Are you sure you want to unlock ALL currently Approved KPIs? This will reopen them for revision.')) return;
+    const currentHistoryItem = {
+      date: new Date().toISOString(),
+      action: 'All Approvals Revoked by Global Admin',
+      user: currentUserDisplayName,
+      notes: 'Global Administrator Mike unlocked and reopened all Approved KPIs.'
+    };
+    const updatedRows = rows.map(r => {
+      const isApproved = (r as any).workflowStatus === 'Approved' || Object.values(r.workflows || {}).some((w: any) => w?.status === 'approved');
+      if (isApproved) {
+        const workflows = { ...(r.workflows || {}) };
+        Object.keys(workflows).forEach(k => {
+          if (workflows[k]?.status === 'approved') {
+            workflows[k] = { ...workflows[k], status: 'draft', approvedBy: undefined };
+          }
+        });
+        return {
+          ...r,
+          workflowStatus: 'Draft',
+          approvedBy: undefined,
+          workflows,
+          workflowHistory: [...((r as any).workflowHistory || []), currentHistoryItem]
+        };
+      }
+      return r;
+    });
+
+    setRows(updatedRows);
+    await saveRows(updatedRows);
+
+    fetch('/api/audit/log-access', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: currentUser.email,
+        fullName: currentUser.fullName,
+        tenantId: activeTenantId,
+        role: 'Global Administrator',
+        action: 'SUPERADMIN_BULK_UNLOCK_APPROVED',
+        moduleId: 'sdbip-reporting',
+        moduleName: 'SDBIP Reporting Table',
+        subModuleId: 'sdbip-table',
+        subModuleName: 'SDBIP Main Table',
+        details: `Global Administrator Mike unlocked all Approved KPIs.`
+      })
+    }).catch(console.error);
+
+    setSuccessToast('🔓 Master Override: All approved KPIs have been unlocked & reverted to Draft!');
+    setTimeout(() => setSuccessToast(null), 4000);
+  };
+
+  const handleMasterUndoAllSubmissions = async () => {
+    if (!window.confirm('Are you sure you want to undo ALL submitted KPIs and revert them to Draft?')) return;
+    const currentHistoryItem = {
+      date: new Date().toISOString(),
+      action: 'All Submissions Undone by Global Admin',
+      user: currentUserDisplayName,
+      notes: 'Global Administrator Mike returned all pending submissions to Draft.'
+    };
+    const updatedRows = rows.map(r => {
+      const isPending = ['Submitted', 'Reviewed', 'Pending Audit', 'pending_approval', 'pending_review', 'pending_audit'].includes((r as any).workflowStatus) ||
+        Object.values(r.workflows || {}).some((w: any) => ['pending_approval', 'pending_review', 'pending_audit'].includes(w?.status));
+      if (isPending) {
+        const workflows = { ...(r.workflows || {}) };
+        Object.keys(workflows).forEach(k => {
+          if (['pending_approval', 'pending_review', 'pending_audit'].includes(workflows[k]?.status)) {
+            workflows[k] = { ...workflows[k], status: 'draft' };
+          }
+        });
+        return {
+          ...r,
+          workflowStatus: 'Draft',
+          workflows,
+          workflowHistory: [...((r as any).workflowHistory || []), currentHistoryItem]
+        };
+      }
+      return r;
+    });
+
+    setRows(updatedRows);
+    await saveRows(updatedRows);
+
+    fetch('/api/audit/log-access', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: currentUser.email,
+        fullName: currentUser.fullName,
+        tenantId: activeTenantId,
+        role: 'Global Administrator',
+        action: 'SUPERADMIN_BULK_UNDO_SUBMISSIONS',
+        moduleId: 'sdbip-reporting',
+        moduleName: 'SDBIP Reporting Table',
+        subModuleId: 'sdbip-table',
+        subModuleName: 'SDBIP Main Table',
+        details: `Global Administrator Mike returned all submitted KPIs to Draft.`
+      })
+    }).catch(console.error);
+
+    setSuccessToast('🔓 Master Override: All submitted KPIs returned to Draft!');
+    setTimeout(() => setSuccessToast(null), 4000);
+  };
+
+  const handleMasterPurgeActivePoe = async (rowId?: string, quarter?: string, fileName?: string) => {
+    if (!rowId || !fileName) return;
+    const targetRow = rows.find(r => r.id === rowId);
+    if (!targetRow) return;
+
+    try {
+      // 1. Remove from global poes list
+      const updatedPoes = poes.filter(p => !(p.refNum === targetRow.refNum && p.name === fileName));
+      await fetch(`/api/tenant/${activeTenantId}/sdbip-poes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ poes: updatedPoes })
+      });
+      setPoes(updatedPoes);
+
+      // 2. Remove from row quarter POE arrays
+      const filterPoes = (arr: any) => Array.isArray(arr) ? arr.filter((fn: string) => fn !== fileName) : arr;
+      const updatedRows = rows.map(r => {
+        if (r.id === rowId) {
+          const u = {
+            ...r,
+            q1Poes: filterPoes(r.q1Poes),
+            q2Poes: filterPoes(r.q2Poes),
+            midTermPoes: filterPoes(r.midTermPoes),
+            q3Poes: filterPoes(r.q3Poes),
+            q4Poes: filterPoes(r.q4Poes),
+          };
+          const q1Empty = !u.q1Poes || u.q1Poes.length === 0;
+          const q2Empty = !u.q2Poes || u.q2Poes.length === 0;
+          const midTermEmpty = !u.midTermPoes || u.midTermPoes.length === 0;
+          const q3Empty = !u.q3Poes || u.q3Poes.length === 0;
+          const q4Empty = !u.q4Poes || u.q4Poes.length === 0;
+          if (q1Empty && q2Empty && midTermEmpty && q3Empty && q4Empty) {
+            u.poeStatus = 'Not Uploaded';
+          }
+          return u;
+        }
+        return r;
+      });
+      setRows(updatedRows);
+      await saveRows(updatedRows);
+
+      // 3. Log to audit
+      fetch('/api/audit/log-access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: currentUser.email,
+          fullName: currentUser.fullName,
+          tenantId: activeTenantId,
+          role: 'Global Administrator',
+          action: 'SUPERADMIN_POE_PURGE',
+          moduleId: 'sdbip-reporting',
+          moduleName: 'SDBIP Reporting Table',
+          subModuleId: 'sdbip-table',
+          subModuleName: 'PoE Inspector',
+          details: `Global Administrator Mike purged PoE document "${fileName}" from KPI ${targetRow.refNum}.`
+        })
+      }).catch(console.error);
+
+      // 4. Update viewPoeModal state
+      setViewPoeModal(p => {
+        const remainingFiles = p.files.filter(f => f.name !== fileName);
+        if (remainingFiles.length === 0) {
+          return { ...p, isOpen: false, files: [] };
+        }
+        return {
+          ...p,
+          files: remainingFiles,
+          activeFileIndex: Math.max(0, Math.min(p.activeFileIndex, remainingFiles.length - 1))
+        };
+      });
+
+      setSuccessToast(`🗑️ Master Override: Evidence document "${fileName}" purged and deleted from Supabase!`);
+      setTimeout(() => setSuccessToast(null), 3500);
+    } catch (err: any) {
+      console.error('Failed to purge PoE:', err);
+      setSuccessToast(`Error deleting document: ${err.message}`);
+      setTimeout(() => setSuccessToast(null), 4000);
+    }
+  };
+
   const getPhaseData = (row: SdbipRow, phase: string) => {
     const sourcePoe = row.poeDesc || row.poeStatus || row.q1PoeDesc || row.q2PoeDesc || row.midTermPoeDesc || row.q3PoeDesc || row.q4PoeDesc || '';
     switch (phase) {
@@ -1611,6 +1982,31 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
           updatedRow.responsibleUnit = value;
         } else if (field === 'responsibleUnit') {
           updatedRow.submitter = value;
+        }
+
+        // Automatically unlock Reviewer or Internal Audit module and notify user & Global Administrators
+        if ((field === 'reviewer' || field === 'internalAudit') && value) {
+          fetch(`/api/tenant/${activeTenantId}/auto-unlock-official`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              rowId: r.id,
+              refNum: r.refNum,
+              kpiName: r.kpi,
+              roleType: field === 'reviewer' ? 'reviewer' : 'internal_audit',
+              officialIdentifier: value,
+              assignedBy: currentUser.fullName || currentUser.email || 'Global Administrator'
+            })
+          })
+          .then(res => res.json())
+          .then(data => {
+            if (data?.success) {
+              window.dispatchEvent(new CustomEvent('sdbip_module_unlocked', { detail: data }));
+              setSuccessToast(`🔓 Official Designated: ${value}. ${data.unlockedModule?.name || (field === 'reviewer' ? 'OPMS Reviewer' : 'OPMS Internal Audit')} module automatically unlocked! Notifications dispatched to official inbox and all Global Administrators.`);
+              setTimeout(() => setSuccessToast(null), 6000);
+            }
+          })
+          .catch(e => console.error("Error auto-unlocking official module:", e));
         }
         
         // Auto-calculate Annual Target if quarterly targets are modified
@@ -2142,13 +2538,13 @@ Timestamp: ${new Date().toLocaleString()}
   };
 
   const clearQuarterPoe = (rowId: string, quarter: 'q1' | 'q2' | 'midTerm' | 'q3' | 'q4') => {
-    if (!isQuarterActive(quarter)) {
+    if (!isSuperAdminMike && !isQuarterActive(quarter)) {
       setSuccessToast(`Action Locked: ${getQuarterLockNotice(quarter)} Unless you are in the actual period, you cannot modify POE.`);
       setTimeout(() => setSuccessToast(null), 4000);
       return;
     }
     const targetRow = rows.find(r => r.id === rowId);
-    if (targetRow && (targetRow.submitter || targetRow.responsibleUnit)) {
+    if (!isSuperAdminMike && targetRow && (targetRow.submitter || targetRow.responsibleUnit)) {
       const assignedSubmitter = targetRow.submitter || targetRow.responsibleUnit;
       const isMatch = isUserMatch(assignedSubmitter, currentUser);
       if (!isMatch) {
@@ -2604,7 +3000,7 @@ Timestamp: ${new Date().toLocaleString()}
           )}
 
           <div 
-            className="flex flex-col items-center justify-center gap-0.5 w-full max-w-[135px] mt-1 bg-slate-100/90 border border-slate-200 p-1.5 rounded text-center shadow-2xs cursor-not-allowed" 
+            className="flex flex-col items-center justify-center gap-0.5 w-full max-w-[135px] mt-1 bg-slate-100/90 border border-slate-200 p-1.5 rounded text-center shadow-2xs" 
             title={`${phaseLabel} Workflow Control is Locked`}
           >
             <div className="flex items-center justify-center gap-1 text-[9px] font-bold text-slate-500">
@@ -2614,6 +3010,19 @@ Timestamp: ${new Date().toLocaleString()}
             <span className="text-[8px] text-slate-400 font-medium leading-tight">
               Action controls locked
             </span>
+            {isSuperAdminMike && (
+              <div className="mt-1 flex flex-col gap-1 w-full pt-1 border-t border-amber-200">
+                <button
+                  type="button"
+                  onClick={() => handleMasterUnlockApproval(row.id, phase)}
+                  className="px-1.5 py-0.5 bg-rose-600 hover:bg-rose-700 text-white rounded text-[8.5px] font-bold transition shadow-2xs flex items-center justify-center gap-1 cursor-pointer"
+                  title="Master Override: Revoke Approval & Unlock (Mike)"
+                >
+                  <Unlock className="w-2.5 h-2.5 text-rose-200" />
+                  <span>Unlock (Mike)</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       );
@@ -2623,24 +3032,76 @@ Timestamp: ${new Date().toLocaleString()}
       <div className="flex flex-col items-center gap-1.5 py-1.5 min-w-[140px]">
         {/* Current Badge */}
         {status === 'approved' && (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-emerald-50 text-emerald-700 border-emerald-200 shadow-xs">
-            <CheckCircle className="w-2.5 h-2.5" /> Approved
-          </span>
+          <div className="flex flex-col items-center gap-1">
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-emerald-50 text-emerald-700 border-emerald-200 shadow-xs">
+              <CheckCircle className="w-2.5 h-2.5" /> Approved
+            </span>
+            {isSuperAdminMike && (
+              <button
+                type="button"
+                onClick={() => handleMasterUnlockApproval(row.id, phase)}
+                className="mt-0.5 px-2 py-0.5 bg-rose-600 hover:bg-rose-700 text-white rounded text-[8.5px] font-bold transition shadow-2xs flex items-center gap-1 cursor-pointer"
+                title="Revoke Approval & Reopen (Mike Master Override)"
+              >
+                <Unlock className="w-2.5 h-2.5 text-rose-200" />
+                <span>Unlock (Mike)</span>
+              </button>
+            )}
+          </div>
         )}
         {status === 'pending_approval' && (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-amber-50 text-amber-700 border-amber-200 shadow-xs">
-            <Clock className="w-2.5 h-2.5" /> Pend. Appr.
-          </span>
+          <div className="flex flex-col items-center gap-1">
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-amber-50 text-amber-700 border-amber-200 shadow-xs">
+              <Clock className="w-2.5 h-2.5" /> Pend. Appr.
+            </span>
+            {isSuperAdminMike && (
+              <button
+                type="button"
+                onClick={() => handleMasterUndoSubmission(row.id, phase)}
+                className="px-1.5 py-0.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-[8.5px] font-bold transition shadow-2xs flex items-center gap-1 cursor-pointer"
+                title="Undo Submission & Revert to Draft (Mike Master Override)"
+              >
+                <RotateCcw className="w-2.5 h-2.5 text-amber-200" />
+                <span>Undo (Mike)</span>
+              </button>
+            )}
+          </div>
         )}
         {status === 'pending_review' && (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-violet-50 text-violet-700 border-violet-200 shadow-xs">
-            <Clock className="w-2.5 h-2.5" /> Pend. Rev.
-          </span>
+          <div className="flex flex-col items-center gap-1">
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-violet-50 text-violet-700 border-violet-200 shadow-xs">
+              <Clock className="w-2.5 h-2.5" /> Pend. Rev.
+            </span>
+            {isSuperAdminMike && (
+              <button
+                type="button"
+                onClick={() => handleMasterUndoSubmission(row.id, phase)}
+                className="px-1.5 py-0.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-[8.5px] font-bold transition shadow-2xs flex items-center gap-1 cursor-pointer"
+                title="Undo Submission & Revert to Draft (Mike Master Override)"
+              >
+                <RotateCcw className="w-2.5 h-2.5 text-amber-200" />
+                <span>Undo (Mike)</span>
+              </button>
+            )}
+          </div>
         )}
         {status === 'pending_audit' && (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-rose-50 text-rose-700 border-rose-200 shadow-xs">
-            <ShieldCheck className="w-2.5 h-2.5" /> Pend. Audit
-          </span>
+          <div className="flex flex-col items-center gap-1">
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-rose-50 text-rose-700 border-rose-200 shadow-xs">
+              <ShieldCheck className="w-2.5 h-2.5" /> Pend. Audit
+            </span>
+            {isSuperAdminMike && (
+              <button
+                type="button"
+                onClick={() => handleMasterUndoSubmission(row.id, phase)}
+                className="px-1.5 py-0.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-[8.5px] font-bold transition shadow-2xs flex items-center gap-1 cursor-pointer"
+                title="Undo Submission & Revert to Draft (Mike Master Override)"
+              >
+                <RotateCcw className="w-2.5 h-2.5 text-amber-200" />
+                <span>Undo (Mike)</span>
+              </button>
+            )}
+          </div>
         )}
         {status === 'draft' && (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-slate-100 text-slate-600 border-slate-200 shadow-xs">
@@ -2651,7 +3112,7 @@ Timestamp: ${new Date().toLocaleString()}
         {/* Interactive Transition Buttons or Locked Status */}
         {!isQuarterActive(phase) ? (
           <div 
-            className="flex flex-col items-center gap-0.5 w-full max-w-[135px] mt-1 bg-slate-100/90 border border-slate-200 p-1.5 rounded text-center shadow-2xs cursor-not-allowed group/lock" 
+            className="flex flex-col items-center gap-0.5 w-full max-w-[135px] mt-1 bg-slate-100/90 border border-slate-200 p-1.5 rounded text-center shadow-2xs group/lock" 
             title={getQuarterLockNotice(phase as ReportingPhase)}
           >
             <div className="flex items-center justify-center gap-1 text-[9px] font-bold text-slate-500">
@@ -2661,6 +3122,19 @@ Timestamp: ${new Date().toLocaleString()}
             <span className="text-[8px] text-slate-400 font-medium leading-tight">
               {REPORTING_PERIOD_CONFIGS[phase as ReportingPhase]?.monthsLabel || 'Outside Period'}
             </span>
+            {isSuperAdminMike && (
+              <div className="mt-1 flex flex-col gap-1 w-full pt-1 border-t border-amber-200">
+                <button
+                  type="button"
+                  onClick={() => handleMasterUnlockApproval(row.id, phase)}
+                  className="px-1.5 py-0.5 bg-rose-600 hover:bg-rose-700 text-white rounded text-[8.5px] font-bold transition shadow-2xs flex items-center justify-center gap-1 cursor-pointer"
+                  title="Master Override: Unlock / Reopen (Mike)"
+                >
+                  <Unlock className="w-2.5 h-2.5 text-rose-200" />
+                  <span>Unlock (Mike)</span>
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="flex flex-col gap-1 w-full max-w-[130px] mt-1">
@@ -5102,6 +5576,50 @@ Timestamp: ${new Date().toLocaleString()}
                 />
               </div>
 
+              {/* Master Override Bar for Global Administrator Mike */}
+              {isSuperAdminMike && (
+                <div className="mb-3 bg-gradient-to-r from-amber-950/40 via-red-950/30 to-amber-950/40 border-2 border-amber-500/60 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 shadow-md">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 bg-amber-500 text-slate-950 rounded-lg shrink-0">
+                      <ShieldAlert className="w-5 h-5 font-black" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-black text-amber-300 uppercase tracking-wider">
+                          👑 Global Administrator Master Override (Mike)
+                        </span>
+                        <span className="text-[10px] bg-amber-900/80 text-amber-200 border border-amber-600/50 font-mono px-2 py-0.5 rounded-full font-bold">
+                          mike@mzansiflow.co.za
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-300 mt-0.5">
+                        Master privileges enabled: You can undo submissions, unlock approval seals, toggle scorecard locks, and purge locked PoE files on any indicator.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={handleMasterUnlockAllApproved}
+                      className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 transition shadow-sm cursor-pointer"
+                      title="Revoke and unlock all currently Approved KPIs so departments can revise them"
+                    >
+                      <Unlock className="w-3.5 h-3.5" />
+                      <span>Unlock All Approved</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleMasterUndoAllSubmissions}
+                      className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 transition shadow-sm cursor-pointer"
+                      title="Undo all pending submissions and return them to Draft state"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Undo All Submissions</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className={`overflow-auto border border-slate-200 rounded-xl relative bg-white transition-all duration-300 ${isTableExpanded ? 'flex-1 shadow-2xl border-indigo-100 min-h-0' : 'h-[580px] max-h-[68vh]'}`}>
               <table className="w-full text-left border-collapse table-fixed min-w-[9400px]">
                 <thead className="sticky top-0 bg-slate-100 z-20 border-b-2 border-slate-200 text-[10px] font-black tracking-wider uppercase text-slate-700 font-mono">
@@ -5348,6 +5866,54 @@ Timestamp: ${new Date().toLocaleString()}
                           onOpenExpandModal={openCellExpandModal}
                           className="font-mono font-bold text-slate-800"
                         />
+                        {isSuperAdminMike && (
+                          <div className="flex flex-col gap-1 mt-1 pt-1 border-t border-amber-300">
+                            <div className="flex items-center gap-1 flex-wrap">
+                              <button
+                                type="button"
+                                onClick={() => handleMasterToggleRowLock(row.id)}
+                                className={`px-1.5 py-0.5 rounded text-[8.5px] font-black uppercase tracking-wider flex items-center gap-0.5 transition cursor-pointer shadow-2xs ${
+                                  (row as any).workflowStatus === 'Approved' || (row as any).adminLocked
+                                    ? 'bg-rose-100 text-rose-800 hover:bg-rose-200 border border-rose-300'
+                                    : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border border-emerald-300'
+                                }`}
+                                title="Master Lock/Unlock Toggle (Mike)"
+                              >
+                                {(row as any).workflowStatus === 'Approved' || (row as any).adminLocked ? (
+                                  <>
+                                    <Unlock className="w-2.5 h-2.5 text-rose-600" />
+                                    <span>Unlock</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Lock className="w-2.5 h-2.5 text-emerald-700" />
+                                    <span>Lock</span>
+                                  </>
+                                )}
+                              </button>
+                              {((row as any).workflowStatus === 'Approved' || (row as any).workflowStatus === 'Reviewed') && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleMasterUnlockApproval(row.id)}
+                                  className="px-1.5 py-0.5 bg-rose-600 hover:bg-rose-700 text-white rounded text-[8.5px] font-bold transition shadow-2xs cursor-pointer"
+                                  title="Revoke Approval & Reopen (Mike Master Override)"
+                                >
+                                  Reopen
+                                </button>
+                              )}
+                              {((row as any).workflowStatus === 'Submitted' || (row as any).workflowStatus === 'pending_approval' || (row as any).workflowStatus === 'pending_review' || (row as any).workflowStatus === 'pending_audit') && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleMasterUndoSubmission(row.id)}
+                                  className="px-1.5 py-0.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-[8.5px] font-bold transition shadow-2xs cursor-pointer"
+                                  title="Undo Submission & Revert to Draft (Mike Master Override)"
+                                >
+                                  Undo
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </td>
                       <td className="p-2 border-r border-slate-150">
                         <ExpandableCell
@@ -5433,7 +5999,7 @@ Timestamp: ${new Date().toLocaleString()}
                           return (
                             <div className="flex flex-col gap-1">
                               <ExpandableCell
-                                value={row.budgetAllocation || row.budget || 'Opex'}
+                                value={row.budgetAllocation || (row as any).budget || 'Opex'}
                                 readOnly
                                 cellTitle="Total Budget Allocation"
                                 refNum={row.refNum}
@@ -7228,6 +7794,21 @@ Timestamp: ${new Date().toLocaleString()}
                         <Eye className="w-3.5 h-3.5" />
                         <span>View Original File</span>
                       </button>
+                      {isSuperAdminMike && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm(`⚠️ Master Override (Mike):\nAre you sure you want to PERMANENTLY PURGE and delete "${activeFile.name}" from Supabase storage? This cannot be undone.`)) {
+                              handleMasterPurgeActivePoe(viewPoeModal.rowId, viewPoeModal.quarterKey, activeFile.name);
+                            }
+                          }}
+                          className="px-2.5 py-1 bg-rose-700 hover:bg-rose-800 text-rose-100 text-[10px] font-black uppercase tracking-wide rounded-md transition shadow-xs flex items-center gap-1.5 cursor-pointer border border-rose-500/60"
+                          title="Master Override: Purge locked PoE file (Mike)"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          <span>Purge PoE</span>
+                        </button>
+                      )}
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-500/20 text-emerald-300 text-[10px] font-black rounded-full border border-emerald-500/30">
                         <ShieldCheck className="w-3 h-3" /> VERIFIED POE
                       </span>
@@ -7336,17 +7917,35 @@ Timestamp: ${new Date().toLocaleString()}
                       <span>Download in Original ({ext}) Format</span>
                     </button>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setViewPoeModal(p => ({ ...p, isOpen: false }));
-                        triggerUploadModal(viewPoeModal.rowId!, viewPoeModal.refNum, viewPoeModal.quarterKey as any);
-                      }}
-                      className="px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl flex items-center gap-1.5 transition cursor-pointer"
-                    >
-                      <Upload className="w-4 h-4 text-indigo-600" />
-                      <span>Upload / Replace Files</span>
-                    </button>
+                    <div className="flex items-center gap-2">
+                      {isSuperAdminMike && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm(`⚠️ Master Override (Mike):\nAre you sure you want to PERMANENTLY PURGE and delete "${activeFile.name}" from Supabase storage? This cannot be undone.`)) {
+                              handleMasterPurgeActivePoe(viewPoeModal.rowId, viewPoeModal.quarterKey, activeFile.name);
+                            }
+                          }}
+                          className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition shadow-xs cursor-pointer"
+                          title="Master Override: Purge and delete this PoE document from Supabase storage (Mike)"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Purge / Delete PoE</span>
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setViewPoeModal(p => ({ ...p, isOpen: false }));
+                          triggerUploadModal(viewPoeModal.rowId!, viewPoeModal.refNum, viewPoeModal.quarterKey as any);
+                        }}
+                        className="px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl flex items-center gap-1.5 transition cursor-pointer"
+                      >
+                        <Upload className="w-4 h-4 text-indigo-600" />
+                        <span>Upload / Replace Files</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               );

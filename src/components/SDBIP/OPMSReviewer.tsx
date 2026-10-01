@@ -379,6 +379,20 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
         actionType: 'pushed_to_audit'
       });
 
+      // Automatically unlock OPMS Internal Audit module for designated auditor and notify Global Administrators
+      fetch(`/api/tenant/${activeTenantId}/auto-unlock-official`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rowId: selectedKpi.id,
+          refNum: selectedKpi.refNum,
+          kpiName: selectedKpi.kpi,
+          roleType: 'internal_audit',
+          officialIdentifier: auditorTarget,
+          assignedBy: currentUser.fullName || currentUser.email || 'PMU Reviewer'
+        })
+      }).catch(console.error);
+
       await loadNotifications();
       
       setRows(updatedRows);

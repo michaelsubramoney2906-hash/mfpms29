@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   ArrowRight, CheckCircle, BarChart2, Check, RefreshCw, Send,
   User, Shield, FileBadge, Info, Layers, AlertCircle, ShieldAlert,
-  Search, Eye, Edit3, MessageSquare, Award, RotateCcw, Upload, FileText
+  Search, Eye, Edit3, MessageSquare, Award, RotateCcw, Upload, FileText, X
 } from 'lucide-react';
 import { PoeDocument, QuarterPoeSelector } from './Evaluation_IPMS';
 import { viewOriginalFile } from '../../utils/documentBinaryHelper';
@@ -162,21 +162,8 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId, isTeamJS
   }, [activeTenantId, userEmail, apiEndpoint]);
 
   const currentMonth = new Date().getMonth(); // 0-11
-  let isTimeLocked = false;
-  let activePeriodStr = "";
-  if (selectedQuarter === 'q1') {
-    isTimeLocked = !(currentMonth >= 6 && currentMonth <= 8);
-    activePeriodStr = "July - September";
-  } else if (selectedQuarter === 'q2') {
-    isTimeLocked = !(currentMonth >= 9 && currentMonth <= 11);
-    activePeriodStr = "October - December";
-  } else if (selectedQuarter === 'q3') {
-    isTimeLocked = !(currentMonth >= 0 && currentMonth <= 2);
-    activePeriodStr = "January - March";
-  } else if (selectedQuarter === 'q4') {
-    isTimeLocked = !(currentMonth >= 3 && currentMonth <= 5);
-    activePeriodStr = "April - June";
-  }
+  const isTimeLocked = false; // Reporting and evaluation unlocked for all users
+  const activePeriodStr = selectedQuarter.toUpperCase() + " Evaluation Period (Unlocked)";
 
   const handleSaveToDatabase = async (updatedRows: CompetencyRow[]) => {
     try {
@@ -209,6 +196,81 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId, isTeamJS
     await handleSaveToDatabase(updated);
 
     alert(`Job Specific Competencies evaluation for ${selectedQuarter.toUpperCase()} unlocked for redo! You can now update your self scores and comments, then click "Resubmit to Manager".`);
+  };
+
+  const handleRedoSingleCompetency = async (rowId: string) => {
+    const updated = rows.map(r => {
+      if (r.id === rowId) {
+        const qData = r[selectedQuarter] || { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', internalAuditorScore: 0, internalAuditorComments: '', dpmcScore: 0, dpmcComments: '', status: 'draft' };
+        return {
+          ...r,
+          [selectedQuarter]: {
+            ...qData,
+            status: 'draft' as const
+          }
+        };
+      }
+      return r;
+    });
+
+    setRows(updated);
+    await handleSaveToDatabase(updated);
+
+    const target = rows.find(r => r.id === rowId);
+    alert(`Competency ${target?.jscNo || rowId} unlocked for redo! Update your self score & comments, then push to manager.`);
+  };
+
+  const handlePushSingleToManager = async (rowId: string) => {
+    const target = rows.find(r => r.id === rowId);
+    const score = target?.[selectedQuarter]?.selfScore;
+    if (!score || score < 1 || score > 5) {
+      alert(`Please assign a self score between 1 and 5 for ${target?.jscNo || 'this competency'} before pushing to manager.`);
+      return;
+    }
+
+    const updated = rows.map(r => {
+      if (r.id === rowId) {
+        const qData = r[selectedQuarter] || { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', internalAuditorScore: 0, internalAuditorComments: '', dpmcScore: 0, dpmcComments: '', status: 'draft' };
+        return {
+          ...r,
+          [selectedQuarter]: {
+            ...qData,
+            status: 'pending_approval' as const
+          }
+        };
+      }
+      return r;
+    });
+
+    setRows(updated);
+    await handleSaveToDatabase(updated);
+
+    try {
+      const targetManager = currentUser.managerEmail || 'khuboniy@nkangaladm.gov.za';
+      await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          notification: {
+            id: `notif_jsc_${Date.now()}`,
+            userEmail: targetManager,
+            recipientEmail: targetManager,
+            recipientName: targetManager.split('@')[0],
+            senderEmail: currentUser.email,
+            senderName: currentUser.name || currentUser.email,
+            type: 'jsc_submission',
+            title: `Single JSC ${target?.jscNo || ''} Submitted (${selectedQuarter.toUpperCase()})`,
+            message: `${currentUser.name || currentUser.email} submitted competency ${target?.jscNo || ''} (${target?.competency || ''}) with Self Score ${score}/5 for ${selectedQuarter.toUpperCase()}.`,
+            read: false,
+            createdAt: new Date().toISOString()
+          }
+        })
+      });
+    } catch (e) {
+      console.error(e);
+    }
+
+    alert(`Competency ${target?.jscNo || ''} pushed to Line Manager for approval!`);
   };
 
   const handlePushToManager = async () => {
@@ -352,12 +414,13 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId, isTeamJS
                   <th className="px-4 py-3 font-black text-center w-72 bg-emerald-950 text-white">Portfolio of Evidence (PoE)</th>
                   <th className="px-4 py-3 font-black text-center w-48">Audit & DPMC Reviews</th>
                   <th className="px-4 py-3 font-black text-center w-24">Status</th>
+                  <th className="px-4 py-3 font-black text-center w-36 bg-slate-800 text-white">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="text-center py-8 text-xs text-gray-400 font-semibold italic">
+                    <td colSpan={9} className="text-center py-8 text-xs text-gray-400 font-semibold italic">
                       No competencies defined yet.
                     </td>
                   </tr>
@@ -502,6 +565,30 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId, isTeamJS
                              qData.status === 'pending_approval' ? 'Awaiting Mgr' :
                              'Draft'}
                           </span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex flex-col gap-1.5 items-center justify-center">
+                            <button
+                              type="button"
+                              onClick={() => handlePushSingleToManager(row.id)}
+                              disabled={saving || loading}
+                              className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-2 py-1 rounded-md text-[9px] uppercase tracking-tight flex items-center gap-1 transition shadow-2xs cursor-pointer w-full justify-center disabled:opacity-50"
+                              title="Push this single competency to manager"
+                            >
+                              <Send className="w-3 h-3" />
+                              <span>Push to Mgr</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRedoSingleCompetency(row.id)}
+                              disabled={saving || loading}
+                              className="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 font-bold px-2 py-1 rounded-md text-[9px] uppercase tracking-tight flex items-center gap-1 transition cursor-pointer w-full justify-center"
+                              title="Unlock this single competency to redo rating & PoE"
+                            >
+                              <RotateCcw className="w-3 h-3 text-amber-600" />
+                              <span>Redo</span>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -737,6 +824,152 @@ export function JSCManagerApprovalSection({ currentUser, activeTenantId, default
     alert(`Successfully submitted and approved ${selectedQuarter.toUpperCase()} Job Specific Competencies appraisal for ${emailToSave}!`);
   };
 
+  const handlePushToInternalAudit = async () => {
+    const emailToSave = selectedUserEmail || currentUser.email || '';
+    if (!emailToSave) {
+      alert("Please select an employee first.");
+      return;
+    }
+
+    const updated = rows.map(r => {
+      const qData = r[selectedQuarter] || { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', internalAuditorScore: 0, internalAuditorComments: '', dpmcScore: 0, dpmcComments: '', status: 'draft' };
+      return {
+        ...r,
+        [selectedQuarter]: {
+          ...qData,
+          status: 'approved' as const
+        }
+      };
+    });
+
+    setRows(updated);
+    await handleSaveToDatabase(updated);
+
+    try {
+      await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          notification: {
+            id: `notif_jsc_audit_dispatch_${Date.now()}`,
+            userEmail: 'internal_audit',
+            recipientEmail: 'internal_audit',
+            recipientName: 'Internal Audit Committee',
+            senderEmail: currentUser.email,
+            senderName: currentUser.name || currentUser.email,
+            type: 'jsc_audit_dispatch',
+            actionType: 'audit_request',
+            title: `🛡️ JSC Appraisal Dispatched to Internal Audit (${selectedQuarter.toUpperCase()})`,
+            message: `Line Manager (${currentUser.name || currentUser.email}) approved and dispatched JSC appraisals for ${emailToSave} (${selectedQuarter.toUpperCase()}) to Internal Audit Committee.`,
+            read: false,
+            createdAt: new Date().toISOString()
+          }
+        })
+      });
+    } catch (e) {
+      console.error(e);
+    }
+
+    alert(`Job Specific Competencies for ${emailToSave} successfully pushed to Internal Audit Review!`);
+  };
+
+  const handleManagerApproveSingle = async (rowId: string) => {
+    const emailToSave = selectedUserEmail || currentUser.email || '';
+    const target = rows.find(r => r.id === rowId);
+    const mScore = target?.[selectedQuarter]?.managerScore || target?.[selectedQuarter]?.selfScore || 3;
+
+    const updated = rows.map(r => {
+      if (r.id === rowId) {
+        const qData = r[selectedQuarter] || { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', internalAuditorScore: 0, internalAuditorComments: '', dpmcScore: 0, dpmcComments: '', status: 'draft' };
+        return {
+          ...r,
+          [selectedQuarter]: {
+            ...qData,
+            managerScore: mScore,
+            status: 'approved' as const
+          }
+        };
+      }
+      return r;
+    });
+
+    setRows(updated);
+    await handleSaveToDatabase(updated);
+    alert(`Competency ${target?.jscNo || ''} approved by manager!`);
+  };
+
+  const handleReturnSingleForRedo = async (rowId: string) => {
+    const emailToSave = selectedUserEmail || currentUser.email || '';
+    const updated = rows.map(r => {
+      if (r.id === rowId) {
+        const qData = r[selectedQuarter] || { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', internalAuditorScore: 0, internalAuditorComments: '', dpmcScore: 0, dpmcComments: '', status: 'draft' };
+        return {
+          ...r,
+          [selectedQuarter]: {
+            ...qData,
+            status: 'draft' as const
+          }
+        };
+      }
+      return r;
+    });
+
+    setRows(updated);
+    await handleSaveToDatabase(updated);
+
+    const target = rows.find(r => r.id === rowId);
+    alert(`Competency ${target?.jscNo || ''} returned for redo and revision!`);
+  };
+
+  const handlePushSingleToAudit = async (rowId: string) => {
+    const emailToSave = selectedUserEmail || currentUser.email || '';
+    const target = rows.find(r => r.id === rowId);
+
+    const updated = rows.map(r => {
+      if (r.id === rowId) {
+        const qData = r[selectedQuarter] || { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', internalAuditorScore: 0, internalAuditorComments: '', dpmcScore: 0, dpmcComments: '', status: 'draft' };
+        return {
+          ...r,
+          [selectedQuarter]: {
+            ...qData,
+            status: 'approved' as const
+          }
+        };
+      }
+      return r;
+    });
+
+    setRows(updated);
+    await handleSaveToDatabase(updated);
+
+    try {
+      await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          notification: {
+            id: `notif_jsc_single_audit_${Date.now()}`,
+            userEmail: 'internal_audit',
+            recipientEmail: 'internal_audit',
+            recipientName: 'Internal Audit Committee',
+            senderEmail: currentUser.email,
+            senderName: currentUser.name || currentUser.email,
+            type: 'jsc_audit_dispatch',
+            actionType: 'audit_request',
+            title: `🛡️ Single JSC ${target?.jscNo || ''} Dispatched to Internal Audit`,
+            message: `Line Manager dispatched competency ${target?.jscNo || ''} (${target?.competency || ''}) for ${emailToSave} to Internal Audit.`,
+            read: false,
+            createdAt: new Date().toISOString()
+          }
+        })
+      });
+    } catch (e) {
+      console.error(e);
+    }
+
+    alert(`Competency ${target?.jscNo || ''} pushed to Internal Audit Review!`);
+  };
+
   return (
     <div className="flex flex-col space-y-4 animate-fadeIn">
       {/* Top Controls */}
@@ -792,7 +1025,7 @@ export function JSCManagerApprovalSection({ currentUser, activeTenantId, default
               title="Return evaluation to employee for redo and revision"
             >
               <RotateCcw className="w-3.5 h-3.5" />
-              <span>Return for Redo</span>
+              <span>Redo / Return</span>
             </button>
 
             <button
@@ -802,7 +1035,17 @@ export function JSCManagerApprovalSection({ currentUser, activeTenantId, default
               title="Submit manager appraisal and approve"
             >
               <CheckCircle className="w-3.5 h-3.5" />
-              <span>Submit Manager Review</span>
+              <span>Approve Review</span>
+            </button>
+
+            <button
+              onClick={handlePushToInternalAudit}
+              disabled={saving || loading}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-black px-3.5 py-2 rounded-xl text-[10px] flex items-center gap-1.5 transition uppercase tracking-wide cursor-pointer shadow-sm border border-indigo-700 disabled:opacity-50"
+              title="Push approved review to Internal Audit"
+            >
+              <ShieldAlert className="w-3.5 h-3.5" />
+              <span>Push to Internal Audit</span>
             </button>
           </div>
         </div>
@@ -827,12 +1070,13 @@ export function JSCManagerApprovalSection({ currentUser, activeTenantId, default
                   <th className="px-4 py-3 font-black text-center w-40">Manager Scoring (1-5)</th>
                   <th className="px-4 py-3 font-black">Manager Motivation / Comments</th>
                   <th className="px-4 py-3 font-black text-center w-24">Status</th>
+                  <th className="px-4 py-3 font-black text-center w-36 bg-slate-800 text-white">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-8 text-xs text-gray-400 font-semibold italic">
+                    <td colSpan={8} className="text-center py-8 text-xs text-gray-400 font-semibold italic">
                       No competencies found for target employee.
                     </td>
                   </tr>
@@ -966,6 +1210,40 @@ export function JSCManagerApprovalSection({ currentUser, activeTenantId, default
                              qData.status === 'pending_approval' ? 'Pending Review' :
                              'Draft'}
                           </span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex flex-col gap-1 items-center justify-center">
+                            <button
+                              type="button"
+                              onClick={() => handleManagerApproveSingle(row.id)}
+                              disabled={saving || loading}
+                              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-2 py-1 rounded-md text-[9px] uppercase tracking-tight flex items-center gap-1 transition shadow-2xs cursor-pointer w-full justify-center disabled:opacity-50"
+                              title="Approve this single competency"
+                            >
+                              <Check className="w-3 h-3" />
+                              <span>Approve</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handlePushSingleToAudit(row.id)}
+                              disabled={saving || loading}
+                              className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-2 py-1 rounded-md text-[9px] uppercase tracking-tight flex items-center gap-1 transition shadow-2xs cursor-pointer w-full justify-center disabled:opacity-50"
+                              title="Push this single competency to Internal Audit"
+                            >
+                              <ShieldAlert className="w-3 h-3" />
+                              <span>Push Audit</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleReturnSingleForRedo(row.id)}
+                              disabled={saving || loading}
+                              className="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 font-bold px-2 py-0.5 rounded-md text-[8.5px] uppercase tracking-tight flex items-center gap-1 transition cursor-pointer w-full justify-center"
+                              title="Return this single competency for redo"
+                            >
+                              <RotateCcw className="w-3 h-3 text-amber-600" />
+                              <span>Redo</span>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -1151,6 +1429,114 @@ export function JSCInternalAuditorReviewSection({ currentUser, activeTenantId, d
     alert(`Successfully submitted Internal Audit review on Core Competencies self scores for ${emailToSave} (${selectedQuarter.toUpperCase()})!`);
   };
 
+  const handleRedoAudit = async () => {
+    const emailToSave = selectedUserEmail || currentUser.email || '';
+    if (!emailToSave) {
+      alert("Please select an employee first.");
+      return;
+    }
+
+    const updated = rows.map(r => {
+      const qData = r[selectedQuarter] || { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', internalAuditorScore: 0, internalAuditorComments: '', dpmcScore: 0, dpmcComments: '', status: 'draft' };
+      return {
+        ...r,
+        [selectedQuarter]: {
+          ...qData,
+          internalAuditorScore: 0,
+          internalAuditorComments: '',
+          status: 'approved' as const
+        }
+      };
+    });
+
+    setRows(updated);
+    await handleSaveToDatabase(updated);
+
+    alert(`Core competencies for ${selectedQuarter.toUpperCase()} reset to redo achieved / not achieved audit assessment!`);
+  };
+
+  const handlePushAuditToManager = async () => {
+    const emailToSave = selectedUserEmail || currentUser.email || '';
+    if (!emailToSave) {
+      alert("Please select an employee first.");
+      return;
+    }
+
+    try {
+      const managerEmail = currentUser.managerEmail || 'khuboniy@nkangaladm.gov.za';
+      await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          notification: {
+            id: `notif_jsc_audit_to_mgr_${Date.now()}`,
+            userEmail: managerEmail,
+            recipientEmail: managerEmail,
+            recipientName: managerEmail.split('@')[0],
+            senderEmail: currentUser.email,
+            senderName: currentUser.name || currentUser.email,
+            type: 'jsc_audit_returned_to_manager',
+            actionType: 'audit',
+            title: `🛡️ Internal Audit Findings for Subordinate ${emailToSave} (${selectedQuarter.toUpperCase()})`,
+            message: `Internal Auditor (${currentUser.name || currentUser.email}) has reviewed Core Competencies for ${emailToSave} (${selectedQuarter.toUpperCase()}) and pushed the findings to Line Manager.`,
+            read: false,
+            createdAt: new Date().toISOString()
+          }
+        })
+      });
+    } catch (e) {
+      console.error(e);
+    }
+
+    alert(`Audit findings for ${emailToSave} successfully pushed to Line Manager!`);
+  };
+
+  const handleAuditScoreSingle = async (rowId: string, score: number, comment?: string) => {
+    const target = rows.find(r => r.id === rowId);
+    const updated = rows.map(r => {
+      if (r.id === rowId) {
+        const qData = r[selectedQuarter] || { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', internalAuditorScore: 0, internalAuditorComments: '', dpmcScore: 0, dpmcComments: '', status: 'draft' };
+        return {
+          ...r,
+          [selectedQuarter]: {
+            ...qData,
+            internalAuditorScore: score,
+            internalAuditorComments: comment || (score >= 4 ? 'Target achieved; verified.' : 'Not achieved; revision needed.'),
+            status: 'audited' as const
+          }
+        };
+      }
+      return r;
+    });
+
+    setRows(updated);
+    await handleSaveToDatabase(updated);
+    alert(`Competency ${target?.jscNo || ''} marked as ${score >= 4 ? 'Achieved (Score ' + score + ')' : 'Not Achieved (Score ' + score + ')'}!`);
+  };
+
+  const handleRedoAuditSingle = async (rowId: string) => {
+    const target = rows.find(r => r.id === rowId);
+    const updated = rows.map(r => {
+      if (r.id === rowId) {
+        const qData = r[selectedQuarter] || { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', internalAuditorScore: 0, internalAuditorComments: '', dpmcScore: 0, dpmcComments: '', status: 'draft' };
+        return {
+          ...r,
+          [selectedQuarter]: {
+            ...qData,
+            internalAuditorScore: 0,
+            internalAuditorComments: '',
+            status: 'approved' as const
+          }
+        };
+      }
+      return r;
+    });
+
+    setRows(updated);
+    await handleSaveToDatabase(updated);
+    alert(`Competency ${target?.jscNo || ''} audit assessment reset for redo!`);
+  };
+
   return (
     <div className="flex flex-col space-y-4 animate-fadeIn">
       {/* Top Controls */}
@@ -1199,12 +1585,32 @@ export function JSCInternalAuditorReviewSection({ currentUser, activeTenantId, d
           </div>
 
           <button
+            onClick={handleRedoAudit}
+            disabled={saving || loading}
+            className="bg-amber-500 hover:bg-amber-600 text-white font-black px-3.5 py-2 rounded-xl text-[10px] flex items-center gap-1.5 transition uppercase tracking-wide cursor-pointer shadow-sm border border-amber-600 disabled:opacity-50"
+            title="Redo achieved and not achieved audit assessments"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Redo Achieved & Not Achieved</span>
+          </button>
+
+          <button
+            onClick={handlePushAuditToManager}
+            disabled={saving || loading}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-black px-3.5 py-2 rounded-xl text-[10px] flex items-center gap-1.5 transition uppercase tracking-wide cursor-pointer shadow-sm border border-blue-700 disabled:opacity-50"
+            title="Push audit findings back to Line Manager"
+          >
+            <Send className="w-3.5 h-3.5" />
+            <span>Push to Manager</span>
+          </button>
+
+          <button
             onClick={handleAuditorSubmit}
             disabled={saving || loading}
             className="bg-indigo-600 hover:bg-indigo-700 text-white font-black px-4 py-2 rounded-xl text-[10px] flex items-center gap-1.5 transition uppercase tracking-wide cursor-pointer shadow-sm border border-indigo-700 disabled:opacity-50"
           >
             <ShieldAlert className="w-3.5 h-3.5" />
-            <span>Submit Internal Audit Review</span>
+            <span>Submit Audit Review</span>
           </button>
         </div>
       </div>
@@ -1228,12 +1634,13 @@ export function JSCInternalAuditorReviewSection({ currentUser, activeTenantId, d
                   <th className="px-4 py-3 font-black text-center w-40">Internal Auditor Score (1-5)</th>
                   <th className="px-4 py-3 font-black">Internal Auditor Review Comments</th>
                   <th className="px-4 py-3 font-black text-center w-24">Status</th>
+                  <th className="px-4 py-3 font-black text-center w-44 bg-slate-800 text-white">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-8 text-xs text-gray-400 font-semibold italic">
+                    <td colSpan={8} className="text-center py-8 text-xs text-gray-400 font-semibold italic">
                       No core competencies found for target employee.
                     </td>
                   </tr>
@@ -1363,6 +1770,50 @@ export function JSCInternalAuditorReviewSection({ currentUser, activeTenantId, d
                              qData.status === 'audited' ? 'Audited' :
                              'Pending Audit'}
                           </span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <div className="grid grid-cols-2 gap-1 items-center justify-center">
+                            <button
+                              type="button"
+                              onClick={() => handleAuditScoreSingle(row.id, 5, 'Target achieved; PoE verified by Internal Audit.')}
+                              disabled={saving || loading}
+                              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-1.5 py-1 rounded text-[8.5px] uppercase tracking-tight flex items-center justify-center gap-0.5 transition cursor-pointer"
+                              title="Mark this single competency as Achieved (5/5)"
+                            >
+                              <Check className="w-2.5 h-2.5" />
+                              <span>Achieved</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleAuditScoreSingle(row.id, 1, 'Not achieved; non-compliant PoE evidence.')}
+                              disabled={saving || loading}
+                              className="bg-rose-600 hover:bg-rose-500 text-white font-bold px-1.5 py-1 rounded text-[8.5px] uppercase tracking-tight flex items-center justify-center gap-0.5 transition cursor-pointer"
+                              title="Mark this single competency as Not Achieved (1/5)"
+                            >
+                              <X className="w-2.5 h-2.5" />
+                              <span>Not Ach</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRedoAuditSingle(row.id)}
+                              disabled={saving || loading}
+                              className="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 font-bold px-1.5 py-0.5 rounded text-[8px] uppercase tracking-tight flex items-center justify-center gap-0.5 transition cursor-pointer"
+                              title="Reset audit rating to redo assessment"
+                            >
+                              <RotateCcw className="w-2.5 h-2.5 text-amber-600" />
+                              <span>Redo</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handlePushAuditToManager()}
+                              disabled={saving || loading}
+                              className="bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-300 font-bold px-1.5 py-0.5 rounded text-[8px] uppercase tracking-tight flex items-center justify-center gap-0.5 transition cursor-pointer"
+                              title="Push audit findings to Line Manager"
+                            >
+                              <Send className="w-2.5 h-2.5 text-blue-600" />
+                              <span>Push Mgr</span>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );

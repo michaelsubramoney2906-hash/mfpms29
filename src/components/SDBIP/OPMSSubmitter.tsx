@@ -2,9 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   FileText, ArrowRight, CheckCircle, AlertTriangle, AlertCircle, 
   Send, RefreshCw, Layers, Database, Search, ChevronRight, 
-  Clock, Plus, ShieldCheck, Check, MessageSquare, Info, Lock,
+  Clock, Plus, ShieldCheck, Check, MessageSquare, Info, Lock, Unlock,
   Upload, Eye, Trash2, Paperclip, FileSpreadsheet, Presentation, Image as ImageIcon,
-  Bell, CheckCircle2, UserCheck, ShieldAlert, X
+  Bell, CheckCircle2, UserCheck, ShieldAlert, X, RotateCcw
 } from 'lucide-react';
 import type { User } from '../../types';
 import { SdbipRow } from './SDBIP';
@@ -16,7 +16,8 @@ import {
   fetchSdbipNotifications, 
   dispatchSdbipNotification, 
   markSdbipNotificationRead,
-  extractKpiPoes 
+  extractKpiPoes,
+  isMasterAdminMike
 } from '../../utils/sdbipWorkflowHelper';
 import { calcOpmsVariance } from '../../utils/varianceCalculator';
 
@@ -39,6 +40,8 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
   const [previewDoc, setPreviewDoc] = useState<PoeDocument | null>(null);
   const [uploadingPoe, setUploadingPoe] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const isSuperAdminMike = isMasterAdminMike(currentUser);
 
   // Editing states for selected KPI
   const [q1Actual, setQ1Actual] = useState('');
@@ -178,6 +181,12 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files || files.length === 0 || !selectedKpi) return;
+    if (isReadOnlyMode) {
+      setError("Action Restricted: Read-only mode active. Only designated submitters under 'My KPIs' can upload evidence.");
+      setTimeout(() => setError(null), 4000);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
     
     setUploadingPoe(true);
     try {
@@ -250,6 +259,11 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
 
   const handleDeletePoe = async (poeId: string, fileName: string) => {
     if (!selectedKpi) return;
+    if (isReadOnlyMode && !isSuperAdminMike) {
+      setError("Action Restricted: Read-only mode active. Only designated submitters under 'My KPIs' can delete evidence.");
+      setTimeout(() => setError(null), 4000);
+      return;
+    }
     try {
       const updatedPoes = poes.filter(p => p.id !== poeId);
       await fetch(`/api/tenant/${activeTenantId}/sdbip-poes`, {
@@ -258,15 +272,265 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
         body: JSON.stringify({ poes: updatedPoes })
       });
       setPoes(updatedPoes);
-      setSuccess(`Document "${fileName}" removed.`);
-      setTimeout(() => setSuccess(null), 3000);
+
+      // Clean up the row's quarter POE arrays
+      const filterPoes = (arr: any) => Array.isArray(arr) ? arr.filter((fn: string) => fn !== fileName) : arr;
+      const updatedRows = rows.map(r => {
+        if (r.id === selectedKpi.id) {
+          return {
+            ...r,
+            q1Poes: filterPoes(r.q1Poes),
+            q2Poes: filterPoes(r.q2Poes),
+            midTermPoes: filterPoes(r.midTermPoes),
+            q3Poes: filterPoes(r.q3Poes),
+            q4Poes: filterPoes(r.q4Poes),
+          };
+        }
+        return r;
+      });
+      setRows(updatedRows);
+      await fetch(`/api/tenant/${activeTenantId}/sdbip`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: updatedRows })
+      });
+
+      if (isSuperAdminMike) {
+        // Log master override deletion to audit trail
+        fetch('/api/audit/log-access', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: currentUser.email,
+            fullName: currentUser.fullName,
+            tenantId: activeTenantId,
+            role: 'Global Administrator',
+            action: 'SUPERADMIN_POE_PURGE',
+            moduleId: 'opms-submitter',
+            moduleName: 'OPMS Submitter',
+            subModuleId: 'opms-submitter',
+            subModuleName: 'Submitter Workspace',
+            details: `Global Administrator Mike purged PoE document "${fileName}" from KPI ${selectedKpi.refNum}.`
+          })
+        }).catch(console.error);
+      }
+
+      setSuccess(`Evidence document "${fileName}" successfully purged and deleted.`);
+      setTimeout(() => setSuccess(null), 3500);
     } catch (e: any) {
       setError('Failed to delete document: ' + e.message);
     }
   };
 
+  const handleMasterUndoSubmission = async () => {
+    if (!selectedKpi) return;
+    setLoading(true);
+    try {
+      const updatedRows = rows.map(r => {
+        if (r.id === selectedKpi.id) {
+          const currentHistory = (r as any).workflowHistory || [];
+          const newHistoryItem = {
+            date: new Date().toISOString(),
+            action: 'Submission Undone by Global Admin',
+            user: currentUser.fullName || currentUser.email,
+            notes: 'Global Administrator Mike unlocked and reverted submission to Draft state.'
+          };
+          const workflows = r.workflows || {};
+          ['q1', 'q2', 'midTerm', 'q3', 'q4', 'annual'].forEach(ph => {
+            if (workflows[ph]) {
+              workflows[ph] = { ...workflows[ph], status: 'draft' };
+            }
+          });
+          return {
+            ...r,
+            workflowStatus: 'Draft',
+            workflows,
+            workflowHistory: [...currentHistory, newHistoryItem]
+          } as SdbipRow;
+        }
+        return r;
+      });
+
+      const response = await fetch(`/api/tenant/${activeTenantId}/sdbip`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: updatedRows })
+      });
+      if (!response.ok) throw new Error('Failed to revert submission on Supabase');
+
+      fetch('/api/audit/log-access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: currentUser.email,
+          fullName: currentUser.fullName,
+          tenantId: activeTenantId,
+          role: 'Global Administrator',
+          action: 'MASTER_UNDO_SUBMISSION',
+          moduleId: 'opms-submitter',
+          moduleName: 'OPMS Submitter',
+          subModuleId: 'opms-submitter',
+          subModuleName: 'Submitter Workspace',
+          details: `Global Administrator Mike reverted KPI ${selectedKpi.refNum} from Submitted to Draft state.`
+        })
+      }).catch(console.error);
+
+      setRows(updatedRows);
+      setSelectedKpi(prev => prev ? { ...prev, workflowStatus: 'Draft' } as any : null);
+      setSuccess(`🔓 Master Override: Submission undone! KPI ${selectedKpi.refNum} is now in Draft and fully editable.`);
+      setTimeout(() => setSuccess(null), 5000);
+    } catch (err: any) {
+      setError(err.message || 'Failed to undo submission');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMasterUnlockApproval = async () => {
+    if (!selectedKpi) return;
+    setLoading(true);
+    try {
+      const updatedRows = rows.map(r => {
+        if (r.id === selectedKpi.id) {
+          const currentHistory = (r as any).workflowHistory || [];
+          const newHistoryItem = {
+            date: new Date().toISOString(),
+            action: 'Approval Revoked by Global Admin',
+            user: currentUser.fullName || currentUser.email,
+            notes: 'Global Administrator Mike revoked approval seal and unlocked KPI for revision.'
+          };
+          const workflows = r.workflows || {};
+          ['q1', 'q2', 'midTerm', 'q3', 'q4', 'annual'].forEach(ph => {
+            if (workflows[ph]) {
+              workflows[ph] = { ...workflows[ph], status: 'draft', approvedBy: undefined };
+            }
+          });
+          return {
+            ...r,
+            workflowStatus: 'Draft',
+            approvedBy: undefined,
+            workflows,
+            workflowHistory: [...currentHistory, newHistoryItem]
+          } as SdbipRow;
+        }
+        return r;
+      });
+
+      const response = await fetch(`/api/tenant/${activeTenantId}/sdbip`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: updatedRows })
+      });
+      if (!response.ok) throw new Error('Failed to revoke approval on Supabase');
+
+      fetch('/api/audit/log-access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: currentUser.email,
+          fullName: currentUser.fullName,
+          tenantId: activeTenantId,
+          role: 'Global Administrator',
+          action: 'MASTER_UNLOCK_APPROVAL',
+          moduleId: 'opms-submitter',
+          moduleName: 'OPMS Submitter',
+          subModuleId: 'opms-submitter',
+          subModuleName: 'Submitter Workspace',
+          details: `Global Administrator Mike revoked approval and unlocked KPI ${selectedKpi.refNum} for re-submission.`
+        })
+      }).catch(console.error);
+
+      setRows(updatedRows);
+      setSelectedKpi(prev => prev ? { ...prev, workflowStatus: 'Draft', approvedBy: undefined } as any : null);
+      setSuccess(`🔓 Master Override: Approval seal revoked! KPI ${selectedKpi.refNum} is now reopened for editing.`);
+      setTimeout(() => setSuccess(null), 5000);
+    } catch (err: any) {
+      setError(err.message || 'Failed to revoke approval');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMasterToggleLock = async (targetRowId?: string) => {
+    const rowId = targetRowId || selectedKpi?.id;
+    if (!rowId) return;
+    const targetRow = rows.find(r => r.id === rowId);
+    if (!targetRow) return;
+    setLoading(true);
+    try {
+      const isCurrentlyLocked = (targetRow as any).workflowStatus === 'Approved' || (targetRow as any).workflowStatus === 'Reviewed' || (targetRow as any).adminLocked;
+      const newStatus = isCurrentlyLocked ? 'Draft' : 'Approved';
+      const updatedRows = rows.map(r => {
+        if (r.id === rowId) {
+          const currentHistory = (r as any).workflowHistory || [];
+          const newHistoryItem = {
+            date: new Date().toISOString(),
+            action: isCurrentlyLocked ? 'Unlocked by Global Admin' : 'Locked by Global Admin',
+            user: currentUser.fullName || currentUser.email,
+            notes: isCurrentlyLocked ? 'Global Administrator Mike unlocked KPI for editing.' : 'Global Administrator Mike locked KPI.'
+          };
+          const workflows = r.workflows || {};
+          ['q1', 'q2', 'midTerm', 'q3', 'q4', 'annual'].forEach(ph => {
+            if (workflows[ph]) {
+              workflows[ph] = { ...workflows[ph], status: isCurrentlyLocked ? 'draft' : 'approved', approvedBy: isCurrentlyLocked ? undefined : (currentUser.fullName || currentUser.email) };
+            }
+          });
+          return {
+            ...r,
+            workflowStatus: newStatus,
+            approvedBy: isCurrentlyLocked ? undefined : (r.approvedBy || currentUser.fullName || currentUser.email),
+            adminLocked: !isCurrentlyLocked,
+            workflows,
+            workflowHistory: [...currentHistory, newHistoryItem]
+          } as SdbipRow;
+        }
+        return r;
+      });
+
+      const response = await fetch(`/api/tenant/${activeTenantId}/sdbip`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: updatedRows })
+      });
+      if (!response.ok) throw new Error('Failed to update lock status on Supabase');
+
+      fetch('/api/audit/log-access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: currentUser.email,
+          fullName: currentUser.fullName,
+          tenantId: activeTenantId,
+          role: 'Global Administrator',
+          action: isCurrentlyLocked ? 'SUPERADMIN_UNLOCK_KPI' : 'SUPERADMIN_LOCK_KPI',
+          moduleId: 'opms-submitter',
+          moduleName: 'OPMS Submitter',
+          subModuleId: 'opms-submitter',
+          subModuleName: 'Submitter Workspace',
+          details: `Global Administrator Mike ${isCurrentlyLocked ? 'unlocked' : 'locked'} KPI ${targetRow.refNum}.`
+        })
+      }).catch(console.error);
+
+      setRows(updatedRows);
+      if (selectedKpi?.id === rowId) {
+        setSelectedKpi(prev => prev ? { ...prev, workflowStatus: newStatus, adminLocked: !isCurrentlyLocked } as any : null);
+      }
+      setSuccess(`🔓 Master Override: KPI ${targetRow.refNum} successfully ${isCurrentlyLocked ? 'unlocked and opened for editing' : 'locked'}!`);
+      setTimeout(() => setSuccess(null), 4000);
+    } catch (err: any) {
+      setError(err.message || 'Failed to toggle lock status');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSaveDraft = async () => {
     if (!selectedKpi) return;
+    if (isReadOnlyMode) {
+      setError("Action Restricted: Read-only mode active. Only designated submitters under 'My KPIs' can save changes.");
+      setTimeout(() => setError(null), 4000);
+      return;
+    }
     setLoading(true);
     try {
       const updatedRows = rows.map(r => {
@@ -316,6 +580,11 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
 
   const handleSubmitWorkflow = async () => {
     if (!selectedKpi) return;
+    if (isReadOnlyMode) {
+      setError("Action Restricted: Read-only mode active. Only designated submitters under 'My KPIs' can submit scorecards to the Approver.");
+      setTimeout(() => setError(null), 4000);
+      return;
+    }
     setLoading(true);
     try {
       const approverTarget = selectedKpi.approver || 'Approver';
@@ -410,6 +679,33 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
   const reviewedCount = rows.filter(r => (r as any).workflowStatus === 'Reviewed' || (r as any).workflowStatus === 'Pending Review').length;
   const approvedCount = rows.filter(r => (r as any).workflowStatus === 'Approved').length;
   const returnedCount = rows.filter(r => (r as any).workflowStatus === 'Returned').length;
+
+  // Check if currentUser is the specifically assigned Submitter or Unit for the selected KPI (strict assignment check)
+  const isActualDesignatedSubmitter = Boolean(
+    selectedKpi && (
+      isUserMatch(selectedKpi.submitter, currentUser) ||
+      isUserMatch(selectedKpi.responsibleUnit, currentUser)
+    )
+  );
+
+  // Read-only mode: When selecting "All KPIs" (assignedFilter === 'ALL'), or when not the designated submitter of this KPI
+  const isReadOnlyMode = assignedFilter === 'ALL' || !isActualDesignatedSubmitter;
+
+  // Q1 is currently active for municipal reporting
+  const isQ1ActivePeriod = isQuarterInReportingPeriod('q1');
+
+  // Q1 Actual can ONLY be edited if:
+  // 1. Under "My KPIs" view (assignedFilter === 'MINE')
+  // 2. Logged-in user is the actual designated submitter
+  // 3. We are in active Q1 reporting period
+  // 4. Not already Approved, Reviewed, or Admin Locked
+  const isQ1ActualEditable = !isReadOnlyMode &&
+    isQ1ActivePeriod &&
+    (selectedKpi as any).workflowStatus !== 'Approved' &&
+    (selectedKpi as any).workflowStatus !== 'Reviewed' &&
+    !(selectedKpi as any).adminLocked;
+
+  const isQ1ActualDisabled = !isQ1ActualEditable;
 
   const getStatusBadge = (status: string | undefined) => {
     const s = status || 'Draft';
@@ -656,7 +952,39 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                           {row.kpas}
                         </span>
                       </div>
-                      {getStatusBadge(status)}
+                      <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                        {getStatusBadge(status)}
+                        {isSuperAdminMike && (status === 'Approved' || status === 'Reviewed' || (row as any).adminLocked) && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedKpi(row);
+                              handleMasterToggleLock(row.id);
+                            }}
+                            className="px-1.5 py-0.5 bg-rose-900/80 hover:bg-rose-800 text-rose-200 border border-rose-500/60 rounded text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition cursor-pointer shadow-xs"
+                            title="Quick Unlock Approval (Global Admin Mike Master Override)"
+                          >
+                            <Unlock className="w-2.5 h-2.5 text-rose-300" />
+                            <span>Unlock</span>
+                          </button>
+                        )}
+                        {isSuperAdminMike && (status === 'Submitted' || status === 'Submitted to Approver' || status === 'Pending Review' || status === 'Pending Audit') && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedKpi(row);
+                              handleMasterUndoSubmission();
+                            }}
+                            className="px-1.5 py-0.5 bg-amber-900/80 hover:bg-amber-800 text-amber-200 border border-amber-500/60 rounded text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition cursor-pointer shadow-xs"
+                            title="Quick Undo Submission to Draft (Global Admin Mike Master Override)"
+                          >
+                            <RotateCcw className="w-2.5 h-2.5 text-amber-300" />
+                            <span>Undo</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
                     
                     <p className="text-xs text-slate-200 line-clamp-2 leading-relaxed">
@@ -666,7 +994,11 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                     <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium">
                       <span>Annual Target: <strong className="text-indigo-400">{row.annualTarget}</strong></span>
                       <span className="flex items-center gap-1 text-slate-400 font-semibold hover:text-white transition-colors">
-                        Enter Achievements <ChevronRight className="w-3 h-3" />
+                        {assignedFilter === 'ALL' ? (
+                          <>View (Read-Only) <Eye className="w-3 h-3 text-slate-400" /></>
+                        ) : (
+                          <>Enter Achievements <ChevronRight className="w-3 h-3" /></>
+                        )}
                       </span>
                     </div>
                   </div>
@@ -733,6 +1065,107 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
               </div>
             )}
 
+            {/* Master Override Bar for Global Administrator Mike */}
+            {isSuperAdminMike && (
+              <div className="bg-gradient-to-r from-amber-950/50 via-red-950/40 to-amber-950/50 border-2 border-amber-500/60 rounded-xl p-3.5 space-y-2.5 shadow-xl">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-black text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <ShieldAlert className="w-4 h-4 text-amber-400" />
+                    👑 Global Administrator Master Override (Mike)
+                  </span>
+                  <span className="text-[10px] text-amber-300 font-mono font-bold bg-amber-950/80 px-2 py-0.5 rounded border border-amber-800/60">
+                    Status: {(selectedKpi as any).workflowStatus || 'Draft'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                  As Global Administrator (<strong className="text-amber-300">mike@mzansiflow.co.za</strong>), you have exclusive authority to undo submissions, revoke approval locks, purge locked evidence files, and unlock scorecards for revision.
+                </p>
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  {((selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed' || (selectedKpi as any).adminLocked) && (
+                    <button
+                      type="button"
+                      onClick={handleMasterUnlockApproval}
+                      disabled={loading}
+                      className="px-3 py-1.5 bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 text-white rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow-md transition disabled:opacity-50"
+                      title="Revoke official approval seal and reopen this KPI for revision"
+                    >
+                      <Unlock className="w-3.5 h-3.5" />
+                      <span>Revoke Approval & Reopen KPI</span>
+                    </button>
+                  )}
+                  {((selectedKpi as any).workflowStatus === 'Submitted to Approver' || (selectedKpi as any).workflowStatus === 'Submitted' || (selectedKpi as any).workflowStatus === 'Reviewed' || (selectedKpi as any).workflowStatus === 'Pending Review' || (selectedKpi as any).workflowStatus === 'Approved') && (
+                    <button
+                      type="button"
+                      onClick={handleMasterUndoSubmission}
+                      disabled={loading}
+                      className="px-3 py-1.5 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow-md transition disabled:opacity-50"
+                      title="Undo submission and return KPI to Draft so the submitter can modify values"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Undo Submission & Revert to Draft</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleMasterToggleLock()}
+                    disabled={loading}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow-md transition disabled:opacity-50 ${
+                      (selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).adminLocked
+                        ? 'bg-emerald-700 hover:bg-emerald-600 text-white'
+                        : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+                    }`}
+                    title="Toggle Master Lock / Unlock state"
+                  >
+                    {(selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).adminLocked ? (
+                      <>
+                        <Unlock className="w-3.5 h-3.5 text-emerald-300" />
+                        <span>Unlock Scorecard</span>
+                      </>
+                    ) : (
+                      <>
+                        <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Lock Scorecard</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Read-Only Notice Banner */}
+            {isReadOnlyMode && (
+              <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-xs font-mono shadow-md">
+                <div className="flex items-center gap-2.5 text-slate-300">
+                  <div className="p-1.5 bg-indigo-500/20 text-indigo-400 rounded-lg">
+                    <Eye className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-white flex items-center gap-1.5">
+                      <span>Read-Only Scorecard View</span>
+                      <span className="text-[10px] bg-indigo-950 text-indigo-300 border border-indigo-800/60 px-1.5 py-0.2 rounded uppercase">
+                        {assignedFilter === 'ALL' ? 'All KPIs View' : 'Not Designated Submitter'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      {assignedFilter === 'ALL'
+                        ? "Scorecards selected under 'All KPIs' are strictly read-only. Switch to 'My KPIs' where you are the designated submitter to edit Q1 achievements."
+                        : `You are not the designated submitter (${selectedKpi.submitter || selectedKpi.responsibleUnit || 'Unassigned'}) for this scorecard.`
+                      }
+                    </p>
+                  </div>
+                </div>
+                {assignedFilter === 'ALL' && (
+                  <button
+                    type="button"
+                    onClick={() => setAssignedFilter('MINE')}
+                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition cursor-pointer shadow-sm"
+                  >
+                    Switch to My KPIs
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* Submitter Metrics Entry Forms */}
             <div className="space-y-4 max-h-[360px] overflow-auto pr-1">
               
@@ -743,21 +1176,28 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                 
                 <div className="p-3 space-y-3">
                   {/* Q1 Section */}
-                  <div className={`p-2.5 rounded-lg border grid grid-cols-1 md:grid-cols-2 gap-2 transition-colors ${!isQuarterInReportingPeriod('q1') ? 'bg-slate-950/60 border-slate-850 opacity-80' : 'bg-slate-900/80 border-slate-850/60'}`}>
+                  <div className={`p-2.5 rounded-lg border grid grid-cols-1 md:grid-cols-2 gap-2 transition-colors ${isQ1ActualEditable ? 'bg-slate-900/90 border-emerald-500/40 ring-1 ring-emerald-500/20' : isReadOnlyMode ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-900/80 border-slate-850/60'}`}>
                     <div className="col-span-2 text-[11px] font-bold text-slate-400 border-b border-slate-800 pb-1 flex justify-between items-center">
                       <span>1st Quarter (Q1) Target: <strong className="text-white">{selectedKpi.q1 || '0'}</strong></span>
-                      {!isQuarterInReportingPeriod('q1') ? (
-                        <span title={getQuarterLockNotice('q1')} className="text-[9px] font-mono text-slate-400 bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded flex items-center gap-1">
-                          <Lock className="w-2.5 h-2.5 text-amber-500/80" /> Q1 Locked
+                      {isReadOnlyMode ? (
+                        <span className="text-[9px] font-mono text-slate-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded flex items-center gap-1 shadow-xs">
+                          <Eye className="w-2.5 h-2.5 text-slate-400" /> Read-Only ({assignedFilter === 'ALL' ? 'All KPIs View' : 'Not Assigned Submitter'})
+                        </span>
+                      ) : isQ1ActualEditable ? (
+                        <span className="text-[9px] font-mono text-emerald-300 bg-emerald-950/80 border border-emerald-500/50 px-2 py-0.5 rounded flex items-center gap-1 shadow-xs">
+                          <Unlock className="w-2.5 h-2.5 text-emerald-400 animate-pulse" /> Q1 Active & Unlocked (My KPI)
                         </span>
                       ) : (
-                        <span className="text-[9px] font-mono text-emerald-400 bg-emerald-950/50 border border-emerald-800/40 px-1.5 py-0.5 rounded flex items-center gap-1">
-                          <Check className="w-2.5 h-2.5" /> Q1 Active
+                        <span className="text-[9px] font-mono text-slate-400 bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded flex items-center gap-1">
+                          <Lock className="w-2.5 h-2.5 text-amber-500/80" /> Q1 Locked ({(selectedKpi as any).workflowStatus || 'Locked'})
                         </span>
                       )}
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] text-slate-500 font-bold uppercase">Actual progress</label>
+                      <label className="text-[10px] text-slate-500 font-bold uppercase flex items-center justify-between">
+                        <span>Actual progress</span>
+                        {isQ1ActualEditable && <span className="text-[9px] text-emerald-400 font-mono">● Unlocked</span>}
+                      </label>
                       <input
                         type="text"
                         value={q1Actual}
@@ -769,10 +1209,10 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                             setQ1Variance(calculated);
                           }
                         }}
-                        disabled={!isQuarterInReportingPeriod('q1') || (selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
-                        placeholder={!isQuarterInReportingPeriod('q1') ? "Locked for this period" : "Log performance..."}
-                        title={!isQuarterInReportingPeriod('q1') ? getQuarterLockNotice('q1') : undefined}
-                        className={`w-full border rounded p-1.5 text-xs ${!isQuarterInReportingPeriod('q1') ? 'bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic' : 'bg-slate-950 border-slate-800 focus:border-indigo-500 text-white'}`}
+                        disabled={isQ1ActualDisabled}
+                        placeholder={isReadOnlyMode ? "Read-Only (All KPIs view)" : isQ1ActualDisabled ? "Locked for this period" : "Log Q1 performance..."}
+                        title={isReadOnlyMode ? "Read-Only: Switch to 'My KPIs' where you are the designated submitter to edit" : undefined}
+                        className={`w-full border rounded p-1.5 text-xs ${isQ1ActualDisabled ? 'bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic' : 'bg-slate-950 border-emerald-500/40 focus:border-emerald-400 text-white'}`}
                       />
                       <span className="text-[9px] font-bold text-indigo-400 block mt-0.5">
                         Target: {selectedKpi.q1 || '0'} vs Actual: {q1Actual || '-'} (Var: {autoCalculateVariance(selectedKpi.q1, q1Actual) || '0'})
@@ -784,10 +1224,10 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                         type="text"
                         value={q1Variance}
                         onChange={(e) => setQ1Variance(e.target.value)}
-                        disabled={!isQuarterInReportingPeriod('q1') || (selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
-                        placeholder={!isQuarterInReportingPeriod('q1') ? "Locked for this period" : "Why targets differ..."}
-                        title={!isQuarterInReportingPeriod('q1') ? getQuarterLockNotice('q1') : undefined}
-                        className={`w-full border rounded p-1.5 text-xs ${!isQuarterInReportingPeriod('q1') ? 'bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic' : 'bg-slate-950 border-slate-800 focus:border-indigo-500 text-white'}`}
+                        disabled={isQ1ActualDisabled}
+                        placeholder={isReadOnlyMode ? "Read-Only (All KPIs view)" : isQ1ActualDisabled ? "Locked for this period" : "Why targets differ..."}
+                        title={isReadOnlyMode ? "Read-Only: Switch to 'My KPIs' where you are the designated submitter to edit" : undefined}
+                        className={`w-full border rounded p-1.5 text-xs ${isQ1ActualDisabled ? 'bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic' : 'bg-slate-950 border-emerald-500/40 focus:border-emerald-400 text-white'}`}
                       />
                     </div>
                     <div className="col-span-2 space-y-1">
@@ -796,48 +1236,34 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                         type="text"
                         value={q1Corrective}
                         onChange={(e) => setQ1Corrective(e.target.value)}
-                        disabled={!isQuarterInReportingPeriod('q1') || (selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
-                        placeholder={!isQuarterInReportingPeriod('q1') ? "Locked for this period" : "Mitigations for gaps..."}
-                        title={!isQuarterInReportingPeriod('q1') ? getQuarterLockNotice('q1') : undefined}
-                        className={`w-full border rounded p-1.5 text-xs ${!isQuarterInReportingPeriod('q1') ? 'bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic' : 'bg-slate-950 border-slate-800 focus:border-indigo-500 text-white'}`}
+                        disabled={isQ1ActualDisabled}
+                        placeholder={isReadOnlyMode ? "Read-Only (All KPIs view)" : isQ1ActualDisabled ? "Locked for this period" : "Mitigations for gaps..."}
+                        title={isReadOnlyMode ? "Read-Only: Switch to 'My KPIs' where you are the designated submitter to edit" : undefined}
+                        className={`w-full border rounded p-1.5 text-xs ${isQ1ActualDisabled ? 'bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic' : 'bg-slate-950 border-emerald-500/40 focus:border-emerald-400 text-white'}`}
                       />
                     </div>
                   </div>
 
-                  {/* Q2 Section */}
-                  <div className={`p-2.5 rounded-lg border grid grid-cols-1 md:grid-cols-2 gap-2 transition-colors ${!isQuarterInReportingPeriod('q2') ? 'bg-slate-950/60 border-slate-850 opacity-80' : 'bg-slate-900/80 border-slate-850/60'}`}>
+                  {/* Q2 Section - Strictly Locked during Quarter 1 */}
+                  <div className="p-2.5 rounded-lg border grid grid-cols-1 md:grid-cols-2 gap-2 transition-colors bg-slate-950/60 border-slate-850 opacity-80 select-none">
                     <div className="col-span-2 text-[11px] font-bold text-slate-400 border-b border-slate-800 pb-1 flex justify-between items-center">
                       <span>2nd Quarter (Q2) Target: <strong className="text-white">{selectedKpi.q2 || '0'}</strong></span>
-                      {!isQuarterInReportingPeriod('q2') ? (
-                        <span title={getQuarterLockNotice('q2')} className="text-[9px] font-mono text-slate-400 bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded flex items-center gap-1">
-                          <Lock className="w-2.5 h-2.5 text-amber-500/80" /> Q2 Locked
-                        </span>
-                      ) : (
-                        <span className="text-[9px] font-mono text-emerald-400 bg-emerald-950/50 border border-emerald-800/40 px-1.5 py-0.5 rounded flex items-center gap-1">
-                          <Check className="w-2.5 h-2.5" /> Q2 Active
-                        </span>
-                      )}
+                      <span title="2nd Quarter reporting is locked. The current municipal reporting period is Quarter 1 (Q1)." className="text-[9px] font-mono text-amber-400/90 bg-amber-950/40 border border-amber-800/40 px-1.5 py-0.5 rounded flex items-center gap-1">
+                        <Lock className="w-2.5 h-2.5 text-amber-500" /> Q2 Locked (Current Period: Q1)
+                      </span>
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] text-slate-500 font-bold uppercase">Actual progress</label>
                       <input
                         type="text"
                         value={q2Actual}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setQ2Actual(val);
-                          const calculated = autoCalculateVariance(selectedKpi.q2, val);
-                          if (calculated) {
-                            setQ2Variance(calculated);
-                          }
-                        }}
-                        disabled={!isQuarterInReportingPeriod('q2') || (selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
-                        placeholder={!isQuarterInReportingPeriod('q2') ? "Locked for this period" : "Log performance..."}
-                        title={!isQuarterInReportingPeriod('q2') ? getQuarterLockNotice('q2') : undefined}
-                        className={`w-full border rounded p-1.5 text-xs ${!isQuarterInReportingPeriod('q2') ? 'bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic' : 'bg-slate-950 border-slate-800 focus:border-indigo-500 text-white'}`}
+                        disabled={true}
+                        placeholder="Locked (Current Period: Q1)"
+                        title="Q2 performance entry is locked. Current active municipal reporting period is Quarter 1."
+                        className="w-full border rounded p-1.5 text-xs bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic"
                       />
-                      <span className="text-[9px] font-bold text-indigo-400 block mt-0.5">
-                        Target: {selectedKpi.q2 || '0'} vs Actual: {q2Actual || '-'} (Var: {autoCalculateVariance(selectedKpi.q2, q2Actual) || '0'})
+                      <span className="text-[9px] font-bold text-slate-500 block mt-0.5 font-mono">
+                        Target: {selectedKpi.q2 || '0'} • Locked (Period: Q1)
                       </span>
                     </div>
                     <div className="space-y-1">
@@ -845,11 +1271,10 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                       <input
                         type="text"
                         value={q2Variance}
-                        onChange={(e) => setQ2Variance(e.target.value)}
-                        disabled={!isQuarterInReportingPeriod('q2') || (selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
-                        placeholder={!isQuarterInReportingPeriod('q2') ? "Locked for this period" : "Why targets differ..."}
-                        title={!isQuarterInReportingPeriod('q2') ? getQuarterLockNotice('q2') : undefined}
-                        className={`w-full border rounded p-1.5 text-xs ${!isQuarterInReportingPeriod('q2') ? 'bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic' : 'bg-slate-950 border-slate-800 focus:border-indigo-500 text-white'}`}
+                        disabled={true}
+                        placeholder="Locked (Current Period: Q1)"
+                        title="Q2 variance is locked. Current active municipal reporting period is Quarter 1."
+                        className="w-full border rounded p-1.5 text-xs bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic"
                       />
                     </div>
                     <div className="col-span-2 space-y-1">
@@ -857,49 +1282,34 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                       <input
                         type="text"
                         value={q2Corrective}
-                        onChange={(e) => setQ2Corrective(e.target.value)}
-                        disabled={!isQuarterInReportingPeriod('q2') || (selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
-                        placeholder={!isQuarterInReportingPeriod('q2') ? "Locked for this period" : "Mitigations for gaps..."}
-                        title={!isQuarterInReportingPeriod('q2') ? getQuarterLockNotice('q2') : undefined}
-                        className={`w-full border rounded p-1.5 text-xs ${!isQuarterInReportingPeriod('q2') ? 'bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic' : 'bg-slate-950 border-slate-800 focus:border-indigo-500 text-white'}`}
+                        disabled={true}
+                        placeholder="Locked (Current Period: Q1)"
+                        title="Q2 corrective measure is locked. Current active municipal reporting period is Quarter 1."
+                        className="w-full border rounded p-1.5 text-xs bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic"
                       />
                     </div>
                   </div>
 
-                  {/* Q3 Section */}
-                  <div className={`p-2.5 rounded-lg border grid grid-cols-1 md:grid-cols-2 gap-2 transition-colors ${!isQuarterInReportingPeriod('q3') ? 'bg-slate-950/60 border-slate-850 opacity-80' : 'bg-slate-900/80 border-slate-850/60'}`}>
+                  {/* Q3 Section - Strictly Locked during Quarter 1 */}
+                  <div className="p-2.5 rounded-lg border grid grid-cols-1 md:grid-cols-2 gap-2 transition-colors bg-slate-950/60 border-slate-850 opacity-80 select-none">
                     <div className="col-span-2 text-[11px] font-bold text-slate-400 border-b border-slate-800 pb-1 flex justify-between items-center">
                       <span>3rd Quarter (Q3) Target: <strong className="text-white">{selectedKpi.q3 || '0'}</strong></span>
-                      {!isQuarterInReportingPeriod('q3') ? (
-                        <span title={getQuarterLockNotice('q3')} className="text-[9px] font-mono text-slate-400 bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded flex items-center gap-1">
-                          <Lock className="w-2.5 h-2.5 text-amber-500/80" /> Q3 Locked
-                        </span>
-                      ) : (
-                        <span className="text-[9px] font-mono text-emerald-400 bg-emerald-950/50 border border-emerald-800/40 px-1.5 py-0.5 rounded flex items-center gap-1">
-                          <Check className="w-2.5 h-2.5" /> Q3 Active
-                        </span>
-                      )}
+                      <span title="3rd Quarter reporting is locked. The current municipal reporting period is Quarter 1 (Q1)." className="text-[9px] font-mono text-amber-400/90 bg-amber-950/40 border border-amber-800/40 px-1.5 py-0.5 rounded flex items-center gap-1">
+                        <Lock className="w-2.5 h-2.5 text-amber-500" /> Q3 Locked (Current Period: Q1)
+                      </span>
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] text-slate-500 font-bold uppercase">Actual progress</label>
                       <input
                         type="text"
                         value={q3Actual}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setQ3Actual(val);
-                          const calculated = autoCalculateVariance(selectedKpi.q3, val);
-                          if (calculated) {
-                            setQ3Variance(calculated);
-                          }
-                        }}
-                        disabled={!isQuarterInReportingPeriod('q3') || (selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
-                        placeholder={!isQuarterInReportingPeriod('q3') ? "Locked for this period" : "Log performance..."}
-                        title={!isQuarterInReportingPeriod('q3') ? getQuarterLockNotice('q3') : undefined}
-                        className={`w-full border rounded p-1.5 text-xs ${!isQuarterInReportingPeriod('q3') ? 'bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic' : 'bg-slate-950 border-slate-800 focus:border-indigo-500 text-white'}`}
+                        disabled={true}
+                        placeholder="Locked (Current Period: Q1)"
+                        title="Q3 performance entry is locked. Current active municipal reporting period is Quarter 1."
+                        className="w-full border rounded p-1.5 text-xs bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic"
                       />
-                      <span className="text-[9px] font-bold text-indigo-400 block mt-0.5">
-                        Target: {selectedKpi.q3 || '0'} vs Actual: {q3Actual || '-'} (Var: {autoCalculateVariance(selectedKpi.q3, q3Actual) || '0'})
+                      <span className="text-[9px] font-bold text-slate-500 block mt-0.5 font-mono">
+                        Target: {selectedKpi.q3 || '0'} • Locked (Period: Q1)
                       </span>
                     </div>
                     <div className="space-y-1">
@@ -907,11 +1317,10 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                       <input
                         type="text"
                         value={q3Variance}
-                        onChange={(e) => setQ3Variance(e.target.value)}
-                        disabled={!isQuarterInReportingPeriod('q3') || (selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
-                        placeholder={!isQuarterInReportingPeriod('q3') ? "Locked for this period" : "Why targets differ..."}
-                        title={!isQuarterInReportingPeriod('q3') ? getQuarterLockNotice('q3') : undefined}
-                        className={`w-full border rounded p-1.5 text-xs ${!isQuarterInReportingPeriod('q3') ? 'bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic' : 'bg-slate-950 border-slate-800 focus:border-indigo-500 text-white'}`}
+                        disabled={true}
+                        placeholder="Locked (Current Period: Q1)"
+                        title="Q3 variance is locked. Current active municipal reporting period is Quarter 1."
+                        className="w-full border rounded p-1.5 text-xs bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic"
                       />
                     </div>
                     <div className="col-span-2 space-y-1">
@@ -919,49 +1328,34 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                       <input
                         type="text"
                         value={q3Corrective}
-                        onChange={(e) => setQ3Corrective(e.target.value)}
-                        disabled={!isQuarterInReportingPeriod('q3') || (selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
-                        placeholder={!isQuarterInReportingPeriod('q3') ? "Locked for this period" : "Mitigations for gaps..."}
-                        title={!isQuarterInReportingPeriod('q3') ? getQuarterLockNotice('q3') : undefined}
-                        className={`w-full border rounded p-1.5 text-xs ${!isQuarterInReportingPeriod('q3') ? 'bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic' : 'bg-slate-950 border-slate-800 focus:border-indigo-500 text-white'}`}
+                        disabled={true}
+                        placeholder="Locked (Current Period: Q1)"
+                        title="Q3 corrective measure is locked. Current active municipal reporting period is Quarter 1."
+                        className="w-full border rounded p-1.5 text-xs bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic"
                       />
                     </div>
                   </div>
 
-                  {/* Q4 Section */}
-                  <div className={`p-2.5 rounded-lg border grid grid-cols-1 md:grid-cols-2 gap-2 transition-colors ${!isQuarterInReportingPeriod('q4') ? 'bg-slate-950/60 border-slate-850 opacity-80' : 'bg-slate-900/80 border-slate-850/60'}`}>
+                  {/* Q4 Section - Strictly Locked during Quarter 1 */}
+                  <div className="p-2.5 rounded-lg border grid grid-cols-1 md:grid-cols-2 gap-2 transition-colors bg-slate-950/60 border-slate-850 opacity-80 select-none">
                     <div className="col-span-2 text-[11px] font-bold text-slate-400 border-b border-slate-800 pb-1 flex justify-between items-center">
                       <span>4th Quarter (Q4) Target: <strong className="text-white">{selectedKpi.q4 || '0'}</strong></span>
-                      {!isQuarterInReportingPeriod('q4') ? (
-                        <span title={getQuarterLockNotice('q4')} className="text-[9px] font-mono text-slate-400 bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded flex items-center gap-1">
-                          <Lock className="w-2.5 h-2.5 text-amber-500/80" /> Q4 Locked
-                        </span>
-                      ) : (
-                        <span className="text-[9px] font-mono text-emerald-400 bg-emerald-950/50 border border-emerald-800/40 px-1.5 py-0.5 rounded flex items-center gap-1">
-                          <Check className="w-2.5 h-2.5" /> Q4 Active
-                        </span>
-                      )}
+                      <span title="4th Quarter reporting is locked. The current municipal reporting period is Quarter 1 (Q1)." className="text-[9px] font-mono text-amber-400/90 bg-amber-950/40 border border-amber-800/40 px-1.5 py-0.5 rounded flex items-center gap-1">
+                        <Lock className="w-2.5 h-2.5 text-amber-500" /> Q4 Locked (Current Period: Q1)
+                      </span>
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] text-slate-500 font-bold uppercase">Actual progress</label>
                       <input
                         type="text"
                         value={q4Actual}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setQ4Actual(val);
-                          const calculated = autoCalculateVariance(selectedKpi.q4, val);
-                          if (calculated) {
-                            setQ4Variance(calculated);
-                          }
-                        }}
-                        disabled={!isQuarterInReportingPeriod('q4') || (selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
-                        placeholder={!isQuarterInReportingPeriod('q4') ? "Locked for this period" : "Log performance..."}
-                        title={!isQuarterInReportingPeriod('q4') ? getQuarterLockNotice('q4') : undefined}
-                        className={`w-full border rounded p-1.5 text-xs ${!isQuarterInReportingPeriod('q4') ? 'bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic' : 'bg-slate-950 border-slate-800 focus:border-indigo-500 text-white'}`}
+                        disabled={true}
+                        placeholder="Locked (Current Period: Q1)"
+                        title="Q4 performance entry is locked. Current active municipal reporting period is Quarter 1."
+                        className="w-full border rounded p-1.5 text-xs bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic"
                       />
-                      <span className="text-[9px] font-bold text-indigo-400 block mt-0.5">
-                        Target: {selectedKpi.q4 || '0'} vs Actual: {q4Actual || '-'} (Var: {autoCalculateVariance(selectedKpi.q4, q4Actual) || '0'})
+                      <span className="text-[9px] font-bold text-slate-500 block mt-0.5 font-mono">
+                        Target: {selectedKpi.q4 || '0'} • Locked (Period: Q1)
                       </span>
                     </div>
                     <div className="space-y-1">
@@ -969,11 +1363,10 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                       <input
                         type="text"
                         value={q4Variance}
-                        onChange={(e) => setQ4Variance(e.target.value)}
-                        disabled={!isQuarterInReportingPeriod('q4') || (selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
-                        placeholder={!isQuarterInReportingPeriod('q4') ? "Locked for this period" : "Why targets differ..."}
-                        title={!isQuarterInReportingPeriod('q4') ? getQuarterLockNotice('q4') : undefined}
-                        className={`w-full border rounded p-1.5 text-xs ${!isQuarterInReportingPeriod('q4') ? 'bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic' : 'bg-slate-950 border-slate-800 focus:border-indigo-500 text-white'}`}
+                        disabled={true}
+                        placeholder="Locked (Current Period: Q1)"
+                        title="Q4 variance is locked. Current active municipal reporting period is Quarter 1."
+                        className="w-full border rounded p-1.5 text-xs bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic"
                       />
                     </div>
                     <div className="col-span-2 space-y-1">
@@ -981,11 +1374,10 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                       <input
                         type="text"
                         value={q4Corrective}
-                        onChange={(e) => setQ4Corrective(e.target.value)}
-                        disabled={!isQuarterInReportingPeriod('q4') || (selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
-                        placeholder={!isQuarterInReportingPeriod('q4') ? "Locked for this period" : "Mitigations for gaps..."}
-                        title={!isQuarterInReportingPeriod('q4') ? getQuarterLockNotice('q4') : undefined}
-                        className={`w-full border rounded p-1.5 text-xs ${!isQuarterInReportingPeriod('q4') ? 'bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic' : 'bg-slate-950 border-slate-800 focus:border-indigo-500 text-white'}`}
+                        disabled={true}
+                        placeholder="Locked (Current Period: Q1)"
+                        title="Q4 corrective measure is locked. Current active municipal reporting period is Quarter 1."
+                        className="w-full border rounded p-1.5 text-xs bg-slate-900/60 border-slate-800 text-slate-500 cursor-not-allowed italic"
                       />
                     </div>
                   </div>
@@ -1009,9 +1401,13 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                     />
                     <button
                       type="button"
-                      disabled={uploadingPoe || (selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
-                      onClick={() => fileInputRef.current?.click()}
-                      className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded text-[10px] font-bold flex items-center gap-1 transition cursor-pointer shadow-sm"
+                      disabled={isReadOnlyMode || uploadingPoe || (selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
+                      onClick={() => {
+                        if (isReadOnlyMode) return;
+                        fileInputRef.current?.click();
+                      }}
+                      className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded text-[10px] font-bold flex items-center gap-1 transition cursor-pointer shadow-sm disabled:cursor-not-allowed"
+                      title={isReadOnlyMode ? "Read-Only: Evidence upload is restricted to the designated submitter under 'My KPIs'." : "Upload evidence document"}
                     >
                       <Upload className="w-3 h-3" />
                       <span>{uploadingPoe ? 'Uploading...' : 'Upload PoE File'}</span>
@@ -1022,9 +1418,9 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                 <textarea
                   value={poeDesc}
                   onChange={(e) => setPoeDesc(e.target.value)}
-                  disabled={(selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
-                  placeholder="Provide brief details on what evidence is available (e.g. 'Attendance Register file, Site Inspection photographs attached')."
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded p-2 text-xs text-white h-16 focus:outline-none resize-none"
+                  disabled={isReadOnlyMode || (selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
+                  placeholder={isReadOnlyMode ? "PoE description (Read-Only: only designated submitter under 'My KPIs' can edit)." : "Provide brief details on what evidence is available (e.g. 'Attendance Register file, Site Inspection photographs attached')."}
+                  className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded p-2 text-xs text-white h-16 focus:outline-none resize-none disabled:bg-slate-900/60 disabled:text-slate-500 disabled:cursor-not-allowed"
                 />
 
                 {/* Attached PoE Files for this KPI */}
@@ -1071,14 +1467,17 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                                   <Eye className="w-3 h-3" />
                                   <span>View PoE</span>
                                 </button>
-                                {(!((selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed')) && (
+                                {(!((selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed') || isSuperAdminMike) && (
                                   <button
                                     type="button"
                                     onClick={() => handleDeletePoe(p.id, p.name)}
-                                    className="p-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded transition cursor-pointer"
-                                    title="Delete document"
+                                    className={`p-1 rounded transition cursor-pointer flex items-center gap-1 ${isSuperAdminMike && ((selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed') ? 'bg-rose-900/60 hover:bg-rose-800 text-rose-200 border border-rose-500/60 shadow-xs' : 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30'}`}
+                                    title={isSuperAdminMike ? "Master Override: Delete / Purge locked PoE document from Supabase" : "Delete document"}
                                   >
                                     <Trash2 className="w-3 h-3" />
+                                    {isSuperAdminMike && ((selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed') && (
+                                      <span className="text-[8px] font-bold uppercase tracking-wider text-rose-300">Purge</span>
+                                    )}
                                   </button>
                                 )}
                               </div>
@@ -1138,9 +1537,9 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                 <textarea
                   value={submitterNotes}
                   onChange={(e) => setSubmitterNotes(e.target.value)}
-                  disabled={(selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
-                  placeholder="Enter context, explanations of variances, or responses to feedback before pushing to the Executive Approver..."
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded p-2 text-xs text-white h-16 focus:outline-none resize-none"
+                  disabled={isReadOnlyMode || (selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
+                  placeholder={isReadOnlyMode ? "Remarks disabled in Read-Only mode." : "Enter context, explanations of variances, or responses to feedback before pushing to the Executive Approver..."}
+                  className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded p-2 text-xs text-white h-16 focus:outline-none resize-none disabled:bg-slate-900/60 disabled:text-slate-500 disabled:cursor-not-allowed"
                 />
               </div>
 
@@ -1169,7 +1568,19 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
             </div>
 
             {/* Submitter Action Controls */}
-            {(!((selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed')) && (
+            {isReadOnlyMode ? (
+              <div className="space-y-2 pt-3 border-t border-slate-850">
+                <div className="p-3 bg-slate-950 border border-slate-850 rounded-xl text-center text-xs text-slate-400 font-mono flex items-center justify-center gap-2">
+                  <Eye className="w-4 h-4 text-indigo-400 shrink-0" />
+                  <span>
+                    {assignedFilter === 'ALL'
+                      ? "Scorecard is in Read-Only mode (All KPIs view). Switch to 'My KPIs' to edit and submit your assigned metrics."
+                      : `Read-Only: You are not the designated submitter (${selectedKpi.submitter || selectedKpi.responsibleUnit || 'Unassigned'}) for this scorecard.`
+                    }
+                  </span>
+                </div>
+              </div>
+            ) : (!((selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed')) && (
               <div className="space-y-2 pt-3 border-t border-slate-850">
                 <div className="flex items-center justify-between text-xs text-slate-400 px-1 font-mono">
                   <span>Designated Approver: <strong className="text-amber-400 font-bold">{selectedKpi.approver || 'Not assigned'}</strong></span>

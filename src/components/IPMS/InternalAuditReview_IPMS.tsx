@@ -709,6 +709,159 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
     }
   };
 
+  const handleRedoAudit = async (targetKpiIds?: string[]) => {
+    if (!selectedPlan) return;
+    setSaving(true);
+    try {
+      const payload = { ...selectedPlan.plan };
+      const allItems = payload.items || [];
+      const isTargeted = targetKpiIds && targetKpiIds.length > 0;
+      const targetItems = isTargeted ? allItems.filter((i: any) => targetKpiIds.includes(i.id)) : allItems;
+      const kpiNosText = targetItems.map((i: any) => `#${i.kpiNo || i.id}`).join(', ');
+
+      payload.items = allItems.map((item: any) => {
+        if (!isTargeted || targetKpiIds.includes(item.id)) {
+          return {
+            ...item,
+            internalAuditStatus: 'Under Review',
+            internalAuditRating: '',
+            internalAuditComment: ''
+          };
+        }
+        return item;
+      });
+
+      payload.metadata.internalAuditStatus = 'Under Review';
+      if (!payload.metadata) payload.metadata = {};
+      if (!payload.metadata.history) payload.metadata.history = [];
+      payload.metadata.history.push({
+        timestamp: new Date().toISOString(),
+        userEmail: (currentUser?.email || '').toLowerCase().trim(),
+        userName: currentUser?.fullName || currentUser?.full_name || 'Internal Auditor',
+        role: currentUser?.systemRole || currentUser?.role || 'Internal Auditor',
+        action: isTargeted ? `Reset Audit on KPI(s) (${kpiNosText}) for Redo` : 'Reset All KPIs for Audit Redo',
+        status: 'Under Review',
+        comment: `Internal Auditor reset audit assessments on ${isTargeted ? `${targetItems.length} KPI(s) (${kpiNosText})` : 'performance plan'} to redo achieved / not achieved verification.`
+      });
+
+      await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${selectedPlan.userId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: selectedPlan.userId } }));
+
+      alert(isTargeted 
+        ? `KPI(s) (${kpiNosText}) audit status reset to redo Achieved / Not Achieved assessment!`
+        : `All KPIs reset to redo Achieved / Not Achieved audit assessment!`
+      );
+
+      const updatedPlans = teamPlans.map(tp => 
+        tp.userId === selectedPlan.userId ? { ...tp, plan: payload } : tp
+      );
+      setTeamPlans(updatedPlans);
+      setSelectedPlan({ ...selectedPlan, plan: payload });
+    } catch (e) {
+      console.error(e);
+      alert("Error resetting audit for redo: " + String(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handlePushToManager = async (targetKpiIds?: string[]) => {
+    if (!selectedPlan) return;
+    setSaving(true);
+    try {
+      const payload = { ...selectedPlan.plan };
+      const allItems = payload.items || [];
+      const isTargeted = targetKpiIds && targetKpiIds.length > 0;
+      const targetItems = isTargeted ? allItems.filter((i: any) => targetKpiIds.includes(i.id)) : allItems;
+      const kpiNosText = targetItems.map((i: any) => `#${i.kpiNo || i.id}`).join(', ');
+
+      payload.items = allItems.map((item: any) => {
+        if (!isTargeted || targetKpiIds.includes(item.id)) {
+          return {
+            ...item,
+            internalAuditStatus: 'Pushed to Manager',
+            reviewStatus: 'Revision Required'
+          };
+        }
+        return item;
+      });
+
+      payload.metadata.internalAuditStatus = 'Pushed to Manager';
+      payload.metadata.reviewStatus = 'Revision Required';
+
+      if (!payload.metadata) payload.metadata = {};
+      if (!payload.metadata.history) payload.metadata.history = [];
+      payload.metadata.history.push({
+        timestamp: new Date().toISOString(),
+        userEmail: (currentUser?.email || '').toLowerCase().trim(),
+        userName: currentUser?.fullName || currentUser?.full_name || 'Internal Auditor',
+        role: currentUser?.systemRole || currentUser?.role || 'Internal Auditor',
+        action: isTargeted ? `Pushed KPI(s) (${kpiNosText}) to Line Manager` : 'Pushed All KPIs to Line Manager',
+        status: 'Pushed to Manager',
+        comment: `Internal Audit returned ${isTargeted ? `${targetItems.length} KPI(s) (${kpiNosText})` : 'the performance plan'} to Line Manager with audit findings.`
+      });
+
+      await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${selectedPlan.userId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: selectedPlan.userId } }));
+
+      // Send notification to manager and employee
+      const managerEmail = payload.metadata?.manager || 'khuboniy@nkangaladm.gov.za';
+      const submitterEmail = selectedPlan.userId;
+      const submitterName = payload.metadata?.name || submitterEmail;
+      const auditorName = currentUser.fullName || currentUser.full_name || 'Internal Auditor';
+
+      const notifTargets = [
+        { email: managerEmail, name: 'Line Manager' },
+        { email: submitterEmail, name: submitterName }
+      ];
+
+      for (const t of notifTargets) {
+        await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            notification: {
+              senderEmail: currentUser.email || 'audit@system.local',
+              senderName: auditorName,
+              recipientEmail: t.email,
+              recipientName: t.name,
+              title: `🛡️ Internal Audit Feedback Pushed to Manager for ${submitterName} (${kpiNosText})`,
+              message: `Internal Audit (${auditorName}) reviewed ${isTargeted ? `${targetItems.length} KPI(s) (${kpiNosText})` : 'all KPIs'} for subordinate ${submitterName} and pushed the assessment back to Line Manager for action.`,
+              actionType: 'revision_requested',
+              senderCapacity: 'internal_auditor',
+              employeeEmail: submitterEmail,
+              kpiIds: isTargeted ? targetKpiIds : undefined
+            }
+          })
+        });
+      }
+
+      alert(isTargeted 
+        ? `KPI(s) (${kpiNosText}) audit assessment pushed to Line Manager (${managerEmail})!`
+        : `Performance plan audit assessment pushed to Line Manager (${managerEmail})!`
+      );
+
+      const updatedPlans = teamPlans.map(tp => 
+        tp.userId === selectedPlan.userId ? { ...tp, plan: payload } : tp
+      );
+      setTeamPlans(updatedPlans);
+      setSelectedPlan({ ...selectedPlan, plan: payload });
+    } catch (e) {
+      console.error(e);
+      alert("Error pushing to manager: " + String(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleDownloadDoc = (doc: any) => {
     if (!doc) return;
     downloadOriginalFile(doc.name, doc.dataUrl || doc.fileData || doc.fileDataUrl, {
@@ -2013,6 +2166,26 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
                       <X className="w-3 h-3 shrink-0" />
                       <span>Not Achieved Single KPI</span>
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRedoAudit(activeKPIId ? [activeKPIId] : undefined)}
+                      disabled={saving || !activeKPIId}
+                      className="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 font-extrabold uppercase text-[9px] py-1.5 rounded-lg flex items-center justify-center gap-1 tracking-wider shadow-2xs transition-all cursor-pointer"
+                      title="Reset audit rating on this KPI to redo assessment"
+                    >
+                      <RotateCcw className="w-3 h-3 shrink-0 text-amber-600" />
+                      <span>Redo Achieved & Not Achieved</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handlePushToManager(activeKPIId ? [activeKPIId] : undefined)}
+                      disabled={saving || !activeKPIId}
+                      className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-extrabold uppercase text-[9px] py-1.5 rounded-lg flex items-center justify-center gap-1 tracking-wider shadow-sm transition-all cursor-pointer"
+                      title="Push audit findings for this single KPI to manager"
+                    >
+                      <Send className="w-3 h-3 shrink-0" />
+                      <span>Push to Manager</span>
+                    </button>
                   </div>
                 </div>
 
@@ -2030,7 +2203,7 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
                         className="bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold uppercase text-[9px] py-1.5 rounded-lg flex items-center justify-center gap-1 tracking-wider shadow-sm transition-all cursor-pointer"
                       >
                         <Check className="w-3 h-3 shrink-0" />
-                        <span>Approve Selected ({selectedKpiIdsForAudit.length})</span>
+                        <span>Achieved Selected ({selectedKpiIdsForAudit.length})</span>
                       </button>
                       <button
                         type="button"
@@ -2039,11 +2212,55 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
                         className="bg-rose-700 hover:bg-rose-600 text-white font-extrabold uppercase text-[9px] py-1.5 rounded-lg flex items-center justify-center gap-1 tracking-wider shadow-sm transition-all cursor-pointer"
                       >
                         <X className="w-3 h-3 shrink-0" />
-                        <span>Reject Selected ({selectedKpiIdsForAudit.length})</span>
+                        <span>Not Achieved Selected ({selectedKpiIdsForAudit.length})</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRedoAudit(selectedKpiIdsForAudit)}
+                        disabled={saving}
+                        className="bg-amber-500 hover:bg-amber-600 text-white font-extrabold uppercase text-[9px] py-1.5 rounded-lg flex items-center justify-center gap-1 tracking-wider shadow-sm transition-all cursor-pointer"
+                        title="Redo audit assessments on selected KPIs"
+                      >
+                        <RotateCcw className="w-3 h-3 shrink-0" />
+                        <span>Redo Selected ({selectedKpiIdsForAudit.length})</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handlePushToManager(selectedKpiIdsForAudit)}
+                        disabled={saving}
+                        className="bg-blue-700 hover:bg-blue-600 text-white font-extrabold uppercase text-[9px] py-1.5 rounded-lg flex items-center justify-center gap-1 tracking-wider shadow-sm transition-all cursor-pointer"
+                        title="Push selected KPI audit findings to manager"
+                      >
+                        <Send className="w-3 h-3 shrink-0" />
+                        <span>Push Selected to Manager</span>
                       </button>
                     </div>
                   </div>
                 )}
+
+                {/* Plan-level Push to Manager & Redo */}
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handlePushToManager()}
+                    disabled={saving}
+                    className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-extrabold uppercase text-[10px] py-2 rounded-xl flex items-center justify-center gap-1 tracking-wider shadow-sm transition-all cursor-pointer"
+                    title="Push entire audit assessment back to manager"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>Push to Manager</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRedoAudit()}
+                    disabled={saving}
+                    className="bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-extrabold uppercase text-[10px] py-2 rounded-xl flex items-center justify-center gap-1 tracking-wider shadow-sm transition-all cursor-pointer"
+                    title="Reset all KPI audit assessments to redo achieved and not achieved"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Redo Achieved & Not Achieved</span>
+                  </button>
+                </div>
 
                 {/* Push to DPMC for full plan or selected */}
                 <button

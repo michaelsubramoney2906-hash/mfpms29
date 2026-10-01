@@ -489,7 +489,7 @@ export async function handleDemoWorkflowGet(req: any, res: any, supabase: Supaba
 
 export async function handleDemoWorkflowAction(req: any, res: any, supabase: SupabaseClient) {
   const { tenantId } = req.params;
-  const { action, notes, actionType, comments, scores } = req.body;
+  const { action, notes, actionType, comments, scores, kpiId } = req.body;
 
   try {
     let state: any = null;
@@ -1150,6 +1150,318 @@ export async function handleDemoWorkflowAction(req: any, res: any, supabase: Sup
       });
 
       return res.json({ success: true, message: `DPMC moderation completed. Average score: ${avgScore}/5.0. All parties notified.`, state });
+    }
+
+    // 6. User Redo Action (User resets KPI or agreement for re-evaluation)
+    if (action === 'user_redo' || action === 'redo_kpi') {
+      const isSingle = Boolean(kpiId);
+      const targetKpi = isSingle ? state.agreement?.kpis?.find((k: any) => k.id === kpiId) : null;
+      const kpiNo = targetKpi?.kpiNo || 'KPI';
+      
+      state.status = 'DRAFT_CAPTURED';
+      if (Array.isArray(state.agreement?.kpis)) {
+        state.agreement.kpis = state.agreement.kpis.map((k: any) => {
+          if (!isSingle || k.id === kpiId) {
+            return {
+              ...k,
+              reviewStatus: 'Draft'
+            };
+          }
+          return k;
+        });
+      }
+
+      state.workflowHistory.unshift({
+        id: `hist_${Date.now()}`,
+        timestamp,
+        actor: 'user@mzansiflow.co.za',
+        actorName: 'Demo Standard User',
+        role: 'Standard User (Subordinate)',
+        stage: 'Draft Reopened for Redo',
+        action: isSingle ? `Unlocked ${kpiNo} for Redo Evaluation` : 'Unlocked Performance Agreement for Redo',
+        notes: comments || (isSingle ? `Employee reopened ${kpiNo} to revise targets and portfolio evidence.` : 'Employee reopened evaluation for revision.')
+      });
+
+      // Update PPLAN
+      try {
+        const pplanRes = await supabase.from('messages').select('content').eq('id', `pplan_${tenantId}_user@mzansiflow.co.za`).maybeSingle();
+        if (pplanRes.data && pplanRes.data.content) {
+          const parsedPlan = JSON.parse(pplanRes.data.content);
+          parsedPlan.metadata = { ...parsedPlan.metadata, reviewStatus: 'Draft' };
+          if (Array.isArray(parsedPlan.items)) {
+            parsedPlan.items = parsedPlan.items.map((it: any) => {
+              if (!isSingle || it.id === kpiId) {
+                return { ...it, reviewStatus: 'Draft' };
+              }
+              return it;
+            });
+          }
+          await supabase.from('messages').upsert({
+            id: `pplan_${tenantId}_user@mzansiflow.co.za`,
+            tenant_id: tenantId,
+            sender_id: 'ipms_demo_system',
+            sender_email: 'user@mzansiflow.co.za',
+            sender_name: 'Demo Standard User',
+            content: JSON.stringify(parsedPlan),
+            message_type: 'pplan_list',
+            created_at: timestamp
+          });
+        }
+      } catch (e) {}
+
+      await supabase.from('messages').upsert({
+        id: `ipms_demo_workflow_${tenantId}`,
+        tenant_id: tenantId,
+        sender_id: 'ipms_demo_system',
+        sender_email: 'demo@system.local',
+        sender_name: 'IPMS Demo System',
+        content: JSON.stringify(state),
+        message_type: 'ipms_demo_workflow',
+        created_at: timestamp
+      });
+
+      return res.json({ 
+        success: true, 
+        message: isSingle ? `${kpiNo} unlocked for redo evaluation.` : 'Performance agreement unlocked for redo evaluation.',
+        state 
+      });
+    }
+
+    // 7. Manager Redo Action (Manager redoes approval or rejection)
+    if (action === 'manager_redo') {
+      const isSingle = Boolean(kpiId);
+      const targetKpi = isSingle ? state.agreement?.kpis?.find((k: any) => k.id === kpiId) : null;
+      const kpiNo = targetKpi?.kpiNo || 'KPI';
+
+      state.status = 'SUBMITTED_TO_MANAGER';
+      if (Array.isArray(state.agreement?.kpis)) {
+        state.agreement.kpis = state.agreement.kpis.map((k: any) => {
+          if (!isSingle || k.id === kpiId) {
+            return {
+              ...k,
+              reviewStatus: 'Submitted for Approval',
+              internalAuditStatus: 'Pending Review'
+            };
+          }
+          return k;
+        });
+      }
+
+      state.workflowHistory.unshift({
+        id: `hist_${Date.now()}`,
+        timestamp,
+        actor: 'manager@mzansiflow.co.za',
+        actorName: 'Demo Line Manager',
+        role: 'Line Manager (Reviewer)',
+        stage: 'Manager Review Redo',
+        action: isSingle ? `Reset ${kpiNo} Approval / Rejection for Redo` : 'Reset Manager Approval / Rejection for Redo',
+        notes: comments || (isSingle ? `Manager reset approval/rejection on ${kpiNo} to redo assessment.` : 'Manager reset review to redo assessment.')
+      });
+
+      // Update PPLAN
+      try {
+        const pplanRes = await supabase.from('messages').select('content').eq('id', `pplan_${tenantId}_user@mzansiflow.co.za`).maybeSingle();
+        if (pplanRes.data && pplanRes.data.content) {
+          const parsedPlan = JSON.parse(pplanRes.data.content);
+          parsedPlan.metadata = { 
+            ...parsedPlan.metadata, 
+            reviewStatus: 'Submitted for Approval',
+            internalAuditStatus: 'Pending Review'
+          };
+          if (Array.isArray(parsedPlan.items)) {
+            parsedPlan.items = parsedPlan.items.map((it: any) => {
+              if (!isSingle || it.id === kpiId) {
+                return { ...it, reviewStatus: 'Submitted for Approval', internalAuditStatus: 'Pending Review' };
+              }
+              return it;
+            });
+          }
+          await supabase.from('messages').upsert({
+            id: `pplan_${tenantId}_user@mzansiflow.co.za`,
+            tenant_id: tenantId,
+            sender_id: 'ipms_demo_system',
+            sender_email: 'manager@mzansiflow.co.za',
+            sender_name: 'Demo Line Manager',
+            content: JSON.stringify(parsedPlan),
+            message_type: 'pplan_list',
+            created_at: timestamp
+          });
+        }
+      } catch (e) {}
+
+      await supabase.from('messages').upsert({
+        id: `ipms_demo_workflow_${tenantId}`,
+        tenant_id: tenantId,
+        sender_id: 'ipms_demo_system',
+        sender_email: 'demo@system.local',
+        sender_name: 'IPMS Demo System',
+        content: JSON.stringify(state),
+        message_type: 'ipms_demo_workflow',
+        created_at: timestamp
+      });
+
+      return res.json({ 
+        success: true, 
+        message: isSingle ? `${kpiNo} reset to redo manager approval/rejection.` : 'Performance agreement reset to redo manager approval/rejection.',
+        state 
+      });
+    }
+
+    // 8. Audit Redo Action (Auditor redoes achieved / not achieved verification)
+    if (action === 'audit_redo') {
+      const isSingle = Boolean(kpiId);
+      const targetKpi = isSingle ? state.agreement?.kpis?.find((k: any) => k.id === kpiId) : null;
+      const kpiNo = targetKpi?.kpiNo || 'KPI';
+
+      state.status = 'MANAGER_APPROVED';
+      if (Array.isArray(state.agreement?.kpis)) {
+        state.agreement.kpis = state.agreement.kpis.map((k: any) => {
+          if (!isSingle || k.id === kpiId) {
+            return {
+              ...k,
+              internalAuditStatus: 'Under Review',
+              auditScore: '',
+              internalAuditRating: '',
+              internalAuditComment: ''
+            };
+          }
+          return k;
+        });
+      }
+
+      state.workflowHistory.unshift({
+        id: `hist_${Date.now()}`,
+        timestamp,
+        actor: 'audit@mzansiflow.co.za',
+        actorName: 'Demo Internal Auditor',
+        role: 'Internal Auditor',
+        stage: 'Audit Verification Redo',
+        action: isSingle ? `Reset ${kpiNo} Achieved / Not Achieved for Redo` : 'Reset All KPIs for Audit Achieved / Not Achieved Redo',
+        notes: comments || (isSingle ? `Auditor reset verification on ${kpiNo} to redo assessment.` : 'Auditor reset assessment to redo achieved / not achieved verification.')
+      });
+
+      // Update PPLAN
+      try {
+        const pplanRes = await supabase.from('messages').select('content').eq('id', `pplan_${tenantId}_user@mzansiflow.co.za`).maybeSingle();
+        if (pplanRes.data && pplanRes.data.content) {
+          const parsedPlan = JSON.parse(pplanRes.data.content);
+          parsedPlan.metadata = { 
+            ...parsedPlan.metadata, 
+            internalAuditStatus: 'Under Review',
+            reviewStatus: 'Dispatched to Audit'
+          };
+          if (Array.isArray(parsedPlan.items)) {
+            parsedPlan.items = parsedPlan.items.map((it: any) => {
+              if (!isSingle || it.id === kpiId) {
+                return { 
+                  ...it, 
+                  internalAuditStatus: 'Under Review',
+                  internalAuditRating: '',
+                  internalAuditComment: '' 
+                };
+              }
+              return it;
+            });
+          }
+          await supabase.from('messages').upsert({
+            id: `pplan_${tenantId}_user@mzansiflow.co.za`,
+            tenant_id: tenantId,
+            sender_id: 'ipms_demo_system',
+            sender_email: 'audit@mzansiflow.co.za',
+            sender_name: 'Demo Internal Auditor',
+            content: JSON.stringify(parsedPlan),
+            message_type: 'pplan_list',
+            created_at: timestamp
+          });
+        }
+      } catch (e) {}
+
+      await supabase.from('messages').upsert({
+        id: `ipms_demo_workflow_${tenantId}`,
+        tenant_id: tenantId,
+        sender_id: 'ipms_demo_system',
+        sender_email: 'demo@system.local',
+        sender_name: 'IPMS Demo System',
+        content: JSON.stringify(state),
+        message_type: 'ipms_demo_workflow',
+        created_at: timestamp
+      });
+
+      return res.json({ 
+        success: true, 
+        message: isSingle ? `${kpiNo} reset to redo audit achieved / not achieved verification.` : 'Audit assessments reset to redo achieved / not achieved verification.',
+        state 
+      });
+    }
+
+    // 9. Audit Push to Manager Action
+    if (action === 'audit_push_to_manager') {
+      const isSingle = Boolean(kpiId);
+      const targetKpi = isSingle ? state.agreement?.kpis?.find((k: any) => k.id === kpiId) : null;
+      const kpiNo = targetKpi?.kpiNo || 'KPI';
+
+      state.status = 'SUBMITTED_TO_MANAGER';
+      if (Array.isArray(state.agreement?.kpis)) {
+        state.agreement.kpis = state.agreement.kpis.map((k: any) => {
+          if (!isSingle || k.id === kpiId) {
+            return {
+              ...k,
+              internalAuditStatus: 'Pushed to Manager',
+              reviewStatus: 'Revision Required'
+            };
+          }
+          return k;
+        });
+      }
+
+      state.workflowHistory.unshift({
+        id: `hist_${Date.now()}`,
+        timestamp,
+        actor: 'audit@mzansiflow.co.za',
+        actorName: 'Demo Internal Auditor',
+        role: 'Internal Auditor',
+        stage: 'Audit Pushed to Line Manager',
+        action: isSingle ? `Pushed ${kpiNo} Audit Findings to Line Manager` : 'Pushed Audit Findings to Line Manager',
+        notes: comments || 'Internal Audit forwarded findings back to Line Manager for action.'
+      });
+
+      // Send notifications to manager and employee
+      await addIpmsNotification(supabase, tenantId, {
+        senderEmail: 'audit@mzansiflow.co.za',
+        senderName: 'Demo Internal Auditor',
+        recipientEmail: 'manager@mzansiflow.co.za',
+        recipientName: 'Demo Line Manager',
+        title: isSingle ? `🛡️ Internal Audit Findings for ${kpiNo} Pushed to Manager` : '🛡️ Internal Audit Findings Pushed to Manager',
+        message: `Internal Audit has returned ${isSingle ? `${kpiNo}` : 'the performance plan'} for subordinate user@mzansiflow.co.za back to Line Manager with audit findings.\n\nAuditor Notes: "${comments || 'Please address audit queries.'}"`,
+        actionType: 'revision_requested'
+      });
+
+      await addIpmsNotification(supabase, tenantId, {
+        senderEmail: 'audit@mzansiflow.co.za',
+        senderName: 'Demo Internal Auditor',
+        recipientEmail: 'user@mzansiflow.co.za',
+        recipientName: 'Demo Standard User',
+        title: isSingle ? `🛡️ Internal Audit Findings for ${kpiNo} Sent to Line Manager` : '🛡️ Internal Audit Findings Sent to Line Manager',
+        message: `Internal Audit reviewed your submission and pushed findings to Line Manager for further review.`,
+        actionType: 'revision_requested'
+      });
+
+      await supabase.from('messages').upsert({
+        id: `ipms_demo_workflow_${tenantId}`,
+        tenant_id: tenantId,
+        sender_id: 'ipms_demo_system',
+        sender_email: 'demo@system.local',
+        sender_name: 'IPMS Demo System',
+        content: JSON.stringify(state),
+        message_type: 'ipms_demo_workflow',
+        created_at: timestamp
+      });
+
+      return res.json({ 
+        success: true, 
+        message: isSingle ? `${kpiNo} audit assessment pushed to Line Manager.` : 'Audit assessment pushed to Line Manager.',
+        state 
+      });
     }
 
     return res.status(400).json({ error: 'Unrecognized action' });

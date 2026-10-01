@@ -371,33 +371,25 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
     ? 'Capture actual team quarterly deliverables, portfolios of evidence (POE), & collective assessments'
     : 'Capture actual quarterly deliverables, portfolios of evidence (POE), & assessments';
   const currentMonth = new Date().getMonth(); // 0-11
-  const isUnrestrictedUser = isUserUnrestricted(currentUser);
-  const isQ1TimeLocked = !isUnrestrictedUser && !(currentMonth >= 6 && currentMonth <= 8);
-  const q1ActivePeriod = "July - September";
-  const isQ2TimeLocked = !isUnrestrictedUser && !(currentMonth >= 9 && currentMonth <= 11);
-  const q2ActivePeriod = "October - December";
-  const isMidtermTimeLocked = !isUnrestrictedUser && !(currentMonth >= 0 && currentMonth <= 5);
-  const midtermActivePeriod = "January - June (Post-Q2)";
-  const isQ3TimeLocked = !isUnrestrictedUser && !(currentMonth >= 0 && currentMonth <= 2);
-  const q3ActivePeriod = "January - March";
-  const isQ4TimeLocked = !isUnrestrictedUser && !(currentMonth >= 3 && currentMonth <= 5);
-  const q4ActivePeriod = "April - June";
-  const isAnnualTimeLocked = !isUnrestrictedUser && !(currentMonth >= 6 && currentMonth <= 8);
-  const annualActivePeriod = "July - September (Post-Q4)";
+  const isUnrestrictedUser = true; // Fully unlocked reporting for all users
+  const isQ1TimeLocked = false;
+  const q1ActivePeriod = "July - September (Active & Unlocked)";
+  const isQ2TimeLocked = false;
+  const q2ActivePeriod = "October - December (Active & Unlocked)";
+  const isMidtermTimeLocked = false;
+  const midtermActivePeriod = "January - June (Post-Q2) (Active & Unlocked)";
+  const isQ3TimeLocked = false;
+  const q3ActivePeriod = "January - March (Active & Unlocked)";
+  const isQ4TimeLocked = false;
+  const q4ActivePeriod = "April - June (Active & Unlocked)";
+  const isAnnualTimeLocked = false;
+  const annualActivePeriod = "July - September (Post-Q4) (Active & Unlocked)";
 
-  const renderTimeLockBanner = (isLocked, periodName) => {
-    if (isLocked) {
-      return (
-        <div className="bg-rose-50 border border-rose-200 text-rose-800 rounded-lg p-3 text-xs flex items-center gap-2 font-medium mb-3">
-          <span className="text-base">🔒</span>
-          <span>This evaluation section is strictly time-locked. It is only active during its reporting period: <strong>{periodName}</strong>.</span>
-        </div>
-      );
-    }
+  const renderTimeLockBanner = (isLocked: boolean, periodName: string) => {
     return (
       <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg p-3 text-xs flex items-center gap-2 font-medium mb-3">
         <span className="text-base">✅</span>
-        <span>This evaluation section is currently active ({periodName}).</span>
+        <span>This evaluation section is currently active and unlocked ({periodName}).</span>
       </div>
     );
   };

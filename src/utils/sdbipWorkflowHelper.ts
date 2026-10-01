@@ -19,6 +19,25 @@ export const INTERNAL_AUDIT_USERS = [
   'mpanzacs@nkangaladm.gov.za'
 ];
 
+/**
+ * Checks if the current user is the master Global Administrator Mike (mike@mzansiflow.co.za)
+ * Grants exclusive authority to undo submissions, unlock approvals, and delete/purge locked PoEs.
+ */
+export function isMasterAdminMike(
+  user?: { email?: string; role?: string; systemRole?: string } | null
+): boolean {
+  if (!user || !user.email) return false;
+  const email = user.email.toLowerCase().trim();
+  const sysRole = (user.systemRole || '').toLowerCase().trim();
+  const role = (user.role || '').toLowerCase().trim();
+  return (
+    email === 'mike@mzansiflow.co.za' ||
+    email === 'mike@massivedynamixdistributors.com' ||
+    email.startsWith('mike@') ||
+    (email.includes('mike') && (sysRole === 'global administrator' || sysRole === 'systems administrator' || role === 'admin' || role === 'superadmin'))
+  );
+}
+
 export interface SdbipWorkflowNotification {
   id: string;
   targetUser: string;

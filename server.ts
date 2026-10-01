@@ -9468,6 +9468,320 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
     }
   });
 
+  // 17.0c Auto Unlock Official (Reviewer or Internal Auditor) upon SDBIP selection
+  // Automatically unlocks module for specified official, sends inbox notifications to official and all Global Administrators,
+  // logs in audit trails, and persistently stores on Supabase.
+  app.post("/api/tenant/:tenantId/auto-unlock-official", async (req, res) => {
+    const { tenantId } = req.params;
+    const { rowId, refNum, kpiName, roleType, officialIdentifier, assignedBy } = req.body || {};
+
+    if (!officialIdentifier) {
+      return res.status(400).json({ error: "Missing officialIdentifier" });
+    }
+
+    try {
+      const supabase = getSupabase();
+      const allUsers = await getConsolidatedUsersList(tenantId);
+      const normIdent = String(officialIdentifier).trim().toLowerCase();
+
+      // Find matching user in consolidated directory
+      let matchedUser = allUsers.find(u => {
+        const uEmail = (u.email || '').trim().toLowerCase();
+        const uName = (u.fullName || '').trim().toLowerCase();
+        const uUsername = (u.username || '').trim().toLowerCase();
+        return uEmail === normIdent || uName === normIdent || uUsername === normIdent ||
+          (normIdent.includes('@') && uEmail === normIdent) ||
+          (!normIdent.includes('@') && (uName.includes(normIdent) || normIdent.includes(uName)));
+      });
+
+      // Fallback mapping for fixed reviewers / auditors
+      const fixedEmailMap: Record<string, string> = {
+        'nompumelelo p. nsibande': 'nsibandenp@nkangaladm.gov.za',
+        'sibusiso m. shabanga': 'shabangusm@nkangaladm.gov.za',
+        'noluthando zulu': 'zulune@nkangaladm.gov.za',
+        'mduduzi lukele': 'lukhelema@nkangaladm.gov.za',
+        'amos d. twala': 'twalaad@nkangaladm.gov.za',
+        'peggy l. seerane': 'seeranepl@nkangaladm.gov.za',
+        'jayvanti morar': 'morarj@nkanagaladm.gov.za',
+        'katlego masemola': 'masemolak@nkangaladm.gov.za',
+        'sthembile c. mpanza': 'mpanzacs@nkangaladm.gov.za'
+      };
+
+      const userEmail = matchedUser?.email || fixedEmailMap[normIdent] || (normIdent.includes('@') ? normIdent : `${normIdent.replace(/[^a-z0-9]/g, '.')}@nkangaladm.gov.za`);
+      const userName = matchedUser?.fullName || officialIdentifier;
+
+      // Determine module and role labels
+      const isReviewer = roleType === 'reviewer';
+      const moduleId = isReviewer ? 'opms-reviewer' : 'opms-audit';
+      const moduleName = isReviewer ? 'OPMS Reviewer' : 'OPMS Internal Audit';
+      const roleLabel = isReviewer ? 'PMU Reviewer' : 'Internal Auditor';
+
+      // 1. Persistently store user module unlock in Supabase messages (document: module_unlocks_${tenantId})
+      const unlockDocId = `module_unlocks_${tenantId}`;
+      let existingUnlocks: any[] = [];
+      const { data: unlockData } = await supabase
+        .from('messages')
+        .select('content')
+        .eq('id', unlockDocId)
+        .maybeSingle();
+
+      if (unlockData?.content) {
+        try {
+          const parsed = JSON.parse(unlockData.content);
+          if (Array.isArray(parsed)) existingUnlocks = parsed;
+          else if (Array.isArray(parsed?.unlocks)) existingUnlocks = parsed.unlocks;
+        } catch (e) {
+          console.error("Error parsing existing module unlocks:", e);
+        }
+      }
+
+      const newUnlockRecord = {
+        id: `unlock-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        userEmail: userEmail.toLowerCase(),
+        userName,
+        moduleId,
+        moduleName,
+        refNum: refNum || 'SDBIP-KPI',
+        kpiId: rowId || '',
+        kpiName: kpiName || '',
+        roleType,
+        unlockedAt: new Date().toISOString(),
+        unlockedBy: assignedBy || 'Global Administrator',
+        status: 'unlocked'
+      };
+
+      // Add or update unlock list
+      const updatedUnlocks = [
+        newUnlockRecord,
+        ...existingUnlocks.filter(u => !(u.userEmail === userEmail.toLowerCase() && u.moduleId === moduleId && u.refNum === refNum))
+      ];
+
+      await supabase.from('messages').upsert({
+        id: unlockDocId,
+        tenant_id: tenantId,
+        sender_id: 'auto_unlock_engine',
+        sender_email: 'unlocks@system.local',
+        sender_name: 'OPMS Module Access Controller',
+        content: JSON.stringify({ unlocks: updatedUnlocks }),
+        message_type: 'module_unlocks_register_v1',
+        created_at: new Date().toISOString()
+      });
+
+      // 2. Prepare notifications
+      const nowIso = new Date().toISOString();
+      const newNotifications: any[] = [];
+
+      // 2a. Notification to the SPECIFIC ASSIGNED USER
+      newNotifications.push({
+        id: `notif-user-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        targetUser: userEmail,
+        targetEmail: userEmail,
+        targetName: userName,
+        senderUser: assignedBy || 'Global Administrator',
+        senderEmail: 'system@mzansiflow.co.za',
+        senderName: assignedBy || 'System Administrator',
+        subject: `OPMS ${moduleName} Module Unlocked`,
+        message: `Your ${moduleName} module has been automatically unlocked for SDBIP KPI ${refNum || ''} ("${(kpiName || '').substring(0, 60)}..."). You have been officially designated as the ${roleLabel}.`,
+        kpiId: rowId,
+        refNum: refNum || '',
+        kpiName: kpiName || '',
+        phase: 'SDBIP Reporting',
+        moduleUnlocked: moduleId,
+        moduleName,
+        actionType: 'cleared',
+        createdAt: nowIso,
+        timestamp: nowIso,
+        read: false
+      });
+
+      // 2b. Identify ALL Global Administrators and dispatch notification to each
+      const globalAdmins = allUsers.filter(u => {
+        const sRole = (u.systemRole || '').trim().toLowerCase();
+        const role = (u.role || '').trim().toLowerCase();
+        const email = (u.email || '').trim().toLowerCase();
+        return sRole === 'global administrator' || sRole === 'systems administrator' ||
+          role === 'admin' || role === 'superadmin' ||
+          email === 'mike@mzansiflow.co.za' || email === 'audrey@mzansiflow.co.za' ||
+          email === 'mike@massivedynamixdistributors.com' || email.includes('globaladmin');
+      });
+
+      // Ensure standard known system admins are included
+      const adminEmails = new Set(globalAdmins.map(a => (a.email || '').toLowerCase()));
+      ['mike@mzansiflow.co.za', 'mike@massivedynamixdistributors.com'].forEach(ea => {
+        if (!adminEmails.has(ea)) {
+          globalAdmins.push({ email: ea, fullName: 'Global Administrator' });
+          adminEmails.add(ea);
+        }
+      });
+
+      globalAdmins.forEach((ga, idx) => {
+        const gaEmail = ga.email?.toLowerCase();
+        newNotifications.push({
+          id: `notif-ga-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 6)}`,
+          targetUser: gaEmail,
+          targetEmail: gaEmail,
+          targetName: ga.fullName || ga.email,
+          senderUser: assignedBy || 'SDBIP Table Automation',
+          senderEmail: 'system@mzansiflow.co.za',
+          senderName: assignedBy || 'SDBIP System',
+          subject: `[Global Admin Notice] ${moduleName} Unlocked for ${userName}`,
+          message: `Official ${userName} (${userEmail}) was assigned as ${roleLabel} for SDBIP KPI ${refNum || ''} ("${(kpiName || '').substring(0, 50)}..."). The ${moduleName} module has been automatically unlocked.`,
+          kpiId: rowId,
+          refNum: refNum || '',
+          kpiName: kpiName || '',
+          phase: 'SDBIP Reporting',
+          moduleUnlocked: moduleId,
+          moduleName,
+          actionType: 'cleared',
+          createdAt: nowIso,
+          timestamp: nowIso,
+          read: false
+        });
+      });
+
+      // 3. Persist notifications into both sdbip_notifications_${tenantId} AND ipms_notifications_${tenantId}
+      // 3a. SDBIP notifications
+      const sdbipNotifDocId = `sdbip_notifications_${tenantId}`;
+      let currentSdbipNotifs: any[] = [];
+      const { data: sdbipNotifData } = await supabase
+        .from('messages')
+        .select('content')
+        .eq('id', sdbipNotifDocId)
+        .maybeSingle();
+
+      if (sdbipNotifData?.content) {
+        try {
+          const parsed = JSON.parse(sdbipNotifData.content);
+          currentSdbipNotifs = Array.isArray(parsed) ? parsed : (parsed?.notifications || []);
+        } catch (e) {}
+      }
+
+      await supabase.from('messages').upsert({
+        id: sdbipNotifDocId,
+        tenant_id: tenantId,
+        sender_id: 'auto_unlock_engine',
+        sender_email: 'sdbip_notifications@system.local',
+        sender_name: 'SDBIP Notifications Manager',
+        content: JSON.stringify([...newNotifications, ...currentSdbipNotifs]),
+        message_type: 'sdbip_notifications_list',
+        created_at: nowIso
+      });
+
+      // 3b. IPMS Inbox notifications
+      const ipmsNotifDocId = `ipms_notifications_${tenantId}`;
+      let currentIpmsNotifs: any[] = [];
+      const { data: ipmsNotifData } = await supabase
+        .from('messages')
+        .select('content')
+        .eq('id', ipmsNotifDocId)
+        .maybeSingle();
+
+      if (ipmsNotifData?.content) {
+        try {
+          const parsed = JSON.parse(ipmsNotifData.content);
+          currentIpmsNotifs = parsed?.notifications || [];
+        } catch (e) {}
+      }
+
+      await supabase.from('messages').upsert({
+        id: ipmsNotifDocId,
+        tenant_id: tenantId,
+        sender_id: 'auto_unlock_engine',
+        sender_email: 'ipms_notif@system.local',
+        sender_name: 'IPMS Notification Service',
+        content: JSON.stringify({ notifications: [...newNotifications, ...currentIpmsNotifs] }),
+        message_type: 'ipms_notifications_v1',
+        created_at: nowIso
+      });
+
+      // 4. Log in Audit Trails and persist to Supabase
+      const clientIp = (req.headers["x-forwarded-for"] as string || req.headers["x-real-ip"] as string || req.ip || req.socket?.remoteAddress || "").split(",")[0].trim();
+      const auditEntry: ServerAuditLogEntry = {
+        id: `audit-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        timestamp: nowIso,
+        dateStr: nowIso.split('T')[0],
+        timeStr: (nowIso.split('T')[1] || '').substring(0, 8),
+        userEmail: assignedBy || 'system@mzansiflow.co.za',
+        userName: assignedBy || 'Global Administrator',
+        role: 'Global Administrator',
+        action: 'MODULE_UNLOCKED',
+        moduleId,
+        moduleName,
+        subModuleId: moduleId,
+        subModuleName: moduleName,
+        tenantId,
+        details: `Assigned ${roleLabel} ${userName} (${userEmail}) to SDBIP KPI ${refNum || ''}. Automatically unlocked ${moduleName} module and dispatched notifications to official and ${globalAdmins.length} Global Administrators.`,
+        ipAddress: clientIp,
+        userAgent: (req.headers["user-agent"] as string) || "System-SDBIP-Automation"
+      };
+
+      serverAuditLogsBuffer.unshift(auditEntry);
+      auditLogsDirty = true;
+      flushAuditLogsToSupabase().catch(err => console.error("Error flushing audit log:", err));
+
+      return res.json({
+        success: true,
+        unlockedUser: { email: userEmail, name: userName },
+        unlockedModule: { id: moduleId, name: moduleName },
+        notifiedGlobalAdminsCount: globalAdmins.length,
+        auditLogged: true,
+        message: `Successfully unlocked ${moduleName} for ${userName}. Notifications sent to assigned user and all Global Administrators.`
+      });
+
+    } catch (err: any) {
+      console.error("auto-unlock-official exception:", err);
+      res.status(500).json({ error: err.message || "Failed to process auto-unlock" });
+    }
+  });
+
+  // 17.0d Fetch User Module Unlocks for a tenant
+  app.get("/api/tenant/:tenantId/user-module-unlocks", async (req, res) => {
+    const { tenantId } = req.params;
+    const { userEmail } = req.query;
+    try {
+      const supabase = getSupabase();
+      const unlockDocId = `module_unlocks_${tenantId}`;
+      const { data, error } = await supabase
+        .from('messages')
+        .select('content')
+        .eq('id', unlockDocId)
+        .maybeSingle();
+
+      if (error) {
+        logSupabaseError("user-module-unlocks", error);
+        return res.json({ unlockedModuleIds: [], unlocks: [] });
+      }
+
+      let allUnlocks: any[] = [];
+      if (data?.content) {
+        try {
+          const parsed = JSON.parse(data.content);
+          allUnlocks = Array.isArray(parsed) ? parsed : (parsed?.unlocks || []);
+        } catch (e) {
+          console.error("Error parsing user-module-unlocks JSON:", e);
+        }
+      }
+
+      if (!userEmail) {
+        const uniqueModuleIds = Array.from(new Set(allUnlocks.map(u => u.moduleId)));
+        return res.json({ unlockedModuleIds: uniqueModuleIds, unlocks: allUnlocks });
+      }
+
+      const normEmail = String(userEmail).trim().toLowerCase();
+      const matchingUnlocks = allUnlocks.filter(u => (u.userEmail || '').toLowerCase() === normEmail);
+      const unlockedModuleIds = Array.from(new Set(matchingUnlocks.map(u => u.moduleId)));
+
+      return res.json({
+        unlockedModuleIds,
+        unlocks: matchingUnlocks,
+        allUnlocksCount: allUnlocks.length
+      });
+    } catch (err: any) {
+      console.error("user-module-unlocks load exception:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // 17.01 Fetch Prior System Archive Documents for a tenant
   app.get("/api/tenant/:tenantId/prior-documents", async (req, res) => {
     const { tenantId } = req.params;

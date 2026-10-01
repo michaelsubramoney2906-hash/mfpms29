@@ -26,41 +26,41 @@ export const REPORTING_PERIOD_CONFIGS: Record<ReportingPhase, PeriodConfig> = {
     phase: 'q1',
     title: '1st Quarter (Q1)',
     shortTitle: 'Q1',
-    months: [7, 8, 9],
-    monthsLabel: 'July – September',
-    description: 'Q1 Active Reporting Window (July to September)'
+    months: [7, 8, 9, 10], // July - October (Q1 execution and statutory reporting window)
+    monthsLabel: 'July – October (Active Q1)',
+    description: 'Q1 Active Reporting Window (July to October)'
   },
   q2: {
     phase: 'q2',
     title: '2nd Quarter (Q2)',
     shortTitle: 'Q2',
-    months: [10, 11, 12],
-    monthsLabel: 'October – December',
-    description: 'Q2 Active Reporting Window (October to December)'
+    months: [11, 12], // November – December (Q2 reporting window)
+    monthsLabel: 'November – December',
+    description: 'Q2 Active Reporting Window (November to December)'
   },
   midTerm: {
     phase: 'midTerm',
     title: 'Mid-Term Section 72 Review',
     shortTitle: 'Mid-Term',
-    months: [10, 11, 12, 1],
-    monthsLabel: 'October – January',
+    months: [11, 12, 1],
+    monthsLabel: 'November – January',
     description: 'Section 72 Mid-Year Budget & Performance Assessment'
   },
   q3: {
     phase: 'q3',
     title: '3rd Quarter (Q3)',
     shortTitle: 'Q3',
-    months: [1, 2, 3],
-    monthsLabel: 'January – March',
-    description: 'Q3 Active Reporting Window (January to March)'
+    months: [2, 3, 4],
+    monthsLabel: 'February – April',
+    description: 'Q3 Active Reporting Window (February to April)'
   },
   q4: {
     phase: 'q4',
     title: '4th Quarter (Q4 / Annual Final)',
     shortTitle: 'Q4',
-    months: [4, 5, 6],
-    monthsLabel: 'April – June',
-    description: 'Q4 Active Reporting Window (April to June)'
+    months: [5, 6],
+    monthsLabel: 'May – June',
+    description: 'Q4 Active Reporting Window (May to June)'
   },
   annual: {
     phase: 'annual',
@@ -77,10 +77,10 @@ export const REPORTING_PERIOD_CONFIGS: Record<ReportingPhase, PeriodConfig> = {
  */
 export function getCurrentMunicipalQuarter(date: Date = new Date()): 'q1' | 'q2' | 'q3' | 'q4' {
   const month = date.getMonth() + 1; // 1-12
-  if (month >= 7 && month <= 9) return 'q1';
-  if (month >= 10 && month <= 12) return 'q2';
-  if (month >= 1 && month <= 3) return 'q3';
-  return 'q4'; // 4, 5, 6
+  if (month >= 7 && month <= 10) return 'q1';
+  if (month >= 11 && month <= 12) return 'q2';
+  if (month >= 1 && month <= 4) return 'q3';
+  return 'q4'; // 5, 6
 }
 
 /**

@@ -3,7 +3,8 @@ import {
   Search, CheckCircle, AlertTriangle, AlertCircle, RefreshCw, 
   Layers, Database, ChevronRight, Clock, ShieldCheck, 
   ThumbsUp, MessageSquare, ArrowLeftRight, UserCheck, Check, X, ShieldAlert, Award, FileSpreadsheet,
-  Eye, Download, FileText, Presentation, File, FolderOpen, Paperclip, Bell, ArrowRight
+  Eye, Download, FileText, Presentation, File, FolderOpen, Paperclip, Bell, ArrowRight, Unlock, Save,
+  Trash2, RotateCcw
 } from 'lucide-react';
 import type { User } from '../../types';
 import { SdbipRow, SdbipPoeFile } from './SDBIP';
@@ -16,7 +17,8 @@ import {
   dispatchSdbipNotification, 
   markSdbipNotificationRead,
   extractKpiPoes,
-  PMS_TEAM_REVIEWERS
+  PMS_TEAM_REVIEWERS,
+  isMasterAdminMike
 } from '../../utils/sdbipWorkflowHelper';
 import { calcOpmsVariance } from '../../utils/varianceCalculator';
 
@@ -39,6 +41,24 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
   const [searchQuery, setSearchQuery] = useState('');
   const [approverNotes, setApproverNotes] = useState('');
   const [showCertificate, setShowCertificate] = useState(false);
+
+  // Q1 Actual states for designated Approver
+  const [q1Actual, setQ1Actual] = useState('');
+  const [q1Variance, setQ1Variance] = useState('');
+  const [q1Corrective, setQ1Corrective] = useState('');
+  const [savingQ1, setSavingQ1] = useState(false);
+
+  const isDesignatedApprover = Boolean(
+    selectedKpi && (
+      isUserMatch(selectedKpi.approver, currentUser) ||
+      currentUser.role === 'admin' ||
+      currentUser.systemRole === 'Global Administrator' ||
+      currentUser.systemRole === 'Systems Administrator' ||
+      (currentUser.email && ['mike@mzansiflow.co.za', 'mike@massivedynamixdistributors.com'].includes(currentUser.email))
+    )
+  );
+
+  const isSuperAdminMike = isMasterAdminMike(currentUser);
 
   const calcVar = (target: string | undefined, actual: string | undefined) => {
     return calcOpmsVariance(target, actual, selectedKpi?.uom);
@@ -80,10 +100,338 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
   useEffect(() => {
     if (selectedKpi) {
       setApproverNotes((selectedKpi as any).approverNotes || '');
+      setQ1Actual(selectedKpi.q1Actual || '');
+      setQ1Variance(selectedKpi.q1Variance || '');
+      setQ1Corrective(selectedKpi.q1Corrective || '');
     } else {
       setApproverNotes('');
+      setQ1Actual('');
+      setQ1Variance('');
+      setQ1Corrective('');
     }
   }, [selectedKpi]);
+
+  const handleSaveQ1Actual = async () => {
+    if (!selectedKpi) return;
+    setSavingQ1(true);
+    try {
+      const calculatedVar = q1Variance || calcVar(selectedKpi.q1, q1Actual) || '0';
+      const updatedRows = rows.map(r => {
+        if (r.id === selectedKpi.id) {
+          return {
+            ...r,
+            q1Actual,
+            q1Variance: calculatedVar,
+            q1Corrective
+          };
+        }
+        return r;
+      });
+
+      const res = await fetch(`/api/tenant/${activeTenantId}/sdbip`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: updatedRows })
+      });
+      if (!res.ok) throw new Error('Failed to update Q1 actual on Supabase');
+
+      // Log into audit trail
+      await fetch('/api/audit/log-access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: currentUser.email,
+          fullName: currentUser.fullName,
+          tenantId: activeTenantId,
+          role: currentUser.role,
+          action: 'UPDATE_Q1_ACTUAL',
+          moduleId: 'opms-approver',
+          moduleName: 'OPMS Approver',
+          subModuleId: 'opms-approver',
+          subModuleName: 'Executive Approver',
+          details: `Executive Approver updated Q1 Actual to "${q1Actual}" (Variance: "${calculatedVar}") on KPI ${selectedKpi.refNum}.`
+        })
+      });
+
+      setRows(updatedRows);
+      setSelectedKpi(prev => prev ? {
+        ...prev,
+        q1Actual,
+        q1Variance: calculatedVar,
+        q1Corrective
+      } : null);
+
+      setSuccess(`Q1 Performance Actual saved and persistently synchronized to Supabase.`);
+      setTimeout(() => setSuccess(null), 4000);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || 'Failed to update Q1 Actual');
+    } finally {
+      setSavingQ1(false);
+    }
+  };
+
+  const handleMasterUnlockApproval = async () => {
+    if (!selectedKpi) return;
+    setLoading(true);
+    try {
+      const updatedRows = rows.map(r => {
+        if (r.id === selectedKpi.id) {
+          const currentHistory = (r as any).workflowHistory || [];
+          const newHistoryItem = {
+            date: new Date().toISOString(),
+            action: 'Approval Revoked by Global Admin',
+            user: currentUser.fullName || currentUser.email,
+            notes: 'Global Administrator Mike revoked approval seal and unlocked KPI for revision.'
+          };
+          const workflows = r.workflows || {};
+          ['q1', 'q2', 'midTerm', 'q3', 'q4', 'annual'].forEach(ph => {
+            if (workflows[ph]) {
+              workflows[ph] = { ...workflows[ph], status: 'pending_review', approvedBy: undefined };
+            }
+          });
+          return {
+            ...r,
+            workflowStatus: 'Submitted to Approver',
+            approvedBy: undefined,
+            workflows,
+            workflowHistory: [...currentHistory, newHistoryItem]
+          } as SdbipRow;
+        }
+        return r;
+      });
+
+      const response = await fetch(`/api/tenant/${activeTenantId}/sdbip`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: updatedRows })
+      });
+      if (!response.ok) throw new Error('Failed to revoke approval on Supabase');
+
+      fetch('/api/audit/log-access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: currentUser.email,
+          fullName: currentUser.fullName,
+          tenantId: activeTenantId,
+          role: 'Global Administrator',
+          action: 'MASTER_REVOKE_APPROVAL',
+          moduleId: 'opms-approver',
+          moduleName: 'OPMS Approver',
+          subModuleId: 'opms-approver',
+          subModuleName: 'Executive Approver',
+          details: `Global Administrator Mike revoked approval seal on KPI ${selectedKpi.refNum}. Status reverted to Submitted to Approver.`
+        })
+      }).catch(console.error);
+
+      setRows(updatedRows);
+      setSelectedKpi(prev => prev ? { ...prev, workflowStatus: 'Submitted to Approver', approvedBy: undefined } as any : null);
+      setSuccess(`🔓 Master Override: Approval seal revoked! KPI ${selectedKpi.refNum} reopened for revision.`);
+      setTimeout(() => setSuccess(null), 5000);
+    } catch (err: any) {
+      setError(err.message || 'Failed to revoke approval');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMasterUndoSubmission = async () => {
+    if (!selectedKpi) return;
+    setLoading(true);
+    try {
+      const updatedRows = rows.map(r => {
+        if (r.id === selectedKpi.id) {
+          const currentHistory = (r as any).workflowHistory || [];
+          const newHistoryItem = {
+            date: new Date().toISOString(),
+            action: 'Submission Undone by Global Admin',
+            user: currentUser.fullName || currentUser.email,
+            notes: 'Global Administrator Mike returned KPI to Submitter in Draft state.'
+          };
+          const workflows = r.workflows || {};
+          ['q1', 'q2', 'midTerm', 'q3', 'q4', 'annual'].forEach(ph => {
+            if (workflows[ph]) {
+              workflows[ph] = { ...workflows[ph], status: 'draft', approvedBy: undefined };
+            }
+          });
+          return {
+            ...r,
+            workflowStatus: 'Draft',
+            approvedBy: undefined,
+            workflows,
+            workflowHistory: [...currentHistory, newHistoryItem]
+          } as SdbipRow;
+        }
+        return r;
+      });
+
+      const response = await fetch(`/api/tenant/${activeTenantId}/sdbip`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: updatedRows })
+      });
+      if (!response.ok) throw new Error('Failed to revert KPI to Draft on Supabase');
+
+      fetch('/api/audit/log-access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: currentUser.email,
+          fullName: currentUser.fullName,
+          tenantId: activeTenantId,
+          role: 'Global Administrator',
+          action: 'MASTER_UNDO_SUBMISSION',
+          moduleId: 'opms-approver',
+          moduleName: 'OPMS Approver',
+          subModuleId: 'opms-approver',
+          subModuleName: 'Executive Approver',
+          details: `Global Administrator Mike reverted KPI ${selectedKpi.refNum} back to Submitter Draft.`
+        })
+      }).catch(console.error);
+
+      setRows(updatedRows);
+      setSelectedKpi(prev => prev ? { ...prev, workflowStatus: 'Draft', approvedBy: undefined } as any : null);
+      setSuccess(`🔓 Master Override: KPI ${selectedKpi.refNum} returned to Submitter in Draft state.`);
+      setTimeout(() => setSuccess(null), 5000);
+    } catch (err: any) {
+      setError(err.message || 'Failed to revert submission');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMasterToggleLock = async (targetRowId?: string) => {
+    const rowId = targetRowId || selectedKpi?.id;
+    if (!rowId) return;
+    const targetRow = rows.find(r => r.id === rowId);
+    if (!targetRow) return;
+    setLoading(true);
+    try {
+      const isCurrentlyLocked = (targetRow as any).workflowStatus === 'Approved' || (targetRow as any).workflowStatus === 'Reviewed' || (targetRow as any).adminLocked;
+      const newStatus = isCurrentlyLocked ? 'Draft' : 'Approved';
+      const updatedRows = rows.map(r => {
+        if (r.id === rowId) {
+          const currentHistory = (r as any).workflowHistory || [];
+          const newHistoryItem = {
+            date: new Date().toISOString(),
+            action: isCurrentlyLocked ? 'Unlocked by Global Admin' : 'Locked by Global Admin',
+            user: currentUser.fullName || currentUser.email,
+            notes: isCurrentlyLocked ? 'Global Administrator Mike unlocked KPI.' : 'Global Administrator Mike locked KPI.'
+          };
+          const workflows = r.workflows || {};
+          ['q1', 'q2', 'midTerm', 'q3', 'q4', 'annual'].forEach(ph => {
+            if (workflows[ph]) {
+              workflows[ph] = { ...workflows[ph], status: isCurrentlyLocked ? 'draft' : 'approved', approvedBy: isCurrentlyLocked ? undefined : (currentUser.fullName || currentUser.email) };
+            }
+          });
+          return {
+            ...r,
+            workflowStatus: newStatus,
+            approvedBy: isCurrentlyLocked ? undefined : (r.approvedBy || currentUser.fullName || currentUser.email),
+            adminLocked: !isCurrentlyLocked,
+            workflows,
+            workflowHistory: [...currentHistory, newHistoryItem]
+          } as SdbipRow;
+        }
+        return r;
+      });
+
+      const response = await fetch(`/api/tenant/${activeTenantId}/sdbip`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: updatedRows })
+      });
+      if (!response.ok) throw new Error('Failed to update lock status on Supabase');
+
+      fetch('/api/audit/log-access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: currentUser.email,
+          fullName: currentUser.fullName,
+          tenantId: activeTenantId,
+          role: 'Global Administrator',
+          action: isCurrentlyLocked ? 'SUPERADMIN_UNLOCK_KPI' : 'SUPERADMIN_LOCK_KPI',
+          moduleId: 'opms-approver',
+          moduleName: 'OPMS Approver',
+          subModuleId: 'opms-approver',
+          subModuleName: 'Executive Approver',
+          details: `Global Administrator Mike ${isCurrentlyLocked ? 'unlocked' : 'locked'} KPI ${targetRow.refNum}.`
+        })
+      }).catch(console.error);
+
+      setRows(updatedRows);
+      if (selectedKpi?.id === rowId) {
+        setSelectedKpi(prev => prev ? { ...prev, workflowStatus: newStatus, adminLocked: !isCurrentlyLocked } as any : null);
+      }
+      setSuccess(`🔓 Master Override: KPI ${targetRow.refNum} successfully ${isCurrentlyLocked ? 'unlocked and opened for editing' : 'locked'}!`);
+      setTimeout(() => setSuccess(null), 4000);
+    } catch (err: any) {
+      setError(err.message || 'Failed to toggle lock status');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeletePoe = async (poeId: string, fileName: string) => {
+    if (!selectedKpi) return;
+    try {
+      const updatedPoes = poes.filter(p => p.id !== poeId);
+      await fetch(`/api/tenant/${activeTenantId}/sdbip-poes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ poes: updatedPoes })
+      });
+      setPoes(updatedPoes);
+
+      // Clean up the row's quarter POE arrays
+      const filterPoes = (arr: any) => Array.isArray(arr) ? arr.filter((fn: string) => fn !== fileName) : arr;
+      const updatedRows = rows.map(r => {
+        if (r.id === selectedKpi.id) {
+          return {
+            ...r,
+            q1Poes: filterPoes(r.q1Poes),
+            q2Poes: filterPoes(r.q2Poes),
+            midTermPoes: filterPoes(r.midTermPoes),
+            q3Poes: filterPoes(r.q3Poes),
+            q4Poes: filterPoes(r.q4Poes),
+          };
+        }
+        return r;
+      });
+      setRows(updatedRows);
+      await fetch(`/api/tenant/${activeTenantId}/sdbip`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: updatedRows })
+      });
+
+      if (isSuperAdminMike) {
+        fetch('/api/audit/log-access', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: currentUser.email,
+            fullName: currentUser.fullName,
+            tenantId: activeTenantId,
+            role: 'Global Administrator',
+            action: 'SUPERADMIN_POE_PURGE',
+            moduleId: 'opms-approver',
+            moduleName: 'OPMS Approver',
+            subModuleId: 'opms-approver',
+            subModuleName: 'Executive Approver',
+            details: `Global Administrator Mike purged PoE document "${fileName}" from KPI ${selectedKpi.refNum}.`
+          })
+        }).catch(console.error);
+      }
+
+      setSuccess(`Evidence document "${fileName}" successfully purged and deleted.`);
+      setTimeout(() => setSuccess(null), 3500);
+    } catch (e: any) {
+      setError('Failed to delete document: ' + e.message);
+    }
+  };
 
   const generateFallbackSvgDataUrl = (fileName: string, kpiName: string, refNum: string, quarter: string) => {
     const ext = fileName.split('.').pop()?.toUpperCase() || 'POE';
@@ -376,6 +724,20 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
         comment: approverNotes,
         actionType: 'pushed_to_reviewer'
       });
+
+      // Automatically unlock OPMS Reviewer module for designated reviewer and notify Global Administrators
+      fetch(`/api/tenant/${activeTenantId}/auto-unlock-official`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rowId: selectedKpi.id,
+          refNum: selectedKpi.refNum,
+          kpiName: selectedKpi.kpi,
+          roleType: 'reviewer',
+          officialIdentifier: reviewerTarget,
+          assignedBy: currentUser.fullName || currentUser.email || 'Executive Approver'
+        })
+      }).catch(console.error);
 
       await loadNotifications();
       
@@ -731,7 +1093,39 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
                       <span className="bg-slate-950 px-2 py-0.5 border border-slate-800 font-mono text-[11px] text-slate-200 rounded font-bold">
                         {row.refNum}
                       </span>
-                      {getStatusBadge(status)}
+                      <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                        {getStatusBadge(status)}
+                        {isSuperAdminMike && (status === 'Approved' || status === 'Reviewed' || (row as any).adminLocked) && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedKpi(row);
+                              handleMasterToggleLock(row.id);
+                            }}
+                            className="px-1.5 py-0.5 bg-rose-900/80 hover:bg-rose-800 text-rose-200 border border-rose-500/60 rounded text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition cursor-pointer shadow-xs"
+                            title="Quick Unlock Approval (Global Admin Mike Master Override)"
+                          >
+                            <Unlock className="w-2.5 h-2.5 text-rose-300" />
+                            <span>Unlock</span>
+                          </button>
+                        )}
+                        {isSuperAdminMike && (status === 'Submitted' || status === 'Submitted to Approver' || status === 'Pending Review' || status === 'Pending Audit') && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedKpi(row);
+                              handleMasterUndoSubmission();
+                            }}
+                            className="px-1.5 py-0.5 bg-amber-900/80 hover:bg-amber-800 text-amber-200 border border-amber-500/60 rounded text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition cursor-pointer shadow-xs"
+                            title="Quick Undo Submission to Draft (Global Admin Mike Master Override)"
+                          >
+                            <RotateCcw className="w-2.5 h-2.5 text-amber-300" />
+                            <span>Undo</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
                     
                     <p className="text-xs text-slate-200 line-clamp-2 leading-relaxed">
@@ -769,6 +1163,73 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
               </button>
             </div>
 
+            {/* Master Override Bar for Global Administrator Mike */}
+            {isSuperAdminMike && (
+              <div className="bg-gradient-to-r from-amber-950/50 via-red-950/40 to-amber-950/50 border-2 border-amber-500/60 rounded-xl p-3.5 space-y-2.5 shadow-xl">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-black text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <ShieldAlert className="w-4 h-4 text-amber-400" />
+                    👑 Global Administrator Master Override (Mike)
+                  </span>
+                  <span className="text-[10px] text-amber-300 font-mono font-bold bg-amber-950/80 px-2 py-0.5 rounded border border-amber-800/60">
+                    Status: {(selectedKpi as any).workflowStatus || 'Draft'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                  As Global Administrator (<strong className="text-amber-300">mike@mzansiflow.co.za</strong>), you have exclusive authority to undo submissions, revoke approval locks, purge locked evidence files, and unlock scorecards for revision.
+                </p>
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  {((selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed' || (selectedKpi as any).adminLocked) && (
+                    <button
+                      type="button"
+                      onClick={handleMasterUnlockApproval}
+                      disabled={loading}
+                      className="px-3 py-1.5 bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 text-white rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow-md transition disabled:opacity-50"
+                      title="Revoke official approval seal and reopen this KPI for revision"
+                    >
+                      <Unlock className="w-3.5 h-3.5" />
+                      <span>Revoke Approval & Reopen KPI</span>
+                    </button>
+                  )}
+                  {((selectedKpi as any).workflowStatus === 'Submitted to Approver' || (selectedKpi as any).workflowStatus === 'Submitted' || (selectedKpi as any).workflowStatus === 'Reviewed' || (selectedKpi as any).workflowStatus === 'Pending Review' || (selectedKpi as any).workflowStatus === 'Approved') && (
+                    <button
+                      type="button"
+                      onClick={handleMasterUndoSubmission}
+                      disabled={loading}
+                      className="px-3 py-1.5 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow-md transition disabled:opacity-50"
+                      title="Undo submission and return KPI to Submitter in Draft state"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Undo Submission & Revert to Draft</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleMasterToggleLock()}
+                    disabled={loading}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow-md transition disabled:opacity-50 ${
+                      (selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).adminLocked
+                        ? 'bg-emerald-700 hover:bg-emerald-600 text-white'
+                        : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+                    }`}
+                    title="Toggle Master Lock / Unlock state"
+                  >
+                    {(selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).adminLocked ? (
+                      <>
+                        <Unlock className="w-3.5 h-3.5 text-emerald-300" />
+                        <span>Unlock Scorecard</span>
+                      </>
+                    ) : (
+                      <>
+                        <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Lock Scorecard</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Full Details view */}
             <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-850 space-y-2 text-xs">
               <h4 className="font-bold text-slate-300 uppercase text-[10px] tracking-wider border-b border-slate-900 pb-1">Performance Details</h4>
@@ -777,14 +1238,96 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
               
               {/* Performance Actual values side by side */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-slate-900 text-slate-350">
-                {selectedKpi.q1Actual && (
-                  <div className="bg-slate-900/60 p-2.5 rounded border border-slate-850/50">
-                    <div className="font-bold text-slate-300">Quarter 1 Performance:</div>
-                    <div>Target: <strong className="text-white">{selectedKpi.q1}</strong></div>
-                    <div>Actual: <strong className="text-emerald-400 font-bold">{selectedKpi.q1Actual}</strong></div>
-                    <div className="text-[10px] text-indigo-400 font-extrabold mt-0.5">Calculated Variance: {calcVar(selectedKpi.q1, selectedKpi.q1Actual) || '0'}</div>
+                {/* Quarter 1 Performance (Unlocked for Assigned Approver) */}
+                <div className={`p-3 rounded-xl border flex flex-col justify-between ${isDesignatedApprover ? 'bg-slate-900/90 border-emerald-500/50 ring-1 ring-emerald-500/20 col-span-1 md:col-span-2' : 'bg-slate-900/60 border-slate-850/50'}`}>
+                  <div className="flex items-center justify-between pb-1.5 border-b border-slate-800">
+                    <div className="font-bold text-slate-200 text-xs flex items-center gap-1.5">
+                      <span>Quarter 1 Target:</span>
+                      <strong className="text-white bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">{selectedKpi.q1 || '0'}</strong>
+                    </div>
+                    {isDesignatedApprover ? (
+                      <span className="text-[9px] font-mono text-emerald-300 bg-emerald-950/80 border border-emerald-500/40 px-2 py-0.5 rounded flex items-center gap-1 shadow-xs">
+                        <Unlock className="w-2.5 h-2.5 text-emerald-400 animate-pulse" /> Q1 Actual Unlocked (Assigned Approver)
+                      </span>
+                    ) : (
+                      <span className="text-[9px] font-mono text-slate-400 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
+                        Approver View
+                      </span>
+                    )}
                   </div>
-                )}
+
+                  {isDesignatedApprover ? (
+                    <div className="pt-2 space-y-2">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[10px] font-bold uppercase text-slate-400 flex items-center justify-between">
+                            <span>Q1 Actual Progress</span>
+                            <span className="text-[9px] text-emerald-400 font-mono">Editable</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={q1Actual}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setQ1Actual(val);
+                              setQ1Variance(calcVar(selectedKpi.q1, val) || '0');
+                            }}
+                            placeholder="Enter Q1 performance actual..."
+                            className="w-full bg-slate-950 border border-emerald-500/50 focus:border-emerald-400 rounded p-1.5 text-xs text-white mt-0.5"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold uppercase text-slate-400">Calculated Variance</label>
+                          <div className="bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-indigo-400 font-mono font-bold mt-0.5 flex items-center justify-between">
+                            <span>Var: {calcVar(selectedKpi.q1, q1Actual) || '0'}</span>
+                            <span className="text-[9px] text-slate-500 font-sans">Auto-derived</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[10px] font-bold uppercase text-slate-400">Variance Explanation</label>
+                          <input
+                            type="text"
+                            value={q1Variance}
+                            onChange={(e) => setQ1Variance(e.target.value)}
+                            placeholder="Why targets differ..."
+                            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-400 rounded p-1.5 text-xs text-white mt-0.5"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold uppercase text-slate-400">Corrective Measure</label>
+                          <input
+                            type="text"
+                            value={q1Corrective}
+                            onChange={(e) => setQ1Corrective(e.target.value)}
+                            placeholder="Mitigation or corrective actions..."
+                            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-400 rounded p-1.5 text-xs text-white mt-0.5"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-end pt-1">
+                        <button
+                          type="button"
+                          onClick={handleSaveQ1Actual}
+                          disabled={savingQ1}
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50 transition"
+                        >
+                          <Save className="w-3 h-3" />
+                          <span>{savingQ1 ? 'Saving...' : 'Save Q1 Performance Actual'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="pt-2 text-xs space-y-0.5">
+                      <div>Target: <strong className="text-white">{selectedKpi.q1}</strong></div>
+                      <div>Actual: <strong className="text-emerald-400 font-bold">{selectedKpi.q1Actual || 'None reported'}</strong></div>
+                      <div className="text-[10px] text-indigo-400 font-extrabold mt-0.5">Calculated Variance: {calcVar(selectedKpi.q1, selectedKpi.q1Actual) || '0'}</div>
+                    </div>
+                  )}
+                </div>
                 {selectedKpi.q2Actual && (
                   <div className="bg-slate-900/60 p-2.5 rounded border border-slate-850/50">
                     <div className="font-bold text-slate-300">Quarter 2 Performance:</div>
@@ -901,6 +1444,18 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
                           >
                             <Download className="w-3.5 h-3.5" />
                           </button>
+
+                          {isSuperAdminMike && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeletePoe(file.id, file.name)}
+                              className="bg-rose-900/70 hover:bg-rose-800 text-rose-200 border border-rose-500/60 p-1.5 rounded-lg text-[10px] flex items-center gap-1 transition cursor-pointer shadow-xs"
+                              title="Master Override: Purge PoE document from Supabase (Mike)"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span className="text-[9px] font-bold uppercase tracking-wider text-rose-300">Purge</span>
+                            </button>
+                          )}
                         </div>
                       </div>
                     ))}
