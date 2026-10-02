@@ -11,6 +11,7 @@ import { SDBIPPagination } from './SDBIPPagination';
 import { ExpandableCell, CellExpandModal, ExpandModalState } from './ExpandableCell';
 import { isQuarterInReportingPeriod, getQuarterLockNotice, REPORTING_PERIOD_CONFIGS, getCurrentMunicipalQuarter, ReportingPhase } from '../../utils/reportingPeriods';
 import { PMS_TEAM_REVIEWERS, INTERNAL_AUDIT_USERS, isUserMatch, dispatchSdbipNotification, isMasterAdminMike } from '../../utils/sdbipWorkflowHelper';
+import { isUserUnrestricted } from '../../utils/unrestrictedHelper';
 import { OfficeDocumentViewer } from '../IPMS/OfficeDocumentViewer';
 import { calcVar, extractNumericValue } from '../../utils/varianceCalculator';
 
@@ -36,13 +37,14 @@ let globalReportingAssignmentsUnlocked = false;
 
 /**
  * Determines whether Submitter & Approver are unlocked in the SDBIP Top Layer reporting table.
- * Specifically unlocked ONLY for KPI M_72 and P_07 (all other KPIs locked).
  */
 export const isKpiUnlockedForSubmitterApprover = (row: { refNum?: string; id?: string; kpi?: string } | null | undefined): boolean => {
   return globalReportingAssignmentsUnlocked; 
 };
 
-export const isSubmitterApproverLockedInReporting = (row: { refNum?: string; id?: string; kpi?: string } | null | undefined): boolean => {
+export const isSubmitterApproverLockedInReporting = (row: { refNum?: string; id?: string; kpi?: string; adminLocked?: boolean; workflowStatus?: string } | null | undefined): boolean => {
+  if (globalReportingAssignmentsUnlocked) return false;
+  if (row && (row.adminLocked === false || row.workflowStatus === 'Draft')) return false;
   return !globalReportingAssignmentsUnlocked; 
 };
 
@@ -335,6 +337,13 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
       globalReportingAssignmentsUnlocked = false;
       setIsReportingAssignmentsUnlocked(false);
       setSuccessToast("Submitter & Approver columns have been LOCKED again successfully!");
+      return;
+    }
+    if (isSuperAdminMike || isUserUnrestricted(currentUser)) {
+      globalReportingAssignmentsUnlocked = true;
+      setIsReportingAssignmentsUnlocked(true);
+      setSuccessToast("🔓 Submitter & Approver assignments UNLOCKED for all reporting KPIs!");
+      setTimeout(() => setSuccessToast(null), 4000);
       return;
     }
     setEnteredPassword('');
@@ -1408,6 +1417,10 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     setRows(updatedRows);
     await saveRows(updatedRows);
 
+    // Also unlock Submitter & Approver assignments
+    globalReportingAssignmentsUnlocked = true;
+    setIsReportingAssignmentsUnlocked(true);
+
     fetch('/api/audit/log-access', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1421,11 +1434,11 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
         moduleName: 'SDBIP Reporting Table',
         subModuleId: 'sdbip-table',
         subModuleName: 'SDBIP Main Table',
-        details: `Global Administrator Mike unlocked all Approved KPIs.`
+        details: `Global Administrator Mike unlocked all Approved KPIs including Submitter and Approver assignments.`
       })
     }).catch(console.error);
 
-    setSuccessToast('🔓 Master Override: All approved KPIs have been unlocked & reverted to Draft!');
+    setSuccessToast('🔓 Master Override: All approved KPIs & Submitter/Approver assignments have been unlocked!');
     setTimeout(() => setSuccessToast(null), 4000);
   };
 
@@ -5606,6 +5619,19 @@ Timestamp: ${new Date().toLocaleString()}
                     >
                       <Unlock className="w-3.5 h-3.5" />
                       <span>Unlock All Approved</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleToggleAssignmentsLock}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-lg flex items-center gap-1.5 transition shadow-sm cursor-pointer border ${
+                        isReportingAssignmentsUnlocked
+                          ? 'bg-amber-400 hover:bg-amber-300 text-black border-amber-300 font-black'
+                          : 'bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-400/40'
+                      }`}
+                      title="Unlock / Lock Submitter and Approver assignment columns across the entire reporting table"
+                    >
+                      {isReportingAssignmentsUnlocked ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+                      <span>{isReportingAssignmentsUnlocked ? 'Submitter/Approver: Unlocked' : 'Unlock Submitter & Approver'}</span>
                     </button>
                     <button
                       type="button"
