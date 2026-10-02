@@ -4456,7 +4456,18 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
   });
 
   // App version endpoint for real-time cache-free deployment detection
-  const APP_DEPLOY_TIMESTAMP = process.env.APP_VERSION || Date.now().toString();
+  let APP_DEPLOY_TIMESTAMP = process.env.APP_VERSION || 'development';
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const versionFile = path.join(__dirname, 'dist', 'version.txt');
+    if (fs.existsSync(versionFile)) {
+      APP_DEPLOY_TIMESTAMP = fs.readFileSync(versionFile, 'utf8').trim();
+    }
+  } catch (err: any) {
+    console.warn("[Version Tracker]: Could not read build version file:", err.message);
+  }
+
   app.get("/api/version", (req: any, res: any) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
     res.setHeader('Pragma', 'no-cache');
@@ -9267,18 +9278,24 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
   // 14. Fetch SDBIP for a tenant (including 2nd & 3rd layer SDBIP23)
   app.get(["/api/tenant/:tenantId/sdbip", "/api/tenant/:tenantId/sdbip23"], async (req, res) => {
     const { tenantId } = req.params;
-    const cacheKey = `sdbip_${tenantId}`;
+    const isSdbip23 = req.path.endsWith('/sdbip23');
+    const cacheKey = isSdbip23 ? `sdbip23_${tenantId}` : `sdbip_${tenantId}`;
     try {
       const items = await fetchWithCoalescing(cacheKey, 20000, async () => {
         const supabase = getSupabase();
-        let documentIds = [`sdbip23_${tenantId}`, `sdbip_${tenantId}`];
+        let documentIds = isSdbip23 ? [`sdbip23_${tenantId}`] : [`sdbip_${tenantId}`];
         if (tenantId === 'tenant-229' || tenantId === 'nkangala_auto' || tenantId === 'nkangala' || tenantId === 'default') {
-          documentIds = ['sdbip23_tenant-229', 'sdbip_tenant-229', 'sdbip23_nkangala_auto', 'sdbip_nkangala_auto', 'sdbip23_global', 'sdbip_global'];
+          documentIds = isSdbip23 
+            ? ['sdbip23_tenant-229', 'sdbip23_nkangala_auto', 'sdbip23_global']
+            : ['sdbip_tenant-229', 'sdbip_nkangala_auto', 'sdbip_global'];
         } else if (tenantId !== 'global') {
-          documentIds.push(`sdbip23_${tenantId}`);
-          documentIds.push(`sdbip_${tenantId}`);
-          documentIds.push('sdbip23_global');
-          documentIds.push('sdbip_global');
+          if (isSdbip23) {
+            documentIds.push(`sdbip23_${tenantId}`);
+            documentIds.push('sdbip23_global');
+          } else {
+            documentIds.push(`sdbip_${tenantId}`);
+            documentIds.push('sdbip_global');
+          }
         }
 
         for (const docId of documentIds) {
@@ -9315,15 +9332,18 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
   app.post(["/api/tenant/:tenantId/sdbip", "/api/tenant/:tenantId/sdbip23"], async (req, res) => {
     const { tenantId } = req.params;
     const { items } = req.body;
+    const isSdbip23 = req.path.endsWith('/sdbip23');
     try {
       const supabase = getSupabase();
-      let targetDocIds = [`sdbip23_${tenantId}`, `sdbip_${tenantId}`];
+      let targetDocIds = isSdbip23 ? [`sdbip23_${tenantId}`] : [`sdbip_${tenantId}`];
       if (tenantId === 'tenant-229' || tenantId === 'nkangala_auto' || tenantId === 'global') {
-        targetDocIds = ['sdbip23_tenant-229', 'sdbip_tenant-229', 'sdbip23_nkangala_auto', 'sdbip_nkangala_auto', 'sdbip23_global', 'sdbip_global'];
+        targetDocIds = isSdbip23 
+          ? ['sdbip23_tenant-229', 'sdbip23_nkangala_auto', 'sdbip23_global']
+          : ['sdbip_tenant-229', 'sdbip_nkangala_auto', 'sdbip_global'];
       }
 
       for (const docId of targetDocIds) {
-        const tId = docId.replace('sdbip23_', '').replace('sdbip_', '');
+        const tId = isSdbip23 ? docId.replace('sdbip23_', '') : docId.replace('sdbip_', '');
         await supabase
           .from('messages')
           .upsert({ 
@@ -9333,13 +9353,13 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
             sender_email: 'sdbip@system.local',
             sender_name: 'SDBIP Editor',
             content: JSON.stringify({ items: items }),
-            message_type: docId.startsWith('sdbip23_') ? 'sdbip23_list' : 'sdbip_list',
+            message_type: isSdbip23 ? 'sdbip23_list' : 'sdbip_list',
             created_at: new Date().toISOString()
           });
       }
       
-      // Invalidate SDBIP and users cache
-      invalidateCachePrefix('sdbip_');
+      // Invalidate SDBIP/SDBIP23 and users cache
+      invalidateCachePrefix(isSdbip23 ? 'sdbip23_' : 'sdbip_');
       invalidateUsersCache();
       res.json({ success: true });
     } catch (err: any) {

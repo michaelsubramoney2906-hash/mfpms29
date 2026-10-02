@@ -21,6 +21,7 @@ import {
   isMasterAdminMike
 } from '../../utils/sdbipWorkflowHelper';
 import { calcOpmsVariance } from '../../utils/varianceCalculator';
+import { isUserUnrestricted } from '../../utils/unrestrictedHelper';
 
 interface OPMSApproverProps {
   currentUser: User;
@@ -48,13 +49,17 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
   const [q1Corrective, setQ1Corrective] = useState('');
   const [savingQ1, setSavingQ1] = useState(false);
 
+  const isImpersonating = typeof window !== 'undefined' && 
+    !!(localStorage.getItem('originalAdminUser') || sessionStorage.getItem('originalAdminUser'));
+  const isUnrestrictedAdmin = isUserUnrestricted(currentUser) || isMasterAdminMike(currentUser) || isImpersonating;
+
   const isDesignatedApprover = Boolean(
     selectedKpi && (
       isUserMatch(selectedKpi.approver, currentUser) ||
       currentUser.role === 'admin' ||
       currentUser.systemRole === 'Global Administrator' ||
       currentUser.systemRole === 'Systems Administrator' ||
-      (currentUser.email && ['mike@mzansiflow.co.za', 'mike@massivedynamixdistributors.com'].includes(currentUser.email))
+      isUnrestrictedAdmin
     )
   );
 

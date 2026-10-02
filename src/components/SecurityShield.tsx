@@ -109,10 +109,6 @@ export function SecurityShield({ user, children }: SecurityShieldProps) {
     };
   }, [unrestricted, copyAllowed]);
 
-  if (unrestricted) {
-    return <>{children}</>;
-  }
-
   // Watermark text
   const watermarkText = `${user.email} | CLASSIFIED | IP: ${clientIp} | SECURE ARCHIVE`;
 

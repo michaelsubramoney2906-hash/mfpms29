@@ -837,7 +837,9 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
   const returnedCount = rows.filter(r => (r as any).workflowStatus === 'Returned').length;
 
   // Check if currentUser is the specifically assigned Submitter or Unit for the selected KPI, OR if user is an unrestricted admin/impersonator
-  const isUnrestrictedAdmin = isUserUnrestricted(currentUser) || isMasterAdminMike(currentUser);
+  const isImpersonating = typeof window !== 'undefined' && 
+    !!(localStorage.getItem('originalAdminUser') || sessionStorage.getItem('originalAdminUser'));
+  const isUnrestrictedAdmin = isUserUnrestricted(currentUser) || isMasterAdminMike(currentUser) || isImpersonating;
   const isActualDesignatedSubmitter = Boolean(
     selectedKpi && (
       isUnrestrictedAdmin ||
