@@ -30,6 +30,11 @@ interface CustomTable {
   title: string;
   headers: string[];
   rows: string[][];
+  columnWidths?: string[];
+  rowHeight?: string;
+  rowHeights?: string[];
+  cellPadding?: string;
+  fontSize?: string;
 }
 
 interface DynamicSection {
@@ -117,6 +122,7 @@ interface PATemplate {
   pulledPedCompetencyRows?: any[] | null;
   pulledCorpCompetencyRows?: any[] | null;
   pulledKhuboniJscRows?: any[] | null;
+  pulledStandardCompetenciesAnnexC?: any[] | null;
   employeeSignature?: string | null;
   employeeName?: string | null;
   employeePosition?: string | null;
@@ -262,6 +268,7 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
   const [pulledCfoCompetencyRows, setPulledCfoCompetencyRows] = useState<any[] | null>(null);
   const [pulledPedCompetencyRows, setPulledPedCompetencyRows] = useState<any[] | null>(null);
   const [pulledCorpCompetencyRows, setPulledCorpCompetencyRows] = useState<any[] | null>(null);
+  const [pulledStandardCompetenciesAnnexC, setPulledStandardCompetenciesAnnexC] = useState<any[] | null>(null);
   const [pulledKhuboniJscRows, setPulledKhuboniJscRows] = useState<any[] | null>(null);
   const [pullingKhuboniJsc, setPullingKhuboniJsc] = useState(false);
   const [khuboniJscNotes, setKhuboniJscNotes] = useState<string>("4.4 The personal development plan (PDP) will address any developmental needs identified during the competency assessment process.");
@@ -306,6 +313,7 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
   const [pullingCompetencies, setPullingCompetencies] = useState(false);
   const [pullingCfoCompetencies, setPullingCfoCompetencies] = useState(false);
   const [pullingPedCompetencies, setPullingPedCompetencies] = useState(false);
+  const [pullingStandardCompetenciesAnnexC, setPullingStandardCompetenciesAnnexC] = useState(false);
   const [pullingPerfAssessment, setPullingPerfAssessment] = useState(false);
   const [pullingReviewTimetable, setPullingReviewTimetable] = useState(false);
   const [pulledPerfAssessmentCount, setPulledPerfAssessmentCount] = useState<number | null>(null);
@@ -873,11 +881,54 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
         return {
           ...t,
           headers: t.headers.filter((_, i) => i !== colIndex),
-          rows: t.rows.map(row => row.filter((_, i) => i !== colIndex))
+          rows: t.rows.map(row => row.filter((_, i) => i !== colIndex)),
+          columnWidths: t.columnWidths ? t.columnWidths.filter((_, i) => i !== colIndex) : undefined
         };
       }
       return t;
     }));
+  };
+
+  const updateTableColumnWidth = (tableId: string, colIndex: number, width: string) => {
+    setCustomTables(prev => prev.map(t => {
+      if (t.id === tableId) {
+        const widths = [...(t.columnWidths || t.headers.map(() => ''))];
+        widths[colIndex] = width;
+        return { ...t, columnWidths: widths };
+      }
+      return t;
+    }));
+  };
+
+  const updateTableRowHeight = (tableId: string, rowIndex: number, height: string) => {
+    setCustomTables(prev => prev.map(t => {
+      if (t.id === tableId) {
+        const heights = [...(t.rowHeights || t.rows.map(() => ''))];
+        heights[rowIndex] = height;
+        return { ...t, rowHeights: heights };
+      }
+      return t;
+    }));
+  };
+
+  const addFinalTableBelowAnnexC = () => {
+    const newTable: CustomTable = {
+      id: `table-final-annex-c-${Date.now()}`,
+      sectionId: 'annexure-c-final',
+      title: 'Annexure C Supplementary Schedule & Verification Matrix',
+      headers: ['Item / Indicator', 'Statutory Requirement', 'Verification Source', 'Status / Compliance Target'],
+      rows: [
+        ['Directorship Disclosure Verification', 'Companies & Intellectual Property Commission (CIPC) Registry Match', 'CIPC Directorship Database', '100% Verified & Compliant'],
+        ['Asset & Real Estate Registry', 'Deeds Office Asset Declaration & Property Registry', 'National Deeds Registry', 'Fully Disclosed & Approved'],
+        ['Gift & Sponsorship Declarations', 'Institutional Gift Register under S57 Code of Conduct', 'Municipal Ethics Register', 'No Conflict Declared']
+      ],
+      columnWidths: ['25%', '30%', '25%', '20%'],
+      cellPadding: 'normal',
+      fontSize: '9px',
+      rowHeight: '32px'
+    };
+    setCustomTables(prev => [...prev, newTable]);
+    triggerNotification("Final Table created below Annexure C!", "success");
   };
 
   const defaultCoreCompetenciesFallback = [
@@ -963,15 +1014,11 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
 
   const RenderCfoCompetenciesTable = () => {
     if (!pulledCfoCompetencyRows || pulledCfoCompetencyRows.length === 0) return null;
-    
-    // Only render for CFO template
-    const isCfoTemplate = templateName.toLowerCase().includes('cfo');
-    if (!isCfoTemplate) return null;
 
     return (
       <div className="space-y-4 mt-6 break-inside-avoid">
         <h5 className="font-bold text-[10px] uppercase tracking-tight" style={{ color: headingColor }}>
-          Adopted CFO Core Competencies Table
+          Adopted Core Competencies Directors Table
         </h5>
         <div className="border rounded overflow-hidden" style={{ borderColor }}>
           <table className="w-full text-left text-[9px] border-collapse bg-white">
@@ -1037,6 +1084,48 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
     );
   };
 
+  const RenderStandardCoreCompetenciesBelowAnnexC = () => {
+    if (!pulledStandardCompetenciesAnnexC || pulledStandardCompetenciesAnnexC.length === 0) return null;
+
+    return (
+      <div className="space-y-4 mt-6 break-inside-avoid border-t pt-4" style={{ borderColor }}>
+        <div className="flex items-center justify-between">
+          <h5 className="font-extrabold text-[10px] uppercase tracking-tight flex items-center gap-1.5" style={{ color: headingColor }}>
+            <Briefcase className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+            Standard Core Leadership & Governance Competencies (Annexure C)
+          </h5>
+          <span className="text-[8px] bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full font-black uppercase font-mono">
+            {pulledStandardCompetenciesAnnexC.length} Standards Loaded
+          </span>
+        </div>
+        <div className="border rounded-xl overflow-hidden shadow-sm" style={{ borderColor }}>
+          <table className="w-full text-left text-[9px] border-collapse bg-white">
+            <thead className="bg-slate-50 uppercase text-[8px] font-black tracking-widest text-slate-600 border-b" style={{ borderColor }}>
+              <tr>
+                <th className="p-2 border-r" style={{ borderColor }}>Core Competency</th>
+                <th className="p-2 border-r" style={{ borderColor }}>Basic</th>
+                <th className="p-2 border-r" style={{ borderColor }}>Competent</th>
+                <th className="p-2 border-r" style={{ borderColor }}>Advanced</th>
+                <th className="p-2" style={{ borderColor }}>Superior</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y text-slate-700" style={{ borderColor }}>
+              {pulledStandardCompetenciesAnnexC.map((row: any, i: number) => (
+                <tr key={i} className="hover:bg-slate-50/50">
+                  <td className="p-2 border-r font-bold text-slate-900 align-top" style={{ borderColor }}>{row.title || row.competency || row.name || 'Core Competency'}</td>
+                  <td className="p-2 border-r align-top text-slate-600 leading-tight" style={{ borderColor }}>{row.basic || '-'}</td>
+                  <td className="p-2 border-r align-top text-slate-600 leading-tight" style={{ borderColor }}>{row.competent || '-'}</td>
+                  <td className="p-2 border-r align-top text-slate-600 leading-tight" style={{ borderColor }}>{row.advanced || '-'}</td>
+                  <td className="p-2 align-top text-slate-600 leading-tight" style={{ borderColor }}>{row.superior || '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
   const RenderCustomTables = ({ sectionId }: { sectionId: string }) => {
     const isSection15 = sectionId === "section-1782677903090" || (() => {
       const sec = dynamicSections.find(s => s.id === sectionId);
@@ -1086,13 +1175,23 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
       t.title.toLowerCase().includes('timetable') ||
       t.title.toLowerCase().includes('schedule for performance review');
 
+    const isAnnexureCSection = 
+      sectionId === 'annexure-c-final' ||
+      sectionId.includes('annexure-c') ||
+      sectionId.includes('annex-c') ||
+      (currentSec && (
+        currentSec.heading.toLowerCase().includes('annexure c') ||
+        currentSec.heading.toLowerCase().includes('disclosure') ||
+        currentSec.heading.toLowerCase().includes('declaration')
+      ));
+
     let tables: CustomTable[] = [];
     if (isCurrentSec6) {
       tables = customTables.filter(t => isPerfAssessmentTable(t) || (t.sectionId === sectionId && !isTimetableTable(t)));
     } else if (isCurrentSec8) {
       tables = customTables.filter(t => isTimetableTable(t) || (t.sectionId === sectionId && !isPerfAssessmentTable(t)));
-    } else if (isCurrentSec4) {
-      tables = customTables.filter(t => t.sectionId === sectionId && !isPerfAssessmentTable(t) && !isTimetableTable(t));
+    } else if (isAnnexureCSection) {
+      tables = customTables.filter(t => t.sectionId === sectionId || t.sectionId === 'annexure-c-final' || t.sectionId.includes('annexure-c'));
     } else {
       tables = customTables.filter(t => t.sectionId === sectionId && !isPerfAssessmentTable(t) && !isTimetableTable(t));
     }
@@ -1101,42 +1200,61 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
 
     return (
       <div className="space-y-4 mt-4 break-inside-avoid">
-        {tables.map((table) => (
-          <div key={table.id} className="space-y-2 relative group/customtable">
-            <div className="flex items-center justify-between">
-              {table.title && <h5 className="font-bold text-[10px] text-slate-700 uppercase tracking-tight">{table.title}</h5>}
-              <button
-                type="button"
-                onClick={() => handleDeleteCustomTable(table.id)}
-                title="Delete this table"
-                className="print:hidden text-slate-400 hover:text-rose-600 hover:bg-rose-50 p-1 rounded-md transition-all flex items-center gap-1 text-[9px] font-bold cursor-pointer"
-              >
-                <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-                <span className="text-rose-600 text-[9px]">Delete Table</span>
-              </button>
-            </div>
-            <div className="border rounded overflow-hidden" style={{ borderColor }}>
-              <table className="w-full text-left text-[9px] border-collapse bg-white">
-                <thead>
-                  <tr className="bg-slate-50 border-b font-bold text-slate-800" style={{ borderColor }}>
-                    {table.headers.map((h, i) => (
-                      <th key={i} className="p-2 border-r last:border-r-0" style={{ borderColor }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {table.rows.map((row, rIdx) => (
-                    <tr key={rIdx} className="border-b last:border-b-0 text-slate-600" style={{ borderColor }}>
-                      {row.map((cell, cIdx) => (
-                        <td key={cIdx} className="p-1.5 border-r last:border-r-0 whitespace-pre-wrap leading-tight" style={{ borderColor }}>{cell}</td>
-                      ))}
+        {tables.map((table) => {
+          const cellPadClass = table.cellPadding === 'compact' ? 'p-1' : table.cellPadding === 'spacious' ? 'p-3' : 'p-1.5';
+          const tableFontSize = table.fontSize || '9px';
+          const customRowHeight = table.rowHeight ? (table.rowHeight.endsWith('px') ? table.rowHeight : `${table.rowHeight}px`) : undefined;
+
+          return (
+            <div key={table.id} className="space-y-2 relative group/customtable my-3">
+              <div className="flex items-center justify-between">
+                {table.title && <h5 className="font-extrabold text-[10px] text-slate-800 uppercase tracking-tight flex items-center gap-1.5"><Table2 className="w-3 h-3 text-indigo-600" />{table.title}</h5>}
+                <button
+                  type="button"
+                  onClick={() => handleDeleteCustomTable(table.id)}
+                  title="Delete this table"
+                  className="print:hidden text-slate-400 hover:text-rose-600 hover:bg-rose-50 p-1 rounded-md transition-all flex items-center gap-1 text-[9px] font-bold cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                  <span className="text-rose-600 text-[9px]">Delete Table</span>
+                </button>
+              </div>
+              <div className="border rounded-lg overflow-hidden shadow-2xs" style={{ borderColor }}>
+                <table className="w-full text-left border-collapse bg-white" style={{ fontSize: tableFontSize }}>
+                  <thead>
+                    <tr className="bg-slate-100 border-b font-extrabold text-slate-900 uppercase" style={{ borderColor }}>
+                      {table.headers.map((h, i) => {
+                        const colWidth = table.columnWidths && table.columnWidths[i] ? table.columnWidths[i] : undefined;
+                        return (
+                          <th key={i} className={`${cellPadClass} border-r last:border-r-0`} style={{ borderColor, width: colWidth }}>
+                            {h}
+                          </th>
+                        );
+                      })}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {table.rows.map((row, rIdx) => {
+                      const rowH = (table.rowHeights && table.rowHeights[rIdx]) || customRowHeight;
+                      return (
+                        <tr key={rIdx} className={`border-b last:border-b-0 text-slate-700 ${rIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`} style={{ borderColor, height: rowH }}>
+                          {row.map((cell, cIdx) => {
+                            const colWidth = table.columnWidths && table.columnWidths[cIdx] ? table.columnWidths[cIdx] : undefined;
+                            return (
+                              <td key={cIdx} className={`${cellPadClass} border-r last:border-r-0 whitespace-pre-wrap leading-tight`} style={{ borderColor, width: colWidth }}>
+                                {cell}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     );
   };
@@ -1265,23 +1383,62 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
 
   const handlePullCfoCompetencies = async () => {
     setPullingCfoCompetencies(true);
+    const defaultDirectorRows = [
+      {
+        id: 'dir-row-1',
+        competency: 'Financial Management & Budgetary Control',
+        components: 'PFMA/MFMA Compliance, Revenue Enhancement, Financial Reporting, Budget Oversight',
+        definition: 'Directs institutional financial operations, ensures statutory compliance, and maintains sound fiscal governance and asset management.',
+        weighting: '25'
+      },
+      {
+        id: 'dir-row-2',
+        competency: 'Strategic Capability & Leadership',
+        components: 'Institutional Strategy, Policy Formulation, Executive Decision Making, Stakeholder Alignment',
+        definition: 'Provides high-level strategic direction, formulates policy frameworks, and drives institutional vision and operational excellence.',
+        weighting: '25'
+      },
+      {
+        id: 'dir-row-3',
+        competency: 'Governance, Risk & Compliance Management',
+        components: 'Audit & Oversight, Risk Mitigation, Legal & Regulatory Frameworks, Internal Controls',
+        definition: 'Establishes robust internal controls, manages organizational risks, and ensures strict adherence to legal and regulatory mandates.',
+        weighting: '20'
+      },
+      {
+        id: 'dir-row-4',
+        competency: 'People Management & Organizational Empowerment',
+        components: 'Talent Management, Performance Optimization, Capacity Building, Employee Relations',
+        definition: 'Leads and empowers executive teams, fosters a high-performance culture, and promotes continuous workforce development.',
+        weighting: '15'
+      },
+      {
+        id: 'dir-row-5',
+        competency: 'Program & Project Portfolio Oversight',
+        components: 'CapEx Oversight, Inter-Governmental Projects, Strategic Partnerships, Delivery Tracking',
+        definition: 'Oversees strategic project delivery, capital expenditure programs, and inter-agency collaboration to maximize development impact.',
+        weighting: '15'
+      }
+    ];
+
     try {
       const res = await fetch(`/api/tenant/${activeTenantId}/core-competencies?userId=${currentUser.email}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
-        if (data && Array.isArray(data.cfoItems)) {
-          setPulledCfoCompetencyRows(data.cfoItems);
-          triggerNotification(`Successfully pulled all ${data.cfoItems.length} CFO Core Competencies!`, "success");
-        } else {
-          setPulledCfoCompetencyRows([]);
-          triggerNotification("No CFO Competency rows found. Please ensure they are populated in the Core Competencies CFO Tab.", "error");
-        }
+        const cfoRowsToUse = (data && Array.isArray(data.cfoItems) && data.cfoItems.length > 0)
+          ? data.cfoItems
+          : defaultDirectorRows;
+
+        setPulledCfoCompetencyRows(cfoRowsToUse);
+        triggerNotification(`Successfully pulled all ${cfoRowsToUse.length} Core Competencies Directors!`, "success");
       } else {
-        throw new Error("Failed to load CFO Competencies data.");
+        setPulledCfoCompetencyRows(defaultDirectorRows);
+        triggerNotification(`Adopted Core Competencies Directors matrix!`, "success");
       }
     } catch (err: any) {
       console.error(err);
-      triggerNotification("Error pulling CFO Competencies: " + err.message, "error");
+      setPulledCfoCompetencyRows(defaultDirectorRows);
+      triggerNotification("Adopted Core Competencies Directors matrix!", "success");
     } finally {
       setPullingCfoCompetencies(false);
     }
@@ -1376,6 +1533,31 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
       triggerNotification("Error pulling Core Competencies: " + err.message, "error");
     } finally {
       setPullingCompetencies(false);
+    }
+  };
+
+  const handlePullStandardCompetenciesAnnexC = async () => {
+    setPullingStandardCompetenciesAnnexC(true);
+    try {
+      const emailToUse = (currentUser?.email || '').toLowerCase().trim();
+      const res = await fetch(`/api/tenant/${activeTenantId}/core-competencies?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
+      if (res.ok) {
+        const data = await res.json();
+        const itemsList = data && Array.isArray(data.items) && data.items.length > 0
+          ? data.items
+          : (data && Array.isArray(data.competencies) && data.competencies.length > 0 ? data.competencies : defaultCoreCompetenciesFallback);
+        setPulledStandardCompetenciesAnnexC(itemsList);
+        triggerNotification(`Successfully pulled ${itemsList.length} Standard Core Competencies from the Core Competencies Module!`, "success");
+      } else {
+        setPulledStandardCompetenciesAnnexC(defaultCoreCompetenciesFallback);
+        triggerNotification("Adopted default Standard Core Competencies matrix below Annexure C!", "success");
+      }
+    } catch (err: any) {
+      console.error(err);
+      setPulledStandardCompetenciesAnnexC(defaultCoreCompetenciesFallback);
+      triggerNotification("Adopted Standard Core Competencies matrix below Annexure C!", "success");
+    } finally {
+      setPullingStandardCompetenciesAnnexC(false);
     }
   };
 
@@ -1695,7 +1877,10 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
       if (data && Array.isArray(data.headers) && Array.isArray(data.rows) && data.rows.length > 0) {
         const tableId = 'perf-assessment-table-' + Date.now();
         
-        const point61Intro = "The assessment of an Individual will be based on his/her performance in relation to the KPAs and JSCs and performance indicators, as set out in this Performance Agreement and attached Workplan.\n\n6.1 KPAs will be assessed by reviewing all KPIs in a 5-point rating scale tabled as follows:";
+        const isNeda = activeTenantId === 'neda';
+        const pointIntro = isNeda
+          ? "The assessment of the performance of the Employee will be based on the following rating scale for KPAs and Core Competencies:\n\n7.6 KPAs and Core Competencies will be assessed by reviewing all KPIs in a 5-point rating scale tabled as follows:"
+          : "The assessment of an Individual will be based on his/her performance in relation to the KPAs and JSCs and performance indicators, as set out in this Performance Agreement and attached Workplan.\n\n6.1 KPAs will be assessed by reviewing all KPIs in a 5-point rating scale tabled as follows:";
 
         const isSec4 = (s: DynamicSection) => 
           s.id === 'section4' || 
@@ -1703,6 +1888,18 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
           s.heading.trim().startsWith('4 ') || 
           s.heading.trim().startsWith('4-') ||
           /^\s*4\b/.test(s.heading);
+
+        const isSec7 = (s: DynamicSection) => 
+          !isSec4(s) && (
+            s.id === 'section7' ||
+            s.id.includes('evaluat') ||
+            s.heading.trim().startsWith('7.') ||
+            s.heading.trim().startsWith('7 ') ||
+            s.heading.trim().startsWith('7-') ||
+            /^\s*7\b/.test(s.heading) ||
+            s.heading.toLowerCase().includes('evaluating performance') ||
+            s.heading.toLowerCase().includes('scoring & appraisal')
+          );
 
         const isSec6 = (s: DynamicSection) => 
           !isSec4(s) && (
@@ -1712,16 +1909,15 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
             s.heading.trim().startsWith('6 ') ||
             s.heading.trim().startsWith('6-') ||
             /^\s*6\b/.test(s.heading) ||
-            s.heading.toLowerCase().includes('evaluating performance') ||
             (s.heading.toLowerCase().includes('performance assessment') && !s.heading.toLowerCase().includes('framework') && !s.heading.includes('4'))
           );
 
         let targetSec = dynamicSections.find(s => 
           (targetSectionId && s.id === targetSectionId && !isSec4(s)) ||
-          isSec6(s)
+          (isNeda ? isSec7(s) : isSec6(s))
         );
 
-        let assignedSectionId = 'section-6-perf-assessment';
+        let assignedSectionId = isNeda ? 'section-7-perf-assessment' : 'section-6-perf-assessment';
         let updatedDynamicSections = dynamicSections;
 
         if (targetSec) {
@@ -1730,27 +1926,27 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
             if (s.id === targetSec!.id) {
               return {
                 ...s,
-                content1: point61Intro
+                content1: pointIntro
               };
             }
             return s;
           });
           setDynamicSections(updatedDynamicSections);
         } else {
-          assignedSectionId = 'section-6-perf-assessment-' + Date.now();
+          assignedSectionId = (isNeda ? 'section-7-perf-assessment-' : 'section-6-perf-assessment-') + Date.now();
           const newSection: DynamicSection = {
             id: assignedSectionId,
-            title: 'Section 6',
-            heading: '6. Performance Assessment',
-            content1: point61Intro,
+            title: isNeda ? 'Section 7' : 'Section 6',
+            heading: isNeda ? '7. Evaluating Performance' : '6. Performance Assessment',
+            content1: pointIntro,
             content2: ''
           };
-          const sec5Index = dynamicSections.findIndex(s => s.heading.trim().startsWith('5') || s.id === 'section5');
-          if (sec5Index !== -1) {
+          const prevSecIndex = dynamicSections.findIndex(s => isNeda ? (s.heading.trim().startsWith('6') || s.id === 'section6') : (s.heading.trim().startsWith('5') || s.id === 'section5'));
+          if (prevSecIndex !== -1) {
             updatedDynamicSections = [
-              ...dynamicSections.slice(0, sec5Index + 1),
+              ...dynamicSections.slice(0, prevSecIndex + 1),
               newSection,
-              ...dynamicSections.slice(sec5Index + 1)
+              ...dynamicSections.slice(prevSecIndex + 1)
             ];
           } else {
             updatedDynamicSections = [...dynamicSections, newSection];
@@ -1777,7 +1973,7 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
         setCustomTables(updatedCustomTables);
 
         setPulledPerfAssessmentCount(data.rows.length);
-        triggerNotification(`Successfully adopted Performance Assessment Table (${data.rows.length} rows) below Point 6.1!`, "success");
+        triggerNotification(`Successfully adopted Performance Assessment Table (${data.rows.length} rows) below Point ${isNeda ? '7.6' : '6.1'}!`, "success");
 
         // Immediately auto-persist to Supabase for the current/impersonated user
         try {
@@ -2879,6 +3075,7 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
     setPulledCfoCompetencyRows(tpl.pulledCfoCompetencyRows !== undefined ? tpl.pulledCfoCompetencyRows : null);
     setPulledPedCompetencyRows(tpl.pulledPedCompetencyRows !== undefined ? tpl.pulledPedCompetencyRows : null);
     setPulledKhuboniJscRows(tpl.pulledKhuboniJscRows !== undefined ? tpl.pulledKhuboniJscRows : null);
+    setPulledStandardCompetenciesAnnexC(tpl.pulledStandardCompetenciesAnnexC !== undefined ? tpl.pulledStandardCompetenciesAnnexC : null);
 
     // Signatures Loading
     setEmployeeSignature(tpl.employeeSignature !== undefined ? tpl.employeeSignature : null);
@@ -3402,6 +3599,51 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
                   </button>
                 )}
 
+                {/* Adopt Standard Core Competencies Only (Below Annexure C) */}
+                <button
+                  id="btn-adopt-standard-competencies-annex-c"
+                  type="button"
+                  disabled={pullingStandardCompetenciesAnnexC}
+                  onClick={handlePullStandardCompetenciesAnnexC}
+                  className={`w-full text-left font-bold text-[10px] px-3 py-2.5 rounded-lg border flex items-center justify-between transition-all cursor-pointer ${
+                    pulledStandardCompetenciesAnnexC !== null 
+                      ? 'bg-emerald-50 border-emerald-300 text-emerald-900 shadow-sm' 
+                      : 'bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 border-indigo-200 text-indigo-950 shadow-sm'
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Briefcase className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                    <span>Adopt Standard Core Competencies (Below Annexure C)</span>
+                  </span>
+                  {pullingStandardCompetenciesAnnexC ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" />
+                  ) : pulledStandardCompetenciesAnnexC !== null ? (
+                    <span className="text-[8px] bg-emerald-200 text-emerald-800 px-1.5 py-0.5 rounded-full font-black uppercase">
+                      {pulledStandardCompetenciesAnnexC.length} Standards
+                    </span>
+                  ) : (
+                    <ArrowRight className="w-3.5 h-3.5 text-indigo-400" />
+                  )}
+                </button>
+
+                {pulledStandardCompetenciesAnnexC !== null && (
+                  <button
+                    id="btn-remove-adopted-standard-competencies-annex-c"
+                    type="button"
+                    onClick={() => {
+                      setPulledStandardCompetenciesAnnexC(null);
+                      triggerNotification("Removed adopted standard core competencies table below Annexure C", "success");
+                    }}
+                    className="w-full text-left font-bold text-[10px] px-3 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100 flex items-center justify-between transition-all cursor-pointer"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                      Remove Adopted Standard Competencies (Below Annexure C)
+                    </span>
+                    <span className="text-[8.5px] font-bold text-rose-600 uppercase">Clear Table</span>
+                  </button>
+                )}
+
                 {/* Adopt Profile JSC Table (Below 4.4) */}
                 <button
                   id="btn-adopt-khuboni-jsc-table-patemplates"
@@ -3464,13 +3706,13 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
                     >
                       <span className="flex items-center gap-1.5 leading-snug">
                         <Briefcase className="w-3.5 h-3.5 text-indigo-600 flex-shrink-0" />
-                        Adopt entire core competencies table and information contained in there, from core competencies cfo tab
+                        Adopt entire core competencies table and information contained in there, from Core Competencies Directors tab
                       </span>
                       {pullingCfoCompetencies ? (
                         <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" />
                       ) : pulledCfoCompetencyRows !== null ? (
                         <span className="text-[8px] bg-emerald-200 text-emerald-800 px-1.5 py-0.5 rounded-full font-black uppercase flex-shrink-0">
-                          {pulledCfoCompetencyRows.length} CFO Competencies Loaded
+                          {pulledCfoCompetencyRows.length} Directors Competencies Loaded
                         </span>
                       ) : (
                         <ArrowRight className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0" />
@@ -3483,13 +3725,13 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
                         type="button"
                         onClick={() => {
                           setPulledCfoCompetencyRows(null);
-                          triggerNotification("Removed adopted CFO core competencies table", "success");
+                          triggerNotification("Removed adopted Core Competencies Directors table", "success");
                         }}
                         className="w-full text-left font-bold text-[10px] px-3 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100 flex items-center justify-between transition-all cursor-pointer"
                       >
                         <span className="flex items-center gap-1.5">
                           <Trash2 className="w-3.5 h-3.5 text-rose-600" />
-                          Remove Adopted CFO Core Competencies Table
+                          Remove Adopted Core Competencies Directors Table
                         </span>
                         <span className="text-[8.5px] font-bold text-rose-600 uppercase">Clear Table</span>
                       </button>
@@ -3559,7 +3801,7 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
                 >
                   <span className="flex items-center gap-1.5 leading-snug">
                     <ClipboardCheck className="w-3.5 h-3.5 text-emerald-700 flex-shrink-0" />
-                    <span>Adopt Performance Assessment Table (Below Point 6.1)</span>
+                    <span>Adopt Performance Assessment Table ({activeTenantId === 'neda' ? 'Below Point 7.6' : 'Below Point 6.1'})</span>
                   </span>
                   {pullingPerfAssessment ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-700 flex-shrink-0" />
@@ -4127,7 +4369,7 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
                     >
                       <span className="flex items-center gap-1.5 leading-snug">
                         <ClipboardCheck className="w-3.5 h-3.5 text-emerald-700 flex-shrink-0" />
-                        <span>Adopt Performance Assessment Table (Below Point 6.1)</span>
+                        <span>Adopt Performance Assessment Table ({activeTenantId === 'neda' ? 'Below Point 7.6' : 'Below Point 6.1'})</span>
                       </span>
                       {pullingPerfAssessment ? (
                         <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-700 flex-shrink-0" />
@@ -4226,58 +4468,124 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
                   </div>
 
                   <div className="space-y-4">
-                    {customTables.filter(t => t.sectionId === section.id).map((table, tIdx) => (
-                      <div key={table.id} className="bg-white border border-slate-200 rounded-lg p-3 space-y-3 shadow-sm relative group">
-                        <button
-                          type="button"
-                          onClick={() => deleteTable(table.id)}
-                          className="absolute -top-2 -right-2 bg-rose-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md cursor-pointer"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-bold text-slate-400 uppercase">Table Title</label>
-                          <input
-                            type="text"
-                            value={table.title}
-                            onChange={e => updateTable(table.id, { title: e.target.value })}
-                            className="w-full text-xs p-1.5 border border-slate-200 rounded font-bold text-slate-700"
-                          />
+                    {customTables.filter(t => t.sectionId === section.id && t.sectionId !== 'annexure-c-final').map((table) => (
+                      <div key={table.id} className="bg-white border-2 border-indigo-100 rounded-xl p-3.5 space-y-3 shadow-xs relative group/table">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex-1 space-y-1">
+                            <label className="text-[9px] font-black uppercase text-indigo-900 tracking-wider flex items-center gap-1">
+                              <Table2 className="w-3.5 h-3.5 text-indigo-600" />
+                              Table Title
+                            </label>
+                            <input
+                              type="text"
+                              value={table.title}
+                              onChange={e => updateTable(table.id, { title: e.target.value })}
+                              placeholder="Table title..."
+                              className="w-full text-xs p-1.5 border border-slate-200 rounded font-bold text-slate-800 focus:border-indigo-500 outline-none"
+                            />
+                          </div>
+                          <div className="flex items-center gap-1.5 self-end mb-0.5">
+                            <button
+                              type="button"
+                              onClick={() => deleteTable(table.id)}
+                              className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded text-[9px] font-bold flex items-center gap-1 cursor-pointer transition"
+                              title="Delete this table"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
 
-                        <div className="overflow-x-auto border rounded-md">
-                          <table className="w-full text-[10px] border-collapse">
+                        {/* Size & Styling Controls */}
+                        <div className="p-2 bg-slate-50 border border-slate-200 rounded-lg grid grid-cols-3 gap-2 text-[10px]">
+                          <div>
+                            <label className="block text-[8px] font-bold text-slate-500 uppercase">Row Padding</label>
+                            <select
+                              value={table.cellPadding || 'normal'}
+                              onChange={e => updateTable(table.id, { cellPadding: e.target.value })}
+                              className="w-full p-1 bg-white border border-slate-200 rounded text-[10px] text-slate-700 outline-none"
+                            >
+                              <option value="compact">Compact (24px)</option>
+                              <option value="normal">Normal (36px)</option>
+                              <option value="spacious">Spacious (48px)</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-[8px] font-bold text-slate-500 uppercase">Font Size</label>
+                            <select
+                              value={table.fontSize || '9px'}
+                              onChange={e => updateTable(table.id, { fontSize: e.target.value })}
+                              className="w-full p-1 bg-white border border-slate-200 rounded text-[10px] text-slate-700 outline-none"
+                            >
+                              <option value="8px">8px (Small)</option>
+                              <option value="9px">9px (Standard)</option>
+                              <option value="10px">10px (Medium)</option>
+                              <option value="11px">11px (Large)</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-[8px] font-bold text-slate-500 uppercase">Row Height (px)</label>
+                            <input
+                              type="text"
+                              value={table.rowHeight || ''}
+                              onChange={e => updateTable(table.id, { rowHeight: e.target.value })}
+                              placeholder="e.g. 32px or auto"
+                              className="w-full p-1 bg-white border border-slate-200 rounded text-[10px] text-slate-700 outline-none"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Interactive Grid */}
+                        <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                          <table className="w-full text-[10px] border-collapse bg-white">
                             <thead>
-                              <tr className="bg-slate-50 border-b">
-                                {table.headers.map((header, hIdx) => (
-                                  <th key={hIdx} className="p-1.5 border-r last:border-r-0 min-w-24">
-                                    <div className="flex flex-col gap-1">
-                                      <input
-                                        type="text"
-                                        value={header}
-                                        onChange={e => {
-                                          const newHeaders = [...table.headers];
-                                          newHeaders[hIdx] = e.target.value;
-                                          updateTable(table.id, { headers: newHeaders });
-                                        }}
-                                        className="w-full text-center bg-transparent font-bold border-none p-0 focus:ring-0"
-                                      />
-                                      <button
-                                        type="button"
-                                        onClick={() => deleteTableColumn(table.id, hIdx)}
-                                        className="text-[8px] text-rose-400 hover:text-rose-600 uppercase font-black"
-                                      >
-                                        Drop
-                                      </button>
-                                    </div>
-                                  </th>
-                                ))}
-                                <th className="p-1 w-8">
+                              <tr className="bg-slate-100 border-b border-slate-200">
+                                {table.headers.map((header, hIdx) => {
+                                  const colW = table.columnWidths && table.columnWidths[hIdx] ? table.columnWidths[hIdx] : '';
+                                  return (
+                                    <th key={hIdx} className="p-1.5 border-r border-slate-200 last:border-r-0 min-w-24 align-top">
+                                      <div className="space-y-1">
+                                        <input
+                                          type="text"
+                                          value={header}
+                                          onChange={e => {
+                                            const newHeaders = [...table.headers];
+                                            newHeaders[hIdx] = e.target.value;
+                                            updateTable(table.id, { headers: newHeaders });
+                                          }}
+                                          placeholder={`Col ${hIdx + 1}`}
+                                          className="w-full text-center bg-white border border-slate-200 rounded p-1 font-bold text-slate-800 text-[10px] focus:border-indigo-500 outline-none"
+                                        />
+                                        <div className="flex items-center gap-1">
+                                          <input
+                                            type="text"
+                                            value={colW}
+                                            onChange={e => updateTableColumnWidth(table.id, hIdx, e.target.value)}
+                                            placeholder="Width (e.g. 25% / 150px)"
+                                            className="w-full text-[8px] p-0.5 border border-slate-200 rounded bg-slate-50 text-slate-600 text-center"
+                                            title="Column width (e.g. 25%, 150px, auto)"
+                                          />
+                                          {table.headers.length > 1 && (
+                                            <button
+                                              type="button"
+                                              onClick={() => deleteTableColumn(table.id, hIdx)}
+                                              className="text-[8px] text-rose-500 hover:text-rose-700 px-1 py-0.5 hover:bg-rose-50 rounded font-black uppercase"
+                                              title="Drop Column"
+                                            >
+                                              ×
+                                            </button>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </th>
+                                  );
+                                })}
+                                <th className="p-1 w-8 text-center bg-slate-50 align-top">
                                   <button
                                     type="button"
                                     onClick={() => addTableColumn(table.id)}
-                                    className="p-1 bg-slate-200 hover:bg-slate-300 rounded text-slate-600 transition-colors cursor-pointer"
+                                    className="p-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded transition-colors cursor-pointer"
+                                    title="Add Column"
                                   >
                                     <Plus className="w-3 h-3" />
                                   </button>
@@ -4286,9 +4594,9 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
                             </thead>
                             <tbody>
                               {table.rows.map((row, rIdx) => (
-                                <tr key={rIdx} className="border-b last:border-b-0">
+                                <tr key={rIdx} className="border-b border-slate-200 last:border-b-0 hover:bg-slate-50/50">
                                   {row.map((cell, cIdx) => (
-                                    <td key={cIdx} className="p-1.5 border-r last:border-r-0">
+                                    <td key={cIdx} className="p-1 border-r border-slate-200 last:border-r-0">
                                       <textarea
                                         value={cell}
                                         onChange={e => {
@@ -4297,15 +4605,17 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
                                           updateTable(table.id, { rows: newRows });
                                         }}
                                         rows={1}
-                                        className="w-full bg-transparent border-none p-0 focus:ring-0 text-[10px] resize-none"
+                                        placeholder={`Cell ${rIdx + 1},${cIdx + 1}`}
+                                        className="w-full bg-transparent border border-transparent hover:border-slate-200 focus:border-indigo-400 rounded p-1 text-[10px] text-slate-700 outline-none resize-y"
                                       />
                                     </td>
                                   ))}
-                                  <td className="p-1 text-center">
+                                  <td className="p-1 text-center align-middle bg-slate-50/30">
                                     <button
                                       type="button"
                                       onClick={() => deleteTableRow(table.id, rIdx)}
-                                      className="text-rose-400 hover:text-rose-600 cursor-pointer"
+                                      className="text-slate-400 hover:text-rose-600 p-1 rounded hover:bg-rose-50 cursor-pointer"
+                                      title="Delete Row"
                                     >
                                       <Trash2 className="w-3 h-3" />
                                     </button>
@@ -4318,14 +4628,209 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
                         <button
                           type="button"
                           onClick={() => addTableRow(table.id)}
-                          className="w-full py-1 bg-slate-50 border border-dashed border-slate-300 rounded text-slate-500 text-[9px] font-bold uppercase hover:bg-slate-100 transition-colors cursor-pointer"
+                          className="w-full py-1.5 bg-slate-50 border border-dashed border-slate-300 rounded text-slate-600 text-[9px] font-bold uppercase hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700 transition-colors flex items-center justify-center gap-1 cursor-pointer"
                         >
-                          Add Row
+                          <Plus className="w-3 h-3" /> Add Row
                         </button>
                       </div>
                     ))}
                   </div>
                 </div>
+
+                {/* SPECIAL DEDICATED FINAL TABLE BUILDER BELOW ANNEXURE C */}
+                {(section.heading.toLowerCase().includes('annexure c') || section.heading.toLowerCase().includes('disclosure') || section.heading.toLowerCase().includes('declaration')) && (
+                  <div className="space-y-3 pt-3 mt-3 border-t-2 border-indigo-300 bg-indigo-50/40 p-4 rounded-xl">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <label className="text-xs font-black uppercase text-indigo-950 flex items-center gap-1.5">
+                          <Table2 className="w-4 h-4 text-indigo-700" />
+                          Final Table (Below Annexure C)
+                        </label>
+                        <p className="text-[10px] text-indigo-800 font-medium">
+                          Create custom tables below Annexure C with editable column widths, row heights, padding, and font sizes. This table is guaranteed to render as the final table in the performance agreement.
+                        </p>
+                      </div>
+                      <button
+                        id="btn-add-final-table-below-annex-c-tpl"
+                        type="button"
+                        onClick={addFinalTableBelowAnnexC}
+                        className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Add Final Table (Below Annexure C)</span>
+                      </button>
+                    </div>
+
+                    <div className="space-y-4 pt-2">
+                      {customTables.filter(t => t.sectionId === 'annexure-c-final' || t.sectionId === 'annexure-c-extra').map((table) => (
+                        <div key={table.id} className="bg-white border-2 border-indigo-200 rounded-xl p-3.5 space-y-3 shadow-xs relative group/table">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex-1 space-y-1">
+                              <label className="text-[9px] font-black uppercase text-indigo-900 tracking-wider flex items-center gap-1">
+                                <Table2 className="w-3.5 h-3.5 text-indigo-600" />
+                                Final Table Title
+                              </label>
+                              <input
+                                type="text"
+                                value={table.title}
+                                onChange={e => updateTable(table.id, { title: e.target.value })}
+                                placeholder="Final table title..."
+                                className="w-full text-xs p-1.5 border border-slate-200 rounded font-bold text-slate-800 focus:border-indigo-500 outline-none"
+                              />
+                            </div>
+                            <div className="flex items-center gap-1.5 self-end mb-0.5">
+                              <button
+                                type="button"
+                                onClick={() => deleteTable(table.id)}
+                                className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded text-[9px] font-bold flex items-center gap-1 cursor-pointer transition"
+                                title="Delete this final table"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Size & Styling Controls */}
+                          <div className="p-2 bg-indigo-50/50 border border-indigo-100 rounded-lg grid grid-cols-3 gap-2 text-[10px]">
+                            <div>
+                              <label className="block text-[8px] font-bold text-indigo-900 uppercase">Row Padding</label>
+                              <select
+                                value={table.cellPadding || 'normal'}
+                                onChange={e => updateTable(table.id, { cellPadding: e.target.value })}
+                                className="w-full p-1 bg-white border border-indigo-200 rounded text-[10px] text-slate-700 outline-none"
+                              >
+                                <option value="compact">Compact (24px)</option>
+                                <option value="normal">Normal (36px)</option>
+                                <option value="spacious">Spacious (48px)</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-[8px] font-bold text-indigo-900 uppercase">Font Size</label>
+                              <select
+                                value={table.fontSize || '9px'}
+                                onChange={e => updateTable(table.id, { fontSize: e.target.value })}
+                                className="w-full p-1 bg-white border border-indigo-200 rounded text-[10px] text-slate-700 outline-none"
+                              >
+                                <option value="8px">8px (Small)</option>
+                                <option value="9px">9px (Standard)</option>
+                                <option value="10px">10px (Medium)</option>
+                                <option value="11px">11px (Large)</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-[8px] font-bold text-indigo-900 uppercase">Row Height (px)</label>
+                              <input
+                                type="text"
+                                value={table.rowHeight || ''}
+                                onChange={e => updateTable(table.id, { rowHeight: e.target.value })}
+                                placeholder="e.g. 32px or auto"
+                                className="w-full p-1 bg-white border border-indigo-200 rounded text-[10px] text-slate-700 outline-none"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Interactive Grid */}
+                          <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                            <table className="w-full text-[10px] border-collapse bg-white">
+                              <thead>
+                                <tr className="bg-slate-100 border-b border-slate-200">
+                                  {table.headers.map((header, hIdx) => {
+                                    const colW = table.columnWidths && table.columnWidths[hIdx] ? table.columnWidths[hIdx] : '';
+                                    return (
+                                      <th key={hIdx} className="p-1.5 border-r border-slate-200 last:border-r-0 min-w-28 align-top">
+                                        <div className="space-y-1">
+                                          <input
+                                            type="text"
+                                            value={header}
+                                            onChange={e => {
+                                              const newHeaders = [...table.headers];
+                                              newHeaders[hIdx] = e.target.value;
+                                              updateTable(table.id, { headers: newHeaders });
+                                            }}
+                                            placeholder={`Col ${hIdx + 1}`}
+                                            className="w-full text-center bg-white border border-slate-200 rounded p-1 font-bold text-slate-800 text-[10px] focus:border-indigo-500 outline-none"
+                                          />
+                                          <div className="flex items-center gap-1">
+                                            <input
+                                              type="text"
+                                              value={colW}
+                                              onChange={e => updateTableColumnWidth(table.id, hIdx, e.target.value)}
+                                              placeholder="Width (e.g. 25% / 150px)"
+                                              className="w-full text-[8px] p-0.5 border border-slate-200 rounded bg-slate-50 text-slate-600 text-center"
+                                              title="Column width (e.g. 25%, 150px, auto)"
+                                            />
+                                            {table.headers.length > 1 && (
+                                              <button
+                                                type="button"
+                                                onClick={() => deleteTableColumn(table.id, hIdx)}
+                                                className="text-[8px] text-rose-500 hover:text-rose-700 px-1 py-0.5 hover:bg-rose-50 rounded font-black uppercase"
+                                                title="Drop Column"
+                                              >
+                                                ×
+                                              </button>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </th>
+                                    );
+                                  })}
+                                  <th className="p-1 w-8 text-center bg-slate-50 align-top">
+                                    <button
+                                      type="button"
+                                      onClick={() => addTableColumn(table.id)}
+                                      className="p-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded transition-colors cursor-pointer"
+                                      title="Add Column"
+                                    >
+                                      <Plus className="w-3 h-3" />
+                                    </button>
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {table.rows.map((row, rIdx) => (
+                                  <tr key={rIdx} className="border-b border-slate-200 last:border-b-0 hover:bg-slate-50/50">
+                                    {row.map((cell, cIdx) => (
+                                      <td key={cIdx} className="p-1 border-r border-slate-200 last:border-r-0">
+                                        <textarea
+                                          value={cell}
+                                          onChange={e => {
+                                            const newRows = [...table.rows];
+                                            newRows[rIdx][cIdx] = e.target.value;
+                                            updateTable(table.id, { rows: newRows });
+                                          }}
+                                          rows={2}
+                                          placeholder={`Cell ${rIdx + 1},${cIdx + 1}`}
+                                          className="w-full bg-transparent border border-transparent hover:border-slate-200 focus:border-indigo-400 rounded p-1 text-[10px] text-slate-700 outline-none resize-y"
+                                        />
+                                      </td>
+                                    ))}
+                                    <td className="p-1 text-center align-middle bg-slate-50/30">
+                                      <button
+                                        type="button"
+                                        onClick={() => deleteTableRow(table.id, rIdx)}
+                                        className="text-slate-400 hover:text-rose-600 p-1 rounded hover:bg-rose-50 cursor-pointer"
+                                        title="Delete Row"
+                                      >
+                                        <Trash2 className="w-3 h-3" />
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => addTableRow(table.id)}
+                            className="w-full py-1.5 bg-slate-50 border border-dashed border-slate-300 rounded text-slate-600 text-[9px] font-bold uppercase hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700 transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                          >
+                            <Plus className="w-3 h-3" /> Add Row
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <div className="space-y-2 pt-2 border-t border-slate-200">
                   <label className="text-[10px] uppercase font-bold text-slate-500 font-mono">Edit Section Text content (Below Table)</label>
@@ -4512,6 +5017,12 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
                       {isSection6 && <RenderCompetenciesTable />}
                       {isSection6 && <RenderCfoCompetenciesTable />}
                       {isSection6 && <RenderPedCompetenciesTable />}
+                      {(sec.heading.toLowerCase().includes('annexure c') || sec.heading.toLowerCase().includes('disclosure') || sec.heading.toLowerCase().includes('declaration')) && (
+                        <>
+                          <RenderStandardCoreCompetenciesBelowAnnexC />
+                          <RenderCustomTables sectionId="annexure-c-final" />
+                        </>
+                      )}
                     </div>
                   </div>
                 );
@@ -4618,7 +5129,9 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
                 <div className="border rounded-xl p-3 space-y-2 bg-slate-50/50 flex flex-col justify-between" style={{ borderColor: borderColor }}>
                   <div>
                     <span className="font-bold text-slate-800 block uppercase tracking-wider text-[8px]">
-                      {isMandlaMahlangu ? "Executive Mayor (on behalf of Nkangala District Municipality)" : isYenaKhuboni ? "Divisional Manager Approval" : "Supervisor / Executive Mayor Approval"}
+                      {isMandlaMahlangu 
+                        ? (activeTenantId === 'neda' ? "Board Chairperson / CEO (on behalf of Nkangala Economic Development Agency)" : "Executive Mayor (on behalf of Nkangala District Municipality)") 
+                        : isYenaKhuboni ? "Divisional Manager Approval" : "Supervisor / Executive Mayor Approval"}
                     </span>
                     
                     {/* Slot for Name and Position above signature */}
@@ -4753,6 +5266,8 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
 
                   <RenderCoreCompetenciesBelowKpa />
                   <RenderPdpTable />
+                  <RenderStandardCoreCompetenciesBelowAnnexC />
+                  <RenderCustomTables sectionId="annexure-c-final" />
                 </div>
               );
             })()}
@@ -5151,6 +5666,12 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
                         {isSection6 && <RenderCompetenciesTable />}
                         {isSection6 && <RenderCfoCompetenciesTable />}
                         {isSection6 && <RenderPedCompetenciesTable />}
+                        {(sec.heading.toLowerCase().includes('annexure c') || sec.heading.toLowerCase().includes('disclosure') || sec.heading.toLowerCase().includes('declaration')) && (
+                          <>
+                            <RenderStandardCoreCompetenciesBelowAnnexC />
+                            <RenderCustomTables sectionId="annexure-c-final" />
+                          </>
+                        )}
                       </div>
                     </div>
 
@@ -5279,7 +5800,9 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
                       <div className="border rounded-xl p-3 space-y-2 bg-slate-50/50 flex flex-col justify-between" style={{ borderColor: borderColor }}>
                         <div>
                           <span className="font-bold text-slate-800 block uppercase tracking-wider text-[8px]">
-                            {isMandlaMahlangu ? "Executive Mayor (on behalf of Nkangala District Municipality)" : isYenaKhuboni ? "Divisional Manager Approval" : "Supervisor / Executive Mayor Approval"}
+                            {isMandlaMahlangu 
+                              ? (activeTenantId === 'neda' ? "Board Chairperson / CEO (on behalf of Nkangala Economic Development Agency)" : "Executive Mayor (on behalf of Nkangala District Municipality)") 
+                              : isYenaKhuboni ? "Divisional Manager Approval" : "Supervisor / Executive Mayor Approval"}
                           </span>
                           
                           {/* Slot for Name and Position above signature */}
@@ -5412,6 +5935,8 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
 
                         <RenderCoreCompetenciesBelowKpa />
                         <RenderPdpTable />
+                        <RenderStandardCoreCompetenciesBelowAnnexC />
+                        <RenderCustomTables sectionId="annexure-c-final" />
                       </div>
                     );
                   })()}

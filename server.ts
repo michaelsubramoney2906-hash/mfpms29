@@ -958,11 +958,12 @@ async function startServer() {
             continue;
           }
 
-          // Detect Functional KPA banner dynamically (e.g. "KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION")
-          const kpaBannerMatch = line.match(/^[-*#\s|]*(?:KPA\s*(\d+[A-Za-z]?)\s*[:.\-–]\s*|Key\s*Performance\s*Area\s*(\d+[A-Za-z]?)\s*[:.\-–]\s*)(.+)$/i);
+          // Detect Functional KPA banner dynamically (e.g. "KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION", "a. KPA 1: ...", "c. PROJECTS", "KPA 6: POPIA/ PAIA/CIPC/COIDA/SARS COMPLIANCE")
+          const kpaBannerMatch = line.match(/^[-*#\s|]*(?:(?:[a-z]\.\s*)?KPA\s*(\d+[A-Za-z]?)\s*[:.\-–]\s*|(?:[a-z]\.\s*)?Key\s*Performance\s*Area\s*(\d+[A-Za-z]?)\s*[:.\-–]\s*|Strategic\s*Objective\s*(\d+[A-Za-z]?)\s*[:.\-–]\s*)(.+)$/i) ||
+                                line.match(/^[-*#\s|]*(?:[a-z]\.\s*)?KPA\s*(\d+[A-Za-z]?)\s*[:.\-–]?\s*(.+)$/i);
           if (kpaBannerMatch) {
             const kpaNum = kpaBannerMatch[1] || kpaBannerMatch[2] || '';
-            const rawKpaName = kpaBannerMatch[3].trim().replace(/\|.*$/, '').trim();
+            const rawKpaName = kpaBannerMatch[kpaBannerMatch.length - 1].trim().replace(/\|.*$/, '').trim();
             if (rawKpaName.length > 1 && !rawKpaName.toLowerCase().includes('kpi number') && !rawKpaName.toLowerCase().includes('kpi no') && !rawKpaName.toLowerCase().includes('weight')) {
               currentFunctionalKpa = kpaNum ? `KPA ${kpaNum}: ${rawKpaName}` : `KPA: ${rawKpaName}`;
               insideTable = true;
@@ -982,6 +983,20 @@ async function startServer() {
                   existing.fullTitle = currentFunctionalKpa;
                 }
               }
+            }
+            continue;
+          }
+
+          if (/^[-*#\s|]*(?:[a-z]\.\s*)?PROJECTS\b/i.test(line)) {
+            currentFunctionalKpa = 'KPA: PROJECTS';
+            const key = 'kpa-projects';
+            if (!extractedKpasMap.has(key)) {
+              extractedKpasMap.set(key, {
+                kpaNumber: String(extractedKpasMap.size + 1),
+                kpaName: 'PROJECTS',
+                fullTitle: 'KPA: PROJECTS',
+                weighting: ''
+              });
             }
             continue;
           }
@@ -1009,8 +1024,17 @@ async function startServer() {
               const firstCell = (rawCells[0] || '').trim();
               const firstCellLower = firstCell.toLowerCase();
 
+              // Check if row is actually a KPA header row across columns (e.g. ['KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION'] or first cell starts with KPA)
+              if (/^(?:(?:[a-z]\.\s*)?KPA\s*\d*[:.\-–]|(?:[a-z]\.\s*)?PROJECTS\b)/i.test(firstCell) && rawCells.length <= 3) {
+                const numM = firstCell.match(/KPA\s*(\d+[A-Za-z]?)/i);
+                const num = numM ? numM[1] : '';
+                const name = firstCell.replace(/^[-*#\s|]*(?:[a-z]\.\s*)?KPA\s*\d*[:.\-–]?\s*/i, '').trim();
+                currentFunctionalKpa = num ? `KPA ${num}: ${name || 'Functional Area'}` : `KPA: ${name || firstCell}`;
+                continue;
+              }
+
               // Validate KPI Number format
-              const isValidKpiNo = /^(?:[M|P|U]_\d+|(?:KPI|Ref|No)[-.\s_]?\d+|\d{1,3}(?:\.\d{1,2}){0,2}|[A-Z]{2,5}[-_]?\d+|\d+[A-Za-z]?)$/i.test(firstCell);
+              const isValidKpiNo = /^(?:[A-Za-z]{1,6}[-_]\d+|(?:KPI|Ref|No|Item|Indicator)[-.\s_#]?\d+|\d{1,3}(?:\.\d{1,2}){0,2}|\d+[A-Za-z]?)$/i.test(firstCell);
 
               const isExcludedWord = 
                 firstCellLower.includes('herein') ||
@@ -1076,12 +1100,22 @@ async function startServer() {
                   q1 = rawCells[5] || '';
                   q2 = rawCells[6] || '';
                   q3 = rawCells[7] || '';
+                } else if (rawCells.length === 7) {
+                  weight = rawCells[2] || '';
+                  baseline = rawCells[3] || '';
+                  annualTarget = rawCells[4] || '';
+                  q1 = rawCells[5] || '';
+                  q2 = rawCells[6] || '';
                 } else if (rawCells.length === 6) {
                   weight = rawCells[2] || '';
                   baseline = rawCells[3] || '';
                   annualTarget = rawCells[4] || '';
                   poe = rawCells[5] || '';
-                } else if (rawCells.length === 3) {
+                } else if (rawCells.length === 5) {
+                  weight = rawCells[2] || '';
+                  baseline = rawCells[3] || '';
+                  annualTarget = rawCells[4] || '';
+                } else if (rawCells.length >= 3) {
                   weight = rawCells[2] || '';
                 }
 
@@ -1106,33 +1140,313 @@ async function startServer() {
                     kpaType: 'functional'
                   });
                 }
-              } else if (results.length > 0 && !isExcludedWord) {
-                // Continuation text of multi-line cell belonging to the active KPI item
-                const lastItem = results[results.length - 1];
-                if (rawCells.length >= 2) {
-                  if (rawCells[0] && rawCells[0].length > 1 && !/^\d+$/.test(rawCells[0])) {
-                    lastItem["kpi description"] = (lastItem["kpi description"] + ' ' + rawCells[0] + ' ' + (rawCells[1] || '')).replace(/\s+/g, ' ').trim();
-                  } else if (rawCells[1]) {
-                    lastItem["kpi description"] = (lastItem["kpi description"] + ' ' + rawCells[1]).replace(/\s+/g, ' ').trim();
+              } else if (!isExcludedWord) {
+                // Extract KPI even if first column is not a standard KPI number (e.g. description is first column, or no KPI number exists)
+                let kpiNo = `KPI #${results.length + 1}`;
+                let kpiDesc = '';
+                let weight = '';
+                let baseline = '';
+                let annualTarget = '';
+                let q1 = '';
+                let q2 = '';
+                let q3 = '';
+                let q4 = '';
+                let poe = '';
+                let budget = '';
+
+                if (firstCell.length > 3 && !firstCellLower.startsWith('page ') && !firstCellLower.startsWith('annexure')) {
+                  kpiDesc = firstCell;
+                  if (rawCells.length >= 10) {
+                    weight = rawCells[1] || '';
+                    baseline = rawCells[2] || '';
+                    annualTarget = rawCells[3] || '';
+                    q1 = rawCells[4] || '';
+                    q2 = rawCells[5] || '';
+                    q3 = rawCells[6] || '';
+                    q4 = rawCells[7] || '';
+                    poe = rawCells[8] || '';
+                    budget = rawCells[9] || '';
+                  } else if (rawCells.length === 9) {
+                    weight = rawCells[1] || '';
+                    baseline = rawCells[2] || '';
+                    annualTarget = rawCells[3] || '';
+                    q1 = rawCells[4] || '';
+                    q2 = rawCells[5] || '';
+                    q3 = rawCells[6] || '';
+                    q4 = rawCells[7] || '';
+                    poe = rawCells[8] || '';
+                  } else if (rawCells.length === 8) {
+                    weight = rawCells[1] || '';
+                    baseline = rawCells[2] || '';
+                    annualTarget = rawCells[3] || '';
+                    q1 = rawCells[4] || '';
+                    q2 = rawCells[5] || '';
+                    q3 = rawCells[6] || '';
+                    q4 = rawCells[7] || '';
+                  } else if (rawCells.length === 7) {
+                    weight = rawCells[1] || '';
+                    baseline = rawCells[2] || '';
+                    annualTarget = rawCells[3] || '';
+                    q1 = rawCells[4] || '';
+                    q2 = rawCells[5] || '';
+                    q3 = rawCells[6] || '';
+                  } else if (rawCells.length === 6) {
+                    weight = rawCells[1] || '';
+                    baseline = rawCells[2] || '';
+                    annualTarget = rawCells[3] || '';
+                    poe = rawCells[4] || '';
+                    budget = rawCells[5] || '';
+                  } else if (rawCells.length === 5) {
+                    weight = rawCells[1] || '';
+                    baseline = rawCells[2] || '';
+                    annualTarget = rawCells[3] || '';
+                    poe = rawCells[4] || '';
+                  } else if (rawCells.length === 4) {
+                    weight = rawCells[1] || '';
+                    baseline = rawCells[2] || '';
+                    annualTarget = rawCells[3] || '';
+                  } else if (rawCells.length === 3) {
+                    weight = rawCells[1] || '';
+                    annualTarget = rawCells[2] || '';
+                  } else if (rawCells.length === 2) {
+                    annualTarget = rawCells[1] || '';
                   }
-                  if (rawCells.length >= 3 && rawCells[2] && isNaN(parseFloat(rawCells[2]))) {
-                    lastItem["kpi description"] = (lastItem["kpi description"] + ' ' + rawCells[2]).replace(/\s+/g, ' ').trim();
+                } else if (rawCells[1] && rawCells[1].length > 3) {
+                  kpiDesc = rawCells[1];
+                  if (rawCells.length >= 11) {
+                    weight = rawCells[2] || '';
+                    baseline = rawCells[3] || '';
+                    annualTarget = rawCells[4] || '';
+                    q1 = rawCells[5] || '';
+                    q2 = rawCells[6] || '';
+                    q3 = rawCells[7] || '';
+                    q4 = rawCells[8] || '';
+                    poe = rawCells[9] || '';
+                    budget = rawCells[10] || '';
+                  } else if (rawCells.length === 10) {
+                    weight = rawCells[2] || '';
+                    baseline = rawCells[3] || '';
+                    annualTarget = rawCells[4] || '';
+                    q1 = rawCells[5] || '';
+                    q2 = rawCells[6] || '';
+                    q3 = rawCells[7] || '';
+                    q4 = rawCells[8] || '';
+                    poe = rawCells[9] || '';
+                  } else if (rawCells.length >= 3) {
+                    weight = rawCells[2] || '';
+                    baseline = rawCells[3] || '';
+                    annualTarget = rawCells[4] || '';
                   }
-                  const lastCell = rawCells[rawCells.length - 1];
-                  if (lastCell && (lastCell.toLowerCase().includes('unit') || lastCell.toLowerCase().includes('report') || lastCell.toLowerCase().includes('services') || lastCell.toLowerCase().includes('certificate') || lastCell.toLowerCase().includes('register'))) {
-                    lastItem["poe"] = (lastItem["poe"] + ' ' + lastCell).replace(/\s+/g, ' ').trim();
+                }
+
+                if (kpiDesc && kpiDesc.length > 2 && !kpiDesc.toLowerCase().includes('signature') && !kpiDesc.toLowerCase().includes('certify that the above') && !kpiDesc.toLowerCase().includes('rating scale')) {
+                  const natKpa = resolveNationalKpaCode(currentFunctionalKpa);
+                  results.push({
+                    "kpi no": kpiNo,
+                    "kpi description": kpiDesc,
+                    "%wt": weight.replace('%', '').trim(),
+                    "baseline": baseline,
+                    "annual target": annualTarget,
+                    "1st qtr target": q1,
+                    "2nd qtr target": q2,
+                    "3rd qtr target": q3,
+                    "4th qtr target": q4,
+                    "poe": poe,
+                    "budget": budget,
+                    "functional kpa": currentFunctionalKpa,
+                    "national kpa": natKpa,
+                    "kpa": currentFunctionalKpa,
+                    kpaType: 'functional'
+                  });
+                } else if (results.length > 0) {
+                  // Continuation text of multi-line cell belonging to the active KPI item
+                  const lastItem = results[results.length - 1];
+                  if (rawCells.length >= 2) {
+                    if (rawCells[0] && rawCells[0].length > 1 && !/^\d+$/.test(rawCells[0])) {
+                      lastItem["kpi description"] = (lastItem["kpi description"] + ' ' + rawCells[0] + ' ' + (rawCells[1] || '')).replace(/\s+/g, ' ').trim();
+                    } else if (rawCells[1]) {
+                      lastItem["kpi description"] = (lastItem["kpi description"] + ' ' + rawCells[1]).replace(/\s+/g, ' ').trim();
+                    }
+                    if (rawCells.length >= 3 && rawCells[2] && isNaN(parseFloat(rawCells[2]))) {
+                      lastItem["kpi description"] = (lastItem["kpi description"] + ' ' + rawCells[2]).replace(/\s+/g, ' ').trim();
+                    }
+                    const lastCell = rawCells[rawCells.length - 1];
+                    if (lastCell && (lastCell.toLowerCase().includes('unit') || lastCell.toLowerCase().includes('report') || lastCell.toLowerCase().includes('services') || lastCell.toLowerCase().includes('certificate') || lastCell.toLowerCase().includes('register'))) {
+                      lastItem["poe"] = (lastItem["poe"] + ' ' + lastCell).replace(/\s+/g, ' ').trim();
+                    }
+                  } else if (rawCells.length === 1 && rawCells[0]) {
+                    lastItem["kpi description"] = (lastItem["kpi description"] + ' ' + rawCells[0]).replace(/\s+/g, ' ').trim();
                   }
-                } else if (rawCells.length === 1 && rawCells[0]) {
-                  lastItem["kpi description"] = (lastItem["kpi description"] + ' ' + rawCells[0]).replace(/\s+/g, ' ').trim();
                 }
               }
             }
           } else if (results.length > 0 && line.length > 2) {
             const lower = line.toLowerCase();
-            if (!lower.includes('page ') && !lower.includes('signature') && !lower.includes('kpa ') && !lower.includes('annexure')) {
+            if (!lower.includes('page ') && !lower.includes('signature') && !lower.includes('kpa ') && !lower.includes('annexure') && !/^(?:Number of|Percentage of|Percentage on|% of|Maximum acceptable|Development and|Compile and|100% attendance|Total municipal|Average number|Feasibility study|Management and|Water Treatment)\b/i.test(line)) {
               const lastItem = results[results.length - 1];
               lastItem["kpi description"] = (lastItem["kpi description"] + ' ' + line).replace(/\s+/g, ' ').trim();
             }
+          }
+        }
+
+        // If delimited splitting yielded <= 1 items (e.g. vertical layout or table without horizontal delimiters), run the multi-line vertical stream block extractor
+        if (results.length <= 1) {
+          const verticalItems: any[] = [];
+          let activeKpa = 'KPA: Functional Performance Area';
+
+          const isIndicatorStart = (text: string): boolean => {
+            const t = text.trim();
+            if (t.length < 5) return false;
+            const lower = t.toLowerCase();
+            if (lower.startsWith('page ') || lower.startsWith('annexure') || lower.startsWith('kpa ') || lower.startsWith('table ') || lower.startsWith('key performance indicator')) return false;
+            return /^(?:[A-Za-z]{1,6}[-_]\d+\b|Number of\b|Percentage of\b|Percentage on\b|% of\b|Maximum acceptable\b|Development and\b|Compile and\b|100% attendance\b|Total municipal\b|Average number\b|Feasibility study\b|Management and\b|Water Treatment\b|Conduct\b|Develop\b|Implement\b|Review\b|Submit\b|Ensure\b|Manage\b|Coordinate\b)/i.test(t);
+          };
+
+          let currentBlock: any = null;
+
+          for (let i = 0; i < rawLines.length; i++) {
+            const line = rawLines[i].trim();
+            if (!line) continue;
+            const lower = line.toLowerCase();
+
+            const kpaMatch = line.match(/^[-*#\s|]*(?:(?:[a-z]\.\s*)?KPA\s*(\d+[A-Za-z]?)\s*[:.\-–]\s*|(?:[a-z]\.\s*)?Key\s*Performance\s*Area\s*(\d+[A-Za-z]?)\s*[:.\-–]\s*)(.+)$/i) ||
+                             line.match(/^[-*#\s|]*(?:[a-z]\.\s*)?KPA\s*(\d+[A-Za-z]?)\s*[:.\-–]?\s*(.+)$/i);
+            if (kpaMatch) {
+              const num = kpaMatch[1] || '';
+              const name = kpaMatch[kpaMatch.length - 1].trim().replace(/\|.*$/, '').trim();
+              if (!name.toLowerCase().includes('kpi number') && !name.toLowerCase().includes('weight')) {
+                activeKpa = num ? `KPA ${num}: ${name}` : `KPA: ${name}`;
+                const key = num ? `kpa-${num.toLowerCase()}` : `kpa-${activeKpa.toLowerCase()}`;
+                if (!extractedKpasMap.has(key)) {
+                  extractedKpasMap.set(key, {
+                    kpaNumber: num || String(extractedKpasMap.size + 1),
+                    kpaName: name,
+                    fullTitle: activeKpa,
+                    weighting: ''
+                  });
+                }
+              }
+              continue;
+            }
+
+            if (/^[-*#\s|]*(?:[a-z]\.\s*)?PROJECTS\b/i.test(line)) {
+              activeKpa = 'KPA: PROJECTS';
+              continue;
+            }
+
+            if (isIndicatorStart(line) || /^[A-Za-z]{1,6}[-_]\d+$/i.test(line)) {
+              if (currentBlock && currentBlock.description && currentBlock.description.length > 3) {
+                const natKpa = resolveNationalKpaCode(currentBlock.kpa);
+                verticalItems.push({
+                  "kpi no": currentBlock.kpiNo || `KPI #${verticalItems.length + 1}`,
+                  "kpi description": currentBlock.description,
+                  "%wt": currentBlock.weight.replace('%', '').trim(),
+                  "baseline": currentBlock.baseline,
+                  "annual target": currentBlock.annualTarget,
+                  "1st qtr target": currentBlock.q1,
+                  "2nd qtr target": currentBlock.q2,
+                  "3rd qtr target": currentBlock.q3,
+                  "4th qtr target": currentBlock.q4,
+                  "poe": currentBlock.poe,
+                  "budget": currentBlock.budget || 'OPEX',
+                  "functional kpa": currentBlock.kpa,
+                  "national kpa": natKpa,
+                  "kpa": currentBlock.kpa,
+                  kpaType: 'functional'
+                });
+              }
+
+              let kNo = `KPI #${verticalItems.length + 1}`;
+              let desc = line;
+              if (/^[A-Za-z]{1,6}[-_]\d+$/i.test(line)) {
+                kNo = line;
+                desc = (rawLines[i + 1] && !rawLines[i + 1].startsWith('KPA') && !rawLines[i + 1].startsWith('Page')) ? rawLines[++i].trim() : '';
+              }
+
+              currentBlock = {
+                kpiNo: kNo,
+                description: desc,
+                weight: '',
+                baseline: '',
+                annualTarget: '',
+                q1: '',
+                q2: '',
+                q3: '',
+                q4: '',
+                poe: '',
+                budget: '',
+                kpa: activeKpa
+              };
+              continue;
+            }
+
+            if (currentBlock) {
+              if (/^OPEX$|^R\s*[\d\s,.]+/i.test(line)) {
+                currentBlock.budget = line;
+                const natKpa = resolveNationalKpaCode(currentBlock.kpa);
+                verticalItems.push({
+                  "kpi no": currentBlock.kpiNo || `KPI #${verticalItems.length + 1}`,
+                  "kpi description": currentBlock.description,
+                  "%wt": currentBlock.weight.replace('%', '').trim(),
+                  "baseline": currentBlock.baseline,
+                  "annual target": currentBlock.annualTarget,
+                  "1st qtr target": currentBlock.q1,
+                  "2nd qtr target": currentBlock.q2,
+                  "3rd qtr target": currentBlock.q3,
+                  "4th qtr target": currentBlock.q4,
+                  "poe": currentBlock.poe,
+                  "budget": currentBlock.budget,
+                  "functional kpa": currentBlock.kpa,
+                  "national kpa": natKpa,
+                  "kpa": currentBlock.kpa,
+                  kpaType: 'functional'
+                });
+                currentBlock = null;
+              } else if (!currentBlock.weight && /^\d{1,3}%?$/.test(line)) {
+                currentBlock.weight = line;
+              } else if (!currentBlock.baseline && (/^NEW$|^New$|^\d+$|^\d+%$|^100%$/i.test(line) || lower.includes('baseline'))) {
+                currentBlock.baseline = line;
+              } else if (!currentBlock.annualTarget && (/^\d+$|^\d+%$|^100%$|below|above|Clean audit|Unqualified/i.test(line))) {
+                currentBlock.annualTarget = line;
+              } else if (!currentBlock.q1 && (/^N\/A$|^\d+$|^\d+%$|^100%$/i.test(line))) {
+                currentBlock.q1 = line;
+              } else if (!currentBlock.q2 && (/^N\/A$|^\d+$|^\d+%$|^100%$/i.test(line))) {
+                currentBlock.q2 = line;
+              } else if (!currentBlock.q3 && (/^N\/A$|^\d+$|^\d+%$|^100%$/i.test(line))) {
+                currentBlock.q3 = line;
+              } else if (!currentBlock.q4 && (/^N\/A$|^\d+$|^\d+%$|^100%$/i.test(line))) {
+                currentBlock.q4 = line;
+              } else if (lower.includes('report') || lower.includes('register') || lower.includes('resolution') || lower.includes('proof') || lower.includes('signed') || lower.includes('plan') || lower.includes('certificate')) {
+                currentBlock.poe = (currentBlock.poe ? currentBlock.poe + ' ' + line : line).trim();
+              } else if (currentBlock.description.length < 300) {
+                currentBlock.description = (currentBlock.description + ' ' + line).trim();
+              }
+            }
+          }
+
+          if (currentBlock && currentBlock.description && currentBlock.description.length > 3) {
+            const natKpa = resolveNationalKpaCode(currentBlock.kpa);
+            verticalItems.push({
+              "kpi no": currentBlock.kpiNo || `KPI #${verticalItems.length + 1}`,
+              "kpi description": currentBlock.description,
+              "%wt": currentBlock.weight.replace('%', '').trim(),
+              "baseline": currentBlock.baseline,
+              "annual target": currentBlock.annualTarget,
+              "1st qtr target": currentBlock.q1,
+              "2nd qtr target": currentBlock.q2,
+              "3rd qtr target": currentBlock.q3,
+              "4th qtr target": currentBlock.q4,
+              "poe": currentBlock.poe,
+              "budget": currentBlock.budget || 'OPEX',
+              "functional kpa": currentBlock.kpa,
+              "national kpa": natKpa,
+              "kpa": currentBlock.kpa,
+              kpaType: 'functional'
+            });
+          }
+
+          if (verticalItems.length > results.length) {
+            return { items: verticalItems, kpas: Array.from(extractedKpasMap.values()) };
           }
         }
 
@@ -1212,30 +1526,8 @@ DATA TO EXTRACT FOR EVERY KPI ROW IN ANNEXURE A:
 
           let contents: any[] = [];
 
-          // Prioritize pure isolated Annexure A text if available to prevent LLM from seeing other clauses/tables
-          if (annexureAText && annexureAText.trim().length > 30) {
-            contents = [
-              {
-                role: 'user',
-                parts: [
-                  {
-                    text: `SOURCE ANNEXURE A (PERFORMANCE PLAN TABLE ONLY - FILENAME: ${fileName || 'Performance Agreement'}):\n${annexureAText}\n\nCRITICAL INSTRUCTION: Extract ONLY the KPI rows physically present in the Annexure A Performance Plan table. Extract exactly 1:1: functional KPA, KPI number, key performance indicator, weight, baseline, annual target, 1st quarter planned target, 2nd quarter planned target, 3rd quarter planned target, 4th quarter planned target, poe, and total budget allocated R'000. Do NOT extract anything from any other section. Zero dreaming, zero adding data. If a quarterly target or baseline is "N/A", output "N/A" verbatim.`
-                  }
-                ]
-              }
-            ];
-          } else if (documentText && documentText.trim().length > 30) {
-            contents = [
-              {
-                role: 'user',
-                parts: [
-                  {
-                    text: `SOURCE DOCUMENT CONTENT (FILENAME: ${fileName || 'Performance Agreement'}):\n${documentText}\n\nCRITICAL INSTRUCTION: Locate "ANNEXURE A - PERFORMANCE PLAN". Extract ONLY the rows in the Annexure A Performance Plan table. Extract exactly 1:1: functional KPA, KPI number, key performance indicator, weight, baseline, annual target, 1st quarter planned target, 2nd quarter planned target, 3rd quarter planned target, 4th quarter planned target, poe, and total budget allocated R'000. Do NOT extract from legal clauses 1-13, rating scales, Annexure B PDP, or JSC competencies. Zero dreaming, zero adding data.`
-                  }
-                ]
-              }
-            ];
-          } else if (fileBase64 && (mimeType === 'application/pdf' || (fileName || '').toLowerCase().endsWith('.pdf'))) {
+          // Prioritize raw PDF binary with vision/layout understanding if available
+          if (fileBase64 && (mimeType === 'application/pdf' || (fileName || '').toLowerCase().endsWith('.pdf'))) {
             contents = [
               {
                 role: 'user',
@@ -1247,7 +1539,48 @@ DATA TO EXTRACT FOR EVERY KPI ROW IN ANNEXURE A:
                     }
                   },
                   {
-                    text: `CRITICAL INSTRUCTION: Locate "ANNEXURE A - PERFORMANCE PLAN" in the PDF. Extract ONLY the rows physically present in the Annexure A Performance Plan table(s). Extract exactly 1:1: functional KPA, KPI number, key performance indicator, weight, baseline, annual target, 1st quarter planned target, 2nd quarter planned target, 3rd quarter planned target, 4th quarter planned target, poe, and total budget allocated R'000. Do NOT extract from legal clauses 1-13, rating scales, Annexure B PDP, or JSC competencies. Zero dreaming, zero adding data. If a target is "N/A", output "N/A" verbatim.`
+                    text: `DOCUMENT: "${fileName || 'Performance Agreement'}"
+CRITICAL EXTRACTION INSTRUCTION:
+1. Locate "ANNEXURE A: PERFORMANCE PLAN" (which begins after Section 13/signatures, usually spanning multiple pages across pages 12-16 or 17-27).
+2. Extract ALL Functional KPAs and ALL Key Performance Indicator (KPI) rows from the Annexure A table(s).
+3. Do NOT stop after page 1 or after the first row. You MUST extract every single KPI row across ALL pages of the Annexure A table.
+4. Extract REGARDLESS of whether the first column (KPI number) is blank/empty or has codes (e.g. E_03, E_02, P_01). If the KPI number column is blank or missing, assign a sequential identifier (e.g. "KPI #1", "KPI #2", "KPI #3", etc.).
+5. Extract all 10 columns verbatim for every single KPI row:
+   - functional KPA (from the section header, e.g. "KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION", "KPA 2: FINANCIAL VIABILITY", "KPA 3: SECRETARIAT SERVICES", "KPA 4: CONTRACT MANAGEMENT", "KPA 5: LITIGATION MANAGEMENT", "KPA 6: POPIA/ PAIA/CIPC/COIDA/SARS COMPLIANCE", "KPA: PROJECTS", etc.)
+   - KPI number (exact code if present, otherwise "KPI #1", "KPI #2", etc.)
+   - key performance indicator (verbatim text of the indicator description)
+   - weight (numeric percentage string e.g. "3", "2", "4", "5", "10")
+   - baseline (verbatim string e.g. "NEW", "4", "100%", "1")
+   - annual target (verbatim string e.g. "15", "4", "10% or below", "100%", "1")
+   - 1st quarter planned target (verbatim string e.g. "N/A", "1", "10% or below", "100%")
+   - 2nd quarter planned target (verbatim string e.g. "N/A", "1", "10% or below", "100%")
+   - 3rd quarter planned target (verbatim string e.g. "N/A", "1", "10% or below", "100%")
+   - 4th quarter planned target (verbatim string e.g. "1", "100%", "N/A")
+   - poe (verbatim Portfolio of Evidence description)
+   - total budget allocated (verbatim string e.g. "OPEX", "R 701", "R 2 805")
+6. Do NOT extract legal clauses 1-13, rating scale tables, Annexure B PDP, or Annexure C Disclosures. Extract EVERY single row in Annexure A.`
+                  }
+                ]
+              }
+            ];
+          } else if (annexureAText && annexureAText.trim().length > 30) {
+            contents = [
+              {
+                role: 'user',
+                parts: [
+                  {
+                    text: `SOURCE ANNEXURE A (PERFORMANCE PLAN TABLE ONLY - FILENAME: ${fileName || 'Performance Agreement'}):\n${annexureAText}\n\nCRITICAL INSTRUCTION: Extract ALL Functional KPAs and ALL KPI rows physically present in the Annexure A Performance Plan table(s), REGARDLESS of whether there is an explicit KPI number or not. If a KPI does not have a KPI number, assign a sequential identifier (e.g. 'KPI #1', 'KPI #2'). Extract exactly 1:1: functional KPA, KPI number, key performance indicator description, weight, baseline, annual target, 1st quarter planned target, 2nd quarter planned target, 3rd quarter planned target, 4th quarter planned target, poe, and total budget allocated R'000. Do NOT extract anything from legal clauses, rating scales, or PDP. If a quarterly target or baseline is "N/A", output "N/A" verbatim.`
+                  }
+                ]
+              }
+            ];
+          } else if (documentText && documentText.trim().length > 30) {
+            contents = [
+              {
+                role: 'user',
+                parts: [
+                  {
+                    text: `SOURCE DOCUMENT CONTENT (FILENAME: ${fileName || 'Performance Agreement'}):\n${documentText}\n\nCRITICAL INSTRUCTION: Locate "ANNEXURE A - PERFORMANCE PLAN" or Performance Scorecard. Extract ALL Functional KPAs and ALL KPI rows in the Performance Plan table(s), REGARDLESS of whether there is an explicit KPI number or not. If a KPI does not have a number, assign a sequential identifier (e.g. 'KPI #1', 'KPI #2'). Extract exactly 1:1: functional KPA, KPI number, key performance indicator, weight, baseline, annual target, 1st quarter planned target, 2nd quarter planned target, 3rd quarter planned target, 4th quarter planned target, poe, and total budget allocated R'000. Do NOT extract from legal clauses 1-13, rating scales, Annexure B PDP, or JSC competencies.`
                   }
                 ]
               }
@@ -1264,7 +1597,7 @@ DATA TO EXTRACT FOR EVERY KPI ROW IN ANNEXURE A:
                     }
                   },
                   {
-                    text: `CRITICAL INSTRUCTION: Locate "ANNEXURE A - PERFORMANCE PLAN". Extract ONLY the rows in the Annexure A Performance Plan table(s). Extract exactly: functional KPA, KPI number, key performance indicator, weight, baseline, annual target, 1st quarter planned target, 2nd quarter planned target, 3rd quarter planned target, 4th quarter planned target, poe, and total budget allocated R'000. Do NOT extract anything from any other section.`
+                    text: `CRITICAL INSTRUCTION: Locate "ANNEXURE A - PERFORMANCE PLAN" or Performance Scorecard. Extract ALL Functional KPAs and ALL KPI rows in the table(s), REGARDLESS of whether there is an explicit KPI number or not. Extract exactly: functional KPA, KPI number, key performance indicator, weight, baseline, annual target, 1st quarter planned target, 2nd quarter planned target, 3rd quarter planned target, 4th quarter planned target, poe, and total budget allocated R'000. Do NOT extract anything from any other section.`
                   }
                 ]
               }
@@ -1313,7 +1646,7 @@ DATA TO EXTRACT FOR EVERY KPI ROW IN ANNEXURE A:
                       items: {
                         type: Type.OBJECT,
                         properties: {
-                          kpiNo: { type: Type.STRING, description: "Exact KPI Number or Identifier e.g. 1.1, 1.2, 1, 2, BSD-01" },
+                          kpiNo: { type: Type.STRING, description: "Exact KPI Number or Identifier e.g. 1.1, 1.2, 1, 2, BSD-01, or sequential if none" },
                           kpiDescription: { type: Type.STRING, description: "Verbatim 100% exact text of the KPI Description / Measure / Output" },
                           weight: { type: Type.STRING, description: "Weighting percentage number only e.g. 10, 15, 20" },
                           baseline: { type: Type.STRING, description: "Verbatim baseline or previous year actual" },
@@ -1326,7 +1659,7 @@ DATA TO EXTRACT FOR EVERY KPI ROW IN ANNEXURE A:
                           budget: { type: Type.STRING, description: "Verbatim Budget allocation e.g. OPEX, R2 000 000" },
                           functionalKpa: { type: Type.STRING, description: "The verbatim parent Functional KPA title from the source, starting with 'KPA' (e.g. KPA 1: Technical Infrastructure Operations)" }
                         },
-                        required: ["kpiNo", "kpiDescription", "functionalKpa"]
+                        required: ["kpiDescription", "functionalKpa"]
                       }
                     }
                   },
@@ -11255,28 +11588,42 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
   // Core Competencies Routes
   app.get("/api/tenant/:tenantId/core-competencies", async (req, res) => {
     const { tenantId: routeTenantId } = req.params;
-    const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
+    const rawUserId = req.query.userId ? String(req.query.userId).trim() : 'default';
+    const userId = rawUserId.toLowerCase();
     try {
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
-      const documentId = `core_competencies_${tenantId}_${userId}`;
+      const candidateDocIds = [
+        `core_competencies_${tenantId}_${userId}`,
+        `core_competencies_${tenantId}_manganijp@nkangaladm.gov.za`,
+        `core_competencies_${tenantId}_default`,
+        `core_competencies_${tenantId}_all`,
+        `core_competencies_neda_${userId}`,
+        `core_competencies_neda_manganijp@nkangaladm.gov.za`,
+        `core_competencies_neda_default`,
+        `core_competencies_nkangala_auto_${userId}`,
+        `core_competencies_nkangala_auto_manganijp@nkangaladm.gov.za`,
+        `core_competencies_nkangala_auto_default`,
+        `core_competencies_tenant-229_${userId}`,
+        `core_competencies_tenant-229_default`,
+        `core_competencies_global_all`
+      ];
 
-      const { data, error } = await supabase
-        .from('messages')
-        .select('content')
-        .eq('id', documentId)
-        .maybeSingle();
+      for (const dId of candidateDocIds) {
+        const { data } = await supabase
+          .from('messages')
+          .select('content')
+          .eq('id', dId)
+          .maybeSingle();
 
-      if (error) {
-        logSupabaseError("core competencies", error);
-        return res.json({ items: [], cfoItems: [], pedItems: [], corporateServicesItems: [] });
-      }
-
-      if (data && data.content) {
-        try {
-          const parsed = JSON.parse(data.content);
-          return res.json(parsed);
-        } catch (parseErr) {}
+        if (data && data.content) {
+          try {
+            const parsed = JSON.parse(data.content);
+            if (parsed && ((Array.isArray(parsed.items) && parsed.items.length > 0) || (Array.isArray(parsed.cfoItems) && parsed.cfoItems.length > 0) || (Array.isArray(parsed.pedItems) && parsed.pedItems.length > 0))) {
+              return res.json(parsed);
+            }
+          } catch (parseErr) {}
+        }
       }
       return res.json({ items: [], cfoItems: [], pedItems: [], corporateServicesItems: [] });
     } catch (err: any) {
@@ -11312,6 +11659,116 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       res.json({ success: true });
     } catch (err: any) {
       console.error("core-competencies save exception:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/tenant/:tenantId/core-competencies/push-to-pa", async (req, res) => {
+    const { tenantId: routeTenantId } = req.params;
+    const rawUserId = req.query.userId ? String(req.query.userId).trim() : (req.body.userId ? String(req.body.userId).trim() : 'default');
+    const userId = rawUserId.toLowerCase();
+    const { items, cfoItems, pedItems, corporateServicesItems } = req.body;
+    try {
+      const supabase = getSupabase();
+      const tenantId = await resolveTenantId(routeTenantId, userId);
+
+      // 1. Ensure core competencies are saved
+      const uDocId = `core_competencies_${tenantId}_${userId}`;
+      await supabase
+        .from('messages')
+        .upsert({ 
+          id: uDocId,
+          tenant_id: tenantId,
+          sender_id: 'core_competencies_editor',
+          sender_email: 'core_competencies@system.local',
+          sender_name: 'Core Competencies Editor',
+          content: JSON.stringify({ items, cfoItems, pedItems, corporateServicesItems }),
+          message_type: 'core_competencies_list',
+          created_at: new Date().toISOString()
+        });
+
+      // 2. Identify target draft documents to update for this tenant and user
+      const candidateDraftIds = [
+        `draft_doc_${tenantId}_${userId}`,
+        `draft_doc_${tenantId}_default`,
+        `draft_doc_${tenantId}`,
+        `draft_doc_neda_${userId}`,
+        `draft_doc_neda_default`,
+        `draft_doc_neda_team_0`,
+        `draft_doc_neda_team_1`,
+        `draft_doc_neda_team_2`,
+        `draft_doc_neda_team_3`,
+        `draft_doc_neda_team_4`,
+        `draft_doc_neda_team_5`
+      ];
+
+      for (const dId of candidateDraftIds) {
+        let existingDoc: any = {};
+        const { data: existingData } = await supabase
+          .from('messages')
+          .select('content')
+          .eq('id', dId)
+          .maybeSingle();
+
+        if (existingData && existingData.content) {
+          try {
+            existingDoc = typeof existingData.content === 'string' ? JSON.parse(existingData.content) : existingData.content;
+            if (existingDoc.html) {
+              existingDoc = existingDoc.html;
+            }
+          } catch (e) {}
+        }
+
+        const customTableObj = {
+          id: `table-std-core-comp-${Date.now()}`,
+          sectionId: 'annexure-c-final',
+          title: 'Standard Core Leadership & Governance Competencies (Annexure C)',
+          headers: ['Core Competency', 'Basic', 'Competent', 'Advanced', 'Superior'],
+          rows: Array.isArray(items) ? items.map((r: any) => [
+            r.competency || r.title || r.name || '',
+            r.basic || '',
+            r.competent || '',
+            r.advanced || '',
+            r.superior || ''
+          ]) : [],
+          columnWidths: ['24%', '19%', '19%', '19%', '19%'],
+          cellPadding: 'normal',
+          fontSize: '9px',
+          rowHeight: '32px'
+        };
+
+        const updatedCustomTables = Array.isArray(existingDoc.customTables)
+          ? [
+              ...existingDoc.customTables.filter((t: any) => t.sectionId !== 'annexure-c-final' && !t.title?.toLowerCase().includes('standard core')),
+              customTableObj
+            ]
+          : [customTableObj];
+
+        const updatedDocState = {
+          ...existingDoc,
+          pulledStandardCompetenciesAnnexC: items || [],
+          customTables: updatedCustomTables,
+          annexureCFinalTables: [customTableObj],
+          updatedAt: new Date().toISOString()
+        };
+
+        await supabase
+          .from('messages')
+          .upsert({
+            id: dId,
+            tenant_id: tenantId,
+            sender_id: 'core_competencies_push',
+            sender_email: 'core_competencies@system.local',
+            sender_name: 'Core Competencies Pusher',
+            content: JSON.stringify({ html: updatedDocState, htmlDocumentId: dId }),
+            message_type: 'drafting_suite_doc',
+            created_at: new Date().toISOString()
+          });
+      }
+
+      res.json({ success: true, count: (items || []).length, tenantId });
+    } catch (err: any) {
+      console.error("push-to-pa exception:", err);
       res.status(500).json({ error: err.message });
     }
   });

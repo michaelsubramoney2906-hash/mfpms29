@@ -359,3 +359,482 @@ export function ensureAllSdbipKpis(extractedItems: any[]): SdbipCatalogItem[] {
 
   return result;
 }
+
+// NEDA SDBIP Catalog (46 E_ Entity/Executive KPIs + 3 P_ Project KPIs = 49 total indicators across KPA 1 to KPA 4)
+
+const nedaKpaNames: Record<number, string> = {
+  1: "a. KPA 1: Institutional Development and Transformation",
+  2: "b. KPA 2: Good Governance and Public Participation",
+  3: "c. KPA 3: Local Economic Development",
+  4: "d. KPA 4: Municipal Financial Viability and Management"
+};
+
+const nedaEKpisCompact: { [key: string]: { desc: string; kpaIndex: number; strategicObj: string; uom?: string; base?: string; target?: string; q1?: string; q2?: string; mid?: string; q3?: string; q4?: string; poe: string; budget?: string } } = {
+  // a. KPA 1: Institutional Development and Transformation (E_01 - E_07)
+  "E_01": {
+    strategicObj: "Ensure Good governance and regulatory compliance",
+    desc: "Percentage of 2025/26 individual performance evaluations conducted with all employees by 30 June 2027",
+    kpaIndex: 1, uom: "Percentage", base: "100%", target: "100%", q1: "n/a", q2: "n/a", mid: "n/a", q3: "n/a", q4: "100%",
+    poe: "Consolidated Annual Performance Evaluation Report to the Board and Board resolution", budget: "OPEX"
+  },
+  "E_02": {
+    strategicObj: "To ensure efficient administration and institutional development",
+    desc: "Number of new/reviewed polices approved by Board by 30 June 2027",
+    kpaIndex: 1, uom: "Number", base: "100%", target: "15", q1: "n/a", q2: "n/a", mid: "n/a", q3: "n/a", q4: "15",
+    poe: "Report to board and Board Resolution(s) (stating all the policies revied by Board)", budget: "OPEX"
+  },
+  "E_03": {
+    strategicObj: "Ensure Good governance and regulatory compliance",
+    desc: "Number of quarterly reports submitted to the Board and the NDM by 30 June 2027",
+    kpaIndex: 1, uom: "Number", base: "4", target: "4", q1: "1", q2: "1", mid: "1", q3: "1", q4: "1",
+    poe: "Quarterly Reports to Board and Council resolution", budget: "OPEX"
+  },
+  "E_04": {
+    strategicObj: "Ensure Good governance and regulatory compliance",
+    desc: "Maximum acceptable percentage of Staff vacancy rate (circular 88) per quarter",
+    kpaIndex: 1, uom: "Percentage", base: "7%", target: "10% or below", q1: "10% or below", q2: "10% or below", mid: "10% or below", q3: "10% or below", q4: "10% or below",
+    poe: "Signed vacancy Rate Report (Indicating the vacancy rate percentage)", budget: "OPEX"
+  },
+  "E_05": {
+    strategicObj: "Ensuring the employment of highest levels of management comply with the Municipality's Employment Equity Plan",
+    desc: "Percentage of allocated budget spend implementing the Workplace Skills Plan by 30 June 2027",
+    kpaIndex: 1, uom: "Percentage", base: "New", target: "97%", q1: "n/a", q2: "n/a", mid: "50%", q3: "50%", q4: "97%",
+    poe: "Signed Training Report, and budget vote report", budget: "R100"
+  },
+  "E_06": {
+    strategicObj: "To be compliant with the Municipal Systems Act 32 of 2000, Schedule 1, Declaration of interest",
+    desc: "Percentage of Board members who have declared their financial interest (Circular 88) by 30 June 2027",
+    kpaIndex: 1, uom: "Percentage", base: "New", target: "100%", q1: "100%", q2: "100%", mid: "100%", q3: "100%", q4: "100%",
+    poe: "Signed Quarterly Report on Declarations of Interest by Board and board Resolution", budget: "OPEX"
+  },
+  "E_07": {
+    strategicObj: "To ensure Good governance and regulatory compliance",
+    desc: "Number of shared service agreement (SDAs) revied and submitted to NDM by 30 June 2027",
+    kpaIndex: 1, uom: "Number", base: "1", target: "1", q1: "n/a", q2: "n/a", mid: "n/a", q3: "n/a", q4: "1",
+    poe: "Reviewed SLA and proof of submission.", budget: "OPEX"
+  },
+
+  // b. KPA 2: Good Governance and Public Participation (E_08 - E_27)
+  "E_08": {
+    strategicObj: "To be compliant with the Municipal Systems Act 32 of 2000, Schedule 1, Declaration of interest",
+    desc: "Percentage of Employees who have declared their financial interests (Circular 88) by 30 June 2027",
+    kpaIndex: 2, uom: "Percentage", base: "New", target: "100%", q1: "100%", q2: "100%", mid: "100%", q3: "100%", q4: "100%",
+    poe: "Signed Declarations of Interest by Employees and Board Resolution.", budget: "OPEX"
+  },
+  "E_09": {
+    strategicObj: "To ensure Good Governance and regulatory compliance",
+    desc: "Attain clean audit opinion by 31 December 2026",
+    kpaIndex: 2, uom: "Number", base: "New", target: "1 (Clean audit)", q1: "n/a", q2: "1 (Clean Audit opinion)", mid: "1 (Clean Audit opinion)", q3: "n/a", q4: "n/a",
+    poe: "AGSA's Audit Report 2025/26", budget: "OPEX"
+  },
+  "E_10": {
+    strategicObj: "To ensure Good Governance and regulatory compliance",
+    desc: "Number of repeat audit findings (circular 88) by 31 December 2026",
+    kpaIndex: 2, uom: "Number", base: "New", target: "0 (not above)", q1: "n/a", q2: "0 (not above)", mid: "0 (not above)", q3: "n/a", q4: "n/a",
+    poe: "AGSA's Audit Report 2025/26", budget: "OPEX"
+  },
+  "E_11": {
+    strategicObj: "To ensure Good Governance and regulatory compliance",
+    desc: "Number of Action Plan on issues raised by the Auditor General tabled to the board by 31 December 2026.",
+    kpaIndex: 2, uom: "Number", base: "1", target: "1", q1: "n/a", q2: "1", mid: "1", q3: "n/a", q4: "n/a",
+    poe: "Audit Action Plan and Board resolution", budget: "OPEX"
+  },
+  "E_12": {
+    strategicObj: "To ensure Good Governance and regulatory compliance",
+    desc: "Percentage of AGSA Findings raised in the Management Letter resolved (Total organization) by 30 June 2027",
+    kpaIndex: 2, uom: "Percentage", base: "New", target: "100%", q1: "n/a", q2: "n/a", mid: "40%", q3: "40%", q4: "100%",
+    poe: "Signed Progress Report on the Implementation of the Audit Action Plan.", budget: "OPEX"
+  },
+  "E_13": {
+    strategicObj: "To ensure Good governance and regulatory compliance",
+    desc: "Number of Final Strategic plan tabled for approval to Board by 31 May 2027",
+    kpaIndex: 2, uom: "Number", base: "New", target: "1", q1: "n/a", q2: "n/a", mid: "n/a", q3: "n/a", q4: "1",
+    poe: "Final Strategic Plan Document, Board Resolution", budget: "OPEX"
+  },
+  "E_14": {
+    strategicObj: "To ensure Good governance and regulatory compliance",
+    desc: "Number of Annual Report tabled to The Board and Council by 31 December 2026",
+    kpaIndex: 2, uom: "Number", base: "New", target: "1", q1: "n/a", q2: "1", mid: "1", q3: "n/a", q4: "n/a",
+    poe: "Approval Annual Report, board and Council Resolution.", budget: "OPEX"
+  },
+  "E_15": {
+    strategicObj: "To ensure Good Governance and regulatory compliance",
+    desc: "Number of Final 2027/28 Annual Performance Plan approved by the Board Chairperson within 28 days after approval of Annual Budget",
+    kpaIndex: 2, uom: "Number", base: "1", target: "1", q1: "n/a", q2: "n/a", mid: "n/a", q3: "n/a", q4: "1",
+    poe: "Approved and signed 2027/28 Annual Performance plan", budget: "OPEX"
+  },
+  "E_16": {
+    strategicObj: "To ensure Good governance and regulatory compliance",
+    desc: "Number of Adjustment 2026/27 Annual Performance plan approval within 28 days after the approval of the Adjustment Budget.",
+    kpaIndex: 2, uom: "Number", base: "New", target: "1", q1: "n/a", q2: "n/a", mid: "1", q3: "1", q4: "n/a",
+    poe: "Approved and signed Adjusted 2026/27 Annual Performance plan, board resolution", budget: "OPEX"
+  },
+  "E_17": {
+    strategicObj: "To ensure Good governance and regulatory compliance",
+    desc: "Percentage of action plans implemented to address Strategic Risks Identified per quarter (Total organization)",
+    kpaIndex: 2, uom: "Percentage", base: "New", target: "90%", q1: "60%", q2: "70%", mid: "70%", q3: "80%", q4: "90%",
+    poe: "Signed Quarterly Strategic risk report", budget: "OPEX"
+  },
+  "E_18": {
+    strategicObj: "To ensure Good Governance and regulatory compliance",
+    desc: "Percentage of action plans implemented to address Operational Risks Identified per quarter (Total Organization)",
+    kpaIndex: 2, uom: "Percentage", base: "New", target: "90%", q1: "60%", q2: "70%", mid: "70%", q3: "80%", q4: "90%",
+    poe: "Signed Quarterly Operational Risk report", budget: "OPEX"
+  },
+  "E_19": {
+    strategicObj: "To ensure Good Governance and regulatory compliance",
+    desc: "Number of risk-based audit plan developed and approved by 30 June 2027",
+    kpaIndex: 2, uom: "Number", base: "New", target: "1", q1: "n/a", q2: "n/a", mid: "n/a", q3: "n/a", q4: "1",
+    poe: "Approved Risk Based audit plan and Board resolution", budget: "OPEX"
+  },
+  "E_20": {
+    strategicObj: "To ensure Financial Sustainability to meet the statutory requirements",
+    desc: "Percentage of audit recommendations implemented per quarter (Total organization)",
+    kpaIndex: 2, uom: "Percentage", base: "New", target: "100%", q1: "100%", q2: "100%", mid: "100%", q3: "100%", q4: "100%",
+    poe: "Signed quarterly IA report", budget: "OPEX"
+  },
+  "E_21": {
+    strategicObj: "Ensure Good Governance and regulatory compliance",
+    desc: "Number of Strategic Risk Register",
+    kpaIndex: 2, uom: "Number", base: "New", target: "1", q1: "n/a", q2: "n/a", mid: "n/a", q3: "n/a", q4: "1",
+    poe: "Approved Strategic Board Resolution", budget: "OPEX"
+  },
+  "E_22": {
+    strategicObj: "Ensure Good Governance and regulatory compliance",
+    desc: "Number of Audit Committee reports submitted to Board by 30 June 2027",
+    kpaIndex: 2, uom: "Number", base: "New", target: "4", q1: "1", q2: "1", mid: "1", q3: "1", q4: "1",
+    poe: "Quarterly Signed Audit Committee Reports and board Resolution.", budget: "OPEX"
+  },
+  "E_23": {
+    strategicObj: "Ensure Good Governance and regulatory compliance",
+    desc: "Percentage implementation of audit committee resolutions adopted per quarter",
+    kpaIndex: 2, uom: "Percentage", base: "New", target: "100%", q1: "100%", q2: "100%", mid: "100%", q3: "100%", q4: "100%",
+    poe: "Signed quarterly Audit committee resolution register", budget: "OPEX"
+  },
+  "E_24": {
+    strategicObj: "Ensure Good Governance and regulatory compliance",
+    desc: "Percentage on Implementation of Board Resolutions Resolved (Total organization) per quarter",
+    kpaIndex: 2, uom: "Percentage", base: "New", target: "100%", q1: "100%", q2: "100%", mid: "100%", q3: "100%", q4: "100%",
+    poe: "Signed Quarterly report on implementation of Board Resolutions.", budget: "OPEX"
+  },
+  "E_25": {
+    strategicObj: "Ensure Good Governance and regulatory compliance",
+    desc: "Number of agenda items deferred to the next Board meeting (circular 88) per quarter",
+    kpaIndex: 2, uom: "Number", base: "New", target: "3, (or below)", q1: "3, (or below)", q2: "3, (or below)", mid: "3, (or below)", q3: "3, (or below)", q4: "3, (or below)",
+    poe: "Unsigned minutes of the current quarter and Signed Board Minutes of Previous quarter", budget: "OPEX"
+  },
+  "E_26": {
+    strategicObj: "To ensure Good Governance and regulatory compliance",
+    desc: "Number of Strategic Lekgotla report tabled to the Board by 31 May 2027",
+    kpaIndex: 2, uom: "Number", base: "New", target: "1", q1: "n/a", q2: "n/a", mid: "n/a", q3: "n/a", q4: "1",
+    poe: "2027/28 Strategic Lekgotla report and Board resolution", budget: "OPEX"
+  },
+  "E_27": {
+    strategicObj: "To ensure Good Governance and regulatory compliance",
+    desc: "Percentage of strategic Lekgotla resolutions implemented by 30 June 2027",
+    kpaIndex: 2, uom: "Percentage", base: "New", target: "90%", q1: "60%", q2: "70%", mid: "70%", q3: "80%", q4: "90%",
+    poe: "Signed quarterly report on Implementation of Strategic Lekgotla resolutions", budget: "OPEX"
+  },
+
+  // c. KPA 3: Local Economic Development (E_28 - E_33)
+  "E_28": {
+    strategicObj: "To act as a single point of contact for investing, economic development, and tourism activities in the District.",
+    desc: "Number of fundraising proposals submitted to funders for LED projects submitted by Local Municipalities by 30 June 2027.",
+    kpaIndex: 3, uom: "Number", base: "New", target: "4", q1: "1", q2: "1", mid: "1", q3: "1", q4: "1",
+    poe: "Signed fundraising proposals", budget: "OPEX"
+  },
+  "E_29": {
+    strategicObj: "To attract investment and related growth-focused activities into the District's key sectors including tourism and priority zones.",
+    desc: "Number of reports on catalytic economic development and projects pipeline identified and profiled for investment attraction by 30 June 2027",
+    kpaIndex: 3, uom: "Number", base: "New", target: "4", q1: "1", q2: "1", mid: "1", q3: "1", q4: "1",
+    poe: "Signed report on catalytic economic development projects and Board resolution", budget: "OPEX"
+  },
+  "E_30": {
+    strategicObj: "To attract investment and related growth-focused activities into the District's key sectors including tourism and priority zones.",
+    desc: "Number of District Investment Prospect developed by 30 June 2027",
+    kpaIndex: 3, uom: "Number", base: "New", target: "2", q1: "n/a", q2: "1 (Draft Investment Prospect)", mid: "1 (Draft Investment Prospect)", q3: "n/a", q4: "1 (Final District Investment Prospect)",
+    poe: "Draft District Prospect Final District Investment Prospect", budget: "OPEX"
+  },
+  "E_31": {
+    strategicObj: "To attract investment and related growth-focused activities into the District's key sectors including tourism and priority zones.",
+    desc: "Number of Municipal Investment Incentive Framework developed by 30 June 2027",
+    kpaIndex: 3, uom: "Number", base: "New", target: "2", q1: "n/a", q2: "1 (Draft municipal incentive framework and templates developed)", mid: "1 (Draft municipal incentive framework and templates developed)", q3: "n/a", q4: "1 (Final Municipal Investment Incentive Framework developed and adopted)",
+    poe: "Draft municipal investment incentive framework and template Final and approved Municipal Investment Incentive Framework", budget: "OPEX"
+  },
+  "E_32": {
+    strategicObj: "To promote entrepreneurship and provide economic initiatives and related organized events within the jurisdiction of the District",
+    desc: "Number of brick plant accreditation obtained from the SABS by 30 June 2027",
+    kpaIndex: 3, uom: "Number", base: "New", target: "2", q1: "1 (SABS lab assessment 1 conducted)", q2: "n/a", mid: "1 (SABS lab assessment 1 conducted)", q3: "n/a", q4: "1 (SABS accreditation certificate)",
+    poe: "SABS Lab assessment results SABS accreditation certificate", budget: "OPEX"
+  },
+  "E_33": {
+    strategicObj: "To promote entrepreneurship and provide economic initiatives and related organized events within the jurisdiction of the District",
+    desc: "Number of bricks produced per quarter",
+    kpaIndex: 3, uom: "Number", base: "New", target: "1 472 491", q1: "491", q2: "491", mid: "491", q3: "491", q4: "491",
+    poe: "Signed quarterly brick production reports", budget: "OPEX"
+  },
+
+  // d. KPA 4: Municipal Financial Viability and Management (E_34 - E_46)
+  "E_34": {
+    strategicObj: "To ensure financial sustainability to meet the statutory requirements",
+    desc: "Percentage of procurement plan implemented per quarter",
+    kpaIndex: 4, uom: "Percentage", base: "New", target: "100%", q1: "100%", q2: "100%", mid: "100%", q3: "100%", q4: "100%",
+    poe: "Signed Quarterly Procurement plan report", budget: "OPEX"
+  },
+  "E_35": {
+    strategicObj: "To ensure financial sustainability to meet the statutory requirements",
+    desc: "Number of Draft MTREF Budget submitted and approved by 30 March 2027",
+    kpaIndex: 4, uom: "Number", base: "1", target: "1", q1: "n/a", q2: "n/a", mid: "n/a", q3: "n/a", q4: "1",
+    poe: "Approved Draft MTREF Budget, Board and Council resolution", budget: "OPEX"
+  },
+  "E_36": {
+    strategicObj: "To ensure financial sustainability to meet the statutory requirements",
+    desc: "Number of Final MTREF budget approved by 31 May 2027",
+    kpaIndex: 4, uom: "Number", base: "1", target: "1", q1: "n/a", q2: "n/a", mid: "n/a", q3: "n/a", q4: "1",
+    poe: "Approved MTREF Budget, Board and Council resolution", budget: "OPEX"
+  },
+  "E_37": {
+    strategicObj: "To ensure financial sustainability to meet the statutory requirements",
+    desc: "Annual Financial Statements (AFS) submitted by 31 August 2026 to Auditor General",
+    kpaIndex: 4, uom: "Number", base: "1", target: "1", q1: "1", q2: "n/a", mid: "1", q3: "n/a", q4: "n/a",
+    poe: "Signed Annual Financial Statements (AFS) and acknowledgement letter (of receipt) from the AGSA.", budget: "OPEX"
+  },
+  "E_38": {
+    strategicObj: "To ensure financial sustainability to meet the statutory requirements",
+    desc: "Number of section 88(mid-year) budget and performance report submitted to the Board and the NDM by 20 January 2026",
+    kpaIndex: 4, uom: "Number", base: "1", target: "1", q1: "n/a", q2: "n/a", mid: "1", q3: "1", q4: "n/a",
+    poe: "Signed Section 88 (mid-year) MFMA report and proof of submission to the Board and NDM.", budget: "OPEX"
+  },
+  "E_39": {
+    strategicObj: "To ensure financial sustainability to meet the statutory requirements",
+    desc: "Number of SCM report submitted to the Board Chairperson per quarter",
+    kpaIndex: 4, uom: "Number", base: "New", target: "4", q1: "1", q2: "1", mid: "1", q3: "1", q4: "1",
+    poe: "Signed Quarterly SCM report and proof of submission to the Board and NDM", budget: "OPEX"
+  },
+  "E_40": {
+    strategicObj: "To ensure financial sustainability to meet the statutory requirements",
+    desc: "Percentage of total Agency's operating expenditure spent on contracted services physically residing with in the District (circular 88) by 30 June 2027",
+    kpaIndex: 4, uom: "Percentage", base: "New", target: "30%", q1: "n/a", q2: "n/a", mid: "n/a", q3: "30%", q4: "30%",
+    poe: "Signed contracted service indicating contracts' physical addresses and expenditure spent on contracted services, physically residing with the municipal area. (hardcopies of signed appointment letters/purchase orders with physical address)", budget: "OPEX"
+  },
+  "E_41": {
+    strategicObj: "To ensure financial sustainability to meet the statutory requirements",
+    desc: "Average number of days form the point of advertising to the letter of award per 80/20 procurement process (circular 88) by 30 June 2027",
+    kpaIndex: 4, uom: "Days", base: "New", target: "120", q1: "120", q2: "120", mid: "120", q3: "120", q4: "120",
+    poe: "Average number of days SCM official (Signed) report.", budget: "OPEX"
+  },
+  "E_42": {
+    strategicObj: "To ensure financial sustainability to meet the statutory requirements",
+    desc: "Number of monthly Section 87(11) MFMA reports submitted to Chairperson of the Board and the NDM by 30 June 2027",
+    kpaIndex: 4, uom: "Number", base: "12", target: "12", q1: "3", q2: "3", mid: "3", q3: "3", q4: "3",
+    poe: "Section 87(11) MFMA reports and proof of submission to Chairperson of the Board and the NDM", budget: "OPEX"
+  },
+  "E_43": {
+    strategicObj: "To ensure financial sustainability to meet the statutory requirements",
+    desc: "Percentage of transfer and subsidies",
+    kpaIndex: 4, uom: "Percentage", base: "New", target: "90%", q1: "20%", q2: "40%", mid: "40%", q3: "60%", q4: "90%",
+    poe: "Transfer and subsidies Expenditure signed progress report", budget: "OPEX"
+  },
+  "E_44": {
+    strategicObj: "To ensure financial sustainability to meet the statutory requirements",
+    desc: "Percentage of operational budget actually spend by 30 June (circular 88)",
+    kpaIndex: 4, uom: "Percentage", base: "New", target: "90%", q1: "20%", q2: "40%", mid: "40%", q3: "60%", q4: "90%",
+    poe: "Signed Capital expenditure progress report.", budget: "OPEX"
+  },
+  "E_45": {
+    strategicObj: "To ensure financial sustainability to meet the statutory requirements",
+    desc: "Percentage of total capital expenditure funded from NDM grant (circular 88) by 30 June 2027",
+    kpaIndex: 4, uom: "Percentage", base: "New", target: "75%", q1: "5%", q2: "25%", mid: "25%", q3: "40%", q4: "75%",
+    poe: "Signed Expenditure Report and official invoice register", budget: "OPEX"
+  },
+  "E_46": {
+    strategicObj: "To ensure financial sustainability to meet the statutory requirements",
+    desc: "Percentage of payments made to service providers who submitted complete invoices with 30-days of invoice submission (circular 88)",
+    kpaIndex: 4, uom: "Percentage", base: "New", target: "100%", q1: "100%", q2: "100%", mid: "100%", q3: "100%", q4: "100%",
+    poe: "Signed Expenditure Report and official invoice register", budget: "OPEX"
+  }
+};
+
+const nedaPKpisCompact: { [key: string]: { desc: string; kpaIndex: number; strategicObj?: string; uom?: string; target?: string; base?: string; q1?: string; q2?: string; mid?: string; q3?: string; q4?: string; poe: string; budget?: string } } = {
+  "P_01": {
+    strategicObj: "c. KPA 3: Local Economic Development",
+    desc: "Management and operationalisation of the Emakhazeni brick manufacturing plant",
+    kpaIndex: 3, uom: "Milestone", base: "Stage 2 implementation (40%)", target: "Stage 2 implementation (40%) Brick Plant Operations Progress Report",
+    q1: "Stage 1: Planning (100%) Recruitment and Training",
+    q2: "Stage 2: implementation (15%) Brick Plant Operations Progress Report",
+    mid: "Stage 2: implementation (15%) Brick Plant Operations Progress Report",
+    q3: "Stage 2: implementation (30%) Brick Plant Operations Progress Report",
+    q4: "Stage 2: implementation (40%) Brick Plant Operations Progress Report",
+    poe: "Attendance register and progress report (Signed and dated) Pricing and Marketing Strategy Signed Quality Assurance Framework Signed operations Progress Report",
+    budget: "R 2 805 000"
+  },
+  "P_02": {
+    strategicObj: "c. KPA 3: Local Economic Development",
+    desc: "Water Treatment Chemicals Distribution",
+    kpaIndex: 3, uom: "Milestone", base: "Stage 2 Implementation on (40%)", target: "Stage 2 Implementation on (40%) Chemical distribution Operations progress Report",
+    q1: "Stage 1 Planning (100%) Recruitment and Training",
+    q2: "Stage 2 Implementation (15%) Chemical distribution Operation progress report",
+    mid: "Stage 2 Implementation (15%) Chemical distribution Operation progress report",
+    q3: "Stage 2 Implementation (30%) Chemical distribution Operation progress",
+    q4: "Stage 2 Implementation (40%) Chemical distribution Operations progress report",
+    poe: "Attendance Registers and progress reports (signed and dated) Signed Operations Progress report",
+    budget: "R 2 295 000"
+  },
+  "P_03": {
+    strategicObj: "c. KPA 3: Local Economic Development",
+    desc: "Feasibility study and business plan for the packaging of land for investment attraction",
+    kpaIndex: 3, uom: "Milestone", base: "Stage 2 Procurement Stage (100%)", target: "Stage 2 Procurement Stage (100%) Tender Advertisement Bid Evaluation Committee Resolutions",
+    q1: "Stage 1 Planning Stage (100%) MOU/SLA With Steve Tshwete Local Municipality",
+    q2: "Stage 1 Planning Stage (100%) Bid Specification Committee Resolution",
+    mid: "Stage 1 Planning Stage (100%) Bid Specification Committee Resolution",
+    q3: "Stage 2 Procurement (100%) Bid Evaluation Committee Resolution Bid Adjudication Committee Resolution and Appointment of Service Provider",
+    q4: "Stage 3: Implementation Stage (100%) Feasibility study report",
+    poe: "Signed and dated MOU/SLA BSC Resolution, Tender Advert (Tear Sheet) BEC Resolution, BAC Resolution Signed & Dated Appointment Letter Signed and dated final feasibility study report",
+    budget: "R 750 000"
+  }
+};
+
+export function ensureNedaSdbipKpis(extractedItems: any[]): SdbipCatalogItem[] {
+  const result: SdbipCatalogItem[] = [];
+  const normalizedExtractedMap = new Map<string, any>();
+
+  if (Array.isArray(extractedItems)) {
+    extractedItems.forEach(it => {
+      let rawRef = (it.Ref_Number || it.refNum || it.refNo || it.code || "").trim().toUpperCase().replace(/\s/g, "");
+      // Support E01 - E46, E_01 - E_46, P01 - P03, P_01 - P_03
+      let matchedCode = "";
+      const eMatch = rawRef.match(/^E_?(\d+)$/);
+      if (eMatch) {
+        const num = parseInt(eMatch[1], 10);
+        if (num >= 1 && num <= 46) {
+          matchedCode = `E_${String(num).padStart(2, "0")}`;
+        }
+      }
+      const pMatch = rawRef.match(/^P_?(\d+)$/);
+      if (pMatch) {
+        const num = parseInt(pMatch[1], 10);
+        if (num >= 1 && num <= 3) {
+          matchedCode = `P_${String(num).padStart(2, "0")}`;
+        }
+      }
+
+      if (matchedCode) {
+        normalizedExtractedMap.set(matchedCode, it);
+      }
+    });
+  }
+
+  const inflateNedaItem = (code: string, compact: { desc: string; kpaIndex: number; strategicObj?: string; uom?: string; target?: string; base?: string; q1?: string; q2?: string; mid?: string; q3?: string; q4?: string; poe: string; budget?: string }): SdbipCatalogItem => {
+    const kpaName = nedaKpaNames[compact.kpaIndex] || nedaKpaNames[1];
+    return {
+      Ref_Number: code,
+      SDBIP_Strategic_Objective: compact.strategicObj || "Ensure Good governance and regulatory compliance",
+      KPI: compact.desc,
+      National_KPA: kpaName,
+      BSD: compact.kpaIndex === 1 ? "X" : "",
+      LED: compact.kpaIndex === 3 ? "X" : "",
+      MFVM: compact.kpaIndex === 4 ? "X" : "",
+      GGPP: compact.kpaIndex === 2 ? "X" : "",
+      MIDT: "",
+      SR: "",
+      Responsible_Owner: compact.kpaIndex === 1 ? "Institutional Development & Transformation" : compact.kpaIndex === 2 ? "Good Governance & Public Participation" : compact.kpaIndex === 3 ? "Local Economic Development" : "Municipal Financial Viability and Management",
+      Unit_of_Measure: compact.uom || "Percentage",
+      Baseline: compact.base || "0%",
+      Annual_Target: compact.target || "100%",
+      Budget_Allocation: compact.budget || (code.startsWith("E") ? "OPEX" : "R 2,805,000"),
+      Q1_Target: compact.q1 || "25%",
+      Q2_Target: compact.q2 || "50%",
+      Mid_Term_Target: compact.mid || "50%",
+      Q3_Target: compact.q3 || "75%",
+      Q4_Target: compact.q4 || compact.target || "100%",
+      Submitter: "NEDA Submitter",
+      Approver: "NEDA Board / CEO",
+      POE_Description: compact.poe,
+      Description: compact.desc
+    };
+  };
+
+  // 1. Inflate E_01 to E_46
+  for (let i = 1; i <= 46; i++) {
+    const code = `E_${String(i).padStart(2, "0")}`;
+    const extracted = normalizedExtractedMap.get(code);
+    const compactDef = nedaEKpisCompact[code];
+
+    if (extracted) {
+      const sourcePoe = extracted.POE_Description || extracted.poeStatus || extracted.poeDesc || extracted.poe || extracted.meansOfVerification || compactDef?.poe || `Signed quarterly portfolio of evidence for ${code}`;
+      result.push({
+        Ref_Number: code,
+        SDBIP_Strategic_Objective: extracted.SDBIP_Strategic_Objective || extracted.strategicObj || compactDef?.strategicObj || "Ensure Good governance and regulatory compliance",
+        KPI: extracted.KPI || extracted.kpi || (compactDef ? compactDef.desc : ""),
+        National_KPA: extracted.National_KPA || extracted.kpas || (compactDef ? nedaKpaNames[compactDef.kpaIndex] : nedaKpaNames[1]),
+        BSD: compactDef?.kpaIndex === 1 ? "X" : "",
+        LED: compactDef?.kpaIndex === 3 ? "X" : "",
+        MFVM: compactDef?.kpaIndex === 4 ? "X" : "",
+        GGPP: compactDef?.kpaIndex === 2 ? "X" : "",
+        MIDT: "",
+        SR: "",
+        Responsible_Owner: extracted.Responsible_Owner || extracted.responsibleUnit || (compactDef ? (compactDef.kpaIndex === 1 ? "Institutional Development & Transformation" : compactDef.kpaIndex === 2 ? "Good Governance & Public Participation" : compactDef.kpaIndex === 3 ? "Local Economic Development" : "Municipal Financial Viability and Management") : "Executive Office"),
+        Unit_of_Measure: extracted.Unit_of_Measure || extracted.uom || (compactDef ? compactDef.uom || "Percentage" : "Percentage"),
+        Baseline: extracted.Baseline || extracted.baseline || (compactDef ? compactDef.base || "0%" : "0%"),
+        Annual_Target: extracted.Annual_Target || extracted.annualTarget || (compactDef ? compactDef.target || "100%" : "100%"),
+        Budget_Allocation: extracted.Budget_Allocation || extracted.budgetAllocation || compactDef?.budget || "OPEX",
+        Q1_Target: extracted.Q1_Target || extracted.q1 || (compactDef ? compactDef.q1 || "25%" : "25%"),
+        Q2_Target: extracted.Q2_Target || extracted.q2 || (compactDef ? compactDef.q2 || "50%" : "50%"),
+        Mid_Term_Target: extracted.Mid_Term_Target || extracted.midTerm || (compactDef ? compactDef.mid || "50%" : "50%"),
+        Q3_Target: extracted.Q3_Target || extracted.q3 || (compactDef ? compactDef.q3 || "75%" : "75%"),
+        Q4_Target: extracted.Q4_Target || extracted.q4 || (compactDef ? compactDef.q4 || compactDef.target || "100%" : "100%"),
+        Submitter: extracted.Submitter || extracted.submitter || "NEDA Submitter",
+        Approver: extracted.Approver || extracted.approver || "NEDA CEO / Board",
+        POE_Description: sourcePoe,
+        Description: extracted.Description || extracted.description || (compactDef ? compactDef.desc : "")
+      });
+    } else if (compactDef) {
+      result.push(inflateNedaItem(code, compactDef));
+    } else {
+      result.push(inflateNedaItem(code, { desc: `NEDA Executive KPI details for ${code}`, kpaIndex: 1, poe: `Signed quarterly evidence for ${code}` }));
+    }
+  }
+
+  // 2. Inflate P_01 to P_03
+  for (let i = 1; i <= 3; i++) {
+    const code = `P_${String(i).padStart(2, "0")}`;
+    const extracted = normalizedExtractedMap.get(code);
+    const compactDef = nedaPKpisCompact[code];
+
+    if (extracted) {
+      const sourcePoe = extracted.POE_Description || extracted.poeStatus || extracted.poeDesc || extracted.poe || compactDef?.poe || `Signed quarterly project evidence for ${code}`;
+      result.push({
+        Ref_Number: code,
+        SDBIP_Strategic_Objective: extracted.SDBIP_Strategic_Objective || extracted.strategicObj || compactDef?.strategicObj || "c. KPA 3: Local Economic Development",
+        KPI: extracted.KPI || extracted.kpi || (compactDef ? compactDef.desc : ""),
+        National_KPA: extracted.National_KPA || extracted.kpas || (compactDef ? nedaKpaNames[compactDef.kpaIndex] : nedaKpaNames[3]),
+        BSD: compactDef?.kpaIndex === 1 ? "X" : "",
+        LED: compactDef?.kpaIndex === 3 ? "X" : "",
+        MFVM: compactDef?.kpaIndex === 4 ? "X" : "",
+        GGPP: compactDef?.kpaIndex === 2 ? "X" : "",
+        MIDT: "",
+        SR: "",
+        Responsible_Owner: extracted.Responsible_Owner || extracted.responsibleUnit || (compactDef ? (compactDef.kpaIndex === 1 ? "Institutional Development & Transformation" : compactDef.kpaIndex === 2 ? "Good Governance & Public Participation" : compactDef.kpaIndex === 3 ? "Local Economic Development" : "Municipal Financial Viability and Management") : "Executive Office"),
+        Unit_of_Measure: extracted.Unit_of_Measure || extracted.uom || (compactDef ? compactDef.uom || "Percentage" : "Percentage"),
+        Baseline: extracted.Baseline || extracted.baseline || (compactDef ? compactDef.base || "0%" : "0%"),
+        Annual_Target: extracted.Annual_Target || extracted.annualTarget || (compactDef ? compactDef.target || "100%" : "100%"),
+        Budget_Allocation: extracted.Budget_Allocation || extracted.budgetAllocation || compactDef?.budget || "R 2,805,000",
+        Q1_Target: extracted.Q1_Target || extracted.q1 || (compactDef ? compactDef.q1 || "25%" : "25%"),
+        Q2_Target: extracted.Q2_Target || extracted.q2 || (compactDef ? compactDef.q2 || "50%" : "50%"),
+        Mid_Term_Target: extracted.Mid_Term_Target || extracted.midTerm || (compactDef ? compactDef.mid || "50%" : "50%"),
+        Q3_Target: extracted.Q3_Target || extracted.q3 || (compactDef ? compactDef.q3 || "75%" : "75%"),
+        Q4_Target: extracted.Q4_Target || extracted.q4 || (compactDef ? compactDef.q4 || compactDef.target || "100%" : "100%"),
+        Submitter: extracted.Submitter || extracted.submitter || "NEDA Submitter",
+        Approver: extracted.Approver || extracted.approver || "NEDA CEO / Board",
+        POE_Description: sourcePoe,
+        Description: extracted.Description || extracted.description || (compactDef ? compactDef.desc : "")
+      });
+    } else if (compactDef) {
+      result.push(inflateNedaItem(code, compactDef));
+    } else {
+      result.push(inflateNedaItem(code, { desc: `NEDA Project KPI details for ${code}`, kpaIndex: 3, poe: `Signed quarterly project evidence for ${code}` }));
+    }
+  }
+
+  return result;
+}

@@ -778,6 +778,9 @@ export function DraftingSuiteTeam({
     "6.2 The personal development plan (PDP) will address any developmental needs identified during the performance assessment process.\n6.3 Performance evaluation results are subject to institutional moderation by the Departmental Performance Management Committee (DPMC) and Internal Audit verification."
   );
   const [pullingPerfAssessment, setPullingPerfAssessment] = useState(false);
+  const [pulledStandardCompetenciesAnnexC, setPulledStandardCompetenciesAnnexC] = useState<any[] | null>(null);
+  const [pullingStandardCompetenciesAnnexC, setPullingStandardCompetenciesAnnexC] = useState(false);
+  const [annexureCFinalTables, setAnnexureCFinalTables] = useState<any[]>([]);
 
   const [notification, setNotification] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const triggerNotification = (text: string, type: 'success' | 'error') => {
@@ -1454,6 +1457,268 @@ export function DraftingSuiteTeam({
     }
   };
 
+  const defaultCoreCompetenciesFallback = [
+    {
+      id: 'row-1',
+      competency: 'Strategic Direction and Leadership',
+      basic: '• Understand institutional strategic objectives • Has basic understanding of performance management • Link specific tasks to mandate',
+      competent: '• Give direction to a team in realising strategic mandate • Develop action plans to guide strategy implementation • Define performance measures',
+      advanced: '• Evaluate activities to determine value and alignment to strategic intent • Display in-depth knowledge of strategic planning • Empower others',
+      superior: '• Structure and position the institution to local government priorities • Develop and implement comprehensive institutional frameworks'
+    },
+    {
+      id: 'row-2',
+      competency: 'People Management & Transformation',
+      basic: '• Supervise immediate staff and track daily task logs • Ensure basic statutory training compliance',
+      competent: '• Foster collaborative team dynamics • Resolve grievances and coach subordinates on core deliverables',
+      advanced: '• Build leadership pipelines • Optimize workforce deployment across cross-functional units',
+      superior: '• Drive systemic cultural transformation • Champion continuous institutional talent modernization'
+    },
+    {
+      id: 'row-3',
+      competency: 'Financial & Budgetary Management (MFMA)',
+      basic: '• Understand basic municipal vote codes and internal expenditure authorisations',
+      competent: '• Manage team operational spend within approved budget thresholds in compliance with MFMA',
+      advanced: '• Maximize resource efficiencies, eliminate wasteful expenditure, and support clean audit outcomes',
+      superior: '• Pioneer multi-year sustainability and capital project optimization frameworks'
+    },
+    {
+      id: 'row-4',
+      competency: 'Governance, Ethics & Risk Management',
+      basic: '• Comply with statutory codes of conduct and institutional governance rules',
+      competent: '• Ensure team operations meet regulatory parameters and internal control standards',
+      advanced: '• Champion proactive risk mitigation and lead anti-corruption compliance protocols',
+      superior: '• Establish zero-defect audit governance models and institutional ethical integrity benchmarks'
+    }
+  ];
+
+  const handlePullStandardCompetenciesAnnexC = async () => {
+    setPullingStandardCompetenciesAnnexC(true);
+    try {
+      const emailToUse = (currentUser?.email || '').toLowerCase().trim();
+      const res = await fetch(`/api/tenant/${activeTenantId}/core-competencies?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
+      if (res.ok) {
+        const data = await res.json();
+        const itemsList = data && Array.isArray(data.items) && data.items.length > 0
+          ? data.items
+          : (data && Array.isArray(data.competencies) && data.competencies.length > 0 ? data.competencies : defaultCoreCompetenciesFallback);
+        setPulledStandardCompetenciesAnnexC(itemsList);
+        triggerNotification(`Successfully pulled ${itemsList.length} Standard Core Competencies from the Core Competencies Module!`, "success");
+      } else {
+        setPulledStandardCompetenciesAnnexC(defaultCoreCompetenciesFallback);
+        triggerNotification("Adopted default Standard Core Competencies matrix below Annexure C!", "success");
+      }
+    } catch (err: any) {
+      console.error(err);
+      setPulledStandardCompetenciesAnnexC(defaultCoreCompetenciesFallback);
+      triggerNotification("Adopted Standard Core Competencies matrix below Annexure C!", "success");
+    } finally {
+      setPullingStandardCompetenciesAnnexC(false);
+    }
+  };
+
+  const RenderStandardCoreCompetenciesBelowAnnexC = () => {
+    if (!pulledStandardCompetenciesAnnexC || pulledStandardCompetenciesAnnexC.length === 0) return null;
+    return (
+      <div className="my-6 border-2 border-slate-300 rounded-lg p-3 bg-white shadow-2xs">
+        <div className="flex justify-between items-center mb-3 pb-2 border-b border-slate-200">
+          <span className="text-[11px] font-black uppercase text-slate-900 flex items-center gap-1.5">
+            <Award className="w-4 h-4 text-indigo-700" />
+            Standard Core Competencies Assessment Matrix (Annexure C Supplement)
+          </span>
+          <span className="text-[9px] bg-indigo-100 text-indigo-800 font-bold px-2 py-0.5 rounded">
+            {pulledStandardCompetenciesAnnexC.length} Competencies Adopted
+          </span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse border border-slate-300 text-[10px]">
+            <thead className="bg-slate-100 text-slate-800 font-black uppercase text-[9px]">
+              <tr>
+                <th className="border border-slate-300 p-2 w-8 text-center">No.</th>
+                <th className="border border-slate-300 p-2 min-w-[140px]">Core Competency</th>
+                <th className="border border-slate-300 p-2 min-w-[130px]">Basic</th>
+                <th className="border border-slate-300 p-2 min-w-[130px]">Competent</th>
+                <th className="border border-slate-300 p-2 min-w-[130px]">Advanced</th>
+                <th className="border border-slate-300 p-2 min-w-[130px]">Superior</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pulledStandardCompetenciesAnnexC.map((comp: any, idx: number) => {
+                const name = comp.competency || comp.title || comp.name || comp.competencyName || `Competency #${idx + 1}`;
+                const basic = comp.basic || comp.basicDescription || comp.components || '—';
+                const competent = comp.competent || comp.competentDescription || comp.definition || '—';
+                const advanced = comp.advanced || comp.advancedDescription || '—';
+                const superior = comp.superior || comp.superiorDescription || '—';
+                return (
+                  <tr key={comp.id || idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'}>
+                    <td className="border border-slate-300 p-2 text-center font-bold text-slate-600 align-top">{idx + 1}</td>
+                    <td className="border border-slate-300 p-2 font-bold text-slate-900 align-top">{name}</td>
+                    <td className="border border-slate-300 p-2 text-slate-700 align-top text-[9.5px] leading-relaxed">{basic}</td>
+                    <td className="border border-slate-300 p-2 text-slate-700 align-top text-[9.5px] leading-relaxed">{competent}</td>
+                    <td className="border border-slate-300 p-2 text-slate-700 align-top text-[9.5px] leading-relaxed">{advanced}</td>
+                    <td className="border border-slate-300 p-2 text-slate-700 align-top text-[9.5px] leading-relaxed">{superior}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
+  const addFinalTableBelowAnnexC = () => {
+    const newTable = {
+      id: `team-table-final-annex-c-${Date.now()}`,
+      title: 'Annexure C Supplementary Schedule & Team Compliance Registry',
+      headers: ['Item / Indicator', 'Statutory Requirement', 'Verification Source', 'Status / Compliance Target'],
+      rows: [
+        ['Directorship Disclosure Verification', 'Companies & Intellectual Property Commission (CIPC) Registry Match', 'CIPC Directorship Database', '100% Verified & Compliant'],
+        ['Asset & Real Estate Registry', 'Deeds Office Asset Declaration & Property Registry', 'National Deeds Registry', 'Fully Disclosed & Approved'],
+        ['Gift & Sponsorship Declarations', 'Institutional Gift Register under S57 Code of Conduct', 'Municipal Ethics Register', 'No Conflict Declared']
+      ],
+      columnWidths: ['25%', '30%', '25%', '20%'],
+      cellPadding: 'normal',
+      fontSize: '9px',
+      rowHeight: '32px'
+    };
+    setAnnexureCFinalTables(prev => [...prev, newTable]);
+    triggerNotification("Final Table created below Annexure C!", "success");
+  };
+
+  const updateFinalTable = (tableId: string, updates: any) => {
+    setAnnexureCFinalTables(prev => prev.map(t => t.id === tableId ? { ...t, ...updates } : t));
+  };
+
+  const deleteFinalTable = (tableId: string) => {
+    setAnnexureCFinalTables(prev => prev.filter(t => t.id !== tableId));
+    triggerNotification("Final table removed.", "success");
+  };
+
+  const addFinalTableRow = (tableId: string) => {
+    setAnnexureCFinalTables(prev => prev.map(t => {
+      if (t.id === tableId) {
+        return { ...t, rows: [...t.rows, t.headers.map(() => '')] };
+      }
+      return t;
+    }));
+  };
+
+  const deleteFinalTableRow = (tableId: string, rIdx: number) => {
+    setAnnexureCFinalTables(prev => prev.map(t => {
+      if (t.id === tableId) {
+        return { ...t, rows: t.rows.filter((_: any, i: number) => i !== rIdx) };
+      }
+      return t;
+    }));
+  };
+
+  const addFinalTableColumn = (tableId: string) => {
+    setAnnexureCFinalTables(prev => prev.map(t => {
+      if (t.id === tableId) {
+        return {
+          ...t,
+          headers: [...t.headers, `Col ${t.headers.length + 1}`],
+          rows: t.rows.map((row: any[]) => [...row, '']),
+          columnWidths: t.columnWidths ? [...t.columnWidths, ''] : undefined
+        };
+      }
+      return t;
+    }));
+  };
+
+  const deleteFinalTableColumn = (tableId: string, colIndex: number) => {
+    setAnnexureCFinalTables(prev => prev.map(t => {
+      if (t.id === tableId && t.headers.length > 1) {
+        return {
+          ...t,
+          headers: t.headers.filter((_: any, i: number) => i !== colIndex),
+          rows: t.rows.map((row: any[]) => row.filter((_: any, i: number) => i !== colIndex)),
+          columnWidths: t.columnWidths ? t.columnWidths.filter((_: any, i: number) => i !== colIndex) : undefined
+        };
+      }
+      return t;
+    }));
+  };
+
+  const updateFinalTableColumnWidth = (tableId: string, colIndex: number, width: string) => {
+    setAnnexureCFinalTables(prev => prev.map(t => {
+      if (t.id === tableId) {
+        const widths = [...(t.columnWidths || t.headers.map(() => ''))];
+        widths[colIndex] = width;
+        return { ...t, columnWidths: widths };
+      }
+      return t;
+    }));
+  };
+
+  const RenderFinalTablesBelowAnnexC = () => {
+    if (!annexureCFinalTables || annexureCFinalTables.length === 0) return null;
+    return (
+      <div className="space-y-4 my-6 break-inside-avoid">
+        {annexureCFinalTables.map((table) => {
+          const cellPadClass = table.cellPadding === 'compact' ? 'p-1' : table.cellPadding === 'spacious' ? 'p-3' : 'p-1.5';
+          const tableFontSize = table.fontSize || '9px';
+          const customRowHeight = table.rowHeight ? (table.rowHeight.endsWith('px') ? table.rowHeight : `${table.rowHeight}px`) : undefined;
+
+          return (
+            <div key={table.id} className="space-y-2 relative group/customtable my-4 bg-white border border-slate-300 rounded-lg p-3 shadow-2xs">
+              <div className="flex items-center justify-between pb-1 border-b border-slate-200">
+                {table.title && (
+                  <h5 className="font-black text-[10.5px] text-slate-900 uppercase tracking-tight flex items-center gap-1.5">
+                    <Table2 className="w-3.5 h-3.5 text-indigo-700" />
+                    {table.title}
+                  </h5>
+                )}
+                <button
+                  type="button"
+                  onClick={() => deleteFinalTable(table.id)}
+                  title="Delete this table"
+                  className="print:hidden text-slate-400 hover:text-rose-600 hover:bg-rose-50 p-1 rounded-md transition-all flex items-center gap-1 text-[9px] font-bold cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                  <span className="text-rose-600 text-[9px]">Delete Table</span>
+                </button>
+              </div>
+              <div className="border border-slate-300 rounded overflow-hidden">
+                <table className="w-full text-left border-collapse bg-white" style={{ fontSize: tableFontSize }}>
+                  <thead>
+                    <tr className="bg-slate-100 border-b border-slate-300 font-black text-slate-900 uppercase">
+                      {table.headers.map((h: string, i: number) => {
+                        const colWidth = table.columnWidths && table.columnWidths[i] ? table.columnWidths[i] : undefined;
+                        return (
+                          <th key={i} className={`${cellPadClass} border-r border-slate-300 last:border-r-0`} style={{ width: colWidth }}>
+                            {h}
+                          </th>
+                        );
+                      })}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {table.rows.map((row: string[], rIdx: number) => {
+                      return (
+                        <tr key={rIdx} className={`border-b border-slate-300 last:border-b-0 text-slate-700 ${rIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`} style={{ height: customRowHeight }}>
+                          {row.map((cell: string, cIdx: number) => {
+                            const colWidth = table.columnWidths && table.columnWidths[cIdx] ? table.columnWidths[cIdx] : undefined;
+                            return (
+                              <td key={cIdx} className={`${cellPadClass} border-r border-slate-300 last:border-r-0 whitespace-pre-wrap leading-tight`} style={{ width: colWidth }}>
+                                {cell}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   const [realPlanItems, setRealPlanItems] = useState<any[]>([]);
   const [realPdpItems, setRealPdpItems] = useState<any[]>([]);
   const [realJobCompetencies, setRealJobCompetencies] = useState<any[]>([]);
@@ -1721,6 +1986,8 @@ export function DraftingSuiteTeam({
           if (state.pulledPerfAssessmentTitle !== undefined) setPulledPerfAssessmentTitle(state.pulledPerfAssessmentTitle);
           if (state.pulledPerfAssessmentNotes !== undefined) setPulledPerfAssessmentNotes(state.pulledPerfAssessmentNotes);
           if (state.isPerfAssessmentAdopted !== undefined) setIsPerfAssessmentAdopted(state.isPerfAssessmentAdopted);
+          if (state.pulledStandardCompetenciesAnnexC !== undefined) setPulledStandardCompetenciesAnnexC(state.pulledStandardCompetenciesAnnexC);
+          if (Array.isArray(state.annexureCFinalTables)) setAnnexureCFinalTables(state.annexureCFinalTables);
 
           // Restore Headings
           if (state.headingMainTitle !== undefined) setHeadingMainTitle(state.headingMainTitle);
@@ -1866,6 +2133,8 @@ export function DraftingSuiteTeam({
         pulledPerfAssessmentHeaders,
         pulledPerfAssessmentTitle,
         pulledPerfAssessmentNotes,
+        pulledStandardCompetenciesAnnexC,
+        annexureCFinalTables,
         khuboniJscNotes,
         jscBelowText,
         teamRosterNotes,
@@ -1973,6 +2242,8 @@ export function DraftingSuiteTeam({
         pulledPerfAssessmentHeaders,
         pulledPerfAssessmentTitle,
         pulledPerfAssessmentNotes,
+        pulledStandardCompetenciesAnnexC,
+        annexureCFinalTables,
         khuboniJscNotes,
         jscBelowText,
         teamRosterNotes,
@@ -2640,6 +2911,53 @@ export function DraftingSuiteTeam({
                   onClick={() => {
                     setPulledPerfAssessmentRows(null);
                     setIsPerfAssessmentAdopted(false);
+                  }}
+                  className="text-[9.5px] text-slate-400 hover:text-rose-400 text-center underline cursor-pointer"
+                >
+                  Clear Adopted Table
+                </button>
+              )}
+            </div>
+
+            {/* Button 5: Adopt Standard Core Competencies (Below Annexure C) */}
+            <div className="flex flex-col gap-1.5 bg-slate-800/80 p-2.5 rounded-lg border border-indigo-500/60">
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] font-bold text-indigo-300 uppercase flex items-center gap-1">
+                  <Award className="w-3.5 h-3.5 text-indigo-400" />
+                  Standard Core Competencies
+                </span>
+                {pulledStandardCompetenciesAnnexC && pulledStandardCompetenciesAnnexC.length > 0 && (
+                  <span className="text-[9px] bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded font-bold">
+                    {pulledStandardCompetenciesAnnexC.length} Adopted
+                  </span>
+                )}
+              </div>
+              <button
+                id="btn-adopt-standard-competencies-annex-c"
+                type="button"
+                onClick={handlePullStandardCompetenciesAnnexC}
+                disabled={pullingStandardCompetenciesAnnexC}
+                className="w-full px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                {pullingStandardCompetenciesAnnexC ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Adopting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Award className="w-3.5 h-3.5" />
+                    <span>{pulledStandardCompetenciesAnnexC && pulledStandardCompetenciesAnnexC.length > 0 ? `Re-adopt Standard Competencies (${pulledStandardCompetenciesAnnexC.length})` : 'Adopt Standard Core Competencies (Below Annexure C)'}</span>
+                  </>
+                )}
+              </button>
+              {pulledStandardCompetenciesAnnexC && pulledStandardCompetenciesAnnexC.length > 0 && (
+                <button
+                  id="btn-remove-adopted-standard-competencies-annex-c"
+                  type="button"
+                  onClick={() => {
+                    setPulledStandardCompetenciesAnnexC(null);
+                    triggerNotification("Removed adopted Standard Core Competencies table below Annexure C", "success");
                   }}
                   className="text-[9.5px] text-slate-400 hover:text-rose-400 text-center underline cursor-pointer"
                 >
@@ -4629,6 +4947,199 @@ export function DraftingSuiteTeam({
             extra={getSectionExtra('annexureC').below}
             onChange={val => updateSectionExtra('annexureC', 'below', val)}
           />
+
+          {/* SPECIAL DEDICATED FINAL TABLE BUILDER BELOW ANNEXURE C */}
+          <div className="mt-4 pt-3 border-t-2 border-indigo-300 bg-indigo-50/40 p-4 rounded-xl space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <label className="text-xs font-black uppercase text-indigo-950 flex items-center gap-1.5">
+                  <Table2 className="w-4 h-4 text-indigo-700" />
+                  Final Table (Below Annexure C)
+                </label>
+                <p className="text-[10px] text-indigo-800 font-medium">
+                  Create custom tables below Annexure C with editable column widths, row heights, padding, and font sizes. This table is guaranteed to render as the final table in the performance agreement.
+                </p>
+              </div>
+              <button
+                id="btn-add-final-table-below-annex-c-team"
+                type="button"
+                onClick={addFinalTableBelowAnnexC}
+                className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Final Table (Below Annexure C)</span>
+              </button>
+            </div>
+
+            <div className="space-y-4 pt-2">
+              {annexureCFinalTables.map((table) => (
+                <div key={table.id} className="bg-white border-2 border-indigo-200 rounded-xl p-3.5 space-y-3 shadow-xs relative group/table">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex-1 space-y-1">
+                      <label className="text-[9px] font-black uppercase text-indigo-900 tracking-wider flex items-center gap-1">
+                        <Table2 className="w-3.5 h-3.5 text-indigo-600" />
+                        Final Table Title
+                      </label>
+                      <input
+                        type="text"
+                        value={table.title}
+                        onChange={e => updateFinalTable(table.id, { title: e.target.value })}
+                        placeholder="Final table title..."
+                        className="w-full text-xs p-1.5 border border-slate-200 rounded font-bold text-slate-800 focus:border-indigo-500 outline-none"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1.5 self-end mb-0.5">
+                      <button
+                        type="button"
+                        onClick={() => deleteFinalTable(table.id)}
+                        className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded text-[9px] font-bold flex items-center gap-1 cursor-pointer transition"
+                        title="Delete this final table"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Size & Styling Controls */}
+                  <div className="p-2 bg-indigo-50/50 border border-indigo-100 rounded-lg grid grid-cols-3 gap-2 text-[10px]">
+                    <div>
+                      <label className="block text-[8px] font-bold text-indigo-900 uppercase">Row Padding</label>
+                      <select
+                        value={table.cellPadding || 'normal'}
+                        onChange={e => updateFinalTable(table.id, { cellPadding: e.target.value })}
+                        className="w-full p-1 bg-white border border-indigo-200 rounded text-[10px] text-slate-700 outline-none"
+                      >
+                        <option value="compact">Compact (24px)</option>
+                        <option value="normal">Normal (36px)</option>
+                        <option value="spacious">Spacious (48px)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[8px] font-bold text-indigo-900 uppercase">Font Size</label>
+                      <select
+                        value={table.fontSize || '9px'}
+                        onChange={e => updateFinalTable(table.id, { fontSize: e.target.value })}
+                        className="w-full p-1 bg-white border border-indigo-200 rounded text-[10px] text-slate-700 outline-none"
+                      >
+                        <option value="8px">8px (Small)</option>
+                        <option value="9px">9px (Standard)</option>
+                        <option value="10px">10px (Medium)</option>
+                        <option value="11px">11px (Large)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[8px] font-bold text-indigo-900 uppercase">Row Height (px)</label>
+                      <input
+                        type="text"
+                        value={table.rowHeight || ''}
+                        onChange={e => updateFinalTable(table.id, { rowHeight: e.target.value })}
+                        placeholder="e.g. 32px or auto"
+                        className="w-full p-1 bg-white border border-indigo-200 rounded text-[10px] text-slate-700 outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Interactive Grid */}
+                  <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                    <table className="w-full text-[10px] border-collapse bg-white">
+                      <thead>
+                        <tr className="bg-slate-100 border-b border-slate-200">
+                          {table.headers.map((header: string, hIdx: number) => {
+                            const colW = table.columnWidths && table.columnWidths[hIdx] ? table.columnWidths[hIdx] : '';
+                            return (
+                              <th key={hIdx} className="p-1.5 border-r border-slate-200 last:border-r-0 min-w-28 align-top">
+                                <div className="space-y-1">
+                                  <input
+                                    type="text"
+                                    value={header}
+                                    onChange={e => {
+                                      const newHeaders = [...table.headers];
+                                      newHeaders[hIdx] = e.target.value;
+                                      updateFinalTable(table.id, { headers: newHeaders });
+                                    }}
+                                    placeholder={`Col ${hIdx + 1}`}
+                                    className="w-full text-center bg-white border border-slate-200 rounded p-1 font-bold text-slate-800 text-[10px] focus:border-indigo-500 outline-none"
+                                  />
+                                  <div className="flex items-center gap-1">
+                                    <input
+                                      type="text"
+                                      value={colW}
+                                      onChange={e => updateFinalTableColumnWidth(table.id, hIdx, e.target.value)}
+                                      placeholder="Width (e.g. 25% / 150px)"
+                                      className="w-full text-[8px] p-0.5 border border-slate-200 rounded bg-slate-50 text-slate-600 text-center"
+                                      title="Column width (e.g. 25%, 150px, auto)"
+                                    />
+                                    {table.headers.length > 1 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => deleteFinalTableColumn(table.id, hIdx)}
+                                        className="text-[8px] text-rose-500 hover:text-rose-700 px-1 py-0.5 hover:bg-rose-50 rounded font-black uppercase"
+                                        title="Drop Column"
+                                      >
+                                        ×
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              </th>
+                            );
+                          })}
+                          <th className="p-1 w-8 text-center bg-slate-50 align-top">
+                            <button
+                              type="button"
+                              onClick={() => addFinalTableColumn(table.id)}
+                              className="p-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded transition-colors cursor-pointer"
+                              title="Add Column"
+                            >
+                              <Plus className="w-3 h-3" />
+                            </button>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {table.rows.map((row: string[], rIdx: number) => (
+                          <tr key={rIdx} className="border-b border-slate-200 last:border-b-0 hover:bg-slate-50/50">
+                            {row.map((cell: string, cIdx: number) => (
+                              <td key={cIdx} className="p-1 border-r border-slate-200 last:border-r-0">
+                                <textarea
+                                  value={cell}
+                                  onChange={e => {
+                                    const newRows = [...table.rows];
+                                    newRows[rIdx][cIdx] = e.target.value;
+                                    updateFinalTable(table.id, { rows: newRows });
+                                  }}
+                                  rows={2}
+                                  placeholder={`Cell ${rIdx + 1},${cIdx + 1}`}
+                                  className="w-full bg-transparent border border-transparent hover:border-slate-200 focus:border-indigo-400 rounded p-1 text-[10px] text-slate-700 outline-none resize-y"
+                                />
+                              </td>
+                            ))}
+                            <td className="p-1 text-center align-middle bg-slate-50/30">
+                              <button
+                                type="button"
+                                onClick={() => deleteFinalTableRow(table.id, rIdx)}
+                                className="text-slate-400 hover:text-rose-600 p-1 rounded hover:bg-rose-50 cursor-pointer"
+                                title="Delete Row"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => addFinalTableRow(table.id)}
+                    className="w-full py-1.5 bg-slate-50 border border-dashed border-slate-300 rounded text-slate-600 text-[9px] font-bold uppercase hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700 transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                  >
+                    <Plus className="w-3 h-3" /> Add Row
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
       </div>
@@ -5339,6 +5850,25 @@ export function DraftingSuiteTeam({
                 </div>
               )}
               <SectionCustomBlockViewer extra={getSectionExtra('annexureC').below} />
+              <RenderStandardCoreCompetenciesBelowAnnexC />
+
+              {/* Inline quick button in preview below Annexure C */}
+              <div className="print:hidden flex items-center justify-between gap-3 bg-indigo-50/80 border border-indigo-200 p-2.5 rounded-lg my-3">
+                <div className="flex items-center gap-2 text-indigo-950 text-xs font-bold">
+                  <Table2 className="w-4 h-4 text-indigo-600 shrink-0" />
+                  <span>Custom Table Builder (Below Annexure C)</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={addFinalTableBelowAnnexC}
+                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ Add Table (Below Annexure C)</span>
+                </button>
+              </div>
+
+              <RenderFinalTablesBelowAnnexC />
             </div>
 
           </div>
