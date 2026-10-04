@@ -4,10 +4,11 @@ import {
   Send, RefreshCw, Layers, Database, Search, ChevronRight, 
   Clock, Plus, ShieldCheck, Check, MessageSquare, Info, Lock, Unlock,
   Upload, Eye, Trash2, Paperclip, FileSpreadsheet, Presentation, Image as ImageIcon,
-  Bell, CheckCircle2, UserCheck, ShieldAlert, X, RotateCcw, Cloud
+  Bell, CheckCircle2, UserCheck, ShieldAlert, X, RotateCcw, Cloud, Download
 } from 'lucide-react';
 import type { User } from '../../types';
 import { SdbipRow } from './SDBIP';
+import { downloadOriginalFile } from '../../utils/documentBinaryHelper';
 import { isQuarterInReportingPeriod, getQuarterLockNotice } from '../../utils/reportingPeriods';
 import { OfficeDocumentViewer, PoeDocument } from '../IPMS/OfficeDocumentViewer';
 import { 
@@ -1684,6 +1685,21 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                                 >
                                   <Eye className="w-3 h-3" />
                                   <span>View PoE</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    downloadOriginalFile(p.name, p.fileData || p.dataUrl, {
+                                      kpiName: selectedKpi.kpi,
+                                      refNum: selectedKpi.refNum,
+                                      quarter: p.quarter || 'General'
+                                    });
+                                  }}
+                                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded text-[10px] font-bold flex items-center gap-1 transition cursor-pointer shadow-sm border border-slate-700"
+                                  title="Download original file in its exact native binary format"
+                                >
+                                  <Download className="w-3 h-3" />
+                                  <span>Download</span>
                                 </button>
                                 {(!((selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed') || isSuperAdminMike) && (
                                   <button

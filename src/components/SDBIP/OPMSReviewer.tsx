@@ -365,8 +365,8 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
 
       if (!response.ok) throw new Error('Failed to push item to Internal Audit');
 
-      // Dispatch real-time notification to Internal Audit
-      const auditTargets = Array.from(new Set([auditorTarget, ...INTERNAL_AUDIT_USERS].filter(Boolean)));
+      // Dispatch real-time notification to Internal Audit, Submitter and Approver
+      const auditTargets = Array.from(new Set([auditorTarget, selectedKpi.submitter, selectedKpi.approver, ...INTERNAL_AUDIT_USERS].filter(Boolean)));
       await dispatchSdbipNotification(activeTenantId, {
         targetUser: auditTargets,
         senderUser: currentUser.fullName || currentUser.email,
@@ -893,13 +893,22 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
                         <div className="flex items-center gap-1.5 shrink-0">
                           <button
                             type="button"
-                            onClick={() => viewOriginalFile(file.name, file.dataUrl, {
-                              kpiName: selectedKpi.kpi,
-                              refNum: selectedKpi.refNum,
-                              quarter: file.quarter || 'Current Quarter'
-                            })}
+                            onClick={() => {
+                              const f = file as any;
+                              setPreviewDoc({
+                                id: f.id,
+                                name: f.name,
+                                mimeType: f.fileType || 'application/octet-stream',
+                                dataUrl: f.dataUrl,
+                                size: f.size,
+                                uploadedAt: f.date,
+                                uploadedBy: f.uploadedBy || 'Submitter',
+                                kpiName: selectedKpi.kpi,
+                                quarter: f.quarter || 'Current Quarter'
+                              });
+                            }}
                             className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-wide flex items-center gap-1.5 cursor-pointer transition shadow-sm"
-                            title="Open Portfolio of Evidence in a new window natively"
+                            title="Open Portfolio of Evidence on the system"
                           >
                             <Eye className="w-3.5 h-3.5" />
                             <span>View PoE</span>
@@ -946,6 +955,19 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
                 </p>
                 <div className="text-[9.5px] text-slate-400 pt-1 border-t border-amber-900/40 mt-1">
                   Approved by: <span className="font-bold text-amber-300 font-mono">{(selectedKpi as any).approvedBy || selectedKpi.approver || 'Executive Approver'}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Audit findings notes */}
+            {(selectedKpi as any).auditNotes && (
+              <div className="bg-rose-950/40 p-3 rounded-xl border border-rose-800/60 space-y-1">
+                <span className="text-[10px] font-black text-rose-400 uppercase tracking-wider block">Internal Audit Findings / Queries</span>
+                <p className="text-xs text-rose-200 font-sans italic leading-relaxed">
+                  "{(selectedKpi as any).auditNotes}"
+                </p>
+                <div className="text-[9.5px] text-slate-400 pt-1 border-t border-rose-900/40 mt-1">
+                  Audited by: <span className="font-bold text-rose-300 font-mono">{(selectedKpi as any).auditedBy || 'Internal Audit Desk'}</span>
                 </div>
               </div>
             )}

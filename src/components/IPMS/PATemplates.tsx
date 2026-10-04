@@ -567,7 +567,7 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
   const [printTheme, setPrintTheme] = useState<string>('emerald');
 
   // Municipal Header Configuration States
-  const [municipalityName, setMunicipalityName] = useState('NKANGALA DISTRICT MUNICIPALITY');
+  const [municipalityName, setMunicipalityName] = useState(activeTenantId === 'neda' ? 'NKANGALA ECONOMIC DEVELOPMENT AGENCY' : 'NKANGALA DISTRICT MUNICIPALITY');
   const [templateSubHeader, setTemplateSubHeader] = useState('DRAFT REGULATORY DOCUMENT TEMPLATE');
   const [muniFontFamily, setMuniFontFamily] = useState('font-sans'); // font-sans, font-serif, font-mono
   const [muniFontSize, setMuniFontSize] = useState('11px');
