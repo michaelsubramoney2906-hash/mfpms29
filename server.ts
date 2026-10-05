@@ -9643,7 +9643,27 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
               const parsed = JSON.parse(data.content);
               const itemsArray = Array.isArray(parsed) ? parsed : (parsed?.items || []);
               if (Array.isArray(itemsArray) && itemsArray.length > 0) {
-                return (!isSdbip23 && tenantId !== 'neda') ? ensureAllSdbipKpis(itemsArray) : itemsArray;
+                const normalized = (!isSdbip23 && tenantId !== 'neda') ? ensureAllSdbipKpis(itemsArray) : itemsArray;
+                
+                // If the stored record contained outdated text, write the updated normalized list back to Supabase asynchronously
+                if (!isSdbip23 && tenantId !== 'neda' && itemsArray[0]?.kpi !== normalized[0]?.kpi) {
+                  supabase
+                    .from('messages')
+                    .upsert({
+                      id: docId,
+                      tenant_id: tenantId,
+                      sender_id: 'sdbip_catalog_sync',
+                      sender_email: 'sync@system.local',
+                      sender_name: 'SDBIP Canonical Sync',
+                      content: JSON.stringify({ items: normalized }),
+                      message_type: 'sdbip_list',
+                      created_at: new Date().toISOString()
+                    })
+                    .then(() => console.log(`[SDBIP Sync] Auto-updated ${docId} with canonical 2026/2027 catalog and preserved actuals`))
+                    .catch((syncErr: any) => console.error(`[SDBIP Sync Error] Failed to update ${docId}:`, syncErr));
+                }
+                
+                return normalized;
               }
             } catch (parseErr) {
               console.error("Error parsing sdbip JSON:", parseErr);
@@ -9651,7 +9671,8 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
           }
         }
 
-        return (!isSdbip23 && tenantId !== 'neda') ? ensureAllSdbipKpis([]) : [];
+        const freshCanonical = (!isSdbip23 && tenantId !== 'neda') ? ensureAllSdbipKpis([]) : [];
+        return freshCanonical;
       });
 
       return res.json({ items });
@@ -9675,6 +9696,8 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
           : ['sdbip_tenant-229', 'sdbip_nkangala_auto', 'sdbip_global'];
       }
 
+      const itemsToSave = (!isSdbip23 && tenantId !== 'neda') ? ensureAllSdbipKpis(items || []) : (items || []);
+
       for (const docId of targetDocIds) {
         const tId = isSdbip23 ? docId.replace('sdbip23_', '') : docId.replace('sdbip_', '');
         await supabase
@@ -9685,7 +9708,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
             sender_id: 'sdbip_editor_tool',
             sender_email: 'sdbip@system.local',
             sender_name: 'SDBIP Editor',
-            content: JSON.stringify({ items: items }),
+            content: JSON.stringify({ items: itemsToSave }),
             message_type: isSdbip23 ? 'sdbip23_list' : 'sdbip_list',
             created_at: new Date().toISOString()
           });
