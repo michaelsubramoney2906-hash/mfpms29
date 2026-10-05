@@ -148,6 +148,11 @@ export interface SdbipRow {
   approvedBy?: string;
   adminLocked?: boolean;
   workflowHistory?: any[];
+  kpiCustomEdited?: boolean;
+  kpiEditedBy?: string;
+  kpiEditedAt?: string;
+  KPI?: string;
+  Description?: string;
   budgetOverride?: {
     requested?: boolean;
     requestedBy?: string;
@@ -1947,6 +1952,14 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
       return;
     }
 
+    // KPI description can only be edited by Global Administrator Mike (mike@mzansiflow.co.za)
+    if (field === 'kpi' && !isSuperAdminMike) {
+      const targetRow = rows.find(r => r.id === rowId);
+      setSuccessToast(`Field Locked: Key Performance Indicator (KPI) description can only be edited by Mike (mike@mzansiflow.co.za) for KPI ${targetRow?.refNum || ''}.`);
+      setTimeout(() => setSuccessToast(null), 4000);
+      return;
+    }
+
     // Strict Submitter reporting enforcement: Only designated submitter can report on actuals
     const actualsFields = [
       'score',
@@ -1989,6 +2002,17 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
           updatedRow.responsibleUnit = value;
         } else if (field === 'responsibleUnit') {
           updatedRow.submitter = value;
+        }
+
+        // Sync KPI fields across all aliases and track custom edits by Mike
+        if (field === 'kpi') {
+          updatedRow.kpi = value;
+          updatedRow.KPI = value;
+          updatedRow.operationalActivity = value;
+          updatedRow.Description = value;
+          updatedRow.kpiCustomEdited = true;
+          updatedRow.kpiEditedBy = currentUser.email || 'mike@mzansiflow.co.za';
+          updatedRow.kpiEditedAt = new Date().toISOString();
         }
 
         // Automatically unlock Reviewer or Internal Audit module and notify user & Global Administrators
@@ -5001,7 +5025,16 @@ Timestamp: ${new Date().toLocaleString()}
                   <tr>
                     <th className="p-3 border-r border-slate-200 w-28 sticky top-0 left-0 z-30 bg-slate-100">REF NUMBER</th>
                     <th className="p-3 border-r border-slate-200 w-72 sticky top-0 z-20 bg-slate-100">STRATEGIC OBJECTIVES</th>
-                    <th className="p-3 border-r border-slate-200 w-80 sticky top-0 z-20 bg-slate-100">KPI</th>
+                    <th className="p-3 border-r border-slate-200 w-80 sticky top-0 z-20 bg-slate-100">
+                      <div className="flex items-center justify-between">
+                        <span>KPI</span>
+                        {isSuperAdminMike && (
+                          <span className="text-[8px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-mono font-bold border border-indigo-200" title="Editable by Mike (mike@mzansiflow.co.za)">
+                            EDITABLE (MIKE)
+                          </span>
+                        )}
+                      </div>
+                    </th>
                     <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-blue-100 text-blue-900">BSD (X)</th>
                     <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-emerald-100 text-emerald-900">LED (X)</th>
                     <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-amber-100 text-amber-900">MFVM (X)</th>
@@ -5062,16 +5095,19 @@ Timestamp: ${new Date().toLocaleString()}
                       </td>
 
                       {/* KPI */}
-                      <td className="p-2 border-r border-slate-150">
+                      <td className={`p-2 border-r border-slate-150 ${isSuperAdminMike ? 'bg-indigo-50/20' : ''}`}>
                         <ExpandableCell 
                           value={row.kpi || ''}
-                          readOnly={true}
+                          readOnly={!isSuperAdminMike}
+                          disabled={!isSuperAdminMike}
+                          onChange={isSuperAdminMike ? (val) => handleCellChange(row.id, 'kpi', val) : undefined}
                           cellTitle="Key Performance Indicator (KPI)"
                           refNum={row.refNum}
                           isFitAll={isFitAllTopLayerCells}
                           minRows={2}
                           onOpenExpandModal={openCellExpandModal}
-                          placeholder="-"
+                          placeholder={isSuperAdminMike ? "Enter KPI description..." : "-"}
+                          className={`font-bold ${isSuperAdminMike ? 'bg-white text-slate-900 border-indigo-300 hover:border-indigo-500 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-300 cursor-text' : 'text-slate-800'}`}
                         />
                       </td>
                       <td className="p-2 border-r border-slate-150 text-center bg-blue-50/50 cursor-pointer hover:bg-blue-100/50" title="Click to select BSD" onClick={() => handleCellChange(row.id, 'bsd', 'X')}>
@@ -5663,7 +5699,16 @@ Timestamp: ${new Date().toLocaleString()}
                     {/* Fixed Info Columns */}
                     <th className="p-3 border-r border-slate-200 w-28 sticky top-0 left-0 z-30 bg-slate-100">REF NUMBER</th>
                     <th className="p-3 border-r border-slate-200 w-72 sticky top-0 z-20 bg-slate-100">STRATEGIC OBJECTIVES</th>
-                    <th className="p-3 border-r border-slate-200 w-80 sticky top-0 z-20 bg-slate-100">KPI</th>
+                    <th className="p-3 border-r border-slate-200 w-80 sticky top-0 z-20 bg-slate-100">
+                      <div className="flex items-center justify-between">
+                        <span>KPI</span>
+                        {isSuperAdminMike && (
+                          <span className="text-[8px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-mono font-bold border border-indigo-200" title="Editable by Mike (mike@mzansiflow.co.za)">
+                            EDITABLE (MIKE)
+                          </span>
+                        )}
+                      </div>
+                    </th>
                     <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-blue-100 text-blue-900">BSD (X)</th>
                     <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-emerald-100 text-emerald-900">LED (X)</th>
                     <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-amber-100 text-amber-900">MFVM (X)</th>
@@ -5963,16 +6008,19 @@ Timestamp: ${new Date().toLocaleString()}
                           className="text-slate-600"
                         />
                       </td>
-                      <td className="p-2 border-r border-slate-150">
+                      <td className={`p-2 border-r border-slate-150 ${isSuperAdminMike ? 'bg-indigo-50/20' : ''}`}>
                         <ExpandableCell
                           value={row.kpi || ''}
-                          readOnly
+                          readOnly={!isSuperAdminMike}
+                          disabled={!isSuperAdminMike}
+                          onChange={isSuperAdminMike ? (val) => handleCellChange(row.id, 'kpi', val) : undefined}
                           cellTitle="Key Performance Indicator (KPI)"
                           refNum={row.refNum}
                           isFitAll={isFitAllReportingCells}
                           minRows={2}
                           onOpenExpandModal={openCellExpandModal}
-                          className="font-bold text-slate-800"
+                          placeholder={isSuperAdminMike ? "Enter KPI description..." : "-"}
+                          className={`font-bold ${isSuperAdminMike ? 'bg-white text-slate-900 border-indigo-300 hover:border-indigo-500 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-300 cursor-text' : 'text-slate-800'}`}
                         />
                       </td>
                       <td className="p-2 border-r border-slate-150 text-center bg-blue-50/30 cursor-pointer hover:bg-blue-100/50" title="Click to select BSD" onClick={() => handleCellChange(row.id, 'bsd', 'X')}>

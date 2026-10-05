@@ -2563,6 +2563,14 @@ export function ensureAllSdbipKpis(existingRows: any[] = []): (SdbipCatalogItem 
 
     const existingActuals = existing || {};
 
+    // Preserve custom edited KPI (when edited by Global Administrator Mike or marked kpiCustomEdited)
+    const hasCustomKpi = Boolean(
+      existingActuals.kpiCustomEdited || 
+      existingActuals.kpiEditedBy || 
+      (existingActuals.kpi && existingActuals.kpi !== canonical.KPI && !existingActuals.kpi.includes('Cascading of PMS') && !existingActuals.kpi.includes('2024/2025 annual'))
+    );
+    const effectiveKpi = hasCustomKpi ? (existingActuals.kpi || existingActuals.KPI || canonical.KPI) : canonical.KPI;
+
     // Merge canonical definitions while faithfully preserving all reported actuals, PoEs, and workflow data
     return {
       ...canonical,
@@ -2576,9 +2584,13 @@ export function ensureAllSdbipKpis(existingRows: any[] = []): (SdbipCatalogItem 
       SDBIP_Strategic_Objective: canonical.SDBIP_Strategic_Objective,
       strategicObj: canonical.SDBIP_Strategic_Objective,
 
-      KPI: canonical.KPI,
-      kpi: canonical.KPI,
-      operationalActivity: canonical.Description || canonical.KPI,
+      KPI: effectiveKpi,
+      kpi: effectiveKpi,
+      operationalActivity: effectiveKpi,
+      Description: effectiveKpi,
+      kpiCustomEdited: hasCustomKpi,
+      kpiEditedBy: existingActuals.kpiEditedBy,
+      kpiEditedAt: existingActuals.kpiEditedAt,
 
       National_KPA: canonical.National_KPA,
       kpas: canonical.National_KPA,
@@ -2652,7 +2664,6 @@ export function ensureAllSdbipKpis(existingRows: any[] = []): (SdbipCatalogItem 
 
       POE_Description: canonical.POE_Description,
       poeDesc: canonical.POE_Description,
-      Description: canonical.Description,
 
       // PRESERVE ALL USER-REPORTED ACTUALS, VARIANCES, CORRECTIVE ACTIONS & EVIDENCE ATTACHMENTS
       q1Actual: existingActuals.q1Actual !== undefined ? existingActuals.q1Actual : existingActuals.q1_actual,
