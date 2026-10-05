@@ -2271,41 +2271,37 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
           >
             Drafting Suite
           </button>
-          {activeTenantId !== 'neda' && (
-            <>
-              <button 
-                onClick={() => setActiveTab('drafting_suite_firefighters')}
-                className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'drafting_suite_firefighters' ? 'border-amber-600 text-amber-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-              >
-                CDS Team PA
-              </button>
-              <button 
-                onClick={() => setActiveTab('drafting_suite_technical_services')}
-                className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'drafting_suite_technical_services' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-              >
-                Technical Services Team PA
-              </button>
-              <button 
-                onClick={() => setActiveTab('drafting_suite_corporate_services')}
-                className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'drafting_suite_corporate_services' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-              >
-                Corporate Services Team PA
-              </button>
-              <button 
-                onClick={() => setActiveTab('drafting_suite_pms_team')}
-                className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'drafting_suite_pms_team' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-              >
-                PMS Team PA
-              </button>
-              {isLeadFireFighter && (
-                <button 
-                  onClick={() => setActiveTab('lead_fire_fighter')}
-                  className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'lead_fire_fighter' ? 'border-amber-600 text-amber-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-                >
-                  Lead Fire Fighter PA
-                </button>
-              )}
-            </>
+          <button 
+            onClick={() => setActiveTab('drafting_suite_firefighters')}
+            className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'drafting_suite_firefighters' ? 'border-amber-600 text-amber-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+          >
+            CDS Team PA
+          </button>
+          <button 
+            onClick={() => setActiveTab('drafting_suite_technical_services')}
+            className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'drafting_suite_technical_services' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+          >
+            Technical Services Team PA
+          </button>
+          <button 
+            onClick={() => setActiveTab('drafting_suite_corporate_services')}
+            className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'drafting_suite_corporate_services' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+          >
+            Corporate Services Team PA
+          </button>
+          <button 
+            onClick={() => setActiveTab('drafting_suite_pms_team')}
+            className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'drafting_suite_pms_team' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+          >
+            PMS Team PA
+          </button>
+          {isLeadFireFighter && (
+            <button 
+              onClick={() => setActiveTab('lead_fire_fighter')}
+              className={`px-4 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${activeTab === 'lead_fire_fighter' ? 'border-amber-600 text-amber-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+            >
+              Lead Fire Fighter PA
+            </button>
           )}
         </div>
 
@@ -2408,7 +2404,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
                   className="max-h-24 object-contain transition-all hover:scale-105 duration-300"
                 />
                 <span className="text-[10px] tracking-widest font-extrabold text-emerald-800 uppercase mt-2 font-mono">
-                  {activeTenantId === 'neda' ? 'Nkangala Economic Development Agency' : 'Nkangala District Municipality'}
+                  Nkangala District Municipality
                 </span>
                 <span className="text-[10px] text-slate-400 font-medium">
                   Inter-Departmental Performance Management System

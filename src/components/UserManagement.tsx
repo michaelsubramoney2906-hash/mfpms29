@@ -1129,12 +1129,12 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                                   const resolvedTenant = (u.tenantId === 'nkangala_auto' || u.email?.toLowerCase().includes('nkangala')) ? 'tenant-229' : (u.tenantId || municipalities[0]?.id || '');
                                   onImpersonate({
                                     email: u.email,
-                                    fullName: u.fullName || (u as any).full_name || (u as any).name || '',
+                                    fullName: u.fullName || '',
                                     role: u.role === 'Global Administrator' || u.role === 'admin' || u.role === 'Systems Administrator' ? 'admin' : 'tenant_user',
                                     tenantId: resolvedTenant,
                                     id: u.id,
-                                    jobFunction: u.jobFunction || (u as any).job_function || '',
-                                    department: u.department || (u as any).department || '',
+                                    jobFunction: u.jobFunction || '',
+                                    department: u.department || '',
                                     directorate: u.directorate || '',
                                     manager: u.manager || '',
                                     reportTo: u.reportTo || '',
@@ -1718,7 +1718,7 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                                 const resolvedTenant = (session.tenantId === 'nkangala_auto' || session.email?.toLowerCase().includes('nkangala')) ? 'tenant-229' : (session.tenantId || municipalities[0]?.id || '');
                                 onImpersonate({
                                   email: session.email,
-                                  fullName: session.fullName || (session as any).full_name || (session as any).name || '',
+                                  fullName: session.fullName || '',
                                   role: session.role === 'Global Administrator' || session.role === 'admin' || session.role === 'Systems Administrator' ? 'admin' : 'tenant_user',
                                   tenantId: resolvedTenant,
                                   id: session.userId || session.email,

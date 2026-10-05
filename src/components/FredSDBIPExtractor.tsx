@@ -57,7 +57,7 @@ export function FredSDBIPExtractor({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load existing extraction snapshot if available or initialize with standard SDBIP KPIs
+  // Load existing extraction snapshot if available or initialize with standard 111 SDBIP KPIs (92 M_ + 19 P_)
   useEffect(() => {
     const loadSavedSnapshot = async () => {
       try {
@@ -66,9 +66,9 @@ export function FredSDBIPExtractor({
           const data = await res.json();
           const rawItems = data.items || data.data;
           if (rawItems && Array.isArray(rawItems) && rawItems.length > 0) {
-            const sanitized = sanitizeSdbipItems(rawItems, activeTenantId);
+            const sanitized = sanitizeSdbipItems(rawItems);
             setExtractedItems(sanitized);
-            setSourceFileName(data.fileName || data.sourceFileName || (activeTenantId === 'neda' ? 'NEDA SDBIP Scorecard (E_01..E_46 & P_01..P_03)' : 'Municipal SDBIP Scorecard'));
+            setSourceFileName(data.fileName || data.sourceFileName || 'Municipal SDBIP Scorecard');
             return;
           }
         }
@@ -76,27 +76,22 @@ export function FredSDBIPExtractor({
         // Fall back to standard scorecard
       }
 
-      // Default to canonical scorecard (NEDA: 46 E_ + 3 P_ across KPA 1 to 4; Municipal: 92 M_ + 19 P_)
-      const standardItems = getStandardSdbipScorecard(activeTenantId);
+      // Default to the canonical 111 SDBIP scorecard: 92 M_ KPIs + 19 P_ Projects
+      const standardItems = getStandardSdbipScorecard();
       setExtractedItems(standardItems);
-      setSourceFileName(activeTenantId === 'neda' ? 'NEDA Autonomous SDBIP Scorecard (E_01..E_46 & P_01..P_03)' : 'Municipal SDBIP Top Layer Scorecard (92 M_ + 19 P_)');
+      setSourceFileName('Municipal SDBIP Top Layer Scorecard (92 M_ + 19 P_)');
     };
     loadSavedSnapshot();
   }, [activeTenantId]);
 
-  // Load standard canonical SDBIP KPIs
+  // Load standard canonical 111 SDBIP KPIs (92 M_ + 19 P_)
   const handleLoadStandardScorecard = async () => {
-    const standard = getStandardSdbipScorecard(activeTenantId);
+    const standard = getStandardSdbipScorecard();
     setExtractedItems(standard);
-    const title = activeTenantId === 'neda' 
-      ? 'NEDA Autonomous SDBIP Scorecard (46 E_ Entity KPIs + 3 P_ Project KPIs)' 
-      : 'Municipal SDBIP Scorecard (92 M_ KPIs + 19 P_ Projects)';
-    setSourceFileName(title);
+    setSourceFileName('Municipal SDBIP Scorecard (92 M_ KPIs + 19 P_ Projects)');
     setStatusMessage({
       type: 'success',
-      text: activeTenantId === 'neda'
-        ? 'Successfully aligned with standard NEDA SDBIP Scorecard: 46 Entity KPIs (E_01 to E_46) and 3 Project KPIs (P_01 to P_03) across KPAs 1 to 4 — exactly 49 indicators total.'
-        : 'Successfully aligned with standard SDBIP Scorecard: 92 Municipal KPIs (M_01 to M_92) and 19 Project KPIs (P_01 to P_19) — exactly 111 indicators total.'
+      text: 'Successfully aligned with standard SDBIP Scorecard: 92 Municipal KPIs (M_01 to M_92) and 19 Project KPIs (P_01 to P_19) — exactly 111 indicators total.'
     });
 
     try {
@@ -105,7 +100,7 @@ export function FredSDBIPExtractor({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           items: standard,
-          fileName: title,
+          fileName: 'Municipal SDBIP Scorecard (92 M_ + 19 P_)',
           timestamp: new Date().toISOString()
         })
       });
@@ -123,26 +118,23 @@ export function FredSDBIPExtractor({
     });
 
     try {
-      const result = await extractSdbipFromDocument(file, activeTenantId);
+      const result = await extractSdbipFromDocument(file);
       
       if (!result.items || result.items.length === 0) {
         throw new Error('No SDBIP Top Layer items could be found in the uploaded document. Please verify the document contains SDBIP tables.');
       }
 
-      const formattedItems = sanitizeSdbipItems(result.items, activeTenantId);
+      const formattedItems = sanitizeSdbipItems(result.items);
 
       setExtractedItems(formattedItems);
       setSourceFileName(file.name);
       
-      const eCount = formattedItems.filter(i => (i.refNum || '').toUpperCase().startsWith('E_')).length;
       const mCount = formattedItems.filter(i => (i.refNum || '').toUpperCase().startsWith('M_')).length;
       const pCount = formattedItems.filter(i => (i.refNum || '').toUpperCase().startsWith('P_')).length;
 
       setStatusMessage({
         type: 'success',
-        text: activeTenantId === 'neda'
-          ? `Successfully extracted and mapped ${formattedItems.length} NEDA SDBIP Top Layer items from "${file.name}" (${eCount} E_ KPIs + ${pCount} P_ Projects across KPA 1..4) with 100% verbatim accuracy.`
-          : `Successfully extracted and mapped ${formattedItems.length} SDBIP Top Layer items from "${file.name}" (${mCount} M_ KPIs + ${pCount} P_ Projects) with 100% verbatim accuracy.`
+        text: `Successfully extracted and mapped ${formattedItems.length} SDBIP Top Layer items from "${file.name}" (${mCount} M_ KPIs + ${pCount} P_ Projects) with 100% verbatim accuracy.`
       });
 
       // Persist snapshot to server
@@ -238,7 +230,7 @@ export function FredSDBIPExtractor({
         });
       }
 
-      const sanitized = sanitizeSdbipItems(parsed, activeTenantId);
+      const sanitized = sanitizeSdbipItems(parsed);
       setExtractedItems(sanitized);
       setSourceFileName('Direct Clipboard Table');
       setShowPasteModal(false);
@@ -398,20 +390,15 @@ export function FredSDBIPExtractor({
     }
   };
 
-  // Reset / Clear Extractor - reset to standard SDBIP scorecard
+  // Reset / Clear Extractor - reset to standard 111 SDBIP scorecard
   const handleClearExtractor = async () => {
-    const standard = getStandardSdbipScorecard(activeTenantId);
+    const standard = getStandardSdbipScorecard();
     setExtractedItems(standard);
     setSelectedFile(null);
-    const title = activeTenantId === 'neda' 
-      ? 'NEDA Autonomous SDBIP Scorecard (46 E_ Entity KPIs + 3 P_ Project KPIs)' 
-      : 'Municipal SDBIP Scorecard (92 M_ + 19 P_)';
-    setSourceFileName(title);
+    setSourceFileName('Municipal SDBIP Scorecard (92 M_ + 19 P_)');
     setStatusMessage({
       type: 'info',
-      text: activeTenantId === 'neda'
-        ? 'SDBIP Extractor reset to NEDA standard catalog: 46 Entity KPIs (E_01..E_46) and 3 Project KPIs (P_01..P_03) — 49 items total.'
-        : 'SDBIP Extractor reset to standard catalog: 92 Municipal KPIs (M_01..M_92) and 19 Project KPIs (P_01..P_19) — 111 items total.'
+      text: 'SDBIP Extractor reset to standard catalog: 92 Municipal KPIs (M_01..M_92) and 19 Project KPIs (P_01..P_19) — 111 items total.'
     });
     if (fileInputRef.current) fileInputRef.current.value = '';
 
