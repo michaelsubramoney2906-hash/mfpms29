@@ -1243,25 +1243,27 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
               
               {/* Performance Actual values side by side */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-slate-900 text-slate-350">
-                {/* Quarter 1 Performance (Read-Only) */}
+                {/* Quarter 1 Performance */}
                 <div className="bg-slate-900/60 border border-slate-850/50 p-3 rounded-xl flex flex-col justify-between">
                   <div className="flex items-center justify-between pb-1.5 border-b border-slate-800">
                     <div className="font-bold text-slate-200 text-xs flex items-center gap-1.5">
                       <span>Quarter 1 Performance:</span>
                     </div>
                     <span className="text-[9px] font-mono text-slate-400 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
-                      Reported Data
+                      Q1 Scorecard
                     </span>
                   </div>
 
                   <div className="pt-2 text-xs space-y-1">
                     <div className="grid grid-cols-2 gap-2 bg-slate-950/60 p-2 rounded border border-slate-850/40">
-                      <div>Target: <strong className="text-white">{selectedKpi.q1 || '0'}</strong></div>
-                      <div>Actual: <strong className="text-emerald-400 font-bold">{selectedKpi.q1Actual || 'None reported'}</strong></div>
+                      <div>Target: <strong className="text-white">{selectedKpi.q1 || 'N/A'}</strong></div>
+                      <div>Actual: <strong className={selectedKpi.q1Actual ? "text-emerald-400 font-bold" : "text-slate-500 italic"}>{selectedKpi.q1Actual || 'None reported'}</strong></div>
                     </div>
-                    <div className="text-[10.5px] text-indigo-400 font-extrabold px-1">
-                      Calculated Variance: {calcVar(selectedKpi.q1, selectedKpi.q1Actual) || '0'}
-                    </div>
+                    {selectedKpi.q1Actual && (
+                      <div className="text-[10.5px] text-indigo-400 font-extrabold px-1">
+                        Calculated Variance: {calcVar(selectedKpi.q1, selectedKpi.q1Actual) || '0'}
+                      </div>
+                    )}
                     {(selectedKpi.q1Variance || selectedKpi.q1Corrective) && (
                       <div className="pt-1 text-[11px] text-slate-350 space-y-0.5 border-t border-slate-800/50 mt-1 px-1">
                         {selectedKpi.q1Variance && <div>Variance Explanation: <span className="text-slate-200 italic">{selectedKpi.q1Variance}</span></div>}
@@ -1270,30 +1272,118 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
                     )}
                   </div>
                 </div>
-                {selectedKpi.q2Actual && (
-                  <div className="bg-slate-900/60 p-2.5 rounded border border-slate-850/50">
-                    <div className="font-bold text-slate-300">Quarter 2 Performance:</div>
-                    <div>Target: <strong className="text-white">{selectedKpi.q2}</strong></div>
-                    <div>Actual: <strong className="text-emerald-400 font-bold">{selectedKpi.q2Actual}</strong></div>
-                    <div className="text-[10px] text-indigo-400 font-extrabold mt-0.5">Calculated Variance: {calcVar(selectedKpi.q2, selectedKpi.q2Actual) || '0'}</div>
+
+                {/* Quarter 2 Performance */}
+                <div className="bg-slate-900/60 border border-slate-850/50 p-3 rounded-xl flex flex-col justify-between">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-slate-800">
+                    <div className="font-bold text-slate-200 text-xs flex items-center gap-1.5">
+                      <span>Quarter 2 Performance:</span>
+                    </div>
+                    <span className="text-[9px] font-mono text-slate-400 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
+                      Q2 Scorecard
+                    </span>
+                  </div>
+                  <div className="pt-2 text-xs space-y-1">
+                    <div className="grid grid-cols-2 gap-2 bg-slate-950/60 p-2 rounded border border-slate-850/40">
+                      <div>Target: <strong className="text-white">{selectedKpi.q2 || 'N/A'}</strong></div>
+                      <div>Actual: <strong className={selectedKpi.q2Actual ? "text-emerald-400 font-bold" : "text-slate-500 italic"}>{selectedKpi.q2Actual || 'None reported'}</strong></div>
+                    </div>
+                    {selectedKpi.q2Actual && (
+                      <div className="text-[10.5px] text-indigo-400 font-extrabold px-1">
+                        Calculated Variance: {calcVar(selectedKpi.q2, selectedKpi.q2Actual) || '0'}
+                      </div>
+                    )}
+                    {(selectedKpi.q2Variance || selectedKpi.q2Corrective) && (
+                      <div className="pt-1 text-[11px] text-slate-350 space-y-0.5 border-t border-slate-800/50 mt-1 px-1">
+                        {selectedKpi.q2Variance && <div>Variance Explanation: <span className="text-slate-200 italic">{selectedKpi.q2Variance}</span></div>}
+                        {selectedKpi.q2Corrective && <div>Corrective Measure: <span className="text-slate-200 italic">{selectedKpi.q2Corrective}</span></div>}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Midterm Performance */}
+                {(selectedKpi.midTermTarget || selectedKpi.midTerm || selectedKpi.midTermActual) && (
+                  <div className="bg-slate-900/60 border border-slate-850/50 p-3 rounded-xl flex flex-col justify-between">
+                    <div className="flex items-center justify-between pb-1.5 border-b border-slate-800">
+                      <div className="font-bold text-slate-200 text-xs flex items-center gap-1.5">
+                        <span>Mid-Term Performance:</span>
+                      </div>
+                      <span className="text-[9px] font-mono text-slate-400 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
+                        Mid-Term
+                      </span>
+                    </div>
+                    <div className="pt-2 text-xs space-y-1">
+                      <div className="grid grid-cols-2 gap-2 bg-slate-950/60 p-2 rounded border border-slate-850/40">
+                        <div>Target: <strong className="text-white">{selectedKpi.midTermTarget || selectedKpi.midTerm || selectedKpi.q2 || 'N/A'}</strong></div>
+                        <div>Actual: <strong className={selectedKpi.midTermActual ? "text-emerald-400 font-bold" : "text-slate-500 italic"}>{selectedKpi.midTermActual || 'None reported'}</strong></div>
+                      </div>
+                      {selectedKpi.midTermActual && (
+                        <div className="text-[10.5px] text-indigo-400 font-extrabold px-1">
+                          Calculated Variance: {calcVar(selectedKpi.midTermTarget || selectedKpi.midTerm || selectedKpi.q2, selectedKpi.midTermActual) || '0'}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
-                {selectedKpi.q3Actual && (
-                  <div className="bg-slate-900/60 p-2.5 rounded border border-slate-850/50">
-                    <div className="font-bold text-slate-300">Quarter 3 Performance:</div>
-                    <div>Target: <strong className="text-white">{selectedKpi.q3}</strong></div>
-                    <div>Actual: <strong className="text-emerald-400 font-bold">{selectedKpi.q3Actual}</strong></div>
-                    <div className="text-[10px] text-indigo-400 font-extrabold mt-0.5">Calculated Variance: {calcVar(selectedKpi.q3, selectedKpi.q3Actual) || '0'}</div>
+
+                {/* Quarter 3 Performance */}
+                <div className="bg-slate-900/60 border border-slate-850/50 p-3 rounded-xl flex flex-col justify-between">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-slate-800">
+                    <div className="font-bold text-slate-200 text-xs flex items-center gap-1.5">
+                      <span>Quarter 3 Performance:</span>
+                    </div>
+                    <span className="text-[9px] font-mono text-slate-400 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
+                      Q3 Scorecard
+                    </span>
                   </div>
-                )}
-                {selectedKpi.q4Actual && (
-                  <div className="bg-slate-900/60 p-2.5 rounded border border-slate-850/50">
-                    <div className="font-bold text-slate-300">Quarter 4 Performance:</div>
-                    <div>Target: <strong className="text-white">{selectedKpi.q4}</strong></div>
-                    <div>Actual: <strong className="text-emerald-400 font-bold">{selectedKpi.q4Actual}</strong></div>
-                    <div className="text-[10px] text-indigo-400 font-extrabold mt-0.5">Calculated Variance: {calcVar(selectedKpi.q4, selectedKpi.q4Actual) || '0'}</div>
+                  <div className="pt-2 text-xs space-y-1">
+                    <div className="grid grid-cols-2 gap-2 bg-slate-950/60 p-2 rounded border border-slate-850/40">
+                      <div>Target: <strong className="text-white">{selectedKpi.q3 || 'N/A'}</strong></div>
+                      <div>Actual: <strong className={selectedKpi.q3Actual ? "text-emerald-400 font-bold" : "text-slate-500 italic"}>{selectedKpi.q3Actual || 'None reported'}</strong></div>
+                    </div>
+                    {selectedKpi.q3Actual && (
+                      <div className="text-[10.5px] text-indigo-400 font-extrabold px-1">
+                        Calculated Variance: {calcVar(selectedKpi.q3, selectedKpi.q3Actual) || '0'}
+                      </div>
+                    )}
+                    {(selectedKpi.q3Variance || selectedKpi.q3Corrective) && (
+                      <div className="pt-1 text-[11px] text-slate-350 space-y-0.5 border-t border-slate-800/50 mt-1 px-1">
+                        {selectedKpi.q3Variance && <div>Variance Explanation: <span className="text-slate-200 italic">{selectedKpi.q3Variance}</span></div>}
+                        {selectedKpi.q3Corrective && <div>Corrective Measure: <span className="text-slate-200 italic">{selectedKpi.q3Corrective}</span></div>}
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
+
+                {/* Quarter 4 Performance */}
+                <div className="bg-slate-900/60 border border-slate-850/50 p-3 rounded-xl flex flex-col justify-between">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-slate-800">
+                    <div className="font-bold text-slate-200 text-xs flex items-center gap-1.5">
+                      <span>Quarter 4 Performance:</span>
+                    </div>
+                    <span className="text-[9px] font-mono text-slate-400 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
+                      Q4 Scorecard
+                    </span>
+                  </div>
+                  <div className="pt-2 text-xs space-y-1">
+                    <div className="grid grid-cols-2 gap-2 bg-slate-950/60 p-2 rounded border border-slate-850/40">
+                      <div>Target: <strong className="text-white">{selectedKpi.q4 || 'N/A'}</strong></div>
+                      <div>Actual: <strong className={selectedKpi.q4Actual ? "text-emerald-400 font-bold" : "text-slate-500 italic"}>{selectedKpi.q4Actual || 'None reported'}</strong></div>
+                    </div>
+                    {selectedKpi.q4Actual && (
+                      <div className="text-[10.5px] text-indigo-400 font-extrabold px-1">
+                        Calculated Variance: {calcVar(selectedKpi.q4, selectedKpi.q4Actual) || '0'}
+                      </div>
+                    )}
+                    {(selectedKpi.q4Variance || selectedKpi.q4Corrective) && (
+                      <div className="pt-1 text-[11px] text-slate-350 space-y-0.5 border-t border-slate-800/50 mt-1 px-1">
+                        {selectedKpi.q4Variance && <div>Variance Explanation: <span className="text-slate-200 italic">{selectedKpi.q4Variance}</span></div>}
+                        {selectedKpi.q4Corrective && <div>Corrective Measure: <span className="text-slate-200 italic">{selectedKpi.q4Corrective}</span></div>}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -1331,7 +1421,7 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
                   <span className="text-[10px] font-black text-slate-300 uppercase tracking-wider">Verifiable Evidence Desk (PoE)</span>
                 </div>
                 <span className="text-[9px] font-bold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/40">
-                  {getKpiPoes(selectedKpi).length} Uploaded File(s)
+                  {extractKpiPoes(selectedKpi, poes).length} Uploaded File(s)
                 </span>
               </div>
 

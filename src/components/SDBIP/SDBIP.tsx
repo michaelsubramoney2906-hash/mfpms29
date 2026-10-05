@@ -10,7 +10,8 @@ import { AzureADPicker } from './AzureADPicker';
 import { SDBIPPagination } from './SDBIPPagination';
 import { ExpandableCell, CellExpandModal, ExpandModalState } from './ExpandableCell';
 import { isQuarterInReportingPeriod, getQuarterLockNotice, REPORTING_PERIOD_CONFIGS, getCurrentMunicipalQuarter, ReportingPhase } from '../../utils/reportingPeriods';
-import { PMS_TEAM_REVIEWERS, INTERNAL_AUDIT_USERS, isUserMatch, dispatchSdbipNotification, isMasterAdminMike } from '../../utils/sdbipWorkflowHelper';
+import { PMS_TEAM_REVIEWERS, INTERNAL_AUDIT_USERS, isUserMatch, dispatchSdbipNotification, isMasterAdminMike, extractKpiPoes } from '../../utils/sdbipWorkflowHelper';
+import { ensureAllSdbipKpis, SDBIP_CANONICAL_CATALOG } from '../../sdbip_catalog';
 import { isUserUnrestricted } from '../../utils/unrestrictedHelper';
 import { OfficeDocumentViewer } from '../IPMS/OfficeDocumentViewer';
 import { calcVar, extractNumericValue } from '../../utils/varianceCalculator';
@@ -900,53 +901,47 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
         const notifData = await safeJson(notifRes, { notifications: [] });
         const officialsData = await safeJson(officialsRes, { reviewers: [], internalAuditors: [] });
         
-        // If no rows are loaded, generate 25 default blank template rows
-        if (rowsData && Array.isArray(rowsData.items) && rowsData.items.length > 0) {
+        // Load and normalize SDBIP rows with canonical catalog metadata and preserved user actuals
+        const rawItems = (rowsData && Array.isArray(rowsData.items)) ? rowsData.items : [];
+        if (rawItems.length > 0 || !isBackground) {
           if (isBackground && Date.now() - lastUserEditTimeRef.current < 15000) {
             // Keep local active edits without clobbering
           } else {
-            setRows(rowsData.items.map(sanitizeSdbipRow));
+            const canonicalList = activeTenantId === 'neda' ? rawItems : ensureAllSdbipKpis(rawItems);
+            const mappedRows: SdbipRow[] = (canonicalList.length > 0 ? canonicalList : SDBIP_CANONICAL_CATALOG).map((item: any) => ({
+              id: item.id || `sdbip-${item.Ref_Number || item.refNum}`,
+              refNum: item.Ref_Number || item.refNum,
+              strategicObj: item.SDBIP_Strategic_Objective || item.strategicObj,
+              bsd: item.BSD || item.bsd || '',
+              led: item.LED || item.led || '',
+              mfvm: item.MFVM || item.mfvm || '',
+              ggpp: item.GGPP || item.ggpp || '',
+              midt: item.MIDT || item.midt || '',
+              sr: item.SR || item.sr || '',
+              kpas: item.National_KPA || item.kpas || '',
+              operationalActivity: item.Description || item.operationalActivity || item.KPI || item.kpi,
+              kpi: item.KPI || item.kpi,
+              compliance: item.compliance || 'compliant',
+              uom: item.Unit_of_Measure || item.uom,
+              baseline: item.Baseline || item.baseline,
+              annualTarget: item.Annual_Target || item.annualTarget,
+              budgetAllocation: item.Budget_Allocation || item.budgetAllocation || item.budget,
+              q1: item.Q1_Target || item.q1,
+              q2: item.Q2_Target || item.q2,
+              midTermTarget: item.Mid_Term_Target || item.midTermTarget || item.midTerm,
+              q3: item.Q3_Target || item.q3,
+              q4: item.Q4_Target || item.q4,
+              responsibleUnit: item.Responsible_Owner || item.responsibleUnit,
+              submitter: item.Submitter || item.submitter,
+              approver: item.Approver || item.approver,
+              reviewer: item.Reviewer || item.reviewer,
+              internalAudit: item.Internal_Audit || item.internalAudit,
+              poeDesc: item.POE_Description || item.poeDesc,
+              poeStatus: item.poeStatus || "Uploaded to Vault",
+              ...item
+            }));
+            setRows(mappedRows.map(sanitizeSdbipRow));
           }
-        } else if (!isBackground) {
-          const templates: SdbipRow[] = Array.from({ length: 25 }, (_, idx) => ({
-            id: `row-template-${idx + 1}`,
-            refNum: `REF-0${idx + 1}`,
-            strategicObj: 
-              idx === 0 ? "To ensure reliable bulk water and electricity infrastructure" : 
-              idx === 1 ? "To promote local agrarian, manufacturing and hospitality economy" : 
-              idx === 2 ? "To provide effective institutional management and administrative support" :
-              idx === 3 ? "To ensure sound financial management and municipal viability" :
-              idx === 4 ? "To enhance good governance and public participation" :
-              idx === 5 ? "To implement integrated spatial planning and land use management" : "",
-            bsd: idx === 0 ? "Y" : "",
-            led: idx === 1 ? "Y" : "",
-            midt: idx === 2 ? "Y" : "",
-            mfvm: idx === 3 ? "Y" : "",
-            ggpp: idx === 4 ? "Y" : "",
-            sr: idx === 5 ? "Y" : "",
-            kpas: 
-              idx === 0 ? "Water Infrastructure Upgrade" : 
-              idx === 1 ? "Hospitality LED Co-op" : 
-              idx === 2 ? "Institutional Capacity Building" :
-              idx === 3 ? "Financial Systems Integration" :
-              idx === 4 ? "Public Consultation Forums" :
-              idx === 5 ? "Spatial Development Framework" : "",
-            operationalActivity: "",
-            kpi: "",
-            compliance: 'compliant',
-            uom: "",
-            mscoaTracking: idx === 0 ? "Project" : "",
-            baseline: "",
-            annualTarget: "",
-            budgetAllocation: "",
-            q1: "",
-            q2: "",
-            q3: "",
-            q4: "",
-            responsibleUnit: "",
-            poeStatus: "Not Uploaded"
-          }));
-          setRows(templates.map(sanitizeSdbipRow));
         }
 
         if (poesData && Array.isArray(poesData.poes)) {
@@ -2111,6 +2106,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     let quarterLabel = 'General / Overall';
     let fileList: string[] = [];
     let description = '';
+    const cleanRef = (row.refNum || '').trim().toLowerCase();
 
     if (quarter === 'q1') {
       quarterLabel = 'Q1 (First Quarter)';
@@ -2135,7 +2131,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     } else {
       quarterLabel = 'Overall Top Layer POE';
       description = row.poeDesc || '';
-      const matchPoes = poes.filter(p => p.refNum === row.refNum);
+      const matchPoes = poes.filter(p => p.refNum && p.refNum.trim().toLowerCase() === cleanRef);
       if (matchPoes.length > 0) {
         fileList = matchPoes.map(p => p.name);
       } else {
@@ -2144,8 +2140,23 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
       }
     }
 
+    // Fallback search in global poes if quarter fileList is empty
+    if (fileList.length === 0) {
+      const matchingGlobal = poes.filter(p => {
+        if (!p || !p.refNum) return false;
+        const pRef = p.refNum.trim().toLowerCase();
+        if (pRef !== cleanRef) return false;
+        if (quarter === 'general') return true;
+        const pType = (p.type || '').toLowerCase();
+        return pType.includes(quarter.toLowerCase()) || pType.includes('portfolio') || pType.includes('general');
+      });
+      if (matchingGlobal.length > 0) {
+        fileList = matchingGlobal.map(p => p.name);
+      }
+    }
+
     const filesWithMetadata = fileList.map(fName => {
-      const foundPoe = poes.find(p => p.name === fName || (p.refNum === row.refNum && p.name.includes(fName)));
+      const foundPoe = poes.find(p => p.name === fName || (p.refNum && p.refNum.trim().toLowerCase() === cleanRef && p.name.includes(fName)));
       return {
         name: fName,
         size: foundPoe?.size || '1.5 MB',
@@ -6484,9 +6495,9 @@ Timestamp: ${new Date().toLocaleString()}
                               refNum={row.refNum}
                               isFitAll={isFitAllReportingCells}
                               minRows={2}
-                              placeholder={!isRowSubmitter ? `Submitter Only (${row.submitter || row.responsibleUnit || 'Assigned'})` : !isQuarterActive('q1') ? "Locked for this period" : "Q1 Actual..."}
+                              placeholder={!row.q1Actual ? (!isRowSubmitter ? `Awaiting Submitter (${row.submitter || row.responsibleUnit || 'Assigned'})` : !isQuarterActive('q1') ? "Locked for this period" : "Q1 Actual...") : ""}
                               onOpenExpandModal={openCellExpandModal}
-                              className={!isRowSubmitter || !isQuarterActive('q1') ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white'}
+                              className={!isRowSubmitter || !isQuarterActive('q1') ? (row.q1Actual ? 'bg-slate-50 text-slate-900 font-bold border-slate-300' : 'bg-slate-100 text-slate-400 cursor-not-allowed') : 'bg-white font-semibold text-slate-900'}
                             />
                             {row.q1Actual && row.q1 && row.q1Actual !== row.q1 && (
                               <div className="absolute top-1 right-1 pointer-events-auto z-10">
@@ -6660,13 +6671,13 @@ Timestamp: ${new Date().toLocaleString()}
                             readOnly={true}
                             disabled={true}
                             onChange={() => {}}
-                            cellTitle="Q2 Actual (Locked)"
+                            cellTitle="Q2 Actual"
                             refNum={row.refNum}
                             isFitAll={isFitAllReportingCells}
                             minRows={2}
-                            placeholder="Locked"
+                            placeholder={!row.q2Actual ? "Awaiting Q2 submission" : ""}
                             onOpenExpandModal={openCellExpandModal}
-                            className="bg-slate-100/90 text-slate-600 cursor-not-allowed border-slate-200"
+                            className={row.q2Actual ? "bg-slate-50 text-slate-900 font-bold border-slate-300" : "bg-slate-100/90 text-slate-400 border-slate-200 cursor-not-allowed"}
                           />
                         )}
                       </td>
@@ -6857,13 +6868,13 @@ Timestamp: ${new Date().toLocaleString()}
                             readOnly={true}
                             disabled={true}
                             onChange={() => {}}
-                            cellTitle="Mid-Term Actual (Locked)"
+                            cellTitle="Mid-Term Actual"
                             refNum={row.refNum}
                             isFitAll={isFitAllReportingCells}
                             minRows={2}
-                            placeholder="Locked"
+                            placeholder={!row.midTermActual ? "Awaiting Mid-Term submission" : ""}
                             onOpenExpandModal={openCellExpandModal}
-                            className="bg-slate-100/90 text-slate-600 cursor-not-allowed border-slate-200 font-bold"
+                            className={row.midTermActual ? "bg-slate-50 text-slate-900 font-bold border-slate-300" : "bg-slate-100/90 text-slate-400 border-slate-200 cursor-not-allowed"}
                           />
                         )}
                       </td>
@@ -7024,13 +7035,13 @@ Timestamp: ${new Date().toLocaleString()}
                             readOnly={true}
                             disabled={true}
                             onChange={() => {}}
-                            cellTitle="Q3 Actual (Locked)"
+                            cellTitle="Q3 Actual"
                             refNum={row.refNum}
                             isFitAll={isFitAllReportingCells}
                             minRows={2}
-                            placeholder="Locked"
+                            placeholder={!row.q3Actual ? "Awaiting Q3 submission" : ""}
                             onOpenExpandModal={openCellExpandModal}
-                            className="bg-slate-100/90 text-slate-600 cursor-not-allowed border-slate-200 font-semibold"
+                            className={row.q3Actual ? "bg-slate-50 text-slate-900 font-bold border-slate-300" : "bg-slate-100/90 text-slate-400 border-slate-200 cursor-not-allowed"}
                           />
                         )}
                       </td>
@@ -7191,13 +7202,13 @@ Timestamp: ${new Date().toLocaleString()}
                             readOnly={true}
                             disabled={true}
                             onChange={() => {}}
-                            cellTitle="Q4 Actual (Locked)"
+                            cellTitle="Q4 Actual"
                             refNum={row.refNum}
                             isFitAll={isFitAllReportingCells}
                             minRows={2}
-                            placeholder="Locked"
+                            placeholder={!row.q4Actual ? "Awaiting Q4 submission" : ""}
                             onOpenExpandModal={openCellExpandModal}
-                            className="bg-slate-100/90 text-slate-600 cursor-not-allowed border-slate-200 font-semibold"
+                            className={row.q4Actual ? "bg-slate-50 text-slate-900 font-bold border-slate-300" : "bg-slate-100/90 text-slate-400 border-slate-200 cursor-not-allowed"}
                           />
                         )}
                       </td>

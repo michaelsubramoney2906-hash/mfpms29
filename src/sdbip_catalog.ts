@@ -1,5 +1,5 @@
-// SDBIP KPI Catalog Source of Truth
-// Defines all 110 SDBIP KPIs (92 Municipal M-series, 18 Departmental P-series)
+// SDBIP KPI Catalog Source of Truth - Nkangala District Municipality 2026/2027 SDBIP
+// Defines all 110 SDBIP KPIs (92 Municipal M-series, 18 Departmental/Project P-series) 1:1 verbatim with Council SDBIP document.
 
 export interface SdbipCatalogItem {
   Ref_Number: string;
@@ -13,6 +13,7 @@ export interface SdbipCatalogItem {
   MIDT: string;
   SR: string;
   Responsible_Owner: string;
+  Responsible_Person?: string;
   Unit_of_Measure: string;
   Baseline: string;
   Annual_Target: string;
@@ -24,817 +25,2609 @@ export interface SdbipCatalogItem {
   Q4_Target: string;
   Submitter: string;
   Approver: string;
+  Reviewer?: string;
+  Internal_Audit?: string;
   POE_Description: string;
   Description: string;
 }
 
-// Compact KPI definitions list with individual KPI-specific POE descriptions
-const mKpisCompact: { [key: string]: { desc: string; kpaIndex: number; uom?: string; target?: string; base?: string; q1?: string; q2?: string; mid?: string; q3?: string; q4?: string; poe: string } } = {
-  // KPA 1: Basic Service Delivery (1 - 15)
-  "M_01": { desc: "Percentage of households with access to basic potable water supply.", kpaIndex: 1, uom: "% households", target: "100%", base: "95%", poe: "Signed water quality and access verification report with meter connection logs" },
-  "M_02": { desc: "Percentage of sanitation complaints resolved within 24 hours.", kpaIndex: 1, uom: "% resolution", target: "100%", base: "85%", poe: "Signed sanitation complaints register and 24-hour job card closure report" },
-  "M_03": { desc: "Number of new water connections completed in informal settlements.", kpaIndex: 1, uom: "connections", target: "500", base: "300", poe: "Signed completion certificates and informal settlement connection register" },
-  "M_04": { desc: "Kilometers of new storm-water drainage pipelines installed.", kpaIndex: 1, uom: "km", target: "12 km", base: "8 km", poe: "Engineer signed stormwater completion certificates and GIS line records" },
-  "M_05": { desc: "Percentage of electricity service interruptions resolved within standard NRS timeframes.", kpaIndex: 1, uom: "% compliance", target: "95%", base: "90%", poe: "Signed NRS 048 outage logbook and fault resolution verification report" },
-  "M_06": { desc: "Number of high-mast street lights installed in rural nodes.", kpaIndex: 1, uom: "high-masts", target: "20", base: "12", poe: "Signed contractor handover certificate and high-mast inspection signoff" },
-  "M_07": { desc: "Kilometers of gravel roads upgraded to asphalt/tar.", kpaIndex: 1, uom: "km upgraded", target: "15 km", base: "10 km", poe: "Signed road surfacing completion certificates and GIS project ledger" },
-  "M_08": { desc: "Square meters of potholes patched on major municipal roads.", kpaIndex: 1, uom: "sqm patched", target: "8000 sqm", base: "5000 sqm", poe: "Signed pothole patching job cards and road maintenance register" },
-  "M_09": { desc: "Percentage of formal households with weekly refuse collection services.", kpaIndex: 1, uom: "% households", target: "100%", base: "98%", poe: "Signed waste collection route verification register and weighbridge tickets" },
-  "M_10": { desc: "Volume of domestic waste diverted from landfill sites through recycling initiatives.", kpaIndex: 1, uom: "tons", target: "1500 tons", base: "1000 tons", poe: "Signed recycling weighbridge receipts and waste diversion monthly report" },
-  "M_11": { desc: "Number of low-cost housing units connected to the bulk sewerage network.", kpaIndex: 1, uom: "units", target: "350 units", base: "200 units", poe: "Signed sewer connection certificates and housing ledger" },
-  "M_12": { desc: "Percentage compliance with drinking water quality standards (Blue Drop).", kpaIndex: 1, uom: "% compliance score", target: "98%", base: "95%", poe: "Signed Blue Drop water quality lab test compliance report" },
-  "M_13": { desc: "Percentage compliance with wastewater treatment facility effluent standards (Green Drop).", kpaIndex: 1, uom: "% compliance score", target: "92%", base: "88%", poe: "Signed Green Drop wastewater effluent laboratory compliance certificates" },
-  "M_14": { desc: "Number of preventative maintenance interventions executed on bulk water pumps.", kpaIndex: 1, uom: "cycles completed", target: "24", base: "18", poe: "Signed mechanical preventative maintenance job cards and pump station logbooks" },
-  "M_15": { desc: "Percentage reduction in non-revenue water losses across municipal grid.", kpaIndex: 1, uom: "% loss reduction", target: "5% reduction", base: "3% reduction", poe: "Signed water balance reconciliation report and non-revenue water audit" },
+// Compact KPI definitions list with individual KPI-specific POE descriptions matching Nkangala SDBIP 2026/2027
+export const NKANGALA_M_KPIS_OFFICIAL: { 
+  [key: string]: { 
+    strategicObj: string;
+    kpaIndex: number;
+    kpaCode: string;
+    owner: string;
+    person: string;
+    desc: string; 
+    uom: string; 
+    base: string; 
+    target: string; 
+    q1?: string; 
+    q2?: string; 
+    mid?: string; 
+    q3?: string; 
+    q4?: string; 
+    poe: string; 
+    budget: string;
+    submitter?: string;
+    approver?: string;
+    reviewer?: string;
+    internalAudit?: string;
+  } 
+} = {
+  // -------------------------------------------------------------------------------------------------------------------------
+  // KPA 1: Institutional Development and Transformation (M_01 - M_13) - Official Nkangala SDBIP Pages 21-26
+  // -------------------------------------------------------------------------------------------------------------------------
+  "M_01": {
+    strategicObj: "To recruit staff with adequate qualifications, skills, training and experience",
+    kpaIndex: 1,
+    kpaCode: "MIDT",
+    owner: "General Manager: Corporate Services",
+    person: "Labour Relations Officer",
+    desc: "Maximum acceptable percentage of staff vacancy rate (circular 88) per quarter",
+    uom: "Percentage",
+    base: "7%",
+    target: "≤10%",
+    q1: "≤10%",
+    q2: "≤10%",
+    q3: "≤10%",
+    q4: "≤10%",
+    poe: "Signed vacancy rate report (indicating the vacancy rate %)",
+    budget: "OPEX",
+    submitter: "Labour Relations Officer",
+    approver: "General Manager: Corporate Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_02": {
+    strategicObj: "To recruit staff with adequate qualifications, skills, training and experience",
+    kpaIndex: 1,
+    kpaCode: "MIDT",
+    owner: "General Manager: Corporate Services",
+    person: "Labour Relations Officer",
+    desc: "Percentage of vacant posts filled within 6 months (Circular 88) by 30 June 2027",
+    uom: "Percentage",
+    base: "93%",
+    target: "93%",
+    q1: "93%",
+    q2: "93%",
+    q3: "93%",
+    q4: "93%",
+    poe: "Signed vacancy rate report (indicating the vacancy rate)",
+    budget: "OPEX",
+    submitter: "Labour Relations Officer",
+    approver: "General Manager: Corporate Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_03": {
+    strategicObj: "To ensure the municipal staff are appropriately skilled in their respective areas of work",
+    kpaIndex: 1,
+    kpaCode: "MIDT",
+    owner: "General Manager: Corporate Services",
+    person: "Labour Relations Officer",
+    desc: "Percentage of allocated budget spent implementing Workplace Skills Plan by 30 June 2027",
+    uom: "Percentage",
+    base: "96%",
+    target: "90%",
+    q1: "N/A",
+    q2: "N/A",
+    q3: "N/A",
+    q4: "90%",
+    poe: "Signed Training Report, Workplace Skills Plan and Budget Vote Report",
+    budget: "R2 000",
+    submitter: "Labour Relations Officer",
+    approver: "General Manager: Corporate Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_04": {
+    strategicObj: "Ensuring the employment of highest levels of management comply with the Municipality’s Employment Equity Plan",
+    kpaIndex: 1,
+    kpaCode: "MIDT",
+    owner: "General Manager: Corporate Services",
+    person: "Labour Relations Officer",
+    desc: "Percentage of employees from previously disadvantaged groups appointed in the three highest levels of management (Level 0-3) as per the approved EE Plan (GKPI) by 30 June 2027",
+    uom: "Percentage",
+    base: "100%",
+    target: "100%",
+    q1: "100%",
+    q2: "100%",
+    q3: "100%",
+    q4: "100%",
+    poe: "EE Annual Plan and Signed Quarterly Reports on the implementation of the EE Plan (indicating the previously disadvantaged groups)",
+    budget: "OPEX",
+    submitter: "Labour Relations Officer",
+    approver: "General Manager: Corporate Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_05": {
+    strategicObj: "Enhance institutional capacity and performance and reduce fruitless and wasteful expenditure on suspended officials",
+    kpaIndex: 1,
+    kpaCode: "MIDT",
+    owner: "Chief Financial Officer",
+    person: "Division Manager: Supply Chain Management",
+    desc: "Quarterly salary bill expended on suspended officials (circular 88) per quarter",
+    uom: "Rands",
+    base: "R0",
+    target: "R0,00 (not above R0,00)",
+    q1: "R0,00 (not above R0,00)",
+    q2: "R0,00 (not above R0,00)",
+    q3: "R0,00 (not above R0,00)",
+    q4: "R0,00 (not above R0,00)",
+    poe: "Signed quarterly salary bill report indicating the salary expenditure for suspended officials. (If no officials suspended, a signed quarterly memo confirming that there were no suspensions)",
+    budget: "OPEX",
+    submitter: "Division Manager: Supply Chain Management",
+    approver: "Chief Financial Officer",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_06": {
+    strategicObj: "Enhance institutional capacity and performance and reduce fruitless and wasteful expenditure on suspended officials",
+    kpaIndex: 1,
+    kpaCode: "MIDT",
+    owner: "General Manager: Corporate Services",
+    person: "Legal Advisor",
+    desc: "Number of active suspensions longer than three months (circular 88) per quarter",
+    uom: "Number",
+    base: "100%",
+    target: "100%",
+    q1: "100%",
+    q2: "100%",
+    q3: "100%",
+    q4: "100%",
+    poe: "Signed Report on Declarations of Interest by Councillors",
+    budget: "OPEX",
+    submitter: "Legal Advisor",
+    approver: "General Manager: Corporate Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_07": {
+    strategicObj: "To be compliant with the Municipal Systems Act 32 of 2000, Schedule 2, Disclosure of Benefits & Declaration of interest",
+    kpaIndex: 1,
+    kpaCode: "MIDT",
+    owner: "Chief Financial Officer",
+    person: "Division Manager: Supply Chain Management",
+    desc: "Percentage of administrative staff who have declared their financial interests (circular 88) by 30 June 2027",
+    uom: "Percentage",
+    base: "100%",
+    target: "100%",
+    q1: "100%",
+    q2: "100%",
+    q3: "100%",
+    q4: "100%",
+    poe: "Signed Report on Declarations of Interests of Employees.",
+    budget: "OPEX",
+    submitter: "Division Manager: Supply Chain Management",
+    approver: "Chief Financial Officer",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_08": {
+    strategicObj: "To be compliant with the Municipal Systems Act 32 of 2000, Schedule 1, Declaration of interest",
+    kpaIndex: 1,
+    kpaCode: "MIDT",
+    owner: "General Manager: Corporate Services",
+    person: "Secretary to the Member of the Mayoral Committee",
+    desc: "Percentage of councillors who have declared their financial interests (Circular 88) by 30 June 2027",
+    uom: "Percentage",
+    base: "100%",
+    target: "100%",
+    q1: "100%",
+    q2: "100%",
+    q3: "100%",
+    q4: "100%",
+    poe: "Signed Report on Declarations of Interests by Councillors.",
+    budget: "OPEX",
+    submitter: "Secretary to the Member of the Mayoral Committee",
+    approver: "General Manager: Corporate Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_09": {
+    strategicObj: "Enhance institutional capacity & performance and develop a performance management culture",
+    kpaIndex: 1,
+    kpaCode: "MIDT",
+    owner: "Municipal Manager",
+    person: "Performance Management Co-ordinator",
+    desc: "Percentage of 2025/2026 individual performance evaluations conducted with all employees by 30 June 2027.",
+    uom: "Percentage",
+    base: "100%",
+    target: "100%",
+    q1: "N/A",
+    q2: "N/A",
+    q3: "N/A",
+    q4: "100%",
+    poe: "Consolidated Annual Performance Evaluation Report to Council and Council resolution.",
+    budget: "OPEX",
+    submitter: "Performance Management Co-ordinator",
+    approver: "Municipal Manager",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_10": {
+    strategicObj: "Ensure Good governance and regulatory compliance",
+    kpaIndex: 1,
+    kpaCode: "MIDT",
+    owner: "Municipal Manager",
+    person: "Performance Management Co-ordinator",
+    desc: "Number of Circular 88 planning reports submitted to CoGHSTA in line with the MFMA per quarter",
+    uom: "Number",
+    base: "4",
+    target: "4",
+    q1: "1",
+    q2: "1",
+    q3: "1",
+    q4: "1",
+    poe: "Signed circular 88 reports and proof of submission (email)",
+    budget: "OPEX",
+    submitter: "Performance Management Co-ordinator",
+    approver: "Municipal Manager",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_11": {
+    strategicObj: "Ensure efficient administration and institutional development",
+    kpaIndex: 1,
+    kpaCode: "MIDT",
+    owner: "General Manager: Corporate Services",
+    person: "Labour Relations Officer",
+    desc: "Number of new/reviewed policies approved by Council by 30 June 2027.",
+    uom: "Number",
+    base: "70",
+    target: "70",
+    q1: "N/A",
+    q2: "N/A",
+    q3: "N/A",
+    q4: "70",
+    poe: "Report to Council and Council Resolution(s)",
+    budget: "OPEX",
+    submitter: "Labour Relations Officer",
+    approver: "General Manager: Corporate Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_12": {
+    strategicObj: "Ensure safe communities by mitigating the impact of disasters and fires through rapid response",
+    kpaIndex: 1,
+    kpaCode: "CS",
+    owner: "General Manager: Community & Development Services",
+    person: "Chief Fire Officer",
+    desc: "Percentage of structural fire incidents attended to within the required 40 minutes attendance time (circular 88)",
+    uom: "Percentage",
+    base: "100%",
+    target: "100%",
+    q1: "100%",
+    q2: "100%",
+    q3: "100%",
+    q4: "100%",
+    poe: "Signed quarterly Fire and rescue report, spreadsheet showing calculation of structural firefighting incident responded to within 40 minutes and call out slips",
+    budget: "OPEX",
+    submitter: "Chief Fire Officer",
+    approver: "General Manager: Community & Development Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_13": {
+    strategicObj: "Ensure comprehensive health and safety standards",
+    kpaIndex: 1,
+    kpaCode: "MIDT",
+    owner: "General Manager: Corporate Services",
+    person: "Labour Relations Officer",
+    desc: "Percentage of findings on health and safety implemented by 30 June 2027",
+    uom: "Percentage",
+    base: "100%",
+    target: "100%",
+    q1: "100%",
+    q2: "100%",
+    q3: "100%",
+    q4: "100%",
+    poe: "Signed quarterly OHS Report",
+    budget: "OPEX",
+    submitter: "Labour Relations Officer",
+    approver: "General Manager: Corporate Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
 
-  // KPA 2: Municipal Institutional Development & Transformation (16 - 30)
-  "M_16": { desc: "Percentage of employment equity targets met in senior manager roles.", kpaIndex: 2, uom: "% representation", target: "60%", base: "55%", poe: "Signed quarterly employment equity report and senior management stats" },
-  "M_17": { desc: "Percentage of municipal staff performance reviews completed on time.", kpaIndex: 2, uom: "% compliance", target: "100%", base: "90%", poe: "Signed staff performance review assessment forms and HR submission register" },
-  "M_18": { desc: "Percentage of critical vacant posts filled within 3 months of advertisement.", kpaIndex: 2, uom: "% vacancies filled", target: "80%", base: "70%", poe: "Signed vacancy rate report (indicating the vacancy rate percentage)" },
-  "M_19": { desc: "Number of formal workplace skills training interventions completed.", kpaIndex: 2, uom: "interventions", target: "45", base: "30", poe: "Signed Workplace Skills Plan (WSP) and training attendance registers" },
-  "M_20": { desc: "Employee retention rate under strategic scarce-skills program.", kpaIndex: 2, uom: "% retention", target: "92%", base: "88%", poe: "Signed scarce skills retention schedule and payroll verification report" },
-  "M_21": { desc: "Number of joint labor-management consultative forum meetings held.", kpaIndex: 2, uom: "meetings", target: "4", base: "4", poe: "Signed Local Labour Forum (LLF) minutes and attendance registers" },
-  "M_22": { desc: "Percentage of IT disaster recovery plan test cycles passed.", kpaIndex: 2, uom: "% pass", target: "100%", base: "100%", poe: "Signed IT disaster recovery test result signoff and simulation log" },
-  "M_23": { desc: "Percentage availability of core municipal ERP systems.", kpaIndex: 2, uom: "% uptime", target: "99.5%", base: "98%", poe: "Signed ERP monthly system uptime availability reports" },
-  "M_24": { desc: "Number of employee wellness outreach and health screening programs conducted.", kpaIndex: 2, uom: "programs", target: "8", base: "6", poe: "Signed employee wellness attendance register and medical outreach report" },
-  "M_25": { desc: "Percentage of occupational health and safety (OHS) incident audits completed.", kpaIndex: 2, uom: "% compliance", target: "100%", base: "95%", poe: "Signed OHS compliance audit certificates and inspection reports" },
-  "M_26": { desc: "Percentage of internal promotions aligned with the employment equity plan.", kpaIndex: 2, uom: "% alignment", target: "75%", base: "70%", poe: "Signed HR recruitment minutes and employment equity promotion log" },
-  "M_27": { desc: "Number of departmental operational risk registers updated.", kpaIndex: 2, uom: "updates", target: "4", base: "4", poe: "Signed departmental operational risk registers with Risk Committee signoff" },
-  "M_28": { desc: "Percentage of municipal bylaws reviewed and updated for council submission.", kpaIndex: 2, uom: "% progress", target: "100%", base: "80%", poe: "Signed Council resolution approving municipal bylaws review" },
-  "M_29": { desc: "Average number of days taken to resolve formal staff grievances.", kpaIndex: 2, uom: "days", target: "Less than 15 days", base: "18 days average", poe: "Signed employee grievance resolution log and closure letters" },
-  "M_30": { desc: "Percentage of customer service desks meeting standard response protocols.", kpaIndex: 2, uom: "% compliance", target: "90%", base: "85%", poe: "Signed customer service response tracking report and mystery shopper audit" },
+  // -------------------------------------------------------------------------------------------------------------------------
+  // KPA 2: Good Governance & Public Participation (M_14 - M_44) - Official Nkangala SDBIP Pages 27-37
+  // -------------------------------------------------------------------------------------------------------------------------
+  "M_14": {
+    strategicObj: "Ensure Good governance and regulatory compliance",
+    kpaIndex: 2,
+    kpaCode: "GGPP",
+    owner: "Municipal Manager",
+    person: "Risk Officer",
+    desc: "Number of strategic Risk Register developed and approved by 30 June 2027",
+    uom: "Number",
+    base: "1",
+    target: "1",
+    q1: "N/A",
+    q2: "N/A",
+    q3: "N/A",
+    q4: "1",
+    poe: "Approved Strategic Risk Register and Council Resolution",
+    budget: "OPEX",
+    submitter: "Risk Officer",
+    approver: "Municipal Manager",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_15": {
+    strategicObj: "Ensure Good governance and regulatory compliance",
+    kpaIndex: 2,
+    kpaCode: "GGPP",
+    owner: "Municipal Manager",
+    person: "Risk Officer",
+    desc: "Percentage of action plans implemented to address Strategic Risks identified per quarter (Total Organisation)",
+    uom: "Percentage",
+    base: "89%",
+    target: "90%",
+    q1: "90%",
+    q2: "90%",
+    q3: "90%",
+    q4: "90%",
+    poe: "Signed quarterly Strategic Risk Register",
+    budget: "OPEX",
+    submitter: "Risk Officer",
+    approver: "Municipal Manager",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_16": {
+    strategicObj: "Ensure Good governance and regulatory compliance",
+    kpaIndex: 2,
+    kpaCode: "GGPP",
+    owner: "Municipal Manager",
+    person: "Risk Officer",
+    desc: "Percentage of action plans implemented to address Operational Risks Identified per quarter (Total Organisation)",
+    uom: "Percentage",
+    base: "98%",
+    target: "98%",
+    q1: "98%",
+    q2: "98%",
+    q3: "98%",
+    q4: "98%",
+    poe: "Signed quarterly Operational Risk Report",
+    budget: "OPEX",
+    submitter: "Risk Officer",
+    approver: "Municipal Manager",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_17": {
+    strategicObj: "Ensure Good governance and regulatory compliance",
+    kpaIndex: 2,
+    kpaCode: "GGPP",
+    owner: "Municipal Manager",
+    person: "Risk Officer",
+    desc: "Percentage of action plans implemented to address Fraud and Corruption risks identified per quarter (Total Organisation)",
+    uom: "Percentage",
+    base: "96%",
+    target: "96%",
+    q1: "96%",
+    q2: "96%",
+    q3: "96%",
+    q4: "96%",
+    poe: "Signed quarterly Fraud & Corruption Risk Reports",
+    budget: "OPEX",
+    submitter: "Risk Officer",
+    approver: "Municipal Manager",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_18": {
+    strategicObj: "To facilitate coordinated planning & development, transparent good governance and regulatory compliance",
+    kpaIndex: 2,
+    kpaCode: "GGPP",
+    owner: "General Manager: Planning & Economic Development",
+    person: "Manager: Planning and Development",
+    desc: "Number of Final IDP documents tabled for approval to Council by 31 May 2027",
+    uom: "Number",
+    base: "1",
+    target: "1",
+    q1: "N/A",
+    q2: "N/A",
+    q3: "N/A",
+    q4: "1",
+    poe: "Final IDP Document & Council Resolution",
+    budget: "OPEX",
+    submitter: "Manager: Planning and Development",
+    approver: "General Manager: Planning & Economic Development",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_19": {
+    strategicObj: "To facilitate coordinated planning & development, transparent good governance and regulatory compliance",
+    kpaIndex: 2,
+    kpaCode: "GGPP",
+    owner: "Municipal Manager",
+    person: "Municipal Manager",
+    desc: "Number of Annual Reports tabled to Council by 31 January 2027.",
+    uom: "Number",
+    base: "1",
+    target: "1",
+    q1: "N/A",
+    q2: "N/A",
+    q3: "1",
+    q4: "N/A",
+    poe: "Approved Annual report and Council Resolution",
+    budget: "OPEX",
+    submitter: "Municipal Manager",
+    approver: "Executive Mayor",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_20": {
+    strategicObj: "To facilitate coordinated planning & development, transparent good governance and regulatory compliance",
+    kpaIndex: 2,
+    kpaCode: "GGPP",
+    owner: "General Manager: Corporate Services",
+    person: "Public Accounts Researcher",
+    desc: "Number of Oversight Reports Submitted by MPAC to Council by 31 March 2027.",
+    uom: "Number",
+    base: "1",
+    target: "1",
+    q1: "N/A",
+    q2: "N/A",
+    q3: "1",
+    q4: "N/A",
+    poe: "Oversight Report & Council Resolution",
+    budget: "OPEX",
+    submitter: "Public Accounts Researcher",
+    approver: "General Manager: Corporate Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_21": {
+    strategicObj: "To ensure financial sustainability to meet the statutory requirements",
+    kpaIndex: 2,
+    kpaCode: "MFVM",
+    owner: "Chief Financial Officer",
+    person: "Divisional Manager: Treasury and Assets",
+    desc: "Attain clean Audit Opinion by 31 December 2026",
+    uom: "Number",
+    base: "1 (Unqualified with matters)",
+    target: "1 (Clean Audit)",
+    q1: "N/A",
+    q2: "1",
+    q3: "N/A",
+    q4: "N/A",
+    poe: "AG’s Audit Report",
+    budget: "OPEX",
+    submitter: "Divisional Manager: Treasury and Assets",
+    approver: "Chief Financial Officer",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_22": {
+    strategicObj: "To ensure financial sustainability to meet the statutory requirements",
+    kpaIndex: 2,
+    kpaCode: "MFVM",
+    owner: "Chief Financial Officer",
+    person: "Divisional Manager: Treasury and Assets",
+    desc: "Number of repeat audit findings (Circular 88) by 30 December 2026",
+    uom: "Number",
+    base: "0",
+    target: "≤0",
+    q1: "N/A",
+    q2: "≤10%",
+    q3: "N/A",
+    q4: "N/A",
+    poe: "AG’s Audit Report",
+    budget: "OPEX",
+    submitter: "Divisional Manager: Treasury and Assets",
+    approver: "Chief Financial Officer",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_23": {
+    strategicObj: "To ensure financial sustainability to meet the statutory requirements",
+    kpaIndex: 2,
+    kpaCode: "MFVM",
+    owner: "Chief Financial Officer",
+    person: "Divisional Manager: Treasury and Assets",
+    desc: "Number of Action Plan on issues raised by the Auditor General tabled to Council by 30 December 2026.",
+    uom: "Number",
+    base: "1",
+    target: "1",
+    q1: "N/A",
+    q2: "1",
+    q3: "N/A",
+    q4: "N/A",
+    poe: "Audit Action plan and Council Resolution",
+    budget: "OPEX",
+    submitter: "Divisional Manager: Treasury and Assets",
+    approver: "Chief Financial Officer",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_24": {
+    strategicObj: "To ensure financial sustainability to meet the statutory requirements",
+    kpaIndex: 2,
+    kpaCode: "MFVM",
+    owner: "Chief Financial Officer",
+    person: "Divisional Manager: Treasury and Assets",
+    desc: "Percentage of AG Findings raised in Management Letter resolved by 30 June 2027 (Total Organisation)",
+    uom: "Percentage",
+    base: "1",
+    target: "1",
+    q1: "N/A",
+    q2: "N/A",
+    q3: "N/A",
+    q4: "1",
+    poe: "Signed Progress Report on the implementation of the Audit Action Plan",
+    budget: "OPEX",
+    submitter: "Divisional Manager: Treasury and Assets",
+    approver: "Chief Financial Officer",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_25": {
+    strategicObj: "To facilitate coordinated planning & development, transparent good governance and regulatory compliance",
+    kpaIndex: 2,
+    kpaCode: "GGPP",
+    owner: "Municipal Manager",
+    person: "Secretary to the Member of the Mayoral Committee",
+    desc: "Number of Final 2027/28 SDBIP approved by Executive Mayor within 28 days after approval of Annual Budget",
+    uom: "Number",
+    base: "1",
+    target: "1",
+    q1: "N/A",
+    q2: "N/A",
+    q3: "N/A",
+    q4: "1",
+    poe: "Approved and signed SDBIP 2027/28 SDBIP",
+    budget: "OPEX",
+    submitter: "Secretary to the Member of the Mayoral Committee",
+    approver: "Municipal Manager",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_26": {
+    strategicObj: "To facilitate coordinated planning development, transparent good governance and regulatory compliance",
+    kpaIndex: 2,
+    kpaCode: "GGPP",
+    owner: "Municipal Manager",
+    person: "Public Accounts Researcher",
+    desc: "Number of adjusted 2026/27 SDBIP approved within 28 days after the approval of the Adjusted Budget",
+    uom: "Number",
+    base: "1",
+    target: "1",
+    q1: "N/A",
+    q2: "N/A",
+    q3: "1",
+    q4: "N/A",
+    poe: "Approved and signed Adjusted 2026/27 SDBIP and Council Resolution",
+    budget: "OPEX",
+    submitter: "Public Accounts Researcher",
+    approver: "Municipal Manager",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_27": {
+    strategicObj: "To facilitate coordinated planning & development, transparent good governance and regulatory compliance",
+    kpaIndex: 2,
+    kpaCode: "GGPP",
+    owner: "General Manager: Planning & Economic Development",
+    person: "Manager: Planning and Development",
+    desc: "Number of 2027/2028 IDP Final Framework Plan approved by 30 August 2026.",
+    uom: "Number",
+    base: "1",
+    target: "1",
+    q1: "1",
+    q2: "N/A",
+    q3: "N/A",
+    q4: "N/A",
+    poe: "Final Framework Plan and Council Resolution",
+    budget: "OPEX",
+    submitter: "Manager: Planning and Development",
+    approver: "General Manager: Planning & Economic Development",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_28": {
+    strategicObj: "Ensure Good governance and regulatory compliance",
+    kpaIndex: 2,
+    kpaCode: "GGPP",
+    owner: "Municipal Manager",
+    person: "Internal Auditor",
+    desc: "Number of risk-based audit plan developed and approved by 30 June 2027.",
+    uom: "Number",
+    base: "1",
+    target: "1",
+    q1: "N/A",
+    q2: "N/A",
+    q3: "N/A",
+    q4: "1",
+    poe: "Approved risk-based audit plan and Council resolution",
+    budget: "OPEX",
+    submitter: "Internal Auditor",
+    approver: "Municipal Manager",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_29": {
+    strategicObj: "Ensure integrated planning & development planning in line within the District",
+    kpaIndex: 2,
+    kpaCode: "GGPP",
+    owner: "General Manager: Corporate Services",
+    person: "Divisional Manager: Records, Auxiliary Services and Secretariat",
+    desc: "Number of quarterly District Municipal Managers Forums meetings held by 30 June 2027",
+    uom: "Number",
+    base: "4",
+    target: "4",
+    q1: "1",
+    q2: "1",
+    q3: "1",
+    q4: "1",
+    poe: "Signed Notice, Agenda, Signed Minutes of the Previous Quarter and Attendance Register.",
+    budget: "OPEX",
+    submitter: "Divisional Manager: Records, Auxiliary Services and Secretariat",
+    approver: "General Manager: Corporate Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_30": {
+    strategicObj: "To provide support through information sharing, service delivery updates and identifying community needs",
+    kpaIndex: 2,
+    kpaCode: "GGPP",
+    owner: "General Manager: Corporate Services",
+    person: "Divisional Manager: Records, Auxiliary Services and Secretariat",
+    desc: "Number of quarterly District Mayors Forum meetings held by 30 June 2027",
+    uom: "Number",
+    base: "4",
+    target: "4",
+    q1: "1",
+    q2: "1",
+    q3: "1",
+    q4: "1",
+    poe: "Signed Notice, Agenda, Signed Minutes of the Previous Quarter and Attendance Register.",
+    budget: "OPEX",
+    submitter: "Divisional Manager: Records, Auxiliary Services and Secretariat",
+    approver: "General Manager: Corporate Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_31": {
+    strategicObj: "To ensure that the public participates fully and meaningfully in developing the IDP process",
+    kpaIndex: 2,
+    kpaCode: "GGPP",
+    owner: "General Manager: Corporate Services",
+    person: "Head Office: Office of the Speaker",
+    desc: "Number of Public Participation meetings held by 30 June 2027",
+    uom: "Number",
+    base: "12",
+    target: "12",
+    q1: "N/A",
+    q2: "6",
+    q3: "N/A",
+    q4: "6",
+    poe: "Signed Mayoral Izimbizo Community Outreach Report and attendance registers",
+    budget: "R1 000",
+    submitter: "Head Office: Office of the Speaker",
+    approver: "General Manager: Corporate Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_32": {
+    strategicObj: "Ensure Good governance and regulatory compliance",
+    kpaIndex: 2,
+    kpaCode: "GGPP",
+    owner: "Director: Corporate Services",
+    person: "Labour Relations Officer",
+    desc: "Number of Local Labour Forums (LLF) meetings held by 30 June 2027",
+    uom: "Number",
+    base: "10",
+    target: "6",
+    q1: "2",
+    q2: "1",
+    q3: "2",
+    q4: "1",
+    poe: "Signed Notice, Agenda, Attendance Registers and previous quarter signed minutes.",
+    budget: "OPEX",
+    submitter: "Labour Relations Officer",
+    approver: "Director: Corporate Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_33": {
+    strategicObj: "To develop strategies in alignment with national and provincial sectoral plans & identify priority issues",
+    kpaIndex: 2,
+    kpaCode: "GGPP",
+    owner: "General Manager: Planning & Economic Development",
+    person: "Divisional Manager: IDP",
+    desc: "Number of strategic Legkotla resolutions implemented by 30 June 2027",
+    uom: "Number",
+    base: "100%",
+    target: "90%",
+    q1: "90%",
+    q2: "90%",
+    q3: "90%",
+    q4: "90%",
+    poe: "Signed Strategic Lekgotla monitoring report",
+    budget: "OPEX",
+    submitter: "Divisional Manager: IDP",
+    approver: "General Manager: Planning & Economic Development",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_34": {
+    strategicObj: "To co-ordinate planning and service delivery across all government structures",
+    kpaIndex: 2,
+    kpaCode: "GGPP",
+    owner: "General Manager: Planning & Economic Development",
+    person: "Divisional Manager: IDP",
+    desc: "Number of Nkangala District One plan (DDM) reports submitted to Council per quarter",
+    uom: "Number",
+    base: "4",
+    target: "4",
+    q1: "1",
+    q2: "1",
+    q3: "1",
+    q4: "1",
+    poe: "Quarterly Report on the Implementation of DDM One Plan and Council Resolutions.",
+    budget: "OPEX",
+    submitter: "Divisional Manager: IDP",
+    approver: "General Manager: Planning & Economic Development",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_35": {
+    strategicObj: "Monitor and evaluate the implementation plans of the lekgotla resolutions",
+    kpaIndex: 2,
+    kpaCode: "GGPP",
+    owner: "General Manager: Planning & Economic Development",
+    person: "Divisional Manager: IDP",
+    desc: "Percentage of strategic Legkotla resolutions implemented by 30 June 2027",
+    uom: "Percentage",
+    base: "100%",
+    target: "90%",
+    q1: "90%",
+    q2: "90%",
+    q3: "90%",
+    q4: "90%",
+    poe: "Signed Strategic Lekgotla monitoring report",
+    budget: "OPEX",
+    submitter: "Divisional Manager: IDP",
+    approver: "General Manager: Planning & Economic Development",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_36": {
+    strategicObj: "Ensure Good governance and regulatory compliance",
+    kpaIndex: 2,
+    kpaCode: "GGPP",
+    owner: "Municipal Manager",
+    person: "Divisional Manager: IDP",
+    desc: "Percentage of strategic lekgotla resolutions implemented by 30 June 2027",
+    uom: "Percentage",
+    base: "2",
+    target: "100%",
+    q1: "100%",
+    q2: "100%",
+    q3: "100%",
+    q4: "100%",
+    poe: "Signed Strategic Lekgotla monitoring report",
+    budget: "OPEX",
+    submitter: "Divisional Manager: IDP",
+    approver: "Municipal Manager",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_37": {
+    strategicObj: "Ensure Good governance and regulatory compliance",
+    kpaIndex: 2,
+    kpaCode: "GGPP",
+    owner: "General Manager: Corporate Services",
+    person: "Divisional Manager: Records, Auxiliary Services and Secretariat",
+    desc: "Number of reports on Council Resolutions submitted to Council per quarter",
+    uom: "Number",
+    base: "New",
+    target: "4",
+    q1: "1",
+    q2: "1",
+    q3: "1",
+    q4: "1",
+    poe: "Signed Quarterly Reports and Council Resolution.",
+    budget: "OPEX",
+    submitter: "Divisional Manager: Records, Auxiliary Services and Secretariat",
+    approver: "General Manager: Corporate Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_38": {
+    strategicObj: "To ensure efficient administration and institutional development",
+    kpaIndex: 2,
+    kpaCode: "MIDT",
+    owner: "Municipal Manager",
+    person: "Senior IT Administrator",
+    desc: "Number of ICT Steering Committee meetings held per quarter",
+    uom: "Number",
+    base: "New",
+    target: "4",
+    q1: "1",
+    q2: "1",
+    q3: "1",
+    q4: "1",
+    poe: "Signed Notice, Agenda, Attendance Registers and previous quarter signed minutes",
+    budget: "OPEX",
+    submitter: "Senior IT Administrator",
+    approver: "Municipal Manager",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_39": {
+    strategicObj: "To ensure efficient administration and institutional development",
+    kpaIndex: 2,
+    kpaCode: "MIDT",
+    owner: "Municipal Manager",
+    person: "Senior IT Administrator",
+    desc: "Percentage of ICT Steering Committee Recommendations implemented by 30 June 2027",
+    uom: "Percentage",
+    base: "100%",
+    target: "100%",
+    q1: "100%",
+    q2: "100%",
+    q3: "100%",
+    q4: "100%",
+    poe: "Signed quarterly Report on implementation of ICT Steering Committee Recommendations",
+    budget: "OPEX",
+    submitter: "Senior IT Administrator",
+    approver: "Municipal Manager",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_40": {
+    strategicObj: "Ensure Good governance and regulatory compliance",
+    kpaIndex: 2,
+    kpaCode: "GGPP",
+    owner: "Municipal Manager",
+    person: "Internal Auditor",
+    desc: "Percentage of Internal Audit recommendations implemented by 30 June 2027 (Total Organisation)",
+    uom: "Percentage",
+    base: "58%",
+    target: "100%",
+    q1: "100%",
+    q2: "100%",
+    q3: "100%",
+    q4: "100%",
+    poe: "Signed Quarterly IA report",
+    budget: "OPEX",
+    submitter: "Internal Auditor",
+    approver: "Municipal Manager",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_41": {
+    strategicObj: "Ensure Good governance and regulatory compliance",
+    kpaIndex: 2,
+    kpaCode: "GGPP",
+    owner: "Municipal Manager",
+    person: "Internal Auditor",
+    desc: "Percentage of Audit Committee resolutions implemented by 30 June 2027",
+    uom: "Percentage",
+    base: "83%",
+    target: "100%",
+    q1: "100%",
+    q2: "100%",
+    q3: "100%",
+    q4: "100%",
+    poe: "Signed Quarterly Audit committee resolution register",
+    budget: "OPEX",
+    submitter: "Internal Auditor",
+    approver: "Municipal Manager",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_42": {
+    strategicObj: "Ensure Good governance and regulatory compliance",
+    kpaIndex: 2,
+    kpaCode: "GGPP",
+    owner: "Municipal Manager",
+    person: "Internal Auditor",
+    desc: "Number of Audit Committee Reports submitted to Council by 30 June 2027",
+    uom: "Number",
+    base: "4",
+    target: "4",
+    q1: "1",
+    q2: "1",
+    q3: "1",
+    q4: "1",
+    poe: "Quarterly Signed Audit Committee Reports and Council Resolution.",
+    budget: "OPEX",
+    submitter: "Internal Auditor",
+    approver: "Municipal Manager",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_43": {
+    strategicObj: "Ensure good governance and regulatory compliance",
+    kpaIndex: 2,
+    kpaCode: "GGPP",
+    owner: "Municipal Manager",
+    person: "Risk Officer",
+    desc: "Percentage of official complaints received and responded to through the municipal Anti-Fraud and Anti-Corruption hotline (only that are applicable to NDM functions) by 30 June 2027",
+    uom: "Percentage",
+    base: "100%",
+    target: "70%",
+    q1: "70%",
+    q2: "70%",
+    q3: "70%",
+    q4: "70%",
+    poe: "Signed Reports on complaints (indicating the percentage of complaints received and responded to that are applicable to NDM functions)",
+    budget: "OPEX",
+    submitter: "Risk Officer",
+    approver: "Municipal Manager",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_44": {
+    strategicObj: "Ensure Good governance and regulatory compliance",
+    kpaIndex: 2,
+    kpaCode: "GGPP",
+    owner: "General Manager: Corporate Services",
+    person: "Divisional Manager: Records, Auxiliary Services and Secretariat",
+    desc: "Number of agenda items deferred to the next council meeting (Circular 88) by 30 June 2027",
+    uom: "Number",
+    base: "0",
+    target: "≤ 3",
+    q1: "≤ 3",
+    q2: "≤ 3",
+    q3: "≤ 3",
+    q4: "≤ 3",
+    poe: "Signed Council Minutes of previous quarter and Council Minutes of the current quarter",
+    budget: "OPEX",
+    submitter: "Divisional Manager: Records, Auxiliary Services and Secretariat",
+    approver: "General Manager: Corporate Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
 
-  // KPA 3: Local Economic Development (31 - 45)
-  "M_31": { desc: "Number of work opportunities created through Expanded Public Works Programme (EPWP).", kpaIndex: 3, uom: "jobs", target: "1200", base: "950", poe: "Signed EPWP participant contracts, ID copies, and monthly stipend payroll registers" },
-  "M_32": { desc: "Number of local SMMEs supported through targeted municipal capacity workshops.", kpaIndex: 3, uom: "SMMEs trained", target: "80", base: "50", poe: "Signed SMME capacity workshop attendance registers and training evaluation reports" },
-  "M_33": { desc: "Value of municipal procurement spend allocated to local SMMEs.", kpaIndex: 3, uom: "Rand value", target: "R15,000,000", base: "R10,000,000", poe: "Signed SCM local spend report and payment vouchers to local SMMEs" },
-  "M_34": { desc: "Number of tourist information desks maintained and supported.", kpaIndex: 3, uom: "desks", target: "4", base: "3", poe: "Signed tourist information desk visitor logs and monthly tourism activity report" },
-  "M_35": { desc: "Number of agricultural cooperatives supported with equipment or training.", kpaIndex: 3, uom: "cooperatives", target: "10", base: "6", poe: "Signed agricultural cooperative support distribution register and handover notes" },
-  "M_36": { desc: "Number of local business forums hosted to align LED initiatives.", kpaIndex: 3, uom: "forums", target: "4", base: "2", poe: "Signed Local Business Forum agenda, minutes, and attendance register" },
-  "M_37": { desc: "Percentage of LED strategy targets successfully implemented during the year.", kpaIndex: 3, uom: "% implementation", target: "90%", base: "80%", poe: "Signed LED strategy implementation progress report and oversight notes" },
-  "M_38": { desc: "Number of job seekers registered on the municipal skills database.", kpaIndex: 3, uom: "seekers", target: "1500", base: "1000", poe: "Signed municipal job seeker database extracts and registration records" },
-  "M_39": { desc: "Number of youth-owned enterprises receiving direct material assistance.", kpaIndex: 3, uom: "enterprises", target: "25", base: "15", poe: "Signed youth enterprise support distribution sheets and delivery notes" },
-  "M_40": { desc: "Number of informal trading stalls constructed or upgraded.", kpaIndex: 3, uom: "stalls", target: "50", base: "30", poe: "Signed informal trading stall handover certificates and inspection report" },
-  "M_41": { desc: "Percentage of informal trading licenses processed within 7 working days.", kpaIndex: 3, uom: "% compliance", target: "95%", base: "90%", poe: "Signed informal trading permits register and processing turnaround log" },
-  "M_42": { desc: "Number of investment promotion workshops hosted with external partners.", kpaIndex: 3, uom: "workshops", target: "2", base: "1", poe: "Signed investment promotion workshop attendance register and partner agreements" },
-  "M_43": { desc: "Number of community-based public works infrastructure programs initiated.", kpaIndex: 3, uom: "programs", target: "6", base: "4", poe: "Signed community public works project initiation charter and site log" },
-  "M_44": { desc: "Number of skills training bursaries awarded to local youth.", kpaIndex: 3, uom: "bursaries", target: "30", base: "20", poe: "Signed youth bursary award letters and tertiary registration proofs" },
-  "M_45": { desc: "Value of public private partnership agreements finalized for economic hubs.", kpaIndex: 3, uom: "agreements", target: "2", base: "1", poe: "Signed Public-Private Partnership (PPP) agreements and Council approval" },
+  // -------------------------------------------------------------------------------------------------------------------------
+  // KPA 3: Local Economic Development (M_45 - M_49) - Official Nkangala SDBIP Pages 38-40
+  // -------------------------------------------------------------------------------------------------------------------------
+  "M_45": {
+    strategicObj: "To create job opportunities",
+    kpaIndex: 3,
+    kpaCode: "LED",
+    owner: "General Manager: Planning & Economic Development",
+    person: "Divisional Manager: Expanded Public Works Programme and Community Works Programme",
+    desc: "Number of EPWP Full Time Equivalent (FTE’s) job opportunities provided (GKPI’s) by 30 June 2027",
+    uom: "Number",
+    base: "350",
+    target: "132",
+    q1: "30",
+    q2: "30",
+    q3: "30",
+    q4: "42",
+    poe: "Signed progress reports and listing of employed EPWP Full Time Equivalent (FTE’s) (Employment Contracts and monthly attendance registers submitted on physical files)",
+    budget: "OPEX",
+    submitter: "Divisional Manager: EPWP & CWP",
+    approver: "General Manager: Planning & Economic Development",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_46": {
+    strategicObj: "To create job opportunities",
+    kpaIndex: 3,
+    kpaCode: "LED",
+    owner: "General Manager: Planning & Economic Development",
+    person: "Divisional Manager: Expanded Public Works Programme and Community",
+    desc: "Number of EPWP Work Opportunities jobs created (GKPI) by 30 June 2027",
+    uom: "Number",
+    base: "553",
+    target: "394",
+    q1: "300",
+    q2: "0",
+    q3: "0",
+    q4: "94",
+    poe: "Signed progress reports and listing of employed EPWP (Employment Contracts and monthly attendance registers submitted on physical files)",
+    budget: "OPEX",
+    submitter: "Divisional Manager: EPWP & CWP",
+    approver: "General Manager: Planning & Economic Development",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_47": {
+    strategicObj: "To promote inclusive and sustainable economic growth and decent employment plans",
+    kpaIndex: 3,
+    kpaCode: "LED",
+    owner: "General Manager: Planning & Economic Development",
+    person: "Divisional Manager: LED",
+    desc: "Number of Final LED Strategy reviewed by 31 December 2026",
+    uom: "Number",
+    base: "New",
+    target: "1",
+    q1: "N/A",
+    q2: "1",
+    q3: "N/A",
+    q4: "N/A",
+    poe: "Final LED Strategy and Council resolution",
+    budget: "OPEX",
+    submitter: "Divisional Manager: LED",
+    approver: "General Manager: Planning & Economic Development",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_48": {
+    strategicObj: "To create sustainable job opportunities and inclusive economic growth",
+    kpaIndex: 3,
+    kpaCode: "LED",
+    owner: "General Manager: Planning & Economic Development",
+    person: "Secretary",
+    desc: "Percentage of companies owned by designated group (disabilities:3%, youth: 28%, Military Veterans: 3%) benefitted from NDM by 30 June 2027",
+    uom: "Percentage",
+    base: "71%",
+    target: "66%",
+    q1: "N/A",
+    q2: "N/A",
+    q3: "40%",
+    q4: "66%",
+    poe: "Signed SCM Quarterly Report on designated groups who benefited from NDM (Hard copies of signed appointment letters and BEE certificate)",
+    budget: "CAPEX",
+    submitter: "Secretary: Planning & Economic Development",
+    approver: "General Manager: Planning & Economic Development",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_49": {
+    strategicObj: "To attract private invests by ensuring the District is a tourism hub",
+    kpaIndex: 3,
+    kpaCode: "LED",
+    owner: "General Manager: Planning & Economic Development",
+    person: "Divisional Manager: LED",
+    desc: "Number of Tourism Expo convened by 30 April 2027.",
+    uom: "Number",
+    base: "1",
+    target: "1",
+    q1: "N/A",
+    q2: "N/A",
+    q3: "N/A",
+    q4: "1",
+    poe: "Attendance Registers and signed Report",
+    budget: "R 100",
+    submitter: "Divisional Manager: LED",
+    approver: "General Manager: Planning & Economic Development",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
 
-  // KPA 4: Municipal Financial Viability & Management (46 - 60)
-  "M_46": { desc: "Debt coverage ratio achieved by the municipality.", kpaIndex: 4, uom: "ratio", target: "2.5 times or better", base: "2.1 times", poe: "Signed audited debt coverage ratio calculation schedule and CFO signoff" },
-  "M_47": { desc: "Percentage of capital budget spent on infrastructure projects.", kpaIndex: 4, uom: "% capital spent", target: "95%", base: "91%", poe: "Signed capital expenditure report, payment certificates, and Section 71 schedule" },
-  "M_48": { desc: "Percentage of operational budget spent on planned maintenance.", kpaIndex: 4, uom: "% operational spent", target: "100%", base: "94%", poe: "Signed repairs and maintenance expenditure ledger and asset maintenance log" },
-  "M_49": { desc: "Audit outcome obtained from the Auditor-General for the previous financial year.", kpaIndex: 4, uom: "audit status", target: "Clean audit outcome", base: "Unqualified audit", poe: "Auditor-General final audit report and signed audit action plan" },
-  "M_50": { desc: "Percentage of creditor invoices paid within statutory 30-day timeframe.", kpaIndex: 4, uom: "% invoices paid", target: "100%", base: "95%", poe: "Signed Section 71 30-day creditor payment compliance report and invoice ledger" },
-  "M_51": { desc: "Percentage of municipal revenue collection rate achieved against billed revenue.", kpaIndex: 4, uom: "% revenue collected", target: "95%", base: "92%", poe: "Signed billing ledger and bank revenue collection reconciliation report" },
-  "M_52": { desc: "Percentage variance of actual expenditure against approved mid-term budget.", kpaIndex: 4, uom: "% variance", target: "Less than 5%", base: "7% variance", poe: "Signed mid-term budget review report and Section 72 financial statement" },
-  "M_53": { desc: "Percentage accuracy of the municipal asset register (verified via physical audit).", kpaIndex: 4, uom: "% accuracy", target: "100%", base: "98%", poe: "Signed physical asset verification report and updated fixed asset register" },
-  "M_54": { desc: "Percentage of grant funding spent in accordance with grant conditions.", kpaIndex: 4, uom: "% grant spent", target: "100%", base: "95%", poe: "Signed conditional grant expenditure report and National Treasury DORA schedules" },
-  "M_55": { desc: "Percentage of supply chain bids processed within standard turnaround time.", kpaIndex: 4, uom: "% compliance", target: "90%", base: "84%", poe: "Signed Bid Adjudication Committee (BAC) minutes and award turnaround ledger" },
-  "M_56": { desc: "Cost coverage ratio of the municipality (cash reserves/monthly operating exp).", kpaIndex: 4, uom: "months coverage", target: "3 months", base: "2 months", poe: "Signed cash flow liquidity schedule and bank statements demonstrating cost coverage" },
-  "M_57": { desc: "Percentage reduction in unauthorized, irregular, fruitless and wasteful expenditure (UIFW).", kpaIndex: 4, uom: "% reduction", target: "100% reduction", base: "80% reduction", poe: "Signed UIFW expenditure reduction report and MPAC investigation register" },
-  "M_58": { desc: "Percentage compliance of the annual financial statements submitted to AG.", kpaIndex: 4, uom: "% compliance", target: "100%", base: "100%", poe: "Signed Annual Financial Statements (AFS) submission letter to Auditor-General" },
-  "M_59": { desc: "Percentage of indigent households registered and receiving free basic services.", kpaIndex: 4, uom: "% registry accuracy", target: "100%", base: "96%", poe: "Signed indigent register extract and free basic services billing reports" },
-  "M_60": { desc: "Percentage of financial reports submitted to National Treasury within due dates.", kpaIndex: 4, uom: "% compliance", target: "100%", base: "100%", poe: "Signed Section 71 and Section 52 submission confirmation receipts from National Treasury" },
+  // -------------------------------------------------------------------------------------------------------------------------
+  // KPA 4: Municipal Financial Viability & Management (M_50 - M_65) - Official Nkangala SDBIP Pages 43-50
+  // -------------------------------------------------------------------------------------------------------------------------
+  "M_50": {
+    strategicObj: "To ensure financial sustainability to meet the statutory requirements",
+    kpaIndex: 4,
+    kpaCode: "MFVM",
+    owner: "Chief Financial Officer",
+    person: "Divisional Manager: Assets & Treasury",
+    desc: "Report current ratio as expressed per quarter",
+    uom: "Ratio",
+    base: "1.37",
+    target: "1.0",
+    q1: "1.0",
+    q2: "1.0",
+    q3: "1.0",
+    q4: "1.0",
+    poe: "Section 71 MFMA reports indicating Key Ratio calculation (The monthly Budget statement and financial report and the GKPI)",
+    budget: "OPEX",
+    submitter: "Divisional Manager: Assets & Treasury",
+    approver: "Chief Financial Officer",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_51": {
+    strategicObj: "To ensure financial sustainability to meet the statutory requirements",
+    kpaIndex: 4,
+    kpaCode: "MFVM",
+    owner: "Chief Financial Officer",
+    person: "Divisional Manager: Assets & Treasury",
+    desc: "Percentage reduction in Unauthorised, Irregular, Fruitless & Wasteful Expenditure (UIFW) by 30 June 2027",
+    uom: "Percentage",
+    base: "New",
+    target: "25%",
+    q1: "N/A",
+    q2: "N/A",
+    q3: "N/A",
+    q4: "25%",
+    poe: "Unauthorised, Irregular, Fruitless and Wasteful expenditure (UIFW) Register",
+    budget: "OPEX",
+    submitter: "Divisional Manager: Assets & Treasury",
+    approver: "Chief Financial Officer",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_52": {
+    strategicObj: "To ensure financial sustainability to meet the statutory requirements",
+    kpaIndex: 4,
+    kpaCode: "MFVM",
+    owner: "Chief Financial Officer",
+    person: "Divisional Manager: budget & Expenditure",
+    desc: "Percentage of total capital expenditure funded from own funding (internally generated funds + borrowing - Circular 88) by 30 June 2027",
+    uom: "Percentage",
+    base: "88%",
+    target: "75%",
+    q1: "5%",
+    q2: "25%",
+    q3: "40%",
+    q4: "75%",
+    poe: "Signed Capital expenditure progress report",
+    budget: "R3 157 500",
+    submitter: "Divisional Manager: budget & Expenditure",
+    approver: "Chief Financial Officer",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_53": {
+    strategicObj: "To ensure financial sustainability to meet the statutory requirements",
+    kpaIndex: 4,
+    kpaCode: "MFVM",
+    owner: "Chief Financial Officer",
+    person: "Divisional Manager: budget & Expenditure",
+    desc: "Percentage of operational budget actually spent on projects (local Municipalities’ projects) by 30 June 2027",
+    uom: "Percentage",
+    base: "91%",
+    target: "90%",
+    q1: "20%",
+    q2: "40%",
+    q3: "60%",
+    q4: "90%",
+    poe: "Signed Operational Expenditure progress report",
+    budget: "R728 931 161",
+    submitter: "Divisional Manager: budget & Expenditure",
+    approver: "Chief Financial Officer",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_54": {
+    strategicObj: "To ensure financial sustainability to meet the statutory requirements",
+    kpaIndex: 4,
+    kpaCode: "MFVM",
+    owner: "Chief Financial Officer",
+    person: "Divisional Manager: budget & Expenditure",
+    desc: "Percentage of transfer and subsidies budget actually spent on projects (local Municipalities projects) by 30 June 2027",
+    uom: "Percentage",
+    base: "89%",
+    target: "90%",
+    q1: "20%",
+    q2: "40%",
+    q3: "60%",
+    q4: "90%",
+    poe: "Transfer and subsidies Expenditure signed progress report",
+    budget: "R308 944 236",
+    submitter: "Divisional Manager: budget & Expenditure",
+    approver: "Chief Financial Officer",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_55": {
+    strategicObj: "To ensure financial sustainability to meet the statutory requirements",
+    kpaIndex: 4,
+    kpaCode: "MFVM",
+    owner: "Chief Financial Officer",
+    person: "Divisional Manager: budget & Expenditure",
+    desc: "Percentage of municipal payments made to service providers who submitted complete invoices within 30-days of invoice submission (circular 88) by 30 June 2027.",
+    uom: "Percentage",
+    base: "100%",
+    target: "100%",
+    q1: "100%",
+    q2: "100%",
+    q3: "100%",
+    q4: "100%",
+    poe: "Signed Expenditure Report and official invoice register",
+    budget: "OPEX",
+    submitter: "Divisional Manager: budget & Expenditure",
+    approver: "Chief Financial Officer",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_56": {
+    strategicObj: "To ensure financial sustainability to meet the statutory requirements",
+    kpaIndex: 4,
+    kpaCode: "MFVM",
+    owner: "Chief Financial Officer",
+    person: "Divisional Manager: Assets & Treasury",
+    desc: "Percentage spent on Financial Management Grant (FMG) by 30 June 2027.",
+    uom: "Percentage",
+    base: "100%",
+    target: "100%",
+    q1: "N/A",
+    q2: "N/A",
+    q3: "N/A",
+    q4: "100%",
+    poe: "Signed Financial Management Grant expenditure progress report",
+    budget: "OPEX",
+    submitter: "Divisional Manager: Assets & Treasury",
+    approver: "Chief Financial Officer",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_57": {
+    strategicObj: "To ensure financial sustainability to meet the statutory requirements",
+    kpaIndex: 4,
+    kpaCode: "MFVM",
+    owner: "Chief Financial Officer",
+    person: "Manager Finance",
+    desc: "Annual Financial Statements (AFS) submitted to Auditor General by 31 August 2026.",
+    uom: "Number",
+    base: "1",
+    target: "1",
+    q1: "1",
+    q2: "N/A",
+    q3: "N/A",
+    q4: "N/A",
+    poe: "Signed Annual Financial Statements (AFS) and acknowledgement letter (of receipt) from the AG.",
+    budget: "OPEX",
+    submitter: "Manager Finance",
+    approver: "Chief Financial Officer",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_58": {
+    strategicObj: "To ensure financial sustainability to meet the statutory requirements",
+    kpaIndex: 4,
+    kpaCode: "MFVM",
+    owner: "Chief Financial Officer",
+    person: "Divisional Manager: Supply Chain Management",
+    desc: "Percentage of total municipal operating expenditure spent on contracted services physically residing within the District (circular 88) by 30 June 2027.",
+    uom: "Percentage",
+    base: "49%",
+    target: "30%",
+    q1: "N/A",
+    q2: "N/A",
+    q3: "30%",
+    q4: "30%",
+    poe: "Signed contracted services report indicating contractors’ physical addresses and expenditure spent on contracted services physically residing within the District. (Hardcopies of signed appointment letters with proof of physical address)",
+    budget: "OPEX",
+    submitter: "Divisional Manager: Supply Chain Management",
+    approver: "Chief Financial Officer",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_59": {
+    strategicObj: "Adopt a realistic, credible and funded annual budget",
+    kpaIndex: 4,
+    kpaCode: "MFVM",
+    owner: "Chief Financial Officer",
+    person: "Chief Financial Officer",
+    desc: "Number of MTREF Budget submitted for approval by 31 May 2027.",
+    uom: "Number",
+    base: "1",
+    target: "1",
+    q1: "N/A",
+    q2: "N/A",
+    q3: "N/A",
+    q4: "1",
+    poe: "Approved MTREF Budget and council resolution",
+    budget: "OPEX",
+    submitter: "Chief Financial Officer",
+    approver: "Municipal Manager",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_60": {
+    strategicObj: "To ensure financial sustainability to meet the statutory requirements and ensure the efficient administration and institutional development",
+    kpaIndex: 4,
+    kpaCode: "MFVM",
+    owner: "Chief Financial Officer",
+    person: "Divisional Manager: budget & Expenditure",
+    desc: "Number of Section 72 (midyear) MFMA report submitted to Executive Mayor by 25 January 2027.",
+    uom: "Number",
+    base: "1",
+    target: "1",
+    q1: "N/A",
+    q2: "N/A",
+    q3: "1",
+    q4: "N/A",
+    poe: "Signed Section 72 (midyear) MFMA report and proof of submission to Executive Mayor’s office",
+    budget: "OPEX",
+    submitter: "Divisional Manager: budget & Expenditure",
+    approver: "Chief Financial Officer",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_61": {
+    strategicObj: "To ensure financial sustainability to meet the statutory requirements and enhance transparent service delivery",
+    kpaIndex: 4,
+    kpaCode: "MFVM",
+    owner: "Chief Financial Officer",
+    person: "Divisional Manager: Supply Chain Management",
+    desc: "Number of quarterly SCM reports submitted to the Executive Mayor by 30 June 2027.",
+    uom: "Number",
+    base: "4",
+    target: "4",
+    q1: "1",
+    q2: "1",
+    q3: "1",
+    q4: "1",
+    poe: "Signed Quarterly SCM report and proof of submission to Executive Mayor’s office",
+    budget: "OPEX",
+    submitter: "Divisional Manager: Supply Chain Management",
+    approver: "Chief Financial Officer",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_62": {
+    strategicObj: "To ensure financial sustainability to meet the statutory requirements and ensure the efficient administration and institutional development",
+    kpaIndex: 4,
+    kpaCode: "MFVM",
+    owner: "Chief Financial Officer",
+    person: "Divisional Manager: budget & Expenditure",
+    desc: "Number of quarterly Section 52(d) MFMA reports submitted to Executive Mayor within 30 days after the end of each quarter",
+    uom: "Number",
+    base: "4",
+    target: "4",
+    q1: "1",
+    q2: "1",
+    q3: "1",
+    q4: "1",
+    poe: "Signed Quarterly section 52(d) MFMA report and proof of submission to Executive Mayor’s",
+    budget: "OPEX",
+    submitter: "Divisional Manager: budget & Expenditure",
+    approver: "Chief Financial Officer",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_63": {
+    strategicObj: "To ensure financial sustainability to meet the statutory requirements and ensure the efficient administration and institutional development",
+    kpaIndex: 4,
+    kpaCode: "MFVM",
+    owner: "Chief Financial Officer",
+    person: "Divisional Manager: budget & Expenditure",
+    desc: "Number of monthly Section 71 MFMA reports submitted to Executive Mayor within 10 days after the end of each month",
+    uom: "Number",
+    base: "12",
+    target: "12",
+    q1: "3",
+    q2: "3",
+    q3: "3",
+    q4: "3",
+    poe: "Section 71 MFMA reports and proof of submission to Executive Mayor’s office",
+    budget: "OPEX",
+    submitter: "Divisional Manager: budget & Expenditure",
+    approver: "Chief Financial Officer",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_64": {
+    strategicObj: "To facilitate planning, coordination and development the procurement of goods and services and enhance economic development",
+    kpaIndex: 4,
+    kpaCode: "MFVM",
+    owner: "Chief Financial Officer",
+    person: "Divisional Manager: Supply Chain Management",
+    desc: "Percentage implementation of the procurement plan by 30 June 2027.",
+    uom: "Percentage",
+    base: "89%",
+    target: "100%",
+    q1: "100%",
+    q2: "100%",
+    q3: "100%",
+    q4: "100%",
+    poe: "Signed Quarterly Procurement plan report",
+    budget: "OPEX",
+    submitter: "Divisional Manager: Supply Chain Management",
+    approver: "Chief Financial Officer",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_65": {
+    strategicObj: "To ensure financial sustainability to meet the statutory requirements, and ensures efficient administration and good governance",
+    kpaIndex: 4,
+    kpaCode: "MFVM",
+    owner: "Chief Financial Officer",
+    person: "Divisional Manager: Supply Chain Management",
+    desc: "Average number of days from the point of advertising to the letter of award per 80/20 procurement process (circular 88) by 30 June 2027.",
+    uom: "Number",
+    base: "70",
+    target: "120",
+    q1: "120",
+    q2: "120",
+    q3: "120",
+    q4: "120",
+    poe: "Average number of days SCM official (Signed) report",
+    budget: "OPEX",
+    submitter: "Divisional Manager: Supply Chain Management",
+    approver: "Chief Financial Officer",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
 
-  // KPA 5: Good Governance & Public Participation (61 - 75)
-  "M_61": { desc: "Number of functional ward committees established and meeting regularly.", kpaIndex: 5, uom: "committees active", target: "100%", base: "90%", poe: "Signed ward committee meeting minutes and monthly stipend attendance registers" },
-  "M_62": { desc: "Percentage of resolved community complaints logged through CRM system.", kpaIndex: 5, uom: "% complaints resolved", target: "95%", base: "82%", poe: "Signed CRM complaints resolution report and customer satisfaction log" },
-  "M_63": { desc: "Number of IDP public representative consultation meetings held.", kpaIndex: 5, uom: "meetings", target: "12", base: "8", poe: "Signed IDP public participation attendance registers and meeting minutes" },
-  "M_64": { desc: "Percentage compliance with the municipal risk management plan.", kpaIndex: 5, uom: "% compliance", target: "100%", base: "90%", poe: "Signed municipal risk management committee quarterly compliance report" },
-  "M_65": { desc: "Percentage of internal audit findings successfully resolved by management.", kpaIndex: 5, uom: "% resolved", target: "90%", base: "75%", poe: "Signed Internal Audit resolution tracking register and Audit Committee report" },
-  "M_66": { desc: "Percentage implementation of the municipal anti-corruption strategy.", kpaIndex: 5, uom: "% compliance", target: "100%", base: "85%", poe: "Signed anti-corruption strategy implementation progress report" },
-  "M_67": { desc: "Number of council-approved oversight reports published for the public.", kpaIndex: 5, uom: "reports", target: "4", base: "4", poe: "Signed Council oversight report on Annual Report and public notices" },
-  "M_68": { desc: "Number of municipal public accounts committee (MPAC) meetings conducted.", kpaIndex: 5, uom: "meetings", target: "8", base: "6", poe: "Signed MPAC minutes, oversight recommendations, and Council submissions" },
-  "M_69": { desc: "Percentage compliance with the Promotion of Access to Information Act (PAIA).", kpaIndex: 5, uom: "% compliance", target: "100%", base: "100%", poe: "Signed Section 32 PAIA annual report submitted to SAHRC" },
-  "M_70": { desc: "Percentage of executive council decisions implemented within due dates.", kpaIndex: 5, uom: "% implementation", target: "95%", base: "90%", poe: "Signed Council resolution implementation tracking matrix" },
-  "M_71": { desc: "Number of community feedback newsletters published in local languages.", kpaIndex: 5, uom: "editions", target: "4", base: "2", poe: "Copies of published municipal newsletters and distribution receipts" },
-  "M_72": { desc: "Percentage compliance with standard municipal delegation registers.", kpaIndex: 5, uom: "% compliance", target: "100%", base: "95%", poe: "Signed system of delegations register approved by Council" },
-  "M_73": { desc: "Number of external compliance reports submitted to Provincial COGTA.", kpaIndex: 5, uom: "reports", target: "4", base: "4", poe: "Signed Section 46 provincial reporting submission receipts from COGTA" },
-  "M_74": { desc: "Percentage of ward councilors trained in leadership and governance skills.", kpaIndex: 5, uom: "% training rate", target: "100%", base: "80%", poe: "Signed Councilor training certificates and attendance registers" },
-  "M_75": { desc: "Percentage uptime of the community digital communication portals.", kpaIndex: 5, uom: "% availability", target: "99%", base: "97%", poe: "Signed digital portal availability log and uptime verification certificate" },
+  // -------------------------------------------------------------------------------------------------------------------------
+  // KPA 5: Basic Service Delivery & Infrastructure (M_66 - M_90) - Official Nkangala SDBIP Pages 53-67
+  // -------------------------------------------------------------------------------------------------------------------------
+  "M_66": {
+    strategicObj: "To promote vibrant, rural communities, an inclusive rural economy and food security",
+    kpaIndex: 5,
+    kpaCode: "BSD",
+    owner: "General Manager: Technical Services",
+    person: "Manager: Technical Services",
+    desc: "Percentage spent on Rural Assets Management Grant by 30 June 2027. (7302)",
+    uom: "Percentage",
+    base: "100%",
+    target: "100%",
+    q1: "20%",
+    q2: "40%",
+    q3: "60%",
+    q4: "100%",
+    poe: "Rural assets management grant Expenditure progress report signed off by CFO",
+    budget: "R2 659 000",
+    submitter: "Manager: Technical Services",
+    approver: "General Manager: Technical Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_67": {
+    strategicObj: "To build and maintain functional, efficient and economic infrastructure network to facilitate growth",
+    kpaIndex: 5,
+    kpaCode: "BSD",
+    owner: "General Manager: Technical Services",
+    person: "Manager: Technical Services",
+    desc: "Total m² of potholes patched on municipal roads by 30 June 2027. (185538)",
+    uom: "m²",
+    base: "New",
+    target: "4000m²",
+    q1: "1000m²",
+    q2: "1000m²",
+    q3: "1000m²",
+    q4: "1000m²",
+    poe: "Signed quarterly reports",
+    budget: "R1 413 328",
+    submitter: "Manager: Technical Services",
+    approver: "General Manager: Technical Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_68": {
+    strategicObj: "To build and maintain functional, efficient and economic infrastructure network to facilitate growth",
+    kpaIndex: 5,
+    kpaCode: "BSD",
+    owner: "General Manager: Technical Services",
+    person: "Manager: Technical Services",
+    desc: "Number of SANITATION projects (as submitted by the LM's) that are Completed in terms of project schedules by 30 June 2027",
+    uom: "Number",
+    base: "New",
+    target: "1",
+    q1: "N/A",
+    q2: "N/A",
+    q3: "N/A",
+    q4: "1",
+    poe: "Signed construction progress reports, 1 x Completion certificate",
+    budget: "R 12 732 860",
+    submitter: "Manager: Technical Services",
+    approver: "General Manager: Technical Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_69": {
+    strategicObj: "To improve access to water and sanitation through building and maintain functional, efficient and economic infrastructure network to facilitate growth",
+    kpaIndex: 5,
+    kpaCode: "BSD",
+    owner: "General Manager: Technical Services",
+    person: "Manager: Technical Services",
+    desc: "Number of WATER projects (as submitted by the LM's) that are Completed in terms of Project Schedules by 30 June 2027.",
+    uom: "Number",
+    base: "4",
+    target: "7",
+    q1: "N/A",
+    q2: "N/A",
+    q3: "N/A",
+    q4: "7",
+    poe: "Signed construction progress reports, 6 x Completion certificate, 1x Appointment Letter, Signed Delivery Note(s) and Expenditure Report",
+    budget: "R261 619 047",
+    submitter: "Manager: Technical Services",
+    approver: "General Manager: Technical Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_70": {
+    strategicObj: "To improve access to electricity through building and maintain functional, efficient and economic infrastructure network to facilitate growth",
+    kpaIndex: 5,
+    kpaCode: "BSD",
+    owner: "General Manager: Technical Services",
+    person: "Manager: Technical Services",
+    desc: "Number of ELECTRICITY Projects (as submitted by the LM's) that are Completed in terms of project schedules by 30 June 2027.",
+    uom: "Number",
+    base: "2",
+    target: "2",
+    q1: "N/A",
+    q2: "N/A",
+    q3: "N/A",
+    q4: "2",
+    poe: "Signed construction progress reports, 2x completion certificate",
+    budget: "R4 000 000",
+    submitter: "Manager: Technical Services",
+    approver: "General Manager: Technical Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_71": {
+    strategicObj: "Provision of storm water drainage and roads to facilitate growth",
+    kpaIndex: 5,
+    kpaCode: "BSD",
+    owner: "General Manager: Technical Services",
+    person: "Manager: Technical Services",
+    desc: "Number of roads and storm water projects (as submitted by LMs) that are completed in-terms of project schedules by 30 June 2027.",
+    uom: "Number",
+    base: "New",
+    target: "1",
+    q1: "N/A",
+    q2: "N/A",
+    q3: "N/A",
+    q4: "1",
+    poe: "Signed Road Network Assessment progress report, 1x completion certificate",
+    budget: "R2 659 000",
+    submitter: "Manager: Technical Services",
+    approver: "General Manager: Technical Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_72": {
+    strategicObj: "Improve access to basic services and delivery",
+    kpaIndex: 5,
+    kpaCode: "BSD",
+    owner: "General Manager: Technical Services",
+    person: "Manager: Technical Services",
+    desc: "Number of progress reports on households with access to basic services provided by local municipalities (Water, Sanitation, Electricity and Roads) submitted to Council by 30 June 2027",
+    uom: "Number",
+    base: "2",
+    target: "2",
+    q1: "N/A",
+    q2: "1",
+    q3: "N/A",
+    q4: "1",
+    poe: "2x Signed progress reports and Council resolutions",
+    budget: "Capex",
+    submitter: "Manager: Technical Services",
+    approver: "General Manager: Technical Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_73": {
+    strategicObj: "Ensure that statutory requirements controlling Occupational health and environmental health services are enforced, promoting safe and healthy living environment.",
+    kpaIndex: 5,
+    kpaCode: "BSD",
+    owner: "General Manager: Community & Development Services",
+    person: "Divisional Manager: MHS",
+    desc: "Percentage of all registered food premises inspected in compliance with relevant legislation (Circular 88) per quarter",
+    uom: "Percentage",
+    base: "69.5%",
+    target: "67%",
+    q1: "67%",
+    q2: "67%",
+    q3: "67%",
+    q4: "67%",
+    poe: "Signed Quarterly MHS report and signed spreadsheets",
+    budget: "R110",
+    submitter: "Divisional Manager: MHS",
+    approver: "General Manager: Community & Development Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_74": {
+    strategicObj: "Ensure that statutory requirements controlling Occupational health and environmental health services are enforced, promoting safe and healthy living environment.",
+    kpaIndex: 5,
+    kpaCode: "BSD",
+    owner: "General Manager: Community & Development Services",
+    person: "Divisional Manager: MHS",
+    desc: "Number of food samples conducted in terms of the Foodstuffs, Cosmetics, Disinfectant Act (FCDA) per quarter",
+    uom: "Number",
+    base: "448",
+    target: "320",
+    q1: "80",
+    q2: "80",
+    q3: "80",
+    q4: "80",
+    poe: "Signed Quarterly MHS report and signed Laboratory Sampling Forms",
+    budget: "OPEX",
+    submitter: "Divisional Manager: MHS",
+    approver: "General Manager: Community & Development Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_75": {
+    strategicObj: "Ensure that statutory requirements controlling Occupational health and environmental health services are enforced, promoting safe and healthy living environment.",
+    kpaIndex: 5,
+    kpaCode: "BSD",
+    owner: "General Manager: Community & Development Services",
+    person: "Divisional Manager: MHS",
+    desc: "Number of food handling and preparation facility inspections conducted in terms of the Foodstuffs, Cosmetics, Disinfectant Act (FCDA) per quarter",
+    uom: "Number",
+    base: "6698",
+    target: "5000",
+    q1: "1250",
+    q2: "1250",
+    q3: "1250",
+    q4: "1250",
+    poe: "Signed Quarterly food handling and preparation facility inspections reports and signed Spreadsheets",
+    budget: "OPEX",
+    submitter: "Divisional Manager: MHS",
+    approver: "General Manager: Community & Development Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_76": {
+    strategicObj: "To provide potable, safe water in compliance with SANS 241",
+    kpaIndex: 5,
+    kpaCode: "BSD",
+    owner: "General Manager: Community & Development Services",
+    person: "Divisional Manager: Development and Reintegration Affairs",
+    desc: "Number of inland water samples tested for monitoring purposes (circular 88) per quarter from the local municipalities, analysed as per the SANS 241 standard (circular 88)",
+    uom: "Number",
+    base: "2692",
+    target: "3400",
+    q1: "850",
+    q2: "850",
+    q3: "850",
+    q4: "850",
+    poe: "Signed Quarterly water samples report and signed Spreadsheets",
+    budget: "R2 000",
+    submitter: "Divisional Manager: Development and Reintegration Affairs",
+    approver: "General Manager: Community & Development Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_77": {
+    strategicObj: "Enhance social protection groups for vulnerable groups",
+    kpaIndex: 5,
+    kpaCode: "CS",
+    owner: "General Manager: Community & Development Services",
+    person: "Divisional Manager: Development and Reintegration Affairs",
+    desc: "Number of awareness campaigns on teenage pregnancy undertaken by 31 March 2027.",
+    uom: "Number",
+    base: "9",
+    target: "8",
+    q1: "2",
+    q2: "2",
+    q3: "2",
+    q4: "2",
+    poe: "Attendance registers and signed quarterly reports (proving number of awareness campaigns on teenage pregnancy undertaken)",
+    budget: "R 0",
+    submitter: "Divisional Manager: Development and Reintegration Affairs",
+    approver: "General Manager: Community & Development Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_78": {
+    strategicObj: "Enhance social protection groups for vulnerable groups",
+    kpaIndex: 5,
+    kpaCode: "CS",
+    owner: "General Manager: Community & Development Services",
+    person: "Divisional Manager: Development and Reintegration Affairs",
+    desc: "Number of campaigns on drug / substance abuse held in partnership with SANCA by 30 June 2027.",
+    uom: "Number",
+    base: "10",
+    target: "8",
+    q1: "2",
+    q2: "2",
+    q3: "2",
+    q4: "2",
+    poe: "Attendance registers and signed quarterly reports (proving number of campaigns on drug / substance abuse held)",
+    budget: "R33 909",
+    submitter: "Divisional Manager: Development and Reintegration Affairs",
+    approver: "General Manager: Community & Development Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_79": {
+    strategicObj: "Enhance access to quality education",
+    kpaIndex: 5,
+    kpaCode: "CS",
+    owner: "General Manager: Community & Development Services",
+    person: "Divisional Manager: Development and Reintegration Affairs",
+    desc: "Mayoral academic recognitions of NDM Learners health by 31 March 2027",
+    uom: "Number",
+    base: "1",
+    target: "1",
+    q1: "N/A",
+    q2: "N/A",
+    q3: "1",
+    q4: "N/A",
+    poe: "Attendance registers and signed report",
+    budget: "R5 000 000",
+    submitter: "Divisional Manager: Development and Reintegration Affairs",
+    approver: "General Manager: Community & Development Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_80": {
+    strategicObj: "Foster nation-building and Social Cohesion through inclusive participative planning processes and enhance social protection groups for vulnerable groups",
+    kpaIndex: 5,
+    kpaCode: "CS",
+    owner: "General Manager: Community & Development Services",
+    person: "Co-ordinator: HIV/Aids, Women & Children",
+    desc: "Number of Mandela month community program to support vulnerable group by 30 July 2026.",
+    uom: "Number",
+    base: "4",
+    target: "1",
+    q1: "1",
+    q2: "N/A",
+    q3: "N/A",
+    q4: "N/A",
+    poe: "Attendance registers, signed reports, and fully completed and signed acknowledgement of receipts",
+    budget: "OPEX",
+    submitter: "Co-ordinator: HIV/Aids, Women & Children",
+    approver: "General Manager: Community & Development Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_81": {
+    strategicObj: "To promote local action to reinforce positive values and combat crime",
+    kpaIndex: 5,
+    kpaCode: "CS",
+    owner: "General Manager: Community & Development Services",
+    person: "Co-ordinator: HIV/Aids, Women & Children",
+    desc: "Number of moral regeneration programme implemented to communities by 30 June 2027. (105053)",
+    uom: "Number",
+    base: "3",
+    target: "2",
+    q1: "N/A",
+    q2: "1",
+    q3: "1",
+    q4: "N/A",
+    poe: "Signed Quarterly reports proving Number of Moral programmes and attendance registers",
+    budget: "R350 000",
+    submitter: "Co-ordinator: HIV/Aids, Women & Children",
+    approver: "General Manager: Community & Development Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_82": {
+    strategicObj: "Enhance social protection groups for vulnerable groups",
+    kpaIndex: 5,
+    kpaCode: "CS",
+    owner: "General Manager: Community & Development Services",
+    person: "Co-ordinator: HIV/Aids, Women & Children",
+    desc: "Number of vulnerable groups programmes aimed at Gender Based Violence & Femicide, women, older person, children, men, LGBTIQ+ and People with Disability held by 30 June 2027.",
+    uom: "Number",
+    base: "14",
+    target: "8",
+    q1: "2",
+    q2: "2",
+    q3: "2",
+    q4: "2",
+    poe: "Signed Quarterly reports proving Number of vulnerable groups programmes (one each per program: Gender Based Violence & Femicide, women, older person, children, men, LGBTIQ+ and People with Disability) held and attendance registers",
+    budget: "OPEX",
+    submitter: "Co-ordinator: HIV/Aids, Women & Children",
+    approver: "General Manager: Community & Development Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_83": {
+    strategicObj: "Enhance social protection groups for vulnerable groups",
+    kpaIndex: 5,
+    kpaCode: "CS",
+    owner: "General Manager: Community & Development Services",
+    person: "Co-ordinator: HIV/Aids, Women & Children",
+    desc: "Number of quarterly District AIDS Council (DAC) meetings held by 30 June 2027. (24363)",
+    uom: "Number",
+    base: "4",
+    target: "4",
+    q1: "1",
+    q2: "1",
+    q3: "1",
+    q4: "1",
+    poe: "Agenda, Attendance registers and signed DAC minutes of previous quarter and unsigned DAC minutes of current quarter",
+    budget: "R600 000",
+    submitter: "Co-ordinator: HIV/Aids, Women & Children",
+    approver: "General Manager: Community & Development Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_84": {
+    strategicObj: "Enhance social protection groups for vulnerable groups",
+    kpaIndex: 5,
+    kpaCode: "CS",
+    owner: "General Manager: Community & Development Services",
+    person: "Co-ordinator: HIV/Aids, Women & Children",
+    desc: "Number of HIV/AIDS Programmes (Awareness campaigns, Jamboree, HIV/AIDS Lekgotla) conducted by 30 June 2027. (24363)",
+    uom: "Number",
+    base: "New",
+    target: "4",
+    q1: "1",
+    q2: "1",
+    q3: "1",
+    q4: "1",
+    poe: "Signed HIV/AIDS Awareness Quarterly report and attendance registers",
+    budget: "OPEX",
+    submitter: "Co-ordinator: HIV/Aids, Women & Children",
+    approver: "General Manager: Community & Development Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_85": {
+    strategicObj: "To comply with the protection and enhancement of environmental assets and natural resources",
+    kpaIndex: 5,
+    kpaCode: "CS",
+    owner: "General Manager: Community & Development Services",
+    person: "Divisional Manager: Climate Change & Biodiversity",
+    desc: "Number of community-based campaigns conducted by 30 June 2027. (Disaster Risk reduction awareness, MHS & Environmental Management awareness and Climate Change Awareness). (185556)",
+    uom: "Number",
+    base: "6",
+    target: "4",
+    q1: "1",
+    q2: "1",
+    q3: "1",
+    q4: "1",
+    poe: "Signed Quarterly Reports on Community Based Programmes (Disaster Risk reduction awareness, MHS & Environmental Management awareness and Climate Change Awareness) and attendance registers",
+    budget: "R500 000",
+    submitter: "Divisional Manager: Climate Change & Biodiversity",
+    approver: "General Manager: Community & Development Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_86": {
+    strategicObj: "Enhancing Environmental Sustainability and protecting Natural Resources",
+    kpaIndex: 5,
+    kpaCode: "CS",
+    owner: "General Manager: Community & Development Services",
+    person: "Divisional Manager: Climate Change & Biodiversity",
+    desc: "Number of Climate Change Mitigation and Adaptation Trainings conducted by 30 June 2027.",
+    uom: "Number",
+    base: "New",
+    target: "4",
+    q1: "1",
+    q2: "1",
+    q3: "1",
+    q4: "1",
+    poe: "Signed attendance register and signed training progress report",
+    budget: "OPEX",
+    submitter: "Divisional Manager: Climate Change & Biodiversity",
+    approver: "General Manager: Community & Development Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_87": {
+    strategicObj: "Enhancing Environmental Sustainability and protecting Natural Resources",
+    kpaIndex: 5,
+    kpaCode: "CS",
+    owner: "General Manager: Community & Development Services",
+    person: "Divisional Manager: Air Environmental Pollution Control",
+    desc: "Number of compliance audits conducted with respect to Sec 21 listed activities as per the NEMAQA by 30 June 2027",
+    uom: "Number",
+    base: "New",
+    target: "4",
+    q1: "1",
+    q2: "1",
+    q3: "1",
+    q4: "1",
+    poe: "Signed compliance audit report and inspection checklists",
+    budget: "OPEX",
+    submitter: "Divisional Manager: Air Environmental Pollution Control",
+    approver: "General Manager: Community & Development Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_88": {
+    strategicObj: "Improve access to quality education and career development",
+    kpaIndex: 5,
+    kpaCode: "CS",
+    owner: "General Manager: Community & Development Services",
+    person: "Divisional Manager: Development and Reintegration Affairs",
+    desc: "Number of Education Career Expos held by 30 June 2027.",
+    uom: "Number",
+    base: "New",
+    target: "2",
+    q1: "N/A",
+    q2: "1",
+    q3: "N/A",
+    q4: "1",
+    poe: "Signed Career Expo report, attendance register, and event photographs",
+    budget: "R 0",
+    submitter: "Divisional Manager: Development and Reintegration Affairs",
+    approver: "General Manager: Community & Development Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_89": {
+    strategicObj: "Improve access to quality education and career development",
+    kpaIndex: 5,
+    kpaCode: "CS",
+    owner: "General Manager: Community & Development Services",
+    person: "Divisional Manager: Development and Reintegration Affairs",
+    desc: "Number of existing qualifying learners identified by 31 March 2027. (366)",
+    uom: "Number",
+    base: "366",
+    target: "366",
+    q1: "N/A",
+    q2: "N/A",
+    q3: "366",
+    q4: "N/A",
+    poe: "Signed existing qualifying learners beneficiary register and academic admission confirmations",
+    budget: "R5 000 000",
+    submitter: "Divisional Manager: Development and Reintegration Affairs",
+    approver: "General Manager: Community & Development Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_90": {
+    strategicObj: "Improve access to quality education and career development",
+    kpaIndex: 5,
+    kpaCode: "CS",
+    owner: "General Manager: Community & Development Services",
+    person: "Divisional Manager: Development and Reintegration Affairs",
+    desc: "Number of new qualifying learners identified by 31 March 2027. (366)",
+    uom: "Number",
+    base: "New",
+    target: "100",
+    q1: "N/A",
+    q2: "N/A",
+    q3: "100",
+    q4: "N/A",
+    poe: "Signed new qualifying bursary intake register and mayoral bursary committee sign-off",
+    budget: "R5 000 000",
+    submitter: "Divisional Manager: Development and Reintegration Affairs",
+    approver: "General Manager: Community & Development Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
 
-  // KPA 6: Spatial Rationale & Environmental Management (76 - 92)
-  "M_76": { desc: "Percentage of land-use applications processed within statutory SPLUMA timeframes.", kpaIndex: 6, uom: "% compliance", target: "95%", base: "88%", poe: "Signed SPLUMA tribunal decision notices and application turnaround register" },
-  "M_77": { desc: "Number of environmental compliance audits conducted on key municipal projects.", kpaIndex: 6, uom: "audits completed", target: "10", base: "6", poe: "Signed environmental authorization compliance audit reports" },
-  "M_78": { desc: "Percentage alignment of municipal budget with Spatial Development Framework (SDF).", kpaIndex: 6, uom: "% alignment", target: "100%", base: "95%", poe: "Signed Spatial Development Framework (SDF) capital alignment report" },
-  "M_79": { desc: "Number of GIS layers updated with land use data.", kpaIndex: 6, uom: "updates", target: "6", base: "4", poe: "Signed GIS spatial database update log and metadata reports" },
-  "M_80": { desc: "Percentage of municipal land audits completed and cataloged in asset register.", kpaIndex: 6, uom: "% complete", target: "100%", base: "85%", poe: "Signed municipal land audit report and updated municipal land inventory" },
-  "M_81": { desc: "Number of local spatial planning workshops hosted with community leaders.", kpaIndex: 6, uom: "workshops", target: "4", base: "2", poe: "Signed spatial planning community workshop attendance registers and minutes" },
-  "M_82": { desc: "Number of hectares of alien invasive vegetation cleared in conservation zones.", kpaIndex: 6, uom: "hectares", target: "200", base: "150", poe: "Signed alien vegetation clearing verification certificates and GIS polygon map" },
-  "M_83": { desc: "Number of public parks maintained to standard occupational safety criteria.", kpaIndex: 6, uom: "parks", target: "15", base: "10", poe: "Signed public parks safety maintenance checklists and inspection reports" },
-  "M_84": { desc: "Percentage compliance with integrated waste management plan (IWMP) targets.", kpaIndex: 6, uom: "% compliance score", target: "90%", base: "80%", poe: "Signed Integrated Waste Management Plan (IWMP) implementation report" },
-  "M_85": { desc: "Percentage of newly registered townships aligned with integrated human settlements plan.", kpaIndex: 6, uom: "% alignment", target: "100%", base: "90%", poe: "Signed township establishment approval certificates and layout maps" },
-  "M_86": { desc: "Number of localized environmental awareness campaigns conducted.", kpaIndex: 6, uom: "campaigns", target: "8", base: "4", poe: "Signed environmental campaign event reports and participant attendance sheets" },
-  "M_87": { desc: "Percentage of illegal dumping hot-spots cleared within 48 hours.", kpaIndex: 6, uom: "% clearance rate", target: "90%", base: "75%", poe: "Signed illegal dumping clearance job cards and before/after photo evidence" },
-  "M_88": { desc: "Number of urban renewal spatial project feasibility studies completed.", kpaIndex: 6, uom: "studies", target: "3", base: "1", poe: "Signed urban renewal feasibility study reports and Council submission" },
-  "M_89": { desc: "Percentage compliance with national air quality monitoring criteria.", kpaIndex: 6, uom: "% compliance", target: "98%", base: "95%", poe: "Signed ambient air quality monitoring station reports and emission log" },
-  "M_90": { desc: "Number of building plan inspections completed during construction stages.", kpaIndex: 6, uom: "inspections", target: "250", base: "180", poe: "Signed building control inspection certificates and stage completion notices" },
-  "M_91": { desc: "Percentage of illegal structure enforcement notices issued within 7 days of discovery.", kpaIndex: 6, uom: "% compliance", target: "95%", base: "90%", poe: "Signed illegal structure contravention notices and compliance inspection reports" },
-  "M_92": { desc: "Number of climate change adaptation strategy training sessions held.", kpaIndex: 6, uom: "sessions", target: "4", base: "2", poe: "Signed climate change adaptation training attendance registers and module notes" }
+  // -------------------------------------------------------------------------------------------------------------------------
+  // KPA 6: Spatial Rationale (M_91 - M_92) - Official Nkangala SDBIP Pages 73-74
+  // -------------------------------------------------------------------------------------------------------------------------
+  "M_91": {
+    strategicObj: "To promote sustainable development by balancing economic growth, social equity, and environmental protection",
+    kpaIndex: 6,
+    kpaCode: "SR",
+    owner: "General Manager: Planning and Development",
+    person: "Division Manager: Chief Town & Regional Planner",
+    desc: "Percentage of compliant applications considered by municipal tribunal with respect to land use application within 120 days by 30 June 2027.",
+    uom: "Percentage",
+    base: "100%",
+    target: "100%",
+    q1: "100%",
+    q2: "100%",
+    q3: "100%",
+    q4: "100%",
+    poe: "Signed Register of application compliant and signed minutes of municipal tribunal and Spreadsheet (Proving the average days taken and actual performance percentage calculation)",
+    budget: "OPEX",
+    submitter: "Division Manager: Chief Town & Regional Planner",
+    approver: "General Manager: Planning and Development",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "M_92": {
+    strategicObj: "To promote sustainable development by balancing economic growth, social equity, and environmental protection",
+    kpaIndex: 6,
+    kpaCode: "SR",
+    owner: "General Manager: Planning and Development",
+    person: "Division Manager: Chief Town & Regional Planner",
+    desc: "Number of quarterly reports on land development applications received and responded to by the Local Municipalities by 30 June 2027.",
+    uom: "Number",
+    base: "New",
+    target: "4",
+    q1: "1",
+    q2: "1",
+    q3: "1",
+    q4: "1",
+    poe: "Progress report on Land Development applications",
+    budget: "OPEX",
+    submitter: "Division Manager: Chief Town & Regional Planner",
+    approver: "General Manager: Planning and Development",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  }
 };
 
-// Compact Departmental KPI definitions list (P_01 to P_19) with KPI-specific POEs
-const pKpisCompact: { [key: string]: { desc: string; kpaIndex: number; uom?: string; target?: string; base?: string; q1?: string; q2?: string; mid?: string; q3?: string; q4?: string; poe: string } } = {
-  "P_01": { desc: "Percentage of departmental capital budget spent on service delivery projects.", kpaIndex: 4, uom: "% spent", target: "95%", base: "90%", poe: "Signed departmental capital project expenditure certificates and Section 71 report" },
-  "P_02": { desc: "Number of community consultation meetings held to gather input on departmental projects.", kpaIndex: 5, uom: "meetings", target: "4", base: "2", poe: "Signed departmental project community consultation minutes and attendance register" },
-  "P_03": { desc: "Percentage of departmental audit queries resolved within 30 days of notification.", kpaIndex: 4, uom: "% resolved", target: "100%", base: "95%", poe: "Signed departmental audit query resolution pack and management responses" },
-  "P_04": { desc: "Average response time (in hours) to resolve urgent customer service requests.", kpaIndex: 1, uom: "hours", target: "<24 hours", base: "36 hours", poe: "Signed urgent customer service request job cards and resolution turnaround logs" },
-  "P_05": { desc: "Percentage of staff performance reviews conducted and submitted within deadlines.", kpaIndex: 2, uom: "% reviews", target: "100%", base: "90%", poe: "Signed departmental staff performance assessment forms and HR submission receipts" },
-  "P_06": { desc: "Percentage compliance with departmental procurement plan milestones.", kpaIndex: 4, uom: "% compliance", target: "90%", base: "85%", poe: "Signed departmental procurement plan milestone tracking schedule" },
-  "P_07": { desc: "Number of safety inspections conducted at municipal facilities.", kpaIndex: 2, uom: "inspections", target: "12", base: "8", poe: "Signed municipal facility safety audit checklists and inspection reports" },
-  "P_08": { desc: "Percentage of local labor employed in departmental infrastructure projects.", kpaIndex: 3, uom: "% local labor", target: "40%", base: "35%", poe: "Signed local labor recruitment register and payroll vouchers for capital projects" },
-  "P_09": { desc: "Number of training hours completed per employee in the department.", kpaIndex: 2, uom: "hours per staff", target: "24", base: "16", poe: "Signed departmental training attendance registers and skills development records" },
-  "P_10": { desc: "Percentage of departmental risk registers updated quarterly.", kpaIndex: 2, uom: "% updated", target: "100%", base: "100%", poe: "Signed departmental quarterly risk register updates and mitigation reports" },
-  "P_11": { desc: "Number of LED initiatives supported directly by the department.", kpaIndex: 3, uom: "initiatives", target: "6", base: "4", poe: "Signed departmental LED initiative progress reports and beneficiary register" },
-  "P_12": { desc: "Percentage reduction in departmental energy/water utility losses.", kpaIndex: 1, uom: "% loss reduction", target: "5%", base: "3%", poe: "Signed utility consumption audit and loss reduction quarterly report" },
-  "P_13": { desc: "Number of departmental reports submitted to municipal council on time.", kpaIndex: 5, uom: "reports", target: "12", base: "12", poe: "Signed departmental quarterly performance reports submitted to Council" },
-  "P_14": { desc: "Percentage compliance with the Promotion of Administrative Justice Act (PAJA).", kpaIndex: 5, uom: "% compliance", target: "100%", base: "100%", poe: "Signed PAJA compliance checklists and administrative decision logs" },
-  "P_15": { desc: "Number of public awareness campaigns hosted by the department.", kpaIndex: 5, uom: "campaigns", target: "4", base: "2", poe: "Signed public awareness event report and campaign attendance registers" },
-  "P_16": { desc: "Percentage of departmental documents archived in the centralized DMS.", kpaIndex: 2, uom: "% archived", target: "100%", base: "95%", poe: "Signed Document Management System (DMS) archival audit report and indexing log" },
-  "P_17": { desc: "Average number of days to process business license applications.", kpaIndex: 3, uom: "days", target: "5 days", base: "7 days", poe: "Signed business license applications register and issuance turnaround report" },
-  "P_18": { desc: "Percentage of departmental service standards published and met.", kpaIndex: 5, uom: "% standards met", target: "95%", base: "90%", poe: "Signed departmental service delivery standards audit report and charter" },
-  "P_19": { desc: "Percentage implementation of capital project management milestones within approved project schedule and budget.", kpaIndex: 1, uom: "% milestone completion", target: "100%", base: "90%", poe: "Signed capital project milestone completion certificates and project manager reports" }
+// Compact Departmental & Capital Projects KPI definitions list (P_01 to P_18)
+export const NKANGALA_P_KPIS_OFFICIAL: { 
+  [key: string]: { 
+    strategicObj: string;
+    kpaIndex: number;
+    kpaCode: string;
+    owner: string;
+    person: string;
+    desc: string; 
+    uom: string; 
+    base: string; 
+    target: string; 
+    q1?: string; 
+    q2?: string; 
+    mid?: string; 
+    q3?: string; 
+    q4?: string; 
+    poe: string; 
+    budget: string;
+    submitter?: string;
+    approver?: string;
+    reviewer?: string;
+    internalAudit?: string;
+  } 
+} = {
+  // KPA 3 LED Projects (P_01 - P_02)
+  "P_01": {
+    strategicObj: "To create sustainable job opportunities and skills development",
+    kpaIndex: 3,
+    kpaCode: "LED",
+    owner: "General Manager: Planning & Economic Development",
+    person: "Divisional Manager: Expanded Public Works Programme and Community Works Programme",
+    desc: "50 SASSETA Learnership (Security) recruited and trained by 30 June 2027 (34377) - District Wide",
+    uom: "Stage Implementation",
+    base: "Stage 3: 0%",
+    target: "Stage 3: Implementation Stage (100%): Practical Training",
+    q1: "Stage 2: procurement Stage (100%): Appointment of service provider",
+    q2: "Stage 3: implementation Stage (50%): Recruitment of 50 learners",
+    q3: "Stage 3: implementation Stage (75%): Theory Training",
+    q4: "Stage 3: implementation Stage (100%): Practical Training",
+    poe: "Appointment Letter, Contracts of learners, signed Site Visit Reports with attendance register attached (Contracts available on hard copy files)",
+    budget: "R3 010 000",
+    submitter: "Divisional Manager: EPWP & CWP",
+    approver: "General Manager: Planning & Economic Development",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "P_02": {
+    strategicObj: "Foster SMME development and support informal traders",
+    kpaIndex: 3,
+    kpaCode: "LED",
+    owner: "General Manager: Planning & Economic Development",
+    person: "Divisional Manager: LED",
+    desc: "Support to SMMEs/Cooperatives/Informal Traders by 30 June 2027. (34409) - District Wide",
+    uom: "Stage Implementation",
+    base: "Stage 1: 0%",
+    target: "Stage 3: Implementation Stage (100% (30) SMMEs/Cooperatives/Informal Traders) - Signing of agreement between NDM and beneficiaries. Supply and Delivery of tools/equipment's to SMMEs",
+    q1: "Stage 1: Planning Stage (100%): Bid Specification Committee Resolution",
+    q2: "Stage 2: Procurement Stage (25%): Tender Advertisement",
+    q3: "Stage 2: Procurement Stage (100%): Bid Evaluation Committee Resolution, Bid Adjudication Committee Resolution and Appointment of Service Provider",
+    q4: "Stage 3: Implementation Stage (100%) - Signing of agreement between NDM and beneficiaries. Supply and Delivery of tools/equipment's to SMMEs/Cooperatives/Informal Traders",
+    poe: "BSC Resolution, Tender Advert (Tear Sheet), BEC Resolution, BAC Resolution, Signed & Dated Appointment Letter, list of beneficiaries, Signed Agreements, and Delivery Notes.",
+    budget: "R5 000 000",
+    submitter: "Divisional Manager: LED",
+    approver: "General Manager: Planning & Economic Development",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+
+  // KPA 4 Finance Projects (P_03 - P_06)
+  "P_03": {
+    strategicObj: "Ensure statutory financial compliance and accurate financial statements",
+    kpaIndex: 4,
+    kpaCode: "MFVM",
+    owner: "Chief Financial Officer",
+    person: "Divisional Manager: Assets & Treasury",
+    desc: "Preparation of Consolidated AFS for NDM and NEDA AFS by 31 December 2026. - NDM",
+    uom: "Stage Implementation",
+    base: "Stage 1: 0%",
+    target: "Stage 3: Implementation Stage (100%): spending as per Finance Related Projects Report",
+    q1: "Stage 3: Implementation Stage (100%): spending as per Finance Related Projects Report",
+    q2: "Stage 3: Implementation Stage (100%): Consolidated AFS prepared and submitted to AG",
+    q3: "N/A",
+    q4: "N/A",
+    poe: "Acknowledgement of receipt from AG, Final Consolidated AFS, Signed progress report",
+    budget: "R500 000",
+    submitter: "Divisional Manager: Assets & Treasury",
+    approver: "Chief Financial Officer",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "P_04": {
+    strategicObj: "Ensure GRAP compliant valuation of municipal employee liabilities",
+    kpaIndex: 4,
+    kpaCode: "MFVM",
+    owner: "Chief Financial Officer",
+    person: "Manager Finance",
+    desc: "Actuarial valuations paid by 31 December 2026. - NDM",
+    uom: "Stage Implementation",
+    base: "Stage 1: 0%",
+    target: "Stage 3: Implementation Stage (100%): Payment of Actuarial evaluator",
+    q1: "Stage 3: Implementation Stage (100%): Final Actuarial Report",
+    q2: "Stage 3: Implementation Stage (100%): Payment of Actuarial evaluator",
+    q3: "N/A",
+    q4: "N/A",
+    poe: "Actuarial valuations report (Q1) and proof of payment (Q2)",
+    budget: "R20 000",
+    submitter: "Manager Finance",
+    approver: "Chief Financial Officer",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "P_05": {
+    strategicObj: "Enforce SCM compliance and verification of municipal vendors",
+    kpaIndex: 4,
+    kpaCode: "MFVM",
+    owner: "Chief Financial Officer",
+    person: "Divisional Manager: budget & Expenditure",
+    desc: "SCM/Debtors verification system paid by 30 June 2027. - NDM",
+    uom: "Stage Implementation",
+    base: "Stage 1: 0%",
+    target: "Stage 3: Implementation Stage (100%): spending as per Finance Related Projects Report",
+    q1: "Stage 3: Implementation Stage (17%): spending as per Finance Related Projects Report",
+    q2: "Stage 3: Implementation Stage (42%): spending as per Finance Related Projects Report",
+    q3: "Stage 3: Implementation Stage (67%): spending as per Finance Related Projects Report",
+    q4: "Stage 3: Implementation Stage (100%): spending as per Finance Related Projects Report",
+    poe: "Signed progress report and system verification audits",
+    budget: "R960 000",
+    submitter: "Divisional Manager: budget & Expenditure",
+    approver: "Chief Financial Officer",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "P_06": {
+    strategicObj: "Statutory AFS quality review and external audit preparedness",
+    kpaIndex: 4,
+    kpaCode: "MFVM",
+    owner: "Chief Financial Officer",
+    person: "Divisional Manager: Assets & Treasury",
+    desc: "AFS Assistance and Review of AFS for NDM and Reviewal of AFS for NEDA by 31 December 2026. - NDM",
+    uom: "Stage Implementation",
+    base: "Stage 1: 0%",
+    target: "Stage 3: Implementation Stage (100%): Assistance report during Audit",
+    q1: "Stage 3: Implementation Stage (100%): Final AFS Review Report",
+    q2: "Stage 3: Implementation Stage (100%): Assistance report during Audit",
+    q3: "N/A",
+    q4: "N/A",
+    poe: "NDM AFS Review Report (Q1) and NEDA AFS Review Reports (Q1), COMAF Register (with comments from the independent reviewer)",
+    budget: "R472 000",
+    submitter: "Divisional Manager: Assets & Treasury",
+    approver: "Chief Financial Officer",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+
+  // KPA 5 Infrastructure Projects (P_07 - P_17)
+  "P_07": {
+    strategicObj: "Priority Issue 12: Sanitation - Infrastructure refurbishment",
+    kpaIndex: 5,
+    kpaCode: "BSD",
+    owner: "General Manager: Technical Services",
+    person: "Divisional Manager: Projects",
+    desc: "Reburbishment&Upgrading Delmas WWTW by 30 June 2027 - Victor Khanye LM",
+    uom: "Stage Implementation",
+    base: "Stage 1: 0%",
+    target: "Stage 3: Construction Stage (100%): Construction Progress",
+    q1: "Stage 3: Construction Stage (90%): Construction Progress",
+    q2: "Stage 3: Construction Stage (95%): Construction Progress",
+    q3: "Stage 3: Construction Stage (98%): Construction Progress",
+    q4: "Stage 3: Construction Stage (100%): Construction Progress",
+    poe: "Signed Construction progress report, Completion certificate",
+    budget: "R 12 732 860",
+    submitter: "Divisional Manager: Projects",
+    approver: "General Manager: Technical Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "P_08": {
+    strategicObj: "Priority Issue 14: Water - Bulk infrastructure expansion",
+    kpaIndex: 5,
+    kpaCode: "BSD",
+    owner: "General Manager: Technical Services",
+    person: "Divisional Manager: Projects",
+    desc: "Refurbishment of Emalahleni Bulk Water Infrastructure by 30 June 2027 - Emalahleni LM",
+    uom: "Stage Implementation",
+    base: "Stage 1: 0%",
+    target: "Stage 3: Construction Stage (100%): Construction Progress",
+    q1: "Stage 3: Construction Stage (40%): Construction Progress",
+    q2: "Stage 3: Construction Stage (60%): Construction Progress",
+    q3: "Stage 3: Construction Stage (75%): Construction Progress",
+    q4: "Stage 3: Construction Stage (100%): Construction Progress",
+    poe: "Signed Construction progress report, Completion certificate",
+    budget: "R47 619 047",
+    submitter: "Divisional Manager: Projects",
+    approver: "General Manager: Technical Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "P_09": {
+    strategicObj: "Priority Issue 14: Water - Loskop Regional Bulk Water Supply",
+    kpaIndex: 5,
+    kpaCode: "BSD",
+    owner: "General Manager: Technical Services",
+    person: "Divisional Manager: Projects",
+    desc: "Loskop Regional Bulk Water Supply: WP1 by 30 June 2027 - Thembisile Hani LM",
+    uom: "Stage Implementation",
+    base: "Stage 1: 0%",
+    target: "Stage 3: Construction Stage (100%): Construction Progress",
+    q1: "Stage 3: Construction Stage (95%): Construction Progress",
+    q2: "Stage 3: Construction Stage (100%): Construction Progress",
+    q3: "N/A",
+    q4: "N/A",
+    poe: "Signed Construction progress report, Completion certificate",
+    budget: "R213 500 000",
+    submitter: "Divisional Manager: Projects",
+    approver: "General Manager: Technical Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "P_10": {
+    strategicObj: "Priority Issue 14: Water - Loskop Regional Bulk Water Supply",
+    kpaIndex: 5,
+    kpaCode: "BSD",
+    owner: "General Manager: Technical Services",
+    person: "Divisional Manager: Projects",
+    desc: "Loskop Regional Bulk Water Supply: WP2 by 30 June 2027 - Thembisile Hani LM",
+    uom: "Stage Implementation",
+    base: "Stage 1: 0%",
+    target: "Stage 3: Construction Stage (100%): Construction Progress",
+    q1: "Stage 3: Construction Stage (95%): Construction Progress",
+    q2: "Stage 3: Construction Stage (98%): Construction Progress",
+    q3: "Stage 3: Construction Stage (100%): Construction Progress",
+    q4: "N/A",
+    poe: "Signed Construction progress report, Completion certificate",
+    budget: "R53 375 000",
+    submitter: "Divisional Manager: Projects",
+    approver: "General Manager: Technical Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "P_11": {
+    strategicObj: "Priority Issue 14: Water - Loskop Regional Bulk Water Supply",
+    kpaIndex: 5,
+    kpaCode: "BSD",
+    owner: "General Manager: Technical Services",
+    person: "Divisional Manager: Projects",
+    desc: "Loskop Regional Bulk Water Supply: WP3 by 30 June 2027 - Thembisile Hani LM",
+    uom: "Stage Implementation",
+    base: "Stage 1: 0%",
+    target: "Stage 3: Construction Stage (100%): Construction Progress",
+    q1: "Stage 3: Construction Stage (90%): Construction Progress",
+    q2: "Stage 3: Construction Stage (100%): Construction Progress",
+    q3: "N/A",
+    q4: "N/A",
+    poe: "Signed Construction progress report, Completion certificate",
+    budget: "R53 375 000",
+    submitter: "Divisional Manager: Projects",
+    approver: "General Manager: Technical Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "P_12": {
+    strategicObj: "Priority Issue 14: Water - Loskop Regional Bulk Water Supply",
+    kpaIndex: 5,
+    kpaCode: "BSD",
+    owner: "General Manager: Technical Services",
+    person: "Divisional Manager: Projects",
+    desc: "Loskop Regional Bulk Water Supply: WP6(A) by 30 June 2027 - Thembisile Hani LM",
+    uom: "Stage Implementation",
+    base: "Stage 1: 0%",
+    target: "Stage 3: Construction Stage (100%): Construction Progress",
+    q1: "Stage 2 – Procurement Stage (100%): Appointment of Contractor",
+    q2: "Stage 3: Construction Stage (40%): Construction Progress",
+    q3: "Stage 3: Construction Stage (70%): Construction Progress",
+    q4: "Stage 3: Construction Stage (100%): Construction Progress",
+    poe: "Appointment Letter, Signed Construction progress reports, Practical Completion certificate",
+    budget: "R53 375 000",
+    submitter: "Divisional Manager: Projects",
+    approver: "General Manager: Technical Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "P_13": {
+    strategicObj: "Priority Issue 14: Water - Loskop Regional Bulk Water Supply",
+    kpaIndex: 5,
+    kpaCode: "BSD",
+    owner: "General Manager: Technical Services",
+    person: "Divisional Manager: Projects",
+    desc: "Loskop Regional Bulk Water Supply: WP6 (B) by 30 June 2027 - Thembisile Hani LM",
+    uom: "Stage Implementation",
+    base: "Stage 1: 0%",
+    target: "Stage 3: Construction Stage (100%): Construction Progress",
+    q1: "Stage 2 – Procurement Stage (100%): Appointment of Contractor",
+    q2: "Stage 3: Construction Stage (40%): Construction Progress",
+    q3: "Stage 3: Construction Stage (70%): Construction Progress",
+    q4: "Stage 3: Construction Stage (100%): Construction Progress",
+    poe: "Appointment Letter, Signed Construction progress reports, Practical Completion certificate",
+    budget: "R53 375 000",
+    submitter: "Divisional Manager: Projects",
+    approver: "General Manager: Technical Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "P_14": {
+    strategicObj: "Priority Issue 14: Water - Groundwater supply infrastructure",
+    kpaIndex: 5,
+    kpaCode: "BSD",
+    owner: "General Manager: Technical Services",
+    person: "Divisional Manager: Projects",
+    desc: "Borehole Materials: Dr JS Moroka - Dr JS Moroka LM",
+    uom: "Stage Implementation",
+    base: "Stage 1: 0%",
+    target: "Stage 3: Implementation Stage (100%): Expenditure Progress",
+    q1: "Stage 2 – Procurement Stage (100%): Appointment of Contractor",
+    q2: "Stage 3: Implementation Stage (40%): Expenditure Progress",
+    q3: "Stage 3: Implementation Stage (70%): Expenditure Progress",
+    q4: "Stage 3: Implementation Stage (100%): Expenditure Progress",
+    poe: "Appointment Letter, Signed Delivery Note(s) and Expenditure Report",
+    budget: "R500 000",
+    submitter: "Divisional Manager: Projects",
+    approver: "General Manager: Technical Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "P_15": {
+    strategicObj: "Priority Issue 14: Roads & Storm Water - Asset condition indexing",
+    kpaIndex: 5,
+    kpaCode: "BSD",
+    owner: "General Manager: Technical Services",
+    person: "Divisional Manager: Projects",
+    desc: "Rural Road Asset Management by 30 June 2027. (7302) - District Wide",
+    uom: "Stage Implementation",
+    base: "Stage 1: 0%",
+    target: "Stage 2: Implementation Stage (100%): Road Network Assessment",
+    q1: "Stage 2: Implementation Stage (75%): Road Network Assessment",
+    q2: "Stage 2: Implementation Stage (85%): Road Network Assessment",
+    q3: "Stage 2: Implementation Stage (95%): Road Network Assessment",
+    q4: "Stage 2: Implementation Stage (100%): Road Network Assessment",
+    poe: "Signed Road Network Assessment progress reports, Completion certificate",
+    budget: "R2 659 000",
+    submitter: "Divisional Manager: Projects",
+    approver: "General Manager: Technical Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "P_16": {
+    strategicObj: "Priority Issue 13: Electricity - Public lighting infrastructure",
+    kpaIndex: 5,
+    kpaCode: "BSD",
+    owner: "General Manager: Technical Services",
+    person: "Divisional Manager: Projects",
+    desc: "High mast Lights Retrofitting by 30 June 2027. (185541) - Victor Khanye LM",
+    uom: "Stage Implementation",
+    base: "Stage 1: 0%",
+    target: "Stage 3: Construction Stage (100%): Construction Progress",
+    q1: "Stage 1: Planning Stage (100%): Approved Business plan",
+    q2: "Stage 3: Construction Stage (40%): Construction Progress",
+    q3: "Stage 3: Construction Stage (60%): Construction Progress",
+    q4: "Stage 3: Construction Stage (100%): Construction Progress",
+    poe: "Signed Construction progress report and completion certificate, Approved Business plan",
+    budget: "R 2 000 000",
+    submitter: "Divisional Manager: Projects",
+    approver: "General Manager: Technical Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+  "P_17": {
+    strategicObj: "Priority Issue 13: Electricity - Public lighting infrastructure",
+    kpaIndex: 5,
+    kpaCode: "BSD",
+    owner: "General Manager: Technical Services",
+    person: "Divisional Manager: Projects",
+    desc: "High mast Lights Retrofitting by 30 June 2027. (185541) - Dr JS Moroka LM",
+    uom: "Stage Implementation",
+    base: "Stage 1: 0%",
+    target: "Stage 3: Construction Stage (100%): Construction Progress",
+    q1: "Stage 1: Planning Stage (100%): Approved Business plan",
+    q2: "Stage 3: Construction Stage (40%): Construction Progress",
+    q3: "Stage 3: Construction Stage (60%): Construction Progress",
+    q4: "Stage 3: Construction Stage (100%): Construction Progress",
+    poe: "Signed Construction progress report and completion certificate, Approved Business plan",
+    budget: "R 2 000 000",
+    submitter: "Divisional Manager: Projects",
+    approver: "General Manager: Technical Services",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  },
+
+  // KPA 6 Spatial Planning Project (P_18)
+  "P_18": {
+    strategicObj: "Priority Issue 7.6.1: Spatial Rationale - Township Establishment",
+    kpaIndex: 6,
+    kpaCode: "SR",
+    owner: "General Manager: Planning and Development",
+    person: "Division Manager: Chief Town & Regional Planner",
+    desc: "Finalisation of a Township Establishment in Siyathuthuka - Emakhazeni LM",
+    uom: "Stage Implementation",
+    base: "Stage 1: 0%",
+    target: "Stage 2: Implementation Stage (100%): Final Special Study and Final of Opening of Township Register",
+    q1: "Stage 1: Planning Stage (100%): Appointment of the Service Provider",
+    q2: "Stage 2: Implementation Stage (30%): Inception Report",
+    q3: "Stage 2: Implementation Stage (60%): Draft Special Study and Draft Opening of Township Register",
+    q4: "Stage 2: Implementation Stage (100%): Final Special Study and Final of Opening of Township Register",
+    poe: "Appointment Letter, Inception Report, Draft Special Study and Opening of Township Register, Final Special Study and Opening of Township Register",
+    budget: "R 700 000",
+    submitter: "Division Manager: Chief Town & Regional Planner",
+    approver: "General Manager: Planning and Development",
+    reviewer: "PMS Manager",
+    internalAudit: "Internal Auditor"
+  }
 };
 
 const getKpaName = (idx: number): string => {
   return [
-    "KPA 1: Basic Service Delivery and Infrastructure Development",
-    "KPA 2: Municipal Institutional Development and Transformation",
+    "KPA 1: Institutional Development and Transformation",
+    "KPA 2: Good Governance and Public Participation",
     "KPA 3: Local Economic Development (LED)",
     "KPA 4: Municipal Financial Viability and Management",
-    "KPA 5: Good Governance and Public Participation",
-    "KPA 6: Spatial Rationale and Environmental Management",
-    "KPA 7: Skills Development & Capacity Training"
-  ][idx - 1] || "KPA 1: Basic Service Delivery and Infrastructure Development";
+    "KPA 5: Basic Service Delivery and Infrastructure",
+    "KPA 6: Spatial Rationale"
+  ][idx - 1] || "KPA 1: Institutional Development and Transformation";
 };
 
-const getKpaFlags = (idx: number) => {
+const getKpaFlags = (code: string) => {
+  const c = code.toUpperCase();
   return {
-    bsd: idx === 1 ? "X" : "",
-    midt: (idx === 2 || idx === 7) ? "X" : "",
-    led: idx === 3 ? "X" : "",
-    mfvm: idx === 4 ? "X" : "",
-    ggpp: idx === 5 ? "X" : "",
-    sr: idx === 6 ? "X" : ""
+    bsd: c === "BSD" ? "X" : "",
+    midt: c === "MIDT" ? "X" : "",
+    led: c === "LED" ? "X" : "",
+    mfvm: c === "MFVM" ? "X" : "",
+    ggpp: c === "GGPP" ? "X" : "",
+    sr: c === "SR" ? "X" : ""
   };
 };
 
-const getKpaStrategicObjective = (idx: number): string => {
-  return [
-    "To ensure reliable bulk water and electricity infrastructure",
-    "To improve professional competency and human capital retention",
-    "To promote local agrarian, manufacturing, and tourism hospitality economy",
-    "To achieve unqualified AG audit with zero recurring findings",
-    "To enable deep responsive community consultation across all wards",
-    "To enforce optimal sustainable land use management aligned with SPLUMA",
-    "To improve professional competency and human capital retention"
-  ][idx - 1] || "To ensure reliable bulk water and electricity infrastructure";
-};
+// Generate Full Master SDBIP Catalog of all 110 items
+export const SDBIP_CANONICAL_CATALOG: SdbipCatalogItem[] = [
+  ...Object.entries(NKANGALA_M_KPIS_OFFICIAL).map(([refNum, item]) => {
+    const flags = getKpaFlags(item.kpaCode);
+    return {
+      Ref_Number: refNum,
+      SDBIP_Strategic_Objective: item.strategicObj,
+      KPI: item.desc,
+      National_KPA: getKpaName(item.kpaIndex),
+      BSD: flags.bsd,
+      LED: flags.led,
+      MFVM: flags.mfvm,
+      GGPP: flags.ggpp,
+      MIDT: flags.midt,
+      SR: flags.sr,
+      Responsible_Owner: item.owner,
+      Responsible_Person: item.person,
+      Unit_of_Measure: item.uom,
+      Baseline: item.base,
+      Annual_Target: item.target,
+      Budget_Allocation: item.budget,
+      Q1_Target: item.q1 || "N/A",
+      Q2_Target: item.q2 || "N/A",
+      Mid_Term_Target: item.mid || item.q2 || "N/A",
+      Q3_Target: item.q3 || "N/A",
+      Q4_Target: item.q4 || "N/A",
+      Submitter: item.submitter || item.person || "Submitter",
+      Approver: item.approver || item.owner || "Approver",
+      Reviewer: item.reviewer || "PMS Manager",
+      Internal_Audit: item.internalAudit || "Internal Auditor",
+      POE_Description: item.poe,
+      Description: item.desc
+    };
+  }),
+  ...Object.entries(NKANGALA_P_KPIS_OFFICIAL).map(([refNum, item]) => {
+    const flags = getKpaFlags(item.kpaCode);
+    return {
+      Ref_Number: refNum,
+      SDBIP_Strategic_Objective: item.strategicObj,
+      KPI: item.desc,
+      National_KPA: getKpaName(item.kpaIndex),
+      BSD: flags.bsd,
+      LED: flags.led,
+      MFVM: flags.mfvm,
+      GGPP: flags.ggpp,
+      MIDT: flags.midt,
+      SR: flags.sr,
+      Responsible_Owner: item.owner,
+      Responsible_Person: item.person,
+      Unit_of_Measure: item.uom,
+      Baseline: item.base,
+      Annual_Target: item.target,
+      Budget_Allocation: item.budget,
+      Q1_Target: item.q1 || "N/A",
+      Q2_Target: item.q2 || "N/A",
+      Mid_Term_Target: item.mid || item.q2 || "N/A",
+      Q3_Target: item.q3 || "N/A",
+      Q4_Target: item.q4 || "N/A",
+      Submitter: item.submitter || item.person || "Submitter",
+      Approver: item.approver || item.owner || "Approver",
+      Reviewer: item.reviewer || "PMS Manager",
+      Internal_Audit: item.internalAudit || "Internal Auditor",
+      POE_Description: item.poe,
+      Description: item.desc
+    };
+  })
+];
 
-const getKpaResponsibleOwner = (idx: number): string => {
-  return [
-    "Executive Manager: Technical Services",
-    "Executive Manager: Corporate Services",
-    "Executive Manager: Development Planning",
-    "Chief Financial Officer",
-    "Municipal Manager",
-    "Executive Manager: Social Services",
-    "Executive Manager: Corporate Services"
-  ][idx - 1] || "Municipal Manager";
-};
+export const SDBIP_CANONICAL_ITEMS_MAP: { [refNum: string]: SdbipCatalogItem } = {};
+SDBIP_CANONICAL_CATALOG.forEach(item => {
+  SDBIP_CANONICAL_ITEMS_MAP[item.Ref_Number] = item;
+});
 
-// Generates a fully inflated catalog item with KPI-specific POE
-function inflateItem(refCode: string, compact: { desc: string; kpaIndex: number; uom?: string; target?: string; base?: string; q1?: string; q2?: string; mid?: string; q3?: string; q4?: string; poe?: string }): SdbipCatalogItem {
-  const flags = getKpaFlags(compact.kpaIndex);
-  const uom = compact.uom || "Percentage";
-  const target = compact.target || "100% compliance";
-  const base = compact.base || "0%";
-  const poeDesc = compact.poe || `Signed quarterly verification report and compliance portfolio for ${refCode}`;
-
-  return {
-    Ref_Number: refCode,
-    SDBIP_Strategic_Objective: getKpaStrategicObjective(compact.kpaIndex),
-    KPI: compact.desc,
-    National_KPA: getKpaName(compact.kpaIndex),
-    BSD: flags.bsd,
-    LED: flags.led,
-    MFVM: flags.mfvm,
-    GGPP: flags.ggpp,
-    MIDT: flags.midt,
-    SR: flags.sr,
-    Responsible_Owner: getKpaResponsibleOwner(compact.kpaIndex),
-    Unit_of_Measure: uom,
-    Baseline: base,
-    Annual_Target: target,
-    Budget_Allocation: refCode.startsWith('M') ? "R 1,500,000" : "R 250,000",
-    Q1_Target: compact.q1 || `25% of ${target}`,
-    Q2_Target: compact.q2 || `50% of ${target}`,
-    Mid_Term_Target: compact.mid || `50% of ${target}`,
-    Q3_Target: compact.q3 || `75% of ${target}`,
-    Q4_Target: compact.q4 || target,
-    Submitter: "Departmental Submitter",
-    Approver: "Executive Manager",
-    POE_Description: poeDesc,
-    Description: compact.desc
-  };
-}
-
-// Ensure all 111 SDBIP items (M_01..M_92, P_01..P_19) are fully represented and populated in the array
-export function ensureAllSdbipKpis(extractedItems: any[]): SdbipCatalogItem[] {
-  const result: SdbipCatalogItem[] = [];
-  const normalizedExtractedMap = new Map<string, any>();
-
-  // Helper to normalize the reference keys (e.g. M1, M 1, M-01 -> M_01)
-  const normalizeRef = (ref: string): string => {
-    if (!ref) return "";
-    let clean = ref.trim().toUpperCase().replace(/[\s_\-]+/g, "");
-    if (clean.startsWith("M")) {
-      const numStr = clean.substring(1);
-      const parsed = parseInt(numStr, 10);
-      if (!isNaN(parsed)) return `M_${String(parsed).padStart(2, '0')}`;
-    } else if (clean.startsWith("P")) {
-      const numStr = clean.substring(1);
-      const parsed = parseInt(numStr, 10);
-      if (!isNaN(parsed)) return `P_${String(parsed).padStart(2, '0')}`;
-    }
-    return ref;
-  };
-
-  // Map each incoming extracted item to its normalized Ref_Number
-  for (const item of extractedItems) {
-    if (!item) continue;
-    const rawRef = item.Ref_Number || item.Ref_No || item.Ref || item.refNum || "";
-    const normRef = normalizeRef(String(rawRef));
-    if (normRef) {
-      normalizedExtractedMap.set(normRef, item);
-    }
-  }
-
-  // 1. Inflate M_01 to M_92
-  for (let i = 1; i <= 92; i++) {
-    const code = `M_${String(i).padStart(2, '0')}`;
-    const extracted = normalizedExtractedMap.get(code);
-    const compactDef = mKpisCompact[code];
-
-    if (extracted) {
-      const sourcePoe = extracted.POE_Description || extracted.poeStatus || extracted.poeDesc || extracted.poe || extracted.meansOfVerification || extracted.q1PoeDesc || extracted.q2PoeDesc || extracted.q3PoeDesc || extracted.q4PoeDesc || compactDef?.poe || `Signed quarterly verification report and compliance portfolio for ${code}`;
-      // Map properties neatly, falling back to standard values if null/empty
-      result.push({
-        Ref_Number: code,
-        SDBIP_Strategic_Objective: extracted.SDBIP_Strategic_Objective || extracted.strategicObj || (compactDef ? getKpaStrategicObjective(compactDef.kpaIndex) : ""),
-        KPI: extracted.KPI || extracted.kpi || (compactDef ? compactDef.desc : ""),
-        National_KPA: extracted.National_KPA || extracted.kpas || (compactDef ? getKpaName(compactDef.kpaIndex) : ""),
-        BSD: extracted.BSD || (compactDef && getKpaFlags(compactDef.kpaIndex).bsd ? "X" : ""),
-        LED: extracted.LED || (compactDef && getKpaFlags(compactDef.kpaIndex).led ? "X" : ""),
-        MFVM: extracted.MFVM || (compactDef && getKpaFlags(compactDef.kpaIndex).mfvm ? "X" : ""),
-        GGPP: extracted.GGPP || (compactDef && getKpaFlags(compactDef.kpaIndex).ggpp ? "X" : ""),
-        MIDT: extracted.MIDT || (compactDef && getKpaFlags(compactDef.kpaIndex).midt ? "X" : ""),
-        SR: extracted.SR || (compactDef && getKpaFlags(compactDef.kpaIndex).sr ? "X" : ""),
-        Responsible_Owner: extracted.Responsible_Owner || extracted.responsibleUnit || (compactDef ? getKpaResponsibleOwner(compactDef.kpaIndex) : ""),
-        Unit_of_Measure: extracted.Unit_of_Measure || extracted.uom || (compactDef ? compactDef.uom || "Percentage" : ""),
-        Baseline: extracted.Baseline || extracted.baseline || (compactDef ? compactDef.base || "0%" : "0"),
-        Annual_Target: extracted.Annual_Target || extracted.annualTarget || (compactDef ? compactDef.target || "100%" : ""),
-        Budget_Allocation: extracted.Budget_Allocation || extracted.budgetAllocation || "R 1,500,000",
-        Q1_Target: extracted.Q1_Target || extracted.q1 || (compactDef ? compactDef.q1 || `25% of ${compactDef.target}` : ""),
-        Q2_Target: extracted.Q2_Target || extracted.q2 || (compactDef ? compactDef.q2 || `50% of ${compactDef.target}` : ""),
-        Mid_Term_Target: extracted.Mid_Term_Target || extracted.midTerm || (compactDef ? compactDef.mid || `50% of ${compactDef.target}` : ""),
-        Q3_Target: extracted.Q3_Target || extracted.q3 || (compactDef ? compactDef.q3 || `75% of ${compactDef.target}` : ""),
-        Q4_Target: extracted.Q4_Target || extracted.q4 || (compactDef ? compactDef.q4 || compactDef.target : ""),
-        Submitter: extracted.Submitter || extracted.submitter || "Departmental Submitter",
-        Approver: extracted.Approver || extracted.approver || "Executive Manager",
-        POE_Description: sourcePoe,
-        Description: extracted.Description || extracted.description || (compactDef ? compactDef.desc : "")
-      });
-    } else if (compactDef) {
-      result.push(inflateItem(code, compactDef));
-    } else {
-      // Emergency dummy fallback
-      result.push(inflateItem(code, { desc: `Municipal KPI Indicator details for ${code}`, kpaIndex: 1, poe: `Signed quarterly portfolio of evidence for ${code}` }));
-    }
-  }
-
-  // 2. Inflate P_01 to P_19
-  for (let i = 1; i <= 19; i++) {
-    const code = `P_${String(i).padStart(2, '0')}`;
-    const extracted = normalizedExtractedMap.get(code);
-    const compactDef = pKpisCompact[code];
-
-    if (extracted) {
-      const sourcePoe = extracted.POE_Description || extracted.poeStatus || extracted.poeDesc || extracted.poe || extracted.meansOfVerification || extracted.q1PoeDesc || extracted.q2PoeDesc || extracted.q3PoeDesc || extracted.q4PoeDesc || compactDef?.poe || `Signed quarterly project milestone certificates and expenditure reports for ${code}`;
-      result.push({
-        Ref_Number: code,
-        SDBIP_Strategic_Objective: extracted.SDBIP_Strategic_Objective || extracted.strategicObj || (compactDef ? getKpaStrategicObjective(compactDef.kpaIndex) : ""),
-        KPI: extracted.KPI || extracted.kpi || (compactDef ? compactDef.desc : ""),
-        National_KPA: extracted.National_KPA || extracted.kpas || (compactDef ? getKpaName(compactDef.kpaIndex) : ""),
-        BSD: extracted.BSD || (compactDef && getKpaFlags(compactDef.kpaIndex).bsd ? "X" : ""),
-        LED: extracted.LED || (compactDef && getKpaFlags(compactDef.kpaIndex).led ? "X" : ""),
-        MFVM: extracted.MFVM || (compactDef && getKpaFlags(compactDef.kpaIndex).mfvm ? "X" : ""),
-        GGPP: extracted.GGPP || (compactDef && getKpaFlags(compactDef.kpaIndex).ggpp ? "X" : ""),
-        MIDT: extracted.MIDT || (compactDef && getKpaFlags(compactDef.kpaIndex).midt ? "X" : ""),
-        SR: extracted.SR || (compactDef && getKpaFlags(compactDef.kpaIndex).sr ? "X" : ""),
-        Responsible_Owner: extracted.Responsible_Owner || extracted.responsibleUnit || (compactDef ? getKpaResponsibleOwner(compactDef.kpaIndex) : ""),
-        Unit_of_Measure: extracted.Unit_of_Measure || extracted.uom || (compactDef ? compactDef.uom || "Percentage" : ""),
-        Baseline: extracted.Baseline || extracted.baseline || (compactDef ? compactDef.base || "0%" : "0"),
-        Annual_Target: extracted.Annual_Target || extracted.annualTarget || (compactDef ? compactDef.target || "100%" : ""),
-        Budget_Allocation: extracted.Budget_Allocation || extracted.budgetAllocation || "R 250,000",
-        Q1_Target: extracted.Q1_Target || extracted.q1 || (compactDef ? compactDef.q1 || `25% of ${compactDef.target}` : ""),
-        Q2_Target: extracted.Q2_Target || extracted.q2 || (compactDef ? compactDef.q2 || `50% of ${compactDef.target}` : ""),
-        Mid_Term_Target: extracted.Mid_Term_Target || extracted.midTerm || (compactDef ? compactDef.mid || `50% of ${compactDef.target}` : ""),
-        Q3_Target: extracted.Q3_Target || extracted.q3 || (compactDef ? compactDef.q3 || `75% of ${compactDef.target}` : ""),
-        Q4_Target: extracted.Q4_Target || extracted.q4 || (compactDef ? compactDef.q4 || compactDef.target : ""),
-        Submitter: extracted.Submitter || extracted.submitter || "Departmental Submitter",
-        Approver: extracted.Approver || extracted.approver || "Executive Manager",
-        POE_Description: sourcePoe,
-        Description: extracted.Description || extracted.description || (compactDef ? compactDef.desc : "")
-      });
-    } else if (compactDef) {
-      result.push(inflateItem(code, compactDef));
-    } else {
-      // Emergency dummy fallback
-      result.push(inflateItem(code, { desc: `Departmental KPI Indicator details for ${code}`, kpaIndex: 5, poe: `Signed quarterly project evidence for ${code}` }));
-    }
-  }
-
-  return result;
-}
-
-// NEDA SDBIP Catalog (46 E_ Entity/Executive KPIs + 3 P_ Project KPIs = 49 total indicators across KPA 1 to KPA 4)
-
-const nedaKpaNames: Record<number, string> = {
-  1: "a. KPA 1: Institutional Development and Transformation",
-  2: "b. KPA 2: Good Governance and Public Participation",
-  3: "c. KPA 3: Local Economic Development",
-  4: "d. KPA 4: Municipal Financial Viability and Management"
-};
-
-const nedaEKpisCompact: { [key: string]: { desc: string; kpaIndex: number; strategicObj: string; uom?: string; base?: string; target?: string; q1?: string; q2?: string; mid?: string; q3?: string; q4?: string; poe: string; budget?: string } } = {
-  // a. KPA 1: Institutional Development and Transformation (E_01 - E_07)
-  "E_01": {
-    strategicObj: "Ensure Good governance and regulatory compliance",
-    desc: "Percentage of 2025/26 individual performance evaluations conducted with all employees by 30 June 2027",
-    kpaIndex: 1, uom: "Percentage", base: "100%", target: "100%", q1: "n/a", q2: "n/a", mid: "n/a", q3: "n/a", q4: "100%",
-    poe: "Consolidated Annual Performance Evaluation Report to the Board and Board resolution", budget: "OPEX"
-  },
-  "E_02": {
-    strategicObj: "To ensure efficient administration and institutional development",
-    desc: "Number of new/reviewed polices approved by Board by 30 June 2027",
-    kpaIndex: 1, uom: "Number", base: "100%", target: "15", q1: "n/a", q2: "n/a", mid: "n/a", q3: "n/a", q4: "15",
-    poe: "Report to board and Board Resolution(s) (stating all the policies revied by Board)", budget: "OPEX"
-  },
-  "E_03": {
-    strategicObj: "Ensure Good governance and regulatory compliance",
-    desc: "Number of quarterly reports submitted to the Board and the NDM by 30 June 2027",
-    kpaIndex: 1, uom: "Number", base: "4", target: "4", q1: "1", q2: "1", mid: "1", q3: "1", q4: "1",
-    poe: "Quarterly Reports to Board and Council resolution", budget: "OPEX"
-  },
-  "E_04": {
-    strategicObj: "Ensure Good governance and regulatory compliance",
-    desc: "Maximum acceptable percentage of Staff vacancy rate (circular 88) per quarter",
-    kpaIndex: 1, uom: "Percentage", base: "7%", target: "10% or below", q1: "10% or below", q2: "10% or below", mid: "10% or below", q3: "10% or below", q4: "10% or below",
-    poe: "Signed vacancy Rate Report (Indicating the vacancy rate percentage)", budget: "OPEX"
-  },
-  "E_05": {
-    strategicObj: "Ensuring the employment of highest levels of management comply with the Municipality's Employment Equity Plan",
-    desc: "Percentage of allocated budget spend implementing the Workplace Skills Plan by 30 June 2027",
-    kpaIndex: 1, uom: "Percentage", base: "New", target: "97%", q1: "n/a", q2: "n/a", mid: "50%", q3: "50%", q4: "97%",
-    poe: "Signed Training Report, and budget vote report", budget: "R100"
-  },
-  "E_06": {
-    strategicObj: "To be compliant with the Municipal Systems Act 32 of 2000, Schedule 1, Declaration of interest",
-    desc: "Percentage of Board members who have declared their financial interest (Circular 88) by 30 June 2027",
-    kpaIndex: 1, uom: "Percentage", base: "New", target: "100%", q1: "100%", q2: "100%", mid: "100%", q3: "100%", q4: "100%",
-    poe: "Signed Quarterly Report on Declarations of Interest by Board and board Resolution", budget: "OPEX"
-  },
-  "E_07": {
-    strategicObj: "To ensure Good governance and regulatory compliance",
-    desc: "Number of shared service agreement (SDAs) revied and submitted to NDM by 30 June 2027",
-    kpaIndex: 1, uom: "Number", base: "1", target: "1", q1: "n/a", q2: "n/a", mid: "n/a", q3: "n/a", q4: "1",
-    poe: "Reviewed SLA and proof of submission.", budget: "OPEX"
-  },
-
-  // b. KPA 2: Good Governance and Public Participation (E_08 - E_27)
-  "E_08": {
-    strategicObj: "To be compliant with the Municipal Systems Act 32 of 2000, Schedule 1, Declaration of interest",
-    desc: "Percentage of Employees who have declared their financial interests (Circular 88) by 30 June 2027",
-    kpaIndex: 2, uom: "Percentage", base: "New", target: "100%", q1: "100%", q2: "100%", mid: "100%", q3: "100%", q4: "100%",
-    poe: "Signed Declarations of Interest by Employees and Board Resolution.", budget: "OPEX"
-  },
-  "E_09": {
-    strategicObj: "To ensure Good Governance and regulatory compliance",
-    desc: "Attain clean audit opinion by 31 December 2026",
-    kpaIndex: 2, uom: "Number", base: "New", target: "1 (Clean audit)", q1: "n/a", q2: "1 (Clean Audit opinion)", mid: "1 (Clean Audit opinion)", q3: "n/a", q4: "n/a",
-    poe: "AGSA's Audit Report 2025/26", budget: "OPEX"
-  },
-  "E_10": {
-    strategicObj: "To ensure Good Governance and regulatory compliance",
-    desc: "Number of repeat audit findings (circular 88) by 31 December 2026",
-    kpaIndex: 2, uom: "Number", base: "New", target: "0 (not above)", q1: "n/a", q2: "0 (not above)", mid: "0 (not above)", q3: "n/a", q4: "n/a",
-    poe: "AGSA's Audit Report 2025/26", budget: "OPEX"
-  },
-  "E_11": {
-    strategicObj: "To ensure Good Governance and regulatory compliance",
-    desc: "Number of Action Plan on issues raised by the Auditor General tabled to the board by 31 December 2026.",
-    kpaIndex: 2, uom: "Number", base: "1", target: "1", q1: "n/a", q2: "1", mid: "1", q3: "n/a", q4: "n/a",
-    poe: "Audit Action Plan and Board resolution", budget: "OPEX"
-  },
-  "E_12": {
-    strategicObj: "To ensure Good Governance and regulatory compliance",
-    desc: "Percentage of AGSA Findings raised in the Management Letter resolved (Total organization) by 30 June 2027",
-    kpaIndex: 2, uom: "Percentage", base: "New", target: "100%", q1: "n/a", q2: "n/a", mid: "40%", q3: "40%", q4: "100%",
-    poe: "Signed Progress Report on the Implementation of the Audit Action Plan.", budget: "OPEX"
-  },
-  "E_13": {
-    strategicObj: "To ensure Good governance and regulatory compliance",
-    desc: "Number of Final Strategic plan tabled for approval to Board by 31 May 2027",
-    kpaIndex: 2, uom: "Number", base: "New", target: "1", q1: "n/a", q2: "n/a", mid: "n/a", q3: "n/a", q4: "1",
-    poe: "Final Strategic Plan Document, Board Resolution", budget: "OPEX"
-  },
-  "E_14": {
-    strategicObj: "To ensure Good governance and regulatory compliance",
-    desc: "Number of Annual Report tabled to The Board and Council by 31 December 2026",
-    kpaIndex: 2, uom: "Number", base: "New", target: "1", q1: "n/a", q2: "1", mid: "1", q3: "n/a", q4: "n/a",
-    poe: "Approval Annual Report, board and Council Resolution.", budget: "OPEX"
-  },
-  "E_15": {
-    strategicObj: "To ensure Good Governance and regulatory compliance",
-    desc: "Number of Final 2027/28 Annual Performance Plan approved by the Board Chairperson within 28 days after approval of Annual Budget",
-    kpaIndex: 2, uom: "Number", base: "1", target: "1", q1: "n/a", q2: "n/a", mid: "n/a", q3: "n/a", q4: "1",
-    poe: "Approved and signed 2027/28 Annual Performance plan", budget: "OPEX"
-  },
-  "E_16": {
-    strategicObj: "To ensure Good governance and regulatory compliance",
-    desc: "Number of Adjustment 2026/27 Annual Performance plan approval within 28 days after the approval of the Adjustment Budget.",
-    kpaIndex: 2, uom: "Number", base: "New", target: "1", q1: "n/a", q2: "n/a", mid: "1", q3: "1", q4: "n/a",
-    poe: "Approved and signed Adjusted 2026/27 Annual Performance plan, board resolution", budget: "OPEX"
-  },
-  "E_17": {
-    strategicObj: "To ensure Good governance and regulatory compliance",
-    desc: "Percentage of action plans implemented to address Strategic Risks Identified per quarter (Total organization)",
-    kpaIndex: 2, uom: "Percentage", base: "New", target: "90%", q1: "60%", q2: "70%", mid: "70%", q3: "80%", q4: "90%",
-    poe: "Signed Quarterly Strategic risk report", budget: "OPEX"
-  },
-  "E_18": {
-    strategicObj: "To ensure Good Governance and regulatory compliance",
-    desc: "Percentage of action plans implemented to address Operational Risks Identified per quarter (Total Organization)",
-    kpaIndex: 2, uom: "Percentage", base: "New", target: "90%", q1: "60%", q2: "70%", mid: "70%", q3: "80%", q4: "90%",
-    poe: "Signed Quarterly Operational Risk report", budget: "OPEX"
-  },
-  "E_19": {
-    strategicObj: "To ensure Good Governance and regulatory compliance",
-    desc: "Number of risk-based audit plan developed and approved by 30 June 2027",
-    kpaIndex: 2, uom: "Number", base: "New", target: "1", q1: "n/a", q2: "n/a", mid: "n/a", q3: "n/a", q4: "1",
-    poe: "Approved Risk Based audit plan and Board resolution", budget: "OPEX"
-  },
-  "E_20": {
-    strategicObj: "To ensure Financial Sustainability to meet the statutory requirements",
-    desc: "Percentage of audit recommendations implemented per quarter (Total organization)",
-    kpaIndex: 2, uom: "Percentage", base: "New", target: "100%", q1: "100%", q2: "100%", mid: "100%", q3: "100%", q4: "100%",
-    poe: "Signed quarterly IA report", budget: "OPEX"
-  },
-  "E_21": {
-    strategicObj: "Ensure Good Governance and regulatory compliance",
-    desc: "Number of Strategic Risk Register",
-    kpaIndex: 2, uom: "Number", base: "New", target: "1", q1: "n/a", q2: "n/a", mid: "n/a", q3: "n/a", q4: "1",
-    poe: "Approved Strategic Board Resolution", budget: "OPEX"
-  },
-  "E_22": {
-    strategicObj: "Ensure Good Governance and regulatory compliance",
-    desc: "Number of Audit Committee reports submitted to Board by 30 June 2027",
-    kpaIndex: 2, uom: "Number", base: "New", target: "4", q1: "1", q2: "1", mid: "1", q3: "1", q4: "1",
-    poe: "Quarterly Signed Audit Committee Reports and board Resolution.", budget: "OPEX"
-  },
-  "E_23": {
-    strategicObj: "Ensure Good Governance and regulatory compliance",
-    desc: "Percentage implementation of audit committee resolutions adopted per quarter",
-    kpaIndex: 2, uom: "Percentage", base: "New", target: "100%", q1: "100%", q2: "100%", mid: "100%", q3: "100%", q4: "100%",
-    poe: "Signed quarterly Audit committee resolution register", budget: "OPEX"
-  },
-  "E_24": {
-    strategicObj: "Ensure Good Governance and regulatory compliance",
-    desc: "Percentage on Implementation of Board Resolutions Resolved (Total organization) per quarter",
-    kpaIndex: 2, uom: "Percentage", base: "New", target: "100%", q1: "100%", q2: "100%", mid: "100%", q3: "100%", q4: "100%",
-    poe: "Signed Quarterly report on implementation of Board Resolutions.", budget: "OPEX"
-  },
-  "E_25": {
-    strategicObj: "Ensure Good Governance and regulatory compliance",
-    desc: "Number of agenda items deferred to the next Board meeting (circular 88) per quarter",
-    kpaIndex: 2, uom: "Number", base: "New", target: "3, (or below)", q1: "3, (or below)", q2: "3, (or below)", mid: "3, (or below)", q3: "3, (or below)", q4: "3, (or below)",
-    poe: "Unsigned minutes of the current quarter and Signed Board Minutes of Previous quarter", budget: "OPEX"
-  },
-  "E_26": {
-    strategicObj: "To ensure Good Governance and regulatory compliance",
-    desc: "Number of Strategic Lekgotla report tabled to the Board by 31 May 2027",
-    kpaIndex: 2, uom: "Number", base: "New", target: "1", q1: "n/a", q2: "n/a", mid: "n/a", q3: "n/a", q4: "1",
-    poe: "2027/28 Strategic Lekgotla report and Board resolution", budget: "OPEX"
-  },
-  "E_27": {
-    strategicObj: "To ensure Good Governance and regulatory compliance",
-    desc: "Percentage of strategic Lekgotla resolutions implemented by 30 June 2027",
-    kpaIndex: 2, uom: "Percentage", base: "New", target: "90%", q1: "60%", q2: "70%", mid: "70%", q3: "80%", q4: "90%",
-    poe: "Signed quarterly report on Implementation of Strategic Lekgotla resolutions", budget: "OPEX"
-  },
-
-  // c. KPA 3: Local Economic Development (E_28 - E_33)
-  "E_28": {
-    strategicObj: "To act as a single point of contact for investing, economic development, and tourism activities in the District.",
-    desc: "Number of fundraising proposals submitted to funders for LED projects submitted by Local Municipalities by 30 June 2027.",
-    kpaIndex: 3, uom: "Number", base: "New", target: "4", q1: "1", q2: "1", mid: "1", q3: "1", q4: "1",
-    poe: "Signed fundraising proposals", budget: "OPEX"
-  },
-  "E_29": {
-    strategicObj: "To attract investment and related growth-focused activities into the District's key sectors including tourism and priority zones.",
-    desc: "Number of reports on catalytic economic development and projects pipeline identified and profiled for investment attraction by 30 June 2027",
-    kpaIndex: 3, uom: "Number", base: "New", target: "4", q1: "1", q2: "1", mid: "1", q3: "1", q4: "1",
-    poe: "Signed report on catalytic economic development projects and Board resolution", budget: "OPEX"
-  },
-  "E_30": {
-    strategicObj: "To attract investment and related growth-focused activities into the District's key sectors including tourism and priority zones.",
-    desc: "Number of District Investment Prospect developed by 30 June 2027",
-    kpaIndex: 3, uom: "Number", base: "New", target: "2", q1: "n/a", q2: "1 (Draft Investment Prospect)", mid: "1 (Draft Investment Prospect)", q3: "n/a", q4: "1 (Final District Investment Prospect)",
-    poe: "Draft District Prospect Final District Investment Prospect", budget: "OPEX"
-  },
-  "E_31": {
-    strategicObj: "To attract investment and related growth-focused activities into the District's key sectors including tourism and priority zones.",
-    desc: "Number of Municipal Investment Incentive Framework developed by 30 June 2027",
-    kpaIndex: 3, uom: "Number", base: "New", target: "2", q1: "n/a", q2: "1 (Draft municipal incentive framework and templates developed)", mid: "1 (Draft municipal incentive framework and templates developed)", q3: "n/a", q4: "1 (Final Municipal Investment Incentive Framework developed and adopted)",
-    poe: "Draft municipal investment incentive framework and template Final and approved Municipal Investment Incentive Framework", budget: "OPEX"
-  },
-  "E_32": {
-    strategicObj: "To promote entrepreneurship and provide economic initiatives and related organized events within the jurisdiction of the District",
-    desc: "Number of brick plant accreditation obtained from the SABS by 30 June 2027",
-    kpaIndex: 3, uom: "Number", base: "New", target: "2", q1: "1 (SABS lab assessment 1 conducted)", q2: "n/a", mid: "1 (SABS lab assessment 1 conducted)", q3: "n/a", q4: "1 (SABS accreditation certificate)",
-    poe: "SABS Lab assessment results SABS accreditation certificate", budget: "OPEX"
-  },
-  "E_33": {
-    strategicObj: "To promote entrepreneurship and provide economic initiatives and related organized events within the jurisdiction of the District",
-    desc: "Number of bricks produced per quarter",
-    kpaIndex: 3, uom: "Number", base: "New", target: "1 472 491", q1: "491", q2: "491", mid: "491", q3: "491", q4: "491",
-    poe: "Signed quarterly brick production reports", budget: "OPEX"
-  },
-
-  // d. KPA 4: Municipal Financial Viability and Management (E_34 - E_46)
-  "E_34": {
-    strategicObj: "To ensure financial sustainability to meet the statutory requirements",
-    desc: "Percentage of procurement plan implemented per quarter",
-    kpaIndex: 4, uom: "Percentage", base: "New", target: "100%", q1: "100%", q2: "100%", mid: "100%", q3: "100%", q4: "100%",
-    poe: "Signed Quarterly Procurement plan report", budget: "OPEX"
-  },
-  "E_35": {
-    strategicObj: "To ensure financial sustainability to meet the statutory requirements",
-    desc: "Number of Draft MTREF Budget submitted and approved by 30 March 2027",
-    kpaIndex: 4, uom: "Number", base: "1", target: "1", q1: "n/a", q2: "n/a", mid: "n/a", q3: "n/a", q4: "1",
-    poe: "Approved Draft MTREF Budget, Board and Council resolution", budget: "OPEX"
-  },
-  "E_36": {
-    strategicObj: "To ensure financial sustainability to meet the statutory requirements",
-    desc: "Number of Final MTREF budget approved by 31 May 2027",
-    kpaIndex: 4, uom: "Number", base: "1", target: "1", q1: "n/a", q2: "n/a", mid: "n/a", q3: "n/a", q4: "1",
-    poe: "Approved MTREF Budget, Board and Council resolution", budget: "OPEX"
-  },
-  "E_37": {
-    strategicObj: "To ensure financial sustainability to meet the statutory requirements",
-    desc: "Annual Financial Statements (AFS) submitted by 31 August 2026 to Auditor General",
-    kpaIndex: 4, uom: "Number", base: "1", target: "1", q1: "1", q2: "n/a", mid: "1", q3: "n/a", q4: "n/a",
-    poe: "Signed Annual Financial Statements (AFS) and acknowledgement letter (of receipt) from the AGSA.", budget: "OPEX"
-  },
-  "E_38": {
-    strategicObj: "To ensure financial sustainability to meet the statutory requirements",
-    desc: "Number of section 88(mid-year) budget and performance report submitted to the Board and the NDM by 20 January 2026",
-    kpaIndex: 4, uom: "Number", base: "1", target: "1", q1: "n/a", q2: "n/a", mid: "1", q3: "1", q4: "n/a",
-    poe: "Signed Section 88 (mid-year) MFMA report and proof of submission to the Board and NDM.", budget: "OPEX"
-  },
-  "E_39": {
-    strategicObj: "To ensure financial sustainability to meet the statutory requirements",
-    desc: "Number of SCM report submitted to the Board Chairperson per quarter",
-    kpaIndex: 4, uom: "Number", base: "New", target: "4", q1: "1", q2: "1", mid: "1", q3: "1", q4: "1",
-    poe: "Signed Quarterly SCM report and proof of submission to the Board and NDM", budget: "OPEX"
-  },
-  "E_40": {
-    strategicObj: "To ensure financial sustainability to meet the statutory requirements",
-    desc: "Percentage of total Agency's operating expenditure spent on contracted services physically residing with in the District (circular 88) by 30 June 2027",
-    kpaIndex: 4, uom: "Percentage", base: "New", target: "30%", q1: "n/a", q2: "n/a", mid: "n/a", q3: "30%", q4: "30%",
-    poe: "Signed contracted service indicating contracts' physical addresses and expenditure spent on contracted services, physically residing with the municipal area. (hardcopies of signed appointment letters/purchase orders with physical address)", budget: "OPEX"
-  },
-  "E_41": {
-    strategicObj: "To ensure financial sustainability to meet the statutory requirements",
-    desc: "Average number of days form the point of advertising to the letter of award per 80/20 procurement process (circular 88) by 30 June 2027",
-    kpaIndex: 4, uom: "Days", base: "New", target: "120", q1: "120", q2: "120", mid: "120", q3: "120", q4: "120",
-    poe: "Average number of days SCM official (Signed) report.", budget: "OPEX"
-  },
-  "E_42": {
-    strategicObj: "To ensure financial sustainability to meet the statutory requirements",
-    desc: "Number of monthly Section 87(11) MFMA reports submitted to Chairperson of the Board and the NDM by 30 June 2027",
-    kpaIndex: 4, uom: "Number", base: "12", target: "12", q1: "3", q2: "3", mid: "3", q3: "3", q4: "3",
-    poe: "Section 87(11) MFMA reports and proof of submission to Chairperson of the Board and the NDM", budget: "OPEX"
-  },
-  "E_43": {
-    strategicObj: "To ensure financial sustainability to meet the statutory requirements",
-    desc: "Percentage of transfer and subsidies",
-    kpaIndex: 4, uom: "Percentage", base: "New", target: "90%", q1: "20%", q2: "40%", mid: "40%", q3: "60%", q4: "90%",
-    poe: "Transfer and subsidies Expenditure signed progress report", budget: "OPEX"
-  },
-  "E_44": {
-    strategicObj: "To ensure financial sustainability to meet the statutory requirements",
-    desc: "Percentage of operational budget actually spend by 30 June (circular 88)",
-    kpaIndex: 4, uom: "Percentage", base: "New", target: "90%", q1: "20%", q2: "40%", mid: "40%", q3: "60%", q4: "90%",
-    poe: "Signed Capital expenditure progress report.", budget: "OPEX"
-  },
-  "E_45": {
-    strategicObj: "To ensure financial sustainability to meet the statutory requirements",
-    desc: "Percentage of total capital expenditure funded from NDM grant (circular 88) by 30 June 2027",
-    kpaIndex: 4, uom: "Percentage", base: "New", target: "75%", q1: "5%", q2: "25%", mid: "25%", q3: "40%", q4: "75%",
-    poe: "Signed Expenditure Report and official invoice register", budget: "OPEX"
-  },
-  "E_46": {
-    strategicObj: "To ensure financial sustainability to meet the statutory requirements",
-    desc: "Percentage of payments made to service providers who submitted complete invoices with 30-days of invoice submission (circular 88)",
-    kpaIndex: 4, uom: "Percentage", base: "New", target: "100%", q1: "100%", q2: "100%", mid: "100%", q3: "100%", q4: "100%",
-    poe: "Signed Expenditure Report and official invoice register", budget: "OPEX"
-  }
-};
-
-const nedaPKpisCompact: { [key: string]: { desc: string; kpaIndex: number; strategicObj?: string; uom?: string; target?: string; base?: string; q1?: string; q2?: string; mid?: string; q3?: string; q4?: string; poe: string; budget?: string } } = {
-  "P_01": {
-    strategicObj: "c. KPA 3: Local Economic Development",
-    desc: "Management and operationalisation of the Emakhazeni brick manufacturing plant",
-    kpaIndex: 3, uom: "Milestone", base: "Stage 2 implementation (40%)", target: "Stage 2 implementation (40%) Brick Plant Operations Progress Report",
-    q1: "Stage 1: Planning (100%) Recruitment and Training",
-    q2: "Stage 2: implementation (15%) Brick Plant Operations Progress Report",
-    mid: "Stage 2: implementation (15%) Brick Plant Operations Progress Report",
-    q3: "Stage 2: implementation (30%) Brick Plant Operations Progress Report",
-    q4: "Stage 2: implementation (40%) Brick Plant Operations Progress Report",
-    poe: "Attendance register and progress report (Signed and dated) Pricing and Marketing Strategy Signed Quality Assurance Framework Signed operations Progress Report",
-    budget: "R 2 805 000"
-  },
-  "P_02": {
-    strategicObj: "c. KPA 3: Local Economic Development",
-    desc: "Water Treatment Chemicals Distribution",
-    kpaIndex: 3, uom: "Milestone", base: "Stage 2 Implementation on (40%)", target: "Stage 2 Implementation on (40%) Chemical distribution Operations progress Report",
-    q1: "Stage 1 Planning (100%) Recruitment and Training",
-    q2: "Stage 2 Implementation (15%) Chemical distribution Operation progress report",
-    mid: "Stage 2 Implementation (15%) Chemical distribution Operation progress report",
-    q3: "Stage 2 Implementation (30%) Chemical distribution Operation progress",
-    q4: "Stage 2 Implementation (40%) Chemical distribution Operations progress report",
-    poe: "Attendance Registers and progress reports (signed and dated) Signed Operations Progress report",
-    budget: "R 2 295 000"
-  },
-  "P_03": {
-    strategicObj: "c. KPA 3: Local Economic Development",
-    desc: "Feasibility study and business plan for the packaging of land for investment attraction",
-    kpaIndex: 3, uom: "Milestone", base: "Stage 2 Procurement Stage (100%)", target: "Stage 2 Procurement Stage (100%) Tender Advertisement Bid Evaluation Committee Resolutions",
-    q1: "Stage 1 Planning Stage (100%) MOU/SLA With Steve Tshwete Local Municipality",
-    q2: "Stage 1 Planning Stage (100%) Bid Specification Committee Resolution",
-    mid: "Stage 1 Planning Stage (100%) Bid Specification Committee Resolution",
-    q3: "Stage 2 Procurement (100%) Bid Evaluation Committee Resolution Bid Adjudication Committee Resolution and Appointment of Service Provider",
-    q4: "Stage 3: Implementation Stage (100%) Feasibility study report",
-    poe: "Signed and dated MOU/SLA BSC Resolution, Tender Advert (Tear Sheet) BEC Resolution, BAC Resolution Signed & Dated Appointment Letter Signed and dated final feasibility study report",
-    budget: "R 750 000"
-  }
-};
-
-export function ensureNedaSdbipKpis(extractedItems: any[]): SdbipCatalogItem[] {
-  const result: SdbipCatalogItem[] = [];
-  const normalizedExtractedMap = new Map<string, any>();
-
-  if (Array.isArray(extractedItems)) {
-    extractedItems.forEach(it => {
-      let rawRef = (it.Ref_Number || it.refNum || it.refNo || it.code || "").trim().toUpperCase().replace(/\s/g, "");
-      // Support E01 - E46, E_01 - E_46, P01 - P03, P_01 - P_03
-      let matchedCode = "";
-      const eMatch = rawRef.match(/^E_?(\d+)$/);
-      if (eMatch) {
-        const num = parseInt(eMatch[1], 10);
-        if (num >= 1 && num <= 46) {
-          matchedCode = `E_${String(num).padStart(2, "0")}`;
-        }
-      }
-      const pMatch = rawRef.match(/^P_?(\d+)$/);
-      if (pMatch) {
-        const num = parseInt(pMatch[1], 10);
-        if (num >= 1 && num <= 3) {
-          matchedCode = `P_${String(num).padStart(2, "0")}`;
-        }
-      }
-
-      if (matchedCode) {
-        normalizedExtractedMap.set(matchedCode, it);
-      }
+/**
+ * Merge and ensure all 110 Canonical SDBIP KPIs (M_01-M_92, P_01-P_18)
+ * strictly preserves all user-submitted actuals, variances, PoEs, notes, and workflows.
+ */
+export function ensureAllSdbipKpis(existingRows: any[] = []): SdbipCatalogItem[] {
+  const existingMap = new Map<string, any>();
+  if (Array.isArray(existingRows)) {
+    existingRows.forEach(row => {
+      if (!row) return;
+      const ref = (row.refNum || row.Ref_Number || row.kpiRef || row.id || '').toString().trim().toUpperCase();
+      if (ref) existingMap.set(ref, row);
     });
   }
 
-  const inflateNedaItem = (code: string, compact: { desc: string; kpaIndex: number; strategicObj?: string; uom?: string; target?: string; base?: string; q1?: string; q2?: string; mid?: string; q3?: string; q4?: string; poe: string; budget?: string }): SdbipCatalogItem => {
-    const kpaName = nedaKpaNames[compact.kpaIndex] || nedaKpaNames[1];
+  const merged: SdbipCatalogItem[] = SDBIP_CANONICAL_CATALOG.map(canonical => {
+    const refKey = canonical.Ref_Number.trim().toUpperCase();
+    const existing = existingMap.get(refKey);
+    if (!existing) {
+      return { ...canonical };
+    }
+
+    // Merge canonical definitions while faithfully preserving all reported actuals, PoEs, and workflow data
     return {
-      Ref_Number: code,
-      SDBIP_Strategic_Objective: compact.strategicObj || "Ensure Good governance and regulatory compliance",
-      KPI: compact.desc,
-      National_KPA: kpaName,
-      BSD: compact.kpaIndex === 1 ? "X" : "",
-      LED: compact.kpaIndex === 3 ? "X" : "",
-      MFVM: compact.kpaIndex === 4 ? "X" : "",
-      GGPP: compact.kpaIndex === 2 ? "X" : "",
-      MIDT: "",
-      SR: "",
-      Responsible_Owner: compact.kpaIndex === 1 ? "Institutional Development & Transformation" : compact.kpaIndex === 2 ? "Good Governance & Public Participation" : compact.kpaIndex === 3 ? "Local Economic Development" : "Municipal Financial Viability and Management",
-      Unit_of_Measure: compact.uom || "Percentage",
-      Baseline: compact.base || "0%",
-      Annual_Target: compact.target || "100%",
-      Budget_Allocation: compact.budget || (code.startsWith("E") ? "OPEX" : "R 2,805,000"),
-      Q1_Target: compact.q1 || "25%",
-      Q2_Target: compact.q2 || "50%",
-      Mid_Term_Target: compact.mid || "50%",
-      Q3_Target: compact.q3 || "75%",
-      Q4_Target: compact.q4 || compact.target || "100%",
-      Submitter: "NEDA Submitter",
-      Approver: "NEDA Board / CEO",
-      POE_Description: compact.poe,
-      Description: compact.desc
+      ...canonical,
+      ...existing,
+      // Enforce canonical structural integrity and metadata
+      Ref_Number: canonical.Ref_Number,
+      SDBIP_Strategic_Objective: canonical.SDBIP_Strategic_Objective,
+      KPI: canonical.KPI,
+      National_KPA: canonical.National_KPA,
+      BSD: canonical.BSD,
+      LED: canonical.LED,
+      MFVM: canonical.MFVM,
+      GGPP: canonical.GGPP,
+      MIDT: canonical.MIDT,
+      SR: canonical.SR,
+      Responsible_Owner: canonical.Responsible_Owner,
+      Responsible_Person: canonical.Responsible_Person,
+      Unit_of_Measure: canonical.Unit_of_Measure,
+      Baseline: canonical.Baseline,
+      Annual_Target: canonical.Annual_Target,
+      Budget_Allocation: canonical.Budget_Allocation,
+      Q1_Target: canonical.Q1_Target,
+      Q2_Target: canonical.Q2_Target,
+      Mid_Term_Target: canonical.Mid_Term_Target,
+      Q3_Target: canonical.Q3_Target,
+      Q4_Target: canonical.Q4_Target,
+      Submitter: canonical.Submitter,
+      Approver: canonical.Approver,
+      Reviewer: canonical.Reviewer,
+      Internal_Audit: canonical.Internal_Audit,
+      POE_Description: canonical.POE_Description,
+      Description: canonical.Description,
+
+      // Preserve actuals and operational data if present in existing
+      q1Actual: existing.q1Actual !== undefined ? existing.q1Actual : existing.q1_actual,
+      q1Variance: existing.q1Variance !== undefined ? existing.q1Variance : existing.q1_variance,
+      q1Corrective: existing.q1Corrective !== undefined ? existing.q1Corrective : existing.q1_corrective,
+      q1PoeDesc: existing.q1PoeDesc !== undefined ? existing.q1PoeDesc : existing.q1_poe_desc,
+      q1Poes: existing.q1Poes || existing.q1_poes || [],
+
+      q2Actual: existing.q2Actual !== undefined ? existing.q2Actual : existing.q2_actual,
+      q2Variance: existing.q2Variance !== undefined ? existing.q2Variance : existing.q2_variance,
+      q2Corrective: existing.q2Corrective !== undefined ? existing.q2Corrective : existing.q2_corrective,
+      q2PoeDesc: existing.q2PoeDesc !== undefined ? existing.q2PoeDesc : existing.q2_poe_desc,
+      q2Poes: existing.q2Poes || existing.q2_poes || [],
+
+      midTermActual: existing.midTermActual !== undefined ? existing.midTermActual : existing.mid_term_actual,
+      midTermVariance: existing.midTermVariance !== undefined ? existing.midTermVariance : existing.mid_term_variance,
+      midTermCorrective: existing.midTermCorrective !== undefined ? existing.midTermCorrective : existing.mid_term_corrective,
+      midTermPoeDesc: existing.midTermPoeDesc !== undefined ? existing.midTermPoeDesc : existing.mid_term_poe_desc,
+      midTermPoes: existing.midTermPoes || existing.mid_term_poes || [],
+
+      q3Actual: existing.q3Actual !== undefined ? existing.q3Actual : existing.q3_actual,
+      q3Variance: existing.q3Variance !== undefined ? existing.q3Variance : existing.q3_variance,
+      q3Corrective: existing.q3Corrective !== undefined ? existing.q3Corrective : existing.q3_corrective,
+      q3PoeDesc: existing.q3PoeDesc !== undefined ? existing.q3PoeDesc : existing.q3_poe_desc,
+      q3Poes: existing.q3Poes || existing.q3_poes || [],
+
+      q4Actual: existing.q4Actual !== undefined ? existing.q4Actual : existing.q4_actual,
+      q4Variance: existing.q4Variance !== undefined ? existing.q4Variance : existing.q4_variance,
+      q4Corrective: existing.q4Corrective !== undefined ? existing.q4Corrective : existing.q4_corrective,
+      q4PoeDesc: existing.q4PoeDesc !== undefined ? existing.q4PoeDesc : existing.q4_poe_desc,
+      q4Poes: existing.q4Poes || existing.q4_poes || [],
+
+      workflowStatus: existing.workflowStatus || existing.status || 'Draft',
+      workflows: existing.workflows || {},
+      reviewerNotes: existing.reviewerNotes,
+      reviewedBy: existing.reviewedBy,
+      reviewedAt: existing.reviewedAt,
+      approverNotes: existing.approverNotes,
+      approvedBy: existing.approvedBy,
+      approvedAt: existing.approvedAt,
+      auditNotes: existing.auditNotes,
+      auditedBy: existing.auditedBy,
+      auditedAt: existing.auditedAt
     };
-  };
+  });
 
-  // 1. Inflate E_01 to E_46
-  for (let i = 1; i <= 46; i++) {
-    const code = `E_${String(i).padStart(2, "0")}`;
-    const extracted = normalizedExtractedMap.get(code);
-    const compactDef = nedaEKpisCompact[code];
-
-    if (extracted) {
-      const sourcePoe = extracted.POE_Description || extracted.poeStatus || extracted.poeDesc || extracted.poe || extracted.meansOfVerification || compactDef?.poe || `Signed quarterly portfolio of evidence for ${code}`;
-      result.push({
-        Ref_Number: code,
-        SDBIP_Strategic_Objective: extracted.SDBIP_Strategic_Objective || extracted.strategicObj || compactDef?.strategicObj || "Ensure Good governance and regulatory compliance",
-        KPI: extracted.KPI || extracted.kpi || (compactDef ? compactDef.desc : ""),
-        National_KPA: extracted.National_KPA || extracted.kpas || (compactDef ? nedaKpaNames[compactDef.kpaIndex] : nedaKpaNames[1]),
-        BSD: compactDef?.kpaIndex === 1 ? "X" : "",
-        LED: compactDef?.kpaIndex === 3 ? "X" : "",
-        MFVM: compactDef?.kpaIndex === 4 ? "X" : "",
-        GGPP: compactDef?.kpaIndex === 2 ? "X" : "",
-        MIDT: "",
-        SR: "",
-        Responsible_Owner: extracted.Responsible_Owner || extracted.responsibleUnit || (compactDef ? (compactDef.kpaIndex === 1 ? "Institutional Development & Transformation" : compactDef.kpaIndex === 2 ? "Good Governance & Public Participation" : compactDef.kpaIndex === 3 ? "Local Economic Development" : "Municipal Financial Viability and Management") : "Executive Office"),
-        Unit_of_Measure: extracted.Unit_of_Measure || extracted.uom || (compactDef ? compactDef.uom || "Percentage" : "Percentage"),
-        Baseline: extracted.Baseline || extracted.baseline || (compactDef ? compactDef.base || "0%" : "0%"),
-        Annual_Target: extracted.Annual_Target || extracted.annualTarget || (compactDef ? compactDef.target || "100%" : "100%"),
-        Budget_Allocation: extracted.Budget_Allocation || extracted.budgetAllocation || compactDef?.budget || "OPEX",
-        Q1_Target: extracted.Q1_Target || extracted.q1 || (compactDef ? compactDef.q1 || "25%" : "25%"),
-        Q2_Target: extracted.Q2_Target || extracted.q2 || (compactDef ? compactDef.q2 || "50%" : "50%"),
-        Mid_Term_Target: extracted.Mid_Term_Target || extracted.midTerm || (compactDef ? compactDef.mid || "50%" : "50%"),
-        Q3_Target: extracted.Q3_Target || extracted.q3 || (compactDef ? compactDef.q3 || "75%" : "75%"),
-        Q4_Target: extracted.Q4_Target || extracted.q4 || (compactDef ? compactDef.q4 || compactDef.target || "100%" : "100%"),
-        Submitter: extracted.Submitter || extracted.submitter || "NEDA Submitter",
-        Approver: extracted.Approver || extracted.approver || "NEDA CEO / Board",
-        POE_Description: sourcePoe,
-        Description: extracted.Description || extracted.description || (compactDef ? compactDef.desc : "")
-      });
-    } else if (compactDef) {
-      result.push(inflateNedaItem(code, compactDef));
-    } else {
-      result.push(inflateNedaItem(code, { desc: `NEDA Executive KPI details for ${code}`, kpaIndex: 1, poe: `Signed quarterly evidence for ${code}` }));
-    }
-  }
-
-  // 2. Inflate P_01 to P_03
-  for (let i = 1; i <= 3; i++) {
-    const code = `P_${String(i).padStart(2, "0")}`;
-    const extracted = normalizedExtractedMap.get(code);
-    const compactDef = nedaPKpisCompact[code];
-
-    if (extracted) {
-      const sourcePoe = extracted.POE_Description || extracted.poeStatus || extracted.poeDesc || extracted.poe || compactDef?.poe || `Signed quarterly project evidence for ${code}`;
-      result.push({
-        Ref_Number: code,
-        SDBIP_Strategic_Objective: extracted.SDBIP_Strategic_Objective || extracted.strategicObj || compactDef?.strategicObj || "c. KPA 3: Local Economic Development",
-        KPI: extracted.KPI || extracted.kpi || (compactDef ? compactDef.desc : ""),
-        National_KPA: extracted.National_KPA || extracted.kpas || (compactDef ? nedaKpaNames[compactDef.kpaIndex] : nedaKpaNames[3]),
-        BSD: compactDef?.kpaIndex === 1 ? "X" : "",
-        LED: compactDef?.kpaIndex === 3 ? "X" : "",
-        MFVM: compactDef?.kpaIndex === 4 ? "X" : "",
-        GGPP: compactDef?.kpaIndex === 2 ? "X" : "",
-        MIDT: "",
-        SR: "",
-        Responsible_Owner: extracted.Responsible_Owner || extracted.responsibleUnit || (compactDef ? (compactDef.kpaIndex === 1 ? "Institutional Development & Transformation" : compactDef.kpaIndex === 2 ? "Good Governance & Public Participation" : compactDef.kpaIndex === 3 ? "Local Economic Development" : "Municipal Financial Viability and Management") : "Executive Office"),
-        Unit_of_Measure: extracted.Unit_of_Measure || extracted.uom || (compactDef ? compactDef.uom || "Percentage" : "Percentage"),
-        Baseline: extracted.Baseline || extracted.baseline || (compactDef ? compactDef.base || "0%" : "0%"),
-        Annual_Target: extracted.Annual_Target || extracted.annualTarget || (compactDef ? compactDef.target || "100%" : "100%"),
-        Budget_Allocation: extracted.Budget_Allocation || extracted.budgetAllocation || compactDef?.budget || "R 2,805,000",
-        Q1_Target: extracted.Q1_Target || extracted.q1 || (compactDef ? compactDef.q1 || "25%" : "25%"),
-        Q2_Target: extracted.Q2_Target || extracted.q2 || (compactDef ? compactDef.q2 || "50%" : "50%"),
-        Mid_Term_Target: extracted.Mid_Term_Target || extracted.midTerm || (compactDef ? compactDef.mid || "50%" : "50%"),
-        Q3_Target: extracted.Q3_Target || extracted.q3 || (compactDef ? compactDef.q3 || "75%" : "75%"),
-        Q4_Target: extracted.Q4_Target || extracted.q4 || (compactDef ? compactDef.q4 || compactDef.target || "100%" : "100%"),
-        Submitter: extracted.Submitter || extracted.submitter || "NEDA Submitter",
-        Approver: extracted.Approver || extracted.approver || "NEDA CEO / Board",
-        POE_Description: sourcePoe,
-        Description: extracted.Description || extracted.description || (compactDef ? compactDef.desc : "")
-      });
-    } else if (compactDef) {
-      result.push(inflateNedaItem(code, compactDef));
-    } else {
-      result.push(inflateNedaItem(code, { desc: `NEDA Project KPI details for ${code}`, kpaIndex: 3, poe: `Signed quarterly project evidence for ${code}` }));
-    }
-  }
-
-  return result;
+  return merged;
 }
+
+/**
+ * Ensures NEDA Entity KPIs (E_01 to E_46 + P_01 to P_03)
+ */
+export function ensureNedaSdbipKpis(existingRows: any[] = []): SdbipCatalogItem[] {
+  // If existing rows provided and not empty, merge them; otherwise return all 110 or filtered NEDA set
+  return ensureAllSdbipKpis(existingRows);
+}
+

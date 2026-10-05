@@ -9643,7 +9643,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
               const parsed = JSON.parse(data.content);
               const itemsArray = Array.isArray(parsed) ? parsed : (parsed?.items || []);
               if (Array.isArray(itemsArray) && itemsArray.length > 0) {
-                return itemsArray;
+                return (!isSdbip23 && tenantId !== 'neda') ? ensureAllSdbipKpis(itemsArray) : itemsArray;
               }
             } catch (parseErr) {
               console.error("Error parsing sdbip JSON:", parseErr);
@@ -9651,7 +9651,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
           }
         }
 
-        return [];
+        return (!isSdbip23 && tenantId !== 'neda') ? ensureAllSdbipKpis([]) : [];
       });
 
       return res.json({ items });
@@ -11702,6 +11702,8 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
         `draft_doc_neda_team_5`
       ];
 
+      const target = req.query.target ? String(req.query.target).trim() : (req.body.target ? String(req.body.target).trim() : '');
+
       for (const dId of candidateDraftIds) {
         let existingDoc: any = {};
         const { data: existingData } = await supabase
@@ -11719,38 +11721,72 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
           } catch (e) {}
         }
 
-        const customTableObj = {
-          id: `table-std-core-comp-${Date.now()}`,
-          sectionId: 'annexure-c-final',
-          title: 'Standard Core Leadership & Governance Competencies (Annexure C)',
-          headers: ['Core Competency', 'Basic', 'Competent', 'Advanced', 'Superior'],
-          rows: Array.isArray(items) ? items.map((r: any) => [
-            r.competency || r.title || r.name || '',
-            r.basic || '',
-            r.competent || '',
-            r.advanced || '',
-            r.superior || ''
-          ]) : [],
-          columnWidths: ['24%', '19%', '19%', '19%', '19%'],
-          cellPadding: 'normal',
-          fontSize: '9px',
-          rowHeight: '32px'
-        };
+        let updatedCustomTables = Array.isArray(existingDoc.customTables) ? [...existingDoc.customTables] : [];
+        let updatedDocState: any = { ...existingDoc };
 
-        const updatedCustomTables = Array.isArray(existingDoc.customTables)
-          ? [
-              ...existingDoc.customTables.filter((t: any) => t.sectionId !== 'annexure-c-final' && !t.title?.toLowerCase().includes('standard core')),
-              customTableObj
-            ]
-          : [customTableObj];
+        if (target === 'cfo' || (cfoItems && Array.isArray(cfoItems) && cfoItems.length > 0)) {
+          const cfoTableObj = {
+            id: `table-cfo-directors-comp-${Date.now()}`,
+            sectionId: 'section-6',
+            point: '6.6',
+            title: 'Adopted Core Competencies Directors Table (Below Point 6.6)',
+            headers: ['Competency', 'Components', 'Competency Definition', 'Weighting % (100%)'],
+            rows: Array.isArray(cfoItems) ? cfoItems.map((r: any) => [
+              r.competency || r.title || r.name || '',
+              r.components || '',
+              r.definition || '',
+              (r.weighting || '0') + '%'
+            ]) : [],
+            columnWidths: ['22%', '28%', '38%', '12%'],
+            cellPadding: 'normal',
+            fontSize: '9px',
+            rowHeight: '32px'
+          };
 
-        const updatedDocState = {
-          ...existingDoc,
-          pulledStandardCompetenciesAnnexC: items || [],
-          customTables: updatedCustomTables,
-          annexureCFinalTables: [customTableObj],
-          updatedAt: new Date().toISOString()
-        };
+          updatedCustomTables = [
+            ...updatedCustomTables.filter((t: any) => t.sectionId !== 'section-6' && !t.title?.toLowerCase().includes('directors')),
+            cfoTableObj
+          ];
+
+          updatedDocState = {
+            ...updatedDocState,
+            pulledCfoCompetencyRows: cfoItems || [],
+            customTables: updatedCustomTables,
+            section6Tables: [cfoTableObj],
+            updatedAt: new Date().toISOString()
+          };
+        } else {
+          const customTableObj = {
+            id: `table-std-core-comp-${Date.now()}`,
+            sectionId: 'annexure-c-final',
+            title: 'Standard Core Leadership & Governance Competencies (Annexure C)',
+            headers: ['Core Competency', 'Basic', 'Competent', 'Advanced', 'Superior'],
+            rows: Array.isArray(items) ? items.map((r: any) => [
+              r.competency || r.title || r.name || '',
+              r.basic || '',
+              r.competent || '',
+              r.advanced || '',
+              r.superior || ''
+            ]) : [],
+            columnWidths: ['24%', '19%', '19%', '19%', '19%'],
+            cellPadding: 'normal',
+            fontSize: '9px',
+            rowHeight: '32px'
+          };
+
+          updatedCustomTables = [
+            ...updatedCustomTables.filter((t: any) => t.sectionId !== 'annexure-c-final' && !t.title?.toLowerCase().includes('standard core')),
+            customTableObj
+          ];
+
+          updatedDocState = {
+            ...updatedDocState,
+            pulledStandardCompetenciesAnnexC: items || [],
+            customTables: updatedCustomTables,
+            annexureCFinalTables: [customTableObj],
+            updatedAt: new Date().toISOString()
+          };
+        }
 
         await supabase
           .from('messages')
@@ -11766,7 +11802,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
           });
       }
 
-      res.json({ success: true, count: (items || []).length, tenantId });
+      res.json({ success: true, count: target === 'cfo' ? (cfoItems || []).length : (items || []).length, tenantId });
     } catch (err: any) {
       console.error("push-to-pa exception:", err);
       res.status(500).json({ error: err.message });

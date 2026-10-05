@@ -1042,6 +1042,14 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
                 </tr>
               ))}
             </tbody>
+            <tfoot>
+              <tr className="bg-slate-100/80 border-t font-black text-slate-900 text-[9px]" style={{ borderColor }}>
+                <td colSpan={3} className="p-1.5 border-r uppercase tracking-wider text-right font-black" style={{ borderColor }}>Total:</td>
+                <td className="p-1.5 text-center font-mono text-indigo-700 font-black" style={{ borderColor }}>
+                  {pulledCfoCompetencyRows.reduce((acc, curr) => acc + (parseFloat(curr.weighting || '0') || 0), 0)}%
+                </td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       </div>
