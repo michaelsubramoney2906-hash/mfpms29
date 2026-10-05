@@ -2525,98 +2525,176 @@ SDBIP_CANONICAL_CATALOG.forEach(item => {
  * Merge and ensure all 110 Canonical SDBIP KPIs (M_01-M_92, P_01-P_18)
  * strictly preserves all user-submitted actuals, variances, PoEs, notes, and workflows.
  */
-export function ensureAllSdbipKpis(existingRows: any[] = []): SdbipCatalogItem[] {
+export function ensureAllSdbipKpis(existingRows: any[] = []): (SdbipCatalogItem & Record<string, any>)[] {
   const existingMap = new Map<string, any>();
   if (Array.isArray(existingRows)) {
-    existingRows.forEach(row => {
+    existingRows.forEach((row, idx) => {
       if (!row) return;
       const ref = (row.refNum || row.Ref_Number || row.kpiRef || row.id || '').toString().trim().toUpperCase();
-      if (ref) existingMap.set(ref, row);
+      if (ref) {
+        existingMap.set(ref, row);
+        // Also index normalized variants (e.g. "M_01" <=> "M_1" <=> "M01" <=> "REF-01" <=> index-based)
+        const cleanDigits = ref.replace(/[^0-9]/g, '');
+        if (cleanDigits) {
+          const num = parseInt(cleanDigits, 10);
+          if (!isNaN(num)) {
+            if (ref.startsWith('P') || ref.includes('PROJ')) {
+              existingMap.set(`P_${String(num).padStart(2, '0')}`, row);
+              existingMap.set(`P_${num}`, row);
+              existingMap.set(`P${num}`, row);
+            } else {
+              existingMap.set(`M_${String(num).padStart(2, '0')}`, row);
+              existingMap.set(`M_${num}`, row);
+              existingMap.set(`M${num}`, row);
+              existingMap.set(`REF-0${num}`, row);
+              existingMap.set(`REF-${num}`, row);
+              existingMap.set(`ROW-TEMPLATE-${num}`, row);
+            }
+          }
+        }
+      }
+      if (row.id) existingMap.set(row.id.toString().trim().toUpperCase(), row);
     });
   }
 
-  const merged: SdbipCatalogItem[] = SDBIP_CANONICAL_CATALOG.map(canonical => {
+  const merged: (SdbipCatalogItem & Record<string, any>)[] = SDBIP_CANONICAL_CATALOG.map((canonical, idx) => {
     const refKey = canonical.Ref_Number.trim().toUpperCase();
-    const existing = existingMap.get(refKey);
-    if (!existing) {
-      return { ...canonical };
-    }
+    const existing = existingMap.get(refKey) || existingMap.get(refKey.replace('_', '')) || existingMap.get(`ROW-TEMPLATE-${idx + 1}`) || existingMap.get(`REF-0${idx + 1}`) || existingMap.get(`REF-${idx + 1}`);
+
+    const existingActuals = existing || {};
 
     // Merge canonical definitions while faithfully preserving all reported actuals, PoEs, and workflow data
     return {
       ...canonical,
-      ...existing,
-      // Enforce canonical structural integrity and metadata
+      ...existingActuals,
+      id: existingActuals.id || `sdbip-${canonical.Ref_Number}`,
+
+      // Enforce 100% canonical statutory definitions verbatim (both PascalCase and camelCase)
       Ref_Number: canonical.Ref_Number,
+      refNum: canonical.Ref_Number,
+      
       SDBIP_Strategic_Objective: canonical.SDBIP_Strategic_Objective,
+      strategicObj: canonical.SDBIP_Strategic_Objective,
+
       KPI: canonical.KPI,
+      kpi: canonical.KPI,
+      operationalActivity: canonical.Description || canonical.KPI,
+
       National_KPA: canonical.National_KPA,
+      kpas: canonical.National_KPA,
+
       BSD: canonical.BSD,
+      bsd: canonical.BSD,
+
       LED: canonical.LED,
+      led: canonical.LED,
+
       MFVM: canonical.MFVM,
+      mfvm: canonical.MFVM,
+
       GGPP: canonical.GGPP,
+      ggpp: canonical.GGPP,
+
       MIDT: canonical.MIDT,
+      midt: canonical.MIDT,
+
       SR: canonical.SR,
+      sr: canonical.SR,
+
       Responsible_Owner: canonical.Responsible_Owner,
+      responsibleOwner: canonical.Responsible_Owner,
+      responsibleUnit: canonical.Responsible_Owner,
       Responsible_Person: canonical.Responsible_Person,
+      responsiblePerson: canonical.Responsible_Person,
+
       Unit_of_Measure: canonical.Unit_of_Measure,
+      uom: canonical.Unit_of_Measure,
+
       Baseline: canonical.Baseline,
+      baseline: canonical.Baseline,
+
       Annual_Target: canonical.Annual_Target,
+      annualTarget: canonical.Annual_Target,
+
       Budget_Allocation: canonical.Budget_Allocation,
+      budgetAllocation: canonical.Budget_Allocation,
+      budget: canonical.Budget_Allocation,
+
       Q1_Target: canonical.Q1_Target,
+      q1: canonical.Q1_Target,
+
       Q2_Target: canonical.Q2_Target,
+      q2: canonical.Q2_Target,
+
       Mid_Term_Target: canonical.Mid_Term_Target,
+      midTermTarget: canonical.Mid_Term_Target,
+      midTerm: canonical.Mid_Term_Target,
+
       Q3_Target: canonical.Q3_Target,
+      q3: canonical.Q3_Target,
+
       Q4_Target: canonical.Q4_Target,
+      q4: canonical.Q4_Target,
+
       Submitter: canonical.Submitter,
+      submitter: canonical.Submitter,
+
       Approver: canonical.Approver,
+      approver: canonical.Approver,
+
       Reviewer: canonical.Reviewer,
+      reviewer: canonical.Reviewer,
+
       Internal_Audit: canonical.Internal_Audit,
+      internalAudit: canonical.Internal_Audit,
+
       POE_Description: canonical.POE_Description,
+      poeDesc: canonical.POE_Description,
       Description: canonical.Description,
 
-      // Preserve actuals and operational data if present in existing
-      q1Actual: existing.q1Actual !== undefined ? existing.q1Actual : existing.q1_actual,
-      q1Variance: existing.q1Variance !== undefined ? existing.q1Variance : existing.q1_variance,
-      q1Corrective: existing.q1Corrective !== undefined ? existing.q1Corrective : existing.q1_corrective,
-      q1PoeDesc: existing.q1PoeDesc !== undefined ? existing.q1PoeDesc : existing.q1_poe_desc,
-      q1Poes: existing.q1Poes || existing.q1_poes || [],
+      // PRESERVE ALL USER-REPORTED ACTUALS, VARIANCES, CORRECTIVE ACTIONS & EVIDENCE ATTACHMENTS
+      q1Actual: existingActuals.q1Actual !== undefined ? existingActuals.q1Actual : existingActuals.q1_actual,
+      q1Variance: existingActuals.q1Variance !== undefined ? existingActuals.q1Variance : existingActuals.q1_variance,
+      q1Corrective: existingActuals.q1Corrective !== undefined ? existingActuals.q1Corrective : existingActuals.q1_corrective,
+      q1PoeDesc: existingActuals.q1PoeDesc !== undefined ? existingActuals.q1PoeDesc : existingActuals.q1_poe_desc,
+      q1Poes: existingActuals.q1Poes || existingActuals.q1_poes || [],
 
-      q2Actual: existing.q2Actual !== undefined ? existing.q2Actual : existing.q2_actual,
-      q2Variance: existing.q2Variance !== undefined ? existing.q2Variance : existing.q2_variance,
-      q2Corrective: existing.q2Corrective !== undefined ? existing.q2Corrective : existing.q2_corrective,
-      q2PoeDesc: existing.q2PoeDesc !== undefined ? existing.q2PoeDesc : existing.q2_poe_desc,
-      q2Poes: existing.q2Poes || existing.q2_poes || [],
+      q2Actual: existingActuals.q2Actual !== undefined ? existingActuals.q2Actual : existingActuals.q2_actual,
+      q2Variance: existingActuals.q2Variance !== undefined ? existingActuals.q2Variance : existingActuals.q2_variance,
+      q2Corrective: existingActuals.q2Corrective !== undefined ? existingActuals.q2Corrective : existingActuals.q2_corrective,
+      q2PoeDesc: existingActuals.q2PoeDesc !== undefined ? existingActuals.q2PoeDesc : existingActuals.q2_poe_desc,
+      q2Poes: existingActuals.q2Poes || existingActuals.q2_poes || [],
 
-      midTermActual: existing.midTermActual !== undefined ? existing.midTermActual : existing.mid_term_actual,
-      midTermVariance: existing.midTermVariance !== undefined ? existing.midTermVariance : existing.mid_term_variance,
-      midTermCorrective: existing.midTermCorrective !== undefined ? existing.midTermCorrective : existing.mid_term_corrective,
-      midTermPoeDesc: existing.midTermPoeDesc !== undefined ? existing.midTermPoeDesc : existing.mid_term_poe_desc,
-      midTermPoes: existing.midTermPoes || existing.mid_term_poes || [],
+      midTermActual: existingActuals.midTermActual !== undefined ? existingActuals.midTermActual : existingActuals.mid_term_actual,
+      midTermVariance: existingActuals.midTermVariance !== undefined ? existingActuals.midTermVariance : existingActuals.mid_term_variance,
+      midTermCorrective: existingActuals.midTermCorrective !== undefined ? existingActuals.midTermCorrective : existingActuals.mid_term_corrective,
+      midTermPoeDesc: existingActuals.midTermPoeDesc !== undefined ? existingActuals.midTermPoeDesc : existingActuals.mid_term_poe_desc,
+      midTermPoes: existingActuals.midTermPoes || existingActuals.mid_term_poes || [],
 
-      q3Actual: existing.q3Actual !== undefined ? existing.q3Actual : existing.q3_actual,
-      q3Variance: existing.q3Variance !== undefined ? existing.q3Variance : existing.q3_variance,
-      q3Corrective: existing.q3Corrective !== undefined ? existing.q3Corrective : existing.q3_corrective,
-      q3PoeDesc: existing.q3PoeDesc !== undefined ? existing.q3PoeDesc : existing.q3_poe_desc,
-      q3Poes: existing.q3Poes || existing.q3_poes || [],
+      q3Actual: existingActuals.q3Actual !== undefined ? existingActuals.q3Actual : existingActuals.q3_actual,
+      q3Variance: existingActuals.q3Variance !== undefined ? existingActuals.q3Variance : existingActuals.q3_variance,
+      q3Corrective: existingActuals.q3Corrective !== undefined ? existingActuals.q3Corrective : existingActuals.q3_corrective,
+      q3PoeDesc: existingActuals.q3PoeDesc !== undefined ? existingActuals.q3PoeDesc : existingActuals.q3_poe_desc,
+      q3Poes: existingActuals.q3Poes || existingActuals.q3_poes || [],
 
-      q4Actual: existing.q4Actual !== undefined ? existing.q4Actual : existing.q4_actual,
-      q4Variance: existing.q4Variance !== undefined ? existing.q4Variance : existing.q4_variance,
-      q4Corrective: existing.q4Corrective !== undefined ? existing.q4Corrective : existing.q4_corrective,
-      q4PoeDesc: existing.q4PoeDesc !== undefined ? existing.q4PoeDesc : existing.q4_poe_desc,
-      q4Poes: existing.q4Poes || existing.q4_poes || [],
+      q4Actual: existingActuals.q4Actual !== undefined ? existingActuals.q4Actual : existingActuals.q4_actual,
+      q4Variance: existingActuals.q4Variance !== undefined ? existingActuals.q4Variance : existingActuals.q4_variance,
+      q4Corrective: existingActuals.q4Corrective !== undefined ? existingActuals.q4Corrective : existingActuals.q4_corrective,
+      q4PoeDesc: existingActuals.q4PoeDesc !== undefined ? existingActuals.q4PoeDesc : existingActuals.q4_poe_desc,
+      q4Poes: existingActuals.q4Poes || existingActuals.q4_poes || [],
 
-      workflowStatus: existing.workflowStatus || existing.status || 'Draft',
-      workflows: existing.workflows || {},
-      reviewerNotes: existing.reviewerNotes,
-      reviewedBy: existing.reviewedBy,
-      reviewedAt: existing.reviewedAt,
-      approverNotes: existing.approverNotes,
-      approvedBy: existing.approvedBy,
-      approvedAt: existing.approvedAt,
-      auditNotes: existing.auditNotes,
-      auditedBy: existing.auditedBy,
-      auditedAt: existing.auditedAt
+      workflowStatus: existingActuals.workflowStatus || existingActuals.status || 'Draft',
+      workflows: existingActuals.workflows || {},
+      reviewerNotes: existingActuals.reviewerNotes,
+      reviewedBy: existingActuals.reviewedBy,
+      reviewedAt: existingActuals.reviewedAt,
+      approverNotes: existingActuals.approverNotes,
+      approvedBy: existingActuals.approvedBy,
+      approvedAt: existingActuals.approvedAt,
+      auditNotes: existingActuals.auditNotes,
+      auditedBy: existingActuals.auditedBy,
+      auditedAt: existingActuals.auditedAt,
+      poeStatus: existingActuals.poeStatus || "Uploaded to Vault"
     };
   });
 

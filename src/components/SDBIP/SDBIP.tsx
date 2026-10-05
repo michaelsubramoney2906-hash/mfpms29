@@ -45,8 +45,7 @@ export const isKpiUnlockedForSubmitterApprover = (row: { refNum?: string; id?: s
 
 export const isSubmitterApproverLockedInReporting = (row: { refNum?: string; id?: string; kpi?: string; adminLocked?: boolean; workflowStatus?: string } | null | undefined): boolean => {
   if (globalReportingAssignmentsUnlocked) return false;
-  if (row && (row.adminLocked === false || row.workflowStatus === 'Draft')) return false;
-  return !globalReportingAssignmentsUnlocked; 
+  return true; 
 };
 
 interface SDBIPProps {
@@ -5865,7 +5864,7 @@ Timestamp: ${new Date().toLocaleString()}
                           <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" />
                         </div>
                         <span className="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300">
-                          LOCKED (EXCEPT M_72 &amp; P_07)
+                          LOCKED
                         </span>
                       </div>
                     </th>
@@ -5876,7 +5875,7 @@ Timestamp: ${new Date().toLocaleString()}
                           <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" />
                         </div>
                         <span className="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300">
-                          LOCKED (EXCEPT M_72 &amp; P_07)
+                          LOCKED
                         </span>
                       </div>
                     </th>
@@ -7269,7 +7268,7 @@ Timestamp: ${new Date().toLocaleString()}
                       </td>
 
                       {/* Submitter */}
-                      <td className={`p-1.5 border-r border-slate-100 ${(!isReportingAssignmentsUnlocked && isSubmitterApproverLockedInReporting(row)) ? 'bg-slate-100/40' : 'bg-emerald-50/20'}`}>
+                      <td className={`p-1.5 border-r border-slate-100 ${!isReportingAssignmentsUnlocked ? 'bg-slate-100/40' : 'bg-emerald-50/20'}`}>
                         <div className="flex flex-col gap-1">
                           <AzureADPicker 
                             value={row.submitter || row.responsibleUnit || ''}
@@ -7277,20 +7276,13 @@ Timestamp: ${new Date().toLocaleString()}
                             roleType="submitter"
                             activeTenantId={activeTenantId}
                             isFitAll={isFitAllReportingCells}
-                            disabled={!isReportingAssignmentsUnlocked && isSubmitterApproverLockedInReporting(row)}
+                            disabled={!isReportingAssignmentsUnlocked}
                           />
-                          {(!isSubmitterApproverLockedInReporting(row) || isReportingAssignmentsUnlocked) && (
-                            <div className="flex items-center gap-1 justify-center">
-                              <span className="text-[8px] font-bold font-mono px-1 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
-                                EXCEPTION UNLOCKED
-                              </span>
-                            </div>
-                          )}
                         </div>
                       </td>
 
                       {/* Approver */}
-                      <td className={`p-1.5 border-r border-slate-100 ${(!isReportingAssignmentsUnlocked && isSubmitterApproverLockedInReporting(row)) ? 'bg-slate-100/40' : 'bg-emerald-50/20'}`}>
+                      <td className={`p-1.5 border-r border-slate-100 ${!isReportingAssignmentsUnlocked ? 'bg-slate-100/40' : 'bg-emerald-50/20'}`}>
                         <div className="flex flex-col gap-1">
                           <AzureADPicker 
                             value={row.approver || ''}
@@ -7298,15 +7290,8 @@ Timestamp: ${new Date().toLocaleString()}
                             roleType="approver"
                             activeTenantId={activeTenantId}
                             isFitAll={isFitAllReportingCells}
-                            disabled={!isReportingAssignmentsUnlocked && isSubmitterApproverLockedInReporting(row)}
+                            disabled={!isReportingAssignmentsUnlocked}
                           />
-                          {(!isSubmitterApproverLockedInReporting(row) || isReportingAssignmentsUnlocked) && (
-                            <div className="flex items-center gap-1 justify-center">
-                              <span className="text-[8px] font-bold font-mono px-1 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
-                                EXCEPTION UNLOCKED
-                              </span>
-                            </div>
-                          )}
                         </div>
                       </td>
 
