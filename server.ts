@@ -9669,6 +9669,76 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
         }
 
         const normalized = (!isSdbip23 && tenantId !== 'neda') ? ensureAllSdbipKpis(aggregatedItems) : aggregatedItems;
+
+        // Auto-attach all uploaded POEs directly to KPI rows
+        try {
+          const poeDocIds = tenantId === 'tenant-229' || tenantId === 'nkangala_auto' || tenantId === 'global' || tenantId === 'default'
+            ? ['sdbip_poes_tenant-229', 'sdbip_poes_global'] 
+            : [`sdbip_poes_${tenantId}`, 'sdbip_poes_global'];
+          let allPoes: any[] = [];
+          for (const pid of poeDocIds) {
+            const { data: poeData } = await supabase.from('messages').select('content').eq('id', pid).maybeSingle();
+            if (poeData?.content) {
+              try {
+                const parsedPoe = JSON.parse(poeData.content);
+                const list = parsedPoe.poes || parsedPoe;
+                if (Array.isArray(list)) allPoes.push(...list);
+              } catch (e) {}
+            }
+          }
+
+          if (allPoes.length > 0) {
+            normalized.forEach((row: any) => {
+              const rRef = (row.refNum || row.Ref_Number || row.id || '').toUpperCase().trim();
+              const matched = allPoes.filter(p => {
+                const pRef = (p.refNum || p.kpiRef || '').toUpperCase().trim();
+                return pRef && (pRef === rRef || pRef === rRef.replace('_', ''));
+              });
+              if (matched.length > 0) {
+                const fileNames = matched.map(m => m.name).filter(Boolean);
+                row.q1Poes = Array.from(new Set([...(row.q1Poes || []), ...fileNames]));
+                row.poes = Array.from(new Set([...(row.poes || []), ...matched]));
+                if (!row.poeStatus || row.poeStatus === 'Not Uploaded') {
+                  row.poeStatus = 'Attached';
+                }
+              }
+            });
+          }
+        } catch (poeErr) {
+          console.warn("PoE attachment error:", poeErr);
+        }
+
+        // Auto-merge cloud drafts so impersonating or multi-browser sessions see saved actuals
+        try {
+          const { data: cloudDrafts } = await supabase
+            .from('messages')
+            .select('content, id')
+            .ilike('id', `sdbip_draft_${tenantId}_%`);
+          if (cloudDrafts && cloudDrafts.length > 0) {
+            cloudDrafts.forEach((cd: any) => {
+              try {
+                const parsedDraft = JSON.parse(cd.content);
+                const d = parsedDraft.draftData || parsedDraft;
+                const kpiId = parsedDraft.kpiId || cd.id.split('_').pop();
+                if (d && kpiId) {
+                  const targetRow = normalized.find((r: any) => 
+                    r.id === kpiId || 
+                    (r.refNum && kpiId.toUpperCase().includes(r.refNum.toUpperCase()))
+                  );
+                  if (targetRow) {
+                    if (!targetRow.q1Actual && d.q1Actual) targetRow.q1Actual = d.q1Actual;
+                    if (!targetRow.q1Variance && d.q1Variance) targetRow.q1Variance = d.q1Variance;
+                    if (!targetRow.q1Corrective && d.q1Corrective) targetRow.q1Corrective = d.q1Corrective;
+                    if (!targetRow.submitterNotes && d.submitterNotes) targetRow.submitterNotes = d.submitterNotes;
+                    if (!targetRow.poeDesc && d.poeDesc) targetRow.poeDesc = d.poeDesc;
+                  }
+                }
+              } catch (e) {}
+            });
+          }
+        } catch (draftErr) {
+          console.warn("Cloud draft merge error:", draftErr);
+        }
         
         // Save normalized state with preserved submitters & actuals to primary docId
         if (!isSdbip23 && tenantId !== 'neda') {

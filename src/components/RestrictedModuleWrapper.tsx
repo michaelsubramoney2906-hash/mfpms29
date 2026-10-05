@@ -42,17 +42,6 @@ const SUBMODULE_TO_PARENT_MAP: Record<string, string> = {
 };
 
 export function RestrictedModuleWrapper({ currentUser, item, unlockedModules, onUnlock, onClose, children }: RestrictedModuleWrapperProps) {
-  const isUnrestricted = isUserUnrestricted(currentUser);
-  if (isUnrestricted) {
-    return <>{children}</>;
-  }
-
-  // If this specific module or parent is unlocked for the user, grant direct access
-  const parentId = SUBMODULE_TO_PARENT_MAP[item.id] || item.id;
-  if (unlockedModules && (unlockedModules.includes(item.id) || unlockedModules.includes(parentId))) {
-    return <>{children}</>;
-  }
-
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [overridePassword, setOverridePassword] = useState('8655M9sznnes01*');
@@ -67,6 +56,17 @@ export function RestrictedModuleWrapper({ currentUser, item, unlockedModules, on
       })
       .catch(console.error);
   }, []);
+
+  const isUnrestricted = isUserUnrestricted(currentUser);
+  if (isUnrestricted) {
+    return <>{children}</>;
+  }
+
+  // If this specific module or parent is unlocked for the user, grant direct access
+  const parentId = SUBMODULE_TO_PARENT_MAP[item.id] || item.id;
+  if (unlockedModules && (unlockedModules.includes(item.id) || unlockedModules.includes(parentId))) {
+    return <>{children}</>;
+  }
 
   // Lock target is the parent module ID if the item is a sublevel, or item ID itself
   const isPasswordRestricted = item.id === 'pa-templates';

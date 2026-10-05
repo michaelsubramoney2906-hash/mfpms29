@@ -58,7 +58,7 @@ export interface SdbipWorkflowNotification {
  */
 export function isUserMatch(
   targetUser: string | undefined | null,
-  user: { email?: string; fullName?: string; username?: string; role?: string } | undefined | null
+  user: { email?: string; fullName?: string; full_name?: string; name?: string; username?: string; role?: string; jobFunction?: string } | undefined | null
 ): boolean {
   if (!user) return false;
   const email = (user.email || '').trim().toLowerCase();
@@ -82,14 +82,43 @@ export function isUserMatch(
   if (target === 'all' || target === 'everyone' || target === '*') return true;
 
   const emailPrefix = email.split('@')[0] || '';
-  const fullName = (user.fullName || '').trim().toLowerCase();
+  const fullName = (user.fullName || (user as any).full_name || (user as any).name || '').trim().toLowerCase();
   const username = (user.username || '').trim().toLowerCase();
+  const jobFunction = (user.jobFunction || (user as any).job_function || '').trim().toLowerCase();
+
+  // Canonical directory matching for Nkangala District Municipality officials
+  const NKANGALA_OFFICIAL_MAP: Record<string, string[]> = {
+    'skhosanaqj@nkangaladm.gov.za': ['quinton skhosana', 'q skhosana', 'quinton', 'risk officer', 'risk unit'],
+    'shabanguf@nkangaladm.gov.za': ['fortress shabangu', 'f shabangu', 'fortress', 'general manager: development planning', 'planning'],
+    'kubhekavs@nkangaladm.gov.za': ['vusumuzi s. kubheka', 'vusumuzi kubheka', 'v kubheka', 'kubheka', 'divisional manager: town planning', 'town planning'],
+    'masekofm@nkangaladm.gov.za': ['fikile maseko', 'f maseko', 'maseko', 'senior led officer', 'led officer'],
+    'msizaas@nkangaladm.gov.za': ['ali s. msiza', 'ali msiza', 'a msiza', 'chief financial officer', 'cfo', 'finance'],
+    'nsibandenp@nkangaladm.gov.za': ['nompumelelo p. nsibande', 'nompumelelo nsibande', 'n nsibande', 'manager: pms', 'pms manager', 'pms team'],
+    'linkss@nkangaladm.gov.za': ['sipho links', 's links', 'links'],
+    'nhlaphomj@nkangaladm.gov.za': ['jimmy nhlapho', 'j nhlapho', 'nhlapho'],
+    'vanniekerkt@nkangaladm.gov.za': ['theuns van niekerk', 't van niekerk', 'van niekerk'],
+    'simelanenl@nkangaladm.gov.za': ['nomusa simelane', 'n simelane', 'simelane'],
+    'nkosis@nkangaladm.gov.za': ['sipho nkosi', 's nkosi', 'nkosi']
+  };
+
+  for (const [canonicalEmail, aliases] of Object.entries(NKANGALA_OFFICIAL_MAP)) {
+    if (email === canonicalEmail) {
+      if (aliases.some(alias => target.includes(alias) || alias.includes(target))) {
+        return true;
+      }
+    }
+    if (target.includes(canonicalEmail) || aliases.some(alias => target.includes(alias))) {
+      if (email === canonicalEmail || (fullName && aliases.some(alias => fullName.includes(alias)))) {
+        return true;
+      }
+    }
+  }
 
   // Exact or prefix matches
   if (target === email) return true;
-  if (target === fullName) return true;
-  if (target === username) return true;
-  if (target === emailPrefix) return true;
+  if (fullName && target === fullName) return true;
+  if (username && target === username) return true;
+  if (emailPrefix && target === emailPrefix) return true;
 
   // Contains match for partial names or emails
   if (fullName && (fullName.includes(target) || target.includes(fullName))) return true;
@@ -340,7 +369,9 @@ export function extractKpiPoes(kpi: any, globalPoes: any[]): Array<{
     if (!gp) return;
     const gpRef = (gp.refNum || gp.kpiRef || '').toString().trim().toLowerCase();
     const gpKpiId = (gp.kpiId || gp.rowId || '').toString().trim().toLowerCase();
-    const matchesRef = kpiRef && gpRef === kpiRef;
+    const cleanKpiRef = kpiRef.replace(/[^a-z0-9]/g, '');
+    const cleanGpRef = gpRef.replace(/[^a-z0-9]/g, '');
+    const matchesRef = (kpiRef && gpRef === kpiRef) || (cleanKpiRef && cleanGpRef && cleanKpiRef === cleanGpRef) || (cleanKpiRef && cleanGpRef && (cleanKpiRef.endsWith(cleanGpRef) || cleanGpRef.endsWith(cleanKpiRef)));
     const matchesId = kpiId && (gpKpiId === kpiId || gp.id?.toString().toLowerCase().includes(kpiId));
 
     if ((matchesRef || matchesId) && gp.name && !seenNames.has(gp.name.trim().toLowerCase())) {

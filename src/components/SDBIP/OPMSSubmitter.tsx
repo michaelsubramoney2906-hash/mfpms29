@@ -4,7 +4,7 @@ import {
   Send, RefreshCw, Layers, Database, Search, ChevronRight, 
   Clock, Plus, ShieldCheck, Check, MessageSquare, Info, Lock, Unlock,
   Upload, Eye, Trash2, Paperclip, FileSpreadsheet, Presentation, Image as ImageIcon,
-  Bell, CheckCircle2, UserCheck, ShieldAlert, X, RotateCcw, Cloud, Download
+  Bell, CheckCircle2, UserCheck, ShieldAlert, X, RotateCcw, Cloud, Download, Building
 } from 'lucide-react';
 import type { User } from '../../types';
 import { SdbipRow } from './SDBIP';
@@ -66,6 +66,8 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
   const [submitterNotes, setSubmitterNotes] = useState('');
 
   // 5-Second Autosave and Emergency Draft Recovery Engine
+  const [activeScorecard, setActiveScorecard] = useState<'top' | 'dept'>('top');
+  const [cloudDrafts, setCloudDrafts] = useState<Record<string, any>>({});
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'dirty' | 'saving' | 'saved'>('idle');
   const [lastAutoSavedTime, setLastAutoSavedTime] = useState<string | null>(null);
   const [isDraftRestored, setIsDraftRestored] = useState<boolean>(false);
@@ -175,6 +177,36 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
       }
 
       if (!draftLoaded) {
+        // Check cloud drafts from Supabase (for impersonation or multi-session access)
+        const cloudDraft = cloudDrafts[selectedKpi.id] || 
+                           cloudDrafts[selectedKpi.refNum] || 
+                           (selectedKpi.refNum && Object.entries(cloudDrafts).find(([k]) => k.toUpperCase().includes(selectedKpi.refNum.toUpperCase()))?.[1]);
+        if (cloudDraft) {
+          const d = cloudDraft.draftData || cloudDraft;
+          if (d && (d.q1Actual || d.submitterNotes || d.q1Variance || d.q1Corrective)) {
+            setQ1Actual(d.q1Actual || selectedKpi.q1Actual || '');
+            setQ1Variance(d.q1Variance || selectedKpi.q1Variance || '');
+            setQ1Corrective(d.q1Corrective || selectedKpi.q1Corrective || '');
+            setQ2Actual(d.q2Actual || selectedKpi.q2Actual || '');
+            setQ2Variance(d.q2Variance || selectedKpi.q2Variance || '');
+            setQ2Corrective(d.q2Corrective || selectedKpi.q2Corrective || '');
+            setQ3Actual(d.q3Actual || selectedKpi.q3Actual || '');
+            setQ3Variance(d.q3Variance || selectedKpi.q3Variance || '');
+            setQ3Corrective(d.q3Corrective || selectedKpi.q3Corrective || '');
+            setQ4Actual(d.q4Actual || selectedKpi.q4Actual || '');
+            setQ4Variance(d.q4Variance || selectedKpi.q4Variance || '');
+            setQ4Corrective(d.q4Corrective || selectedKpi.q4Corrective || '');
+            setPoeDesc(d.poeDesc || selectedKpi.poeDesc || selectedKpi.q1PoeDesc || '');
+            setSubmitterNotes(d.submitterNotes || (selectedKpi as any).submitterNotes || '');
+            setIsDraftRestored(true);
+            setDraftRestoredAt('Cloud Auto-Saved Draft');
+            setAutoSaveStatus('saved');
+            draftLoaded = true;
+          }
+        }
+      }
+
+      if (!draftLoaded) {
         setQ1Actual(selectedKpi.q1Actual || '');
         setQ1Variance(selectedKpi.q1Variance || '');
         setQ1Corrective(selectedKpi.q1Corrective || '');
@@ -200,7 +232,7 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
     } else {
       clearForm();
     }
-  }, [selectedKpi?.id]);
+  }, [selectedKpi?.id, cloudDrafts]);
 
   // 5-Second Autosave Engine: Keystroke snapshot + Debounced 5s cloud backup
   useEffect(() => {
@@ -299,11 +331,27 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
     setSubmitterNotes('');
   };
 
-  const fetchSDBIPData = async (isBackground = false) => {
+  const fetchCloudDrafts = async () => {
+    try {
+      const emailToUse = currentUser.email || '';
+      if (!emailToUse) return;
+      const res = await fetch(`/api/tenant/${activeTenantId}/sdbip/drafts/${encodeURIComponent(emailToUse)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setCloudDrafts(data.drafts || {});
+      }
+    } catch (e) {}
+  };
+
+  const fetchSDBIPData = async (isBackground = false, targetScorecard?: 'top' | 'dept') => {
+    const sc = targetScorecard || activeScorecard;
     if (!isBackground) setLoading(true);
     if (!isBackground) setError(null);
     try {
-      const response = await fetch(`/api/tenant/${activeTenantId}/sdbip`);
+      const endpoint = sc === 'dept'
+        ? `/api/tenant/${activeTenantId}/sdbip23`
+        : `/api/tenant/${activeTenantId}/sdbip`;
+      const response = await fetch(endpoint);
       if (!response.ok) throw new Error('Failed to retrieve SDBIP scorecard data');
       const data = await response.json();
       const freshItems = data.items || [];
@@ -312,12 +360,19 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
         if (!prev) return null;
         return freshItems.find((x: SdbipRow) => x.id === prev.id) || prev;
       });
+      fetchCloudDrafts();
     } catch (err: any) {
       console.error(err);
       if (!isBackground) setError(err.message || 'An error occurred while communicating with Supabase.');
     } finally {
       if (!isBackground) setLoading(false);
     }
+  };
+
+  const handleSwitchScorecard = (sc: 'top' | 'dept') => {
+    setActiveScorecard(sc);
+    setSelectedKpi(null);
+    fetchSDBIPData(false, sc);
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -920,6 +975,34 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
             Sync Data
           </button>
         </div>
+      </div>
+
+      {/* Scorecard Tier Selection Tab */}
+      <div className="flex items-center gap-2 bg-slate-900/90 p-1.5 rounded-xl border border-slate-800 shadow-md">
+        <button
+          type="button"
+          onClick={() => handleSwitchScorecard('top')}
+          className={`flex-1 py-2 px-4 rounded-lg text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition cursor-pointer ${
+            activeScorecard === 'top'
+              ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+          }`}
+        >
+          <Layers className="w-3.5 h-3.5" />
+          <span>Top Layer SDBIP (Council Strategic Indicators)</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => handleSwitchScorecard('dept')}
+          className={`flex-1 py-2 px-4 rounded-lg text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition cursor-pointer ${
+            activeScorecard === 'dept'
+              ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+          }`}
+        >
+          <Building className="w-3.5 h-3.5" />
+          <span>Departmental SDBIP (2nd & 3rd Layer Operational)</span>
+        </button>
       </div>
 
       {/* High-Level Executive Dashboard Stats */}
