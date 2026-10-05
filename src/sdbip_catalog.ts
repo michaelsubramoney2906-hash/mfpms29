@@ -2636,17 +2636,19 @@ export function ensureAllSdbipKpis(existingRows: any[] = []): (SdbipCatalogItem 
       Q4_Target: canonical.Q4_Target,
       q4: canonical.Q4_Target,
 
-      Submitter: canonical.Submitter,
-      submitter: canonical.Submitter,
+      Submitter: existingActuals.submitter || existingActuals.Submitter || canonical.Submitter,
+      submitter: existingActuals.submitter || existingActuals.Submitter || canonical.Submitter,
 
-      Approver: canonical.Approver,
-      approver: canonical.Approver,
+      Approver: existingActuals.approver || existingActuals.Approver || canonical.Approver,
+      approver: existingActuals.approver || existingActuals.Approver || canonical.Approver,
 
-      Reviewer: canonical.Reviewer,
-      reviewer: canonical.Reviewer,
+      Reviewer: existingActuals.reviewer || existingActuals.Reviewer || canonical.Reviewer,
+      reviewer: existingActuals.reviewer || existingActuals.Reviewer || canonical.Reviewer,
 
-      Internal_Audit: canonical.Internal_Audit,
-      internalAudit: canonical.Internal_Audit,
+      Internal_Audit: existingActuals.internalAudit || existingActuals.Internal_Audit || canonical.Internal_Audit,
+      internalAudit: existingActuals.internalAudit || existingActuals.Internal_Audit || canonical.Internal_Audit,
+
+      score: existingActuals.score !== undefined ? existingActuals.score : '',
 
       POE_Description: canonical.POE_Description,
       poeDesc: canonical.POE_Description,

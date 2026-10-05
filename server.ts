@@ -9631,6 +9631,8 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
           }
         }
 
+        let aggregatedItems: any[] = [];
+
         for (const docId of documentIds) {
           const { data } = await supabase
             .from('messages')
@@ -9643,27 +9645,22 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
               const parsed = JSON.parse(data.content);
               const itemsArray = Array.isArray(parsed) ? parsed : (parsed?.items || []);
               if (Array.isArray(itemsArray) && itemsArray.length > 0) {
-                const normalized = (!isSdbip23 && tenantId !== 'neda') ? ensureAllSdbipKpis(itemsArray) : itemsArray;
-                
-                // If the stored record contained outdated text, write the updated normalized list back to Supabase asynchronously
-                if (!isSdbip23 && tenantId !== 'neda' && itemsArray[0]?.kpi !== normalized[0]?.kpi) {
-                  supabase
-                    .from('messages')
-                    .upsert({
-                      id: docId,
-                      tenant_id: tenantId,
-                      sender_id: 'sdbip_catalog_sync',
-                      sender_email: 'sync@system.local',
-                      sender_name: 'SDBIP Canonical Sync',
-                      content: JSON.stringify({ items: normalized }),
-                      message_type: 'sdbip_list',
-                      created_at: new Date().toISOString()
-                    })
-                    .then(() => console.log(`[SDBIP Sync] Auto-updated ${docId} with canonical 2026/2027 catalog and preserved actuals`))
-                    .catch((syncErr: any) => console.error(`[SDBIP Sync Error] Failed to update ${docId}:`, syncErr));
+                // Merge into aggregatedItems
+                if (aggregatedItems.length === 0) {
+                  aggregatedItems = itemsArray;
+                } else {
+                  // Merge non-empty actuals & submitter assignments
+                  const aggMap = new Map(aggregatedItems.map(it => [(it.refNum || it.Ref_Number || it.id || '').toUpperCase(), it]));
+                  itemsArray.forEach(it => {
+                    const key = (it.refNum || it.Ref_Number || it.id || '').toUpperCase();
+                    if (aggMap.has(key)) {
+                      const base = aggMap.get(key);
+                      aggMap.set(key, { ...base, ...it, submitter: it.submitter || base.submitter, approver: it.approver || base.approver, q1Actual: it.q1Actual || base.q1Actual, q1Poes: (it.q1Poes?.length ? it.q1Poes : base.q1Poes) });
+                    } else {
+                      aggregatedItems.push(it);
+                    }
+                  });
                 }
-                
-                return normalized;
               }
             } catch (parseErr) {
               console.error("Error parsing sdbip JSON:", parseErr);
@@ -9671,8 +9668,27 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
           }
         }
 
-        const freshCanonical = (!isSdbip23 && tenantId !== 'neda') ? ensureAllSdbipKpis([]) : [];
-        return freshCanonical;
+        const normalized = (!isSdbip23 && tenantId !== 'neda') ? ensureAllSdbipKpis(aggregatedItems) : aggregatedItems;
+        
+        // Save normalized state with preserved submitters & actuals to primary docId
+        if (!isSdbip23 && tenantId !== 'neda') {
+          const primaryDocId = documentIds[0] || `sdbip_${tenantId}`;
+          supabase
+            .from('messages')
+            .upsert({
+              id: primaryDocId,
+              tenant_id: tenantId,
+              sender_id: 'sdbip_catalog_sync',
+              sender_email: 'sync@system.local',
+              sender_name: 'SDBIP Canonical Sync',
+              content: JSON.stringify({ items: normalized }),
+              message_type: 'sdbip_list',
+              created_at: new Date().toISOString()
+            })
+            .catch((syncErr: any) => console.error(`[SDBIP Sync Error] Failed to update ${primaryDocId}:`, syncErr));
+        }
+
+        return normalized;
       });
 
       return res.json({ items });
