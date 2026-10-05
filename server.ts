@@ -9673,19 +9673,24 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
         // Save normalized state with preserved submitters & actuals to primary docId
         if (!isSdbip23 && tenantId !== 'neda') {
           const primaryDocId = documentIds[0] || `sdbip_${tenantId}`;
-          supabase
-            .from('messages')
-            .upsert({
-              id: primaryDocId,
-              tenant_id: tenantId,
-              sender_id: 'sdbip_catalog_sync',
-              sender_email: 'sync@system.local',
-              sender_name: 'SDBIP Canonical Sync',
-              content: JSON.stringify({ items: normalized }),
-              message_type: 'sdbip_list',
-              created_at: new Date().toISOString()
-            })
-            .catch((syncErr: any) => console.error(`[SDBIP Sync Error] Failed to update ${primaryDocId}:`, syncErr));
+          (async () => {
+            try {
+              await supabase
+                .from('messages')
+                .upsert({
+                  id: primaryDocId,
+                  tenant_id: tenantId,
+                  sender_id: 'sdbip_catalog_sync',
+                  sender_email: 'sync@system.local',
+                  sender_name: 'SDBIP Canonical Sync',
+                  content: JSON.stringify({ items: normalized }),
+                  message_type: 'sdbip_list',
+                  created_at: new Date().toISOString()
+                });
+            } catch (syncErr: any) {
+              console.error(`[SDBIP Sync Error] Failed to update ${primaryDocId}:`, syncErr);
+            }
+          })();
         }
 
         return normalized;
@@ -12537,16 +12542,20 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
         if (bestFallbackParsed && maxItems > 0) {
           parsed = bestFallbackParsed;
           // Auto-heal the current document asynchronously
-          supabase.from('messages').upsert({
-            id: documentId,
-            tenant_id: tenantId,
-            sender_id: 'pplan_editor_tool',
-            sender_email: 'pplan@system.local',
-            sender_name: 'PPLAN Editor',
-            content: JSON.stringify(parsed),
-            message_type: 'pplan_list',
-            created_at: new Date().toISOString()
-          }).then(() => {}).catch(() => {});
+          (async () => {
+            try {
+              await supabase.from('messages').upsert({
+                id: documentId,
+                tenant_id: tenantId,
+                sender_id: 'pplan_editor_tool',
+                sender_email: 'pplan@system.local',
+                sender_name: 'PPLAN Editor',
+                content: JSON.stringify(parsed),
+                message_type: 'pplan_list',
+                created_at: new Date().toISOString()
+              });
+            } catch (e) {}
+          })();
         }
       }
 
