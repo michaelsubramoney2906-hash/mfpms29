@@ -522,9 +522,8 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
       if (!res.ok) throw new Error("Failed to load SDBIP data");
       const data = await res.json();
       if (data && Array.isArray(data.items)) {
-        const cleanItems = data.items.filter((it: any) => !isSdbipPlaceholderRow(it));
-        setRows(cleanItems.map(sanitizeSdbipRow));
-        setSuccessToast(`Successfully pulled and loaded ${cleanItems.length} records from the SDBIP top layer table.`);
+        setRows(data.items.map(sanitizeSdbipRow));
+        setSuccessToast(`Successfully pulled and loaded ${data.items.length} records from the SDBIP top layer table.`);
       } else {
         setRows([]);
         setSuccessToast("SDBIP top layer table data refreshed (0 records).");
@@ -957,18 +956,10 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
         const notifData = await safeJson(notifRes, { notifications: [] });
         const officialsData = await safeJson(officialsRes, { reviewers: [], internalAuditors: [] });
         
-        // If rows are loaded from database, filter out placeholders and display valid rows only.
+        // Load rows from database
         if (rowsData && Array.isArray(rowsData.items)) {
-          const cleanItems = rowsData.items.filter((it: any) => !isSdbipPlaceholderRow(it));
-          if (isBackground && Date.now() - lastUserEditTimeRef.current < 15000) {
-            // Keep local active edits without clobbering
-          } else {
-            setRows(cleanItems.map(sanitizeSdbipRow));
-          }
-
-          // If database returned placeholders, automatically purge them to keep Supabase clean
-          if (rowsData.items.length > cleanItems.length) {
-            fetch(`/api/tenant/${activeTenantId}/sdbip/purge`, { method: 'POST' }).catch(() => {});
+          if (!isBackground || Date.now() - lastUserEditTimeRef.current >= 15000) {
+            setRows(rowsData.items.map(sanitizeSdbipRow));
           }
         } else if (!isBackground) {
           setRows([]);

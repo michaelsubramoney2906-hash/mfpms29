@@ -10097,6 +10097,88 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
           }
         }
 
+        // 2b. Check master backup file on disk
+        try {
+          const backupFile = path.join(process.cwd(), isSdbip23 ? 'sdbip23_master_backup.json' : 'sdbip_master_backup.json');
+          if (fs.existsSync(backupFile)) {
+            const diskData = JSON.parse(fs.readFileSync(backupFile, 'utf8'));
+            if (diskData && Array.isArray(diskData.items) && diskData.items.length > 0) {
+              for (const docId of documentIds) {
+                sdbipMemoryStore.set(docId, diskData.items);
+              }
+              return diskData.items;
+            }
+          }
+        } catch (_) {}
+
+        // 3. If no custom extracted items exist in database yet, provide canonical statutory SDBIP catalog (111 items)
+        if (!isSdbip23) {
+          const canonicalItems = ensureAllSdbipKpis([]).map((item, idx) => ({
+            id: `sdbip-tl-${idx + 1}`,
+            refNum: item.Ref_Number,
+            strategicObj: item.SDBIP_Strategic_Objective || 'To ensure sustainable service delivery and clean governance',
+            bsd: item.BSD || '',
+            led: item.LED || '',
+            mfvm: item.MFVM || '',
+            ggpp: item.GGPP || '',
+            midt: item.MIDT || '',
+            sr: item.SR || '',
+            kpas: item.National_KPA || 'Basic Service Delivery and Infrastructure Development (BSD)',
+            operationalActivity: item.KPI || item.Description,
+            kpi: item.KPI || item.Description,
+            compliance: 'compliant',
+            uom: item.Unit_of_Measure || 'Number',
+            mscoaTracking: 'Operational',
+            baseline: item.Baseline || '-',
+            annualTarget: item.Annual_Target || '-',
+            budgetAllocation: item.Budget_Allocation || 'OPEX',
+            q1: item.Q1_Target || '-',
+            q2: item.Q2_Target || '-',
+            midTerm: item.Mid_Term_Target || item.Q2_Target || '-',
+            q3: item.Q3_Target || '-',
+            q4: item.Q4_Target || '-',
+            weight: '10',
+            responsibleUnit: item.Responsible_Owner || 'Municipal Administration',
+            evaluationUser: item.Submitter || 'Municipal Official',
+            reviewManager: item.Approver || 'Municipal Manager',
+            poeStatus: item.POE_Description || 'Portfolio of Evidence required',
+            isPlaceholder: false,
+            _isPlaceholder: false,
+            source: 'canonical',
+            q1Actual: '',
+            q1Variance: '',
+            q1Corrective: '',
+            q1Expenditure: '',
+            q1PoeDesc: item.POE_Description || '',
+            q2Actual: '',
+            q2Variance: '',
+            q2Corrective: '',
+            q2Expenditure: '',
+            q2PoeDesc: item.POE_Description || '',
+            midTermActual: '',
+            midTermVariance: '',
+            midTermCorrective: '',
+            midTermExpenditure: '',
+            midTermPoeDesc: item.POE_Description || '',
+            q3Actual: '',
+            q3Variance: '',
+            q3Corrective: '',
+            q3Expenditure: '',
+            q3PoeDesc: item.POE_Description || '',
+            q4Actual: '',
+            q4Variance: '',
+            q4Corrective: '',
+            q4Expenditure: '',
+            q4PoeDesc: item.POE_Description || ''
+          }));
+
+          sdbipMemoryStore.set(tenantId, canonicalItems);
+          for (const docId of documentIds) {
+            sdbipMemoryStore.set(docId, canonicalItems);
+          }
+          return canonicalItems;
+        }
+
         return [];
       });
 
@@ -10117,12 +10199,9 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
         ? (items || [])
         : (items || []).filter((it: any) => !isSdbipPlaceholder(it));
 
-      let targetDocIds = isSdbip23 ? [`sdbip23_${tenantId}`] : [`sdbip_${tenantId}`];
-      if (tenantId === 'tenant-229' || tenantId === 'nkangala_auto' || tenantId === 'global') {
-        targetDocIds = isSdbip23 
-          ? ['sdbip23_tenant-229', 'sdbip23_nkangala_auto', 'sdbip23_global']
-          : ['sdbip_tenant-229', 'sdbip_nkangala_auto', 'sdbip_global'];
-      }
+      let targetDocIds = isSdbip23 
+        ? [`sdbip23_${tenantId}`, 'sdbip23_tenant-229', 'sdbip23_nkangala_auto', 'sdbip23_global', 'sdbip23_default']
+        : [`sdbip_${tenantId}`, 'sdbip_tenant-229', 'sdbip_nkangala_auto', 'sdbip_global', 'sdbip_default', 'sdbip_nkangala'];
 
       // 1. Immediately store in memory store
       for (const docId of targetDocIds) {
@@ -10132,6 +10211,13 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       sdbipMemoryStore.set('tenant-229', cleanItems);
       sdbipMemoryStore.set('nkangala_auto', cleanItems);
       sdbipMemoryStore.set('global', cleanItems);
+      sdbipMemoryStore.set('default', cleanItems);
+
+      // 1b. Write disk backup for instant survival across cold restarts
+      try {
+        const backupFile = path.join(process.cwd(), isSdbip23 ? 'sdbip23_master_backup.json' : 'sdbip_master_backup.json');
+        fs.writeFileSync(backupFile, JSON.stringify({ items: cleanItems, updatedAt: new Date().toISOString() }, null, 2), 'utf8');
+      } catch (fsErr) {}
 
       // 2. Persist in Supabase
       const supabase = getSupabase();
