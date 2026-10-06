@@ -634,7 +634,7 @@ async function startServer() {
     res.status(200).send("ok");
   });
 
-  // Non-blocking background log of active Supabase tables from OpenAPI Schema
+  // Non-blocking background check of active Supabase tables from OpenAPI Schema (if available)
   (async () => {
     try {
       const url = process.env.SUPABASE_URL;
@@ -643,7 +643,8 @@ async function startServer() {
         const res = await resilientSupabaseFetch(`${url}/rest/v1/`, {
           headers: {
             apikey: key,
-            Authorization: `Bearer ${key}`
+            Authorization: `Bearer ${key}`,
+            Accept: 'application/openapi+json, application/json'
           }
         });
         if (res.ok) {
@@ -652,15 +653,12 @@ async function startServer() {
           const definitions = Object.keys(swagger.definitions || {});
           const fs = await import("fs");
           fs.writeFileSync("supabase_schema.json", JSON.stringify({ paths, definitions }, null, 2));
-          console.log("---- Wrote Supabase schema to supabase_schema.json ----");
-        } else {
-          console.warn("Failed to query Supabase Swagger spec:", res.statusText);
         }
       }
-    } catch (err: any) {
-      console.warn("Failed to detect Supabase paths in background:", err.message);
+    } catch (_) {
+      // Ignore background schema probe failure if OpenAPI is not enabled on PostgREST
     }
-  })().catch(e => console.warn("Supabase schema probe background error:", e));
+  })().catch(() => {});
 
   // Debug Route to see what Supabase tables exist
   app.get("/api/config/manager-password", (req, res) => {

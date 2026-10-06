@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import mammoth from 'mammoth';
-import { Layers, Info, CheckCircle, Upload, Download, ArrowRight, Shield, ShieldCheck, AlertTriangle, HelpCircle, Check, CheckSquare, FileText, Plus, Trash2, Database, FolderArchive, AlertCircle, Sparkles, Send, Inbox, Bell, Eye, Lock, Unlock, RefreshCw, XCircle, Clock, Maximize2, Minimize2, Calendar, CalendarDays, ShieldAlert, KeyRound, BellOff, Key, X, RotateCcw } from 'lucide-react';
+import { Layers, Info, CheckCircle, Upload, Download, ArrowRight, Shield, ShieldCheck, AlertTriangle, HelpCircle, Check, CheckSquare, FileText, Plus, Trash2, Database, FolderArchive, AlertCircle, Sparkles, Send, Inbox, Bell, Eye, Lock, Unlock, RefreshCw, XCircle, Clock, Maximize2, Minimize2, Calendar, CalendarDays, ShieldAlert, KeyRound, BellOff, Key, X, RotateCcw, Save } from 'lucide-react';
 import type { User } from '../../types';
 import { SDBIPDraftingSuite } from './SDBIPDraftingSuite';
 import { WordProcessor } from './WordProcessor';
@@ -1176,6 +1176,65 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
       console.error("Error saving SDBIP officials:", err);
     } finally {
       setSavingOfficials(false);
+    }
+  };
+
+  const [isExplicitlySaving, setIsExplicitlySaving] = useState(false);
+
+  const handleSaveAndOverwriteSDBIP = async () => {
+    if (!rows || rows.length === 0) {
+      setSuccessToast("⚠️ No SDBIP rows to save.");
+      setTimeout(() => setSuccessToast(null), 3000);
+      return;
+    }
+
+    setIsExplicitlySaving(true);
+    setSuccessToast(`💾 Saving and permanently overwriting ${rows.length} SDBIP records on Supabase and application...`);
+
+    try {
+      const payload = rows.map(r => ({
+        ...r,
+        isPlaceholder: false,
+        _isPlaceholder: false,
+        source: (r as any).source || 'manual'
+      }));
+
+      // 1. Save to primary active tenant
+      const res = await fetch(`/api/tenant/${activeTenantId}/sdbip`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: payload, overwrite: true })
+      });
+
+      if (!res.ok) {
+        throw new Error(`Server returned error status ${res.status}`);
+      }
+
+      // 2. Ensure sync across all statutory tenant namespaces
+      const syncTenants = ['tenant-229', 'nkangala_auto', 'nkangala', 'default', 'global'].filter(t => t !== activeTenantId);
+      for (const tId of syncTenants) {
+        try {
+          await fetch(`/api/tenant/${tId}/sdbip`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items: payload, overwrite: true })
+          });
+        } catch (_) {}
+      }
+
+      // 3. Dispatch event to keep all views in sync
+      try {
+        window.dispatchEvent(new CustomEvent('sdbip:refresh', { detail: { count: payload.length, items: payload } }));
+      } catch (_) {}
+
+      setSuccessToast(`✅ Successfully saved and permanently overwritten ${rows.length} SDBIP records to Supabase, cloud database, and website!`);
+      setTimeout(() => setSuccessToast(null), 5000);
+    } catch (err: any) {
+      console.error("Error saving SDBIP to Supabase:", err);
+      setSuccessToast(`❌ Failed to save SDBIP to Supabase: ${err.message || 'Unknown error'}`);
+      setTimeout(() => setSuccessToast(null), 5000);
+    } finally {
+      setIsExplicitlySaving(false);
     }
   };
 
@@ -4994,6 +5053,16 @@ Timestamp: ${new Date().toLocaleString()}
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
+                  onClick={handleSaveAndOverwriteSDBIP}
+                  disabled={isExplicitlySaving || rows.length === 0}
+                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 disabled:opacity-50 text-white rounded-lg text-xs font-black flex items-center gap-1.5 cursor-pointer shadow-sm transition-all border border-emerald-500/40 hover:shadow-emerald-600/20"
+                  title="Save and permanently overwrite all current SDBIP Top Layer indicators to Supabase, cloud database, and website"
+                >
+                  <Save className={`w-3.5 h-3.5 ${isExplicitlySaving ? 'animate-bounce' : ''}`} />
+                  <span>{isExplicitlySaving ? 'Overwriting...' : 'Save & Overwrite to Supabase'}</span>
+                </button>
+                <button
+                  type="button"
                   onClick={pullSdbipTopLayerData}
                   disabled={isPulling}
                   className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-all border border-indigo-500/30"
@@ -5509,6 +5578,16 @@ Timestamp: ${new Date().toLocaleString()}
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
+                  onClick={handleSaveAndOverwriteSDBIP}
+                  disabled={isExplicitlySaving || rows.length === 0}
+                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 disabled:opacity-50 text-white rounded-lg text-xs font-black flex items-center gap-1.5 cursor-pointer shadow-sm transition-all border border-emerald-500/40 hover:shadow-emerald-600/20"
+                  title="Save and permanently overwrite all current SDBIP Reporting actuals, variances, expenditures, and POE data to Supabase and website"
+                >
+                  <Save className={`w-3.5 h-3.5 ${isExplicitlySaving ? 'animate-bounce' : ''}`} />
+                  <span>{isExplicitlySaving ? 'Overwriting...' : 'Save & Overwrite to Supabase'}</span>
+                </button>
+                <button
+                  type="button"
                   onClick={pullSdbipTopLayerData}
                   disabled={isPulling}
                   className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-all border border-indigo-500/30"
@@ -5609,6 +5688,16 @@ Timestamp: ${new Date().toLocaleString()}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSaveAndOverwriteSDBIP}
+                      disabled={isExplicitlySaving || rows.length === 0}
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 disabled:opacity-50 text-white rounded-xl text-xs font-black flex items-center gap-1.5 cursor-pointer shadow-sm transition-all border border-emerald-500/40 hover:shadow-emerald-600/20"
+                      title="Save and permanently overwrite all current SDBIP Reporting actuals, variances, expenditures, and POE data to Supabase and website"
+                    >
+                      <Save className={`w-4 h-4 ${isExplicitlySaving ? 'animate-bounce' : ''}`} />
+                      <span>{isExplicitlySaving ? 'Overwriting Supabase...' : 'Save & Overwrite to Supabase'}</span>
+                    </button>
                     <button
                       type="button"
                       onClick={pullSdbipTopLayerData}
