@@ -57,7 +57,7 @@ export function FredSDBIPExtractor({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load existing extraction snapshot if available from Supabase
+  // Load existing extraction snapshot if available or initialize with standard 111 SDBIP KPIs (92 M_ + 19 P_)
   useEffect(() => {
     const loadSavedSnapshot = async () => {
       try {
@@ -73,12 +73,13 @@ export function FredSDBIPExtractor({
           }
         }
       } catch (err) {
-        // Leave empty on fetch error
+        // Fall back to standard scorecard
       }
 
-      // Default to empty state ready for document extraction
-      setExtractedItems([]);
-      setSourceFileName('');
+      // Default to the canonical 111 SDBIP scorecard: 92 M_ KPIs + 19 P_ Projects
+      const standardItems = getStandardSdbipScorecard();
+      setExtractedItems(standardItems);
+      setSourceFileName('Municipal SDBIP Top Layer Scorecard (92 M_ + 19 P_)');
     };
     loadSavedSnapshot();
   }, [activeTenantId]);
@@ -90,7 +91,7 @@ export function FredSDBIPExtractor({
     setSourceFileName('Municipal SDBIP Scorecard (92 M_ KPIs + 19 P_ Projects)');
     setStatusMessage({
       type: 'success',
-      text: 'Successfully loaded standard SDBIP Scorecard template (92 Municipal KPIs + 19 Project KPIs).'
+      text: 'Successfully aligned with standard SDBIP Scorecard: 92 Municipal KPIs (M_01 to M_92) and 19 Project KPIs (P_01 to P_19) — exactly 111 indicators total.'
     });
 
     try {
@@ -297,8 +298,6 @@ export function FredSDBIPExtractor({
 
         // Verbatim source document POE description reflects across all four quarters (non-editable)
         const sourcePoe = (item.poeStatus || item.q1PoeDesc || item.q2PoeDesc || item.q3PoeDesc || item.q4PoeDesc || existing?.poeStatus || existing?.q1PoeDesc || 'Portfolio of Evidence required').trim();
-        const kpiText = (item.kpi || item.operationalActivity || (item as any).KPI || (item as any).Description || (item as any).kpiDescription || existing?.kpi || '').trim();
-        const activityText = (item.operationalActivity || item.kpi || (item as any).Description || (item as any).KPI || existing?.operationalActivity || '').trim();
 
         return {
           id: existing?.id || item._id || `sdbip-tl-${Date.now()}-${idx + 1}`,
@@ -311,8 +310,8 @@ export function FredSDBIPExtractor({
           midt: selectedKpa === 'midt' ? 'X' : '',
           sr: selectedKpa === 'sr' ? 'X' : '',
           kpas: kpaLabels[selectedKpa],
-          operationalActivity: activityText || kpiText,
-          kpi: kpiText || activityText,
+          operationalActivity: item.operationalActivity || item.kpi || '',
+          kpi: item.kpi || '',
           compliance: item.compliance || 'compliant',
           uom: item.uom || 'Number',
           mscoaTracking: item.mscoaTracking || 'Core Municipal Vector',
@@ -358,7 +357,7 @@ export function FredSDBIPExtractor({
         };
       });
 
-      // Post to the SDBIP endpoint for active tenant and core aliases
+      // Post strictly to the SDBIP endpoint
       const res = await fetch(`/api/tenant/${activeTenantId}/sdbip`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -369,28 +368,15 @@ export function FredSDBIPExtractor({
         throw new Error(`Server returned error status ${res.status}`);
       }
 
-      // Also ensure background sync across all standard tenant aliases
-      const syncTenants = ['tenant-229', 'nkangala_auto', 'nkangala', 'default', 'global', 'tenant-demo'].filter(t => t !== activeTenantId);
-      for (const tId of syncTenants) {
-        try {
-          await fetch(`/api/tenant/${tId}/sdbip`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ items: sdbipPayload })
-          });
-        } catch (e) {}
-      }
-
       setStatusMessage({
         type: 'success',
-        text: `Successfully pushed ${selected.length} KPIs into SDBIP Top Layer and SDBIP Top Layer Reporting tables in OPMS!`
+        text: `Successfully pushed ${selected.length} items to SDBIP Top Layer and SDBIP Top Layer Reporting Table in OPMS! Zero cross-contamination with Individual Performance Plans.`
       });
 
       // Dispatch event to refresh SDBIP views if currently open
       try {
-        sessionStorage.setItem('sdbip_active_tab', 'table');
-        window.dispatchEvent(new CustomEvent('sdbip:refresh', { detail: { count: selected.length, items: sdbipPayload } }));
-        window.dispatchEvent(new CustomEvent('sdbip:switch_tab', { detail: { tab: 'table', refresh: true } }));
+        window.dispatchEvent(new CustomEvent('sdbip:refresh', { detail: { count: selected.length } }));
+        window.dispatchEvent(new CustomEvent('sdbip:switch_tab', { detail: { tab: 'top-layer', refresh: true } }));
       } catch (e) {}
 
     } catch (err: any) {
@@ -404,29 +390,23 @@ export function FredSDBIPExtractor({
     }
   };
 
-  // Reset / Clear Extractor - cleans out all extracted KPIs and database snapshot
+  // Reset / Clear Extractor - reset to standard 111 SDBIP scorecard
   const handleClearExtractor = async () => {
-    setExtractedItems([]);
+    const standard = getStandardSdbipScorecard();
+    setExtractedItems(standard);
     setSelectedFile(null);
-    setSourceFileName('');
-    setSearchQuery('');
-    setFilterKpa('all');
-    setFilterPrefix('all');
-    setEditingRowId(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-
+    setSourceFileName('Municipal SDBIP Scorecard (92 M_ + 19 P_)');
     setStatusMessage({
       type: 'info',
-      text: 'SDBIP Extractor has been successfully reset. All indicators have been cleared. You can now upload or paste a fresh SDBIP document to extract verbatim indicators.'
+      text: 'SDBIP Extractor reset to standard catalog: 92 Municipal KPIs (M_01..M_92) and 19 Project KPIs (P_01..P_19) — 111 items total.'
     });
+    if (fileInputRef.current) fileInputRef.current.value = '';
 
     try {
       await fetch(`/api/tenant/${activeTenantId}/fred-extraction/sdbip_top_layer`, {
         method: 'DELETE'
       });
-    } catch (e) {
-      console.error("Error clearing saved SDBIP extraction snapshot:", e);
-    }
+    } catch (e) {}
   };
 
   // Toggle selection
@@ -505,12 +485,12 @@ export function FredSDBIPExtractor({
           <div className="flex items-center gap-3 shrink-0 flex-wrap">
             <button
               type="button"
-              onClick={handleClearExtractor}
-              className="px-3.5 py-2.5 bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 hover:text-white rounded-xl text-xs font-bold transition border border-rose-800/70 cursor-pointer flex items-center gap-1.5 shadow-sm"
-              title="Clear all indicators and reset the SDBIP Extractor"
+              onClick={handleLoadStandardScorecard}
+              className="px-3.5 py-2.5 bg-emerald-950/80 hover:bg-emerald-900/90 text-emerald-300 hover:text-white rounded-xl text-xs font-bold transition border border-emerald-700/60 cursor-pointer flex items-center gap-1.5 shadow-sm"
+              title="Align with exact 92 Municipal KPIs (M_01 to M_92) and 19 Project KPIs (P_01 to P_19)"
             >
-              <Trash2 className="w-4 h-4 text-rose-400" />
-              <span>Reset Extractor</span>
+              <Sparkles className="w-4 h-4 text-emerald-400" />
+              <span>Standard SDBIP (92 M_ + 19 P_)</span>
             </button>
 
             <button
@@ -523,20 +503,30 @@ export function FredSDBIPExtractor({
             </button>
 
             {extractedItems.length > 0 && (
-              <button
-                id="btn-push-to-sdbip-top-layer"
-                type="button"
-                onClick={handlePushToSDBIP}
-                disabled={isPushing || selectedCount === 0}
-                className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-black flex items-center gap-2 transition shadow-lg shadow-emerald-600/30 disabled:opacity-50 cursor-pointer"
-              >
-                {isPushing ? (
-                  <Loader2 className="w-4 h-4 animate-spin text-white" />
-                ) : (
-                  <ArrowRight className="w-4 h-4 text-white" />
-                )}
-                <span>Push to SDBIP Top Layer & Reporting Table ({selectedCount})</span>
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={handleClearExtractor}
+                  className="px-3.5 py-2.5 bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl text-xs font-bold transition border border-slate-700 cursor-pointer flex items-center gap-1.5"
+                >
+                  <Trash2 className="w-4 h-4 text-rose-400" />
+                  <span>Reset Extractor</span>
+                </button>
+                <button
+                  id="btn-push-to-sdbip-top-layer"
+                  type="button"
+                  onClick={handlePushToSDBIP}
+                  disabled={isPushing || selectedCount === 0}
+                  className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-black flex items-center gap-2 transition shadow-lg shadow-emerald-600/30 disabled:opacity-50 cursor-pointer"
+                >
+                  {isPushing ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  ) : (
+                    <ArrowRight className="w-4 h-4 text-white" />
+                  )}
+                  <span>Push to SDBIP Top Layer & Reporting Table ({selectedCount})</span>
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -588,19 +578,7 @@ export function FredSDBIPExtractor({
           ) : (
             <Info className="w-5 h-5 text-teal-400 shrink-0 mt-0.5" />
           )}
-          <div className="flex-1 font-medium flex flex-wrap items-center justify-between gap-3">
-            <span>{statusMessage.text}</span>
-            {statusMessage.type === 'success' && onNavigateToSDBIP && (
-              <button
-                type="button"
-                onClick={() => onNavigateToSDBIP('table')}
-                className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-lg flex items-center gap-1.5 cursor-pointer shadow-sm transition"
-              >
-                <span>View SDBIP Top Layer Table</span>
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
+          <div className="flex-1 font-medium">{statusMessage.text}</div>
         </div>
       )}
 

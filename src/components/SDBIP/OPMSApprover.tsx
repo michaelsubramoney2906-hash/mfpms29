@@ -716,8 +716,8 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
 
       if (!response.ok) throw new Error('Failed to push item to Reviewer');
 
-      // Dispatch real-time notification to the specified Reviewer, Submitter & PMS Team members
-      const reviewerTargets = Array.from(new Set([reviewerTarget, selectedKpi.submitter, ...PMS_TEAM_REVIEWERS].filter(Boolean)));
+      // Dispatch real-time notification to the specified Reviewer & PMS Team members
+      const reviewerTargets = Array.from(new Set([reviewerTarget, ...PMS_TEAM_REVIEWERS].filter(Boolean)));
       await dispatchSdbipNotification(activeTenantId, {
         targetUser: reviewerTargets,
         senderUser: currentUser.fullName || currentUser.email,
@@ -847,11 +847,7 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
       (r.refNum && r.refNum.toLowerCase().includes(searchQuery.toLowerCase())) || 
       (r.kpi && r.kpi.toLowerCase().includes(searchQuery.toLowerCase()));
 
-    const matchesMine = assignedFilter === 'ALL' || 
-      isUserMatch(r.approver, currentUser) ||
-      isUserMatch((r as any).approverName, currentUser) ||
-      isUserMatch((r as any).owner, currentUser) ||
-      isUserMatch((r as any).approverRole, currentUser);
+    const matchesMine = assignedFilter === 'ALL' || isUserMatch(r.approver, currentUser);
     
     return matchesStatus && matchesSearch && matchesMine;
   });
@@ -1247,147 +1243,120 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
               
               {/* Performance Actual values side by side */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-slate-900 text-slate-350">
-                {/* Quarter 1 Performance */}
-                <div className="bg-slate-900/60 border border-slate-850/50 p-3 rounded-xl flex flex-col justify-between">
+                {/* Quarter 1 Performance (Unlocked for Assigned Approver) */}
+                <div className={`p-3 rounded-xl border flex flex-col justify-between ${isDesignatedApprover ? 'bg-slate-900/90 border-emerald-500/50 ring-1 ring-emerald-500/20 col-span-1 md:col-span-2' : 'bg-slate-900/60 border-slate-850/50'}`}>
                   <div className="flex items-center justify-between pb-1.5 border-b border-slate-800">
                     <div className="font-bold text-slate-200 text-xs flex items-center gap-1.5">
-                      <span>Quarter 1 Performance:</span>
+                      <span>Quarter 1 Target:</span>
+                      <strong className="text-white bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">{selectedKpi.q1 || '0'}</strong>
                     </div>
-                    <span className="text-[9px] font-mono text-slate-400 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
-                      Q1 Scorecard
-                    </span>
-                  </div>
-
-                  <div className="pt-2 text-xs space-y-1">
-                    <div className="grid grid-cols-2 gap-2 bg-slate-950/60 p-2 rounded border border-slate-850/40">
-                      <div>Target: <strong className="text-white">{selectedKpi.q1 || 'N/A'}</strong></div>
-                      <div>Actual: <strong className={selectedKpi.q1Actual ? "text-emerald-400 font-bold" : "text-slate-500 italic"}>{selectedKpi.q1Actual || 'None reported'}</strong></div>
-                    </div>
-                    {selectedKpi.q1Actual && (
-                      <div className="text-[10.5px] text-indigo-400 font-extrabold px-1">
-                        Calculated Variance: {calcVar(selectedKpi.q1, selectedKpi.q1Actual) || '0'}
-                      </div>
-                    )}
-                    {(selectedKpi.q1Variance || selectedKpi.q1Corrective) && (
-                      <div className="pt-1 text-[11px] text-slate-350 space-y-0.5 border-t border-slate-800/50 mt-1 px-1">
-                        {selectedKpi.q1Variance && <div>Variance Explanation: <span className="text-slate-200 italic">{selectedKpi.q1Variance}</span></div>}
-                        {selectedKpi.q1Corrective && <div>Corrective Measure: <span className="text-slate-200 italic">{selectedKpi.q1Corrective}</span></div>}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Quarter 2 Performance */}
-                <div className="bg-slate-900/60 border border-slate-850/50 p-3 rounded-xl flex flex-col justify-between">
-                  <div className="flex items-center justify-between pb-1.5 border-b border-slate-800">
-                    <div className="font-bold text-slate-200 text-xs flex items-center gap-1.5">
-                      <span>Quarter 2 Performance:</span>
-                    </div>
-                    <span className="text-[9px] font-mono text-slate-400 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
-                      Q2 Scorecard
-                    </span>
-                  </div>
-                  <div className="pt-2 text-xs space-y-1">
-                    <div className="grid grid-cols-2 gap-2 bg-slate-950/60 p-2 rounded border border-slate-850/40">
-                      <div>Target: <strong className="text-white">{selectedKpi.q2 || 'N/A'}</strong></div>
-                      <div>Actual: <strong className={selectedKpi.q2Actual ? "text-emerald-400 font-bold" : "text-slate-500 italic"}>{selectedKpi.q2Actual || 'None reported'}</strong></div>
-                    </div>
-                    {selectedKpi.q2Actual && (
-                      <div className="text-[10.5px] text-indigo-400 font-extrabold px-1">
-                        Calculated Variance: {calcVar(selectedKpi.q2, selectedKpi.q2Actual) || '0'}
-                      </div>
-                    )}
-                    {(selectedKpi.q2Variance || selectedKpi.q2Corrective) && (
-                      <div className="pt-1 text-[11px] text-slate-350 space-y-0.5 border-t border-slate-800/50 mt-1 px-1">
-                        {selectedKpi.q2Variance && <div>Variance Explanation: <span className="text-slate-200 italic">{selectedKpi.q2Variance}</span></div>}
-                        {selectedKpi.q2Corrective && <div>Corrective Measure: <span className="text-slate-200 italic">{selectedKpi.q2Corrective}</span></div>}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Midterm Performance */}
-                {(selectedKpi.midTermTarget || selectedKpi.midTerm || selectedKpi.midTermActual) && (
-                  <div className="bg-slate-900/60 border border-slate-850/50 p-3 rounded-xl flex flex-col justify-between">
-                    <div className="flex items-center justify-between pb-1.5 border-b border-slate-800">
-                      <div className="font-bold text-slate-200 text-xs flex items-center gap-1.5">
-                        <span>Mid-Term Performance:</span>
-                      </div>
-                      <span className="text-[9px] font-mono text-slate-400 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
-                        Mid-Term
+                    {isDesignatedApprover ? (
+                      <span className="text-[9px] font-mono text-emerald-300 bg-emerald-950/80 border border-emerald-500/40 px-2 py-0.5 rounded flex items-center gap-1 shadow-xs">
+                        <Unlock className="w-2.5 h-2.5 text-emerald-400 animate-pulse" /> Q1 Actual Unlocked (Assigned Approver)
                       </span>
-                    </div>
-                    <div className="pt-2 text-xs space-y-1">
-                      <div className="grid grid-cols-2 gap-2 bg-slate-950/60 p-2 rounded border border-slate-850/40">
-                        <div>Target: <strong className="text-white">{selectedKpi.midTermTarget || selectedKpi.midTerm || selectedKpi.q2 || 'N/A'}</strong></div>
-                        <div>Actual: <strong className={selectedKpi.midTermActual ? "text-emerald-400 font-bold" : "text-slate-500 italic"}>{selectedKpi.midTermActual || 'None reported'}</strong></div>
-                      </div>
-                      {selectedKpi.midTermActual && (
-                        <div className="text-[10.5px] text-indigo-400 font-extrabold px-1">
-                          Calculated Variance: {calcVar(selectedKpi.midTermTarget || selectedKpi.midTerm || selectedKpi.q2, selectedKpi.midTermActual) || '0'}
+                    ) : (
+                      <span className="text-[9px] font-mono text-slate-400 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
+                        Approver View
+                      </span>
+                    )}
+                  </div>
+
+                  {isDesignatedApprover ? (
+                    <div className="pt-2 space-y-2">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[10px] font-bold uppercase text-slate-400 flex items-center justify-between">
+                            <span>Q1 Actual Progress</span>
+                            <span className="text-[9px] text-emerald-400 font-mono">Editable</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={q1Actual}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setQ1Actual(val);
+                              setQ1Variance(calcVar(selectedKpi.q1, val) || '0');
+                            }}
+                            placeholder="Enter Q1 performance actual..."
+                            className="w-full bg-slate-950 border border-emerald-500/50 focus:border-emerald-400 rounded p-1.5 text-xs text-white mt-0.5"
+                          />
                         </div>
-                      )}
+                        <div>
+                          <label className="text-[10px] font-bold uppercase text-slate-400">Calculated Variance</label>
+                          <div className="bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-indigo-400 font-mono font-bold mt-0.5 flex items-center justify-between">
+                            <span>Var: {calcVar(selectedKpi.q1, q1Actual) || '0'}</span>
+                            <span className="text-[9px] text-slate-500 font-sans">Auto-derived</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[10px] font-bold uppercase text-slate-400">Variance Explanation</label>
+                          <input
+                            type="text"
+                            value={q1Variance}
+                            onChange={(e) => setQ1Variance(e.target.value)}
+                            placeholder="Why targets differ..."
+                            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-400 rounded p-1.5 text-xs text-white mt-0.5"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold uppercase text-slate-400">Corrective Measure</label>
+                          <input
+                            type="text"
+                            value={q1Corrective}
+                            onChange={(e) => setQ1Corrective(e.target.value)}
+                            placeholder="Mitigation or corrective actions..."
+                            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-400 rounded p-1.5 text-xs text-white mt-0.5"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-end pt-1">
+                        <button
+                          type="button"
+                          onClick={handleSaveQ1Actual}
+                          disabled={savingQ1}
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50 transition"
+                        >
+                          <Save className="w-3 h-3" />
+                          <span>{savingQ1 ? 'Saving...' : 'Save Q1 Performance Actual'}</span>
+                        </button>
+                      </div>
                     </div>
+                  ) : (
+                    <div className="pt-2 text-xs space-y-0.5">
+                      <div>Target: <strong className="text-white">{selectedKpi.q1}</strong></div>
+                      <div>Actual: <strong className="text-emerald-400 font-bold">{selectedKpi.q1Actual || 'None reported'}</strong></div>
+                      <div className="text-[10px] text-indigo-400 font-extrabold mt-0.5">Calculated Variance: {calcVar(selectedKpi.q1, selectedKpi.q1Actual) || '0'}</div>
+                    </div>
+                  )}
+                </div>
+                {selectedKpi.q2Actual && (
+                  <div className="bg-slate-900/60 p-2.5 rounded border border-slate-850/50">
+                    <div className="font-bold text-slate-300">Quarter 2 Performance:</div>
+                    <div>Target: <strong className="text-white">{selectedKpi.q2}</strong></div>
+                    <div>Actual: <strong className="text-emerald-400 font-bold">{selectedKpi.q2Actual}</strong></div>
+                    <div className="text-[10px] text-indigo-400 font-extrabold mt-0.5">Calculated Variance: {calcVar(selectedKpi.q2, selectedKpi.q2Actual) || '0'}</div>
                   </div>
                 )}
-
-                {/* Quarter 3 Performance */}
-                <div className="bg-slate-900/60 border border-slate-850/50 p-3 rounded-xl flex flex-col justify-between">
-                  <div className="flex items-center justify-between pb-1.5 border-b border-slate-800">
-                    <div className="font-bold text-slate-200 text-xs flex items-center gap-1.5">
-                      <span>Quarter 3 Performance:</span>
-                    </div>
-                    <span className="text-[9px] font-mono text-slate-400 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
-                      Q3 Scorecard
-                    </span>
+                {selectedKpi.q3Actual && (
+                  <div className="bg-slate-900/60 p-2.5 rounded border border-slate-850/50">
+                    <div className="font-bold text-slate-300">Quarter 3 Performance:</div>
+                    <div>Target: <strong className="text-white">{selectedKpi.q3}</strong></div>
+                    <div>Actual: <strong className="text-emerald-400 font-bold">{selectedKpi.q3Actual}</strong></div>
+                    <div className="text-[10px] text-indigo-400 font-extrabold mt-0.5">Calculated Variance: {calcVar(selectedKpi.q3, selectedKpi.q3Actual) || '0'}</div>
                   </div>
-                  <div className="pt-2 text-xs space-y-1">
-                    <div className="grid grid-cols-2 gap-2 bg-slate-950/60 p-2 rounded border border-slate-850/40">
-                      <div>Target: <strong className="text-white">{selectedKpi.q3 || 'N/A'}</strong></div>
-                      <div>Actual: <strong className={selectedKpi.q3Actual ? "text-emerald-400 font-bold" : "text-slate-500 italic"}>{selectedKpi.q3Actual || 'None reported'}</strong></div>
-                    </div>
-                    {selectedKpi.q3Actual && (
-                      <div className="text-[10.5px] text-indigo-400 font-extrabold px-1">
-                        Calculated Variance: {calcVar(selectedKpi.q3, selectedKpi.q3Actual) || '0'}
-                      </div>
-                    )}
-                    {(selectedKpi.q3Variance || selectedKpi.q3Corrective) && (
-                      <div className="pt-1 text-[11px] text-slate-350 space-y-0.5 border-t border-slate-800/50 mt-1 px-1">
-                        {selectedKpi.q3Variance && <div>Variance Explanation: <span className="text-slate-200 italic">{selectedKpi.q3Variance}</span></div>}
-                        {selectedKpi.q3Corrective && <div>Corrective Measure: <span className="text-slate-200 italic">{selectedKpi.q3Corrective}</span></div>}
-                      </div>
-                    )}
+                )}
+                {selectedKpi.q4Actual && (
+                  <div className="bg-slate-900/60 p-2.5 rounded border border-slate-850/50">
+                    <div className="font-bold text-slate-300">Quarter 4 Performance:</div>
+                    <div>Target: <strong className="text-white">{selectedKpi.q4}</strong></div>
+                    <div>Actual: <strong className="text-emerald-400 font-bold">{selectedKpi.q4Actual}</strong></div>
+                    <div className="text-[10px] text-indigo-400 font-extrabold mt-0.5">Calculated Variance: {calcVar(selectedKpi.q4, selectedKpi.q4Actual) || '0'}</div>
                   </div>
-                </div>
-
-                {/* Quarter 4 Performance */}
-                <div className="bg-slate-900/60 border border-slate-850/50 p-3 rounded-xl flex flex-col justify-between">
-                  <div className="flex items-center justify-between pb-1.5 border-b border-slate-800">
-                    <div className="font-bold text-slate-200 text-xs flex items-center gap-1.5">
-                      <span>Quarter 4 Performance:</span>
-                    </div>
-                    <span className="text-[9px] font-mono text-slate-400 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
-                      Q4 Scorecard
-                    </span>
-                  </div>
-                  <div className="pt-2 text-xs space-y-1">
-                    <div className="grid grid-cols-2 gap-2 bg-slate-950/60 p-2 rounded border border-slate-850/40">
-                      <div>Target: <strong className="text-white">{selectedKpi.q4 || 'N/A'}</strong></div>
-                      <div>Actual: <strong className={selectedKpi.q4Actual ? "text-emerald-400 font-bold" : "text-slate-500 italic"}>{selectedKpi.q4Actual || 'None reported'}</strong></div>
-                    </div>
-                    {selectedKpi.q4Actual && (
-                      <div className="text-[10.5px] text-indigo-400 font-extrabold px-1">
-                        Calculated Variance: {calcVar(selectedKpi.q4, selectedKpi.q4Actual) || '0'}
-                      </div>
-                    )}
-                    {(selectedKpi.q4Variance || selectedKpi.q4Corrective) && (
-                      <div className="pt-1 text-[11px] text-slate-350 space-y-0.5 border-t border-slate-800/50 mt-1 px-1">
-                        {selectedKpi.q4Variance && <div>Variance Explanation: <span className="text-slate-200 italic">{selectedKpi.q4Variance}</span></div>}
-                        {selectedKpi.q4Corrective && <div>Corrective Measure: <span className="text-slate-200 italic">{selectedKpi.q4Corrective}</span></div>}
-                      </div>
-                    )}
-                  </div>
-                </div>
+                )}
               </div>
             </div>
 
@@ -1404,19 +1373,6 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
               </div>
             )}
 
-            {/* Audit findings notes */}
-            {(selectedKpi as any).auditNotes && (
-              <div className="bg-rose-950/40 p-3 rounded-xl border border-rose-800/60 space-y-1">
-                <span className="text-[10px] font-black text-rose-400 uppercase tracking-wider block">Internal Audit Findings / Queries</span>
-                <p className="text-xs text-rose-200 font-sans italic leading-relaxed">
-                  "{(selectedKpi as any).auditNotes}"
-                </p>
-                <div className="text-[9.5px] text-slate-400 pt-1 border-t border-rose-900/40 mt-1">
-                  Audited by: <span className="font-bold text-rose-300 font-mono">{(selectedKpi as any).auditedBy || 'Internal Audit Desk'}</span>
-                </div>
-              </div>
-            )}
-
             {/* digital PoE Evidence logs & uploaded files */}
             <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-850 space-y-3">
               <div className="flex items-center justify-between border-b border-slate-850 pb-2">
@@ -1425,7 +1381,7 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
                   <span className="text-[10px] font-black text-slate-300 uppercase tracking-wider">Verifiable Evidence Desk (PoE)</span>
                 </div>
                 <span className="text-[9px] font-bold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/40">
-                  {extractKpiPoes(selectedKpi, poes).length} Uploaded File(s)
+                  {getKpiPoes(selectedKpi).length} Uploaded File(s)
                 </span>
               </div>
 
@@ -1467,22 +1423,13 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
                         <div className="flex items-center gap-1.5 shrink-0">
                           <button
                             type="button"
-                            onClick={() => {
-                              const f = file as any;
-                              setPreviewDoc({
-                                id: f.id,
-                                name: f.name,
-                                mimeType: f.fileType || 'application/octet-stream',
-                                dataUrl: f.dataUrl,
-                                size: f.size,
-                                uploadedAt: f.date,
-                                uploadedBy: f.uploadedBy || 'Submitter',
-                                kpiName: selectedKpi.kpi,
-                                quarter: f.quarter || 'Current Quarter'
-                              });
-                            }}
+                            onClick={() => viewOriginalFile(file.name, file.dataUrl, {
+                              kpiName: selectedKpi.kpi,
+                              refNum: selectedKpi.refNum,
+                              quarter: file.quarter || 'Current Quarter'
+                            })}
                             className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-wide flex items-center gap-1.5 cursor-pointer transition shadow-sm"
-                            title="Open Portfolio of Evidence on the system"
+                            title="Open Portfolio of Evidence in a new window natively"
                           >
                             <Eye className="w-3.5 h-3.5" />
                             <span>View PoE</span>

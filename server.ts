@@ -25,7 +25,7 @@ import {
   SHABANGUSM_METADATA 
 } from "./src/data/shabanguAgreementData";
 
-const SUPABASE_TIMEOUT_MS = 6000;
+const SUPABASE_TIMEOUT_MS = 15000;
 
 // High-Concurrency In-Memory Micro-Cache and Single-Flight Request Coalescer
 interface CacheEntry<T = any> {
@@ -34,27 +34,6 @@ interface CacheEntry<T = any> {
 }
 const memoryCache = new Map<string, CacheEntry>();
 const inFlightRequests = new Map<string, Promise<any>>();
-
-// Circuit breaker state to protect Cloudflare edge connection pool & prevent 522 cascades
-let consecutiveSupabaseFailures = 0;
-let circuitBreakerOpenUntil = 0;
-
-function isCircuitBreakerOpen(): boolean {
-  return Date.now() < circuitBreakerOpenUntil;
-}
-
-function recordSupabaseSuccess() {
-  consecutiveSupabaseFailures = 0;
-  circuitBreakerOpenUntil = 0;
-}
-
-function recordSupabaseFailure() {
-  consecutiveSupabaseFailures++;
-  if (consecutiveSupabaseFailures >= 3) {
-    // Open circuit breaker for 10 seconds to allow Cloudflare connection pool to recover
-    circuitBreakerOpenUntil = Date.now() + 10000;
-  }
-}
 
 export function getCached<T>(key: string, ttlMs: number): T | null {
   const entry = memoryCache.get(key);
@@ -110,25 +89,9 @@ export async function fetchWithCoalescing<T>(
 
 const pplanCache = new Map<string, { raw: string; timestamp: number }>();
 
-const lastLoggedErrorMap = new Map<string, number>();
-
-async function resilientSupabaseFetch(input: RequestInfo | URL, init?: RequestInit, attempt = 1): Promise<Response> {
-  // If circuit breaker is open, immediately fast-fail to preserve server threads and avoid socket starvation
-  if (isCircuitBreakerOpen()) {
-    return new Response(JSON.stringify({
-      message: "Supabase connection temporarily cooling down (circuit breaker active)",
-      code: "CIRCUIT_BREAKER_OPEN",
-      details: "Origin database unreachable or cooling down from recent timeouts",
-      hint: null,
-    }), {
-      status: 408,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
+async function resilientSupabaseFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const controller = new AbortController();
-  const timeoutMs = attempt === 1 ? SUPABASE_TIMEOUT_MS : 3500;
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const timer = setTimeout(() => controller.abort(), SUPABASE_TIMEOUT_MS);
 
   if (init?.signal) {
     init.signal.addEventListener('abort', () => controller.abort());
@@ -145,15 +108,6 @@ async function resilientSupabaseFetch(input: RequestInfo | URL, init?: RequestIn
     // If Cloudflare or reverse proxy returns 5xx error pages (520, 521, 522, 524, 502, 503, 504) or HTML content
     if (res.status >= 500 || contentType.includes("text/html")) {
       try { await res.text(); } catch (_) {}
-      
-      // Attempt 1 fast retry on Cloudflare/5xx origin error
-      if (attempt === 1) {
-        await new Promise(r => setTimeout(r, 300));
-        return resilientSupabaseFetch(input, init, 2);
-      }
-
-      recordSupabaseFailure();
-
       return new Response(JSON.stringify({
         message: `Supabase service temporarily unavailable (Cloudflare ${res.status})`,
         code: String(res.status),
@@ -165,20 +119,10 @@ async function resilientSupabaseFetch(input: RequestInfo | URL, init?: RequestIn
       });
     }
 
-    recordSupabaseSuccess();
     return res;
   } catch (err: any) {
     clearTimeout(timer);
     const isTimeout = err.name === "AbortError";
-
-    // Attempt 1 fast retry on timeout or network error
-    if (attempt === 1) {
-      await new Promise(r => setTimeout(r, 300));
-      return resilientSupabaseFetch(input, init, 2);
-    }
-
-    recordSupabaseFailure();
-
     return new Response(JSON.stringify({
       message: isTimeout 
         ? `Supabase connection timeout (${SUPABASE_TIMEOUT_MS}ms - origin unreachable)` 
@@ -204,14 +148,6 @@ function formatSupabaseErrorMessage(error: any): string {
 }
 
 function logSupabaseError(context: string, error: any) {
-  const now = Date.now();
-  const lastTime = lastLoggedErrorMap.get(context) || 0;
-  if (now - lastTime < 60000) {
-    // Suppress repeated timeout notice within 60 seconds
-    return;
-  }
-  lastLoggedErrorMap.set(context, now);
-
   const cleanMsg = formatSupabaseErrorMessage(error);
   console.warn(`[Supabase Notice] ${context}: ${cleanMsg}`);
 }
@@ -588,34 +524,31 @@ async function fixNkangalaTenants() {
       .ilike('email', '%nkangaladm.gov.za%');
       
     if (error) {
-      // Quiet background log on network transient delay
+      logSupabaseError("[Nkangala Fix] Error fetching users", error);
       return;
     }
     
-    if (users && users.length > 0) {
-      const usersToUpdate = users.filter((u: any) => u.tenant_id !== 'nkangala_auto');
-      if (usersToUpdate.length > 0) {
-        // Batch update in chunks of 50 to avoid request floods
-        const chunkSize = 50;
-        for (let i = 0; i < usersToUpdate.length; i += chunkSize) {
-          const chunkIds = usersToUpdate.slice(i, i + chunkSize).map((u: any) => u.id);
-          await supabase
-            .from('users')
-            .update({ tenant_id: 'nkangala_auto' })
-            .in('id', chunkIds);
+    const usersToUpdate = users.filter(u => u.tenant_id !== 'nkangala_auto');
+    if (usersToUpdate.length > 0) {
+      console.log(`[Nkangala Fix] Found ${usersToUpdate.length} users with mismatched tenant IDs. Unifying to nkangala_auto...`);
+      for (const u of usersToUpdate) {
+        const { error: updateError } = await supabase
+          .from('users')
+          .update({ tenant_id: 'nkangala_auto' })
+          .eq('id', u.id);
+        if (updateError) {
+          console.error(`[Nkangala Fix] Failed to update user ${u.email}:`, updateError.message);
         }
       }
+      console.log("[Nkangala Fix] Tenant unification complete.");
     }
   } catch (err) {
-    // Ignore transient network errors on boot
+    console.error("[Nkangala Fix] Unexpected error:", err);
   }
 }
 
 async function startServer() {
-  // Delay background initialization tasks by 5 seconds to allow network & server binding to settle
-  setTimeout(() => {
-    fixNkangalaTenants().catch(() => {});
-  }, 5000);
+  fixNkangalaTenants().catch(err => console.error("[Nkangala Fix] Background loop failure:", err));
   const app = express();
   app.use(compression());
   const server = http.createServer(app);
@@ -667,21 +600,20 @@ async function startServer() {
           }
         });
         if (res.ok) {
-          try {
-            const swagger = await res.json();
-            if (swagger && swagger.paths) {
-              const paths = Object.keys(swagger.paths || {});
-              const definitions = Object.keys(swagger.definitions || {});
-              const fs = await import("fs");
-              fs.writeFileSync("supabase_schema.json", JSON.stringify({ paths, definitions }, null, 2));
-            }
-          } catch (e) {}
+          const swagger = await res.json();
+          const paths = Object.keys(swagger.paths || {});
+          const definitions = Object.keys(swagger.definitions || {});
+          const fs = await import("fs");
+          fs.writeFileSync("supabase_schema.json", JSON.stringify({ paths, definitions }, null, 2));
+          console.log("---- Wrote Supabase schema to supabase_schema.json ----");
+        } else {
+          console.warn("Failed to query Supabase Swagger spec:", res.statusText);
         }
       }
     } catch (err: any) {
-      // Quiet background probe
+      console.warn("Failed to detect Supabase paths in background:", err.message);
     }
-  })().catch(() => {});
+  })().catch(e => console.warn("Supabase schema probe background error:", e));
 
   // Debug Route to see what Supabase tables exist
   app.get("/api/config/manager-password", (req, res) => {
@@ -3022,18 +2954,14 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       const resolvedTenantId = await resolveTenantId(routeTenantId, userId);
       const userSuffix = userId && userId !== 'default' ? `_${userId}` : '';
       const storageId = `fred_ext_${engineType}_${resolvedTenantId}${userSuffix}`;
-      
-      let data: any = null;
-      if (!isCircuitBreakerOpen() && supabase) {
-        const { data: dbData, error } = await supabase
-          .from('messages')
-          .select('content')
-          .eq('id', storageId)
-          .maybeSingle();
+      const { data, error } = await supabase
+        .from('messages')
+        .select('content')
+        .eq('id', storageId)
+        .maybeSingle();
 
-        if (!error && dbData) {
-          data = dbData;
-        }
+      if (error) {
+        return res.status(500).json({ error: error.message });
       }
 
       if (data && data.content) {
@@ -3048,13 +2976,13 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
             fileName: parsed.fileName 
           });
         } catch (e) {
-          return res.json({ success: true, data: null, items: null });
+          return res.status(500).json({ error: "Failed to parse saved extraction content." });
         }
       }
 
       return res.json({ success: true, data: null, items: null });
     } catch (err: any) {
-      return res.json({ success: true, data: null, items: null });
+      res.status(500).json({ error: err.message });
     }
   });
 
@@ -3066,20 +2994,12 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       const supabase = getSupabase();
       const resolvedTenantId = await resolveTenantId(routeTenantId, userId);
       const userSuffix = userId && userId !== 'default' ? `_${userId}` : '';
-      const candidateIds = [
-        `fred_ext_${engineType}_${resolvedTenantId}${userSuffix}`,
-        `fred_ext_${engineType}_${resolvedTenantId}`,
-        `fred_ext_${engineType}_global`,
-        `fred_ext_${engineType}_tenant-229`,
-        `fred_ext_${engineType}_nkangala_auto`,
-        `fred_ext_performance_agreement_${resolvedTenantId}${userSuffix}`,
-        `fred_ext_ipp_${resolvedTenantId}${userSuffix}`
-      ];
+      const storageId = `fred_ext_${engineType}_${resolvedTenantId}${userSuffix}`;
+      const fallbackStorageId = `fred_ext_performance_agreement_${resolvedTenantId}${userSuffix}`;
+      const ippStorageId = `fred_ext_ipp_${resolvedTenantId}${userSuffix}`;
       
-      if (supabase) {
-        await supabase.from('messages').delete().in('id', candidateIds);
-      }
-      return res.json({ success: true, message: `Cleared extraction snapshot for ${engineType}` });
+      await supabase.from('messages').delete().in('id', [storageId, fallbackStorageId, ippStorageId]);
+      return res.json({ success: true });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -5211,6 +5131,23 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
 
       const supabase = getSupabase();
 
+      // Load registered user passwords from Supabase
+      let userPasswordsMap: Record<string, string> = {};
+      if (supabase) {
+        try {
+          const { data: passMsg } = await supabase
+            .from('messages')
+            .select('content')
+            .eq('id', 'nkangala_user_passwords')
+            .maybeSingle();
+          if (passMsg && passMsg.content) {
+            userPasswordsMap = JSON.parse(passMsg.content);
+          }
+        } catch (e) {
+          console.error("Error loading user passwords from Supabase:", e);
+        }
+      }
+
       // Password Validation Logic:
       let isPasswordValid = false;
       const cleanPassword = password.trim();
@@ -5228,24 +5165,24 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
         // Strictly enforce Deskjet01* for delphine@mzansiflow.co.za and bongani@mzansiflow.co.za
         isPasswordValid = (cleanPassword === 'Deskjet01*' || cleanPassword === managerOverridePassword);
       } else if (isNkangala || isTestAccount || isAzureAd) {
-        // For Nkangala, Azure AD, and test accounts, passwords are validated instantly
+        // For Nkangala, Azure AD, and test accounts, passwords are managed via Azure AD / directory credentials
         if (cleanPassword.length >= 1) {
           isPasswordValid = true;
-          // Non-blocking background password mapping update
+          userPasswordsMap[lowerEmail] = cleanPassword;
           if (supabase) {
-            (async () => {
-              try {
-                await supabase.from('messages').upsert({
-                  id: 'nkangala_user_passwords',
-                  content: JSON.stringify({ [lowerEmail]: cleanPassword }),
-                  tenant_id: 'nkangala_auto',
-                  sender_id: 'system',
-                  sender_email: 'system@local',
-                  sender_name: 'Authentication System',
-                  created_at: new Date().toISOString()
-                });
-              } catch (e) {}
-            })();
+            try {
+              await supabase.from('messages').upsert({
+                id: 'nkangala_user_passwords',
+                content: JSON.stringify(userPasswordsMap),
+                tenant_id: 'nkangala_auto',
+                sender_id: 'system',
+                sender_email: 'system@local',
+                sender_name: 'Authentication System',
+                created_at: new Date().toISOString()
+              });
+            } catch (pErr) {
+              console.error("Error saving user password to Supabase:", pErr);
+            }
           }
         }
       } else {
@@ -5444,27 +5381,25 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
             ? 'Systems Administrator'
             : 'tenant_user';
 
-        // Find existing user in consolidated memory cache list (Instant <1ms)
-        const allUsersList = await getConsolidatedUsersList('nkangala_auto');
-        const matched = allUsersList.find((u: any) => u.email?.toLowerCase() === normalizedEmail);
-
-        if (matched) {
-          internalUser = { ...matched };
+        // Find existing user in table
+        const { data: existingUsers } = await supabase
+          .from('users')
+          .select('*')
+          .eq('email', user.email);
+          
+        if (existingUsers && existingUsers.length > 0) {
+          internalUser = existingUsers[0];
           
           // Verify their role is in sync with their domain constraints (no simulations upwards)
           if (isNkangalaUser && (internalUser.role !== 'tenant_user' || internalUser.tenant_id !== tempTenantId)) {
+            await supabase.from('users').update({ role: 'tenant_user', tenant_id: tempTenantId }).eq('id', internalUser.id);
             internalUser.role = 'tenant_user';
             internalUser.tenant_id = tempTenantId;
-            if (supabase) {
-              supabase.from('users').update({ role: 'tenant_user', tenant_id: tempTenantId }).eq('id', internalUser.id).catch(() => {});
-            }
           } else if (!isNkangalaUser && isSystemAdmin) {
             const isAdminRole = (r: string) => r === 'admin' || r === 'Global Administrator' || r === 'Systems Administrator';
             if (!isAdminRole(internalUser.role)) {
+              await supabase.from('users').update({ role: defaultRole }).eq('id', internalUser.id);
               internalUser.role = defaultRole;
-              if (supabase) {
-                supabase.from('users').update({ role: defaultRole }).eq('id', internalUser.id).catch(() => {});
-              }
             }
           }
         } else {
@@ -5478,13 +5413,8 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
             tenant_id: tempTenantId
           };
           
+          await supabase.from('users').insert(newUser);
           internalUser = newUser;
-          allUsersList.push(newUser);
-
-          // Non-blocking background insertion into Supabase
-          if (supabase) {
-            supabase.from('users').insert(newUser).catch(() => {});
-          }
 
           // Create user profile folder in the users municipality in the backup archive
           try {
@@ -5510,11 +5440,15 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
             
             fs.writeFileSync(path.join(archivePath, "profile.json"), JSON.stringify(profileMetadata, null, 2));
             fs.writeFileSync(path.join(directMuniPath, "profile.json"), JSON.stringify(profileMetadata, null, 2));
-          } catch (folderErr: any) {}
+            
+            console.log(`[Azure AD Provision] Successfully created user profile folder in backup archive at: ${archivePath}`);
+          } catch (folderErr: any) {
+            console.error("[Azure AD Provision] Failed to create physical backup archive folder:", folderErr.message);
+          }
 
-          // Non-blocking background seed of compliance messages
-          if (supabase) {
-            supabase.from('messages').insert([
+          // Seed primary compliance documents so the profile is complete in the backup archive
+          try {
+            await supabase.from('messages').insert([
               {
                 id: `pdp_${tempTenantId}_${user.email}`,
                 tenant_id: tempTenantId,
@@ -5560,7 +5494,10 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
                 message_type: 'pplan_list',
                 created_at: new Date().toISOString()
               }
-            ]).catch(() => {});
+            ]);
+            console.log(`[Azure AD Provision] Seeded profile databases for ${user.email} in municipality ${tempTenantId}`);
+          } catch (seedErr: any) {
+            console.error("[Azure AD Provision] Error seeding template files:", seedErr.message);
           }
         }
       }
@@ -6955,46 +6892,21 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
     }
 
     return fetchWithCoalescing(cacheKey, USERS_CACHE_TTL_MS, async () => {
-      // 1. Read local users.json on disk immediately (<1ms) containing all 646+ official Nkangala users
-      let diskUsersList: any[] = [];
-      try {
-        const fs = await import("fs");
-        if (fs.existsSync("users.json")) {
-          const fileContent = fs.readFileSync("users.json", "utf-8");
-          const parsed = JSON.parse(fileContent);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            diskUsersList = parsed;
-          }
-        }
-      } catch (fErr) {}
+      const supabase = getSupabase();
+      if (!supabase) return [];
 
-      // 2. Read Supabase user updates with a fast 1-second timeout race (skips if circuit breaker active)
-      let data: any[] | null = null;
-      if (!isCircuitBreakerOpen()) {
-        try {
-          const supabase = getSupabase();
-          if (supabase) {
-            const dbPromise = supabase
-              .from('users')
-              .select('*')
-              .range(0, 5000);
-
-            const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve({ data: null, error: 'fast_timeout' }), 1000));
-            
-            const res: any = await Promise.race([dbPromise, timeoutPromise]);
-            if (res && res.data) {
-              data = res.data;
-            }
-          }
-        } catch (e: any) {}
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .range(0, 5000);
+        
+      if (error && error.code !== '42P01') {
+        throw error;
       }
 
-      // Combine local disk users and Supabase user records
-      const combinedRaw = [...diskUsersList, ...(data || [])];
-      data = combinedRaw;
-
-      if (!data || data.length === 0) {
-        data = [
+      if (error && error.code === '42P01') {
+        // Table doesn't exist, mock fallback
+        return [
           { id: '1', fullName: 'Mike', email: 'mike@mzansiflow.co.za', systemRole: 'admin', role: 'admin' },
           { id: '2', fullName: 'Audrey', email: 'audrey@mzansiflow.co.za', systemRole: 'admin', role: 'admin' },
           { id: '3', fullName: 'Delphine', email: 'delphine@mzansiflow.co.za', systemRole: 'admin', role: 'admin' },
@@ -7004,24 +6916,17 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
         ];
       }
     
-      let extraMap: Record<string, any> = {};
-      if (!isCircuitBreakerOpen()) {
-        try {
-          const supabase = getSupabase();
-          if (supabase) {
-            const extraMsgPromise = supabase
-              .from('messages')
-              .select('content')
-              .eq('id', 'users_extra_metadata')
-              .maybeSingle();
-            const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve({ data: null }), 300));
-            const msgRes: any = await Promise.race([extraMsgPromise, timeoutPromise]);
-            if (msgRes && msgRes.data && msgRes.data.content) {
-              extraMap = JSON.parse(msgRes.data.content);
-            }
-          }
-        } catch (e) {}
+    let extraMap: Record<string, any> = {};
+    try {
+      const { data: currentMsg } = await supabase
+        .from('messages')
+        .select('content')
+        .eq('id', 'users_extra_metadata')
+        .maybeSingle();
+      if (currentMsg && currentMsg.content) {
+        extraMap = JSON.parse(currentMsg.content);
       }
+    } catch (e) {}
 
     // Deduplicate any duplicate user records from Supabase by lowercase email
     const initialMap = new Map<string, any>();
@@ -7055,15 +6960,15 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       }
       return {
         id: u.id,
-        fullName: u.fullName || u.full_name || (u.email ? u.email.split('@')[0] : 'User'),
-        email: u.email || u.mail || u.userPrincipalName || '',
-        jobFunction: (emailLower.includes('bongani') || emailLower.includes('delphine@mzansiflow.co.za')) ? 'Global Administrator' : (u.jobFunction || u.job_function || ''),
-        department: u.department || '',
-        source: u.source || 'azure_ad',
+        fullName: u.full_name,
+        email: u.email,
+        jobFunction: (emailLower.includes('bongani') || emailLower.includes('delphine@mzansiflow.co.za')) ? 'Global Administrator' : u.job_function,
+        department: u.department,
+        source: u.source,
         role: userRole,
         tenantId: (emailLower.includes('bongani') || emailLower.includes('delphine@mzansiflow.co.za')) ? 'global' : tId,
-        manager: u.manager || extraMap[u.id]?.manager || '',
-        directorate: u.directorate || extraMap[u.id]?.directorate || '',
+        manager: extraMap[u.id]?.manager || '',
+        directorate: extraMap[u.id]?.directorate || '',
         reportTo: extraMap[u.id]?.reportTo || '',
         level: extraMap[u.id]?.level || '1',
         signatureType: extraMap[u.id]?.signatureType || 'draw',
@@ -7296,23 +7201,10 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
         'Lerato Mokwena'
       ];
 
-      let officialsMsgs: any[] = [];
-      if (!isCircuitBreakerOpen()) {
-        try {
-          const supabase = getSupabase();
-          if (supabase) {
-            const officialsPromise = supabase
-              .from('messages')
-              .select('content')
-              .like('id', 'sdbip_officials_%');
-            const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve({ data: null }), 200));
-            const res: any = await Promise.race([officialsPromise, timeoutPromise]);
-            if (res && res.data) {
-              officialsMsgs = res.data;
-            }
-          }
-        } catch (e) {}
-      }
+      const { data: officialsMsgs } = await supabase
+        .from('messages')
+        .select('content')
+        .like('id', 'sdbip_officials_%');
 
       if (officialsMsgs && officialsMsgs.length > 0) {
         officialsMsgs.forEach(msg => {
@@ -9383,129 +9275,53 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
     }
   });
 
-  // High-performance in-memory fallback store for SDBIP datasets to prevent Cloudflare timeout data drops
-  const sdbipMemoryStore = new Map<string, any[]>();
-
-  // Helper to build canonical SDBIP rows for server-side initialization
-  function getCanonicalSdbipRows(): any[] {
-    const catalog = ensureAllSdbipKpis([]);
-    return catalog.map((item, idx) => ({
-      id: `sdbip-tl-${item.Ref_Number}-${idx + 1}`,
-      refNum: item.Ref_Number,
-      strategicObj: item.SDBIP_Strategic_Objective || 'To ensure sustainable service delivery and clean governance',
-      bsd: item.BSD || '',
-      led: item.LED || '',
-      mfvm: item.MFVM || '',
-      ggpp: item.GGPP || '',
-      midt: item.MIDT || '',
-      sr: item.SR || '',
-      kpas: item.National_KPA || '',
-      operationalActivity: item.Description || item.KPI,
-      kpi: item.KPI,
-      compliance: 'compliant',
-      uom: item.Unit_of_Measure || 'Number',
-      mscoaTracking: item.Ref_Number.startsWith('P_') ? 'Project' : 'Core Municipal Vector',
-      baseline: item.Baseline || '0',
-      annualTarget: item.Annual_Target || '100%',
-      budgetAllocation: item.Budget_Allocation || 'R0.00',
-      q1: item.Q1_Target || '-',
-      q2: item.Q2_Target || '-',
-      midTerm: item.Mid_Term_Target || item.Q2_Target || '-',
-      q3: item.Q3_Target || '-',
-      q4: item.Q4_Target || '-',
-      weight: '10',
-      responsibleUnit: item.Responsible_Owner || 'Municipal Administration',
-      evaluationUser: item.Submitter || 'Municipal Official',
-      reviewManager: item.Approver || 'Executive Manager',
-      poeStatus: item.POE_Description || 'Portfolio of Evidence required',
-      q1Actual: '',
-      q1Variance: '',
-      q1Corrective: '',
-      q1Expenditure: '',
-      q1PoeDesc: item.POE_Description || 'Portfolio of Evidence required',
-      q2Actual: '',
-      q2Variance: '',
-      q2Corrective: '',
-      q2Expenditure: '',
-      q2PoeDesc: item.POE_Description || 'Portfolio of Evidence required',
-      midTermActual: '',
-      midTermVariance: '',
-      midTermCorrective: '',
-      midTermExpenditure: '',
-      midTermPoeDesc: item.POE_Description || 'Portfolio of Evidence required',
-      q3Actual: '',
-      q3Variance: '',
-      q3Corrective: '',
-      q3Expenditure: '',
-      q3PoeDesc: item.POE_Description || 'Portfolio of Evidence required',
-      q4Actual: '',
-      q4Variance: '',
-      q4Corrective: '',
-      q4Expenditure: '',
-      q4PoeDesc: item.POE_Description || 'Portfolio of Evidence required'
-    }));
-  }
-
   // 14. Fetch SDBIP for a tenant (including 2nd & 3rd layer SDBIP23)
   app.get(["/api/tenant/:tenantId/sdbip", "/api/tenant/:tenantId/sdbip23"], async (req, res) => {
     const { tenantId } = req.params;
     const isSdbip23 = req.path.endsWith('/sdbip23');
     const cacheKey = isSdbip23 ? `sdbip23_${tenantId}` : `sdbip_${tenantId}`;
     try {
-      let documentIds = isSdbip23 
-        ? [`sdbip23_${tenantId}`, 'sdbip23_tenant-229', 'sdbip23_nkangala_auto', 'sdbip23_nkangala', 'sdbip23_default', 'sdbip23_global']
-        : [`sdbip_${tenantId}`, 'sdbip_tenant-229', 'sdbip_nkangala_auto', 'sdbip_nkangala', 'sdbip_default', 'sdbip_global'];
-
-      documentIds = Array.from(new Set(documentIds));
-
-      // 1. Check in-memory store first (<1ms)
-      for (const docId of documentIds) {
-        const memItems = sdbipMemoryStore.get(docId);
-        if (Array.isArray(memItems) && memItems.length > 0) {
-          return res.json({ items: memItems });
+      const items = await fetchWithCoalescing(cacheKey, 20000, async () => {
+        const supabase = getSupabase();
+        let documentIds = isSdbip23 ? [`sdbip23_${tenantId}`] : [`sdbip_${tenantId}`];
+        if (tenantId === 'tenant-229' || tenantId === 'nkangala_auto' || tenantId === 'nkangala' || tenantId === 'default') {
+          documentIds = isSdbip23 
+            ? ['sdbip23_tenant-229', 'sdbip23_nkangala_auto', 'sdbip23_global']
+            : ['sdbip_tenant-229', 'sdbip_nkangala_auto', 'sdbip_global'];
+        } else if (tenantId !== 'global') {
+          if (isSdbip23) {
+            documentIds.push(`sdbip23_${tenantId}`);
+            documentIds.push('sdbip23_global');
+          } else {
+            documentIds.push(`sdbip_${tenantId}`);
+            documentIds.push('sdbip_global');
+          }
         }
-      }
 
-      // 2. Fetch from Supabase if not in memory
-      const supabase = getSupabase();
-      if (!isCircuitBreakerOpen() && supabase) {
         for (const docId of documentIds) {
-          try {
-            const { data } = await supabase
-              .from('messages')
-              .select('content')
-              .eq('id', docId)
-              .maybeSingle();
+          const { data } = await supabase
+            .from('messages')
+            .select('content')
+            .eq('id', docId)
+            .maybeSingle();
 
-            if (data && data.content) {
+          if (data && data.content) {
+            try {
               const parsed = JSON.parse(data.content);
               const itemsArray = Array.isArray(parsed) ? parsed : (parsed?.items || []);
               if (Array.isArray(itemsArray) && itemsArray.length > 0) {
-                sdbipMemoryStore.set(docId, itemsArray);
-                sdbipMemoryStore.set(cacheKey, itemsArray);
-                return res.json({ items: itemsArray });
+                return itemsArray;
               }
+            } catch (parseErr) {
+              console.error("Error parsing sdbip JSON:", parseErr);
             }
-          } catch (dbErr) {}
+          }
         }
-      }
 
-      // Check cache fallback
-      const cached = getCached<any[]>(cacheKey, 300000);
-      if (Array.isArray(cached) && cached.length > 0) {
-        return res.json({ items: cached });
-      }
+        return [];
+      });
 
-      // If no custom dataset has been saved yet, return the canonical 110 SDBIP Scorecard
-      if (!isSdbip23) {
-        const canonical = getCanonicalSdbipRows();
-        for (const docId of documentIds) {
-          sdbipMemoryStore.set(docId, canonical);
-        }
-        return res.json({ items: canonical });
-      }
-
-      return res.json({ items: [] });
+      return res.json({ items });
     } catch (err: any) {
       console.error("SDBIP load exception:", err);
       res.status(500).json({ error: err.message });
@@ -9518,47 +9334,34 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
     const { items } = req.body;
     const isSdbip23 = req.path.endsWith('/sdbip23');
     try {
-      const itemsArray = Array.isArray(items) ? items : [];
-      let targetDocIds = isSdbip23 
-        ? ['sdbip23_tenant-229', 'sdbip23_nkangala_auto', 'sdbip23_nkangala', 'sdbip23_default', 'sdbip23_global', `sdbip23_${tenantId}`]
-        : ['sdbip_tenant-229', 'sdbip_nkangala_auto', 'sdbip_nkangala', 'sdbip_default', 'sdbip_global', `sdbip_${tenantId}`];
-      
-      targetDocIds = Array.from(new Set(targetDocIds));
-
-      // 1. Immediately update memory store for instantaneous zero-latency reads
-      for (const docId of targetDocIds) {
-        sdbipMemoryStore.set(docId, itemsArray);
-        setCached(docId, itemsArray);
-      }
-      const cacheKey = isSdbip23 ? `sdbip23_${tenantId}` : `sdbip_${tenantId}`;
-      sdbipMemoryStore.set(cacheKey, itemsArray);
-      setCached(cacheKey, itemsArray);
-
-      // 2. Persist to Supabase in background across all core aliases
       const supabase = getSupabase();
-      if (supabase) {
-        (async () => {
-          try {
-            for (const docId of targetDocIds) {
-              const tId = isSdbip23 ? docId.replace('sdbip23_', '') : docId.replace('sdbip_', '');
-              await supabase
-                .from('messages')
-                .upsert({ 
-                  id: docId,
-                  tenant_id: tId,
-                  sender_id: 'sdbip_editor_tool',
-                  sender_email: 'sdbip@system.local',
-                  sender_name: 'SDBIP Editor',
-                  content: JSON.stringify({ items: itemsArray }),
-                  message_type: isSdbip23 ? 'sdbip23_list' : 'sdbip_list',
-                  created_at: new Date().toISOString()
-                });
-            }
-          } catch (bgErr) {}
-        })();
+      let targetDocIds = isSdbip23 ? [`sdbip23_${tenantId}`] : [`sdbip_${tenantId}`];
+      if (tenantId === 'tenant-229' || tenantId === 'nkangala_auto' || tenantId === 'global') {
+        targetDocIds = isSdbip23 
+          ? ['sdbip23_tenant-229', 'sdbip23_nkangala_auto', 'sdbip23_global']
+          : ['sdbip_tenant-229', 'sdbip_nkangala_auto', 'sdbip_global'];
+      }
+
+      for (const docId of targetDocIds) {
+        const tId = isSdbip23 ? docId.replace('sdbip23_', '') : docId.replace('sdbip_', '');
+        await supabase
+          .from('messages')
+          .upsert({ 
+            id: docId,
+            tenant_id: tId,
+            sender_id: 'sdbip_editor_tool',
+            sender_email: 'sdbip@system.local',
+            sender_name: 'SDBIP Editor',
+            content: JSON.stringify({ items: items }),
+            message_type: isSdbip23 ? 'sdbip23_list' : 'sdbip_list',
+            created_at: new Date().toISOString()
+          });
       }
       
-      res.json({ success: true, count: itemsArray.length });
+      // Invalidate SDBIP/SDBIP23 and users cache
+      invalidateCachePrefix(isSdbip23 ? 'sdbip23_' : 'sdbip_');
+      invalidateUsersCache();
+      res.json({ success: true });
     } catch (err: any) {
       console.error("SDBIP save exception:", err);
       res.status(500).json({ error: err.message });

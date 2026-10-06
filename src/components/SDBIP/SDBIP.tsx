@@ -14,66 +14,6 @@ import { PMS_TEAM_REVIEWERS, INTERNAL_AUDIT_USERS, isUserMatch, dispatchSdbipNot
 import { isUserUnrestricted } from '../../utils/unrestrictedHelper';
 import { OfficeDocumentViewer } from '../IPMS/OfficeDocumentViewer';
 import { calcVar, extractNumericValue } from '../../utils/varianceCalculator';
-import { ensureAllSdbipKpis } from '../../sdbip_catalog';
-
-export const getDefaultCanonicalSdbipRows = (): SdbipRow[] => {
-  const catalog = ensureAllSdbipKpis([]);
-  return catalog.map((item, idx) => ({
-    id: `sdbip-tl-${item.Ref_Number}-${idx + 1}`,
-    refNum: item.Ref_Number,
-    strategicObj: item.SDBIP_Strategic_Objective || 'To ensure sustainable service delivery and clean governance',
-    bsd: item.BSD || '',
-    led: item.LED || '',
-    mfvm: item.MFVM || '',
-    ggpp: item.GGPP || '',
-    midt: item.MIDT || '',
-    sr: item.SR || '',
-    kpas: item.National_KPA || '',
-    operationalActivity: item.Description || item.KPI,
-    kpi: item.KPI,
-    compliance: 'compliant',
-    uom: item.Unit_of_Measure || 'Number',
-    mscoaTracking: item.Ref_Number.startsWith('P_') ? 'Project' : 'Core Municipal Vector',
-    baseline: item.Baseline || '0',
-    annualTarget: item.Annual_Target || '100%',
-    budgetAllocation: item.Budget_Allocation || 'R0.00',
-    q1: item.Q1_Target || '-',
-    q2: item.Q2_Target || '-',
-    midTerm: item.Mid_Term_Target || item.Q2_Target || '-',
-    q3: item.Q3_Target || '-',
-    q4: item.Q4_Target || '-',
-    weight: '10',
-    responsibleUnit: item.Responsible_Owner || 'Municipal Administration',
-    evaluationUser: item.Submitter || 'Municipal Official',
-    reviewManager: item.Approver || 'Executive Manager',
-    poeStatus: item.POE_Description || 'Portfolio of Evidence required',
-    q1Actual: '',
-    q1Variance: '',
-    q1Corrective: '',
-    q1Expenditure: '',
-    q1PoeDesc: item.POE_Description || 'Portfolio of Evidence required',
-    q2Actual: '',
-    q2Variance: '',
-    q2Corrective: '',
-    q2Expenditure: '',
-    q2PoeDesc: item.POE_Description || 'Portfolio of Evidence required',
-    midTermActual: '',
-    midTermVariance: '',
-    midTermCorrective: '',
-    midTermExpenditure: '',
-    midTermPoeDesc: item.POE_Description || 'Portfolio of Evidence required',
-    q3Actual: '',
-    q3Variance: '',
-    q3Corrective: '',
-    q3Expenditure: '',
-    q3PoeDesc: item.POE_Description || 'Portfolio of Evidence required',
-    q4Actual: '',
-    q4Variance: '',
-    q4Corrective: '',
-    q4Expenditure: '',
-    q4PoeDesc: item.POE_Description || 'Portfolio of Evidence required'
-  }));
-};
 
 export const isTargetNA = (val: string | undefined | null): boolean => {
   if (!val) return false;
@@ -356,13 +296,8 @@ export function sanitizeSdbipRow(row: SdbipRow): SdbipRow {
   const sanitizedQ3Var = (row.q3Actual && String(row.q3Actual).trim()) ? calcVar(row.q3, row.q3Actual, row.uom) : (row.q3Variance || '');
   const sanitizedQ4Var = (row.q4Actual && String(row.q4Actual).trim()) ? calcVar(row.q4, row.q4Actual, row.uom) : (row.q4Variance || '');
 
-  const kpiVal = String(row.kpi || row.operationalActivity || (row as any).KPI || (row as any).Description || (row as any).kpiDescription || '').trim();
-  const activityVal = String(row.operationalActivity || row.kpi || (row as any).Description || (row as any).KPI || '').trim();
-
   return {
     ...row,
-    kpi: kpiVal || activityVal,
-    operationalActivity: activityVal || kpiVal,
     bsd: chosenKpa === 'bsd' ? 'X' : '',
     led: chosenKpa === 'led' ? 'X' : '',
     mfvm: chosenKpa === 'mfvm' ? 'X' : '',
@@ -428,7 +363,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     }
   };
   const [draftingSubTab, setDraftingSubTab] = useState<'chapters' | 'memo'>('chapters');
-  const [rows, setRows] = useState<SdbipRow[]>(() => getDefaultCanonicalSdbipRows());
+  const [rows, setRows] = useState<SdbipRow[]>([]);
   const [poes, setPoes] = useState<SdbipPoeFile[]>([]);
   const [loading, setLoading] = useState(false);
   const [poeModal, setPoeModal] = useState<{ 
@@ -606,42 +541,24 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
 
   React.useEffect(() => {
     const handleSwitchTab = (e: any) => {
-      let tab = e?.detail?.tab || sessionStorage.getItem('sdbip_active_tab');
-      if (tab === 'top-layer' || tab === 'top_layer' || tab === 'sdbip-top-layer') {
-        tab = 'table';
-      }
+      const tab = e?.detail?.tab || sessionStorage.getItem('sdbip_active_tab');
       if (tab === 'table' || tab === 'reporting' || tab === 'brief' || tab === 'drafting') {
-        setActiveTab(tab as any);
+        setActiveTab(tab);
         sessionStorage.removeItem('sdbip_active_tab');
       }
-      if (e?.detail?.items && Array.isArray(e.detail.items)) {
-        setRows(e.detail.items.map(sanitizeSdbipRow));
-      }
-      if (e?.detail?.refresh || e?.detail?.items) {
+      if (e?.detail?.refresh) {
         pullSdbipTopLayerData();
       }
     };
-
-    const handleRefresh = (e: any) => {
-      if (e?.detail?.items && Array.isArray(e.detail.items)) {
-        setRows(e.detail.items.map(sanitizeSdbipRow));
-      }
-      pullSdbipTopLayerData();
-    };
-
     window.addEventListener('sdbip:switch_tab', handleSwitchTab);
-    window.addEventListener('sdbip:refresh', handleRefresh);
-
     const saved = sessionStorage.getItem('sdbip_active_tab');
-    if (saved === 'table' || saved === 'reporting' || saved === 'brief' || saved === 'drafting' || saved === 'top-layer') {
-      const active = saved === 'top-layer' ? 'table' : saved;
-      setActiveTab(active as any);
+    if (saved === 'table' || saved === 'reporting' || saved === 'brief' || saved === 'drafting') {
+      setActiveTab(saved);
       sessionStorage.removeItem('sdbip_active_tab');
       pullSdbipTopLayerData();
     }
     return () => {
       window.removeEventListener('sdbip:switch_tab', handleSwitchTab);
-      window.removeEventListener('sdbip:refresh', handleRefresh);
     };
   }, []);
 
@@ -972,10 +889,10 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     };
 
     Promise.all([
-      fetch(`/api/tenant/${activeTenantId}/sdbip?t=${Date.now()}`),
-      fetch(`/api/tenant/${activeTenantId}/sdbip-poes?t=${Date.now()}`),
-      fetch(`/api/tenant/${activeTenantId}/sdbip-notifications?t=${Date.now()}`),
-      fetch(`/api/tenant/${activeTenantId}/sdbip-officials?t=${Date.now()}`)
+      fetch(`/api/tenant/${activeTenantId}/sdbip`),
+      fetch(`/api/tenant/${activeTenantId}/sdbip-poes`),
+      fetch(`/api/tenant/${activeTenantId}/sdbip-notifications`),
+      fetch(`/api/tenant/${activeTenantId}/sdbip-officials`)
     ])
       .then(async ([rowsRes, poesRes, notifRes, officialsRes]) => {
         const rowsData = await safeJson(rowsRes, { items: [] });
@@ -983,7 +900,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
         const notifData = await safeJson(notifRes, { notifications: [] });
         const officialsData = await safeJson(officialsRes, { reviewers: [], internalAuditors: [] });
         
-        // If rows are loaded from database, sanitize and display them. Otherwise fallback to the standard 110 canonical SDBIP indicators.
+        // If no rows are loaded, generate 25 default blank template rows
         if (rowsData && Array.isArray(rowsData.items) && rowsData.items.length > 0) {
           if (isBackground && Date.now() - lastUserEditTimeRef.current < 15000) {
             // Keep local active edits without clobbering
@@ -991,7 +908,45 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
             setRows(rowsData.items.map(sanitizeSdbipRow));
           }
         } else if (!isBackground) {
-          setRows(getDefaultCanonicalSdbipRows().map(sanitizeSdbipRow));
+          const templates: SdbipRow[] = Array.from({ length: 25 }, (_, idx) => ({
+            id: `row-template-${idx + 1}`,
+            refNum: `REF-0${idx + 1}`,
+            strategicObj: 
+              idx === 0 ? "To ensure reliable bulk water and electricity infrastructure" : 
+              idx === 1 ? "To promote local agrarian, manufacturing and hospitality economy" : 
+              idx === 2 ? "To provide effective institutional management and administrative support" :
+              idx === 3 ? "To ensure sound financial management and municipal viability" :
+              idx === 4 ? "To enhance good governance and public participation" :
+              idx === 5 ? "To implement integrated spatial planning and land use management" : "",
+            bsd: idx === 0 ? "Y" : "",
+            led: idx === 1 ? "Y" : "",
+            midt: idx === 2 ? "Y" : "",
+            mfvm: idx === 3 ? "Y" : "",
+            ggpp: idx === 4 ? "Y" : "",
+            sr: idx === 5 ? "Y" : "",
+            kpas: 
+              idx === 0 ? "Water Infrastructure Upgrade" : 
+              idx === 1 ? "Hospitality LED Co-op" : 
+              idx === 2 ? "Institutional Capacity Building" :
+              idx === 3 ? "Financial Systems Integration" :
+              idx === 4 ? "Public Consultation Forums" :
+              idx === 5 ? "Spatial Development Framework" : "",
+            operationalActivity: "",
+            kpi: "",
+            compliance: 'compliant',
+            uom: "",
+            mscoaTracking: idx === 0 ? "Project" : "",
+            baseline: "",
+            annualTarget: "",
+            budgetAllocation: "",
+            q1: "",
+            q2: "",
+            q3: "",
+            q4: "",
+            responsibleUnit: "",
+            poeStatus: "Not Uploaded"
+          }));
+          setRows(templates.map(sanitizeSdbipRow));
         }
 
         if (poesData && Array.isArray(poesData.poes)) {
