@@ -358,89 +358,97 @@ export async function callServerAiSDBIPExtraction(params: {
   mimeType?: string;
   fileName?: string;
 }): Promise<ExtractedSdbipItem[]> {
-  const response = await fetch('/api/extract-sdbip', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(params)
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 25000);
 
-  const rawText = await response.text();
-  let data: any = null;
   try {
-    data = JSON.parse(rawText);
-  } catch (_parseErr) {
-    if (!response.ok) {
-      throw new Error(`Server SDBIP extraction failed with status ${response.status}`);
-    }
-    throw new Error(`Server returned non-JSON response (${response.status}): ${rawText.slice(0, 100)}`);
-  }
-
-  if (!response.ok) {
-    throw new Error(data?.error || `Server SDBIP extraction failed with status ${response.status}`);
-  }
-
-  if (data && data.success && Array.isArray(data.items)) {
-    return data.items.map((it: any, idx: number) => {
-      const kpa = resolveSdbipKpa(it.kpas || it.kpa || it.nationalKpa || it.functionalKpa || '');
-      return {
-        _id: `sdbip-ext-${Date.now()}-${idx + 1}`,
-        _selected: true,
-        refNum: String(it.refNum || it.refNo || it.kpiNo || `TL-${String(idx + 1).padStart(2, '0')}`).trim(),
-        strategicObj: String(it.strategicObj || it.strategicObjective || it.goal || 'To ensure sustainable service delivery and clean audit compliance').trim(),
-        kpas: kpa,
-        operationalActivity: String(it.operationalActivity || it.project || it.activity || it.kpi || '').trim(),
-        kpi: String(it.kpi || it.kpiDescription || it.indicator || '').trim(),
-        compliance: (it.compliance === 'compliant' || it.compliance === 'non-compliant' || it.compliance === 'at risk') ? it.compliance : 'compliant',
-        uom: String(it.uom || it.unitOfMeasure || it.unit || 'Number').trim(),
-        mscoaTracking: String(it.mscoaTracking || it.mscoaCode || it.projectCode || 'Operational').trim(),
-        baseline: String(it.baseline ?? '').trim(),
-        annualTarget: String(it.annualTarget ?? '').trim(),
-        budgetAllocation: String(it.budgetAllocation || it.budget || 'Operational Budget').trim(),
-        q1: String(it.q1 ?? it.q1Target ?? '').trim(),
-        q2: String(it.q2 ?? it.q2Target ?? '').trim(),
-        midTerm: String(it.midTerm || it.midTermTarget || '').trim(),
-        q3: String(it.q3 ?? it.q3Target ?? '').trim(),
-        q4: String(it.q4 ?? it.q4Target ?? '').trim(),
-        responsibleUnit: String(it.responsibleUnit || it.department || it.directorate || 'Technical Services').trim(),
-        submitter: String(it.submitter || it.responsibleOwner || '').trim(),
-        reviewer: String(it.reviewer || '').trim(),
-        approver: String(it.approver || '').trim(),
-        internalAudit: String(it.internalAudit || '').trim(),
-        poeStatus: (() => {
-          const p = String(it.poeStatus || it.POE_Description || it.poe || it.poeDescription || it.meansOfVerification || it.q1PoeDesc || it.q2PoeDesc || it.q3PoeDesc || it.q4PoeDesc || 'Signed quarterly progress reports and verification registers').trim();
-          return p;
-        })(),
-        // Reporting fields
-        q1Actual: String(it.q1Actual || '').trim(),
-        q1Variance: String(it.q1Variance || '').trim(),
-        q1Corrective: String(it.q1Corrective || '').trim(),
-        q1Expenditure: String(it.q1Expenditure || '').trim(),
-        q1PoeDesc: String(it.q1PoeDesc || it.poeStatus || it.POE_Description || it.poe || it.poeDescription || it.meansOfVerification || 'Signed quarterly progress reports and verification registers').trim(),
-        q2Actual: String(it.q2Actual || '').trim(),
-        q2Variance: String(it.q2Variance || '').trim(),
-        q2Corrective: String(it.q2Corrective || '').trim(),
-        q2Expenditure: String(it.q2Expenditure || '').trim(),
-        q2PoeDesc: String(it.q2PoeDesc || it.poeStatus || it.POE_Description || it.poe || it.poeDescription || it.meansOfVerification || 'Signed quarterly progress reports and verification registers').trim(),
-        midTermActual: String(it.midTermActual || '').trim(),
-        midTermVariance: String(it.midTermVariance || '').trim(),
-        midTermCorrective: String(it.midTermCorrective || '').trim(),
-        midTermExpenditure: String(it.midTermExpenditure || '').trim(),
-        midTermPoeDesc: String(it.midTermPoeDesc || it.poeStatus || it.POE_Description || it.poe || it.poeDescription || it.meansOfVerification || 'Signed quarterly progress reports and verification registers').trim(),
-        q3Actual: String(it.q3Actual || '').trim(),
-        q3Variance: String(it.q3Variance || '').trim(),
-        q3Corrective: String(it.q3Corrective || '').trim(),
-        q3Expenditure: String(it.q3Expenditure || '').trim(),
-        q3PoeDesc: String(it.q3PoeDesc || it.poeStatus || it.POE_Description || it.poe || it.poeDescription || it.meansOfVerification || 'Signed quarterly progress reports and verification registers').trim(),
-        q4Actual: String(it.q4Actual || '').trim(),
-        q4Variance: String(it.q4Variance || '').trim(),
-        q4Corrective: String(it.q4Corrective || '').trim(),
-        q4Expenditure: String(it.q4Expenditure || '').trim(),
-        q4PoeDesc: String(it.q4PoeDesc || it.poeStatus || it.POE_Description || it.poe || it.poeDescription || it.meansOfVerification || 'Signed quarterly progress reports and verification registers').trim(),
-      };
+    const response = await fetch('/api/extract-sdbip', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+      signal: controller.signal
     });
-  }
 
-  return [];
+    const rawText = await response.text();
+    let data: any = null;
+    try {
+      data = JSON.parse(rawText);
+    } catch (_parseErr) {
+      if (!response.ok) {
+        throw new Error(`Server SDBIP extraction failed with status ${response.status}`);
+      }
+      throw new Error(`Server returned non-JSON response (${response.status}): ${rawText.slice(0, 100)}`);
+    }
+
+    if (!response.ok) {
+      throw new Error(data?.error || `Server SDBIP extraction failed with status ${response.status}`);
+    }
+
+    if (data && data.success && Array.isArray(data.items)) {
+      return data.items.map((it: any, idx: number) => {
+        const kpa = resolveSdbipKpa(it.kpas || it.kpa || it.nationalKpa || it.functionalKpa || '');
+        return {
+          _id: `sdbip-ext-${Date.now()}-${idx + 1}`,
+          _selected: true,
+          refNum: String(it.refNum || it.refNo || it.kpiNo || `TL-${String(idx + 1).padStart(2, '0')}`).trim(),
+          strategicObj: String(it.strategicObj || it.strategicObjective || it.goal || 'To ensure sustainable service delivery and clean audit compliance').trim(),
+          kpas: kpa,
+          operationalActivity: String(it.operationalActivity || it.project || it.activity || it.kpi || '').trim(),
+          kpi: String(it.kpi || it.kpiDescription || it.indicator || '').trim(),
+          compliance: (it.compliance === 'compliant' || it.compliance === 'non-compliant' || it.compliance === 'at risk') ? it.compliance : 'compliant',
+          uom: String(it.uom || it.unitOfMeasure || it.unit || 'Number').trim(),
+          mscoaTracking: String(it.mscoaTracking || it.mscoaCode || it.projectCode || 'Operational').trim(),
+          baseline: String(it.baseline ?? '').trim(),
+          annualTarget: String(it.annualTarget ?? '').trim(),
+          budgetAllocation: String(it.budgetAllocation || it.budget || 'Operational Budget').trim(),
+          q1: String(it.q1 ?? it.q1Target ?? '').trim(),
+          q2: String(it.q2 ?? it.q2Target ?? '').trim(),
+          midTerm: String(it.midTerm || it.midTermTarget || '').trim(),
+          q3: String(it.q3 ?? it.q3Target ?? '').trim(),
+          q4: String(it.q4 ?? it.q4Target ?? '').trim(),
+          responsibleUnit: String(it.responsibleUnit || it.department || it.directorate || 'Technical Services').trim(),
+          submitter: String(it.submitter || it.responsibleOwner || '').trim(),
+          reviewer: String(it.reviewer || '').trim(),
+          approver: String(it.approver || '').trim(),
+          internalAudit: String(it.internalAudit || '').trim(),
+          poeStatus: (() => {
+            const p = String(it.poeStatus || it.POE_Description || it.poe || it.poeDescription || it.meansOfVerification || it.q1PoeDesc || it.q2PoeDesc || it.q3PoeDesc || it.q4PoeDesc || 'Signed quarterly progress reports and verification registers').trim();
+            return p;
+          })(),
+          // Reporting fields
+          q1Actual: String(it.q1Actual || '').trim(),
+          q1Variance: String(it.q1Variance || '').trim(),
+          q1Corrective: String(it.q1Corrective || '').trim(),
+          q1Expenditure: String(it.q1Expenditure || '').trim(),
+          q1PoeDesc: String(it.q1PoeDesc || it.poeStatus || it.POE_Description || it.poe || it.poeDescription || it.meansOfVerification || 'Signed quarterly progress reports and verification registers').trim(),
+          q2Actual: String(it.q2Actual || '').trim(),
+          q2Variance: String(it.q2Variance || '').trim(),
+          q2Corrective: String(it.q2Corrective || '').trim(),
+          q2Expenditure: String(it.q2Expenditure || '').trim(),
+          q2PoeDesc: String(it.q2PoeDesc || it.poeStatus || it.POE_Description || it.poe || it.poeDescription || it.meansOfVerification || 'Signed quarterly progress reports and verification registers').trim(),
+          midTermActual: String(it.midTermActual || '').trim(),
+          midTermVariance: String(it.midTermVariance || '').trim(),
+          midTermCorrective: String(it.midTermCorrective || '').trim(),
+          midTermExpenditure: String(it.midTermExpenditure || '').trim(),
+          midTermPoeDesc: String(it.midTermPoeDesc || it.poeStatus || it.POE_Description || it.poe || it.poeDescription || it.meansOfVerification || 'Signed quarterly progress reports and verification registers').trim(),
+          q3Actual: String(it.q3Actual || '').trim(),
+          q3Variance: String(it.q3Variance || '').trim(),
+          q3Corrective: String(it.q3Corrective || '').trim(),
+          q3Expenditure: String(it.q3Expenditure || '').trim(),
+          q3PoeDesc: String(it.q3PoeDesc || it.poeStatus || it.POE_Description || it.poe || it.poeDescription || it.meansOfVerification || 'Signed quarterly progress reports and verification registers').trim(),
+          q4Actual: String(it.q4Actual || '').trim(),
+          q4Variance: String(it.q4Variance || '').trim(),
+          q4Corrective: String(it.q4Corrective || '').trim(),
+          q4Expenditure: String(it.q4Expenditure || '').trim(),
+          q4PoeDesc: String(it.q4PoeDesc || it.poeStatus || it.POE_Description || it.poe || it.poeDescription || it.meansOfVerification || 'Signed quarterly progress reports and verification registers').trim(),
+        };
+      });
+    }
+
+    return [];
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 /**
@@ -528,8 +536,10 @@ export async function extractSDBIPFromPDF(arrayBuffer: ArrayBuffer, fileName: st
 
     // Step 3: Try Server AI Multimodal Extraction
     try {
+      const hasText = pdfText && pdfText.trim().length > 50;
+      const isBase64Reasonable = fileBase64 && fileBase64.length < 4000000;
       const items = await callServerAiSDBIPExtraction({
-        fileBase64: fileBase64 || undefined,
+        fileBase64: (!hasText && isBase64Reasonable) ? fileBase64 : undefined,
         documentText: pdfText || undefined,
         mimeType: 'application/pdf',
         fileName

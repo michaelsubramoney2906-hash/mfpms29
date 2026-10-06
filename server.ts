@@ -2809,7 +2809,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
                   }
                 }
               }
-            }, 4, 800);
+            }, 2, 400);
 
             const responseText = response.text || "";
             try {
