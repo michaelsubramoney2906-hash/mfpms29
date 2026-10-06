@@ -9386,22 +9386,76 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
   // High-performance in-memory fallback store for SDBIP datasets to prevent Cloudflare timeout data drops
   const sdbipMemoryStore = new Map<string, any[]>();
 
+  // Helper to build canonical SDBIP rows for server-side initialization
+  function getCanonicalSdbipRows(): any[] {
+    const catalog = ensureAllSdbipKpis([]);
+    return catalog.map((item, idx) => ({
+      id: `sdbip-tl-${item.Ref_Number}-${idx + 1}`,
+      refNum: item.Ref_Number,
+      strategicObj: item.SDBIP_Strategic_Objective || 'To ensure sustainable service delivery and clean governance',
+      bsd: item.BSD || '',
+      led: item.LED || '',
+      mfvm: item.MFVM || '',
+      ggpp: item.GGPP || '',
+      midt: item.MIDT || '',
+      sr: item.SR || '',
+      kpas: item.National_KPA || '',
+      operationalActivity: item.Description || item.KPI,
+      kpi: item.KPI,
+      compliance: 'compliant',
+      uom: item.Unit_of_Measure || 'Number',
+      mscoaTracking: item.Ref_Number.startsWith('P_') ? 'Project' : 'Core Municipal Vector',
+      baseline: item.Baseline || '0',
+      annualTarget: item.Annual_Target || '100%',
+      budgetAllocation: item.Budget_Allocation || 'R0.00',
+      q1: item.Q1_Target || '-',
+      q2: item.Q2_Target || '-',
+      midTerm: item.Mid_Term_Target || item.Q2_Target || '-',
+      q3: item.Q3_Target || '-',
+      q4: item.Q4_Target || '-',
+      weight: '10',
+      responsibleUnit: item.Responsible_Owner || 'Municipal Administration',
+      evaluationUser: item.Submitter || 'Municipal Official',
+      reviewManager: item.Approver || 'Executive Manager',
+      poeStatus: item.POE_Description || 'Portfolio of Evidence required',
+      q1Actual: '',
+      q1Variance: '',
+      q1Corrective: '',
+      q1Expenditure: '',
+      q1PoeDesc: item.POE_Description || 'Portfolio of Evidence required',
+      q2Actual: '',
+      q2Variance: '',
+      q2Corrective: '',
+      q2Expenditure: '',
+      q2PoeDesc: item.POE_Description || 'Portfolio of Evidence required',
+      midTermActual: '',
+      midTermVariance: '',
+      midTermCorrective: '',
+      midTermExpenditure: '',
+      midTermPoeDesc: item.POE_Description || 'Portfolio of Evidence required',
+      q3Actual: '',
+      q3Variance: '',
+      q3Corrective: '',
+      q3Expenditure: '',
+      q3PoeDesc: item.POE_Description || 'Portfolio of Evidence required',
+      q4Actual: '',
+      q4Variance: '',
+      q4Corrective: '',
+      q4Expenditure: '',
+      q4PoeDesc: item.POE_Description || 'Portfolio of Evidence required'
+    }));
+  }
+
   // 14. Fetch SDBIP for a tenant (including 2nd & 3rd layer SDBIP23)
   app.get(["/api/tenant/:tenantId/sdbip", "/api/tenant/:tenantId/sdbip23"], async (req, res) => {
     const { tenantId } = req.params;
     const isSdbip23 = req.path.endsWith('/sdbip23');
     const cacheKey = isSdbip23 ? `sdbip23_${tenantId}` : `sdbip_${tenantId}`;
     try {
-      let documentIds = isSdbip23 ? [`sdbip23_${tenantId}`] : [`sdbip_${tenantId}`];
-      if (tenantId === 'tenant-229' || tenantId === 'nkangala_auto' || tenantId === 'nkangala' || tenantId === 'default' || tenantId === 'global') {
-        documentIds = isSdbip23 
-          ? ['sdbip23_tenant-229', 'sdbip23_nkangala_auto', 'sdbip23_global', `sdbip23_${tenantId}`]
-          : ['sdbip_tenant-229', 'sdbip_nkangala_auto', 'sdbip_global', `sdbip_${tenantId}`];
-      } else {
-        documentIds = isSdbip23
-          ? [`sdbip23_${tenantId}`, 'sdbip23_tenant-229', 'sdbip23_global']
-          : [`sdbip_${tenantId}`, 'sdbip_tenant-229', 'sdbip_global'];
-      }
+      let documentIds = isSdbip23 
+        ? [`sdbip23_${tenantId}`, 'sdbip23_tenant-229', 'sdbip23_nkangala_auto', 'sdbip23_nkangala', 'sdbip23_default', 'sdbip23_global']
+        : [`sdbip_${tenantId}`, 'sdbip_tenant-229', 'sdbip_nkangala_auto', 'sdbip_nkangala', 'sdbip_default', 'sdbip_global'];
+
       documentIds = Array.from(new Set(documentIds));
 
       // 1. Check in-memory store first (<1ms)
@@ -9442,6 +9496,15 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
         return res.json({ items: cached });
       }
 
+      // If no custom dataset has been saved yet, return the canonical 110 SDBIP Scorecard
+      if (!isSdbip23) {
+        const canonical = getCanonicalSdbipRows();
+        for (const docId of documentIds) {
+          sdbipMemoryStore.set(docId, canonical);
+        }
+        return res.json({ items: canonical });
+      }
+
       return res.json({ items: [] });
     } catch (err: any) {
       console.error("SDBIP load exception:", err);
@@ -9457,8 +9520,8 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
     try {
       const itemsArray = Array.isArray(items) ? items : [];
       let targetDocIds = isSdbip23 
-        ? ['sdbip23_tenant-229', 'sdbip23_nkangala_auto', 'sdbip23_global', `sdbip23_${tenantId}`]
-        : ['sdbip_tenant-229', 'sdbip_nkangala_auto', 'sdbip_global', `sdbip_${tenantId}`];
+        ? ['sdbip23_tenant-229', 'sdbip23_nkangala_auto', 'sdbip23_nkangala', 'sdbip23_default', 'sdbip23_global', `sdbip23_${tenantId}`]
+        : ['sdbip_tenant-229', 'sdbip_nkangala_auto', 'sdbip_nkangala', 'sdbip_default', 'sdbip_global', `sdbip_${tenantId}`];
       
       targetDocIds = Array.from(new Set(targetDocIds));
 
@@ -9471,7 +9534,7 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       sdbipMemoryStore.set(cacheKey, itemsArray);
       setCached(cacheKey, itemsArray);
 
-      // 2. Persist to Supabase in background
+      // 2. Persist to Supabase in background across all core aliases
       const supabase = getSupabase();
       if (supabase) {
         (async () => {
