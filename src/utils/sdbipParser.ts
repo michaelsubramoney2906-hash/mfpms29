@@ -1,7 +1,7 @@
 import * as XLSX from 'xlsx';
 import mammoth from 'mammoth';
 import * as pdfjsLib from 'pdfjs-dist';
-import { ensureAllSdbipKpis, type SdbipCatalogItem } from '../sdbip_catalog';
+import { ensureAllSdbipKpis, ensureNedaSdbipKpis, type SdbipCatalogItem } from '../sdbip_catalog';
 
 // Configure PDF.js worker
 if (typeof window !== 'undefined') {
@@ -169,17 +169,20 @@ export const SDBIP_DIRECTORATE_OPTIONS = [
 ];
 
 /**
- * Returns the standard canonical 111 Municipal SDBIP Scorecard (92 M_ KPIs + 19 P_ Project KPIs)
+ * Returns the standard canonical SDBIP Scorecard
+ * For NEDA: 46 E_ Entity KPIs + 3 P_ Project KPIs = 49 total indicators across KPA 1 to KPA 4
+ * For Municipal: 92 M_ KPIs + 19 P_ Project KPIs = 111 total indicators
  */
-export function getStandardSdbipScorecard(): ExtractedSdbipItem[] {
-  const catalog = ensureAllSdbipKpis([]);
+export function getStandardSdbipScorecard(tenantId?: string): ExtractedSdbipItem[] {
+  const isNeda = tenantId === 'neda';
+  const catalog = isNeda ? ensureNedaSdbipKpis([]) : ensureAllSdbipKpis([]);
   return catalog.map((item, idx) => {
     const poeDesc = item.POE_Description || 'Signed quarterly progress reports, project completion certificates, and verification registers';
     return {
       _id: `sdbip-std-${item.Ref_Number}-${idx + 1}`,
       _selected: true,
       refNum: item.Ref_Number,
-      strategicObj: item.SDBIP_Strategic_Objective || 'To provide sustainable municipal infrastructure and service delivery',
+      strategicObj: item.SDBIP_Strategic_Objective || (isNeda ? 'To drive regional economic transformation and sustainable industrial development' : 'To provide sustainable municipal infrastructure and service delivery'),
       kpas: item.National_KPA,
       bsd: item.BSD === 'X',
       led: item.LED === 'X',
@@ -191,18 +194,18 @@ export function getStandardSdbipScorecard(): ExtractedSdbipItem[] {
       kpi: item.KPI,
       compliance: 'compliant',
       uom: item.Unit_of_Measure || 'Percentage',
-      mscoaTracking: 'Core Municipal Vector',
+      mscoaTracking: isNeda ? 'NEDA Regional Vector' : 'Core Municipal Vector',
       baseline: item.Baseline || '0%',
       annualTarget: item.Annual_Target || '100%',
-      budgetAllocation: item.Budget_Allocation || (item.Ref_Number.startsWith('M') ? "R 1,500,000" : "R 250,000"),
+      budgetAllocation: item.Budget_Allocation || (item.Ref_Number.startsWith('E') || item.Ref_Number.startsWith('M') ? "R 2,500,000" : "R 15,000,000"),
       q1: item.Q1_Target || '25%',
       q2: item.Q2_Target || '50%',
       midTerm: item.Mid_Term_Target || '50%',
       q3: item.Q3_Target || '75%',
       q4: item.Q4_Target || item.Annual_Target || '100%',
-      responsibleUnit: item.Responsible_Owner || 'Technical Services',
-      submitter: item.Submitter || 'Departmental Submitter',
-      approver: item.Approver || 'Executive Manager',
+      responsibleUnit: item.Responsible_Owner || (isNeda ? 'Executive Office' : 'Technical Services'),
+      submitter: item.Submitter || (isNeda ? 'NEDA Submitter' : 'Departmental Submitter'),
+      approver: item.Approver || (isNeda ? 'NEDA Board / CEO' : 'Executive Manager'),
       poeStatus: poeDesc,
       // Source POE description reflects verbatim across all four quarters (non-editable)
       q1PoeDesc: poeDesc,
@@ -216,11 +219,12 @@ export function getStandardSdbipScorecard(): ExtractedSdbipItem[] {
 
 /**
  * Sanitizes, deduplicates, and normalizes raw SDBIP items to prevent text-split row explosion.
- * Guarantees exactly 92 M_ KPIs + 19 P_ Project KPIs (111 items total) when full municipal SDBIP is loaded.
+ * Guarantees exact canonical KPIs (49 for NEDA: E_01-E_46 + P_01-P_03; 111 for Municipal: M_01-M_92 + P_01-P_19)
  */
-export function sanitizeSdbipItems(rawItems: any[]): ExtractedSdbipItem[] {
+export function sanitizeSdbipItems(rawItems: any[], tenantId?: string): ExtractedSdbipItem[] {
+  const isNeda = tenantId === 'neda';
   if (!Array.isArray(rawItems) || rawItems.length === 0) {
-    return getStandardSdbipScorecard();
+    return getStandardSdbipScorecard(tenantId);
   }
 
   // Filter out empty rows, page banners, footnotes, disclaimer headers
@@ -245,9 +249,7 @@ export function sanitizeSdbipItems(rawItems: any[]): ExtractedSdbipItem[] {
 
   const validRows = rawItems.filter(it => !isGarbageRow(it));
 
-  // If there are > 111 rows (e.g. 812 fragmented rows from a line-splitting PDF parser), 
-  // run through ensureAllSdbipKpis to extract and consolidate into the canonical 111 KPIs (92 M_ + 19 P_)
-  const catalogList = ensureAllSdbipKpis(validRows);
+  const catalogList = isNeda ? ensureNedaSdbipKpis(validRows) : ensureAllSdbipKpis(validRows);
 
   return catalogList.map((item, idx) => {
     const poeDesc = item.POE_Description || 'Signed quarterly progress reports, verification registers and supporting compliance documents';
@@ -282,8 +284,8 @@ export function sanitizeSdbipItems(rawItems: any[]): ExtractedSdbipItem[] {
       _id: `sdbip-item-${item.Ref_Number}-${idx + 1}`,
       _selected: true,
       refNum: item.Ref_Number,
-      strategicObj: item.SDBIP_Strategic_Objective || 'To provide sustainable municipal infrastructure and service delivery',
-      kpas: kpaLabels[activeKpa],
+      strategicObj: item.SDBIP_Strategic_Objective || (isNeda ? 'To drive regional economic transformation and sustainable industrial development' : 'To provide sustainable municipal infrastructure and service delivery'),
+      kpas: item.National_KPA || (isNeda ? 'KPA 1: Economic Infrastructure & Agri-processing Development' : kpaLabels[activeKpa]),
       bsd: activeKpa === 'bsd',
       led: activeKpa === 'led',
       mfvm: activeKpa === 'mfvm',
@@ -294,18 +296,18 @@ export function sanitizeSdbipItems(rawItems: any[]): ExtractedSdbipItem[] {
       kpi: item.KPI,
       compliance: 'compliant',
       uom: item.Unit_of_Measure || 'Percentage',
-      mscoaTracking: 'Core Municipal Vector',
+      mscoaTracking: isNeda ? 'NEDA Regional Vector' : 'Core Municipal Vector',
       baseline: item.Baseline || '0%',
       annualTarget: item.Annual_Target || '100%',
-      budgetAllocation: item.Budget_Allocation || (item.Ref_Number.startsWith('M') ? "R 1,500,000" : "R 250,000"),
+      budgetAllocation: item.Budget_Allocation || (item.Ref_Number.startsWith('E') || item.Ref_Number.startsWith('M') ? "R 2,500,000" : "R 15,000,000"),
       q1: item.Q1_Target || '25%',
       q2: item.Q2_Target || '50%',
       midTerm: item.Mid_Term_Target || '50%',
       q3: item.Q3_Target || '75%',
       q4: item.Q4_Target || item.Annual_Target || '100%',
-      responsibleUnit: item.Responsible_Owner || 'Technical Services',
-      submitter: item.Submitter || 'Departmental Submitter',
-      approver: item.Approver || 'Executive Manager',
+      responsibleUnit: item.Responsible_Owner || (isNeda ? 'Executive Office' : 'Technical Services'),
+      submitter: item.Submitter || (isNeda ? 'NEDA Submitter' : 'Departmental Submitter'),
+      approver: item.Approver || (isNeda ? 'NEDA CEO / Board' : 'Executive Manager'),
       poeStatus: poeDesc,
       // Source POE description reflects verbatim across all four quarters (non-editable)
       q1PoeDesc: poeDesc,
@@ -787,7 +789,7 @@ export function parseSdbipTableFromText(rawText: string): ExtractedSdbipItem[] {
   return items;
 }
 
-export async function extractSdbipFromDocument(file: File): Promise<{ items: ExtractedSdbipItem[]; count: number }> {
+export async function extractSdbipFromDocument(file: File, tenantId?: string): Promise<{ items: ExtractedSdbipItem[]; count: number }> {
   const arrayBuffer = await file.arrayBuffer();
   const extension = file.name.split('.').pop()?.toLowerCase() || '';
   let items: ExtractedSdbipItem[] = [];
@@ -804,8 +806,8 @@ export async function extractSdbipFromDocument(file: File): Promise<{ items: Ext
     items = await extractSDBIPFromPastedContent(text, undefined, file.name);
   }
 
-  // Sanitize and align cleanly to canonical SDBIP Top Layer (92 M_ KPIs + 19 P_ Project KPIs = 111 total)
-  const sanitized = sanitizeSdbipItems(items);
+  // Sanitize and align cleanly to canonical SDBIP Top Layer
+  const sanitized = sanitizeSdbipItems(items, tenantId);
   return { items: sanitized, count: sanitized.length };
 }
 

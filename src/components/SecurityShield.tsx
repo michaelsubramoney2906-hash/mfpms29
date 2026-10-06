@@ -48,7 +48,8 @@ export function SecurityShield({ user, children }: SecurityShieldProps) {
     const handleCopyCut = (e: ClipboardEvent) => {
       if (copyAllowed) return;
       e.preventDefault();
-      alert("Nkangala Municipal Guard: Copying sensitive compliance content is restricted.");
+      setShowWarning(true);
+      setWarningCount(c => c + 1);
     };
     if (!copyAllowed) {
       document.addEventListener('copy', handleCopyCut);

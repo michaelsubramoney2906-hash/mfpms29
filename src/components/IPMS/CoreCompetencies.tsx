@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BadgePlus, Plus, Trash2, Save, AlertTriangle, ShieldCheck, HelpCircle } from 'lucide-react';
+import { BadgePlus, Plus, Trash2, Save, AlertTriangle, ShieldCheck, HelpCircle, Send, Loader2, FileSpreadsheet, CheckCircle2, ArrowRight } from 'lucide-react';
 import { JSCAllInOneCompetenciesTable } from './JSCModules';
 
 interface CoreCompetenciesProps {
@@ -38,6 +38,111 @@ export function CoreCompetencies({ currentUser, activeTenantId }: CoreCompetenci
   const [isPullingFredCore, setIsPullingFredCore] = useState<boolean>(false);
   const [isPullingFredCorp, setIsPullingFredCorp] = useState<boolean>(false);
   const [importMessage, setImportMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [pushingToPA, setPushingToPA] = useState<boolean>(false);
+  const [pushSuccessInfo, setPushSuccessInfo] = useState<string | null>(null);
+
+  const handlePushToDraftingSuite = async () => {
+    if (!activeTenantId) return;
+    setPushingToPA(true);
+    setImportMessage(null);
+    setPushSuccessInfo(null);
+
+    try {
+      // 1. Save standard core competencies to the core-competencies endpoint
+      await fetch(`/api/tenant/${activeTenantId}/core-competencies?userId=${currentUser?.email || 'default'}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: rows, cfoItems: cfoRows, pedItems: pedRows, corporateServicesItems: corpRows })
+      });
+
+      // 2. Call dedicated server push-to-pa endpoint for the tenant & user
+      const pushRes = await fetch(`/api/tenant/${activeTenantId}/core-competencies/push-to-pa?userId=${currentUser?.email || 'default'}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          userId: currentUser?.email || 'default',
+          items: rows, 
+          cfoItems: cfoRows, 
+          pedItems: pedRows, 
+          corporateServicesItems: corpRows 
+        })
+      });
+
+      if (!pushRes.ok) {
+        throw new Error("Push to Drafting Suite rejected by server.");
+      }
+
+      setSyncStatus('saved');
+      setPushSuccessInfo(`Successfully pushed all ${rows.length} Standard Core Competencies to Performance Agreement Drafting Suite in Individual PMS!`);
+      setImportMessage({
+        text: `✓ Successfully pushed all ${rows.length} Standard Core Competencies to the Performance Agreement Drafting Suite in Individual PMS!`,
+        type: 'success'
+      });
+    } catch (err: any) {
+      console.error("Failed to push standard core competencies to Drafting Suite:", err);
+      setImportMessage({
+        text: `Error pushing to Performance Agreement Drafting Suite: ${err.message || 'Unknown error'}`,
+        type: 'error'
+      });
+    } finally {
+      setPushingToPA(false);
+      setTimeout(() => {
+        setPushSuccessInfo(null);
+      }, 8000);
+    }
+  };
+
+  const handlePushCfoToDraftingSuite = async () => {
+    if (!activeTenantId) return;
+    setPushingToPA(true);
+    setImportMessage(null);
+    setPushSuccessInfo(null);
+
+    try {
+      // 1. Save standard & cfo core competencies to the core-competencies endpoint
+      await fetch(`/api/tenant/${activeTenantId}/core-competencies?userId=${currentUser?.email || 'default'}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: rows, cfoItems: cfoRows, pedItems: pedRows, corporateServicesItems: corpRows })
+      });
+
+      // 2. Call dedicated server push-to-pa endpoint with target=cfo (Below Point 6.6)
+      const pushRes = await fetch(`/api/tenant/${activeTenantId}/core-competencies/push-to-pa?userId=${currentUser?.email || 'default'}&target=cfo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          userId: currentUser?.email || 'default',
+          target: 'cfo',
+          items: rows, 
+          cfoItems: cfoRows, 
+          pedItems: pedRows, 
+          corporateServicesItems: corpRows 
+        })
+      });
+
+      if (!pushRes.ok) {
+        throw new Error("Push to Performance Agreement rejected by server.");
+      }
+
+      setSyncStatus('saved');
+      setPushSuccessInfo(`Successfully pushed all ${cfoRows.length} Core Competencies Directors and contents into the Performance Agreement below Point 6.6!`);
+      setImportMessage({
+        text: `✓ Successfully pushed the entire Core Competencies Directors table and its contents into the Performance Agreement below Point 6.6!`,
+        type: 'success'
+      });
+    } catch (err: any) {
+      console.error("Failed to push Core Competencies Directors to Performance Agreement:", err);
+      setImportMessage({
+        text: `Error pushing to Performance Agreement: ${err.message || 'Unknown error'}`,
+        type: 'error'
+      });
+    } finally {
+      setPushingToPA(false);
+      setTimeout(() => {
+        setPushSuccessInfo(null);
+      }, 8000);
+    }
+  };
 
 
   const [rows, setRows] = useState<CompetencyRow[]>([
@@ -597,16 +702,42 @@ export function CoreCompetencies({ currentUser, activeTenantId }: CoreCompetenci
            {syncStatus === 'cached' && <span className="text-xs font-bold text-amber-600 flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5"/> Unsaved Changes</span>}
            {syncStatus === 'saving' && <span className="text-xs font-bold text-indigo-600 flex items-center gap-1.5"><div className="w-3.5 h-3.5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"/> Syncing...</span>}
            {syncStatus === 'saved' && <span className="text-xs font-bold text-emerald-600 flex items-center gap-1.5">✓ Synced to Cloud</span>}
+          {activeTab === 'standard' && (
+            <button 
+              id="btn-push-standard-competencies-top-bar"
+              type="button"
+              onClick={handlePushToDraftingSuite}
+              disabled={pushingToPA || rows.length === 0}
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-sm font-bold rounded-lg shadow-sm hover:shadow transition cursor-pointer disabled:opacity-50"
+              title="Push entire standard core competencies table into Performance Agreement Drafting Suite in Individual PMS"
+            >
+              {pushingToPA ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              <span>Push Table to Drafting Suite</span>
+            </button>
+          )}
+          {activeTab === 'cfo' && (
+            <button 
+              id="btn-push-cfo-competencies-top-bar"
+              type="button"
+              onClick={handlePushCfoToDraftingSuite}
+              disabled={pushingToPA || cfoRows.length === 0}
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-sm font-bold rounded-lg shadow-sm hover:shadow transition cursor-pointer disabled:opacity-50"
+              title="Push the entire Core Competencies Directors table into the Performance Agreement below Point 6.6"
+            >
+              {pushingToPA ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              <span>Push Table to Performance Agreement (Below Point 6.6)</span>
+            </button>
+          )}
           <button 
             onClick={handleAddRowClick}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-bold rounded-lg hover:bg-slate-800 transition"
+            className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-bold rounded-lg hover:bg-slate-800 transition cursor-pointer"
           >
             <Plus className="w-4 h-4" /> Add Row
           </button>
           <button 
             onClick={handleSave}
             disabled={saving}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition"
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition cursor-pointer"
           >
             <Save className="w-4 h-4" /> Save Configuration
           </button>
@@ -634,8 +765,8 @@ export function CoreCompetencies({ currentUser, activeTenantId }: CoreCompetenci
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
               }`}
             >
-              <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase transition-colors ${activeTab === 'cfo' ? 'bg-indigo-800 text-indigo-100' : 'bg-slate-200 text-slate-700'}`}>CFO</span>
-              Core Competencies (CFO)
+              <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase transition-colors ${activeTab === 'cfo' ? 'bg-indigo-800 text-indigo-100' : 'bg-slate-200 text-slate-700'}`}>DIRECTORS</span>
+              Core Competencies Directors
             </button>
           <button
               onClick={() => setActiveTab('ped')}
@@ -734,17 +865,63 @@ export function CoreCompetencies({ currentUser, activeTenantId }: CoreCompetenci
           />
         ) : (
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
-            <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
-              <h2 className="text-lg font-black text-slate-800">
-                {activeTab === 'standard' 
-                  ? 'Competency Levels & Scaling Criteria' 
-                  : activeTab === 'cfo' 
-                    ? 'CFO Specific Competency Weighting Grid' 
-                    : activeTab === 'ped'
-                      ? 'PED Specific Competency Weighting Grid'
-                      : 'Corporate Services Competency Grid'
-                }
-              </h2>
+            <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-black text-slate-800 flex items-center gap-2">
+                  <FileSpreadsheet className="w-5 h-5 text-indigo-600" />
+                  {activeTab === 'standard' 
+                    ? 'Competency Levels & Scaling Criteria (Standard Core Competencies)' 
+                    : activeTab === 'cfo' 
+                      ? 'Directors Specific Competency Weighting Grid' 
+                      : activeTab === 'ped'
+                        ? 'PED Specific Competency Weighting Grid'
+                        : 'Corporate Services Competency Grid'
+                  }
+                </h2>
+                {activeTab === 'standard' && (
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Defined standard core competencies across Basic, Competent, Advanced, and Superior scaling criteria.
+                  </p>
+                )}
+              </div>
+
+              {activeTab === 'standard' && (
+                <div className="flex items-center gap-2.5">
+                  <span className="text-[10px] font-bold bg-indigo-50 border border-indigo-200 text-indigo-800 px-2.5 py-1 rounded-md">
+                    {rows.length} Standards Active
+                  </span>
+                  <button
+                    id="btn-push-entire-table-standard-competencies"
+                    type="button"
+                    onClick={handlePushToDraftingSuite}
+                    disabled={pushingToPA || rows.length === 0}
+                    className="flex items-center gap-2 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-lg shadow-sm transition cursor-pointer disabled:opacity-50"
+                    title="Push the entire table directly into Performance Agreement Drafting Suite in Individual PMS"
+                  >
+                    {pushingToPA ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                    <span>Push Entire Table to Drafting Suite</span>
+                  </button>
+                </div>
+              )}
+
+              {activeTab === 'cfo' && (
+                <div className="flex items-center gap-2.5">
+                  <span className="text-[10px] font-bold bg-indigo-50 border border-indigo-200 text-indigo-800 px-2.5 py-1 rounded-md">
+                    {cfoRows.length} Directors Competencies Active
+                  </span>
+                  <button
+                    id="btn-push-entire-table-cfo-competencies"
+                    type="button"
+                    onClick={handlePushCfoToDraftingSuite}
+                    disabled={pushingToPA || cfoRows.length === 0}
+                    className="flex items-center gap-2 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-lg shadow-sm transition cursor-pointer disabled:opacity-50"
+                    title="Push the entire Core Competencies Directors table and its contents into the Performance Agreement below Point 6.6"
+                  >
+                    {pushingToPA ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                    <span>Push Entire Table into Performance Agreement (Below Point 6.6)</span>
+                  </button>
+                </div>
+              )}
             </div>
           
           <div className="overflow-x-auto w-full">
@@ -847,7 +1024,7 @@ export function CoreCompetencies({ currentUser, activeTenantId }: CoreCompetenci
                           value={row.competency} 
                           onChange={(e) => handleCfoCellEdit(row.id, 'competency', e.target.value)}
                           className="w-full text-sm font-bold text-slate-900 bg-white/50 focus:bg-white focus:ring-2 focus:ring-indigo-500 rounded p-1.5 outline-none resize-y min-h-[70px] transition-all"
-                          placeholder="Enter CFO competency..."
+                          placeholder="Enter Director competency..."
                         />
                       </td>
                       <td className="p-3 border-r border-slate-100 whitespace-pre-wrap align-top w-1/3 bg-slate-50/20 focus-within:bg-slate-50/50 transition">
@@ -897,8 +1074,8 @@ export function CoreCompetencies({ currentUser, activeTenantId }: CoreCompetenci
                       <td colSpan={5} className="p-8 text-center bg-slate-50 border-b-2 border-dashed border-slate-300">
                         <div className="flex flex-col items-center justify-center space-y-2">
                            <BadgePlus className="w-8 h-8 text-slate-400" />
-                           <p className="text-sm font-bold text-slate-600">No CFO core competencies defined.</p>
-                           <p className="text-xs font-medium text-slate-500 w-3/4">Click "Add Row" or "Import Fred CFO Extraction" to build your CFO specific core competency and weighting matrix.</p>
+                           <p className="text-sm font-bold text-slate-600">No Directors core competencies defined.</p>
+                           <p className="text-xs font-medium text-slate-500 w-3/4">Click "Add Row" or "Import Fred Directors Extraction" to build your Directors specific core competency and weighting matrix.</p>
                         </div>
                       </td>
                     </tr>
@@ -1097,6 +1274,37 @@ export function CoreCompetencies({ currentUser, activeTenantId }: CoreCompetenci
                   )}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {activeTab === 'cfo' && cfoRows.length > 0 && (
+            <div className="px-6 py-4 bg-indigo-50/50 border-t border-indigo-100 flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Directors Weight Verification:</span>
+                {totalCfoWeight === 100 ? (
+                  <span className="inline-flex items-center gap-1.5 bg-emerald-100 text-emerald-800 text-xs font-black px-3 py-1 rounded-full border border-emerald-200">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" /> Total Weight: 100% (Balanced)
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 bg-amber-100 text-amber-800 text-xs font-black px-3 py-1 rounded-full border border-amber-200 animate-pulse">
+                    <AlertTriangle className="w-4 h-4 text-amber-600" /> Total Weight: {totalCfoWeight}% (Must equal 100%)
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  id="btn-push-entire-table-cfo-bottom"
+                  type="button"
+                  onClick={handlePushCfoToDraftingSuite}
+                  disabled={pushingToPA || cfoRows.length === 0}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 via-indigo-700 to-violet-700 hover:from-indigo-700 hover:to-violet-800 text-white text-xs font-black rounded-xl shadow-md hover:shadow-lg transition-all transform active:scale-98 cursor-pointer disabled:opacity-50"
+                  title="Push the entire Core Competencies Directors table and its contents into the Performance Agreement below Point 6.6"
+                >
+                  {pushingToPA ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  <span>Push Entire Table into Performance Agreement (Below Point 6.6)</span>
+                </button>
+              </div>
             </div>
           )}
 

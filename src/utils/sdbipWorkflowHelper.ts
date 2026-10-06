@@ -58,7 +58,7 @@ export interface SdbipWorkflowNotification {
  */
 export function isUserMatch(
   targetUser: string | undefined | null,
-  user: { email?: string; fullName?: string; username?: string; role?: string } | undefined | null
+  user: { email?: string; fullName?: string; full_name?: string; name?: string; username?: string; role?: string; jobFunction?: string } | undefined | null
 ): boolean {
   if (!user) return false;
   const email = (user.email || '').trim().toLowerCase();
@@ -82,14 +82,50 @@ export function isUserMatch(
   if (target === 'all' || target === 'everyone' || target === '*') return true;
 
   const emailPrefix = email.split('@')[0] || '';
-  const fullName = (user.fullName || '').trim().toLowerCase();
+  const fullName = (user.fullName || (user as any).full_name || (user as any).name || '').trim().toLowerCase();
   const username = (user.username || '').trim().toLowerCase();
+  const jobFunction = (user.jobFunction || (user as any).job_function || '').trim().toLowerCase();
+
+  // Canonical directory matching for Nkangala District Municipality officials
+  const NKANGALA_OFFICIAL_MAP: Record<string, string[]> = {
+    'skhosanaqj@nkangaladm.gov.za': ['quinton skhosana', 'q skhosana', 'quinton', 'risk officer', 'risk unit', 'risk management'],
+    'shabanguf@nkangaladm.gov.za': ['fortress shabangu', 'f shabangu', 'fortress', 'general manager: development planning', 'planning', 'development planning'],
+    'kubhekavs@nkangaladm.gov.za': ['vusumuzi s. kubheka', 'vusumuzi kubheka', 'v kubheka', 'kubheka', 'divisional manager: town planning', 'town planning'],
+    'masekofm@nkangaladm.gov.za': ['fikile maseko', 'f maseko', 'maseko', 'senior led officer', 'led officer', 'led'],
+    'msizaas@nkangaladm.gov.za': ['ali s. msiza', 'ali msiza', 'a msiza', 'chief financial officer', 'cfo', 'finance'],
+    'nsibandenp@nkangaladm.gov.za': ['nompumelelo p. nsibande', 'nompumelelo nsibande', 'n nsibande', 'manager: pms', 'pms manager', 'pms team', 'pms'],
+    'hlongwaan@nkangaladm.gov.za': ['andile n. hlongwa', 'andile hlongwa', 'a hlongwa', 'hlongwa', 'division manager: supply chain management', 'manager: supply chain management', 'supply chain', 'scm'],
+    'mazwit@nkangaladm.gov.za': ['thandiwe mazwi', 't mazwi', 'mazwi', 'secretary to the member of the mayoral committee', 'secretary to mmc', 'secretary'],
+    'mthimunyen@nkangaladm.gov.za': ['nokuthula d. mthimunye', 'nokuthula mthimunye', 'n mthimunye', 'mthimunye', 'manager: ict', 'ict manager', 'ict'],
+    'bembem@nkangaladm.gov.za': ['mxolisi bembe', 'm bembe', 'bembe', 'senior technician: civil engineering', 'civil engineering'],
+    'msokil@nkangaladm.gov.za': ['lucky msoki', 'l msoki', 'msoki', 'project manager'],
+    'mahlangu@nkangaladm.gov.za': ['mandla m. mahlangu', 'mandla mahlangu', 'm mahlangu', 'mahlangu', 'municipal manager', 'mm', 'accounting officer'],
+    'twalaad@nkangaladm.gov.za': ['amos d. twala', 'amos twala', 'a twala', 'twala', 'chief audit executive', 'internal auditor', 'internal audit'],
+    'linkss@nkangaladm.gov.za': ['sipho links', 's links', 'links'],
+    'nhlaphomj@nkangaladm.gov.za': ['jimmy nhlapho', 'j nhlapho', 'nhlapho'],
+    'vanniekerkt@nkangaladm.gov.za': ['theuns van niekerk', 't van niekerk', 'van niekerk'],
+    'simelanenl@nkangaladm.gov.za': ['nomusa simelane', 'n simelane', 'simelane'],
+    'nkosis@nkangaladm.gov.za': ['sipho nkosi', 's nkosi', 'nkosi']
+  };
+
+  for (const [canonicalEmail, aliases] of Object.entries(NKANGALA_OFFICIAL_MAP)) {
+    if (email === canonicalEmail) {
+      if (aliases.some(alias => target.includes(alias) || alias.includes(target))) {
+        return true;
+      }
+    }
+    if (target.includes(canonicalEmail) || aliases.some(alias => target.includes(alias))) {
+      if (email === canonicalEmail || (fullName && aliases.some(alias => fullName.includes(alias)))) {
+        return true;
+      }
+    }
+  }
 
   // Exact or prefix matches
   if (target === email) return true;
-  if (target === fullName) return true;
-  if (target === username) return true;
-  if (target === emailPrefix) return true;
+  if (fullName && target === fullName) return true;
+  if (username && target === username) return true;
+  if (emailPrefix && target === emailPrefix) return true;
 
   // Contains match for partial names or emails
   if (fullName && (fullName.includes(target) || target.includes(fullName))) return true;
@@ -100,11 +136,22 @@ export function isUserMatch(
   // Internal Audit matches
   if (isAuditMember && (target.includes('audit') || target.includes('auditor') || INTERNAL_AUDIT_USERS.some(a => a.toLowerCase() === target))) return true;
 
-  // Role based checks
-  if (target.includes('approver') && (user.role?.includes('approver') || user.role === 'admin' || user.role === 'superadmin')) return true;
-  if (target.includes('reviewer') && (user.role?.includes('reviewer') || user.role === 'admin' || user.role === 'superadmin' || isPmsMember)) return true;
-  if ((target.includes('audit') || target.includes('auditor')) && (user.role?.includes('audit') || user.role === 'admin' || user.role === 'superadmin' || isAuditMember)) return true;
-  if (target.includes('submitter') && (user.role?.includes('submitter') || user.role === 'admin' || user.role === 'superadmin')) return true;
+  // Role and Designation based checks with full administrative aliases
+  if (target.includes('approver') && (user.role?.includes('approver') || user.role === 'admin' || user.role === 'superadmin' || isMasterAdminMike(user))) return true;
+  if (target.includes('reviewer') && (user.role?.includes('reviewer') || user.role === 'admin' || user.role === 'superadmin' || isPmsMember || isMasterAdminMike(user))) return true;
+  if ((target.includes('audit') || target.includes('auditor')) && (user.role?.includes('audit') || user.role === 'admin' || user.role === 'superadmin' || isAuditMember || isMasterAdminMike(user))) return true;
+  if (target.includes('submitter') && (user.role?.includes('submitter') || user.role === 'admin' || user.role === 'superadmin' || isMasterAdminMike(user))) return true;
+
+  // Executive Designation aliases & robust role mappings
+  if ((target.includes('municipal manager') || target === 'mm' || target.includes('accounting officer')) && (email.includes('mandla') || email.includes('mm') || email.includes('municipalmanager') || email.includes('nkangaladm') || isMasterAdminMike(user))) return true;
+  if ((target.includes('chief financial officer') || target === 'cfo' || target.includes('finance') || target.includes('financial officer')) && (email.includes('cfo') || email.includes('finance') || email.includes('accounting') || isMasterAdminMike(user))) return true;
+  if ((target.includes('corporate services') || target.includes('corporate') || target.includes('general manager: corporate')) && (email.includes('corporate') || email.includes('lezard') || email.includes('dimpe') || isMasterAdminMike(user))) return true;
+  if ((target.includes('technical services') || target.includes('technical') || target.includes('infrastructure') || target.includes('engineer')) && (email.includes('technical') || email.includes('mthembu') || email.includes('infrastructure') || isMasterAdminMike(user))) return true;
+  if ((target.includes('planning') || target.includes('development planning') || target.includes('economic development')) && (email.includes('planning') || email.includes('led') || email.includes('economic') || isMasterAdminMike(user))) return true;
+  if ((target.includes('community') || target.includes('social services')) && (email.includes('community') || email.includes('social') || isMasterAdminMike(user))) return true;
+  if ((target.includes('risk') || target.includes('risk officer')) && (email.includes('risk') || email.includes('governance') || isMasterAdminMike(user))) return true;
+  if ((target.includes('labour') || target.includes('hr') || target.includes('relations') || target.includes('human resource')) && (email.includes('labour') || email.includes('hr') || email.includes('personnel') || isMasterAdminMike(user))) return true;
+  if ((target.includes('pms') || target.includes('performance') || target.includes('evaluat')) && (email.includes('pms') || email.includes('performance') || isPmsMember || isMasterAdminMike(user))) return true;
 
   return false;
 }
@@ -310,37 +357,72 @@ export function extractKpiPoes(kpi: any, globalPoes: any[]): Array<{
   dataUrl: string;
   fileData?: string;
   fileType?: string;
+  uploadedBy?: string;
 }> {
   if (!kpi) return [];
   const list: any[] = [];
   const seenNames = new Set<string>();
+  const kpiRef = (kpi.refNum || kpi.Ref_Number || kpi.kpiRef || '').toString().trim().toLowerCase();
+  const kpiId = (kpi.id || kpi._id || '').toString().trim().toLowerCase();
 
   // Helper to resolve the correct original Base64/payload string
   const resolvePayload = (p: any): string | undefined => {
     if (!p) return undefined;
-    return p.fileData || p.dataUrl || p.fileDataUrl;
+    return p.fileData || p.dataUrl || p.fileDataUrl || p.url || p.base64 || p.content;
   };
 
-  // 1. From global poes matching this KPI's refNum
+  // 1. From global poes matching this KPI's refNum, ID, or kpiId
   (globalPoes || []).forEach(gp => {
-    if (gp && gp.refNum === kpi.refNum && !seenNames.has(gp.name)) {
-      seenNames.add(gp.name);
-      const payload = resolvePayload(gp) || generatePoeSvgDataUrl(gp.name, kpi.kpi, kpi.refNum, 'General');
+    if (!gp) return;
+    const gpRef = (gp.refNum || gp.kpiRef || '').toString().trim().toLowerCase();
+    const gpKpiId = (gp.kpiId || gp.rowId || '').toString().trim().toLowerCase();
+    const cleanKpiRef = kpiRef.replace(/[^a-z0-9]/g, '');
+    const cleanGpRef = gpRef.replace(/[^a-z0-9]/g, '');
+    const matchesRef = (kpiRef && gpRef === kpiRef) || (cleanKpiRef && cleanGpRef && cleanKpiRef === cleanGpRef) || (cleanKpiRef && cleanGpRef && (cleanKpiRef.endsWith(cleanGpRef) || cleanGpRef.endsWith(cleanKpiRef)));
+    const matchesId = kpiId && (gpKpiId === kpiId || gp.id?.toString().toLowerCase().includes(kpiId));
+
+    if ((matchesRef || matchesId) && gp.name && !seenNames.has(gp.name.trim().toLowerCase())) {
+      seenNames.add(gp.name.trim().toLowerCase());
+      const payload = resolvePayload(gp) || generatePoeSvgDataUrl(gp.name, kpi.kpi, kpi.refNum, gp.type || 'General');
       list.push({
         id: gp.id || `gpoe-${gp.name}`,
         name: gp.name,
-        quarter: 'General / Current Quarter',
+        quarter: gp.type || gp.quarter || 'General / Statutory Evidence',
         size: gp.size || '1.5 MB',
         date: gp.date || gp.uploadedAt || new Date().toLocaleDateString(),
         desc: gp.description || gp.desc || kpi.poeDesc,
         dataUrl: payload,
         fileData: payload,
-        fileType: gp.fileType || gp.mimeType
+        fileType: gp.fileType || gp.mimeType,
+        uploadedBy: gp.uploadedBy || gp.uploader || kpi.submitter || 'Submitter'
       });
     }
   });
 
-  // 2. From quarter specific arrays
+  // 2. From direct poes array on the KPI object itself
+  if (Array.isArray(kpi.poes)) {
+    kpi.poes.forEach((p: any, idx: number) => {
+      const name = typeof p === 'string' ? p : p?.name;
+      if (name && !seenNames.has(name.trim().toLowerCase())) {
+        seenNames.add(name.trim().toLowerCase());
+        const payload = (typeof p === 'object' ? resolvePayload(p) : undefined) || generatePoeSvgDataUrl(name, kpi.kpi, kpi.refNum, 'General');
+        list.push({
+          id: (typeof p === 'object' && p.id) ? p.id : `kpipoe-${idx}-${name}`,
+          name: name,
+          quarter: (typeof p === 'object' && p.quarter) ? p.quarter : 'Performance Evidence',
+          size: (typeof p === 'object' && p.size) ? p.size : '1.2 MB',
+          date: (typeof p === 'object' && p.date) ? p.date : new Date().toLocaleDateString(),
+          desc: (typeof p === 'object' && p.description) ? p.description : kpi.poeDesc,
+          dataUrl: payload,
+          fileData: payload,
+          fileType: (typeof p === 'object' && p.fileType) ? p.fileType : undefined,
+          uploadedBy: (typeof p === 'object' && p.uploadedBy) ? p.uploadedBy : (kpi.submitter || 'Submitter')
+        });
+      }
+    });
+  }
+
+  // 3. From quarter specific arrays
   const quarterMap: Record<string, string[] | string | undefined> = {
     'Q1': kpi.q1Poes,
     'Q2': kpi.q2Poes,
@@ -352,9 +434,11 @@ export function extractKpiPoes(kpi: any, globalPoes: any[]): Array<{
   Object.entries(quarterMap).forEach(([qKey, rawValue]) => {
     let fileNames: string[] = [];
     if (Array.isArray(rawValue)) {
-      rawValue.forEach(item => {
+      rawValue.forEach((item: any) => {
         if (typeof item === 'string') {
           fileNames.push(...item.split(',').map(s => s.trim()));
+        } else if (item && typeof item === 'object' && item.name) {
+          fileNames.push(String(item.name));
         }
       });
     } else if (typeof rawValue === 'string') {
@@ -362,8 +446,8 @@ export function extractKpiPoes(kpi: any, globalPoes: any[]): Array<{
     }
 
     fileNames.forEach((fn, idx) => {
-      if (fn && !seenNames.has(fn)) {
-        seenNames.add(fn);
+      if (fn && !seenNames.has(fn.trim().toLowerCase())) {
+        seenNames.add(fn.trim().toLowerCase());
         const matched = (globalPoes || []).find(p => {
           if (!p || !p.name) return false;
           const normPName = p.name.toLowerCase().trim();
@@ -381,7 +465,8 @@ export function extractKpiPoes(kpi: any, globalPoes: any[]): Array<{
           desc: matched?.description || (kpi as any)[`${qKey.toLowerCase()}PoeDesc`] || kpi.poeDesc,
           dataUrl: payload,
           fileData: payload,
-          fileType: matched?.fileType || matched?.mimeType
+          fileType: matched?.fileType || matched?.mimeType,
+          uploadedBy: matched?.uploadedBy || kpi.submitter || 'Submitter'
         });
       }
     });

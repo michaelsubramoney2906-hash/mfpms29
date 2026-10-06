@@ -135,27 +135,329 @@ const mKpisCompact: { [key: string]: { desc: string; kpaIndex: number; uom?: str
   "M_92": { desc: "Number of climate change adaptation strategy training sessions held.", kpaIndex: 6, uom: "sessions", target: "4", base: "2", poe: "Signed climate change adaptation training attendance registers and module notes" }
 };
 
-// Compact Departmental KPI definitions list (P_01 to P_19) with KPI-specific POEs
-const pKpisCompact: { [key: string]: { desc: string; kpaIndex: number; uom?: string; target?: string; base?: string; q1?: string; q2?: string; mid?: string; q3?: string; q4?: string; poe: string } } = {
-  "P_01": { desc: "Percentage of departmental capital budget spent on service delivery projects.", kpaIndex: 4, uom: "% spent", target: "95%", base: "90%", poe: "Signed departmental capital project expenditure certificates and Section 71 report" },
-  "P_02": { desc: "Number of community consultation meetings held to gather input on departmental projects.", kpaIndex: 5, uom: "meetings", target: "4", base: "2", poe: "Signed departmental project community consultation minutes and attendance register" },
-  "P_03": { desc: "Percentage of departmental audit queries resolved within 30 days of notification.", kpaIndex: 4, uom: "% resolved", target: "100%", base: "95%", poe: "Signed departmental audit query resolution pack and management responses" },
-  "P_04": { desc: "Average response time (in hours) to resolve urgent customer service requests.", kpaIndex: 1, uom: "hours", target: "<24 hours", base: "36 hours", poe: "Signed urgent customer service request job cards and resolution turnaround logs" },
-  "P_05": { desc: "Percentage of staff performance reviews conducted and submitted within deadlines.", kpaIndex: 2, uom: "% reviews", target: "100%", base: "90%", poe: "Signed departmental staff performance assessment forms and HR submission receipts" },
-  "P_06": { desc: "Percentage compliance with departmental procurement plan milestones.", kpaIndex: 4, uom: "% compliance", target: "90%", base: "85%", poe: "Signed departmental procurement plan milestone tracking schedule" },
-  "P_07": { desc: "Number of safety inspections conducted at municipal facilities.", kpaIndex: 2, uom: "inspections", target: "12", base: "8", poe: "Signed municipal facility safety audit checklists and inspection reports" },
-  "P_08": { desc: "Percentage of local labor employed in departmental infrastructure projects.", kpaIndex: 3, uom: "% local labor", target: "40%", base: "35%", poe: "Signed local labor recruitment register and payroll vouchers for capital projects" },
-  "P_09": { desc: "Number of training hours completed per employee in the department.", kpaIndex: 2, uom: "hours per staff", target: "24", base: "16", poe: "Signed departmental training attendance registers and skills development records" },
-  "P_10": { desc: "Percentage of departmental risk registers updated quarterly.", kpaIndex: 2, uom: "% updated", target: "100%", base: "100%", poe: "Signed departmental quarterly risk register updates and mitigation reports" },
-  "P_11": { desc: "Number of LED initiatives supported directly by the department.", kpaIndex: 3, uom: "initiatives", target: "6", base: "4", poe: "Signed departmental LED initiative progress reports and beneficiary register" },
-  "P_12": { desc: "Percentage reduction in departmental energy/water utility losses.", kpaIndex: 1, uom: "% loss reduction", target: "5%", base: "3%", poe: "Signed utility consumption audit and loss reduction quarterly report" },
-  "P_13": { desc: "Number of departmental reports submitted to municipal council on time.", kpaIndex: 5, uom: "reports", target: "12", base: "12", poe: "Signed departmental quarterly performance reports submitted to Council" },
-  "P_14": { desc: "Percentage compliance with the Promotion of Administrative Justice Act (PAJA).", kpaIndex: 5, uom: "% compliance", target: "100%", base: "100%", poe: "Signed PAJA compliance checklists and administrative decision logs" },
-  "P_15": { desc: "Number of public awareness campaigns hosted by the department.", kpaIndex: 5, uom: "campaigns", target: "4", base: "2", poe: "Signed public awareness event report and campaign attendance registers" },
-  "P_16": { desc: "Percentage of departmental documents archived in the centralized DMS.", kpaIndex: 2, uom: "% archived", target: "100%", base: "95%", poe: "Signed Document Management System (DMS) archival audit report and indexing log" },
-  "P_17": { desc: "Average number of days to process business license applications.", kpaIndex: 3, uom: "days", target: "5 days", base: "7 days", poe: "Signed business license applications register and issuance turnaround report" },
-  "P_18": { desc: "Percentage of departmental service standards published and met.", kpaIndex: 5, uom: "% standards met", target: "95%", base: "90%", poe: "Signed departmental service delivery standards audit report and charter" },
-  "P_19": { desc: "Percentage implementation of capital project management milestones within approved project schedule and budget.", kpaIndex: 1, uom: "% milestone completion", target: "100%", base: "90%", poe: "Signed capital project milestone completion certificates and project manager reports" }
+// Compact Departmental KPI definitions list (P_01 to P_19) with verbatim SDBIP statutory project data from SDBIP document
+const pKpisCompact: { 
+  [key: string]: { 
+    desc: string; 
+    kpaIndex: number; 
+    uom?: string; 
+    target?: string; 
+    base?: string; 
+    q1?: string; 
+    q2?: string; 
+    mid?: string; 
+    q3?: string; 
+    q4?: string; 
+    poe: string;
+    budget?: string;
+    owner?: string;
+    location?: string;
+  } 
+} = {
+  "P_01": {
+    desc: "50 SASSETA Learnership (Security) recruited and trained by 30 June 2027 (34377)",
+    kpaIndex: 3,
+    owner: "Executive Manager: Social Services",
+    uom: "Stage / % Completion",
+    base: "0%",
+    target: "Stage 3: implementation Stage (100%): Practical Training",
+    q1: "Stage 2: procurement Stage (100%): Appointment of the service provider",
+    q2: "Stage 3: implementation Stage (50%): Recruitment of 50 learners",
+    mid: "Stage 3: implementation Stage (50%): Recruitment of 50 learners",
+    q3: "Stage 3: implementation Stage (75%): Theory Training",
+    q4: "Stage 3: implementation Stage (100%) Practical Training",
+    poe: "Appointment Letter, Contracts of learners, signed Site Visit Reports with attendance register attached (Contracts available on hard copy files)",
+    budget: "R3 010 000",
+    location: "District Wide"
+  },
+  "P_02": {
+    desc: "Support to SMMEs/ Cooperatives/ Informal Traders by 30 June 2027. (34409)",
+    kpaIndex: 3,
+    owner: "Executive Manager: Development Planning",
+    uom: "Stage / % Completion",
+    base: "0%",
+    target: "Stage 3: Implementation Stage (100% (30) SMMEs/Cooperatives/Informal Traders)- Signing of agreement between NDM and beneficiaries. Supply and Delivery of tools/equipment’s to SMMEs",
+    q1: "Stage 1: Planning Stage (100%): Bid Specification Committee Resolution",
+    q2: "Stage 2: Procurement Stage (25%): Tender Advertisement",
+    mid: "Stage 2: Procurement Stage (25%): Tender Advertisement",
+    q3: "Stage 2: Procurement Stage (100%): Bid Evaluation Committee Resolution, Bid Adjudication Committee Resolution and Appointment of Service Provider",
+    q4: "Stage 3: Implementation Stage (100%) - Signing of agreement between NDM and beneficiaries. Supply and Delivery of tools/equipment’s to SMMEs/Cooperatives/Informal Traders and Delivery Notes.",
+    poe: "BSC Resolution, Tender Advert (Tear Sheet), BEC Resolution, BAC Resolution, Signed & Dated Appointment Letter, list of beneficiaries, Signed Agreements",
+    budget: "R5 000 000",
+    location: "District wide"
+  },
+  "P_03": {
+    desc: "Preparation of Consolidated AFS for NDM and NEDA AFS by 31 December 2026.",
+    kpaIndex: 4,
+    owner: "Chief Financial Officer",
+    uom: "Stage / % Completion",
+    base: "0%",
+    target: "Stage 3: Implementation Stage (100%): spending as per Finance Related Projects Report",
+    q1: "Stage 3: Implementation Stage (100%): Consolidated AFS prepared and submitted to AG",
+    q2: "Stage 3: Implementation Stage (100%): spending as per Finance Related Projects Report",
+    mid: "Stage 3: Implementation Stage (100%): spending as per Finance Related Projects Report",
+    q3: "N/A",
+    q4: "N/A",
+    poe: "Acknowledgement of receipt from AG, Final Consolidated AFS, Signed progress report",
+    budget: "R500 000",
+    location: "NDM"
+  },
+  "P_04": {
+    desc: "Actuarial valuations paid by 31 December 2026.",
+    kpaIndex: 4,
+    owner: "Chief Financial Officer",
+    uom: "Stage / % Completion",
+    base: "0%",
+    target: "Stage 3: Implementation Stage (100%): Payment of Actuarial evaluator",
+    q1: "Stage 3: Implementation Stage (100%): Final Actuarial Report",
+    q2: "Stage 3: Implementation Stage (100%): Payment of Actuarial evaluator",
+    mid: "Stage 3: Implementation Stage (100%): Payment of Actuarial evaluator",
+    q3: "N/A",
+    q4: "N/A",
+    poe: "Actuarial valuations report (Q1) and proof of payment (Q2)",
+    budget: "R20 000",
+    location: "NDM"
+  },
+  "P_05": {
+    desc: "SCM/Debtors verification system paid by 30 June 2027.",
+    kpaIndex: 4,
+    owner: "Chief Financial Officer",
+    uom: "Stage / % Completion",
+    base: "0%",
+    target: "Stage 3: Implementation Stage (100%): spending as per Finance Related Projects Report",
+    q1: "Stage 3: Implementation Stage (17%): spending as per Finance Related Projects Report",
+    q2: "Stage 3: Implementation Stage (42%): spending as per Finance Related Projects Report",
+    mid: "Stage 3: Implementation Stage (42%): spending as per Finance Related Projects Report",
+    q3: "Stage 3: Implementation Stage (67%): spending as per Finance Related Projects Report",
+    q4: "Stage 3: Implementation Stage (100%): spending as per Finance Related Projects Report",
+    poe: "Signed progress report",
+    budget: "R960 000",
+    location: "NDM"
+  },
+  "P_06": {
+    desc: "AFS Assistance and Review of AFS for NDM and Reviewal of AFS for NEDA by 31 December 2026.",
+    kpaIndex: 4,
+    owner: "Chief Financial Officer",
+    uom: "Stage / % Completion",
+    base: "0%",
+    target: "Stage 3: Implementation Stage (100%): Assistance report during Audit",
+    q1: "Stage 3: Implementation Stage (100%): Final AFS Review Report",
+    q2: "Stage 3: Implementation Stage (100%): Assistance report during Audit",
+    mid: "Stage 3: Implementation Stage (100%): Assistance report during Audit",
+    q3: "N/A",
+    q4: "N/A",
+    poe: "NDM AFS Review Report (Q1) and NEDA AFS Review Reports (Q1), COMAF Register (with comments from independent reviewer)",
+    budget: "R472 000",
+    location: "NDM"
+  },
+  "P_07": {
+    desc: "Refurbishment & Upgrading Delmas WWTW by 30 June 2027",
+    kpaIndex: 1,
+    owner: "Executive Manager: Technical Services",
+    uom: "Stage / % Completion",
+    base: "0%",
+    target: "Stage 3: Construction Stage (100%): Construction Progress",
+    q1: "Stage 3: Construction Stage (90%): Construction Progress",
+    q2: "Stage 3: Construction Stage (95%): Construction Progress",
+    mid: "Stage 3: Construction Stage (95%): Construction Progress",
+    q3: "Stage 3: Construction Stage (98%): Construction Progress",
+    q4: "Stage 3: Construction Stage (100%): Construction Progress",
+    poe: "Signed Construction progress report, Completion certificate",
+    budget: "R12 732 860",
+    location: "Victor Khanye"
+  },
+  "P_08": {
+    desc: "Refurbishment of Emalahleni Bulk Water Infrastructure by 30 June 2027",
+    kpaIndex: 1,
+    owner: "Executive Manager: Technical Services",
+    uom: "Stage / % Completion",
+    base: "0%",
+    target: "Stage 3: Construction Stage (100%): Construction Progress",
+    q1: "Stage 3: Construction Stage (40%): Construction Progress",
+    q2: "Stage 3: Construction Stage (45%): Construction Progress",
+    mid: "Stage 3: Construction Stage (45%): Construction Progress",
+    q3: "Stage 3: Construction Stage (65%): Construction Progress",
+    q4: "Stage 3: Construction Stage (100%): Construction Progress",
+    poe: "Signed Construction progress report, Completion certificate",
+    budget: "R47 619 047",
+    location: "Emalahleni"
+  },
+  "P_09": {
+    desc: "Loskop Regional Bulk Water Supply: WP1 by 30 June 2027",
+    kpaIndex: 1,
+    owner: "Executive Manager: Technical Services",
+    uom: "Stage / % Completion",
+    base: "0%",
+    target: "Stage 3: Construction Stage (100%): Construction Progress",
+    q1: "Stage 3: Construction Stage (80%): Construction Progress",
+    q2: "Stage 3: Construction Stage (90%): Construction Progress",
+    mid: "Stage 3: Construction Stage (90%): Construction Progress",
+    q3: "Stage 3: Construction Stage (100%): Construction Progress",
+    q4: "N/A",
+    poe: "Signed Construction progress report.",
+    budget: "R213 500 000",
+    location: "Thembisile Hani"
+  },
+  "P_10": {
+    desc: "Loskop Regional Bulk Water Supply: WP2 by 30 June 2027",
+    kpaIndex: 1,
+    owner: "Executive Manager: Technical Services",
+    uom: "Stage / % Completion",
+    base: "0%",
+    target: "Stage 3: Construction Stage (100%): Construction Progress",
+    q1: "Stage 3: Construction Stage (95%): Construction Progress",
+    q2: "Stage 3: Construction Stage (98%): Construction Progress",
+    mid: "Stage 3: Construction Stage (98%): Construction Progress",
+    q3: "Stage 3: Construction Stage (100%): Construction Progress",
+    q4: "N/A",
+    poe: "Completion certificate",
+    budget: "R0",
+    location: "Thembisile Hani"
+  },
+  "P_11": {
+    desc: "Loskop Regional Bulk Water Supply: WP3 by 30 June 2027",
+    kpaIndex: 1,
+    owner: "Executive Manager: Technical Services",
+    uom: "Stage / % Completion",
+    base: "0%",
+    target: "Stage 3: Construction Stage (100%): Construction Progress",
+    q1: "Stage 3: Construction Stage (90%): Construction Progress",
+    q2: "Stage 3: Construction Stage (95%): Construction Progress",
+    mid: "Stage 3: Construction Stage (95%): Construction Progress",
+    q3: "Stage 3: Construction Stage (100%): Construction Progress",
+    q4: "N/A",
+    poe: "Completion certificate",
+    budget: "R0",
+    location: "Thembisile Hani"
+  },
+  "P_12": {
+    desc: "Loskop Regional Bulk Water Supply: WP6(A) by 30 June 2027",
+    kpaIndex: 1,
+    owner: "Executive Manager: Technical Services",
+    uom: "Stage / % Completion",
+    base: "0%",
+    target: "Stage 3: Construction Stage (100%): Construction Progress",
+    q1: "Stage 1 – Planning and Design Stage (100%): BSC Resolutions",
+    q2: "Stage 2 – Procurement Stage (100%): Advert, BEC&BAC Resolutions Contractor’s Appointment Letter",
+    mid: "Stage 2 – Procurement Stage (100%): Advert, BEC&BAC Resolutions Contractor’s Appointment Letter",
+    q3: "Stage 3: Construction Stage (70%): Construction Progress",
+    q4: "Stage 3: Construction Stage (100%): Construction Progress",
+    poe: "BSC resolutions, tender advert, BEC & BAC resolutions and signed appointment letter, Signed Construction progress report.",
+    budget: "R0",
+    location: "Thembisile Hani"
+  },
+  "P_13": {
+    desc: "Loskop Regional Bulk Water Supply: WP6 (B) by 30 June 2027",
+    kpaIndex: 1,
+    owner: "Executive Manager: Technical Services",
+    uom: "Stage / % Completion",
+    base: "0%",
+    target: "Stage 3: Construction Stage (100%): Construction Progress",
+    q1: "Stage 1 – Planning and Design Stage (100%): BSC Resolutions",
+    q2: "Stage 2 – Procurement Stage (100%): Advert, BEC&BAC Resolutions Contractor’s Appointment Letter",
+    mid: "Stage 2 – Procurement Stage (100%): Advert, BEC&BAC Resolutions Contractor’s Appointment Letter",
+    q3: "Stage 3: Construction Stage (70%): Construction Progress",
+    q4: "Stage 3: Construction Stage (100%): Construction Progress",
+    poe: "Signed Construction progress report.",
+    budget: "R0",
+    location: "Thembisile Hani"
+  },
+  "P_14": {
+    desc: "Borehole Materials: Dr JS Moroka",
+    kpaIndex: 1,
+    owner: "Executive Manager: Technical Services",
+    uom: "Stage / % Completion",
+    base: "0%",
+    target: "Stage 3: Implementation Stage (100%): Expenditure Progress",
+    q1: "Stage 2 – Procurement Stage (100%): Appointment of Contractor",
+    q2: "Stage 3: Implementation Stage (40%): Expenditure Progress",
+    mid: "Stage 3: Implementation Stage (40%): Expenditure Progress",
+    q3: "Stage 3: Implementation Stage (70%): Expenditure Progress",
+    q4: "Stage 3: Implementation Stage (100%): Expenditure Progress",
+    poe: "Appointment Letter, Signed Delivery Note(s) and Expenditure Report",
+    budget: "R500 000",
+    location: "Dr JS Moroka"
+  },
+  "P_15": {
+    desc: "Rural Road Asset Management by 30 June 2027. (7302)",
+    kpaIndex: 1,
+    owner: "Executive Manager: Technical Services",
+    uom: "Stage / % Completion",
+    base: "0%",
+    target: "Stage 2: Implementation Stage (100%): Road Network Assessment",
+    q1: "Stage 2: Implementation Stage (75%): Road Network Assessment",
+    q2: "Stage 2: Implementation Stage (85%): Road Network Assessment",
+    mid: "Stage 2: Implementation Stage (85%): Road Network Assessment",
+    q3: "Stage 2: Implementation Stage (95%): Road Network Assessment",
+    q4: "Stage 2: Implementation Stage (100%): Road Network Assessment",
+    poe: "Signed Road Network Assessment progress reports",
+    budget: "R2 659 000",
+    location: "District Wide"
+  },
+  "P_16": {
+    desc: "High mast Lights Retrofitting by 30 June 2027. (185541)",
+    kpaIndex: 1,
+    owner: "Executive Manager: Technical Services",
+    uom: "Stage / % Completion",
+    base: "0%",
+    target: "Stage 3: Construction Stage (100%): Construction Progress",
+    q1: "Stage 1: Planning Stage (100%): Approved Business plan",
+    q2: "Stage 3: Construction Stage (30%): Construction Progress",
+    mid: "Stage 3: Construction Stage (30%): Construction Progress",
+    q3: "Stage 3: Construction Stage (60%): Construction Progress",
+    q4: "Stage 3: Construction Stage (100%): Construction Progress",
+    poe: "Signed Construction progress report and completion certificate, Approved Business plan",
+    budget: "R2 000 000",
+    location: "Victor Khanye LM"
+  },
+  "P_17": {
+    desc: "High mast Lights Retrofitting by 30 June 2027. (185541)",
+    kpaIndex: 1,
+    owner: "Executive Manager: Technical Services",
+    uom: "Stage / % Completion",
+    base: "0%",
+    target: "Stage 3: Construction Stage (100%): Construction Progress",
+    q1: "Stage 1: Planning Stage (100%): Approved Business plan",
+    q2: "Stage 3: Construction Stage (30%): Construction Progress",
+    mid: "Stage 3: Construction Stage (30%): Construction Progress",
+    q3: "Stage 3: Construction Stage (60%): Construction Progress",
+    q4: "Stage 3: Construction Stage (100%): Construction Progress",
+    poe: "Signed Construction progress report and completion certificate, Approved Business plan",
+    budget: "R2 000 000",
+    location: "Dr JS Moroka LM"
+  },
+  "P_18": {
+    desc: "Finalisation of a Township Establishment in Siyathuthuka",
+    kpaIndex: 6,
+    owner: "Executive Manager: Development Planning",
+    uom: "Stage / % Completion",
+    base: "0%",
+    target: "Stage 2: Implementation Stage (100%): Final Special Study and Final of Opening of Township Register",
+    q1: "Stage 1: Planning Stage (100%): Appointment of the Service Provider",
+    q2: "Stage 2: Implementation Stage (30%): Inception Report",
+    mid: "Stage 2: Implementation Stage (30%): Inception Report",
+    q3: "Stage 2: Implementation Stage (60%): Draft Special Study and Draft Opening of Township Register",
+    q4: "Stage 2: Implementation Stage (100%): Final Special Study and Final of Opening of Township Register",
+    poe: "Appointment Letter, Inception Report, Draft Special Study and Opening of Township Register, Final Special Study and Opening of Township Register",
+    budget: "R700 000",
+    location: "Emakhazeni LM"
+  },
+  "P_19": {
+    desc: "Percentage implementation of capital project management milestones within approved project schedule and budget.",
+    kpaIndex: 1,
+    owner: "Executive Manager: Technical Services",
+    uom: "% milestone completion",
+    base: "90%",
+    target: "100%",
+    q1: "25%",
+    q2: "50%",
+    mid: "50%",
+    q3: "75%",
+    q4: "100%",
+    poe: "Signed capital project milestone completion certificates and project manager reports",
+    budget: "R0",
+    location: "District Wide"
+  }
 };
 
 const getKpaName = (idx: number): string => {
@@ -206,7 +508,7 @@ const getKpaResponsibleOwner = (idx: number): string => {
 };
 
 // Generates a fully inflated catalog item with KPI-specific POE
-function inflateItem(refCode: string, compact: { desc: string; kpaIndex: number; uom?: string; target?: string; base?: string; q1?: string; q2?: string; mid?: string; q3?: string; q4?: string; poe?: string }): SdbipCatalogItem {
+function inflateItem(refCode: string, compact: { desc: string; kpaIndex: number; uom?: string; target?: string; base?: string; q1?: string; q2?: string; mid?: string; q3?: string; q4?: string; poe?: string; budget?: string; owner?: string }): SdbipCatalogItem {
   const flags = getKpaFlags(compact.kpaIndex);
   const uom = compact.uom || "Percentage";
   const target = compact.target || "100% compliance";
@@ -224,11 +526,11 @@ function inflateItem(refCode: string, compact: { desc: string; kpaIndex: number;
     GGPP: flags.ggpp,
     MIDT: flags.midt,
     SR: flags.sr,
-    Responsible_Owner: getKpaResponsibleOwner(compact.kpaIndex),
+    Responsible_Owner: compact.owner || getKpaResponsibleOwner(compact.kpaIndex),
     Unit_of_Measure: uom,
     Baseline: base,
     Annual_Target: target,
-    Budget_Allocation: refCode.startsWith('M') ? "R 1,500,000" : "R 250,000",
+    Budget_Allocation: compact.budget || (refCode.startsWith('M') ? "R 1,500,000" : "R 250,000"),
     Q1_Target: compact.q1 || `25% of ${target}`,
     Q2_Target: compact.q2 || `50% of ${target}`,
     Mid_Term_Target: compact.mid || `50% of ${target}`,
@@ -323,10 +625,14 @@ export function ensureAllSdbipKpis(extractedItems: any[]): SdbipCatalogItem[] {
 
     if (extracted) {
       const sourcePoe = extracted.POE_Description || extracted.poeStatus || extracted.poeDesc || extracted.poe || extracted.meansOfVerification || extracted.q1PoeDesc || extracted.q2PoeDesc || extracted.q3PoeDesc || extracted.q4PoeDesc || compactDef?.poe || `Signed quarterly project milestone certificates and expenditure reports for ${code}`;
+      const rawKpi = extracted.KPI || extracted.kpi || "";
+      const isGeneric = !rawKpi || rawKpi.length < 5 || rawKpi.includes("Percentage of departmental capital budget spent") || rawKpi.includes("Number of community consultation meetings");
+      const kpiName = isGeneric ? (compactDef ? compactDef.desc : rawKpi) : rawKpi;
+
       result.push({
         Ref_Number: code,
         SDBIP_Strategic_Objective: extracted.SDBIP_Strategic_Objective || extracted.strategicObj || (compactDef ? getKpaStrategicObjective(compactDef.kpaIndex) : ""),
-        KPI: extracted.KPI || extracted.kpi || (compactDef ? compactDef.desc : ""),
+        KPI: kpiName,
         National_KPA: extracted.National_KPA || extracted.kpas || (compactDef ? getKpaName(compactDef.kpaIndex) : ""),
         BSD: extracted.BSD || (compactDef && getKpaFlags(compactDef.kpaIndex).bsd ? "X" : ""),
         LED: extracted.LED || (compactDef && getKpaFlags(compactDef.kpaIndex).led ? "X" : ""),
@@ -334,26 +640,26 @@ export function ensureAllSdbipKpis(extractedItems: any[]): SdbipCatalogItem[] {
         GGPP: extracted.GGPP || (compactDef && getKpaFlags(compactDef.kpaIndex).ggpp ? "X" : ""),
         MIDT: extracted.MIDT || (compactDef && getKpaFlags(compactDef.kpaIndex).midt ? "X" : ""),
         SR: extracted.SR || (compactDef && getKpaFlags(compactDef.kpaIndex).sr ? "X" : ""),
-        Responsible_Owner: extracted.Responsible_Owner || extracted.responsibleUnit || (compactDef ? getKpaResponsibleOwner(compactDef.kpaIndex) : ""),
-        Unit_of_Measure: extracted.Unit_of_Measure || extracted.uom || (compactDef ? compactDef.uom || "Percentage" : ""),
-        Baseline: extracted.Baseline || extracted.baseline || (compactDef ? compactDef.base || "0%" : "0"),
-        Annual_Target: extracted.Annual_Target || extracted.annualTarget || (compactDef ? compactDef.target || "100%" : ""),
-        Budget_Allocation: extracted.Budget_Allocation || extracted.budgetAllocation || "R 250,000",
-        Q1_Target: extracted.Q1_Target || extracted.q1 || (compactDef ? compactDef.q1 || `25% of ${compactDef.target}` : ""),
-        Q2_Target: extracted.Q2_Target || extracted.q2 || (compactDef ? compactDef.q2 || `50% of ${compactDef.target}` : ""),
-        Mid_Term_Target: extracted.Mid_Term_Target || extracted.midTerm || (compactDef ? compactDef.mid || `50% of ${compactDef.target}` : ""),
-        Q3_Target: extracted.Q3_Target || extracted.q3 || (compactDef ? compactDef.q3 || `75% of ${compactDef.target}` : ""),
-        Q4_Target: extracted.Q4_Target || extracted.q4 || (compactDef ? compactDef.q4 || compactDef.target : ""),
+        Responsible_Owner: extracted.Responsible_Owner || extracted.responsibleUnit || (compactDef ? (compactDef.owner || getKpaResponsibleOwner(compactDef.kpaIndex)) : ""),
+        Unit_of_Measure: (isGeneric && compactDef?.uom) ? compactDef.uom : (extracted.Unit_of_Measure || extracted.uom || (compactDef ? compactDef.uom || "Stage / % Completion" : "")),
+        Baseline: (isGeneric && compactDef?.base) ? compactDef.base : (extracted.Baseline || extracted.baseline || (compactDef ? compactDef.base || "0%" : "0")),
+        Annual_Target: (isGeneric && compactDef?.target) ? compactDef.target : (extracted.Annual_Target || extracted.annualTarget || (compactDef ? compactDef.target || "100%" : "")),
+        Budget_Allocation: (isGeneric && compactDef?.budget) ? compactDef.budget : (extracted.Budget_Allocation || compactDef?.budget || extracted.budgetAllocation || "R 0"),
+        Q1_Target: (isGeneric && compactDef?.q1) ? compactDef.q1 : (extracted.Q1_Target || extracted.q1 || (compactDef ? compactDef.q1 || `25%` : "")),
+        Q2_Target: (isGeneric && compactDef?.q2) ? compactDef.q2 : (extracted.Q2_Target || extracted.q2 || (compactDef ? compactDef.q2 || `50%` : "")),
+        Mid_Term_Target: (isGeneric && compactDef?.mid) ? compactDef.mid : (extracted.Mid_Term_Target || extracted.midTerm || (compactDef ? compactDef.mid || `50%` : "")),
+        Q3_Target: (isGeneric && compactDef?.q3) ? compactDef.q3 : (extracted.Q3_Target || extracted.q3 || (compactDef ? compactDef.q3 || `75%` : "")),
+        Q4_Target: (isGeneric && compactDef?.q4) ? compactDef.q4 : (extracted.Q4_Target || extracted.q4 || (compactDef ? compactDef.q4 || compactDef.target : "")),
         Submitter: extracted.Submitter || extracted.submitter || "Departmental Submitter",
         Approver: extracted.Approver || extracted.approver || "Executive Manager",
-        POE_Description: sourcePoe,
-        Description: extracted.Description || extracted.description || (compactDef ? compactDef.desc : "")
+        POE_Description: isGeneric && compactDef?.poe ? compactDef.poe : sourcePoe,
+        Description: kpiName
       });
     } else if (compactDef) {
       result.push(inflateItem(code, compactDef));
     } else {
       // Emergency dummy fallback
-      result.push(inflateItem(code, { desc: `Departmental KPI Indicator details for ${code}`, kpaIndex: 5, poe: `Signed quarterly project evidence for ${code}` }));
+      result.push(inflateItem(code, { desc: `Departmental Project details for ${code}`, kpaIndex: 5, poe: `Signed quarterly project evidence for ${code}` }));
     }
   }
 
