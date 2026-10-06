@@ -289,9 +289,33 @@ export function KPAIPMS({ currentUser, activeTenantId }: KPAIPMSProps) {
             Capture Municipal Key Performance Areas (KPAs) directly into operational <strong>Functional Area KPAs</strong> (e.g., Water Infrastructure, Waste Management, Financial Governance) rather than generic National KPA abbreviations (BSD, LED, GGPP, etc.).
           </p>
         </div>
-        <div className="flex items-center gap-2 bg-slate-900/60 px-4 py-2 rounded-xl border border-white/5 text-[11px] font-mono">
-          <Server className="w-4 h-4 text-green-400 animate-pulse" />
-          <span>Status: Supabase Connected</span>
+        <div className="flex items-center gap-2">
+          {isDualLayerTeamLeader && (
+            <div className="flex items-center gap-1.5 bg-black/60 p-1 rounded-xl shrink-0 mr-2 border border-white/10">
+              <button
+                type="button"
+                onClick={() => setAgreementScope('individual')}
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition ${
+                  agreementScope === 'individual' ? 'bg-emerald-500 text-white shadow' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                My Personal Module
+              </button>
+              <button
+                type="button"
+                onClick={() => setAgreementScope('team')}
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition ${
+                  agreementScope === 'team' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Team Module
+              </button>
+            </div>
+          )}
+          <div className="flex items-center gap-2 bg-slate-900/60 px-4 py-2 rounded-xl border border-white/5 text-[11px] font-mono">
+            <Server className="w-4 h-4 text-green-400 animate-pulse" />
+            <span>Status: Supabase Connected</span>
+          </div>
         </div>
       </div>
 
@@ -356,11 +380,11 @@ export function KPAIPMS({ currentUser, activeTenantId }: KPAIPMSProps) {
                     onChange={(e) => setNationalKpa(e.target.value)}
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-930 outline-none focus:border-slate-800 focus:bg-white transition cursor-pointer text-xs"
                   >
-                    <option value="">Select National KPA Alignment... (Optional)</option>
-                    {NATIONAL_KPAS.map((kpa) => (
-                      <option key={kpa} value={kpa}>{kpa}</option>
+                    <option key="opt-nat-default" value="">Select National KPA Alignment... (Optional)</option>
+                    {NATIONAL_KPAS.map((kpa, idx) => (
+                      <option key={`nat-kpa-${idx}-${kpa}`} value={kpa}>{kpa}</option>
                     ))}
-                    <option value="__CUSTOM__">➕ Enter Custom / Manual National KPA...</option>
+                    <option key="opt-nat-custom" value="__CUSTOM__">➕ Enter Custom / Manual National KPA...</option>
                   </select>
                   {nationalKpa === '__CUSTOM__' && (
                     <input
@@ -388,11 +412,11 @@ export function KPAIPMS({ currentUser, activeTenantId }: KPAIPMSProps) {
                     onChange={(e) => setParentObjective(e.target.value)}
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-930 outline-none focus:border-slate-800 focus:bg-white transition cursor-pointer text-xs"
                   >
-                    <option value="">Select Strategic Anchor... (Optional)</option>
-                    {STRATEGIC_OBJECTIVES.map((obj) => (
-                      <option key={obj} value={obj}>{obj}</option>
+                    <option key="opt-strat-default" value="">Select Strategic Anchor... (Optional)</option>
+                    {STRATEGIC_OBJECTIVES.map((obj, idx) => (
+                      <option key={`strat-obj-${idx}-${obj}`} value={obj}>{obj}</option>
                     ))}
-                    <option value="__CUSTOM__">➕ Enter Custom / Manual Strategic Objective...</option>
+                    <option key="opt-strat-custom" value="__CUSTOM__">➕ Enter Custom / Manual Strategic Objective...</option>
                   </select>
                   {parentObjective === '__CUSTOM__' && (
                     <textarea
@@ -415,11 +439,11 @@ export function KPAIPMS({ currentUser, activeTenantId }: KPAIPMSProps) {
                     onChange={(e) => setMscoaCode(e.target.value)}
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-930 outline-none focus:border-slate-800 focus:bg-white transition cursor-pointer text-xs"
                   >
-                    <option value="">Select mSCOA Code... (Optional)</option>
-                    {MSCOA_CODES.map((code) => (
-                      <option key={code} value={code}>{code}</option>
+                    <option key="opt-mscoa-default" value="">Select mSCOA Code... (Optional)</option>
+                    {MSCOA_CODES.map((code, idx) => (
+                      <option key={`mscoa-code-${idx}-${code}`} value={code}>{code}</option>
                     ))}
-                    <option value="__CUSTOM__">➕ Enter Custom / Manual mSCOA Code...</option>
+                    <option key="opt-mscoa-custom" value="__CUSTOM__">➕ Enter Custom / Manual mSCOA Code...</option>
                   </select>
                   {mscoaCode === '__CUSTOM__' && (
                     <input
@@ -572,7 +596,7 @@ export function KPAIPMS({ currentUser, activeTenantId }: KPAIPMSProps) {
                   <tr className="bg-slate-100 border-b border-slate-200">
                     {tableHeaders.map((header, colIdx) => (
                       <th 
-                        key={colIdx} 
+                        key={`kpa-th-${colIdx}`} 
                         style={{ resize: 'horizontal', width: colIdx === 0 ? '12%' : '29%' }}
                         className="p-3 font-extrabold text-slate-800 text-[10px] uppercase font-mono tracking-wider border-r border-slate-200 min-w-[120px] max-w-[500px] relative group overflow-hidden resize-x"
                       >
@@ -602,17 +626,17 @@ export function KPAIPMS({ currentUser, activeTenantId }: KPAIPMSProps) {
                         )}
                       </th>
                     ))}
-                    <th className="p-3 w-[80px] text-center text-slate-800 font-extrabold text-[10px] uppercase font-mono">Actions</th>
+                    <th key="kpa-th-col-actions" className="p-3 w-[80px] text-center text-slate-800 font-extrabold text-[10px] uppercase font-mono">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {tableRows.map((row, rowIdx) => (
-                    <tr key={rowIdx} className="border-b border-slate-150 hover:bg-slate-100/50 transition">
-                      {row.map((cell, colIdx) => (
-                        <td key={colIdx} className="p-2 border-r border-slate-200 align-top">
+                    <tr key={`kpa-row-${rowIdx}`} className="border-b border-slate-150 hover:bg-slate-100/50 transition">
+                      {Array.isArray(row) && row.map((cell, colIdx) => (
+                        <td key={`kpa-cell-${rowIdx}-${colIdx}`} className="p-2 border-r border-slate-200 align-top">
                           <textarea
                             rows={1}
-                            value={cell}
+                            value={cell || ''}
                             onChange={(e) => {
                               const updated = tableRows.map((r, rIdx) => {
                                 if (rIdx === rowIdx) {
@@ -639,7 +663,7 @@ export function KPAIPMS({ currentUser, activeTenantId }: KPAIPMSProps) {
                           />
                         </td>
                       ))}
-                      <td className="p-2 text-center align-middle">
+                      <td key={`kpa-actions-cell-${rowIdx}`} className="p-2 text-center align-middle">
                         <button
                           type="button"
                           onClick={() => {
@@ -690,17 +714,44 @@ export function KPAIPMS({ currentUser, activeTenantId }: KPAIPMSProps) {
                 </button>
               </div>
 
-              <button
-                type="button"
-                onClick={async () => {
-                  await saveKpasList(kpas, { headers: tableHeaders, rows: tableRows });
-                }}
-                disabled={saving}
-                className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 hover:scale-[1.02] active:scale-[0.98] transition font-bold uppercase text-[10px] tracking-wider text-white rounded-lg flex items-center gap-1.5 cursor-pointer shadow-md"
-              >
-                <Save className="w-3.5 h-3.5" />
-                {saving ? "SAVING TABLE..." : "SAVE TABLE CONTENT"}
-              </button>
+              {isDualLayerTeamLeader ? (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await saveKpasList(kpas, { headers: tableHeaders, rows: tableRows }, 'individual');
+                    }}
+                    disabled={saving}
+                    className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 hover:scale-[1.02] active:scale-[0.98] transition font-bold uppercase text-[10px] tracking-wider text-white rounded-lg flex items-center gap-1.5 cursor-pointer shadow-md"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    {saving ? "SAVING..." : "COMMIT PERSONAL DB"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await saveKpasList(kpas, { headers: tableHeaders, rows: tableRows }, 'team');
+                    }}
+                    disabled={saving}
+                    className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 hover:scale-[1.02] active:scale-[0.98] transition font-bold uppercase text-[10px] tracking-wider text-white rounded-lg flex items-center gap-1.5 cursor-pointer shadow-md"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    {saving ? "SAVING..." : "COMMIT TEAM DB"}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await saveKpasList(kpas, { headers: tableHeaders, rows: tableRows });
+                  }}
+                  disabled={saving}
+                  className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 hover:scale-[1.02] active:scale-[0.98] transition font-bold uppercase text-[10px] tracking-wider text-white rounded-lg flex items-center gap-1.5 cursor-pointer shadow-md"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  {saving ? "SAVING TABLE..." : "SAVE TABLE CONTENT"}
+                </button>
+              )}
             </div>
           </div>
 
@@ -727,52 +778,62 @@ export function KPAIPMS({ currentUser, activeTenantId }: KPAIPMSProps) {
               </div>
             ) : (
               <div className="space-y-3.5 max-h-[350px] overflow-auto pr-2 custom-scrollbar">
-                {kpas.map((k) => (
-                  <div 
-                    key={k.id} 
-                    className="p-4 bg-white/5 rounded-xl border border-white/10 hover:border-emerald-500/40 hover:bg-white/10 transition relative group"
-                  >
-                    <div className="flex justify-between items-start gap-4">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="bg-emerald-500/20 text-emerald-300 text-[9px] font-black uppercase px-2 py-0.5 rounded border border-emerald-500/30">
-                            Functional Area KPA
-                          </span>
+                {kpas.map((k: any, idx: number) => {
+                  const kId = typeof k === 'object' && k && k.id ? String(k.id) : `kpa-${idx}`;
+                  const kTitle = typeof k === 'string' ? k : (k?.title || k?.name || `KPA ${idx + 1}`);
+                  const kNat = typeof k === 'object' && k ? k.nationalKpa : null;
+                  const kMscoa = typeof k === 'object' && k ? k.mscoaCode : null;
+                  const kWeight = typeof k === 'object' && k ? k.weighting : null;
+                  const kObj = typeof k === 'object' && k ? k.parentObjective : null;
+
+                  return (
+                    <div 
+                      key={`kpa-unit-card-${idx}-${kId}`} 
+                      className="p-4 bg-white/5 rounded-xl border border-white/10 hover:border-emerald-500/40 hover:bg-white/10 transition relative group"
+                    >
+                      <div className="flex justify-between items-start gap-4">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="bg-emerald-500/20 text-emerald-300 text-[9px] font-black uppercase px-2 py-0.5 rounded border border-emerald-500/30">
+                              Functional Area KPA
+                            </span>
+                          </div>
+                          <h4 className="text-sm font-black text-white">{kTitle}</h4>
+                          <div className="flex flex-wrap gap-1.5 mt-2">
+                            {kNat && (
+                              <span className="bg-slate-800 text-slate-300 text-[9px] px-2 py-0.5 rounded border border-white/10 font-semibold font-mono">
+                                National: {kNat}
+                              </span>
+                            )}
+                            {kMscoa && (
+                              <span className="bg-blue-950/65 text-blue-300 text-[9px] px-2 py-0.5 rounded border border-blue-500/20 font-semibold font-mono">
+                                mSCOA: {kMscoa}
+                              </span>
+                            )}
+                            {kWeight && (
+                              <span className="bg-slate-800 text-amber-350 text-[9px] px-2 py-0.5 rounded border border-amber-500/25 font-bold font-mono">
+                                Weight: {kWeight}
+                              </span>
+                            )}
+                          </div>
+                          {kObj && (
+                            <p className="text-[11px] text-slate-400 mt-2 font-medium">
+                              <span className="text-slate-500 font-bold uppercase tracking-tight text-[10px]">Strategic Objective:</span> {kObj}
+                            </p>
+                          )}
                         </div>
-                        <h4 className="text-sm font-black text-white">{k.title}</h4>
-                        <div className="flex flex-wrap gap-1.5 mt-2">
-                          {k.nationalKpa && (
-                            <span className="bg-slate-800 text-slate-300 text-[9px] px-2 py-0.5 rounded border border-white/10 font-semibold font-mono">
-                              National: {k.nationalKpa}
-                            </span>
-                          )}
-                          {k.mscoaCode && (
-                            <span className="bg-blue-950/65 text-blue-300 text-[9px] px-2 py-0.5 rounded border border-blue-500/20 font-semibold font-mono">
-                              mSCOA: {k.mscoaCode}
-                            </span>
-                          )}
-                          {k.weighting && (
-                            <span className="bg-slate-800 text-amber-350 text-[9px] px-2 py-0.5 rounded border border-amber-500/25 font-bold font-mono">
-                              Weight: {k.weighting}
-                            </span>
-                          )}
-                        </div>
-                        {k.parentObjective && (
-                          <p className="text-[11px] text-slate-400 mt-2 font-medium">
-                            <span className="text-slate-500 font-bold uppercase tracking-tight text-[10px]">Strategic Objective:</span> {k.parentObjective}
-                          </p>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(kId)}
+                          className="text-gray-400 hover:text-rose-400 hover:bg-rose-950/40 p-1.5 rounded-lg transition"
+                          title="Delete KPA Unit"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
-                      <button
-                        onClick={() => handleDelete(k.id)}
-                        className="text-gray-400 hover:text-rose-400 hover:bg-rose-950/40 p-1.5 rounded-lg transition"
-                        title="Delete KPA Unit"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

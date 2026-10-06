@@ -2,6 +2,28 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      (function() {
+        function isViteWsError(err) {
+          if (!err) return false;
+          var msg = (typeof err === 'string' ? err : (err.message || err.toString() || ''));
+          var stack = (err && err.stack) || '';
+          return msg.indexOf('WebSocket') !== -1 || stack.indexOf('@vite/client') !== -1 || msg.indexOf('vite:ws') !== -1;
+        }
+        window.addEventListener('unhandledrejection', function(e) {
+          if (isViteWsError(e.reason)) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+          }
+        }, true);
+        window.addEventListener('error', function(e) {
+          if (isViteWsError(e.error) || (e.message && isViteWsError(e.message))) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+          }
+        }, true);
+      })();
+    </script>
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
     <meta name="theme-color" content="#15803d" />

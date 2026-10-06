@@ -1,5 +1,18 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+
+// Suppress known Vite HMR WebSocket errors in AI Studio iframe proxy
+if (typeof window !== 'undefined') {
+  window.addEventListener('unhandledrejection', (e) => {
+    const msg = e.reason?.message || String(e.reason || '');
+    const stack = e.reason?.stack || '';
+    if (msg.includes('WebSocket') || stack.includes('@vite/client') || msg.includes('vite:ws')) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+    }
+  }, true);
+}
+
 import App from './App.tsx';
 import './index.css';
 import { installResilientNetworkInterceptor } from './utils/resilientFetch';
