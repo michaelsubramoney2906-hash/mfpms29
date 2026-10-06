@@ -665,3 +665,5 @@ export function ensureAllSdbipKpis(extractedItems: any[]): SdbipCatalogItem[] {
 
   return result;
 }
+
+export const SDBIP_CANONICAL_CATALOG: SdbipCatalogItem[] = ensureAllSdbipKpis([]);
