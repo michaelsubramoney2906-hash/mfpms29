@@ -10,8 +10,7 @@ import { AzureADPicker } from './AzureADPicker';
 import { SDBIPPagination } from './SDBIPPagination';
 import { ExpandableCell, CellExpandModal, ExpandModalState } from './ExpandableCell';
 import { isQuarterInReportingPeriod, getQuarterLockNotice, REPORTING_PERIOD_CONFIGS, getCurrentMunicipalQuarter, ReportingPhase } from '../../utils/reportingPeriods';
-import { PMS_TEAM_REVIEWERS, INTERNAL_AUDIT_USERS, isUserMatch, dispatchSdbipNotification, isMasterAdminMike, extractKpiPoes } from '../../utils/sdbipWorkflowHelper';
-import { ensureAllSdbipKpis, SDBIP_CANONICAL_CATALOG } from '../../sdbip_catalog';
+import { PMS_TEAM_REVIEWERS, INTERNAL_AUDIT_USERS, isUserMatch, dispatchSdbipNotification, isMasterAdminMike } from '../../utils/sdbipWorkflowHelper';
 import { isUserUnrestricted } from '../../utils/unrestrictedHelper';
 import { OfficeDocumentViewer } from '../IPMS/OfficeDocumentViewer';
 import { calcVar, extractNumericValue } from '../../utils/varianceCalculator';
@@ -45,7 +44,8 @@ export const isKpiUnlockedForSubmitterApprover = (row: { refNum?: string; id?: s
 
 export const isSubmitterApproverLockedInReporting = (row: { refNum?: string; id?: string; kpi?: string; adminLocked?: boolean; workflowStatus?: string } | null | undefined): boolean => {
   if (globalReportingAssignmentsUnlocked) return false;
-  return true; 
+  if (row && (row.adminLocked === false || row.workflowStatus === 'Draft')) return false;
+  return !globalReportingAssignmentsUnlocked; 
 };
 
 interface SDBIPProps {
@@ -148,11 +148,6 @@ export interface SdbipRow {
   approvedBy?: string;
   adminLocked?: boolean;
   workflowHistory?: any[];
-  kpiCustomEdited?: boolean;
-  kpiEditedBy?: string;
-  kpiEditedAt?: string;
-  KPI?: string;
-  Description?: string;
   budgetOverride?: {
     requested?: boolean;
     requestedBy?: string;
@@ -301,8 +296,13 @@ export function sanitizeSdbipRow(row: SdbipRow): SdbipRow {
   const sanitizedQ3Var = (row.q3Actual && String(row.q3Actual).trim()) ? calcVar(row.q3, row.q3Actual, row.uom) : (row.q3Variance || '');
   const sanitizedQ4Var = (row.q4Actual && String(row.q4Actual).trim()) ? calcVar(row.q4, row.q4Actual, row.uom) : (row.q4Variance || '');
 
+  const kpiVal = String(row.kpi || row.operationalActivity || (row as any).KPI || (row as any).Description || (row as any).kpiDescription || '').trim();
+  const activityVal = String(row.operationalActivity || row.kpi || (row as any).Description || (row as any).KPI || '').trim();
+
   return {
     ...row,
+    kpi: kpiVal || activityVal,
+    operationalActivity: activityVal || kpiVal,
     bsd: chosenKpa === 'bsd' ? 'X' : '',
     led: chosenKpa === 'led' ? 'X' : '',
     mfvm: chosenKpa === 'mfvm' ? 'X' : '',
@@ -368,38 +368,6 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     }
   };
   const [draftingSubTab, setDraftingSubTab] = useState<'chapters' | 'memo'>('chapters');
-  const [isRestoringSubmissions, setIsRestoringSubmissions] = useState(false);
-  const [restoreModalData, setRestoreModalData] = useState<{
-    totalKpis: number;
-    kpisWithActuals: number;
-    poesAttached: number;
-    draftsMerged: number;
-    timestamp: string;
-  } | null>(null);
-
-  const handle1ClickRestoreSubmissions = async () => {
-    if (!window.confirm("Restore & Re-Sync Submissions?\n\nThis will scan Supabase for all saved actuals, submitter notes, drafts, and uploaded POE files, re-attaching them to all assigned KPI submitters and approvers.")) {
-      return;
-    }
-    setIsRestoringSubmissions(true);
-    try {
-      const res = await fetch(`/api/tenant/${activeTenantId}/admin/restore-submissions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      const data = await res.json();
-      if (data.success && data.stats) {
-        setRestoreModalData(data.stats);
-        fetchSDBIPAll(false);
-      } else {
-        alert(data.error || "Failed to execute submission restore");
-      }
-    } catch (err: any) {
-      alert("Error executing 1-Click Restore: " + (err.message || err));
-    } finally {
-      setIsRestoringSubmissions(false);
-    }
-  };
   const [rows, setRows] = useState<SdbipRow[]>([]);
   const [poes, setPoes] = useState<SdbipPoeFile[]>([]);
   const [loading, setLoading] = useState(false);
@@ -578,24 +546,42 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
 
   React.useEffect(() => {
     const handleSwitchTab = (e: any) => {
-      const tab = e?.detail?.tab || sessionStorage.getItem('sdbip_active_tab');
+      let tab = e?.detail?.tab || sessionStorage.getItem('sdbip_active_tab');
+      if (tab === 'top-layer' || tab === 'top_layer' || tab === 'sdbip-top-layer') {
+        tab = 'table';
+      }
       if (tab === 'table' || tab === 'reporting' || tab === 'brief' || tab === 'drafting') {
-        setActiveTab(tab);
+        setActiveTab(tab as any);
         sessionStorage.removeItem('sdbip_active_tab');
       }
-      if (e?.detail?.refresh) {
+      if (e?.detail?.items && Array.isArray(e.detail.items)) {
+        setRows(e.detail.items.map(sanitizeSdbipRow));
+      }
+      if (e?.detail?.refresh || e?.detail?.items) {
         pullSdbipTopLayerData();
       }
     };
+
+    const handleRefresh = (e: any) => {
+      if (e?.detail?.items && Array.isArray(e.detail.items)) {
+        setRows(e.detail.items.map(sanitizeSdbipRow));
+      }
+      pullSdbipTopLayerData();
+    };
+
     window.addEventListener('sdbip:switch_tab', handleSwitchTab);
+    window.addEventListener('sdbip:refresh', handleRefresh);
+
     const saved = sessionStorage.getItem('sdbip_active_tab');
-    if (saved === 'table' || saved === 'reporting' || saved === 'brief' || saved === 'drafting') {
-      setActiveTab(saved);
+    if (saved === 'table' || saved === 'reporting' || saved === 'brief' || saved === 'drafting' || saved === 'top-layer') {
+      const active = saved === 'top-layer' ? 'table' : saved;
+      setActiveTab(active as any);
       sessionStorage.removeItem('sdbip_active_tab');
       pullSdbipTopLayerData();
     }
     return () => {
       window.removeEventListener('sdbip:switch_tab', handleSwitchTab);
+      window.removeEventListener('sdbip:refresh', handleRefresh);
     };
   }, []);
 
@@ -937,47 +923,53 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
         const notifData = await safeJson(notifRes, { notifications: [] });
         const officialsData = await safeJson(officialsRes, { reviewers: [], internalAuditors: [] });
         
-        // Load and normalize SDBIP rows with canonical catalog metadata and preserved user actuals
-        const rawItems = (rowsData && Array.isArray(rowsData.items)) ? rowsData.items : [];
-        if (rawItems.length > 0 || !isBackground) {
+        // If no rows are loaded, generate 25 default blank template rows
+        if (rowsData && Array.isArray(rowsData.items) && rowsData.items.length > 0) {
           if (isBackground && Date.now() - lastUserEditTimeRef.current < 15000) {
             // Keep local active edits without clobbering
           } else {
-            const canonicalList = activeTenantId === 'neda' ? rawItems : ensureAllSdbipKpis(rawItems);
-            const mappedRows: SdbipRow[] = (canonicalList.length > 0 ? canonicalList : SDBIP_CANONICAL_CATALOG).map((item: any) => ({
-              id: item.id || `sdbip-${item.Ref_Number || item.refNum}`,
-              refNum: item.Ref_Number || item.refNum,
-              strategicObj: item.SDBIP_Strategic_Objective || item.strategicObj,
-              bsd: item.BSD || item.bsd || '',
-              led: item.LED || item.led || '',
-              mfvm: item.MFVM || item.mfvm || '',
-              ggpp: item.GGPP || item.ggpp || '',
-              midt: item.MIDT || item.midt || '',
-              sr: item.SR || item.sr || '',
-              kpas: item.National_KPA || item.kpas || '',
-              operationalActivity: item.Description || item.operationalActivity || item.KPI || item.kpi,
-              kpi: item.KPI || item.kpi,
-              compliance: item.compliance || 'compliant',
-              uom: item.Unit_of_Measure || item.uom,
-              baseline: item.Baseline || item.baseline,
-              annualTarget: item.Annual_Target || item.annualTarget,
-              budgetAllocation: item.Budget_Allocation || item.budgetAllocation || item.budget,
-              q1: item.Q1_Target || item.q1,
-              q2: item.Q2_Target || item.q2,
-              midTermTarget: item.Mid_Term_Target || item.midTermTarget || item.midTerm,
-              q3: item.Q3_Target || item.q3,
-              q4: item.Q4_Target || item.q4,
-              responsibleUnit: item.Responsible_Owner || item.responsibleUnit,
-              submitter: item.Submitter || item.submitter,
-              approver: item.Approver || item.approver,
-              reviewer: item.Reviewer || item.reviewer,
-              internalAudit: item.Internal_Audit || item.internalAudit,
-              poeDesc: item.POE_Description || item.poeDesc,
-              poeStatus: item.poeStatus || "Uploaded to Vault",
-              ...item
-            }));
-            setRows(mappedRows.map(sanitizeSdbipRow));
+            setRows(rowsData.items.map(sanitizeSdbipRow));
           }
+        } else if (!isBackground) {
+          const templates: SdbipRow[] = Array.from({ length: 25 }, (_, idx) => ({
+            id: `row-template-${idx + 1}`,
+            refNum: `REF-0${idx + 1}`,
+            strategicObj: 
+              idx === 0 ? "To ensure reliable bulk water and electricity infrastructure" : 
+              idx === 1 ? "To promote local agrarian, manufacturing and hospitality economy" : 
+              idx === 2 ? "To provide effective institutional management and administrative support" :
+              idx === 3 ? "To ensure sound financial management and municipal viability" :
+              idx === 4 ? "To enhance good governance and public participation" :
+              idx === 5 ? "To implement integrated spatial planning and land use management" : "",
+            bsd: idx === 0 ? "Y" : "",
+            led: idx === 1 ? "Y" : "",
+            midt: idx === 2 ? "Y" : "",
+            mfvm: idx === 3 ? "Y" : "",
+            ggpp: idx === 4 ? "Y" : "",
+            sr: idx === 5 ? "Y" : "",
+            kpas: 
+              idx === 0 ? "Water Infrastructure Upgrade" : 
+              idx === 1 ? "Hospitality LED Co-op" : 
+              idx === 2 ? "Institutional Capacity Building" :
+              idx === 3 ? "Financial Systems Integration" :
+              idx === 4 ? "Public Consultation Forums" :
+              idx === 5 ? "Spatial Development Framework" : "",
+            operationalActivity: "",
+            kpi: "",
+            compliance: 'compliant',
+            uom: "",
+            mscoaTracking: idx === 0 ? "Project" : "",
+            baseline: "",
+            annualTarget: "",
+            budgetAllocation: "",
+            q1: "",
+            q2: "",
+            q3: "",
+            q4: "",
+            responsibleUnit: "",
+            poeStatus: "Not Uploaded"
+          }));
+          setRows(templates.map(sanitizeSdbipRow));
         }
 
         if (poesData && Array.isArray(poesData.poes)) {
@@ -1984,14 +1976,6 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
       return;
     }
 
-    // KPI description can only be edited by Global Administrator Mike (mike@mzansiflow.co.za)
-    if (field === 'kpi' && !isSuperAdminMike) {
-      const targetRow = rows.find(r => r.id === rowId);
-      setSuccessToast(`Field Locked: Key Performance Indicator (KPI) description can only be edited by Mike (mike@mzansiflow.co.za) for KPI ${targetRow?.refNum || ''}.`);
-      setTimeout(() => setSuccessToast(null), 4000);
-      return;
-    }
-
     // Strict Submitter reporting enforcement: Only designated submitter can report on actuals
     const actualsFields = [
       'score',
@@ -2029,28 +2013,11 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
           updatedRow.kpas = KPA_DESCRIPTIONS[kpaKey];
         }
 
-        // Submitter & Approver assignments (selected names preserved permanently)
+        // Sync submitter and responsibleUnit fields
         if (field === 'submitter') {
-          updatedRow.submitter = value;
-          (updatedRow as any).Submitter = value;
-          (updatedRow as any).submitterName = value;
-        } else if (field === 'approver') {
-          updatedRow.approver = value;
-          (updatedRow as any).Approver = value;
-          (updatedRow as any).approverName = value;
-        } else if (field === 'responsibleUnit') {
           updatedRow.responsibleUnit = value;
-        }
-
-        // Sync KPI fields across all aliases and track custom edits by Mike
-        if (field === 'kpi') {
-          updatedRow.kpi = value;
-          updatedRow.KPI = value;
-          updatedRow.operationalActivity = value;
-          updatedRow.Description = value;
-          updatedRow.kpiCustomEdited = true;
-          updatedRow.kpiEditedBy = currentUser.email || 'mike@mzansiflow.co.za';
-          updatedRow.kpiEditedAt = new Date().toISOString();
+        } else if (field === 'responsibleUnit') {
+          updatedRow.submitter = value;
         }
 
         // Automatically unlock Reviewer or Internal Audit module and notify user & Global Administrators
@@ -2167,7 +2134,6 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     let quarterLabel = 'General / Overall';
     let fileList: string[] = [];
     let description = '';
-    const cleanRef = (row.refNum || '').trim().toLowerCase();
 
     if (quarter === 'q1') {
       quarterLabel = 'Q1 (First Quarter)';
@@ -2192,7 +2158,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     } else {
       quarterLabel = 'Overall Top Layer POE';
       description = row.poeDesc || '';
-      const matchPoes = poes.filter(p => p.refNum && p.refNum.trim().toLowerCase() === cleanRef);
+      const matchPoes = poes.filter(p => p.refNum === row.refNum);
       if (matchPoes.length > 0) {
         fileList = matchPoes.map(p => p.name);
       } else {
@@ -2201,23 +2167,8 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
       }
     }
 
-    // Fallback search in global poes if quarter fileList is empty
-    if (fileList.length === 0) {
-      const matchingGlobal = poes.filter(p => {
-        if (!p || !p.refNum) return false;
-        const pRef = p.refNum.trim().toLowerCase();
-        if (pRef !== cleanRef) return false;
-        if (quarter === 'general') return true;
-        const pType = (p.type || '').toLowerCase();
-        return pType.includes(quarter.toLowerCase()) || pType.includes('portfolio') || pType.includes('general');
-      });
-      if (matchingGlobal.length > 0) {
-        fileList = matchingGlobal.map(p => p.name);
-      }
-    }
-
     const filesWithMetadata = fileList.map(fName => {
-      const foundPoe = poes.find(p => p.name === fName || (p.refNum && p.refNum.trim().toLowerCase() === cleanRef && p.name.includes(fName)));
+      const foundPoe = poes.find(p => p.name === fName || (p.refNum === row.refNum && p.name.includes(fName)));
       return {
         name: fName,
         size: foundPoe?.size || '1.5 MB',
@@ -5030,16 +4981,6 @@ Timestamp: ${new Date().toLocaleString()}
                   <span>{isFitAllTopLayerCells ? "Fit All Sentences (Active)" : "Expand All Cells"}</span>
                 </button>
                 <button 
-                  type="button"
-                  onClick={handle1ClickRestoreSubmissions}
-                  disabled={isRestoringSubmissions}
-                  className="px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition cursor-pointer disabled:opacity-50"
-                  title="Scan Supabase for all saved actuals, submitter notes, drafts, and uploaded POE files, re-attaching them to assigned submitters and approvers."
-                >
-                  <RotateCcw className={`w-3.5 h-3.5 ${isRestoringSubmissions ? 'animate-spin' : ''}`} />
-                  <span>{isRestoringSubmissions ? "Restoring Submissions..." : "1-Click Restore Submissions & POEs"}</span>
-                </button>
-                <button 
                   onClick={exportToCSV}
                   className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer"
                 >
@@ -5073,16 +5014,7 @@ Timestamp: ${new Date().toLocaleString()}
                   <tr>
                     <th className="p-3 border-r border-slate-200 w-28 sticky top-0 left-0 z-30 bg-slate-100">REF NUMBER</th>
                     <th className="p-3 border-r border-slate-200 w-72 sticky top-0 z-20 bg-slate-100">STRATEGIC OBJECTIVES</th>
-                    <th className="p-3 border-r border-slate-200 w-80 sticky top-0 z-20 bg-slate-100">
-                      <div className="flex items-center justify-between">
-                        <span>KPI</span>
-                        {isSuperAdminMike && (
-                          <span className="text-[8px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-mono font-bold border border-indigo-200" title="Editable by Mike (mike@mzansiflow.co.za)">
-                            EDITABLE (MIKE)
-                          </span>
-                        )}
-                      </div>
-                    </th>
+                    <th className="p-3 border-r border-slate-200 w-80 sticky top-0 z-20 bg-slate-100">KPI</th>
                     <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-blue-100 text-blue-900">BSD (X)</th>
                     <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-emerald-100 text-emerald-900">LED (X)</th>
                     <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-amber-100 text-amber-900">MFVM (X)</th>
@@ -5143,19 +5075,16 @@ Timestamp: ${new Date().toLocaleString()}
                       </td>
 
                       {/* KPI */}
-                      <td className={`p-2 border-r border-slate-150 ${isSuperAdminMike ? 'bg-indigo-50/20' : ''}`}>
+                      <td className="p-2 border-r border-slate-150">
                         <ExpandableCell 
                           value={row.kpi || ''}
-                          readOnly={!isSuperAdminMike}
-                          disabled={!isSuperAdminMike}
-                          onChange={isSuperAdminMike ? (val) => handleCellChange(row.id, 'kpi', val) : undefined}
+                          readOnly={true}
                           cellTitle="Key Performance Indicator (KPI)"
                           refNum={row.refNum}
                           isFitAll={isFitAllTopLayerCells}
                           minRows={2}
                           onOpenExpandModal={openCellExpandModal}
-                          placeholder={isSuperAdminMike ? "Enter KPI description..." : "-"}
-                          className={`font-bold ${isSuperAdminMike ? 'bg-white text-slate-900 border-indigo-300 hover:border-indigo-500 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-300 cursor-text' : 'text-slate-800'}`}
+                          placeholder="-"
                         />
                       </td>
                       <td className="p-2 border-r border-slate-150 text-center bg-blue-50/50 cursor-pointer hover:bg-blue-100/50" title="Click to select BSD" onClick={() => handleCellChange(row.id, 'bsd', 'X')}>
@@ -5747,16 +5676,7 @@ Timestamp: ${new Date().toLocaleString()}
                     {/* Fixed Info Columns */}
                     <th className="p-3 border-r border-slate-200 w-28 sticky top-0 left-0 z-30 bg-slate-100">REF NUMBER</th>
                     <th className="p-3 border-r border-slate-200 w-72 sticky top-0 z-20 bg-slate-100">STRATEGIC OBJECTIVES</th>
-                    <th className="p-3 border-r border-slate-200 w-80 sticky top-0 z-20 bg-slate-100">
-                      <div className="flex items-center justify-between">
-                        <span>KPI</span>
-                        {isSuperAdminMike && (
-                          <span className="text-[8px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-mono font-bold border border-indigo-200" title="Editable by Mike (mike@mzansiflow.co.za)">
-                            EDITABLE (MIKE)
-                          </span>
-                        )}
-                      </div>
-                    </th>
+                    <th className="p-3 border-r border-slate-200 w-80 sticky top-0 z-20 bg-slate-100">KPI</th>
                     <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-blue-100 text-blue-900">BSD (X)</th>
                     <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-emerald-100 text-emerald-900">LED (X)</th>
                     <th className="p-3 border-r border-slate-200 w-20 text-center sticky top-0 z-20 bg-amber-100 text-amber-900">MFVM (X)</th>
@@ -5957,7 +5877,7 @@ Timestamp: ${new Date().toLocaleString()}
                           <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" />
                         </div>
                         <span className="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300">
-                          LOCKED
+                          LOCKED (EXCEPT M_72 &amp; P_07)
                         </span>
                       </div>
                     </th>
@@ -5968,7 +5888,7 @@ Timestamp: ${new Date().toLocaleString()}
                           <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" />
                         </div>
                         <span className="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300">
-                          LOCKED
+                          LOCKED (EXCEPT M_72 &amp; P_07)
                         </span>
                       </div>
                     </th>
@@ -5981,7 +5901,7 @@ Timestamp: ${new Date().toLocaleString()}
 
                 <tbody className="text-xs font-medium text-slate-800 divide-y divide-slate-100">
                   {paginatedReportingRows.map((row) => {
-                    const isRowSubmitter = isUserMatch(row.submitter, currentUser) || isUserMatch((row as any).submitterName, currentUser) || isUserMatch(row.responsibleUnit, currentUser);
+                    const isRowSubmitter = isUserMatch(row.submitter || row.responsibleUnit, currentUser);
                     return (
                     <tr key={row.id} className="group hover:bg-slate-50/70 transition-colors">
                       <td className="p-2 border-r border-slate-150 sticky left-0 z-10 bg-white group-hover:bg-slate-50/95 transition-colors font-mono text-[11px] drop-shadow-[1px_0_0_rgba(203,213,225,1)]">
@@ -6056,19 +5976,16 @@ Timestamp: ${new Date().toLocaleString()}
                           className="text-slate-600"
                         />
                       </td>
-                      <td className={`p-2 border-r border-slate-150 ${isSuperAdminMike ? 'bg-indigo-50/20' : ''}`}>
+                      <td className="p-2 border-r border-slate-150">
                         <ExpandableCell
                           value={row.kpi || ''}
-                          readOnly={!isSuperAdminMike}
-                          disabled={!isSuperAdminMike}
-                          onChange={isSuperAdminMike ? (val) => handleCellChange(row.id, 'kpi', val) : undefined}
+                          readOnly
                           cellTitle="Key Performance Indicator (KPI)"
                           refNum={row.refNum}
                           isFitAll={isFitAllReportingCells}
                           minRows={2}
                           onOpenExpandModal={openCellExpandModal}
-                          placeholder={isSuperAdminMike ? "Enter KPI description..." : "-"}
-                          className={`font-bold ${isSuperAdminMike ? 'bg-white text-slate-900 border-indigo-300 hover:border-indigo-500 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-300 cursor-text' : 'text-slate-800'}`}
+                          className="font-bold text-slate-800"
                         />
                       </td>
                       <td className="p-2 border-r border-slate-150 text-center bg-blue-50/30 cursor-pointer hover:bg-blue-100/50" title="Click to select BSD" onClick={() => handleCellChange(row.id, 'bsd', 'X')}>
@@ -6590,9 +6507,9 @@ Timestamp: ${new Date().toLocaleString()}
                               refNum={row.refNum}
                               isFitAll={isFitAllReportingCells}
                               minRows={2}
-                              placeholder={!row.q1Actual ? (!isRowSubmitter ? `Awaiting Submitter (${row.submitter || row.responsibleUnit || 'Assigned'})` : !isQuarterActive('q1') ? "Locked for this period" : "Q1 Actual...") : ""}
+                              placeholder={!isRowSubmitter ? `Submitter Only (${row.submitter || row.responsibleUnit || 'Assigned'})` : !isQuarterActive('q1') ? "Locked for this period" : "Q1 Actual..."}
                               onOpenExpandModal={openCellExpandModal}
-                              className={!isRowSubmitter || !isQuarterActive('q1') ? (row.q1Actual ? 'bg-slate-50 text-slate-900 font-bold border-slate-300' : 'bg-slate-100 text-slate-400 cursor-not-allowed') : 'bg-white font-semibold text-slate-900'}
+                              className={!isRowSubmitter || !isQuarterActive('q1') ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white'}
                             />
                             {row.q1Actual && row.q1 && row.q1Actual !== row.q1 && (
                               <div className="absolute top-1 right-1 pointer-events-auto z-10">
@@ -6766,13 +6683,13 @@ Timestamp: ${new Date().toLocaleString()}
                             readOnly={true}
                             disabled={true}
                             onChange={() => {}}
-                            cellTitle="Q2 Actual"
+                            cellTitle="Q2 Actual (Locked)"
                             refNum={row.refNum}
                             isFitAll={isFitAllReportingCells}
                             minRows={2}
-                            placeholder={!row.q2Actual ? "Awaiting Q2 submission" : ""}
+                            placeholder="Locked"
                             onOpenExpandModal={openCellExpandModal}
-                            className={row.q2Actual ? "bg-slate-50 text-slate-900 font-bold border-slate-300" : "bg-slate-100/90 text-slate-400 border-slate-200 cursor-not-allowed"}
+                            className="bg-slate-100/90 text-slate-600 cursor-not-allowed border-slate-200"
                           />
                         )}
                       </td>
@@ -6963,13 +6880,13 @@ Timestamp: ${new Date().toLocaleString()}
                             readOnly={true}
                             disabled={true}
                             onChange={() => {}}
-                            cellTitle="Mid-Term Actual"
+                            cellTitle="Mid-Term Actual (Locked)"
                             refNum={row.refNum}
                             isFitAll={isFitAllReportingCells}
                             minRows={2}
-                            placeholder={!row.midTermActual ? "Awaiting Mid-Term submission" : ""}
+                            placeholder="Locked"
                             onOpenExpandModal={openCellExpandModal}
-                            className={row.midTermActual ? "bg-slate-50 text-slate-900 font-bold border-slate-300" : "bg-slate-100/90 text-slate-400 border-slate-200 cursor-not-allowed"}
+                            className="bg-slate-100/90 text-slate-600 cursor-not-allowed border-slate-200 font-bold"
                           />
                         )}
                       </td>
@@ -7130,13 +7047,13 @@ Timestamp: ${new Date().toLocaleString()}
                             readOnly={true}
                             disabled={true}
                             onChange={() => {}}
-                            cellTitle="Q3 Actual"
+                            cellTitle="Q3 Actual (Locked)"
                             refNum={row.refNum}
                             isFitAll={isFitAllReportingCells}
                             minRows={2}
-                            placeholder={!row.q3Actual ? "Awaiting Q3 submission" : ""}
+                            placeholder="Locked"
                             onOpenExpandModal={openCellExpandModal}
-                            className={row.q3Actual ? "bg-slate-50 text-slate-900 font-bold border-slate-300" : "bg-slate-100/90 text-slate-400 border-slate-200 cursor-not-allowed"}
+                            className="bg-slate-100/90 text-slate-600 cursor-not-allowed border-slate-200 font-semibold"
                           />
                         )}
                       </td>
@@ -7297,13 +7214,13 @@ Timestamp: ${new Date().toLocaleString()}
                             readOnly={true}
                             disabled={true}
                             onChange={() => {}}
-                            cellTitle="Q4 Actual"
+                            cellTitle="Q4 Actual (Locked)"
                             refNum={row.refNum}
                             isFitAll={isFitAllReportingCells}
                             minRows={2}
-                            placeholder={!row.q4Actual ? "Awaiting Q4 submission" : ""}
+                            placeholder="Locked"
                             onOpenExpandModal={openCellExpandModal}
-                            className={row.q4Actual ? "bg-slate-50 text-slate-900 font-bold border-slate-300" : "bg-slate-100/90 text-slate-400 border-slate-200 cursor-not-allowed"}
+                            className="bg-slate-100/90 text-slate-600 cursor-not-allowed border-slate-200 font-semibold"
                           />
                         )}
                       </td>
@@ -7364,30 +7281,44 @@ Timestamp: ${new Date().toLocaleString()}
                       </td>
 
                       {/* Submitter */}
-                      <td className={`p-1.5 border-r border-slate-100 ${!isReportingAssignmentsUnlocked ? 'bg-slate-100/40' : 'bg-emerald-50/20'}`}>
+                      <td className={`p-1.5 border-r border-slate-100 ${(!isReportingAssignmentsUnlocked && isSubmitterApproverLockedInReporting(row)) ? 'bg-slate-100/40' : 'bg-emerald-50/20'}`}>
                         <div className="flex flex-col gap-1">
                           <AzureADPicker 
-                            value={row.submitter || (row as any).submitterName || ''}
+                            value={row.submitter || row.responsibleUnit || ''}
                             onChange={(val) => handleCellChange(row.id, 'submitter', val)}
                             roleType="submitter"
                             activeTenantId={activeTenantId}
                             isFitAll={isFitAllReportingCells}
-                            disabled={!isReportingAssignmentsUnlocked}
+                            disabled={!isReportingAssignmentsUnlocked && isSubmitterApproverLockedInReporting(row)}
                           />
+                          {(!isSubmitterApproverLockedInReporting(row) || isReportingAssignmentsUnlocked) && (
+                            <div className="flex items-center gap-1 justify-center">
+                              <span className="text-[8px] font-bold font-mono px-1 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                EXCEPTION UNLOCKED
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </td>
 
                       {/* Approver */}
-                      <td className={`p-1.5 border-r border-slate-100 ${!isReportingAssignmentsUnlocked ? 'bg-slate-100/40' : 'bg-emerald-50/20'}`}>
+                      <td className={`p-1.5 border-r border-slate-100 ${(!isReportingAssignmentsUnlocked && isSubmitterApproverLockedInReporting(row)) ? 'bg-slate-100/40' : 'bg-emerald-50/20'}`}>
                         <div className="flex flex-col gap-1">
                           <AzureADPicker 
-                            value={row.approver || (row as any).approverName || ''}
+                            value={row.approver || ''}
                             onChange={(val) => handleCellChange(row.id, 'approver', val)}
                             roleType="approver"
                             activeTenantId={activeTenantId}
                             isFitAll={isFitAllReportingCells}
-                            disabled={!isReportingAssignmentsUnlocked}
+                            disabled={!isReportingAssignmentsUnlocked && isSubmitterApproverLockedInReporting(row)}
                           />
+                          {(!isSubmitterApproverLockedInReporting(row) || isReportingAssignmentsUnlocked) && (
+                            <div className="flex items-center gap-1 justify-center">
+                              <span className="text-[8px] font-bold font-mono px-1 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                EXCEPTION UNLOCKED
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </td>
 
@@ -8569,59 +8500,6 @@ Timestamp: ${new Date().toLocaleString()}
           </div>
         );
       })()}
-
-      {restoreModalData && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="p-5 bg-gradient-to-r from-emerald-600 to-teal-700 text-white flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-white/10 rounded-xl">
-                  <CheckCircle className="w-6 h-6 text-emerald-200" />
-                </div>
-                <div>
-                  <h3 className="text-base font-black tracking-tight">Submissions Restored & Synced</h3>
-                  <p className="text-xs text-emerald-100 font-medium">All submitter actuals & POEs re-mapped</p>
-                </div>
-              </div>
-              <button 
-                onClick={() => setRestoreModalData(null)}
-                className="p-1 hover:bg-white/20 rounded-lg transition text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-xl text-center">
-                  <div className="text-2xl font-black text-emerald-800">{restoreModalData.totalKpis}</div>
-                  <div className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider mt-0.5">Total KPIs Verified</div>
-                </div>
-                <div className="p-3.5 bg-blue-50/70 border border-blue-200 rounded-xl text-center">
-                  <div className="text-2xl font-black text-blue-800">{restoreModalData.kpisWithActuals}</div>
-                  <div className="text-[11px] font-bold text-blue-600 uppercase tracking-wider mt-0.5">KPIs with Actuals</div>
-                </div>
-                <div className="p-3.5 bg-indigo-50/70 border border-indigo-200 rounded-xl text-center">
-                  <div className="text-2xl font-black text-indigo-800">{restoreModalData.poesAttached}</div>
-                  <div className="text-[11px] font-bold text-indigo-600 uppercase tracking-wider mt-0.5">POE Files Attached</div>
-                </div>
-                <div className="p-3.5 bg-purple-50/70 border border-purple-200 rounded-xl text-center">
-                  <div className="text-2xl font-black text-purple-800">{restoreModalData.draftsMerged}</div>
-                  <div className="text-[11px] font-bold text-purple-600 uppercase tracking-wider mt-0.5">Drafts Merged</div>
-                </div>
-              </div>
-              <p className="text-xs text-slate-600 bg-slate-50 border border-slate-200 p-3 rounded-xl font-medium leading-relaxed">
-                All submitter performance entries, variances, corrective action notes, and uploaded proof documents are now active and bound to their designated submitters and approvers.
-              </p>
-              <button
-                onClick={() => setRestoreModalData(null)}
-                className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
-              >
-                Close & View Scorecard
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
     </div>
   );

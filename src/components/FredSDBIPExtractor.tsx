@@ -57,7 +57,7 @@ export function FredSDBIPExtractor({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load existing extraction snapshot if available or initialize with standard SDBIP KPIs
+  // Load existing extraction snapshot if available from Supabase
   useEffect(() => {
     const loadSavedSnapshot = async () => {
       try {
@@ -66,37 +66,31 @@ export function FredSDBIPExtractor({
           const data = await res.json();
           const rawItems = data.items || data.data;
           if (rawItems && Array.isArray(rawItems) && rawItems.length > 0) {
-            const sanitized = sanitizeSdbipItems(rawItems, activeTenantId);
+            const sanitized = sanitizeSdbipItems(rawItems);
             setExtractedItems(sanitized);
-            setSourceFileName(data.fileName || data.sourceFileName || (activeTenantId === 'neda' ? 'NEDA SDBIP Scorecard (E_01..E_46 & P_01..P_03)' : 'Municipal SDBIP Scorecard'));
+            setSourceFileName(data.fileName || data.sourceFileName || 'Municipal SDBIP Scorecard');
             return;
           }
         }
       } catch (err) {
-        // Fall back to standard scorecard
+        // Leave empty on fetch error
       }
 
-      // Default to canonical scorecard (NEDA: 46 E_ + 3 P_ across KPA 1 to 4; Municipal: 92 M_ + 19 P_)
-      const standardItems = getStandardSdbipScorecard(activeTenantId);
-      setExtractedItems(standardItems);
-      setSourceFileName(activeTenantId === 'neda' ? 'NEDA Autonomous SDBIP Scorecard (E_01..E_46 & P_01..P_03)' : 'Municipal SDBIP Top Layer Scorecard (92 M_ + 19 P_)');
+      // Default to empty state ready for document extraction
+      setExtractedItems([]);
+      setSourceFileName('');
     };
     loadSavedSnapshot();
   }, [activeTenantId]);
 
-  // Load standard canonical SDBIP KPIs
+  // Load standard canonical 111 SDBIP KPIs (92 M_ + 19 P_)
   const handleLoadStandardScorecard = async () => {
-    const standard = getStandardSdbipScorecard(activeTenantId);
+    const standard = getStandardSdbipScorecard();
     setExtractedItems(standard);
-    const title = activeTenantId === 'neda' 
-      ? 'NEDA Autonomous SDBIP Scorecard (46 E_ Entity KPIs + 3 P_ Project KPIs)' 
-      : 'Municipal SDBIP Scorecard (92 M_ KPIs + 19 P_ Projects)';
-    setSourceFileName(title);
+    setSourceFileName('Municipal SDBIP Scorecard (92 M_ KPIs + 19 P_ Projects)');
     setStatusMessage({
       type: 'success',
-      text: activeTenantId === 'neda'
-        ? 'Successfully aligned with standard NEDA SDBIP Scorecard: 46 Entity KPIs (E_01 to E_46) and 3 Project KPIs (P_01 to P_03) across KPAs 1 to 4 — exactly 49 indicators total.'
-        : 'Successfully aligned with standard SDBIP Scorecard: 92 Municipal KPIs (M_01 to M_92) and 19 Project KPIs (P_01 to P_19) — exactly 111 indicators total.'
+      text: 'Successfully loaded standard SDBIP Scorecard template (92 Municipal KPIs + 19 Project KPIs).'
     });
 
     try {
@@ -105,7 +99,7 @@ export function FredSDBIPExtractor({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           items: standard,
-          fileName: title,
+          fileName: 'Municipal SDBIP Scorecard (92 M_ + 19 P_)',
           timestamp: new Date().toISOString()
         })
       });
@@ -123,26 +117,23 @@ export function FredSDBIPExtractor({
     });
 
     try {
-      const result = await extractSdbipFromDocument(file, activeTenantId);
+      const result = await extractSdbipFromDocument(file);
       
       if (!result.items || result.items.length === 0) {
         throw new Error('No SDBIP Top Layer items could be found in the uploaded document. Please verify the document contains SDBIP tables.');
       }
 
-      const formattedItems = sanitizeSdbipItems(result.items, activeTenantId);
+      const formattedItems = sanitizeSdbipItems(result.items);
 
       setExtractedItems(formattedItems);
       setSourceFileName(file.name);
       
-      const eCount = formattedItems.filter(i => (i.refNum || '').toUpperCase().startsWith('E_')).length;
       const mCount = formattedItems.filter(i => (i.refNum || '').toUpperCase().startsWith('M_')).length;
       const pCount = formattedItems.filter(i => (i.refNum || '').toUpperCase().startsWith('P_')).length;
 
       setStatusMessage({
         type: 'success',
-        text: activeTenantId === 'neda'
-          ? `Successfully extracted and mapped ${formattedItems.length} NEDA SDBIP Top Layer items from "${file.name}" (${eCount} E_ KPIs + ${pCount} P_ Projects across KPA 1..4) with 100% verbatim accuracy.`
-          : `Successfully extracted and mapped ${formattedItems.length} SDBIP Top Layer items from "${file.name}" (${mCount} M_ KPIs + ${pCount} P_ Projects) with 100% verbatim accuracy.`
+        text: `Successfully extracted and mapped ${formattedItems.length} SDBIP Top Layer items from "${file.name}" (${mCount} M_ KPIs + ${pCount} P_ Projects) with 100% verbatim accuracy.`
       });
 
       // Persist snapshot to server
@@ -238,7 +229,7 @@ export function FredSDBIPExtractor({
         });
       }
 
-      const sanitized = sanitizeSdbipItems(parsed, activeTenantId);
+      const sanitized = sanitizeSdbipItems(parsed);
       setExtractedItems(sanitized);
       setSourceFileName('Direct Clipboard Table');
       setShowPasteModal(false);
@@ -306,6 +297,8 @@ export function FredSDBIPExtractor({
 
         // Verbatim source document POE description reflects across all four quarters (non-editable)
         const sourcePoe = (item.poeStatus || item.q1PoeDesc || item.q2PoeDesc || item.q3PoeDesc || item.q4PoeDesc || existing?.poeStatus || existing?.q1PoeDesc || 'Portfolio of Evidence required').trim();
+        const kpiText = (item.kpi || item.operationalActivity || (item as any).KPI || (item as any).Description || (item as any).kpiDescription || existing?.kpi || '').trim();
+        const activityText = (item.operationalActivity || item.kpi || (item as any).Description || (item as any).KPI || existing?.operationalActivity || '').trim();
 
         return {
           id: existing?.id || item._id || `sdbip-tl-${Date.now()}-${idx + 1}`,
@@ -318,8 +311,8 @@ export function FredSDBIPExtractor({
           midt: selectedKpa === 'midt' ? 'X' : '',
           sr: selectedKpa === 'sr' ? 'X' : '',
           kpas: kpaLabels[selectedKpa],
-          operationalActivity: item.operationalActivity || item.kpi || '',
-          kpi: item.kpi || '',
+          operationalActivity: activityText || kpiText,
+          kpi: kpiText || activityText,
           compliance: item.compliance || 'compliant',
           uom: item.uom || 'Number',
           mscoaTracking: item.mscoaTracking || 'Core Municipal Vector',
@@ -365,7 +358,7 @@ export function FredSDBIPExtractor({
         };
       });
 
-      // Post strictly to the SDBIP endpoint
+      // Post to the SDBIP endpoint for active tenant and core aliases
       const res = await fetch(`/api/tenant/${activeTenantId}/sdbip`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -376,15 +369,28 @@ export function FredSDBIPExtractor({
         throw new Error(`Server returned error status ${res.status}`);
       }
 
+      // Also ensure background sync across standard tenant aliases
+      const syncTenants = ['tenant-229', 'nkangala_auto', 'global'].filter(t => t !== activeTenantId);
+      for (const tId of syncTenants) {
+        try {
+          await fetch(`/api/tenant/${tId}/sdbip`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items: sdbipPayload })
+          });
+        } catch (e) {}
+      }
+
       setStatusMessage({
         type: 'success',
-        text: `Successfully pushed ${selected.length} items to SDBIP Top Layer and SDBIP Top Layer Reporting Table in OPMS! Zero cross-contamination with Individual Performance Plans.`
+        text: `Successfully pushed ${selected.length} KPIs into SDBIP Top Layer and SDBIP Top Layer Reporting tables in OPMS!`
       });
 
       // Dispatch event to refresh SDBIP views if currently open
       try {
-        window.dispatchEvent(new CustomEvent('sdbip:refresh', { detail: { count: selected.length } }));
-        window.dispatchEvent(new CustomEvent('sdbip:switch_tab', { detail: { tab: 'top-layer', refresh: true } }));
+        sessionStorage.setItem('sdbip_active_tab', 'table');
+        window.dispatchEvent(new CustomEvent('sdbip:refresh', { detail: { count: selected.length, items: sdbipPayload } }));
+        window.dispatchEvent(new CustomEvent('sdbip:switch_tab', { detail: { tab: 'table', refresh: true } }));
       } catch (e) {}
 
     } catch (err: any) {
@@ -398,28 +404,29 @@ export function FredSDBIPExtractor({
     }
   };
 
-  // Reset / Clear Extractor - reset to standard SDBIP scorecard
+  // Reset / Clear Extractor - cleans out all extracted KPIs and database snapshot
   const handleClearExtractor = async () => {
-    const standard = getStandardSdbipScorecard(activeTenantId);
-    setExtractedItems(standard);
+    setExtractedItems([]);
     setSelectedFile(null);
-    const title = activeTenantId === 'neda' 
-      ? 'NEDA Autonomous SDBIP Scorecard (46 E_ Entity KPIs + 3 P_ Project KPIs)' 
-      : 'Municipal SDBIP Scorecard (92 M_ + 19 P_)';
-    setSourceFileName(title);
+    setSourceFileName('');
+    setSearchQuery('');
+    setFilterKpa('all');
+    setFilterPrefix('all');
+    setEditingRowId(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+
     setStatusMessage({
       type: 'info',
-      text: activeTenantId === 'neda'
-        ? 'SDBIP Extractor reset to NEDA standard catalog: 46 Entity KPIs (E_01..E_46) and 3 Project KPIs (P_01..P_03) — 49 items total.'
-        : 'SDBIP Extractor reset to standard catalog: 92 Municipal KPIs (M_01..M_92) and 19 Project KPIs (P_01..P_19) — 111 items total.'
+      text: 'SDBIP Extractor has been successfully reset. All indicators have been cleared. You can now upload or paste a fresh SDBIP document to extract verbatim indicators.'
     });
-    if (fileInputRef.current) fileInputRef.current.value = '';
 
     try {
       await fetch(`/api/tenant/${activeTenantId}/fred-extraction/sdbip_top_layer`, {
         method: 'DELETE'
       });
-    } catch (e) {}
+    } catch (e) {
+      console.error("Error clearing saved SDBIP extraction snapshot:", e);
+    }
   };
 
   // Toggle selection
@@ -498,12 +505,12 @@ export function FredSDBIPExtractor({
           <div className="flex items-center gap-3 shrink-0 flex-wrap">
             <button
               type="button"
-              onClick={handleLoadStandardScorecard}
-              className="px-3.5 py-2.5 bg-emerald-950/80 hover:bg-emerald-900/90 text-emerald-300 hover:text-white rounded-xl text-xs font-bold transition border border-emerald-700/60 cursor-pointer flex items-center gap-1.5 shadow-sm"
-              title="Align with exact 92 Municipal KPIs (M_01 to M_92) and 19 Project KPIs (P_01 to P_19)"
+              onClick={handleClearExtractor}
+              className="px-3.5 py-2.5 bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 hover:text-white rounded-xl text-xs font-bold transition border border-rose-800/70 cursor-pointer flex items-center gap-1.5 shadow-sm"
+              title="Clear all indicators and reset the SDBIP Extractor"
             >
-              <Sparkles className="w-4 h-4 text-emerald-400" />
-              <span>Standard SDBIP (92 M_ + 19 P_)</span>
+              <Trash2 className="w-4 h-4 text-rose-400" />
+              <span>Reset Extractor</span>
             </button>
 
             <button
@@ -516,30 +523,20 @@ export function FredSDBIPExtractor({
             </button>
 
             {extractedItems.length > 0 && (
-              <>
-                <button
-                  type="button"
-                  onClick={handleClearExtractor}
-                  className="px-3.5 py-2.5 bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl text-xs font-bold transition border border-slate-700 cursor-pointer flex items-center gap-1.5"
-                >
-                  <Trash2 className="w-4 h-4 text-rose-400" />
-                  <span>Reset Extractor</span>
-                </button>
-                <button
-                  id="btn-push-to-sdbip-top-layer"
-                  type="button"
-                  onClick={handlePushToSDBIP}
-                  disabled={isPushing || selectedCount === 0}
-                  className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-black flex items-center gap-2 transition shadow-lg shadow-emerald-600/30 disabled:opacity-50 cursor-pointer"
-                >
-                  {isPushing ? (
-                    <Loader2 className="w-4 h-4 animate-spin text-white" />
-                  ) : (
-                    <ArrowRight className="w-4 h-4 text-white" />
-                  )}
-                  <span>Push to SDBIP Top Layer & Reporting Table ({selectedCount})</span>
-                </button>
-              </>
+              <button
+                id="btn-push-to-sdbip-top-layer"
+                type="button"
+                onClick={handlePushToSDBIP}
+                disabled={isPushing || selectedCount === 0}
+                className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-black flex items-center gap-2 transition shadow-lg shadow-emerald-600/30 disabled:opacity-50 cursor-pointer"
+              >
+                {isPushing ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                ) : (
+                  <ArrowRight className="w-4 h-4 text-white" />
+                )}
+                <span>Push to SDBIP Top Layer & Reporting Table ({selectedCount})</span>
+              </button>
             )}
           </div>
         </div>

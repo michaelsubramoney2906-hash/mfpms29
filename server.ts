@@ -25,7 +25,7 @@ import {
   SHABANGUSM_METADATA 
 } from "./src/data/shabanguAgreementData";
 
-const SUPABASE_TIMEOUT_MS = 15000;
+const SUPABASE_TIMEOUT_MS = 6000;
 
 // High-Concurrency In-Memory Micro-Cache and Single-Flight Request Coalescer
 interface CacheEntry<T = any> {
@@ -34,6 +34,27 @@ interface CacheEntry<T = any> {
 }
 const memoryCache = new Map<string, CacheEntry>();
 const inFlightRequests = new Map<string, Promise<any>>();
+
+// Circuit breaker state to protect Cloudflare edge connection pool & prevent 522 cascades
+let consecutiveSupabaseFailures = 0;
+let circuitBreakerOpenUntil = 0;
+
+function isCircuitBreakerOpen(): boolean {
+  return Date.now() < circuitBreakerOpenUntil;
+}
+
+function recordSupabaseSuccess() {
+  consecutiveSupabaseFailures = 0;
+  circuitBreakerOpenUntil = 0;
+}
+
+function recordSupabaseFailure() {
+  consecutiveSupabaseFailures++;
+  if (consecutiveSupabaseFailures >= 3) {
+    // Open circuit breaker for 10 seconds to allow Cloudflare connection pool to recover
+    circuitBreakerOpenUntil = Date.now() + 10000;
+  }
+}
 
 export function getCached<T>(key: string, ttlMs: number): T | null {
   const entry = memoryCache.get(key);
@@ -92,8 +113,21 @@ const pplanCache = new Map<string, { raw: string; timestamp: number }>();
 const lastLoggedErrorMap = new Map<string, number>();
 
 async function resilientSupabaseFetch(input: RequestInfo | URL, init?: RequestInit, attempt = 1): Promise<Response> {
+  // If circuit breaker is open, immediately fast-fail to preserve server threads and avoid socket starvation
+  if (isCircuitBreakerOpen()) {
+    return new Response(JSON.stringify({
+      message: "Supabase connection temporarily cooling down (circuit breaker active)",
+      code: "CIRCUIT_BREAKER_OPEN",
+      details: "Origin database unreachable or cooling down from recent timeouts",
+      hint: null,
+    }), {
+      status: 408,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   const controller = new AbortController();
-  const timeoutMs = attempt === 1 ? SUPABASE_TIMEOUT_MS : 10000;
+  const timeoutMs = attempt === 1 ? SUPABASE_TIMEOUT_MS : 3500;
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   if (init?.signal) {
@@ -112,11 +146,13 @@ async function resilientSupabaseFetch(input: RequestInfo | URL, init?: RequestIn
     if (res.status >= 500 || contentType.includes("text/html")) {
       try { await res.text(); } catch (_) {}
       
-      // Attempt 1 retry on Cloudflare/5xx origin error
+      // Attempt 1 fast retry on Cloudflare/5xx origin error
       if (attempt === 1) {
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise(r => setTimeout(r, 300));
         return resilientSupabaseFetch(input, init, 2);
       }
+
+      recordSupabaseFailure();
 
       return new Response(JSON.stringify({
         message: `Supabase service temporarily unavailable (Cloudflare ${res.status})`,
@@ -129,16 +165,19 @@ async function resilientSupabaseFetch(input: RequestInfo | URL, init?: RequestIn
       });
     }
 
+    recordSupabaseSuccess();
     return res;
   } catch (err: any) {
     clearTimeout(timer);
     const isTimeout = err.name === "AbortError";
 
-    // Attempt 1 retry on timeout or network error
+    // Attempt 1 fast retry on timeout or network error
     if (attempt === 1) {
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 300));
       return resilientSupabaseFetch(input, init, 2);
     }
+
+    recordSupabaseFailure();
 
     return new Response(JSON.stringify({
       message: isTimeout 
@@ -556,11 +595,14 @@ async function fixNkangalaTenants() {
     if (users && users.length > 0) {
       const usersToUpdate = users.filter((u: any) => u.tenant_id !== 'nkangala_auto');
       if (usersToUpdate.length > 0) {
-        for (const u of usersToUpdate) {
+        // Batch update in chunks of 50 to avoid request floods
+        const chunkSize = 50;
+        for (let i = 0; i < usersToUpdate.length; i += chunkSize) {
+          const chunkIds = usersToUpdate.slice(i, i + chunkSize).map((u: any) => u.id);
           await supabase
             .from('users')
             .update({ tenant_id: 'nkangala_auto' })
-            .eq('id', u.id);
+            .in('id', chunkIds);
         }
       }
     }
@@ -2980,14 +3022,18 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       const resolvedTenantId = await resolveTenantId(routeTenantId, userId);
       const userSuffix = userId && userId !== 'default' ? `_${userId}` : '';
       const storageId = `fred_ext_${engineType}_${resolvedTenantId}${userSuffix}`;
-      const { data, error } = await supabase
-        .from('messages')
-        .select('content')
-        .eq('id', storageId)
-        .maybeSingle();
+      
+      let data: any = null;
+      if (!isCircuitBreakerOpen() && supabase) {
+        const { data: dbData, error } = await supabase
+          .from('messages')
+          .select('content')
+          .eq('id', storageId)
+          .maybeSingle();
 
-      if (error) {
-        return res.status(500).json({ error: error.message });
+        if (!error && dbData) {
+          data = dbData;
+        }
       }
 
       if (data && data.content) {
@@ -3002,13 +3048,13 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
             fileName: parsed.fileName 
           });
         } catch (e) {
-          return res.status(500).json({ error: "Failed to parse saved extraction content." });
+          return res.json({ success: true, data: null, items: null });
         }
       }
 
       return res.json({ success: true, data: null, items: null });
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      return res.json({ success: true, data: null, items: null });
     }
   });
 
@@ -3020,12 +3066,20 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       const supabase = getSupabase();
       const resolvedTenantId = await resolveTenantId(routeTenantId, userId);
       const userSuffix = userId && userId !== 'default' ? `_${userId}` : '';
-      const storageId = `fred_ext_${engineType}_${resolvedTenantId}${userSuffix}`;
-      const fallbackStorageId = `fred_ext_performance_agreement_${resolvedTenantId}${userSuffix}`;
-      const ippStorageId = `fred_ext_ipp_${resolvedTenantId}${userSuffix}`;
+      const candidateIds = [
+        `fred_ext_${engineType}_${resolvedTenantId}${userSuffix}`,
+        `fred_ext_${engineType}_${resolvedTenantId}`,
+        `fred_ext_${engineType}_global`,
+        `fred_ext_${engineType}_tenant-229`,
+        `fred_ext_${engineType}_nkangala_auto`,
+        `fred_ext_performance_agreement_${resolvedTenantId}${userSuffix}`,
+        `fred_ext_ipp_${resolvedTenantId}${userSuffix}`
+      ];
       
-      await supabase.from('messages').delete().in('id', [storageId, fallbackStorageId, ippStorageId]);
-      return res.json({ success: true });
+      if (supabase) {
+        await supabase.from('messages').delete().in('id', candidateIds);
+      }
+      return res.json({ success: true, message: `Cleared extraction snapshot for ${engineType}` });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -6914,22 +6968,23 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
         }
       } catch (fErr) {}
 
-      // 2. Read Supabase user updates with a 1-second fast timeout race
-      const supabase = getSupabase();
+      // 2. Read Supabase user updates with a fast 1-second timeout race (skips if circuit breaker active)
       let data: any[] | null = null;
-
-      if (supabase) {
+      if (!isCircuitBreakerOpen()) {
         try {
-          const dbPromise = supabase
-            .from('users')
-            .select('*')
-            .range(0, 5000);
+          const supabase = getSupabase();
+          if (supabase) {
+            const dbPromise = supabase
+              .from('users')
+              .select('*')
+              .range(0, 5000);
 
-          const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve({ data: null, error: 'fast_timeout' }), 1000));
-          
-          const res: any = await Promise.race([dbPromise, timeoutPromise]);
-          if (res && res.data) {
-            data = res.data;
+            const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve({ data: null, error: 'fast_timeout' }), 1000));
+            
+            const res: any = await Promise.race([dbPromise, timeoutPromise]);
+            if (res && res.data) {
+              data = res.data;
+            }
           }
         } catch (e: any) {}
       }
@@ -6949,21 +7004,24 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
         ];
       }
     
-    let extraMap: Record<string, any> = {};
-    try {
-      if (supabase) {
-        const extraMsgPromise = supabase
-          .from('messages')
-          .select('content')
-          .eq('id', 'users_extra_metadata')
-          .maybeSingle();
-        const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve({ data: null }), 200));
-        const msgRes: any = await Promise.race([extraMsgPromise, timeoutPromise]);
-        if (msgRes && msgRes.data && msgRes.data.content) {
-          extraMap = JSON.parse(msgRes.data.content);
-        }
+      let extraMap: Record<string, any> = {};
+      if (!isCircuitBreakerOpen()) {
+        try {
+          const supabase = getSupabase();
+          if (supabase) {
+            const extraMsgPromise = supabase
+              .from('messages')
+              .select('content')
+              .eq('id', 'users_extra_metadata')
+              .maybeSingle();
+            const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve({ data: null }), 300));
+            const msgRes: any = await Promise.race([extraMsgPromise, timeoutPromise]);
+            if (msgRes && msgRes.data && msgRes.data.content) {
+              extraMap = JSON.parse(msgRes.data.content);
+            }
+          }
+        } catch (e) {}
       }
-    } catch (e) {}
 
     // Deduplicate any duplicate user records from Supabase by lowercase email
     const initialMap = new Map<string, any>();
@@ -7239,16 +7297,21 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
       ];
 
       let officialsMsgs: any[] = [];
-      if (supabase) {
-        const officialsPromise = supabase
-          .from('messages')
-          .select('content')
-          .like('id', 'sdbip_officials_%');
-        const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve({ data: null }), 200));
-        const res: any = await Promise.race([officialsPromise, timeoutPromise]);
-        if (res && res.data) {
-          officialsMsgs = res.data;
-        }
+      if (!isCircuitBreakerOpen()) {
+        try {
+          const supabase = getSupabase();
+          if (supabase) {
+            const officialsPromise = supabase
+              .from('messages')
+              .select('content')
+              .like('id', 'sdbip_officials_%');
+            const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve({ data: null }), 200));
+            const res: any = await Promise.race([officialsPromise, timeoutPromise]);
+            if (res && res.data) {
+              officialsMsgs = res.data;
+            }
+          }
+        } catch (e) {}
       }
 
       if (officialsMsgs && officialsMsgs.length > 0) {
@@ -9320,53 +9383,66 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
     }
   });
 
+  // High-performance in-memory fallback store for SDBIP datasets to prevent Cloudflare timeout data drops
+  const sdbipMemoryStore = new Map<string, any[]>();
+
   // 14. Fetch SDBIP for a tenant (including 2nd & 3rd layer SDBIP23)
   app.get(["/api/tenant/:tenantId/sdbip", "/api/tenant/:tenantId/sdbip23"], async (req, res) => {
     const { tenantId } = req.params;
     const isSdbip23 = req.path.endsWith('/sdbip23');
     const cacheKey = isSdbip23 ? `sdbip23_${tenantId}` : `sdbip_${tenantId}`;
     try {
-      const items = await fetchWithCoalescing(cacheKey, 20000, async () => {
-        const supabase = getSupabase();
-        let documentIds = isSdbip23 ? [`sdbip23_${tenantId}`] : [`sdbip_${tenantId}`];
-        if (tenantId === 'tenant-229' || tenantId === 'nkangala_auto' || tenantId === 'nkangala' || tenantId === 'default') {
-          documentIds = isSdbip23 
-            ? ['sdbip23_tenant-229', 'sdbip23_nkangala_auto', 'sdbip23_global']
-            : ['sdbip_tenant-229', 'sdbip_nkangala_auto', 'sdbip_global'];
-        } else if (tenantId !== 'global') {
-          if (isSdbip23) {
-            documentIds.push(`sdbip23_${tenantId}`);
-            documentIds.push('sdbip23_global');
-          } else {
-            documentIds.push(`sdbip_${tenantId}`);
-            documentIds.push('sdbip_global');
-          }
+      let documentIds = isSdbip23 ? [`sdbip23_${tenantId}`] : [`sdbip_${tenantId}`];
+      if (tenantId === 'tenant-229' || tenantId === 'nkangala_auto' || tenantId === 'nkangala' || tenantId === 'default' || tenantId === 'global') {
+        documentIds = isSdbip23 
+          ? ['sdbip23_tenant-229', 'sdbip23_nkangala_auto', 'sdbip23_global', `sdbip23_${tenantId}`]
+          : ['sdbip_tenant-229', 'sdbip_nkangala_auto', 'sdbip_global', `sdbip_${tenantId}`];
+      } else {
+        documentIds = isSdbip23
+          ? [`sdbip23_${tenantId}`, 'sdbip23_tenant-229', 'sdbip23_global']
+          : [`sdbip_${tenantId}`, 'sdbip_tenant-229', 'sdbip_global'];
+      }
+      documentIds = Array.from(new Set(documentIds));
+
+      // 1. Check in-memory store first (<1ms)
+      for (const docId of documentIds) {
+        const memItems = sdbipMemoryStore.get(docId);
+        if (Array.isArray(memItems) && memItems.length > 0) {
+          return res.json({ items: memItems });
         }
+      }
 
+      // 2. Fetch from Supabase if not in memory
+      const supabase = getSupabase();
+      if (!isCircuitBreakerOpen() && supabase) {
         for (const docId of documentIds) {
-          const { data } = await supabase
-            .from('messages')
-            .select('content')
-            .eq('id', docId)
-            .maybeSingle();
+          try {
+            const { data } = await supabase
+              .from('messages')
+              .select('content')
+              .eq('id', docId)
+              .maybeSingle();
 
-          if (data && data.content) {
-            try {
+            if (data && data.content) {
               const parsed = JSON.parse(data.content);
               const itemsArray = Array.isArray(parsed) ? parsed : (parsed?.items || []);
               if (Array.isArray(itemsArray) && itemsArray.length > 0) {
-                return itemsArray;
+                sdbipMemoryStore.set(docId, itemsArray);
+                sdbipMemoryStore.set(cacheKey, itemsArray);
+                return res.json({ items: itemsArray });
               }
-            } catch (parseErr) {
-              console.error("Error parsing sdbip JSON:", parseErr);
             }
-          }
+          } catch (dbErr) {}
         }
+      }
 
-        return [];
-      });
+      // Check cache fallback
+      const cached = getCached<any[]>(cacheKey, 300000);
+      if (Array.isArray(cached) && cached.length > 0) {
+        return res.json({ items: cached });
+      }
 
-      return res.json({ items });
+      return res.json({ items: [] });
     } catch (err: any) {
       console.error("SDBIP load exception:", err);
       res.status(500).json({ error: err.message });
@@ -9379,34 +9455,47 @@ Output MUST be a JSON array of objects conforming strictly to the requested sche
     const { items } = req.body;
     const isSdbip23 = req.path.endsWith('/sdbip23');
     try {
-      const supabase = getSupabase();
-      let targetDocIds = isSdbip23 ? [`sdbip23_${tenantId}`] : [`sdbip_${tenantId}`];
-      if (tenantId === 'tenant-229' || tenantId === 'nkangala_auto' || tenantId === 'global') {
-        targetDocIds = isSdbip23 
-          ? ['sdbip23_tenant-229', 'sdbip23_nkangala_auto', 'sdbip23_global']
-          : ['sdbip_tenant-229', 'sdbip_nkangala_auto', 'sdbip_global'];
-      }
+      const itemsArray = Array.isArray(items) ? items : [];
+      let targetDocIds = isSdbip23 
+        ? ['sdbip23_tenant-229', 'sdbip23_nkangala_auto', 'sdbip23_global', `sdbip23_${tenantId}`]
+        : ['sdbip_tenant-229', 'sdbip_nkangala_auto', 'sdbip_global', `sdbip_${tenantId}`];
+      
+      targetDocIds = Array.from(new Set(targetDocIds));
 
+      // 1. Immediately update memory store for instantaneous zero-latency reads
       for (const docId of targetDocIds) {
-        const tId = isSdbip23 ? docId.replace('sdbip23_', '') : docId.replace('sdbip_', '');
-        await supabase
-          .from('messages')
-          .upsert({ 
-            id: docId,
-            tenant_id: tId,
-            sender_id: 'sdbip_editor_tool',
-            sender_email: 'sdbip@system.local',
-            sender_name: 'SDBIP Editor',
-            content: JSON.stringify({ items: items }),
-            message_type: isSdbip23 ? 'sdbip23_list' : 'sdbip_list',
-            created_at: new Date().toISOString()
-          });
+        sdbipMemoryStore.set(docId, itemsArray);
+        setCached(docId, itemsArray);
+      }
+      const cacheKey = isSdbip23 ? `sdbip23_${tenantId}` : `sdbip_${tenantId}`;
+      sdbipMemoryStore.set(cacheKey, itemsArray);
+      setCached(cacheKey, itemsArray);
+
+      // 2. Persist to Supabase in background
+      const supabase = getSupabase();
+      if (supabase) {
+        (async () => {
+          try {
+            for (const docId of targetDocIds) {
+              const tId = isSdbip23 ? docId.replace('sdbip23_', '') : docId.replace('sdbip_', '');
+              await supabase
+                .from('messages')
+                .upsert({ 
+                  id: docId,
+                  tenant_id: tId,
+                  sender_id: 'sdbip_editor_tool',
+                  sender_email: 'sdbip@system.local',
+                  sender_name: 'SDBIP Editor',
+                  content: JSON.stringify({ items: itemsArray }),
+                  message_type: isSdbip23 ? 'sdbip23_list' : 'sdbip_list',
+                  created_at: new Date().toISOString()
+                });
+            }
+          } catch (bgErr) {}
+        })();
       }
       
-      // Invalidate SDBIP/SDBIP23 and users cache
-      invalidateCachePrefix(isSdbip23 ? 'sdbip23_' : 'sdbip_');
-      invalidateUsersCache();
-      res.json({ success: true });
+      res.json({ success: true, count: itemsArray.length });
     } catch (err: any) {
       console.error("SDBIP save exception:", err);
       res.status(500).json({ error: err.message });
