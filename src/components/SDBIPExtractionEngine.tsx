@@ -495,6 +495,9 @@ export function SDBIPExtractionEngine({ currentUser, activeTenantId, onNavigateT
           approver: it.approver || 'Sibusiso M. Shabanga',
           internalAudit: it.internalAudit || 'Amos D. Twala',
           poeStatus: it.poeStatus || 'Pending Evidence',
+          isPlaceholder: false,
+          _isPlaceholder: false,
+          source: 'extractor',
           // Reporting table fields
           q1Actual: it.q1Actual || '',
           q1Variance: it.q1Variance || '',
@@ -547,7 +550,11 @@ export function SDBIPExtractionEngine({ currentUser, activeTenantId, onNavigateT
       });
 
       // Notify any mounted SDBIP instance to reload immediately
-      window.dispatchEvent(new CustomEvent('sdbip:switch_tab', { detail: { tab: 'table', refresh: true } }));
+      try {
+        sessionStorage.setItem('sdbip_active_tab', 'table');
+        window.dispatchEvent(new CustomEvent('sdbip:refresh', { detail: { count: rowsToPush.length, items: rowsToPush } }));
+        window.dispatchEvent(new CustomEvent('sdbip:switch_tab', { detail: { tab: 'table', refresh: true } }));
+      } catch (e) {}
 
     } catch (err: any) {
       console.error("Push to SDBIP failed:", err);

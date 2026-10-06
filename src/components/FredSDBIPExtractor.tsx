@@ -258,19 +258,7 @@ export function FredSDBIPExtractor({
     });
 
     try {
-      // Fetch existing SDBIP items to preserve non-overwritten fields
-      let existingSdbipRows: any[] = [];
-      try {
-        const getRes = await fetch(`/api/tenant/${activeTenantId}/sdbip`);
-        if (getRes.ok) {
-          const getJson = await getRes.json();
-          if (getJson && Array.isArray(getJson.items)) {
-            existingSdbipRows = getJson.items;
-          }
-        }
-      } catch (e) {}
-
-      // Map strictly into SDBIP Top Layer format with National KPAs and M_ / P_ codes
+      // Map strictly into clean SDBIP Top Layer and Reporting format
       const sdbipPayload = selected.map((item, idx) => {
         const natKpa = (item.kpas || '').toLowerCase();
         let selectedKpa: 'bsd' | 'led' | 'mfvm' | 'ggpp' | 'midt' | 'sr' = 'bsd';
@@ -291,17 +279,13 @@ export function FredSDBIPExtractor({
           sr: 'Spatial Rationale (SR)'
         };
 
-        const existing = existingSdbipRows.find(
-          r => r.refNum?.toLowerCase() === item.refNum?.toLowerCase() || r.id === item._id
-        );
-
         // Verbatim source document POE description reflects across all four quarters (non-editable)
-        const sourcePoe = (item.poeStatus || item.q1PoeDesc || item.q2PoeDesc || item.q3PoeDesc || item.q4PoeDesc || existing?.poeStatus || existing?.q1PoeDesc || 'Portfolio of Evidence required').trim();
-        const kpiText = (item.kpi || item.operationalActivity || (item as any).KPI || (item as any).Description || (item as any).kpiDescription || existing?.kpi || '').trim();
-        const activityText = (item.operationalActivity || item.kpi || (item as any).Description || (item as any).KPI || existing?.operationalActivity || '').trim();
+        const sourcePoe = (item.poeStatus || item.q1PoeDesc || item.q2PoeDesc || item.q3PoeDesc || item.q4PoeDesc || 'Portfolio of Evidence required').trim();
+        const kpiText = (item.kpi || item.operationalActivity || (item as any).KPI || (item as any).Description || (item as any).kpiDescription || '').trim();
+        const activityText = (item.operationalActivity || item.kpi || (item as any).Description || (item as any).KPI || '').trim();
 
         return {
-          id: existing?.id || item._id || `sdbip-tl-${Date.now()}-${idx + 1}`,
+          id: item._id || `sdbip-tl-${Date.now()}-${idx + 1}`,
           refNum: item.refNum || `M_${String(idx + 1).padStart(2, '0')}`,
           strategicObj: item.strategicObj || 'To ensure sustainable service delivery and clean audit compliance',
           bsd: selectedKpa === 'bsd' ? 'X' : '',
@@ -329,40 +313,43 @@ export function FredSDBIPExtractor({
           evaluationUser: 'Municipal Official',
           reviewManager: 'Municipal Manager',
           poeStatus: sourcePoe,
-          // SDBIP Top Layer Reporting fields: Source POE reflects across all four quarters verbatim
-          q1Actual: item.q1Actual || existing?.q1Actual || '',
-          q1Variance: item.q1Variance || existing?.q1Variance || '',
-          q1Corrective: item.q1Corrective || existing?.q1Corrective || '',
-          q1Expenditure: item.q1Expenditure || existing?.q1Expenditure || '',
+          isPlaceholder: false,
+          _isPlaceholder: false,
+          source: 'extractor',
+          // SDBIP Top Layer Reporting fields: Overwritten directly with extracted data
+          q1Actual: item.q1Actual || '',
+          q1Variance: item.q1Variance || '',
+          q1Corrective: item.q1Corrective || '',
+          q1Expenditure: item.q1Expenditure || '',
           q1PoeDesc: sourcePoe,
-          q2Actual: item.q2Actual || existing?.q2Actual || '',
-          q2Variance: item.q2Variance || existing?.q2Variance || '',
-          q2Corrective: item.q2Corrective || existing?.q2Corrective || '',
-          q2Expenditure: item.q2Expenditure || existing?.q2Expenditure || '',
+          q2Actual: item.q2Actual || '',
+          q2Variance: item.q2Variance || '',
+          q2Corrective: item.q2Corrective || '',
+          q2Expenditure: item.q2Expenditure || '',
           q2PoeDesc: sourcePoe,
-          midTermActual: item.midTermActual || existing?.midTermActual || '',
-          midTermVariance: item.midTermVariance || existing?.midTermVariance || '',
-          midTermCorrective: item.midTermCorrective || existing?.midTermCorrective || '',
-          midTermExpenditure: item.midTermExpenditure || existing?.midTermExpenditure || '',
+          midTermActual: item.midTermActual || '',
+          midTermVariance: item.midTermVariance || '',
+          midTermCorrective: item.midTermCorrective || '',
+          midTermExpenditure: item.midTermExpenditure || '',
           midTermPoeDesc: sourcePoe,
-          q3Actual: item.q3Actual || existing?.q3Actual || '',
-          q3Variance: item.q3Variance || existing?.q3Variance || '',
-          q3Corrective: item.q3Corrective || existing?.q3Corrective || '',
-          q3Expenditure: item.q3Expenditure || existing?.q3Expenditure || '',
+          q3Actual: item.q3Actual || '',
+          q3Variance: item.q3Variance || '',
+          q3Corrective: item.q3Corrective || '',
+          q3Expenditure: item.q3Expenditure || '',
           q3PoeDesc: sourcePoe,
-          q4Actual: item.q4Actual || existing?.q4Actual || '',
-          q4Variance: item.q4Variance || existing?.q4Variance || '',
-          q4Corrective: item.q4Corrective || existing?.q4Corrective || '',
-          q4Expenditure: item.q4Expenditure || existing?.q4Expenditure || '',
+          q4Actual: item.q4Actual || '',
+          q4Variance: item.q4Variance || '',
+          q4Corrective: item.q4Corrective || '',
+          q4Expenditure: item.q4Expenditure || '',
           q4PoeDesc: sourcePoe
         };
       });
 
-      // Post to the SDBIP endpoint for active tenant and core aliases
+      // Completely overwrite the SDBIP endpoint for active tenant and core aliases
       const res = await fetch(`/api/tenant/${activeTenantId}/sdbip`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: sdbipPayload })
+        body: JSON.stringify({ items: sdbipPayload, overwrite: true })
       });
 
       if (!res.ok) {
