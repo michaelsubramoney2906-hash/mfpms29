@@ -912,10 +912,10 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     };
 
     Promise.all([
-      fetch(`/api/tenant/${activeTenantId}/sdbip`),
-      fetch(`/api/tenant/${activeTenantId}/sdbip-poes`),
-      fetch(`/api/tenant/${activeTenantId}/sdbip-notifications`),
-      fetch(`/api/tenant/${activeTenantId}/sdbip-officials`)
+      fetch(`/api/tenant/${activeTenantId}/sdbip?t=${Date.now()}`),
+      fetch(`/api/tenant/${activeTenantId}/sdbip-poes?t=${Date.now()}`),
+      fetch(`/api/tenant/${activeTenantId}/sdbip-notifications?t=${Date.now()}`),
+      fetch(`/api/tenant/${activeTenantId}/sdbip-officials?t=${Date.now()}`)
     ])
       .then(async ([rowsRes, poesRes, notifRes, officialsRes]) => {
         const rowsData = await safeJson(rowsRes, { items: [] });

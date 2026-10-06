@@ -588,7 +588,19 @@ export function FredSDBIPExtractor({
           ) : (
             <Info className="w-5 h-5 text-teal-400 shrink-0 mt-0.5" />
           )}
-          <div className="flex-1 font-medium">{statusMessage.text}</div>
+          <div className="flex-1 font-medium flex flex-wrap items-center justify-between gap-3">
+            <span>{statusMessage.text}</span>
+            {statusMessage.type === 'success' && onNavigateToSDBIP && (
+              <button
+                type="button"
+                onClick={() => onNavigateToSDBIP('table')}
+                className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-lg flex items-center gap-1.5 cursor-pointer shadow-sm transition"
+              >
+                <span>View SDBIP Top Layer Table</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         </div>
       )}
 
