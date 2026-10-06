@@ -368,7 +368,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [hasSavedOnce, setHasSavedOnce] = useState(false);
   const [showRestrictedFieldsOverride, setShowRestrictedFieldsOverride] = useState(true);
-  const [activeTab, setActiveTab] = useState<'brief' | 'templates' | 'drafting_suite' | 'lead_fire_fighter' | 'drafting_suite_firefighters' | 'drafting_suite_technical_services' | 'drafting_suite_corporate_services' | 'drafting_suite_pms_team'>('brief');
+  const [activeTab, setActiveTab] = useState<'brief' | 'templates' | 'drafting_suite' | 'lead_fire_fighter' | 'drafting_suite_firefighters' | 'drafting_suite_technical_services' | 'drafting_suite_corporate_services' | 'drafting_suite_pms_team'>('drafting_suite');
   const [users, setUsers] = useState<any[]>([]);
   const [selectedUserEmail, setSelectedUserEmail] = useState<string>('');
   const [agreementScope, setAgreementScope] = useState<'individual' | 'team'>('individual');
@@ -616,9 +616,12 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
           // Auto-sync captured KPIs into Performance Plan
           if (!isCleared && !isFredExtracted && fetchedKpis.length > 0) {
             if (currentItems.length > 0) {
-              // First, update existing items if they match kpiNo - strictly preserve the exact count
+              const existingKpiNos = new Set(
+                currentItems.map((it: any) => (it.kpiNo || '').toLowerCase().trim()).filter(Boolean)
+              );
+              // Update existing items
               currentItems = currentItems.map(item => {
-                const matchedKpi = fetchedKpis.find(fk => (fk.kpiNo || '').toLowerCase() === (item.kpiNo || '').toLowerCase());
+                const matchedKpi = fetchedKpis.find(fk => (fk.kpiNo || '').toLowerCase().trim() === (item.kpiNo || '').toLowerCase().trim());
                 if (matchedKpi) {
                   return {
                     ...item,
@@ -642,6 +645,37 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
                 }
                 return item;
               });
+
+              // Append missing KPIs from fetchedKpis so no KPIs are omitted
+              const missingKpis = fetchedKpis.filter(
+                fk => fk.kpiNo && !existingKpiNos.has(String(fk.kpiNo).toLowerCase().trim())
+              );
+              if (missingKpis.length > 0) {
+                const appendedItems = missingKpis.map((fk, idx) => ({
+                  id: fk.id || `kpi-${fk.kpiNo || idx}`,
+                  strategicGoal: fk.strategicGoal || fk.kpa || '',
+                  kpiNo: fk.kpiNo,
+                  kpi: fk.kpi || '',
+                  bsd: false, led: false, mfvm: false, ggpp: false, midt: false, sr: false,
+                  kpa: fk.kpa || '',
+                  baseline: fk.baseline || '',
+                  baselineYear: fk.baselineYear || '2025/2026',
+                  budget: fk.budget || '',
+                  annualTarget: fk.annualTarget || '',
+                  q1Target: fk.q1Target || '',
+                  q2Target: fk.q2Target || '',
+                  q3Target: fk.q3Target || '',
+                  q4Target: fk.q4Target || '',
+                  q1Poe: fk.q1Poe || '',
+                  q2Poe: fk.q2Poe || '',
+                  q3Poe: fk.q3Poe || '',
+                  q4Poe: fk.q4Poe || '',
+                  annualRequiredPoe: fk.annualRequiredPoe || '',
+                  poe: fk.annualRequiredPoe || fk.poe || '',
+                  weighting: fk.weighting || fk.weight || ''
+                }));
+                currentItems = [...currentItems, ...appendedItems];
+              }
             } else {
               // Only populate from fetchedKpis if the grid was completely empty
               currentItems = fetchedKpis

@@ -10,7 +10,8 @@ import {
 import { cn } from './Branding';
 import { PerformanceMonitor } from './Admin/PerformanceMonitor';
 import { NkangalaBatchRestorationPanel } from './Admin/NkangalaBatchRestorationPanel';
-import { isUserUnrestricted } from '../utils/unrestrictedHelper';
+import { NkangalaDataVault } from './Admin/NkangalaDataVault';
+import { isUserUnrestricted, isGlobalAdminEmail } from '../utils/unrestrictedHelper';
 
 interface UserManagementProps {
   currentUser: User;
@@ -29,7 +30,7 @@ const DIRECTORATES = [
 ];
 
 export function UserManagement({ currentUser, activeTenantId, onImpersonate, onNavigateToCommandCenter }: UserManagementProps) {
-  const [activeTab, setActiveTab] = useState<'list' | 'manual' | 'azure' | 'sessions' | 'perf' | 'reprocess'>('list');
+  const [activeTab, setActiveTab] = useState<'list' | 'manual' | 'azure' | 'sessions' | 'perf' | 'reprocess' | 'vault'>('list');
   const [users, setUsers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [azureConfig, setAzureConfig] = useState({
@@ -1025,6 +1026,12 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
         >
           <Database className="w-4 h-4 text-emerald-600" /> Batch Restore 4 Pillars (KPAs, KPIs, PDPs, JSCs)
         </button>
+        <button 
+          onClick={() => setActiveTab('vault')}
+          className={`flex items-center gap-2 px-6 py-4 border-b-2 font-bold text-sm transition-colors ${activeTab === 'vault' ? 'border-indigo-600 text-indigo-700 bg-white rounded-t-xl shadow-[0_-2px_10px_-5px_rgba(0,0,0,0.05)]' : 'border-transparent text-gray-500 hover:text-gray-900'}`}
+        >
+          <ShieldCheck className="w-4 h-4 text-indigo-600" /> Nkangala Data Vault & Backups
+        </button>
       </div>
 
       <div className="p-8 flex-1 overflow-y-auto hide-scrollbar">
@@ -1127,19 +1134,20 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                               <button 
                                 onClick={() => {
                                   const resolvedTenant = (u.tenantId === 'nkangala_auto' || u.email?.toLowerCase().includes('nkangala')) ? 'tenant-229' : (u.tenantId || municipalities[0]?.id || '');
+                                  const isTargetGlobal = isGlobalAdminEmail(u.email);
                                   onImpersonate({
                                     email: u.email,
-                                    fullName: u.fullName || '',
-                                    role: u.role === 'Global Administrator' || u.role === 'admin' || u.role === 'Systems Administrator' ? 'admin' : 'tenant_user',
+                                    fullName: u.fullName || (u as any).full_name || (u as any).name || '',
+                                    role: isTargetGlobal ? 'admin' : 'tenant_user',
                                     tenantId: resolvedTenant,
                                     id: u.id,
-                                    jobFunction: u.jobFunction || '',
-                                    department: u.department || '',
+                                    jobFunction: u.jobFunction || (u as any).job_function || '',
+                                    department: u.department || (u as any).department || '',
                                     directorate: u.directorate || '',
                                     manager: u.manager || '',
                                     reportTo: u.reportTo || '',
                                     level: u.level || '1',
-                                    systemRole: u.role || u.systemRole || 'Standard User',
+                                    systemRole: isTargetGlobal ? 'Global Administrator' : 'Standard User',
                                     signatureType: u.signatureType || 'draw',
                                     signatureData: u.signatureData || ''
                                   });
@@ -1716,13 +1724,14 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                             <button 
                               onClick={() => {
                                 const resolvedTenant = (session.tenantId === 'nkangala_auto' || session.email?.toLowerCase().includes('nkangala')) ? 'tenant-229' : (session.tenantId || municipalities[0]?.id || '');
+                                const isSessionGlobal = isGlobalAdminEmail(session.email);
                                 onImpersonate({
                                   email: session.email,
-                                  fullName: session.fullName || '',
-                                  role: session.role === 'Global Administrator' || session.role === 'admin' || session.role === 'Systems Administrator' ? 'admin' : 'tenant_user',
+                                  fullName: session.fullName || (session as any).full_name || (session as any).name || '',
+                                  role: isSessionGlobal ? 'admin' : 'tenant_user',
                                   tenantId: resolvedTenant,
                                   id: session.userId || session.email,
-                                  systemRole: session.systemRole || session.role || 'Standard User'
+                                  systemRole: isSessionGlobal ? 'Global Administrator' : 'Standard User'
                                 });
                               }}
                               className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
@@ -1766,6 +1775,16 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
               activeTenantId={activeTenantId} 
               onImpersonate={onImpersonate}
               onNavigateToCommandCenter={onNavigateToCommandCenter}
+            />
+          </div>
+        )}
+
+        {/* Tab 7: Nkangala Data Vault & Backups */}
+        {activeTab === 'vault' && (
+          <div className="rounded-2xl min-h-[650px] h-full">
+            <NkangalaDataVault 
+              currentUser={currentUser} 
+              activeTenantId={activeTenantId} 
             />
           </div>
         )}

@@ -7,7 +7,7 @@ import {
   Check, Edit3, Sparkles, CheckCircle2, ShieldCheck, X, Eye, 
   Layers, Search, Users, Settings2, LayoutTemplate, Sliders,
   ArrowRight, FileSpreadsheet, Lock, AlertTriangle, Settings, Table2,
-  ClipboardCheck, CalendarDays
+  ClipboardCheck, CalendarDays, History, RotateCcw, Clock, Tag, ExternalLink, Bookmark
 } from 'lucide-react';
 import { isUserUnrestricted } from '../../utils/unrestrictedHelper';
 
@@ -449,7 +449,7 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
           setSupervisorPosition(matchedSup.jobFunction || matchedSup.job_function || matchedSup.position || "Line Manager");
           setSupervisorDate('29 July 2026');
         } else if (isYenaKhuboni) {
-          const shabangu = userManagementUsers.find(u => (u.email || '').toLowerCase().includes('shabangusm'));
+          const shabangu = userManagementUsers.find(u => (u.email || '').toLowerCase().includes('shabangusm') || (u.email || '').toLowerCase().includes('shabangugm'));
           if (shabangu) {
             setSupervisorSignature(shabangu.signatureData || shabangu.fullName);
             setSupervisorName("S Shabangu");

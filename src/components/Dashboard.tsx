@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Logo, cn } from './Branding';
 import { modules, tenants } from '../data';
 import type { User, Module } from '../types';
-import { isUserUnrestricted } from '../utils/unrestrictedHelper';
+import { isUserUnrestricted, isGlobalAdminEmail } from '../utils/unrestrictedHelper';
 import { ChevronDown, LogOut, ShieldCheck, ChevronRight, LayoutGrid, Calendar as CalendarIcon, Bell, ArrowLeft, Layers } from 'lucide-react';
 import { UserManagement } from './UserManagement';
 import { SharePoint } from './SharePoint';
@@ -65,6 +65,7 @@ import { MzansiFlowAcademy } from './MzansiFlowAcademy';
 import { PerformanceMonitor } from './Admin/PerformanceMonitor';
 import { AuditLogs } from './Admin/AuditLogs';
 import { SystemControlPanel } from './Admin/SystemControlPanel';
+import { NkangalaBackupVault } from './Admin/NkangalaBackupVault';
 import { logUserAccess } from '../utils/auditLogger';
 import { RiskManagement } from './RiskManagement';
 import { FredExtractionAgent } from './FredExtractionAgent';
@@ -101,18 +102,19 @@ interface DashboardProps {
 export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
   const { financialYear, isPriorYear, getEffectiveYearForModule } = useFinancialYear();
   const userEmail = (user.email || '').toLowerCase().trim();
-  const isUnrestricted = isUserUnrestricted(user);
-  const isCommandCenterAuthorized = isUnrestricted || [
-    'audrey@mzansiflow.co.za',
-    'qiniso@mzansiflow.co.za',
-    'delphine@mzansiflow.co.za',
-    'ryanw@mzansiflow.co.za',
-    'bongani@mzansiflow.co.za',
-    'bonganim@mzansiflow.co.za',
-    'mike@mzansiflow.co.za',
-    'marlan@mzansiflow.co.za',
-    'mike@massivedynamixdistributors.com'
-  ].includes(userEmail);
+  
+  // Check if session is currently impersonating another persona
+  const isCurrentlyImpersonating = typeof window !== 'undefined' && 
+    !!(localStorage.getItem('originalAdminUser') || sessionStorage.getItem('originalAdminUser'));
+
+  // True Impersonation Rule: If impersonating, the persona strictly inherits ONLY the target user's real rights.
+  // Administrator panel and command center are completely disabled when impersonating (no dual role bleed).
+  const isTargetGlobalAdmin = isGlobalAdminEmail(userEmail);
+  const isUnrestricted = isCurrentlyImpersonating ? false : isUserUnrestricted(user);
+  
+  const isCommandCenterAuthorized = isCurrentlyImpersonating 
+    ? false
+    : (isUnrestricted || isTargetGlobalAdmin);
 
   const getSavedModule = (): Module => {
     try {
@@ -606,13 +608,15 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
     }
   };
 
-  const isSystemsOrGlobalAdmin = 
-    isUnrestricted ||
-    user.role === 'admin' || 
-    user.systemRole === 'Global Administrator' || 
-    user.systemRole === 'Systems Administrator' ||
-    user.systemRole === 'admin' ||
-    ['mike@mzansiflow.co.za', 'audrey@mzansiflow.co.za', 'delphine@mzansiflow.co.za', 'ryanw@mzansiflow.co.za', 'bongani@mzansiflow.co.za', 'bonganim@mzansiflow.co.za', 'mike@massivedynamixdistributors.com'].includes((user.email || '').toLowerCase().trim());
+  const isSystemsOrGlobalAdmin = isCurrentlyImpersonating
+    ? false
+    : (
+        isUnrestricted ||
+        isTargetGlobalAdmin ||
+        user.role === 'admin' || 
+        user.systemRole === 'Global Administrator' || 
+        user.systemRole === 'Systems Administrator'
+      );
 
   const displayedModules = modules.filter(mod => {
     if (mod.id === 'dashboard') {
@@ -629,7 +633,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
       setActiveModule(modules.find(m => m.id === 'ipms') || modules[1]);
     }
     if (activeModule && activeModule.id === 'admin' && !isSystemsOrGlobalAdmin) {
-      setActiveModule(displayedModules[0] || modules[0]);
+      setActiveModule(displayedModules.find(m => m.id === 'ipms') || displayedModules[0] || modules[1]);
     }
   }, [activeModule, isCommandCenterAuthorized, isSystemsOrGlobalAdmin]);
 
@@ -820,6 +824,14 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                   setActiveSubModule(null);
                   window.dispatchEvent(new CustomEvent('command-center-force-refresh'));
                 }}
+              />
+            </div>
+          ) : activeSubModule.id === 'backups' ? (
+            <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
+              <NkangalaBackupVault
+                currentUser={fullUserProfile}
+                activeTenantId={activeTenantId}
+                onImpersonate={onImpersonate}
               />
             </div>
           ) : activeSubModule.id === 'sharepoint' || activeSubModule.id === 'sharepoint-drives' || activeSubModule.id === 'sharepoint-nkangala' || activeSubModule.id === 'sharepoint-mzansiflow' || activeSubModule.id === 'chat' || activeSubModule.id === 'ca' || activeSubModule.id === 'hds' || activeSubModule.id === 'admin-chat' ? (

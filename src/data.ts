@@ -397,6 +397,7 @@ export const modules: Module[] = [
     icon: Shield,
     subModules: [
       { id: 'perf', name: 'Performance & Bottlenecks', icon: Activity },
+      { id: 'backups', name: 'Nkangala Backups & 1-Click Restore', icon: Archive },
       { id: 'um', name: 'User Management', icon: Users },
       { id: 'scp', name: 'System control panel', icon: Settings },
       { id: 'al', name: 'Audit Logs', icon: FileText },

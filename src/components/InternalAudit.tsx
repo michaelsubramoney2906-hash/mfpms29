@@ -129,6 +129,11 @@ export function InternalAudit({ currentUser, activeTenantId }: InternalAuditProp
     const targetRow = sdbipRows.find(r => r.id === rowId);
     if (!targetRow) return;
 
+    if (!isCleared && !auditNotes.trim()) {
+      alert('Please provide Internal Audit findings/comments explaining why the KPI is Not Achieved.');
+      return;
+    }
+
     const updatedRows = sdbipRows.map(r => {
       if (r.id === rowId) {
         const workflows = r.workflows || {};
@@ -788,8 +793,30 @@ export function InternalAudit({ currentUser, activeTenantId }: InternalAuditProp
                     })()}
                   </div>
 
+                  {/* Previous Stage Workflow Remarks History */}
+                  <div className="space-y-2 pt-2 border-t border-slate-200">
+                    {(selectedAuditKpi as any).submitterNotes && (
+                      <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-xs">
+                        <span className="text-[9.5px] font-bold text-slate-500 uppercase tracking-wider block">Submitter Remarks:</span>
+                        <p className="text-slate-700 italic mt-0.5">"{(selectedAuditKpi as any).submitterNotes}"</p>
+                      </div>
+                    )}
+                    {(selectedAuditKpi as any).approverNotes && (
+                      <div className="bg-amber-50 p-2.5 rounded-lg border border-amber-200 text-xs">
+                        <span className="text-[9.5px] font-bold text-amber-700 uppercase tracking-wider block">Executive Approver Remarks:</span>
+                        <p className="text-amber-900 italic mt-0.5">"{(selectedAuditKpi as any).approverNotes}"</p>
+                      </div>
+                    )}
+                    {(selectedAuditKpi as any).reviewerNotes && (
+                      <div className="bg-indigo-50 p-2.5 rounded-lg border border-indigo-200 text-xs">
+                        <span className="text-[9.5px] font-bold text-indigo-700 uppercase tracking-wider block">PMU Reviewer Remarks:</span>
+                        <p className="text-indigo-900 italic mt-0.5">"{(selectedAuditKpi as any).reviewerNotes}"</p>
+                      </div>
+                    )}
+                  </div>
+
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase text-slate-500">Internal Audit Remarks / Queries</label>
+                    <label className="text-[10px] font-black uppercase text-slate-500">Internal Audit Verdict & Findings / Queries</label>
                     <textarea
                       value={auditNotes}
                       onChange={(e) => setAuditNotes(e.target.value)}
@@ -804,14 +831,14 @@ export function InternalAudit({ currentUser, activeTenantId }: InternalAuditProp
                       className="w-full bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl py-2.5 font-bold text-xs uppercase tracking-wider transition cursor-pointer flex items-center justify-center gap-1"
                     >
                       <XCircle className="w-4 h-4" />
-                      Return / Audit Query
+                      Not Achieved (Return Query)
                     </button>
                     <button
                       onClick={() => handleVerifyAudit(selectedAuditKpi.id, true)}
                       className="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl py-2.5 font-bold text-xs uppercase tracking-wider transition cursor-pointer flex items-center justify-center gap-1 shadow"
                     >
                       <CheckCircle className="w-4 h-4" />
-                      Clear Audit Sign-off
+                      Achieved (Clear Audit Sign-off)
                     </button>
                   </div>
                 </div>

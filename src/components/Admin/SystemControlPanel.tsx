@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { User } from '../../types';
 import { NkangalaBatchRestorationPanel } from './NkangalaBatchRestorationPanel';
+import { NkangalaBackupVault } from './NkangalaBackupVault';
 
 interface SystemControlPanelProps {
   currentUser: User;
@@ -15,7 +16,7 @@ interface SystemControlPanelProps {
 }
 
 export function SystemControlPanel({ currentUser, activeTenantId, onImpersonate, onNavigateToCommandCenter }: SystemControlPanelProps) {
-  const [activeTab, setActiveTab] = useState<'batch-sync' | 'db-health' | 'security'>('batch-sync');
+  const [activeTab, setActiveTab] = useState<'vault' | 'batch-sync' | 'db-health'>('vault');
   const [clearingCache, setClearingCache] = useState(false);
   const [cacheStatus, setCacheStatus] = useState<string | null>(null);
 
@@ -51,6 +52,17 @@ export function SystemControlPanel({ currentUser, activeTenantId, onImpersonate,
         {/* Tab Navigation */}
         <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800">
           <button
+            onClick={() => setActiveTab('vault')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              activeTab === 'vault'
+                ? 'bg-emerald-600 text-white shadow'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Database className="w-3.5 h-3.5" />
+            Nkangala Backup Vault & 1-Click Restore
+          </button>
+          <button
             onClick={() => setActiveTab('batch-sync')}
             className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
               activeTab === 'batch-sync'
@@ -58,8 +70,8 @@ export function SystemControlPanel({ currentUser, activeTenantId, onImpersonate,
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            <Database className="w-3.5 h-3.5" />
-            Nkangala Profile Batch Restoration
+            <RefreshCw className="w-3.5 h-3.5" />
+            Live Batch Stream
           </button>
           <button
             onClick={() => setActiveTab('db-health')}
@@ -77,6 +89,14 @@ export function SystemControlPanel({ currentUser, activeTenantId, onImpersonate,
 
       {/* Main Content Area */}
       <div className="flex-1 overflow-hidden p-6">
+        {activeTab === 'vault' && (
+          <NkangalaBackupVault
+            currentUser={currentUser}
+            activeTenantId={activeTenantId}
+            onImpersonate={onImpersonate}
+          />
+        )}
+
         {activeTab === 'batch-sync' && (
           <NkangalaBatchRestorationPanel 
             currentUser={currentUser} 

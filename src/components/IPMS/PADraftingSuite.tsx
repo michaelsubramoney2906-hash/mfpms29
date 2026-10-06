@@ -7,7 +7,8 @@ import {
   Check, Edit3, Sparkles, CheckCircle2, ShieldCheck, X, Eye, 
   Layers, Search, Users, Settings2, LayoutTemplate, Sliders,
   ArrowRight, FileSpreadsheet, Lock, AlertTriangle, Settings, Table2,
-  ClipboardCheck, CalendarDays
+  ClipboardCheck, CalendarDays, History, RotateCcw, Clock, Tag,
+  ExternalLink, Bookmark, Palette, Type, Database, RefreshCw
 } from 'lucide-react';
 import { isUserUnrestricted } from '../../utils/unrestrictedHelper';
 
@@ -451,7 +452,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
           setSupervisorPosition(matchedSup.jobFunction || matchedSup.job_function || matchedSup.position || "Line Manager");
           setSupervisorDate('29 July 2026');
         } else if (isYenaKhuboni) {
-          const shabangu = userManagementUsers.find(u => (u.email || '').toLowerCase().includes('shabangusm'));
+          const shabangu = userManagementUsers.find(u => (u.email || '').toLowerCase().includes('shabangusm') || (u.email || '').toLowerCase().includes('shabangugm'));
           if (shabangu) {
             setSupervisorSignature(shabangu.signatureData || shabangu.fullName);
             setSupervisorName("S Shabangu");
@@ -567,6 +568,17 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
   const [printFontSize, setPrintFontSize] = useState<'small' | 'standard' | 'large'>('standard');
   const [printMargin, setPrintMargin] = useState<'compact' | 'standard' | 'wide'>('standard');
   const [printTheme, setPrintTheme] = useState<string>('emerald');
+
+  // Document Versioning & History States (Scoped per @nkangaladm.gov.za user in Supabase)
+  const [showVersionHistoryModal, setShowVersionHistoryModal] = useState(false);
+  const [showCreateVersionModal, setShowCreateVersionModal] = useState(false);
+  const [documentVersions, setDocumentVersions] = useState<any[]>([]);
+  const [loadingVersions, setLoadingVersions] = useState(false);
+  const [restoringVersionId, setRestoringVersionId] = useState<string | null>(null);
+  const [newVersionName, setNewVersionName] = useState('');
+  const [newVersionTag, setNewVersionTag] = useState('Manual Checkpoint');
+  const [inspectingVersion, setInspectingVersion] = useState<any | null>(null);
+  const [versionSearchQuery, setVersionSearchQuery] = useState('');
 
   // Municipal Header Configuration States
   const [municipalityName, setMunicipalityName] = useState('NKANGALA DISTRICT MUNICIPALITY');
@@ -2717,98 +2729,190 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
     }
   };
 
+  const buildActiveDocumentPayload = (): PATemplate => {
+    return {
+      id: selectedTemplateId || (isMandlaMahlangu ? 'template-mm-standard' : `template-${Date.now()}`),
+      name: isMandlaMahlangu ? 'MM: Municipal Manager Premium Agreement' : templateName,
+      headingCover,
+      headingRegulatoryInfo,
+      dynamicSections,
+      headingPurpose,
+      headingValidity,
+      headingReporting,
+      headingFramework,
+      headingKpaTable,
+      headingJscTable,
+      headingConditions,
+      headingAssessmentKpas,
+      headingFeedback,
+      headingTimetable,
+      headingPoorPerformance,
+      headingDispute,
+      headingAmendment,
+      headingEvaluation,
+      headingNationalKpas,
+      heading4_4,
+      heading4_5,
+      headingSignatures,
+      headingAnnexA,
+      headingAnnexB,
+      headingAnnexC,
+      coverPage,
+      regulatoryInfoText,
+      purpose,
+      validity,
+      reporting,
+      framework,
+      frameworkBelowKpa,
+      nationalKpasText,
+      text4_4,
+      text4_5,
+      frameworkBelowJsc,
+      conditions,
+      kpaText,
+      feedback,
+      timetableText,
+      timetableTextBelowTable,
+      poorPerformance,
+      dispute,
+      amendment,
+      evaluation,
+      annexureC,
+      municipalityName,
+      templateSubHeader,
+      muniFontFamily,
+      muniFontSize,
+      muniColor,
+      subHeaderFontSize,
+      subHeaderColor,
+      muniLogo,
+      customTables,
+      textColor,
+      headingColor,
+      borderColor,
+      borderStyle,
+      borderWidth,
+      documentFontFamily,
+      documentTextAlign,
+      showPageNumbers,
+      footerText,
+      createdAt: new Date().toISOString(),
+      pulledPplanItems,
+      pulledFilteredPplanItems,
+      pulledPdpItems,
+      pulledCompetencyRows,
+      pulledCfoCompetencyRows,
+      pulledPedCompetencyRows,
+      pulledCorpCompetencyRows,
+      pulledKhuboniJscRows,
+      khuboniJscNotes,
+      employeeSignature,
+      employeeName,
+      employeePosition,
+      employeeDate,
+      supervisorSignature,
+      supervisorName,
+      supervisorPosition,
+      supervisorDate,
+      sigDay,
+      sigMonth,
+      sigYear,
+      pdpCustomTable
+    };
+  };
+
+  const fetchDocumentVersions = async () => {
+    setLoadingVersions(true);
+    try {
+      const activeEmail = (currentUser?.email || '').toLowerCase().trim();
+      const res = await fetch(`/api/tenant/${activeTenantId}/pa-versions?userId=${encodeURIComponent(activeEmail)}&t=${Date.now()}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.versions && Array.isArray(data.versions)) {
+          setDocumentVersions(data.versions);
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to fetch document versions:", err);
+    } finally {
+      setLoadingVersions(false);
+    }
+  };
+
+  const handleCreateVersionCheckpoint = async () => {
+    if (!newVersionName.trim()) {
+      triggerNotification("Please enter a version title for this checkpoint.", "error");
+      return;
+    }
+    setSaving(true);
+    try {
+      const activeEmail = (currentUser?.email || '').toLowerCase().trim();
+      const activeTpl = buildActiveDocumentPayload();
+      
+      const res = await fetch(`/api/tenant/${activeTenantId}/pa-versions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: activeEmail,
+          versionName: newVersionName.trim(),
+          versionTag: newVersionTag.trim() || 'Manual Checkpoint',
+          html: activeTpl
+        })
+      });
+
+      if (res.ok) {
+        triggerNotification(`Version checkpoint "${newVersionName}" saved to Supabase!`, "success");
+        setNewVersionName('');
+        setShowCreateVersionModal(false);
+        await fetchDocumentVersions();
+      } else {
+        throw new Error("Server rejected checkpoint creation.");
+      }
+    } catch (err: any) {
+      console.error(err);
+      triggerNotification("Version creation error: " + err.message, "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRestoreVersion = async (version: any) => {
+    if (!window.confirm(`Are you sure you want to restore "${version.versionName}"? This will load all saved words, text logos, and colours from this version into your workspace and update Supabase.`)) {
+      return;
+    }
+    setRestoringVersionId(version.id);
+    try {
+      const activeEmail = (currentUser?.email || '').toLowerCase().trim();
+      const res = await fetch(`/api/tenant/${activeTenantId}/pa-versions/restore`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          versionId: version.id,
+          userId: activeEmail,
+          targetData: version.fullData
+        })
+      });
+
+      if (res.ok) {
+        loadTemplateIntoWorkspace(version.fullData);
+        triggerNotification(`Restored "${version.versionName}" successfully! Words, logos, and colours applied.`, "success");
+        setShowVersionHistoryModal(false);
+        setInspectingVersion(null);
+        await fetchDocumentVersions();
+      } else {
+        throw new Error("Restore rejected by server.");
+      }
+    } catch (err: any) {
+      triggerNotification("Failed to restore version: " + err.message, "error");
+    } finally {
+      setRestoringVersionId(null);
+    }
+  };
+
   const handleSaveTemplate = async () => {
     setSaving(true);
     try {
-      const activeTpl: PATemplate = {
-        id: selectedTemplateId || (isMandlaMahlangu ? 'template-mm-standard' : `template-${Date.now()}`),
-        name: isMandlaMahlangu ? 'MM: Municipal Manager Premium Agreement' : templateName,
-        headingCover,
-        headingRegulatoryInfo,
-        dynamicSections,
-        headingPurpose,
-        headingValidity,
-        headingReporting,
-        headingFramework,
-        headingKpaTable,
-        headingJscTable,
-        headingConditions,
-        headingAssessmentKpas,
-        headingFeedback,
-        headingTimetable,
-        headingPoorPerformance,
-        headingDispute,
-        headingAmendment,
-        headingEvaluation,
-        headingNationalKpas,
-        heading4_4,
-        heading4_5,
-        headingSignatures,
-        headingAnnexA,
-        headingAnnexB,
-        headingAnnexC,
-        coverPage,
-        regulatoryInfoText,
-        purpose,
-        validity,
-        reporting,
-        framework,
-        frameworkBelowKpa,
-        nationalKpasText,
-        text4_4,
-        text4_5,
-        frameworkBelowJsc,
-        conditions,
-        kpaText,
-        feedback,
-        timetableText,
-        timetableTextBelowTable,
-        poorPerformance,
-        dispute,
-        amendment,
-        evaluation,
-        annexureC,
-        municipalityName,
-        templateSubHeader,
-        muniFontFamily,
-        muniFontSize,
-        muniColor,
-        subHeaderFontSize,
-        subHeaderColor,
-        muniLogo,
-        customTables,
-        textColor,
-        headingColor,
-        borderColor,
-        borderStyle,
-        borderWidth,
-        documentFontFamily,
-        documentTextAlign,
-        showPageNumbers,
-        footerText,
-        createdAt: new Date().toISOString(),
-        pulledPplanItems,
-        pulledFilteredPplanItems,
-        pulledPdpItems,
-        pulledCompetencyRows,
-        pulledCfoCompetencyRows,
-        pulledPedCompetencyRows,
-        pulledCorpCompetencyRows,
-        pulledKhuboniJscRows,
-        khuboniJscNotes,
-        employeeSignature,
-        employeeName,
-        employeePosition,
-        employeeDate,
-        supervisorSignature,
-        supervisorName,
-        supervisorPosition,
-        supervisorDate,
-        sigDay,
-        sigMonth,
-        sigYear,
-        pdpCustomTable
-      };
+      const activeTpl = buildActiveDocumentPayload();
 
       const activeEmail = (currentUser?.email || '').toLowerCase().trim();
       const res = await fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=${encodeURIComponent(activeEmail)}`, {
@@ -2830,7 +2934,8 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
       if (res.ok) {
         setTemplates([activeTpl]);
         setSelectedTemplateId(activeTpl.id);
-        triggerNotification("Performance Agreement draft saved successfully to your profile!", "success");
+        triggerNotification("Performance Agreement draft saved and versioned in Supabase!", "success");
+        await fetchDocumentVersions();
       } else {
         throw new Error("Persist operation rejected by server. Check database rules.");
       }
@@ -2963,6 +3068,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
   useEffect(() => {
     fetchTemplates();
     fetchUserManagementUsers();
+    fetchDocumentVersions();
   }, [activeTenantId, currentUser?.email]);
 
   return (
@@ -2981,17 +3087,23 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
       {/* Control Banner */}
       <div className="bg-white p-4 border-b border-gray-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-sm font-black text-gray-900 tracking-tight flex items-center gap-2">
-            <LayoutTemplate className="w-4 h-4 text-emerald-600" />
-            Performance Agreement Templates Workspace
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-black text-gray-900 tracking-tight flex items-center gap-2">
+              <LayoutTemplate className="w-4 h-4 text-emerald-600" />
+              Performance Agreement Templates Workspace
+            </h2>
+            <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 border border-emerald-200">
+              <Database className="w-3 h-3 text-emerald-600" />
+              Supabase Versioned
+            </span>
+          </div>
           <p className="text-[10px] text-gray-500 font-medium">
-            Remove all generic blueprints. Replicating professional Drafting Suite layout with independent column scrolling and fully editable headings.
+            Full document versioning per user for @nkangaladm.gov.za. Words, text logos, custom crests, and colours dual-synced with zero data loss.
           </p>
         </div>
 
         {/* Action controls */}
-        <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
           
           {/* MM Restricted Tag */}
           {isMandlaMahlangu ? (
@@ -3025,15 +3137,45 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
             </select>
           )}
 
+          {/* Document Version History Button */}
+          <button
+            type="button"
+            onClick={() => {
+              fetchDocumentVersions();
+              setShowVersionHistoryModal(true);
+            }}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase px-3.5 py-2 rounded-lg inline-flex items-center gap-1.5 shadow-sm transition cursor-pointer"
+            title="View full Supabase version timeline for this @nkangaladm.gov.za user"
+          >
+            <History className="w-3.5 h-3.5 text-indigo-200" />
+            <span>Version History</span>
+            {documentVersions.length > 0 && (
+              <span className="bg-indigo-900/80 text-white text-[10px] px-1.5 py-0.2 rounded-full font-mono">
+                {documentVersions.length}
+              </span>
+            )}
+          </button>
+
+          {/* Create Named Checkpoint Button */}
+          <button
+            type="button"
+            onClick={() => setShowCreateVersionModal(true)}
+            className="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs uppercase px-3 py-2 rounded-lg inline-flex items-center gap-1.5 shadow-sm transition cursor-pointer"
+            title="Save a tagged snapshot checkpoint to Supabase"
+          >
+            <Bookmark className="w-3.5 h-3.5 text-purple-200" />
+            <span>Checkpoint</span>
+          </button>
+
           {/* Save button */}
           <button
             type="button"
             disabled={saving}
             onClick={handleSaveTemplate}
-            className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-bold text-xs uppercase px-4 py-2 rounded-lg inline-flex items-center gap-1 shadow-sm transition"
+            className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-bold text-xs uppercase px-4 py-2 rounded-lg inline-flex items-center gap-1.5 shadow-sm transition cursor-pointer"
           >
             {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin text-white" /> : <Save className="w-3.5 h-3.5 text-white" />}
-            Save Template Config
+            <span>Save Draft</span>
           </button>
         </div>
       </div>
@@ -5655,6 +5797,455 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 1. DOCUMENT VERSION HISTORY MODAL */}
+      {showVersionHistoryModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-150">
+            {/* Modal Header */}
+            <div className="p-5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex items-center justify-between border-b border-indigo-900/50">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-indigo-600/30 border border-indigo-500/40 rounded-xl text-indigo-300">
+                  <History className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black tracking-tight flex items-center gap-2">
+                    Document Version Vault & Revision History
+                    <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-500/30 flex items-center gap-1">
+                      <Database className="w-2.5 h-2.5" /> Supabase Synced
+                    </span>
+                  </h3>
+                  <p className="text-xs text-indigo-200/80 font-mono">
+                    User: {currentUser?.email || 'shabangusm@nkangaladm.gov.za'} • Dual-synced (tenant-229 & nkangala_auto)
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowVersionHistoryModal(false)}
+                className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-white/10 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Architecture Explanation Banner */}
+            <div className="bg-indigo-50/80 p-3.5 border-b border-indigo-100 flex items-start gap-3">
+              <Info className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+              <div className="text-[11px] text-indigo-900 leading-relaxed">
+                <span className="font-bold">Persistent Versioning Pipeline: </span>
+                Every edit to <span className="font-semibold text-indigo-950">words & clauses</span>, <span className="font-semibold text-indigo-950">text logos</span> (<code className="bg-white/80 px-1 py-0.5 rounded border border-indigo-200">{municipalityName}</code>), <span className="font-semibold text-indigo-950">custom logos</span>, and <span className="font-semibold text-indigo-950">colours</span> is saved immutably in Supabase as a <code className="bg-white/80 px-1 py-0.5 rounded border border-indigo-200">draft_revision_snapshot</code> per user. You can restore any historical version at any time with 1 click.
+              </div>
+            </div>
+
+            {/* Toolbar: Search, Refresh, and Create Checkpoint */}
+            <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="relative w-full sm:w-72">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Filter versions by name or tag..."
+                  value={versionSearchQuery}
+                  onChange={(e) => setVersionSearchQuery(e.target.value)}
+                  className="w-full text-xs pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                <button
+                  type="button"
+                  onClick={fetchDocumentVersions}
+                  disabled={loadingVersions}
+                  className="px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-sm transition cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loadingVersions ? 'animate-spin' : ''}`} />
+                  <span>Refresh</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowVersionHistoryModal(false);
+                    setShowCreateVersionModal(true);
+                  }}
+                  className="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-sm transition cursor-pointer"
+                >
+                  <Bookmark className="w-3.5 h-3.5" />
+                  <span>Create Checkpoint</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Versions List */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-100/60">
+              {loadingVersions ? (
+                <div className="flex flex-col items-center justify-center py-16 text-slate-500 space-y-2">
+                  <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+                  <p className="text-xs font-medium">Fetching revision snapshots from Supabase...</p>
+                </div>
+              ) : documentVersions.length === 0 ? (
+                <div className="bg-white rounded-xl border border-slate-200 p-8 text-center space-y-3">
+                  <Clock className="w-10 h-10 text-slate-300 mx-auto" />
+                  <h4 className="text-sm font-bold text-slate-700">No Historical Versions Yet</h4>
+                  <p className="text-xs text-slate-500 max-w-md mx-auto">
+                    Click "Create Checkpoint" or "Save Draft" to freeze the current words, text logos, and colours into your first Supabase version snapshot.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowVersionHistoryModal(false);
+                      setShowCreateVersionModal(true);
+                    }}
+                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-lg inline-flex items-center gap-1.5 transition cursor-pointer"
+                  >
+                    <Bookmark className="w-3.5 h-3.5" />
+                    <span>Create First Checkpoint</span>
+                  </button>
+                </div>
+              ) : (
+                documentVersions
+                  .filter(v => {
+                    if (!versionSearchQuery) return true;
+                    const q = versionSearchQuery.toLowerCase();
+                    return (
+                      (v.versionName || '').toLowerCase().includes(q) ||
+                      (v.versionTag || '').toLowerCase().includes(q) ||
+                      (v.senderName || '').toLowerCase().includes(q)
+                    );
+                  })
+                  .map((v, idx) => (
+                    <div
+                      key={v.id || idx}
+                      className="bg-white p-4 rounded-xl border border-slate-200/90 shadow-sm hover:border-indigo-200 hover:shadow-md transition space-y-3"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-extrabold text-sm text-slate-900">
+                            {v.versionName || `Version ${idx + 1}`}
+                          </span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                            v.versionTag === 'Council Ratified' || v.versionTag === 'Signed Final'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : v.versionTag === 'Manual Checkpoint'
+                              ? 'bg-purple-50 text-purple-700 border-purple-200'
+                              : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                          }`}>
+                            <Tag className="w-2.5 h-2.5 inline mr-1" />
+                            {v.versionTag || 'Snapshot'}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-400 font-mono flex items-center gap-1.5">
+                          <Clock className="w-3 h-3 text-slate-400" />
+                          <span>{new Date(v.createdAt).toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' })}</span>
+                        </div>
+                      </div>
+
+                      {/* Details Grid: Colours, Logos, Words */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-slate-50/70 p-3 rounded-lg border border-slate-100 text-[11px]">
+                        {/* 1. Colours */}
+                        <div className="space-y-1.5">
+                          <span className="text-[9px] uppercase font-bold text-slate-500 block flex items-center gap-1">
+                            <Palette className="w-3 h-3 text-indigo-500" /> Saved Colours
+                          </span>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <div className="flex items-center gap-1 bg-white px-1.5 py-0.5 rounded border border-slate-200" title={`Municipal Accent: ${v.muniColor || '#9f1239'}`}>
+                              <span className="w-3 h-3 rounded-full border border-slate-300 inline-block shrink-0" style={{ backgroundColor: v.muniColor || '#9f1239' }} />
+                              <span className="text-[9px] font-mono font-bold text-slate-700">{v.muniColor || '#9f1239'}</span>
+                            </div>
+                            <div className="flex items-center gap-1 bg-white px-1.5 py-0.5 rounded border border-slate-200" title={`Heading: ${v.headingColor || '#0f172a'}`}>
+                              <span className="w-3 h-3 rounded-full border border-slate-300 inline-block shrink-0" style={{ backgroundColor: v.headingColor || '#0f172a' }} />
+                              <span className="text-[9px] font-mono font-bold text-slate-700">{v.headingColor || '#0f172a'}</span>
+                            </div>
+                            <div className="flex items-center gap-1 bg-white px-1.5 py-0.5 rounded border border-slate-200" title={`Border: ${v.borderColor || '#cbd5e1'}`}>
+                              <span className="w-3 h-3 rounded-full border border-slate-300 inline-block shrink-0" style={{ backgroundColor: v.borderColor || '#cbd5e1' }} />
+                              <span className="text-[9px] font-mono font-bold text-slate-700">{v.borderColor || '#cbd5e1'}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 2. Text Logos & Crest */}
+                        <div className="space-y-1">
+                          <span className="text-[9px] uppercase font-bold text-slate-500 block flex items-center gap-1">
+                            <Type className="w-3 h-3 text-emerald-500" /> Text Logo & Crest
+                          </span>
+                          <p className="font-bold text-slate-800 truncate text-[10px]" title={v.municipalityName}>
+                            {v.municipalityName || 'NKANGALA DISTRICT MUNICIPALITY'}
+                          </p>
+                          <span className="inline-flex items-center gap-1 text-[9px] text-slate-600 bg-white px-1.5 py-0.5 rounded border border-slate-200">
+                            {v.muniLogoData ? '🎨 Custom Logo Attached' : '🏛️ Nkangala Official Emblem'}
+                          </span>
+                        </div>
+
+                        {/* 3. Words & Clauses Metrics */}
+                        <div className="space-y-1">
+                          <span className="text-[9px] uppercase font-bold text-slate-500 block flex items-center gap-1">
+                            <FileText className="w-3 h-3 text-amber-500" /> Words & Clauses
+                          </span>
+                          <div className="text-[10px] text-slate-600 flex flex-wrap gap-1.5">
+                            <span className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-medium">
+                              KPAs: {v.wordsSummary?.kpaTextLength ? `${v.wordsSummary.kpaTextLength} chars` : 'Standard'}
+                            </span>
+                            <span className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-medium">
+                              KPIs: {v.wordsSummary?.pplanItemsCount || 0}
+                            </span>
+                            <span className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-medium">
+                              PDP: {v.wordsSummary?.pdpItemsCount || 0}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex items-center justify-between pt-1">
+                        <span className="text-[10px] text-slate-400 font-mono">
+                          ID: {v.id ? v.id.slice(0, 36) + '...' : ''}
+                        </span>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setInspectingVersion(v)}
+                            className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg flex items-center gap-1 transition cursor-pointer"
+                          >
+                            <Eye className="w-3 h-3" />
+                            <span>Inspect</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={restoringVersionId === v.id}
+                            onClick={() => handleRestoreVersion(v)}
+                            className="px-3.5 py-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-sm transition cursor-pointer"
+                          >
+                            {restoringVersionId === v.id ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <RotateCcw className="w-3.5 h-3.5" />
+                            )}
+                            <span>Restore Version</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <span>Non-destructive versioning: restoring a version will automatically create an audit checkpoint.</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowVersionHistoryModal(false)}
+                className="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-lg transition cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. CREATE VERSION CHECKPOINT MODAL */}
+      {showCreateVersionModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full overflow-hidden animate-in fade-in zoom-in duration-150">
+            <div className="p-5 bg-gradient-to-r from-purple-900 to-indigo-950 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <Bookmark className="w-5 h-5 text-purple-300" />
+                <div>
+                  <h3 className="text-sm font-black tracking-tight">Create Document Version Checkpoint</h3>
+                  <p className="text-[10px] text-purple-200 font-mono">Scoped to: {currentUser?.email || 'shabangusm@nkangaladm.gov.za'}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCreateVersionModal(false)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/10"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="bg-purple-50 p-3 rounded-xl border border-purple-100 text-[11px] text-purple-900 leading-normal">
+                This will create a permanent, named version checkpoint in <span className="font-bold">Supabase</span> capturing the exact current <span className="font-bold">words & clauses</span>, <span className="font-bold">text logos</span> ({municipalityName}), <span className="font-bold">custom logo</span>, and <span className="font-bold">colours</span> palette.
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] uppercase font-bold text-slate-600 block">Version Title / Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. FY 2026/27 Council Approved Agreement (Gold Palette)"
+                  value={newVersionName}
+                  onChange={(e) => setNewVersionName(e.target.value)}
+                  className="w-full text-xs font-bold p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] uppercase font-bold text-slate-600 block">Version Tag / Category</label>
+                <select
+                  value={newVersionTag}
+                  onChange={(e) => setNewVersionTag(e.target.value)}
+                  className="w-full text-xs font-bold p-2 bg-slate-50 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value="Manual Checkpoint">Manual Checkpoint</option>
+                  <option value="Approved Baseline">Approved Baseline</option>
+                  <option value="Executive Review">Executive Review</option>
+                  <option value="Council Ratified">Council Ratified</option>
+                  <option value="Signed Final">Signed Final</option>
+                  <option value="Annual Review">Annual Review</option>
+                </select>
+              </div>
+
+              {/* Current Palette & Logo Preview */}
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2 text-[10px]">
+                <span className="font-bold text-slate-700 block uppercase">Checkpoint Snapshot Summary:</span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="bg-white px-2 py-0.5 rounded border border-slate-200 font-bold" style={{ color: muniColor }}>
+                    Accent: {muniColor}
+                  </span>
+                  <span className="bg-white px-2 py-0.5 rounded border border-slate-200 font-bold" style={{ color: headingColor }}>
+                    Heading: {headingColor}
+                  </span>
+                  <span className="bg-white px-2 py-0.5 rounded border border-slate-200 font-bold">
+                    Logo: {muniLogo ? 'Custom Uploaded' : 'Nkangala Crest'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateVersionModal(false)}
+                  className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={handleCreateVersionCheckpoint}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-300 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-sm transition"
+                >
+                  {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                  <span>Save Version to Supabase</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. INSPECT VERSION MODAL */}
+      {inspectingVersion && (
+        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-150">
+            <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Eye className="w-4 h-4 text-indigo-400" />
+                <h3 className="text-sm font-bold truncate">Inspect: {inspectingVersion.versionName}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setInspectingVersion(null)}
+                className="p-1 text-slate-400 hover:text-white rounded"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 overflow-y-auto text-xs">
+              <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-500 block">Created At</span>
+                  <span className="font-mono font-bold text-slate-800">{new Date(inspectingVersion.createdAt).toLocaleString('en-ZA')}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-500 block">Version Tag</span>
+                  <span className="font-bold text-indigo-700">{inspectingVersion.versionTag}</span>
+                </div>
+              </div>
+
+              {/* Colours */}
+              <div className="space-y-1.5">
+                <h4 className="font-bold text-slate-800 text-[11px] uppercase">🎨 Saved Palette</h4>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="p-2 rounded-lg border border-slate-200 bg-white flex items-center gap-2">
+                    <span className="w-4 h-4 rounded-full border border-slate-300" style={{ backgroundColor: inspectingVersion.muniColor }} />
+                    <div className="min-w-0">
+                      <span className="text-[9px] text-slate-400 block uppercase">Municipal</span>
+                      <span className="text-[10px] font-mono font-bold">{inspectingVersion.muniColor}</span>
+                    </div>
+                  </div>
+                  <div className="p-2 rounded-lg border border-slate-200 bg-white flex items-center gap-2">
+                    <span className="w-4 h-4 rounded-full border border-slate-300" style={{ backgroundColor: inspectingVersion.headingColor }} />
+                    <div className="min-w-0">
+                      <span className="text-[9px] text-slate-400 block uppercase">Heading</span>
+                      <span className="text-[10px] font-mono font-bold">{inspectingVersion.headingColor}</span>
+                    </div>
+                  </div>
+                  <div className="p-2 rounded-lg border border-slate-200 bg-white flex items-center gap-2">
+                    <span className="w-4 h-4 rounded-full border border-slate-300" style={{ backgroundColor: inspectingVersion.borderColor }} />
+                    <div className="min-w-0">
+                      <span className="text-[9px] text-slate-400 block uppercase">Border</span>
+                      <span className="text-[10px] font-mono font-bold">{inspectingVersion.borderColor}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Text Logo */}
+              <div className="space-y-1.5">
+                <h4 className="font-bold text-slate-800 text-[11px] uppercase">🏛️ Text Logo & Header</h4>
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+                  <p className="font-black text-slate-900" style={{ color: inspectingVersion.muniColor }}>
+                    {inspectingVersion.municipalityName}
+                  </p>
+                  <p className="text-[10px] text-slate-600 font-mono">
+                    {inspectingVersion.fullData?.templateSubHeader || 'DRAFT REGULATORY DOCUMENT TEMPLATE'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Sample Words / Clauses */}
+              <div className="space-y-1.5">
+                <h4 className="font-bold text-slate-800 text-[11px] uppercase">📝 Words & Clauses Snapshot</h4>
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2 max-h-40 overflow-y-auto font-serif text-[11px] leading-relaxed">
+                  <p className="font-bold text-slate-900">Purpose Clause:</p>
+                  <p className="text-slate-700 whitespace-pre-wrap">{inspectingVersion.fullData?.purpose || 'Standard purpose clause'}</p>
+                  <p className="font-bold text-slate-900 mt-2">Conditions Clause:</p>
+                  <p className="text-slate-700 whitespace-pre-wrap">{inspectingVersion.fullData?.conditions || 'Standard conditions clause'}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setInspectingVersion(null)}
+                className="px-3.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-lg"
+              >
+                Back
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  handleRestoreVersion(inspectingVersion);
+                }}
+                className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-sm"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Restore This Version</span>
+              </button>
             </div>
           </div>
         </div>

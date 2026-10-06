@@ -27,6 +27,7 @@ import {
 import type { User } from '../types';
 import {
   extractIppFromDocument,
+  ensureNedaPerformancePlanKpis,
   type ExtractedMappedKPI,
   type ExtractedKpaDefinition
 } from '../utils/ippParser';
@@ -113,7 +114,7 @@ export function FredPerformancePlanExtractor({
     });
 
     try {
-      const result = await extractIppFromDocument(file);
+      const result = await extractIppFromDocument(file, activeTenantId);
       
       if (!result.items || result.items.length === 0) {
         throw new Error('No performance plan items could be found in the uploaded agreement. Please verify the document contains an Annexure A Performance Plan scorecard table.');
@@ -505,9 +506,9 @@ export function FredPerformancePlanExtractor({
   const handleClearExtractor = async () => {
     setExtractedItems([]);
     setExtractedKpas([]);
-    setSelectedFile(null);
     setSourceFileName('');
-    setStatusMessage({ type: 'info', text: 'Performance Plan Extractor reset and cleared.' });
+    setSelectedFile(null);
+    setStatusMessage({ type: 'info', text: 'Performance Plan Extractor has been completely cleared. Ready for a new document upload.' });
     if (fileInputRef.current) fileInputRef.current.value = '';
 
     try {
@@ -516,7 +517,9 @@ export function FredPerformancePlanExtractor({
         fetch(`/api/tenant/${activeTenantId}/fred-extraction/performance_agreement?userId=${encodeURIComponent(targetEmail)}`, { method: 'DELETE' }),
         fetch(`/api/tenant/${activeTenantId}/fred-extraction/ipp?userId=${encodeURIComponent(targetEmail)}`, { method: 'DELETE' })
       ]);
-    } catch (e) {}
+    } catch (e) {
+      console.warn("Failed to delete extraction ledger:", e);
+    }
   };
 
   // Toggle selection

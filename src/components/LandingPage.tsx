@@ -82,12 +82,6 @@ export function LandingPage({ onLogin }: LandingPageProps) {
       return;
     }
 
-    // Force real human password typing (prevents saved browser password autofills from logging in instantly)
-    if ((isNkangala || isMzansiFlow) && !isKeystrokeHuman) {
-      setPasswordError('Saved password autofill detected. For security, please manually type your password in the input field.');
-      return;
-    }
-
     setIsLoggingIn(true);
     setPasswordError('');
 

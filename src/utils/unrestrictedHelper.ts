@@ -1,68 +1,63 @@
 import type { User } from '../types';
 
 /**
- * Checks if a user is completely unrestricted.
- * Completely unrestricted users include:
- * - delphine@mzansiflow.co.za (and any email containing delphine)
+ * Official Designated Global Administrators:
+ * - marlan@mzansiflow / marlan@mzansiflow.co.za
+ * - bonganim@mzansiflow.co.za / bongani@mzansiflow.co.za
+ * - audrey@mzansiflow.co.za
+ * - delphine@mzansiflow.co.za
+ * - ryanw@mzansiflow.co.za
+ * - qiniso@mzansiflow.co.za
  * - mike@mzansiflow.co.za / mike@massivedynamixdistributors.com
- * - Any user whose original logged in admin account in sessionStorage was delphine@mzansiflow.co.za or an admin
- * - Any user who is an admin or Global Administrator
+ */
+export const GLOBAL_ADMIN_EMAILS = [
+  'mike@mzansiflow.co.za',
+  'mike@massivedynamixdistributors.com',
+  'delphine@mzansiflow.co.za',
+  'audrey@mzansiflow.co.za',
+  'qiniso@mzansiflow.co.za',
+  'bonganim@mzansiflow.co.za',
+  'bongani@mzansiflow.co.za',
+  'ryanw@mzansiflow.co.za',
+  'marlan@mzansiflow.co.za',
+  'marlan@mzansiflow'
+];
+
+export function isGlobalAdminEmail(email?: string | null): boolean {
+  if (!email) return false;
+  const clean = email.toLowerCase().trim();
+  return GLOBAL_ADMIN_EMAILS.some(adm => clean === adm || clean.startsWith(adm));
+}
+
+/**
+ * Checks if a user is completely unrestricted.
+ * When impersonating, strictly NO dual-role admin bleed:
+ * The impersonated session adopts only the target user's true operational persona.
  */
 export function isUserUnrestricted(user?: User | { email?: string; role?: string; systemRole?: string; jobFunction?: string } | null): boolean {
-  // Check if original logged-in admin in localStorage or sessionStorage is unrestricted
+  if (!user || !user.email) return false;
+  const email = (user.email || '').toLowerCase().trim();
+
+  // If currently impersonating, strictly evaluate only whether the target user themselves is a global admin.
+  // NO dual-role admin bleed from previous admin session!
   try {
     if (typeof window !== 'undefined') {
       const origStr = localStorage.getItem('originalAdminUser') || sessionStorage.getItem('originalAdminUser');
       if (origStr && origStr !== 'undefined' && origStr !== 'null') {
-        const orig = JSON.parse(origStr);
-        const origEmail = (orig?.email || '').toLowerCase().trim();
-        if (
-          origEmail === 'delphine@mzansiflow.co.za' ||
-          origEmail.includes('delphine') ||
-          origEmail === 'audrey@mzansiflow.co.za' ||
-          origEmail.includes('audrey') ||
-          origEmail === 'qiniso@mzansiflow.co.za' ||
-          origEmail.includes('qiniso') ||
-          origEmail === 'bonganim@mzansiflow.co.za' ||
-          origEmail === 'bongani@mzansiflow.co.za' ||
-          origEmail.includes('bongani') ||
-          origEmail === 'mike@massivedynamixdistributors.com' ||
-          origEmail === 'mike@mzansiflow.co.za' ||
-          origEmail === 'ryanw@mzansiflow.co.za' ||
-          origEmail === 'marlan@mzansiflow.co.za' ||
-          origEmail.endsWith('@mzansiflow.co.za') ||
-          origEmail.includes('mzansiflow.co.za') ||
-          orig?.role === 'admin' ||
-          orig?.systemRole === 'Global Administrator' ||
-          orig?.systemRole === 'Systems Administrator'
-        ) {
-          return true;
-        }
+        // While impersonating, municipal users (especially @nkangaladm.gov.za) NEVER inherit admin privileges.
+        return isGlobalAdminEmail(email);
       }
     }
   } catch (e) {
     // ignore parse errors
   }
-
-  if (!user || !user.email) return false;
-  const email = (user.email || '').toLowerCase().trim();
   
+  if (isGlobalAdminEmail(email)) {
+    return true;
+  }
+
   return (
-    email === 'delphine@mzansiflow.co.za' ||
-    email.includes('delphine') ||
-    email === 'audrey@mzansiflow.co.za' ||
-    email.includes('audrey') ||
-    email === 'qiniso@mzansiflow.co.za' ||
-    email.includes('qiniso') ||
-    email === 'bonganim@mzansiflow.co.za' ||
-    email === 'bongani@mzansiflow.co.za' ||
-    email.includes('bongani') ||
-    email === 'mike@massivedynamixdistributors.com' ||
-    email === 'mike@mzansiflow.co.za' ||
-    email === 'ryanw@mzansiflow.co.za' ||
-    email === 'marlan@mzansiflow.co.za' ||
     email.endsWith('@mzansiflow.co.za') ||
-    email.includes('mzansiflow.co.za') ||
     user.role === 'admin' ||
     user.systemRole === 'Global Administrator' ||
     user.systemRole === 'Systems Administrator'

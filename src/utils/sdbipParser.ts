@@ -215,12 +215,12 @@ export function getStandardSdbipScorecard(): ExtractedSdbipItem[] {
 }
 
 /**
- * Sanitizes, deduplicates, and normalizes raw SDBIP items to prevent text-split row explosion.
- * Guarantees exactly 92 M_ KPIs + 19 P_ Project KPIs (111 items total) when full municipal SDBIP is loaded.
+ * Sanitizes, deduplicates, and normalizes raw SDBIP items extracted from documents.
+ * Preserves verbatim indicators without artificially injecting dummy or placeholder KPIs.
  */
 export function sanitizeSdbipItems(rawItems: any[]): ExtractedSdbipItem[] {
   if (!Array.isArray(rawItems) || rawItems.length === 0) {
-    return getStandardSdbipScorecard();
+    return [];
   }
 
   // Filter out empty rows, page banners, footnotes, disclaimer headers
@@ -244,75 +244,81 @@ export function sanitizeSdbipItems(rawItems: any[]): ExtractedSdbipItem[] {
   };
 
   const validRows = rawItems.filter(it => !isGarbageRow(it));
+  if (validRows.length === 0) {
+    return [];
+  }
 
-  // If there are > 111 rows (e.g. 812 fragmented rows from a line-splitting PDF parser), 
-  // run through ensureAllSdbipKpis to extract and consolidate into the canonical 111 KPIs (92 M_ + 19 P_)
-  const catalogList = ensureAllSdbipKpis(validRows);
+  return validRows.map((it: any, idx: number) => {
+    const refNum = it.refNum || it.Ref_Number || it.refNo || it.kpiNo || `KPI-${String(idx + 1).padStart(2, '0')}`;
+    const kpi = it.kpi || it.KPI || it.kpiDescription || it.operationalActivity || '';
+    const strategicObj = it.strategicObj || it.SDBIP_Strategic_Objective || it.strategicObjective || 'To provide sustainable municipal infrastructure and service delivery';
+    const kpaRaw = it.kpas || it.National_KPA || it.kpa || it.nationalKpa || '';
+    const resolvedKpa = resolveSdbipKpa(kpaRaw);
+    const poeDesc = it.POE_Description || it.poeStatus || it.poeDesc || it.poe || it.q1PoeDesc || 'Signed quarterly progress reports, verification registers and supporting compliance documents';
 
-  return catalogList.map((item, idx) => {
-    const poeDesc = item.POE_Description || 'Signed quarterly progress reports, verification registers and supporting compliance documents';
-    
-    let activeKpa: 'bsd' | 'led' | 'mfvm' | 'ggpp' | 'midt' | 'sr' = 'bsd';
-    if (item.SR === 'X') activeKpa = 'sr';
-    else if (item.MIDT === 'X') activeKpa = 'midt';
-    else if (item.GGPP === 'X') activeKpa = 'ggpp';
-    else if (item.MFVM === 'X') activeKpa = 'mfvm';
-    else if (item.LED === 'X') activeKpa = 'led';
-    else if (item.BSD === 'X') activeKpa = 'bsd';
-    else {
-      const kText = (item.National_KPA || '').toLowerCase();
-      if (kText.includes('spatial') || kText.includes('sr')) activeKpa = 'sr';
-      else if (kText.includes('institutional') || kText.includes('midt')) activeKpa = 'midt';
-      else if (kText.includes('governance') || kText.includes('ggpp')) activeKpa = 'ggpp';
-      else if (kText.includes('financial') || kText.includes('mfvm')) activeKpa = 'mfvm';
-      else if (kText.includes('economic') || kText.includes('led')) activeKpa = 'led';
-      else activeKpa = 'bsd';
-    }
-
-    const kpaLabels: Record<string, string> = {
-      bsd: 'Basic Service Delivery and Infrastructure Development (BSD)',
-      led: 'Local Economic Development (LED)',
-      mfvm: 'Municipal Financial Viability and Management (MFVM)',
-      ggpp: 'Good Governance and Public Participation (GGPP)',
-      midt: 'Municipal Institutional Development and Transformation (MIDT)',
-      sr: 'Spatial Rationale (SR)'
-    };
+    const kpaLower = resolvedKpa.toLowerCase();
+    const isBsd = it.bsd === true || it.bsd === 'X' || it.BSD === 'X' || kpaLower.includes('basic service') || kpaLower.includes('bsd');
+    const isLed = it.led === true || it.led === 'X' || it.LED === 'X' || kpaLower.includes('economic') || kpaLower.includes('led');
+    const isMfvm = it.mfvm === true || it.mfvm === 'X' || it.MFVM === 'X' || kpaLower.includes('financial') || kpaLower.includes('mfvm');
+    const isGgpp = it.ggpp === true || it.ggpp === 'X' || it.GGPP === 'X' || kpaLower.includes('governance') || kpaLower.includes('ggpp');
+    const isMidt = it.midt === true || it.midt === 'X' || it.MIDT === 'X' || kpaLower.includes('institutional') || kpaLower.includes('midt');
+    const isSr = it.sr === true || it.sr === 'X' || it.SR === 'X' || kpaLower.includes('spatial') || kpaLower.includes('sr');
 
     return {
-      _id: `sdbip-item-${item.Ref_Number}-${idx + 1}`,
-      _selected: true,
-      refNum: item.Ref_Number,
-      strategicObj: item.SDBIP_Strategic_Objective || 'To provide sustainable municipal infrastructure and service delivery',
-      kpas: kpaLabels[activeKpa],
-      bsd: activeKpa === 'bsd',
-      led: activeKpa === 'led',
-      mfvm: activeKpa === 'mfvm',
-      ggpp: activeKpa === 'ggpp',
-      midt: activeKpa === 'midt',
-      sr: activeKpa === 'sr',
-      operationalActivity: item.Description || item.KPI,
-      kpi: item.KPI,
-      compliance: 'compliant',
-      uom: item.Unit_of_Measure || 'Percentage',
-      mscoaTracking: 'Core Municipal Vector',
-      baseline: item.Baseline || '0%',
-      annualTarget: item.Annual_Target || '100%',
-      budgetAllocation: item.Budget_Allocation || (item.Ref_Number.startsWith('M') ? "R 1,500,000" : "R 250,000"),
-      q1: item.Q1_Target || '25%',
-      q2: item.Q2_Target || '50%',
-      midTerm: item.Mid_Term_Target || '50%',
-      q3: item.Q3_Target || '75%',
-      q4: item.Q4_Target || item.Annual_Target || '100%',
-      responsibleUnit: item.Responsible_Owner || 'Technical Services',
-      submitter: item.Submitter || 'Departmental Submitter',
-      approver: item.Approver || 'Executive Manager',
+      _id: it._id || `sdbip-item-${refNum}-${idx + 1}`,
+      _selected: it._selected !== false,
+      refNum: String(refNum).trim(),
+      strategicObj: String(strategicObj).trim(),
+      kpas: resolvedKpa,
+      bsd: isBsd,
+      led: isLed,
+      mfvm: isMfvm,
+      ggpp: isGgpp,
+      midt: isMidt,
+      sr: isSr,
+      operationalActivity: String(it.operationalActivity || it.Description || kpi).trim(),
+      kpi: String(kpi).trim(),
+      compliance: (it.compliance === 'compliant' || it.compliance === 'non-compliant' || it.compliance === 'at risk') ? it.compliance : 'compliant',
+      uom: String(it.uom || it.Unit_of_Measure || it.unit || 'Percentage').trim(),
+      mscoaTracking: String(it.mscoaTracking || 'Core Municipal Vector').trim(),
+      baseline: String(it.baseline ?? it.Baseline ?? '0%').trim(),
+      annualTarget: String(it.annualTarget ?? it.Annual_Target ?? '100%').trim(),
+      budgetAllocation: String(it.budgetAllocation || it.Budget_Allocation || (String(refNum).startsWith('M') ? "R 1,500,000" : "R 250,000")).trim(),
+      q1: String(it.q1 ?? it.Q1_Target ?? '').trim(),
+      q2: String(it.q2 ?? it.Q2_Target ?? '').trim(),
+      midTerm: String(it.midTerm || it.Mid_Term_Target || it.q2 || '').trim(),
+      q3: String(it.q3 ?? it.Q3_Target ?? '').trim(),
+      q4: String(it.q4 ?? it.Q4_Target ?? it.annualTarget ?? '').trim(),
+      responsibleUnit: String(it.responsibleUnit || it.Responsible_Owner || 'Technical Services').trim(),
+      submitter: String(it.submitter || it.Submitter || 'Departmental Submitter').trim(),
+      approver: String(it.approver || it.Approver || 'Executive Manager').trim(),
+      internalAudit: String(it.internalAudit || '').trim(),
       poeStatus: poeDesc,
-      // Source POE description reflects verbatim across all four quarters (non-editable)
-      q1PoeDesc: poeDesc,
-      q2PoeDesc: poeDesc,
-      midTermPoeDesc: poeDesc,
-      q3PoeDesc: poeDesc,
-      q4PoeDesc: poeDesc
+      q1Actual: String(it.q1Actual || '').trim(),
+      q1Variance: String(it.q1Variance || '').trim(),
+      q1Corrective: String(it.q1Corrective || '').trim(),
+      q1Expenditure: String(it.q1Expenditure || '').trim(),
+      q1PoeDesc: String(it.q1PoeDesc || poeDesc).trim(),
+      q2Actual: String(it.q2Actual || '').trim(),
+      q2Variance: String(it.q2Variance || '').trim(),
+      q2Corrective: String(it.q2Corrective || '').trim(),
+      q2Expenditure: String(it.q2Expenditure || '').trim(),
+      q2PoeDesc: String(it.q2PoeDesc || poeDesc).trim(),
+      midTermActual: String(it.midTermActual || '').trim(),
+      midTermVariance: String(it.midTermVariance || '').trim(),
+      midTermCorrective: String(it.midTermCorrective || '').trim(),
+      midTermExpenditure: String(it.midTermExpenditure || '').trim(),
+      midTermPoeDesc: String(it.midTermPoeDesc || poeDesc).trim(),
+      q3Actual: String(it.q3Actual || '').trim(),
+      q3Variance: String(it.q3Variance || '').trim(),
+      q3Corrective: String(it.q3Corrective || '').trim(),
+      q3Expenditure: String(it.q3Expenditure || '').trim(),
+      q3PoeDesc: String(it.q3PoeDesc || poeDesc).trim(),
+      q4Actual: String(it.q4Actual || '').trim(),
+      q4Variance: String(it.q4Variance || '').trim(),
+      q4Corrective: String(it.q4Corrective || '').trim(),
+      q4Expenditure: String(it.q4Expenditure || '').trim(),
+      q4PoeDesc: String(it.q4PoeDesc || poeDesc).trim()
     };
   });
 }
