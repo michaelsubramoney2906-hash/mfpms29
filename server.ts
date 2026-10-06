@@ -16705,7 +16705,15 @@ User Request: ${prompt}`;
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
-      res.sendFile(path.join(distPath, 'index.html'));
+      const standardIndex = path.join(distPath, 'index.html');
+      const nestedIndex = path.join(distPath, 'app', 'applet', 'index.html');
+      if (fs.existsSync(standardIndex)) {
+        res.sendFile(standardIndex);
+      } else if (fs.existsSync(nestedIndex)) {
+        res.sendFile(nestedIndex);
+      } else {
+        res.status(404).send('Application index.html not found in dist');
+      }
     });
   }
 

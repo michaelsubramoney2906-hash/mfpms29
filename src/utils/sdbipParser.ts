@@ -600,7 +600,7 @@ export function parseSdbipTableFromText(rawText: string): ExtractedSdbipItem[] {
       continue;
     }
 
-    const cells = (line.includes('\t') ? line.split('\t') : line.includes('|') ? line.split('|') : line.split(/,{2,}/)).map(c => c.trim());
+    const cells = (line.includes('\t') ? line.split('\t') : line.includes('|') ? line.split('|') : line.split(/\s{2,}|\t|\|/)).map(c => c.trim());
     if (cells.length < 3) continue;
 
     // Detect header row
