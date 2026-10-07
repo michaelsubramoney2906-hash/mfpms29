@@ -8,6 +8,7 @@ import {
   Database, Play
 } from 'lucide-react';
 import { cn } from './Branding';
+import { useTheme } from '../context/ThemeContext';
 import { PerformanceMonitor } from './Admin/PerformanceMonitor';
 import { NkangalaBatchRestorationPanel } from './Admin/NkangalaBatchRestorationPanel';
 import { NkangalaDataVault } from './Admin/NkangalaDataVault';
@@ -30,6 +31,7 @@ const DIRECTORATES = [
 ];
 
 export function UserManagement({ currentUser, activeTenantId, onImpersonate, onNavigateToCommandCenter }: UserManagementProps) {
+  const { isDark } = useTheme();
   const [activeTab, setActiveTab] = useState<'list' | 'manual' | 'azure' | 'sessions' | 'perf' | 'reprocess' | 'vault'>('list');
   const [users, setUsers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -987,48 +989,89 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
   const paginatedUsers = filteredUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
-    <div className="bg-white rounded-3xl shadow-[0_2px_20px_-10px_rgba(0,0,0,0.05)] border border-gray-100/50 flex flex-col overflow-hidden h-full">
+    <div className={cn(
+      "rounded-3xl shadow-[0_2px_20px_-10px_rgba(0,0,0,0.05)] border flex flex-col overflow-hidden h-full transition-colors duration-200",
+      isDark ? "bg-slate-900 border-slate-800 text-slate-100" : "bg-white border-gray-200 text-slate-900"
+    )}>
       {/* Tabs */}
-      <div className="flex border-b border-gray-100 px-6 pt-4 bg-gray-50/50">
+      <div className={cn(
+        "flex border-b px-6 pt-4 transition-colors",
+        isDark ? "bg-slate-950 border-slate-800" : "bg-gray-50/50 border-gray-200"
+      )}>
         <button 
           onClick={() => setActiveTab('list')}
-          className={`flex items-center gap-2 px-6 py-4 border-b-2 font-bold text-sm transition-colors ${activeTab === 'list' ? 'border-green-600 text-green-700 bg-white rounded-t-xl shadow-[0_-2px_10px_-5px_rgba(0,0,0,0.05)]' : 'border-transparent text-gray-500 hover:text-gray-900'}`}
+          className={cn(
+            "flex items-center gap-2 px-6 py-4 border-b-2 font-bold text-sm transition-colors",
+            activeTab === 'list' 
+              ? (isDark ? "border-green-500 text-green-400 bg-slate-900 rounded-t-xl" : "border-green-600 text-green-700 bg-white rounded-t-xl shadow-xs")
+              : (isDark ? "border-transparent text-slate-400 hover:text-white" : "border-transparent text-gray-500 hover:text-gray-900")
+          )}
         >
           <Users className="w-4 h-4" /> User Base
         </button>
         <button 
           onClick={() => setActiveTab('manual')}
-          className={`flex items-center gap-2 px-6 py-4 border-b-2 font-bold text-sm transition-colors ${activeTab === 'manual' ? 'border-green-600 text-green-700 bg-white rounded-t-xl shadow-[0_-2px_10px_-5px_rgba(0,0,0,0.05)]' : 'border-transparent text-gray-500 hover:text-gray-900'}`}
+          className={cn(
+            "flex items-center gap-2 px-6 py-4 border-b-2 font-bold text-sm transition-colors",
+            activeTab === 'manual' 
+              ? (isDark ? "border-green-500 text-green-400 bg-slate-900 rounded-t-xl" : "border-green-600 text-green-700 bg-white rounded-t-xl shadow-xs")
+              : (isDark ? "border-transparent text-slate-400 hover:text-white" : "border-transparent text-gray-500 hover:text-gray-900")
+          )}
         >
           <UserPlus className="w-4 h-4" /> Add Manual User
         </button>
         <button 
           onClick={() => setActiveTab('azure')}
-          className={`flex items-center gap-2 px-6 py-4 border-b-2 font-bold text-sm transition-colors ${activeTab === 'azure' ? 'border-green-600 text-green-700 bg-white rounded-t-xl shadow-[0_-2px_10px_-5px_rgba(0,0,0,0.05)]' : 'border-transparent text-gray-500 hover:text-gray-900'}`}
+          className={cn(
+            "flex items-center gap-2 px-6 py-4 border-b-2 font-bold text-sm transition-colors",
+            activeTab === 'azure' 
+              ? (isDark ? "border-green-500 text-green-400 bg-slate-900 rounded-t-xl" : "border-green-600 text-green-700 bg-white rounded-t-xl shadow-xs")
+              : (isDark ? "border-transparent text-slate-400 hover:text-white" : "border-transparent text-gray-500 hover:text-gray-900")
+          )}
         >
           <KeyRound className="w-4 h-4" /> Azure AD Integration
         </button>
         <button 
           onClick={() => setActiveTab('sessions')}
-          className={`flex items-center gap-2 px-6 py-4 border-b-2 font-bold text-sm transition-colors ${activeTab === 'sessions' ? 'border-green-600 text-green-700 bg-white rounded-t-xl shadow-[0_-2px_10px_-5px_rgba(0,0,0,0.05)]' : 'border-transparent text-gray-500 hover:text-gray-900'}`}
+          className={cn(
+            "flex items-center gap-2 px-6 py-4 border-b-2 font-bold text-sm transition-colors",
+            activeTab === 'sessions' 
+              ? (isDark ? "border-green-500 text-green-400 bg-slate-900 rounded-t-xl" : "border-green-600 text-green-700 bg-white rounded-t-xl shadow-xs")
+              : (isDark ? "border-transparent text-slate-400 hover:text-white" : "border-transparent text-gray-500 hover:text-gray-900")
+          )}
         >
           <Monitor className="w-4 h-4 text-green-600" /> Active Logins & Supervision
         </button>
         <button 
           onClick={() => setActiveTab('perf')}
-          className={`flex items-center gap-2 px-6 py-4 border-b-2 font-bold text-sm transition-colors ${activeTab === 'perf' ? 'border-emerald-600 text-emerald-700 bg-white rounded-t-xl shadow-[0_-2px_10px_-5px_rgba(0,0,0,0.05)]' : 'border-transparent text-gray-500 hover:text-gray-900'}`}
+          className={cn(
+            "flex items-center gap-2 px-6 py-4 border-b-2 font-bold text-sm transition-colors",
+            activeTab === 'perf' 
+              ? (isDark ? "border-emerald-500 text-emerald-400 bg-slate-900 rounded-t-xl" : "border-emerald-600 text-emerald-700 bg-white rounded-t-xl shadow-xs")
+              : (isDark ? "border-transparent text-slate-400 hover:text-white" : "border-transparent text-gray-500 hover:text-gray-900")
+          )}
         >
           <Activity className="w-4 h-4 text-emerald-600" /> Performance & Bottlenecks
         </button>
         <button 
           onClick={() => setActiveTab('reprocess')}
-          className={`flex items-center gap-2 px-6 py-4 border-b-2 font-bold text-sm transition-colors ${activeTab === 'reprocess' ? 'border-emerald-600 text-emerald-700 bg-white rounded-t-xl shadow-[0_-2px_10px_-5px_rgba(0,0,0,0.05)]' : 'border-transparent text-gray-500 hover:text-gray-900'}`}
+          className={cn(
+            "flex items-center gap-2 px-6 py-4 border-b-2 font-bold text-sm transition-colors",
+            activeTab === 'reprocess' 
+              ? (isDark ? "border-emerald-500 text-emerald-400 bg-slate-900 rounded-t-xl" : "border-emerald-600 text-emerald-700 bg-white rounded-t-xl shadow-xs")
+              : (isDark ? "border-transparent text-slate-400 hover:text-white" : "border-transparent text-gray-500 hover:text-gray-900")
+          )}
         >
           <Database className="w-4 h-4 text-emerald-600" /> Batch Restore 4 Pillars (KPAs, KPIs, PDPs, JSCs)
         </button>
         <button 
           onClick={() => setActiveTab('vault')}
-          className={`flex items-center gap-2 px-6 py-4 border-b-2 font-bold text-sm transition-colors ${activeTab === 'vault' ? 'border-indigo-600 text-indigo-700 bg-white rounded-t-xl shadow-[0_-2px_10px_-5px_rgba(0,0,0,0.05)]' : 'border-transparent text-gray-500 hover:text-gray-900'}`}
+          className={cn(
+            "flex items-center gap-2 px-6 py-4 border-b-2 font-bold text-sm transition-colors",
+            activeTab === 'vault' 
+              ? (isDark ? "border-indigo-500 text-indigo-400 bg-slate-900 rounded-t-xl" : "border-indigo-600 text-indigo-700 bg-white rounded-t-xl shadow-xs")
+              : (isDark ? "border-transparent text-slate-400 hover:text-white" : "border-transparent text-gray-500 hover:text-gray-900")
+          )}
         >
           <ShieldCheck className="w-4 h-4 text-indigo-600" /> Nkangala Data Vault & Backups
         </button>
@@ -1039,7 +1082,7 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
         {activeTab === 'list' && (
           <div className="space-y-6">
             <div className="flex justify-between items-center">
-              <h2 className="text-xl font-bold text-gray-900">Current Directory</h2>
+              <h2 className={cn("text-xl font-bold", isDark ? "text-white" : "text-gray-900")}>Current Directory</h2>
               <div className="flex items-center gap-3">
                 <button
                   type="button"
@@ -1058,34 +1101,53 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                     setIsLoading(false);
                   }}
                   disabled={isLoading}
-                  className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-all cursor-pointer shadow-sm disabled:opacity-50"
+                  className={cn(
+                    "flex items-center gap-2 px-3.5 py-2 border rounded-xl text-sm font-semibold transition-all cursor-pointer shadow-sm disabled:opacity-50",
+                    isDark 
+                      ? "bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700 active:bg-slate-600" 
+                      : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50 active:bg-gray-100"
+                  )}
                   title="Refresh User Directory"
                 >
-                  <RefreshCw className={`w-4 h-4 text-gray-500 ${isLoading ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={cn("w-4 h-4", isLoading ? "animate-spin text-green-500" : (isDark ? "text-slate-400" : "text-gray-500"))} />
                   <span>Refresh</span>
                 </button>
                 <div className="relative">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <Search className={cn("w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2", isDark ? "text-slate-400" : "text-gray-400")} />
                   <input 
                     type="text" 
                     placeholder="Search..." 
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-green-600 outline-none w-64 transition-all" 
+                    className={cn(
+                      "pl-9 pr-4 py-2 border rounded-xl text-sm outline-none w-64 transition-all",
+                      isDark 
+                        ? "bg-slate-800 border-slate-700 text-white placeholder-slate-400 focus:ring-2 focus:ring-green-500 focus:bg-slate-800" 
+                        : "bg-white border-gray-200 text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-green-600 focus:bg-white"
+                    )} 
                   />
                 </div>
               </div>
             </div>
             {filteredUsers.length === 0 ? (
-              <div className="text-center py-20 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                <Users className="w-8 h-8 mx-auto text-gray-400 mb-3" />
-                <h3 className="text-gray-900 font-bold mb-1">No users found</h3>
-                <p className="text-sm text-gray-500">Get started by creating a new user manually or integrating Azure AD.</p>
+              <div className={cn(
+                "text-center py-20 rounded-xl border border-dashed",
+                isDark ? "bg-slate-800/40 border-slate-700" : "bg-gray-50 border-gray-200"
+              )}>
+                <Users className={cn("w-8 h-8 mx-auto mb-3", isDark ? "text-slate-500" : "text-gray-400")} />
+                <h3 className={cn("font-bold mb-1", isDark ? "text-white" : "text-gray-900")}>No users found</h3>
+                <p className={cn("text-sm", isDark ? "text-slate-400" : "text-gray-500")}>Get started by creating a new user manually or integrating Azure AD.</p>
               </div>
             ) : (
-              <div className="overflow-x-auto hide-scrollbar rounded-xl border border-gray-100 flex flex-col">
-                <table className="w-full text-left text-sm text-gray-600 flex-1">
-                  <thead className="bg-gray-50 text-gray-900 font-bold uppercase text-[10px] tracking-wider border-b border-gray-100">
+              <div className={cn(
+                "overflow-x-auto hide-scrollbar rounded-xl border flex flex-col",
+                isDark ? "border-slate-800 bg-slate-900" : "border-gray-200 bg-white"
+              )}>
+                <table className={cn("w-full text-left text-sm flex-1", isDark ? "text-slate-300" : "text-gray-600")}>
+                  <thead className={cn(
+                    "font-bold uppercase text-[10px] tracking-wider border-b",
+                    isDark ? "bg-slate-800/80 text-slate-200 border-slate-700" : "bg-gray-50 text-gray-900 border-gray-200"
+                  )}>
                     <tr>
                       <th className="px-6 py-4">Name & Email</th>
                       <th className="px-6 py-4">Directorate / Dept / Job / Mgr / Report To</th>
@@ -1095,36 +1157,44 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                       <th className="px-6 py-4 text-center">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody className={cn("divide-y", isDark ? "divide-slate-800" : "divide-gray-100")}>
                     {paginatedUsers.map(u => (
-                      <tr key={u.id} className="hover:bg-gray-50/50 transition-colors">
+                      <tr key={u.id} className={cn("transition-colors", isDark ? "hover:bg-slate-800/50" : "hover:bg-gray-50/50")}>
                         <td className="px-6 py-4">
-                          <div className="font-bold text-gray-900">{u.fullName}</div>
-                          <div className="text-xs text-gray-500 mt-1">{u.email}</div>
+                          <div className={cn("font-bold", isDark ? "text-white" : "text-gray-900")}>{u.fullName}</div>
+                          <div className={cn("text-xs mt-1", isDark ? "text-slate-400" : "text-gray-500")}>{u.email}</div>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="font-medium text-gray-900 text-sm">{u.directorate || 'N/A Directorate'}</div>
-                          <div className="text-xs text-gray-600 mt-1">
-                            <span className="font-bold text-gray-500 mr-1">Dept:</span>{u.department || 'N/A'}
+                          <div className={cn("font-medium text-sm", isDark ? "text-slate-200" : "text-gray-900")}>{u.directorate || 'N/A Directorate'}</div>
+                          <div className={cn("text-xs mt-1", isDark ? "text-slate-300" : "text-gray-600")}>
+                            <span className={cn("font-bold mr-1", isDark ? "text-slate-400" : "text-gray-500")}>Dept:</span>{u.department || 'N/A'}
                           </div>
-                          <div className="text-xs text-gray-600 mt-1">
-                            <span className="font-bold text-gray-500 mr-1">Job:</span>{u.jobFunction || 'N/A'}
+                          <div className={cn("text-xs mt-1", isDark ? "text-slate-300" : "text-gray-600")}>
+                            <span className={cn("font-bold mr-1", isDark ? "text-slate-400" : "text-gray-500")}>Job:</span>{u.jobFunction || 'N/A'}
                           </div>
-                          <div className="text-xs text-gray-600 mt-0.5">
-                            <span className="font-bold text-gray-500 mr-1">Manager:</span>{u.manager || 'No Manager Chosen'}
+                          <div className={cn("text-xs mt-0.5", isDark ? "text-slate-300" : "text-gray-600")}>
+                            <span className={cn("font-bold mr-1", isDark ? "text-slate-400" : "text-gray-500")}>Manager:</span>{u.manager || 'No Manager Chosen'}
                           </div>
-                          <div className="text-xs text-gray-600 mt-0.5">
-                            <span className="font-bold text-gray-500 mr-1">Report To:</span>{u.reportTo || 'N/A'}
+                          <div className={cn("text-xs mt-0.5", isDark ? "text-slate-300" : "text-gray-600")}>
+                            <span className={cn("font-bold mr-1", isDark ? "text-slate-400" : "text-gray-500")}>Report To:</span>{u.reportTo || 'N/A'}
                           </div>
                         </td>
-                        <td className="px-6 py-4 font-medium">{u.role || u.systemRole}</td>
+                        <td className={cn("px-6 py-4 font-medium", isDark ? "text-slate-200" : "text-gray-800")}>{u.role || u.systemRole}</td>
                         <td className="px-6 py-4 text-center">
-                          <span className="inline-flex items-center justify-center bg-green-50 text-green-700 border border-green-200 px-2.5 py-1 rounded-md text-xs font-black font-mono">
+                          <span className={cn(
+                            "inline-flex items-center justify-center px-2.5 py-1 rounded-md text-xs font-black font-mono border",
+                            isDark ? "bg-emerald-950/60 text-emerald-300 border-emerald-800" : "bg-green-50 text-green-700 border-green-200"
+                          )}>
                             Level {u.level || '1'}
                           </span>
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest ${u.source === 'azure_ad' ? 'bg-blue-50 text-blue-700 border border-blue-100' : 'bg-gray-100 text-gray-700 border border-gray-200'}`}>
+                          <span className={cn(
+                            "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest border",
+                            u.source === 'azure_ad' 
+                              ? (isDark ? "bg-blue-950/60 text-blue-300 border-blue-800" : "bg-blue-50 text-blue-700 border-blue-100")
+                              : (isDark ? "bg-slate-800 text-slate-300 border-slate-700" : "bg-gray-100 text-gray-700 border-gray-200")
+                          )}>
                             {u.source === 'azure_ad' ? 'Azure AD' : 'Manual'}
                           </span>
                         </td>
@@ -1152,7 +1222,10 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                                     signatureData: u.signatureData || ''
                                   });
                                 }}
-                                className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                                className={cn(
+                                  "p-2 rounded-lg transition-all",
+                                  isDark ? "text-slate-400 hover:text-indigo-400 hover:bg-slate-800" : "text-gray-500 hover:text-indigo-600 hover:bg-indigo-50"
+                                )}
                                 title={`Login as ${u.fullName}`}
                               >
                                 <Globe className="w-4 h-4" />
@@ -1175,7 +1248,10 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                                   level: u.level || '1'
                                 });
                               }}
-                              className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all"
+                              className={cn(
+                                "p-2 rounded-lg transition-all",
+                                isDark ? "text-slate-400 hover:text-green-400 hover:bg-slate-800" : "text-gray-500 hover:text-green-600 hover:bg-green-50"
+                              )}
                               title="Edit User Profile"
                             >
                               <Edit className="w-4 h-4" />
@@ -1186,22 +1262,35 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                     ))}
                   </tbody>
                 </table>
-                <div className="border-t border-gray-100 p-4 flex justify-between items-center bg-gray-50 rounded-b-xl">
-                  <span className="text-xs text-gray-500 font-medium">
-                    Showing <span className="font-bold text-gray-900">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="font-bold text-gray-900">{Math.min(currentPage * itemsPerPage, filteredUsers.length)}</span> of <span className="font-bold text-gray-900">{filteredUsers.length}</span> personnel
+                <div className={cn(
+                  "border-t p-4 flex justify-between items-center rounded-b-xl",
+                  isDark ? "border-slate-800 bg-slate-900/90" : "border-gray-100 bg-gray-50"
+                )}>
+                  <span className={cn("text-xs font-medium", isDark ? "text-slate-400" : "text-gray-500")}>
+                    Showing <span className={cn("font-bold", isDark ? "text-white" : "text-gray-900")}>{(currentPage - 1) * itemsPerPage + 1}</span> to <span className={cn("font-bold", isDark ? "text-white" : "text-gray-900")}>{Math.min(currentPage * itemsPerPage, filteredUsers.length)}</span> of <span className={cn("font-bold", isDark ? "text-white" : "text-gray-900")}>{filteredUsers.length}</span> personnel
                   </span>
                   <div className="flex gap-2">
                     <button 
                       onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                       disabled={currentPage === 1}
-                      className="px-3 py-1.5 border border-gray-200 bg-white rounded-lg text-xs font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:bg-gray-100 transition-colors"
+                      className={cn(
+                        "px-3 py-1.5 border rounded-lg text-xs font-bold transition-colors disabled:opacity-50",
+                        isDark 
+                          ? "border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700 disabled:bg-slate-900" 
+                          : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:bg-gray-100"
+                      )}
                     >
                       Previous
                     </button>
                     <button 
                       onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                       disabled={currentPage === totalPages}
-                      className="px-3 py-1.5 border border-gray-200 bg-white rounded-lg text-xs font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:bg-gray-100 transition-colors"
+                      className={cn(
+                        "px-3 py-1.5 border rounded-lg text-xs font-bold transition-colors disabled:opacity-50",
+                        isDark 
+                          ? "border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700 disabled:bg-slate-900" 
+                          : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:bg-gray-100"
+                      )}
                     >
                       Next
                     </button>
@@ -1220,15 +1309,15 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
           return (
             <form onSubmit={submitManualUser} className="max-w-4xl space-y-8">
               <div>
-                <h2 className="text-xl font-bold text-gray-900 mb-1">Create Personnel Profile</h2>
-                <p className="text-sm text-gray-500">Manually issue a system seat for a new employee.</p>
+                <h2 className={cn("text-xl font-bold mb-1", isDark ? "text-white" : "text-gray-900")}>Create Personnel Profile</h2>
+                <p className={cn("text-sm", isDark ? "text-slate-400" : "text-gray-500")}>Manually issue a system seat for a new employee.</p>
               </div>
 
               {isMzansiFlowUser && (
-                <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center gap-3 text-emerald-800 text-xs font-medium animate-fadeIn">
-                  <Globe className="w-5 h-5 text-emerald-600 shrink-0" />
+                <div className={cn("rounded-2xl p-4 flex items-center gap-3 text-xs font-medium border animate-fadeIn", isDark ? "bg-emerald-950/40 border-emerald-800 text-emerald-200" : "bg-emerald-50 border-emerald-200 text-emerald-800")}>
+                  <Globe className="w-5 h-5 text-emerald-500 shrink-0" />
                   <div>
-                    <strong className="font-bold uppercase tracking-wider block text-xs text-emerald-950 mb-0.5">
+                    <strong className={cn("font-bold uppercase tracking-wider block text-xs mb-0.5", isDark ? "text-emerald-300" : "text-emerald-950")}>
                       MzansiFlow Corporate Personnel Detected
                     </strong>
                     <span>
@@ -1240,14 +1329,14 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Picture Upload Mock */}
-                <div className="md:col-span-2 flex items-center gap-6 p-6 border border-dashed border-gray-200 rounded-2xl bg-gray-50/50">
-                  <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center shrink-0 border border-gray-300">
-                    <Upload className="w-6 h-6 text-gray-400" />
+                <div className={cn("md:col-span-2 flex items-center gap-6 p-6 border border-dashed rounded-2xl", isDark ? "border-slate-700 bg-slate-800/40" : "border-gray-200 bg-gray-50/50")}>
+                  <div className={cn("w-20 h-20 rounded-full flex items-center justify-center shrink-0 border", isDark ? "bg-slate-700 border-slate-600" : "bg-gray-200 border-gray-300")}>
+                    <Upload className={cn("w-6 h-6", isDark ? "text-slate-400" : "text-gray-400")} />
                   </div>
                   <div>
-                    <h4 className="font-bold text-sm text-gray-900">Profile Picture</h4>
-                    <p className="text-xs text-gray-500 mt-1 mb-3">Upload a clean, professional headshot.</p>
-                    <label className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-xs font-bold shadow-sm cursor-pointer hover:bg-gray-50">
+                    <h4 className={cn("font-bold text-sm", isDark ? "text-white" : "text-gray-900")}>Profile Picture</h4>
+                    <p className={cn("text-xs mt-1 mb-3", isDark ? "text-slate-400" : "text-gray-500")}>Upload a clean, professional headshot.</p>
+                    <label className={cn("px-4 py-2 border rounded-lg text-xs font-bold shadow-sm cursor-pointer transition-colors", isDark ? "bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700" : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50")}>
                       Choose File
                       <input type="file" className="hidden" />
                     </label>
@@ -1255,65 +1344,167 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">Full Name</label>
-                  <input required type="text" value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 focus:bg-white outline-none transition-colors" placeholder="e.g. Sipho Ndlovu" />
+                  <label className={cn("block text-xs font-bold uppercase tracking-wider mb-2", isDark ? "text-slate-300" : "text-gray-700")}>Full Name</label>
+                  <input 
+                    required 
+                    type="text" 
+                    value={formData.fullName} 
+                    onChange={e => setFormData({...formData, fullName: e.target.value})} 
+                    className={cn(
+                      "w-full px-4 py-3 border rounded-xl outline-none transition-colors",
+                      isDark 
+                        ? "bg-slate-800 border-slate-700 text-white placeholder-slate-400 focus:border-green-500 focus:bg-slate-800" 
+                        : "bg-white border-gray-200 text-gray-900 placeholder-gray-400 focus:border-green-600 focus:bg-white"
+                    )} 
+                    placeholder="e.g. Sipho Ndlovu" 
+                  />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">Email Address</label>
-                  <input required type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 focus:bg-white outline-none transition-colors" placeholder="ruannars@mzansiflow.co.za" />
+                  <label className={cn("block text-xs font-bold uppercase tracking-wider mb-2", isDark ? "text-slate-300" : "text-gray-700")}>Email Address</label>
+                  <input 
+                    required 
+                    type="email" 
+                    value={formData.email} 
+                    onChange={e => setFormData({...formData, email: e.target.value})} 
+                    className={cn(
+                      "w-full px-4 py-3 border rounded-xl outline-none transition-colors",
+                      isDark 
+                        ? "bg-slate-800 border-slate-700 text-white placeholder-slate-400 focus:border-green-500 focus:bg-slate-800" 
+                        : "bg-white border-gray-200 text-gray-900 placeholder-gray-400 focus:border-green-600 focus:bg-white"
+                    )} 
+                    placeholder="ruannars@mzansiflow.co.za" 
+                  />
                 </div>
                 
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
-                    RSA ID Number {isMzansiFlowUser && <span className="text-emerald-600 font-normal lowercase ml-1">(Optional)</span>}
+                  <label className={cn("block text-xs font-bold uppercase tracking-wider mb-2", isDark ? "text-slate-300" : "text-gray-700")}>
+                    RSA ID Number {isMzansiFlowUser && <span className="text-emerald-500 font-normal lowercase ml-1">(Optional)</span>}
                   </label>
-                  <input required={!isMzansiFlowUser} type="text" value={formData.idNumber} onChange={handleIdChange} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 focus:bg-white outline-none transition-colors" placeholder={isMzansiFlowUser ? 'N/A (Corporate User)' : 'X X X X X X X X X X X X X'} maxLength={13} />
+                  <input 
+                    required={!isMzansiFlowUser} 
+                    type="text" 
+                    value={formData.idNumber} 
+                    onChange={handleIdChange} 
+                    className={cn(
+                      "w-full px-4 py-3 border rounded-xl outline-none transition-colors font-mono",
+                      isDark 
+                        ? "bg-slate-800 border-slate-700 text-white placeholder-slate-400 focus:border-green-500 focus:bg-slate-800" 
+                        : "bg-white border-gray-200 text-gray-900 placeholder-gray-400 focus:border-green-600 focus:bg-white"
+                    )} 
+                    placeholder={isMzansiFlowUser ? 'N/A (Corporate User)' : 'X X X X X X X X X X X X X'} 
+                    maxLength={13} 
+                  />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
-                    Birthday {isMzansiFlowUser && <span className="text-emerald-600 font-normal lowercase ml-1">(Optional)</span>}
+                  <label className={cn("block text-xs font-bold uppercase tracking-wider mb-2", isDark ? "text-slate-300" : "text-gray-700")}>
+                    Birthday {isMzansiFlowUser && <span className="text-emerald-500 font-normal lowercase ml-1">(Optional)</span>}
                   </label>
-                  <input required={!isMzansiFlowUser} type="date" value={formData.birthday} onChange={e => setFormData({...formData, birthday: e.target.value})} readOnly={!isMzansiFlowUser && !!formData.idNumber} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none text-gray-700" />
+                  <input 
+                    required={!isMzansiFlowUser} 
+                    type="date" 
+                    value={formData.birthday} 
+                    onChange={e => setFormData({...formData, birthday: e.target.value})} 
+                    readOnly={!isMzansiFlowUser && !!formData.idNumber} 
+                    className={cn(
+                      "w-full px-4 py-3 border rounded-xl outline-none transition-colors",
+                      isDark 
+                        ? "bg-slate-800 border-slate-700 text-white focus:border-green-500" 
+                        : "bg-white border-gray-200 text-gray-900 focus:border-green-600"
+                    )} 
+                  />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
-                    Gender {isMzansiFlowUser && <span className="text-emerald-600 font-normal lowercase ml-1">(Optional)</span>}
+                  <label className={cn("block text-xs font-bold uppercase tracking-wider mb-2", isDark ? "text-slate-300" : "text-gray-700")}>
+                    Gender {isMzansiFlowUser && <span className="text-emerald-500 font-normal lowercase ml-1">(Optional)</span>}
                   </label>
-                  <select required={!isMzansiFlowUser} value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 outline-none">
-                    <option value="">{isMzansiFlowUser ? 'Not Specified' : 'Select...'}</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
+                  <select 
+                    required={!isMzansiFlowUser} 
+                    value={formData.gender} 
+                    onChange={e => setFormData({...formData, gender: e.target.value})} 
+                    className={cn(
+                      "w-full px-4 py-3 border rounded-xl outline-none cursor-pointer",
+                      isDark 
+                        ? "bg-slate-800 border-slate-700 text-white focus:border-green-500" 
+                        : "bg-white border-gray-200 text-gray-900 focus:border-green-600"
+                    )}
+                  >
+                    <option value="" className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>{isMzansiFlowUser ? 'Not Specified' : 'Select...'}</option>
+                    <option value="Male" className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>Male</option>
+                    <option value="Female" className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>Female</option>
+                    <option value="Other" className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>Other</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
-                    Cell Phone Number {isMzansiFlowUser && <span className="text-emerald-600 font-normal lowercase ml-1">(Optional)</span>}
+                  <label className={cn("block text-xs font-bold uppercase tracking-wider mb-2", isDark ? "text-slate-300" : "text-gray-700")}>
+                    Cell Phone Number {isMzansiFlowUser && <span className="text-emerald-500 font-normal lowercase ml-1">(Optional)</span>}
                   </label>
-                  <input required={!isMzansiFlowUser} type="tel" value={formData.cellPhone} onChange={e => setFormData({...formData, cellPhone: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 focus:bg-white outline-none transition-colors" placeholder={isMzansiFlowUser ? 'Optional' : '+27...'} />
+                  <input 
+                    required={!isMzansiFlowUser} 
+                    type="tel" 
+                    value={formData.cellPhone} 
+                    onChange={e => setFormData({...formData, cellPhone: e.target.value})} 
+                    className={cn(
+                      "w-full px-4 py-3 border rounded-xl outline-none transition-colors",
+                      isDark 
+                        ? "bg-slate-800 border-slate-700 text-white placeholder-slate-400 focus:border-green-500 focus:bg-slate-800" 
+                        : "bg-white border-gray-200 text-gray-900 placeholder-gray-400 focus:border-green-600 focus:bg-white"
+                    )} 
+                    placeholder={isMzansiFlowUser ? 'Optional' : '+27...'} 
+                  />
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
-                    Residential Address {isMzansiFlowUser && <span className="text-emerald-600 font-normal lowercase ml-1">(Optional)</span>}
+                  <label className={cn("block text-xs font-bold uppercase tracking-wider mb-2", isDark ? "text-slate-300" : "text-gray-700")}>
+                    Residential Address {isMzansiFlowUser && <span className="text-emerald-500 font-normal lowercase ml-1">(Optional)</span>}
                   </label>
-                  <textarea required={!isMzansiFlowUser} value={formData.residentialAddress} onChange={e => setFormData({...formData, residentialAddress: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 focus:bg-white outline-none transition-colors" rows={3} placeholder={isMzansiFlowUser ? 'Optional for MzansiFlow accounts' : ''}></textarea>
+                  <textarea 
+                    required={!isMzansiFlowUser} 
+                    value={formData.residentialAddress} 
+                    onChange={e => setFormData({...formData, residentialAddress: e.target.value})} 
+                    className={cn(
+                      "w-full px-4 py-3 border rounded-xl outline-none transition-colors",
+                      isDark 
+                        ? "bg-slate-800 border-slate-700 text-white placeholder-slate-400 focus:border-green-500 focus:bg-slate-800" 
+                        : "bg-white border-gray-200 text-gray-900 placeholder-gray-400 focus:border-green-600 focus:bg-white"
+                    )} 
+                    rows={3} 
+                    placeholder={isMzansiFlowUser ? 'Optional for MzansiFlow accounts' : ''}
+                  ></textarea>
                 </div>
 
-                <div className="md:col-span-2 border-t border-gray-100 my-2 pt-6"><h3 className="font-bold text-gray-900">Organizational Assignment</h3></div>
+                <div className={cn("md:col-span-2 border-t my-2 pt-6", isDark ? "border-slate-800" : "border-gray-100")}>
+                  <h3 className={cn("font-bold", isDark ? "text-white" : "text-gray-900")}>Organizational Assignment</h3>
+                </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
-                    Job Function {isMzansiFlowUser && <span className="text-emerald-600 font-normal lowercase ml-1">(Optional)</span>}
+                  <label className={cn("block text-xs font-bold uppercase tracking-wider mb-2", isDark ? "text-slate-300" : "text-gray-700")}>
+                    Job Function {isMzansiFlowUser && <span className="text-emerald-500 font-normal lowercase ml-1">(Optional)</span>}
                   </label>
-                  <input required={!isMzansiFlowUser} type="text" value={formData.jobFunction} onChange={e => setFormData({...formData, jobFunction: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 focus:bg-white outline-none transition-colors" placeholder={isMzansiFlowUser ? 'e.g. Technical Specialist' : 'e.g. PMU Manager'} />
+                  <input 
+                    required={!isMzansiFlowUser} 
+                    type="text" 
+                    value={formData.jobFunction} 
+                    onChange={e => setFormData({...formData, jobFunction: e.target.value})} 
+                    className={cn(
+                      "w-full px-4 py-3 border rounded-xl outline-none transition-colors",
+                      isDark 
+                        ? "bg-slate-800 border-slate-700 text-white placeholder-slate-400 focus:border-green-500 focus:bg-slate-800" 
+                        : "bg-white border-gray-200 text-gray-900 placeholder-gray-400 focus:border-green-600 focus:bg-white"
+                    )} 
+                    placeholder={isMzansiFlowUser ? 'e.g. Technical Specialist' : 'e.g. PMU Manager'} 
+                  />
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">Report To</label>
+                  <label className={cn("block text-xs font-bold uppercase tracking-wider mb-2", isDark ? "text-slate-300" : "text-gray-700")}>Report To</label>
                   <div className="flex flex-col gap-2">
-                    <div className="flex items-center gap-2 bg-gray-50 px-4 py-3 rounded-xl border border-gray-200 focus-within:border-green-600 focus-within:bg-white">
-                      <Search className="w-3.5 h-3.5 text-gray-400" />
+                    <div className={cn(
+                      "flex items-center gap-2 px-4 py-3 rounded-xl border transition-colors",
+                      isDark 
+                        ? "bg-slate-800 border-slate-700 focus-within:border-green-500 focus-within:bg-slate-800" 
+                        : "bg-white border-gray-200 focus-within:border-green-600 focus-within:bg-white"
+                    )}>
+                      <Search className={cn("w-3.5 h-3.5", isDark ? "text-slate-400" : "text-gray-400")} />
                       <input 
                         type="text" 
                         placeholder="Search Azure AD for report to..." 
@@ -1322,11 +1513,14 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                           setReportToSearchQuery(e.target.value);
                           setFormData({...formData, reportTo: e.target.value});
                         }}
-                        className="flex-1 bg-transparent border-none outline-none text-sm text-gray-800"
+                        className={cn(
+                          "flex-1 bg-transparent border-none outline-none text-sm",
+                          isDark ? "text-white placeholder-slate-400" : "text-gray-900 placeholder-gray-400"
+                        )}
                       />
                     </div>
                     {reportToSearchQuery && reportToSearchResults.length > 0 && (
-                      <div className="bg-white p-3 rounded-2xl border border-gray-100 shadow-xl space-y-1 z-10">
+                      <div className={cn("p-3 rounded-2xl border shadow-xl space-y-1 z-10", isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-100")}>
                         <div className="max-h-28 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
                           {reportToSearchResults.map(aUser => (
                             <button
@@ -1337,7 +1531,12 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                                 setReportToSearchQuery('');
                                 setReportToSearchResults([]);
                               }}
-                              className="w-full text-left px-3 py-2 bg-white hover:bg-green-50 hover:text-green-700 rounded-xl border border-gray-100 transition-colors text-xs font-medium"
+                              className={cn(
+                                "w-full text-left px-3 py-2 rounded-xl border transition-colors text-xs font-medium",
+                                isDark 
+                                  ? "bg-slate-750 border-slate-700 text-slate-200 hover:bg-slate-700 hover:text-green-400" 
+                                  : "bg-white border-gray-100 hover:bg-green-50 hover:text-green-700"
+                              )}
                             >
                               {aUser.fullName} ({aUser.email})
                             </button>
@@ -1348,30 +1547,52 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
-                    Directorate {isMzansiFlowUser && <span className="text-emerald-600 font-normal lowercase ml-1">(Bypassed for MzansiFlow)</span>}
+                  <label className={cn("block text-xs font-bold uppercase tracking-wider mb-2", isDark ? "text-slate-300" : "text-gray-700")}>
+                    Directorate {isMzansiFlowUser && <span className="text-emerald-500 font-normal lowercase ml-1">(Bypassed for MzansiFlow)</span>}
                   </label>
                   <select 
                     required={!isMzansiFlowUser} 
                     value={formData.directorate} 
                     onChange={e => setFormData({...formData, directorate: e.target.value})} 
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 outline-none"
+                    className={cn(
+                      "w-full px-4 py-3 border rounded-xl outline-none cursor-pointer",
+                      isDark 
+                        ? "bg-slate-800 border-slate-700 text-white focus:border-green-500" 
+                        : "bg-white border-gray-200 text-gray-900 focus:border-green-600"
+                    )}
                   >
-                    <option value="">{isMzansiFlowUser ? 'None (MzansiFlow Corporate)' : 'Select Directorate...'}</option>
-                    {DIRECTORATES.map(d => <option key={d} value={d}>{d}</option>)}
+                    <option value="" className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>{isMzansiFlowUser ? 'None (MzansiFlow Corporate)' : 'Select Directorate...'}</option>
+                    {DIRECTORATES.map(d => <option key={d} value={d} className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>{d}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
-                    Department {isMzansiFlowUser && <span className="text-emerald-600 font-normal lowercase ml-1">(Bypassed for MzansiFlow)</span>}
+                  <label className={cn("block text-xs font-bold uppercase tracking-wider mb-2", isDark ? "text-slate-300" : "text-gray-700")}>
+                    Department {isMzansiFlowUser && <span className="text-emerald-500 font-normal lowercase ml-1">(Bypassed for MzansiFlow)</span>}
                   </label>
-                  <input required={!isMzansiFlowUser} type="text" value={formData.department} onChange={e => setFormData({...formData, department: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 focus:bg-white outline-none transition-colors" placeholder={isMzansiFlowUser ? 'MzansiFlow Workspace' : 'Department name'} />
+                  <input 
+                    required={!isMzansiFlowUser} 
+                    type="text" 
+                    value={formData.department} 
+                    onChange={e => setFormData({...formData, department: e.target.value})} 
+                    className={cn(
+                      "w-full px-4 py-3 border rounded-xl outline-none transition-colors",
+                      isDark 
+                        ? "bg-slate-800 border-slate-700 text-white placeholder-slate-400 focus:border-green-500 focus:bg-slate-800" 
+                        : "bg-white border-gray-200 text-gray-900 placeholder-gray-400 focus:border-green-600 focus:bg-white"
+                    )} 
+                    placeholder={isMzansiFlowUser ? 'MzansiFlow Workspace' : 'Department name'} 
+                  />
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">Direct Manager</label>
+                  <label className={cn("block text-xs font-bold uppercase tracking-wider mb-2", isDark ? "text-slate-300" : "text-gray-700")}>Direct Manager</label>
                   <div className="flex flex-col gap-2">
-                    <div className="flex items-center gap-2 bg-gray-50 px-4 py-3 rounded-xl border border-gray-200 focus-within:border-green-600 focus-within:bg-white">
-                      <Search className="w-3.5 h-3.5 text-gray-400" />
+                    <div className={cn(
+                      "flex items-center gap-2 px-4 py-3 rounded-xl border transition-colors",
+                      isDark 
+                        ? "bg-slate-800 border-slate-700 focus-within:border-green-500 focus-within:bg-slate-800" 
+                        : "bg-white border-gray-200 focus-within:border-green-600 focus-within:bg-white"
+                    )}>
+                      <Search className={cn("w-3.5 h-3.5", isDark ? "text-slate-400" : "text-gray-400")} />
                       <input 
                         type="text" 
                         placeholder="Search Azure AD for manager..." 
@@ -1380,11 +1601,14 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                           setManagerSearchQuery(e.target.value);
                           setFormData({...formData, manager: e.target.value});
                         }}
-                        className="flex-1 bg-transparent border-none outline-none text-sm text-gray-800"
+                        className={cn(
+                          "flex-1 bg-transparent border-none outline-none text-sm",
+                          isDark ? "text-white placeholder-slate-400" : "text-gray-900 placeholder-gray-400"
+                        )}
                       />
                     </div>
                     {managerSearchQuery && managerSearchResults.length > 0 && (
-                      <div className="bg-white p-3 rounded-2xl border border-gray-100 shadow-xl space-y-1 z-10">
+                      <div className={cn("p-3 rounded-2xl border shadow-xl space-y-1 z-10", isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-100")}>
                         <div className="max-h-28 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
                           {managerSearchResults.map(aUser => (
                             <button
@@ -1395,7 +1619,12 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                                 setManagerSearchQuery('');
                                 setManagerSearchResults([]);
                               }}
-                              className="w-full text-left px-3 py-2 bg-white hover:bg-green-50 hover:text-green-700 rounded-xl border border-gray-100 transition-colors text-xs font-medium"
+                              className={cn(
+                                "w-full text-left px-3 py-2 rounded-xl border transition-colors text-xs font-medium",
+                                isDark 
+                                  ? "bg-slate-750 border-slate-700 text-slate-200 hover:bg-slate-700 hover:text-green-400" 
+                                  : "bg-white border-gray-100 hover:bg-green-50 hover:text-green-700"
+                              )}
                             >
                               {aUser.fullName} ({aUser.email})
                             </button>
@@ -1406,62 +1635,83 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">Directory Level</label>
+                  <label className={cn("block text-xs font-bold uppercase tracking-wider mb-2", isDark ? "text-slate-300" : "text-gray-700")}>Directory Level</label>
                   <select 
                     value={formData.level || '0'} 
                     onChange={e => setFormData({...formData, level: e.target.value})} 
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 outline-none"
+                    className={cn(
+                      "w-full px-4 py-3 border rounded-xl outline-none cursor-pointer",
+                      isDark 
+                        ? "bg-slate-800 border-slate-700 text-white focus:border-green-500" 
+                        : "bg-white border-gray-200 text-gray-900 focus:border-green-600"
+                    )}
                   >
-                    <option value="0">0 (Corporate / HQ)</option>
-                    <option value="1">1</option>
-                    <option value="2">2</option>
-                    <option value="3">3</option>
-                    <option value="4">4</option>
-                    <option value="5">5</option>
-                    <option value="6">6</option>
-                    <option value="7">7</option>
-                    <option value="8">8</option>
-                    <option value="9">9</option>
-                    <option value="10">10</option>
-                    <option value="11">11</option>
+                    <option value="0" className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>0 (Corporate / HQ)</option>
+                    <option value="1" className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>1</option>
+                    <option value="2" className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>2</option>
+                    <option value="3" className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>3</option>
+                    <option value="4" className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>4</option>
+                    <option value="5" className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>5</option>
+                    <option value="6" className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>6</option>
+                    <option value="7" className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>7</option>
+                    <option value="8" className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>8</option>
+                    <option value="9" className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>9</option>
+                    <option value="10" className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>10</option>
+                    <option value="11" className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>11</option>
                   </select>
                 </div>
 
-                <div className="md:col-span-2 border-t border-gray-100 my-2 pt-6"><h3 className="font-bold text-gray-900">System Security</h3></div>
+                <div className={cn("md:col-span-2 border-t my-2 pt-6", isDark ? "border-slate-800" : "border-gray-100")}>
+                  <h3 className={cn("font-bold", isDark ? "text-white" : "text-gray-900")}>System Security</h3>
+                </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">System Role</label>
-                  <select value={formData.systemRole} onChange={e => setFormData({...formData, systemRole: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 outline-none">
-                    <option>Standard User</option>
-                    <option>Auditor</option>
-                    <option>Systems Administrator</option>
-                    {(currentUser.role === 'admin' || isMzansiFlowUser) && <option>Global Administrator</option>}
+                  <label className={cn("block text-xs font-bold uppercase tracking-wider mb-2", isDark ? "text-slate-300" : "text-gray-700")}>System Role</label>
+                  <select 
+                    value={formData.systemRole} 
+                    onChange={e => setFormData({...formData, systemRole: e.target.value})} 
+                    className={cn(
+                      "w-full px-4 py-3 border rounded-xl outline-none cursor-pointer",
+                      isDark 
+                        ? "bg-slate-800 border-slate-700 text-white focus:border-green-500" 
+                        : "bg-white border-gray-200 text-gray-900 focus:border-green-600"
+                    )}
+                  >
+                    <option className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>Standard User</option>
+                    <option className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>Auditor</option>
+                    <option className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>Systems Administrator</option>
+                    {(currentUser.role === 'admin' || isMzansiFlowUser) && <option className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>Global Administrator</option>}
                   </select>
                 </div>
 
                 <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">Assigned Municipality</label>
+                    <label className={cn("block text-xs font-bold uppercase tracking-wider mb-2", isDark ? "text-slate-300" : "text-gray-700")}>Assigned Municipality</label>
                     <select 
                       value={isMzansiFlowUser ? 'global' : formData.selectedTenant} 
-                      onChange={e => setFormData({...formData, selectedTenant: e.target.value})}
+                      onChange={e => setFormData({...formData, selectedTenant: e.target.value})} 
                       disabled={isMzansiFlowUser || currentUser.role !== 'admin' || formData.systemRole === 'Global Administrator'} 
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 outline-none disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                      className={cn(
+                        "w-full px-4 py-3 border rounded-xl outline-none cursor-pointer transition-colors",
+                        isDark 
+                          ? "bg-slate-800 border-slate-700 text-white focus:border-green-500 disabled:bg-slate-900 disabled:text-slate-500 disabled:cursor-not-allowed" 
+                          : "bg-white border-gray-200 text-gray-900 focus:border-green-600 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                      )}
                     >
                       {isMzansiFlowUser || formData.systemRole === 'Global Administrator' ? (
-                        <option value="global">System-Wide Access (MzansiFlow Global Workspace)</option>
+                        <option value="global" className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>System-Wide Access (MzansiFlow Global Workspace)</option>
                       ) : (
-                        municipalities.map(t => <option key={t.id} value={t.id}>{t.name}</option>)
+                        municipalities.map(t => <option key={t.id} value={t.id} className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>{t.name}</option>)
                       )}
                     </select>
-                    {isMzansiFlowUser && <p className="text-[10px] text-emerald-600 mt-1 uppercase font-bold">MzansiFlow corporate users do not belong to a specific municipality.</p>}
-                    {!isMzansiFlowUser && currentUser.role !== 'admin' && <p className="text-[10px] text-gray-400 mt-1 uppercase font-bold">Locked to your designated tenant.</p>}
-                    {!isMzansiFlowUser && formData.systemRole === 'Global Administrator' && <p className="text-[10px] text-green-600 mt-1 uppercase font-bold">Global Administrators bypass municipal assignment.</p>}
+                    {isMzansiFlowUser && <p className="text-[10px] text-emerald-500 mt-1 uppercase font-bold">MzansiFlow corporate users do not belong to a specific municipality.</p>}
+                    {!isMzansiFlowUser && currentUser.role !== 'admin' && <p className={cn("text-[10px] mt-1 uppercase font-bold", isDark ? "text-slate-400" : "text-gray-400")}>Locked to your designated tenant.</p>}
+                    {!isMzansiFlowUser && formData.systemRole === 'Global Administrator' && <p className="text-[10px] text-green-500 mt-1 uppercase font-bold">Global Administrators bypass municipal assignment.</p>}
                 </div>
 
               </div>
               
               <div className="pt-4 flex justify-end">
-                <button disabled={isLoading} className="px-8 py-3.5 bg-green-600 text-white font-bold rounded-xl hover:bg-green-500 transition-colors uppercase tracking-widest text-xs disabled:opacity-50">
+                <button disabled={isLoading} className="px-8 py-3.5 bg-green-600 text-white font-bold rounded-xl hover:bg-green-500 transition-colors uppercase tracking-widest text-xs disabled:opacity-50 cursor-pointer shadow-md">
                   {isLoading ? 'Processing...' : 'Register Profile'}
                 </button>
               </div>
@@ -1474,18 +1724,23 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
           <div className="max-w-3xl space-y-8">
             <div className="flex justify-between items-start">
               <div>
-                <h2 className="text-xl font-bold text-gray-900 mb-1">Azure / Entra ID Connection</h2>
-                <p className="text-sm text-gray-500">Configure OAuth 2.0 Client Credentials flow for Real-time Identity Sync</p>
+                <h2 className={cn("text-xl font-bold mb-1", isDark ? "text-white" : "text-gray-900")}>Azure / Entra ID Connection</h2>
+                <p className={cn("text-sm", isDark ? "text-slate-400" : "text-gray-500")}>Configure OAuth 2.0 Client Credentials flow for Real-time Identity Sync</p>
               </div>
               {activeTenantId === 'global' && (
                 <div className="w-64">
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Target Municipality</label>
+                  <label className={cn("block text-[10px] font-bold uppercase tracking-wider mb-1", isDark ? "text-slate-400" : "text-gray-500")}>Target Municipality</label>
                   <select 
                     value={azureTargetTenantId} 
                     onChange={e => setAzureTargetTenantId(e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:border-green-600 outline-none text-sm font-bold text-gray-900"
+                    className={cn(
+                      "w-full px-3 py-2 border rounded-lg focus:border-green-600 outline-none text-sm font-bold transition-colors",
+                      isDark 
+                        ? "bg-slate-850 border-slate-700 text-white" 
+                        : "bg-white border-gray-200 text-gray-900"
+                    )}
                   >
-                    {municipalities.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    {municipalities.map(t => <option key={t.id} value={t.id} className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>{t.name}</option>)}
                   </select>
                 </div>
               )}
@@ -1498,7 +1753,10 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
               </div>
             )}
 
-            <div className="bg-gray-900 text-white p-6 rounded-2xl border border-gray-800 shadow-xl relative overflow-hidden">
+            <div className={cn(
+              "p-6 rounded-2xl border shadow-xl relative overflow-hidden transition-colors",
+              isDark ? "bg-slate-950 border-slate-800 text-white" : "bg-gray-900 border-gray-800 text-white"
+            )}>
               <div className="absolute top-0 right-0 p-8 opacity-5">
                 <KeyRound className="w-32 h-32" />
               </div>
@@ -1512,7 +1770,7 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                     value={azureConfig.clientId}
                     onChange={e => setAzureConfig({...azureConfig, clientId: e.target.value})}
                     placeholder="e.g. 8a2b..."
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-sm focus:border-green-500 outline-none text-white" 
+                    className="w-full bg-gray-800/80 border border-gray-700 rounded-lg px-4 py-2.5 text-sm focus:border-green-500 outline-none text-white placeholder-gray-500" 
                   />
                 </div>
                 <div>
@@ -1522,7 +1780,7 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                     value={azureConfig.directoryTenantId}
                     onChange={e => setAzureConfig({...azureConfig, directoryTenantId: e.target.value})}
                     placeholder="e.g. d7f4..."
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-sm focus:border-green-500 outline-none text-white" 
+                    className="w-full bg-gray-800/80 border border-gray-700 rounded-lg px-4 py-2.5 text-sm focus:border-green-500 outline-none text-white placeholder-gray-500" 
                   />
                 </div>
                 <div>
@@ -1532,41 +1790,52 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                     value={azureConfig.secretValue}
                     onChange={e => setAzureConfig({...azureConfig, secretValue: e.target.value})}
                     placeholder="••••••••••••••••"
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-sm focus:border-green-500 outline-none text-white" 
+                    className="w-full bg-gray-800/80 border border-gray-700 rounded-lg px-4 py-2.5 text-sm focus:border-green-500 outline-none text-white placeholder-gray-500" 
                   />
                 </div>
               </div>
             </div>
 
-            <div className="flex gap-4 p-5 bg-gray-50 border border-gray-100 rounded-2xl items-center">
+            <div className={cn(
+              "flex gap-4 p-5 rounded-2xl items-center border transition-colors",
+              isDark ? "bg-slate-800/60 border-slate-700" : "bg-white border-gray-200"
+            )}>
               <div className="flex-1 flex gap-3">
                 <button 
                   onClick={saveAzureConfig}
                   disabled={isLoading}
-                  className="px-6 py-2.5 bg-gray-900 text-white font-bold rounded-lg hover:bg-black transition-colors uppercase tracking-wider text-[11px] disabled:opacity-50 flex items-center justify-center gap-2"
+                  className={cn(
+                    "px-6 py-2.5 font-bold rounded-lg transition-colors uppercase tracking-wider text-[11px] disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer shadow-sm",
+                    isDark 
+                      ? "bg-slate-700 hover:bg-slate-600 text-white" 
+                      : "bg-gray-900 text-white hover:bg-black"
+                  )}
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" /> Save Configuration
                 </button>
                 <button 
                   onClick={syncAzureUsers}
                   disabled={isLoading || !azureConfig.clientId}
-                  className="px-6 py-2.5 bg-green-600 text-white font-bold rounded-lg hover:bg-green-500 transition-colors uppercase tracking-wider text-[11px] disabled:opacity-50 disabled:bg-gray-300 flex items-center justify-center gap-2"
+                  className="px-6 py-2.5 bg-green-600 text-white font-bold rounded-lg hover:bg-green-500 transition-colors uppercase tracking-wider text-[11px] disabled:opacity-50 disabled:bg-gray-300 flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} /> Execute Import Link
                 </button>
               </div>
-              <div className="text-[10px] text-gray-400 max-w-[200px] text-right uppercase font-bold">
+              <div className={cn("text-[10px] max-w-[200px] text-right uppercase font-bold", isDark ? "text-slate-400" : "text-gray-400")}>
                 SSO & Auto-provisioning via Microsoft Graph
               </div>
             </div>
 
             {/* WiFi Access Lock Policy Card */}
-            <div className="bg-white p-6 rounded-2xl border border-gray-200/85 shadow-md space-y-5">
+            <div className={cn(
+              "p-6 rounded-2xl border shadow-md space-y-5 transition-colors",
+              isDark ? "bg-slate-850 border-slate-750 text-white" : "bg-white border-gray-200 text-gray-900"
+            )}>
               <div>
-                <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-green-600 animate-pulse" /> Network Access & WiFi Lock Policy
+                <h3 className={cn("font-semibold flex items-center gap-2", isDark ? "text-white" : "text-gray-900")}>
+                  <ShieldCheck className="w-5 h-5 text-green-500 animate-pulse" /> Network Access & WiFi Lock Policy
                 </h3>
-                <p className="text-xs text-gray-500 mt-0.5">
+                <p className={cn("text-xs mt-0.5", isDark ? "text-slate-400" : "text-gray-500")}>
                   Secure Azure AD logins by restricting access to authorized municipal network IPs. This strictly prevents remote or off-premises authentication.
                 </p>
               </div>
@@ -1586,10 +1855,10 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                     className="w-4 h-4 rounded text-green-600 focus:ring-green-500 border-gray-300 mt-0.5"
                   />
                   <div>
-                    <span className="block text-sm font-bold text-gray-950 group-hover:text-green-700 transition-colors">
+                    <span className={cn("block text-sm font-bold group-hover:text-green-500 transition-colors", isDark ? "text-white" : "text-gray-950")}>
                       Strict Network Lock (Nkangala DM WiFi Restriction)
                     </span>
-                    <span className="block text-xs text-gray-500">
+                    <span className={cn("block text-xs", isDark ? "text-slate-400" : "text-gray-500")}>
                       When enabled, users logging in with <strong>nkangaladm.gov.za</strong> accounts can only authenticate from authorized IP addresses.
                     </span>
                   </div>
@@ -1597,7 +1866,7 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
 
                 {isWifiRestricted && (
                   <div className="space-y-2 pl-7 duration-200">
-                    <label className="block text-[11px] font-bold uppercase tracking-widest text-gray-500">
+                    <label className={cn("block text-[11px] font-bold uppercase tracking-widest", isDark ? "text-slate-400" : "text-gray-500")}>
                       Authorized Public IPs & Subnets (Comma-separated)
                     </label>
                     <textarea 
@@ -1605,18 +1874,28 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                       onChange={e => setAllowedWifiIps(e.target.value)}
                       placeholder="e.g. 197.97.10.22, 102.164.0.0/16, ::1, 127.0.0.1"
                       rows={2}
-                      className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs font-mono focus:border-green-500 focus:bg-white outline-none text-gray-855"
+                      className={cn(
+                        "w-full border rounded-lg px-3 py-2 text-xs font-mono outline-none transition-colors",
+                        isDark 
+                          ? "bg-slate-900 border-slate-700 text-white placeholder-slate-500 focus:border-green-500" 
+                          : "bg-white border-gray-200 text-gray-900 placeholder-gray-400 focus:border-green-600"
+                      )}
                     />
-                    <p className="text-[10px] text-gray-400">
+                    <p className={cn("text-[10px]", isDark ? "text-slate-500" : "text-gray-400")}>
                       Supports direct IPs (e.g. <code>102.164.120.45</code>), prefix wildcards (e.g. <code>102.164.*</code>), and subnets in CIDR format (e.g. <code>102.164.0.0/16</code>).
                     </p>
                   </div>
                 )}
 
                 {currentClientIp && (
-                  <div className="pl-7 text-[11px] text-gray-600 flex items-center gap-1.5 bg-gray-50 p-2.5 rounded-lg border border-gray-150">
+                  <div className={cn(
+                    "pl-7 text-[11px] flex items-center gap-1.5 p-2.5 rounded-lg border",
+                    isDark 
+                      ? "text-slate-300 bg-slate-900/60 border-slate-750" 
+                      : "text-gray-600 bg-gray-50 border-gray-150"
+                  )}>
                     <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
-                    <span>Your current visitor network IP: <strong className="font-mono text-blue-700 bg-blue-50 px-1 py-0.5 rounded border border-blue-100">{currentClientIp}</strong></span>
+                    <span>Your current visitor network IP: <strong className={cn("font-mono px-1 py-0.5 rounded border", isDark ? "text-blue-400 bg-blue-950/50 border-blue-900" : "text-blue-700 bg-blue-50 border-blue-100")}>{currentClientIp}</strong></span>
                   </div>
                 )}
 
@@ -1624,7 +1903,7 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                   <button 
                     onClick={saveWifiConfig}
                     disabled={isLoading}
-                    className="px-5 py-2 bg-gray-900 hover:bg-black text-white font-bold rounded-lg text-xs uppercase tracking-wider transition-colors disabled:opacity-50"
+                    className="px-5 py-2 bg-green-600 hover:bg-green-500 text-white font-bold rounded-lg text-xs uppercase tracking-wider transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
                   >
                     Save Lock Policy
                   </button>
@@ -1643,37 +1922,51 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
           <div className="space-y-6">
             <div className="flex justify-between items-start">
               <div>
-                <h2 className="text-xl font-bold text-gray-900 mb-1">Live Connected Sessions</h2>
-                <p className="text-sm text-gray-500">
+                <h2 className={cn("text-xl font-bold mb-1", isDark ? "text-white" : "text-gray-900")}>Live Connected Sessions</h2>
+                <p className={cn("text-sm", isDark ? "text-slate-400" : "text-gray-500")}>
                   Real-time visibility into personnel currently logged into the Mzansi Flow municipality network.
                 </p>
               </div>
               <div className="flex items-center gap-3">
                 {sessionFetchTime && (
-                  <span className="text-xs text-gray-400 font-mono">
+                  <span className={cn("text-xs font-mono", isDark ? "text-slate-400" : "text-gray-400")}>
                     Last sync: {sessionFetchTime} (Auto-syncing active)
                   </span>
                 )}
                 <button 
                   onClick={fetchActiveSessions}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-lg text-xs transition-colors"
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-1.5 font-bold rounded-lg text-xs transition-colors cursor-pointer",
+                    isDark 
+                      ? "bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700" 
+                      : "bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200"
+                  )}
                 >
                   <RefreshCw className="w-3.5 h-3.5" /> Force Sync
                 </button>
               </div>
             </div>
 
-            <div className="bg-green-50/50 border border-green-100 p-4 rounded-2xl flex items-center gap-3">
+            <div className={cn(
+              "p-4 rounded-2xl flex items-center gap-3 border transition-colors",
+              isDark ? "bg-emerald-950/40 border-emerald-800/60 text-emerald-300" : "bg-green-50/50 border-green-100 text-green-800"
+            )}>
               <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-ping"></span>
-              <span className="text-xs text-green-800 font-semibold uppercase tracking-wider">
+              <span className="text-xs font-semibold uppercase tracking-wider">
                 Currently Active Session Channels: {activeSessions.length} Managed Node(s)
               </span>
             </div>
 
-            <div className="border border-gray-150 rounded-2xl overflow-hidden bg-white shadow-xs">
+            <div className={cn(
+              "rounded-2xl overflow-hidden border shadow-xs transition-colors",
+              isDark ? "border-slate-800 bg-slate-900" : "border-gray-200 bg-white"
+            )}>
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-gray-50 border-b border-gray-150 text-[10px] font-extrabold uppercase tracking-widest text-gray-500">
+                  <tr className={cn(
+                    "border-b text-[10px] font-extrabold uppercase tracking-widest",
+                    isDark ? "bg-slate-950 border-slate-800 text-slate-400" : "bg-gray-50 border-gray-200 text-gray-500"
+                  )}>
                     <th className="px-6 py-4">Personnel Profile</th>
                     <th className="px-6 py-4">Municipality Node</th>
                     <th className="px-6 py-4">Network IP Address</th>
@@ -1682,39 +1975,42 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                     <th className="px-6 py-4 text-center">Supervise</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100 text-xs">
+                <tbody className={cn("divide-y text-xs", isDark ? "divide-slate-800" : "divide-gray-100")}>
                   {activeSessions.map((session: any, idx: number) => {
                     const mappedTenant = municipalities.find(t => t.id === session.tenantId);
                     const tenantName = mappedTenant ? mappedTenant.name : 'Unknown Agency';
                     
                     return (
-                      <tr key={session.id || `${session.email}-${idx}`} className="hover:bg-gray-50/50 transition-colors">
+                      <tr key={session.id || `${session.email}-${idx}`} className={cn("transition-colors", isDark ? "hover:bg-slate-850/60" : "hover:bg-gray-50/50")}>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-full bg-green-600/10 text-green-700 flex items-center justify-center font-bold text-xs shadow-xs">
                               {session.fullName ? session.fullName[0].toUpperCase() : 'U'}
                             </div>
                             <div>
-                              <div className="font-bold text-gray-950">{session.fullName || session.email}</div>
-                              <div className="text-[10px] text-gray-400 font-mono">{session.email}</div>
+                              <div className={cn("font-bold", isDark ? "text-white" : "text-gray-950")}>{session.fullName || session.email}</div>
+                              <div className={cn("text-[10px] font-mono", isDark ? "text-slate-400" : "text-gray-400")}>{session.email}</div>
                             </div>
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="px-2.5 py-1 bg-gray-100 text-gray-700 font-bold rounded-full text-[10px] uppercase tracking-wider border border-gray-200">
+                          <span className={cn(
+                            "px-2.5 py-1 font-bold rounded-full text-[10px] uppercase tracking-wider border",
+                            isDark ? "bg-slate-800 text-slate-300 border-slate-700" : "bg-gray-100 text-gray-700 border-gray-200"
+                          )}>
                             {tenantName}
                           </span>
                         </td>
-                        <td className="px-6 py-4 font-mono font-bold text-blue-600">
+                        <td className="px-6 py-4 font-mono font-bold text-blue-500">
                           <div className="flex items-center gap-1.5">
                             <Globe className="w-3.5 h-3.5 text-blue-400" /> {session.clientIp || '127.0.0.1'}
                           </div>
                         </td>
-                        <td className="px-6 py-4 font-mono text-[10px] text-gray-400 max-w-[200px] truncate" title={session.userAgent}>
+                        <td className={cn("px-6 py-4 font-mono text-[10px] max-w-[200px] truncate", isDark ? "text-slate-400" : "text-gray-400")} title={session.userAgent}>
                           {session.userAgent || 'Modern Web Browser'}
                         </td>
                         <td className="px-6 py-4 text-right">
-                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-green-50 text-green-700 text-[10px] font-bold uppercase tracking-wider border border-green-150 font-mono">
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-green-500/10 text-green-500 text-[10px] font-bold uppercase tracking-wider border border-green-500/20 font-mono">
                             <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
                             ACTIVE
                           </span>
@@ -1734,7 +2030,10 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                                   systemRole: isSessionGlobal ? 'Global Administrator' : 'Standard User'
                                 });
                               }}
-                              className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                              className={cn(
+                                "p-1.5 rounded-lg transition-all cursor-pointer",
+                                isDark ? "text-slate-400 hover:text-indigo-400 hover:bg-slate-800" : "text-gray-500 hover:text-indigo-600 hover:bg-indigo-50"
+                              )}
                               title={`Login as ${session.fullName || session.email}`}
                             >
                               <Globe className="w-4 h-4" />
@@ -1747,7 +2046,7 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
 
                   {activeSessions.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="text-center py-10 text-gray-400 font-medium whitespace-pre">
+                      <td colSpan={6} className={cn("text-center py-10 font-medium whitespace-pre", isDark ? "text-slate-500" : "text-gray-400")}>
                         No active logins recorded for this municipality.
                         <br />
                         <span className="text-[10px] font-normal block mt-1">Sessions expire dynamically if no tracking signals are broadcasted for more than 180 seconds.</span>
@@ -1793,49 +2092,64 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
       {/* Edit Modal */}
       {editingUser && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[85vh] overflow-y-auto hide-scrollbar shadow-2xl border border-gray-100 p-6 flex flex-col gap-4 relative">
+          <div className={cn(
+            "rounded-3xl max-w-2xl w-full max-h-[85vh] overflow-y-auto hide-scrollbar shadow-2xl p-6 flex flex-col gap-4 relative border transition-colors",
+            isDark ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-gray-200 text-gray-900"
+          )}>
             <button 
               onClick={() => setEditingUser(null)}
-              className="absolute top-6 right-6 text-gray-400 hover:text-gray-900 transition-colors bg-gray-50 p-2 rounded-full font-bold text-sm"
+              className={cn(
+                "absolute top-6 right-6 transition-colors p-2 rounded-full font-bold text-sm cursor-pointer",
+                isDark ? "text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700" : "text-gray-400 hover:text-gray-900 bg-gray-100 hover:bg-gray-200"
+              )}
             >
               ✕
             </button>
             <div>
-              <h2 className="text-xl font-bold text-gray-900 mb-1">Edit Personnel Profile</h2>
-              <p className="text-sm text-gray-500">Modify organizational placement, functions, reporting structure, and digital signature.</p>
+              <h2 className={cn("text-xl font-bold mb-1", isDark ? "text-white" : "text-gray-900")}>Edit Personnel Profile</h2>
+              <p className={cn("text-sm", isDark ? "text-slate-400" : "text-gray-500")}>Modify organizational placement, functions, reporting structure, and digital signature.</p>
             </div>
 
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-2xl border border-gray-100">
+              <div className={cn(
+                "grid grid-cols-2 gap-4 p-4 rounded-2xl border transition-colors",
+                isDark ? "bg-slate-800/60 border-slate-700" : "bg-gray-50 border-gray-150"
+              )}>
                 <div>
-                  <span className="block text-[10px] font-bold uppercase tracking-wider text-gray-400">User Identification</span>
-                  <span className="font-bold text-gray-900 text-sm">{editFormData.fullName}</span>
+                  <span className={cn("block text-[10px] font-bold uppercase tracking-wider", isDark ? "text-slate-400" : "text-gray-400")}>User Identification</span>
+                  <span className={cn("font-bold text-sm", isDark ? "text-white" : "text-gray-900")}>{editFormData.fullName}</span>
                 </div>
                 <div>
-                  <span className="block text-[10px] font-bold uppercase tracking-wider text-gray-400">Email Address</span>
-                  <span className="text-gray-600 text-xs">{editFormData.email}</span>
+                  <span className={cn("block text-[10px] font-bold uppercase tracking-wider", isDark ? "text-slate-400" : "text-gray-400")}>Email Address</span>
+                  <span className={cn("text-xs", isDark ? "text-slate-300" : "text-gray-600")}>{editFormData.email}</span>
                 </div>
               </div>
 
               {/* Digital Signature Component */}
-              <div className="bg-gray-50 p-4 rounded-2xl border border-gray-200">
+              <div className={cn(
+                "p-4 rounded-2xl border transition-colors",
+                isDark ? "bg-slate-800/40 border-slate-700" : "bg-gray-50 border-gray-200"
+              )}>
                 <div className="flex items-center justify-between mb-3">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700">Digital Signature Option</label>
-                  <div className="flex bg-white rounded-lg p-1 border border-gray-200 text-xs font-semibold">
+                  <label className={cn("block text-xs font-bold uppercase tracking-wider", isDark ? "text-slate-300" : "text-gray-700")}>Digital Signature Option</label>
+                  <div className={cn(
+                    "flex rounded-lg p-1 border text-xs font-semibold",
+                    isDark ? "bg-slate-900 border-slate-700" : "bg-white border-gray-200"
+                  )}>
                     <button 
                       type="button"
                       onClick={() => setEditFormData({...editFormData, signatureType: 'draw', signatureData: ''})}
-                      className={cn("px-3 py-1 rounded-md transition-colors", editFormData.signatureType === 'draw' ? "bg-gray-100 text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700")}
+                      className={cn("px-3 py-1 rounded-md transition-colors cursor-pointer", editFormData.signatureType === 'draw' ? (isDark ? "bg-slate-800 text-white shadow-sm" : "bg-gray-100 text-gray-900 shadow-sm") : (isDark ? "text-slate-400 hover:text-white" : "text-gray-500 hover:text-gray-700"))}
                     >Draw</button>
                     <button 
                       type="button"
                       onClick={() => setEditFormData({...editFormData, signatureType: 'upload', signatureData: ''})}
-                      className={cn("px-3 py-1 rounded-md transition-colors", editFormData.signatureType === 'upload' ? "bg-gray-100 text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700")}
+                      className={cn("px-3 py-1 rounded-md transition-colors cursor-pointer", editFormData.signatureType === 'upload' ? (isDark ? "bg-slate-800 text-white shadow-sm" : "bg-gray-100 text-gray-900 shadow-sm") : (isDark ? "text-slate-400 hover:text-white" : "text-gray-500 hover:text-gray-700"))}
                     >Upload</button>
                     <button 
                       type="button"
                       onClick={() => setEditFormData({...editFormData, signatureType: 'wacom', signatureData: ''})}
-                      className={cn("px-3 py-1 rounded-md transition-colors", editFormData.signatureType === 'wacom' ? "bg-gray-100 text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700")}
+                      className={cn("px-3 py-1 rounded-md transition-colors cursor-pointer", editFormData.signatureType === 'wacom' ? (isDark ? "bg-slate-800 text-white shadow-sm" : "bg-gray-100 text-gray-900 shadow-sm") : (isDark ? "text-slate-400 hover:text-white" : "text-gray-500 hover:text-gray-700"))}
                     >Wacom STU-430/G</button>
                   </div>
                 </div>
@@ -2116,53 +2430,73 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">Directorate</label>
+                <label className={cn("block text-xs font-bold uppercase tracking-wider mb-2", isDark ? "text-slate-300" : "text-gray-700")}>Directorate</label>
                 <select 
                   value={editFormData.directorate} 
                   onChange={e => setEditFormData({...editFormData, directorate: e.target.value})} 
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 outline-none text-sm" 
+                  className={cn(
+                    "w-full px-4 py-3 border rounded-xl outline-none text-sm cursor-pointer transition-colors",
+                    isDark 
+                      ? "bg-slate-800 border-slate-700 text-white focus:border-green-500" 
+                      : "bg-white border-gray-200 text-gray-900 focus:border-green-600"
+                  )} 
                 >
-                  <option value="">Select Directorate...</option>
-                  {DIRECTORATES.map(d => <option key={d} value={d}>{d}</option>)}
+                  <option value="" className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>Select Directorate...</option>
+                  {DIRECTORATES.map(d => <option key={d} value={d} className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>{d}</option>)}
                 </select>
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">Department</label>
+                <label className={cn("block text-xs font-bold uppercase tracking-wider mb-2", isDark ? "text-slate-300" : "text-gray-700")}>Department</label>
                 <input 
                   type="text" 
                   value={editFormData.department} 
                   onChange={e => setEditFormData({...editFormData, department: e.target.value})} 
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 focus:bg-white outline-none transition-colors text-sm" 
+                  className={cn(
+                    "w-full px-4 py-3 border rounded-xl outline-none transition-colors text-sm",
+                    isDark 
+                      ? "bg-slate-800 border-slate-700 text-white placeholder-slate-400 focus:border-green-500 focus:bg-slate-800" 
+                      : "bg-white border-gray-200 text-gray-900 placeholder-gray-400 focus:border-green-600 focus:bg-white"
+                  )} 
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1">Job Function</label>
-                <p className="text-[10px] text-gray-500 mb-2">Type custom title, or search/select another user from the Azure AD Directory to link as their acting role.</p>
+                <label className={cn("block text-xs font-bold uppercase tracking-wider mb-1", isDark ? "text-slate-300" : "text-gray-700")}>Job Function</label>
+                <p className={cn("text-[10px] mb-2", isDark ? "text-slate-400" : "text-gray-500")}>Type custom title, or search/select another user from the Azure AD Directory to link as their acting role.</p>
                 <div className="flex flex-col gap-2">
                   <input 
                     type="text" 
                     value={editFormData.jobFunction} 
                     onChange={e => setEditFormData({...editFormData, jobFunction: e.target.value})} 
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 focus:bg-white outline-none transition-colors text-sm" 
+                    className={cn(
+                      "w-full px-4 py-3 border rounded-xl outline-none transition-colors text-sm",
+                      isDark 
+                        ? "bg-slate-800 border-slate-700 text-white placeholder-slate-400 focus:border-green-500 focus:bg-slate-800" 
+                        : "bg-white border-gray-200 text-gray-900 placeholder-gray-400 focus:border-green-600 focus:bg-white"
+                    )} 
                     placeholder="e.g. Chief Financial Officer"
                   />
                   {jobSearchQuery && (
-                    <div className="bg-white p-3 rounded-2xl border border-gray-100 shadow-xs space-y-2 animate-fade-in relative">
-                      <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200 focus-within:border-green-600 focus-within:bg-white">
-                        <Search className="w-3.5 h-3.5 text-gray-400" />
+                    <div className={cn("p-3 rounded-2xl border shadow-xl space-y-2 animate-fade-in relative z-10", isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-100")}>
+                      <div className={cn(
+                        "flex items-center gap-2 px-3 py-2 rounded-xl border",
+                        isDark 
+                          ? "bg-slate-900 border-slate-700 focus-within:border-green-500" 
+                          : "bg-gray-50 border-gray-200 focus-within:border-green-600 focus-within:bg-white"
+                      )}>
+                        <Search className={cn("w-3.5 h-3.5", isDark ? "text-slate-400" : "text-gray-400")} />
                         <input 
                           type="text" 
                           placeholder="Search Azure AD Directory..." 
                           value={jobSearchQuery}
                           onChange={e => setJobSearchQuery(e.target.value)}
-                          className="flex-1 bg-transparent border-none outline-none text-xs text-gray-800"
+                          className={cn("flex-1 bg-transparent border-none outline-none text-xs", isDark ? "text-white placeholder-slate-400" : "text-gray-800 placeholder-gray-400")}
                         />
                         <button 
                           type="button" 
                           onClick={() => setJobSearchQuery('')} 
-                          className="text-gray-400 hover:text-gray-600 text-[10px] font-bold"
+                          className={cn("text-[10px] font-bold cursor-pointer", isDark ? "text-slate-400 hover:text-white" : "text-gray-400 hover:text-gray-600")}
                         >Clear</button>
                       </div>
                       
@@ -2175,10 +2509,15 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                               setEditFormData({...editFormData, jobFunction: `Linked AAD Role: ${aUser.fullName}`});
                               setJobSearchQuery('');
                             }}
-                            className="w-full text-left px-3 py-2 bg-white hover:bg-green-50 hover:text-green-700 rounded-xl border border-gray-100 transition-colors text-xs font-medium flex items-center justify-between"
+                            className={cn(
+                              "w-full text-left px-3 py-2 rounded-xl border transition-colors text-xs font-medium flex items-center justify-between cursor-pointer",
+                              isDark 
+                                ? "bg-slate-850 hover:bg-slate-700 border-slate-700 text-slate-200 hover:text-green-400" 
+                                : "bg-white hover:bg-green-50 hover:text-green-700 border-gray-100 text-gray-900"
+                            )}
                           >
                             <span>{aUser.fullName}</span>
-                            <span className="text-[10px] text-gray-400 font-normal">{aUser.department || 'Azure AD User'}</span>
+                            <span className={cn("text-[10px] font-normal", isDark ? "text-slate-400" : "text-gray-400")}>{aUser.department || 'Azure AD User'}</span>
                           </button>
                         ))}
                       </div>
@@ -2188,11 +2527,16 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1">Report To</label>
-                <p className="text-[10px] text-gray-500 mb-2">Select user from Azure AD for reporting hierarchy.</p>
+                <label className={cn("block text-xs font-bold uppercase tracking-wider mb-1", isDark ? "text-slate-300" : "text-gray-700")}>Report To</label>
+                <p className={cn("text-[10px] mb-2", isDark ? "text-slate-400" : "text-gray-500")}>Select user from Azure AD for reporting hierarchy.</p>
                 <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2 bg-gray-50 px-4 py-3 rounded-xl border border-gray-200 focus-within:border-green-600 focus-within:bg-white">
-                    <Search className="w-3.5 h-3.5 text-gray-400" />
+                  <div className={cn(
+                    "flex items-center gap-2 px-4 py-3 rounded-xl border transition-colors",
+                    isDark 
+                      ? "bg-slate-800 border-slate-700 focus-within:border-green-500 focus-within:bg-slate-800" 
+                      : "bg-white border-gray-200 focus-within:border-green-600 focus-within:bg-white"
+                  )}>
+                    <Search className={cn("w-3.5 h-3.5", isDark ? "text-slate-400" : "text-gray-400")} />
                     <input 
                       type="text" 
                       placeholder="Search Azure AD for report to..." 
@@ -2201,11 +2545,14 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                         setReportToSearchQuery(e.target.value);
                         setEditFormData({...editFormData, reportTo: e.target.value});
                       }}
-                      className="flex-1 bg-transparent border-none outline-none text-sm text-gray-800"
+                      className={cn(
+                        "flex-1 bg-transparent border-none outline-none text-sm",
+                        isDark ? "text-white placeholder-slate-400" : "text-gray-900 placeholder-gray-400"
+                      )}
                     />
                   </div>
                   {reportToSearchQuery && reportToSearchResults.length > 0 && (
-                    <div className="bg-white p-3 rounded-2xl border border-gray-100 shadow-xl space-y-1">
+                    <div className={cn("p-3 rounded-2xl border shadow-xl space-y-1 z-10", isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-100")}>
                       <div className="max-h-28 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
                         {reportToSearchResults.map(aUser => (
                           <button
@@ -2216,7 +2563,12 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                               setReportToSearchQuery('');
                               setReportToSearchResults([]);
                             }}
-                            className="w-full text-left px-3 py-2 bg-white hover:bg-green-50 hover:text-green-700 rounded-xl border border-gray-100 transition-colors text-xs font-medium"
+                            className={cn(
+                              "w-full text-left px-3 py-2 rounded-xl border transition-colors text-xs font-medium cursor-pointer",
+                              isDark 
+                                ? "bg-slate-850 hover:bg-slate-700 border-slate-700 text-slate-200 hover:text-green-400" 
+                                : "bg-white hover:bg-green-50 hover:text-green-700 border-gray-100 text-gray-900"
+                            )}
                           >
                             {aUser.fullName} ({aUser.email})
                           </button>
@@ -2228,11 +2580,16 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1">Direct Manager</label>
-                <p className="text-[10px] text-gray-500 mb-2">Establish line reporting and performance oversight relationships.</p>
+                <label className={cn("block text-xs font-bold uppercase tracking-wider mb-1", isDark ? "text-slate-300" : "text-gray-700")}>Direct Manager</label>
+                <p className={cn("text-[10px] mb-2", isDark ? "text-slate-400" : "text-gray-500")}>Establish line reporting and performance oversight relationships.</p>
                 <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2 bg-gray-50 px-4 py-3 rounded-xl border border-gray-200 focus-within:border-green-600 focus-within:bg-white">
-                    <Search className="w-3.5 h-3.5 text-gray-400" />
+                  <div className={cn(
+                    "flex items-center gap-2 px-4 py-3 rounded-xl border transition-colors",
+                    isDark 
+                      ? "bg-slate-800 border-slate-700 focus-within:border-green-500 focus-within:bg-slate-800" 
+                      : "bg-white border-gray-200 focus-within:border-green-600 focus-within:bg-white"
+                  )}>
+                    <Search className={cn("w-3.5 h-3.5", isDark ? "text-slate-400" : "text-gray-400")} />
                     <input 
                       type="text" 
                       placeholder="Search Azure AD for manager..." 
@@ -2241,11 +2598,14 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                         setManagerSearchQuery(e.target.value);
                         setEditFormData({...editFormData, manager: e.target.value});
                       }}
-                      className="flex-1 bg-transparent border-none outline-none text-sm text-gray-800"
+                      className={cn(
+                        "flex-1 bg-transparent border-none outline-none text-sm",
+                        isDark ? "text-white placeholder-slate-400" : "text-gray-900 placeholder-gray-400"
+                      )}
                     />
                   </div>
                   {managerSearchQuery && managerSearchResults.length > 0 && (
-                    <div className="bg-white p-3 rounded-2xl border border-gray-100 shadow-xl space-y-1">
+                    <div className={cn("p-3 rounded-2xl border shadow-xl space-y-1 z-10", isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-100")}>
                       <div className="max-h-28 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
                         {managerSearchResults.map(aUser => (
                           <button
@@ -2256,7 +2616,12 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                               setManagerSearchQuery('');
                               setManagerSearchResults([]);
                             }}
-                            className="w-full text-left px-3 py-2 bg-white hover:bg-green-50 hover:text-green-700 rounded-xl border border-gray-100 transition-colors text-xs font-medium"
+                            className={cn(
+                              "w-full text-left px-3 py-2 rounded-xl border transition-colors text-xs font-medium cursor-pointer",
+                              isDark 
+                                ? "bg-slate-850 hover:bg-slate-700 border-slate-700 text-slate-200 hover:text-green-400" 
+                                : "bg-white hover:bg-green-50 hover:text-green-700 border-gray-100 text-gray-900"
+                            )}
                           >
                             {aUser.fullName} ({aUser.email})
                           </button>
@@ -2268,47 +2633,60 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">System Role</label>
+                <label className={cn("block text-xs font-bold uppercase tracking-wider mb-2", isDark ? "text-slate-300" : "text-gray-700")}>System Role</label>
                 <select 
                   value={editFormData.systemRole} 
                   onChange={e => setEditFormData({...editFormData, systemRole: e.target.value})} 
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 outline-none text-sm cursor-pointer"
+                  className={cn(
+                    "w-full px-4 py-3 border rounded-xl outline-none text-sm cursor-pointer transition-colors",
+                    isDark 
+                      ? "bg-slate-800 border-slate-700 text-white focus:border-green-500" 
+                      : "bg-white border-gray-200 text-gray-900 focus:border-green-600"
+                  )}
                 >
-                  <option>Standard User</option>
-                  <option>Auditor</option>
-                  <option>Systems Administrator</option>
-                  <option>Global Administrator</option>
+                  <option className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>Standard User</option>
+                  <option className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>Auditor</option>
+                  <option className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>Systems Administrator</option>
+                  <option className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>Global Administrator</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">Directory Level</label>
+                <label className={cn("block text-xs font-bold uppercase tracking-wider mb-2", isDark ? "text-slate-300" : "text-gray-700")}>Directory Level</label>
                 <select 
                   value={editFormData.level || '1'} 
                   onChange={e => setEditFormData({...editFormData, level: e.target.value})} 
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-green-600 outline-none text-sm cursor-pointer"
+                  className={cn(
+                    "w-full px-4 py-3 border rounded-xl outline-none text-sm cursor-pointer transition-colors",
+                    isDark 
+                      ? "bg-slate-800 border-slate-700 text-white focus:border-green-500" 
+                      : "bg-white border-gray-200 text-gray-900 focus:border-green-600"
+                  )}
                 >
-                  <option value="0">0</option>
-                  <option value="1">1</option>
-                  <option value="2">2</option>
-                  <option value="3">3</option>
-                  <option value="4">4</option>
-                  <option value="5">5</option>
-                  <option value="6">6</option>
-                  <option value="7">7</option>
-                  <option value="8">8</option>
-                  <option value="9">9</option>
-                  <option value="10">10</option>
-                  <option value="11">11</option>
+                  <option value="0" className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>0</option>
+                  <option value="1" className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>1</option>
+                  <option value="2" className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>2</option>
+                  <option value="3" className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>3</option>
+                  <option value="4" className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>4</option>
+                  <option value="5" className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>5</option>
+                  <option value="6" className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>6</option>
+                  <option value="7" className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>7</option>
+                  <option value="8" className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>8</option>
+                  <option value="9" className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>9</option>
+                  <option value="10" className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>10</option>
+                  <option value="11" className={isDark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>11</option>
                 </select>
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+            <div className={cn("flex justify-end gap-3 pt-4 border-t transition-colors", isDark ? "border-slate-800" : "border-gray-100")}>
               <button 
                 type="button"
                 onClick={() => setEditingUser(null)}
-                className="px-6 py-2.5 border border-gray-200 rounded-xl font-bold text-gray-600 text-xs uppercase tracking-wider hover:bg-gray-50"
+                className={cn(
+                  "px-6 py-2.5 border rounded-xl font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer",
+                  isDark ? "border-slate-700 text-slate-300 hover:bg-slate-800" : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                )}
               >
                 Cancel
               </button>
@@ -2316,7 +2694,7 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                 type="button"
                 onClick={saveUserEdits}
                 disabled={isLoading}
-                className="px-6 py-2.5 bg-green-600 text-white font-bold rounded-xl hover:bg-green-500 transition-colors uppercase tracking-wider text-xs disabled:opacity-50"
+                className="px-6 py-2.5 bg-green-600 text-white font-bold rounded-xl hover:bg-green-500 transition-colors uppercase tracking-wider text-xs disabled:opacity-50 cursor-pointer shadow-md"
               >
                 {isLoading ? 'Saving...' : 'Save Changes'}
               </button>

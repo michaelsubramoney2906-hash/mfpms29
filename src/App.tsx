@@ -384,88 +384,88 @@ export default function App() {
     handleSetUser(null);
   };
 
-  if (!user) {
-    return <LandingPage onLogin={handleSetUser} />;
-  }
-
   const isImpersonating = !!(localStorage.getItem('originalAdminUser') || sessionStorage.getItem('originalAdminUser'));
 
   return (
     <ThemeProvider>
-      <FinancialYearProvider>
-        <DataLossPreventionWrapper user={user}>
-          <div className="flex flex-col min-h-screen">
-            {/* Non-intrusive Live System Update Notification */}
-            {newVersionAvailable && (
-              <div className="fixed bottom-4 right-4 z-[999999] bg-slate-900/95 border-2 border-indigo-500/70 text-white px-4 py-3 rounded-2xl shadow-2xl backdrop-blur-md flex items-center gap-3 animate-fade-in font-sans">
-                <div className="p-2 bg-indigo-600/30 text-indigo-400 rounded-xl shrink-0">
-                  <RefreshCw className="w-4 h-4 animate-spin text-indigo-400" />
-                </div>
-                <div className="pr-2">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-black text-white uppercase tracking-wider">System Update Ready</span>
-                    <span className="text-[10px] bg-indigo-950 text-indigo-300 border border-indigo-700/60 px-1.5 py-0.2 rounded font-mono font-bold">
-                      {newVersionAvailable}
-                    </span>
+      {!user ? (
+        <LandingPage onLogin={handleSetUser} />
+      ) : (
+        <FinancialYearProvider>
+          <DataLossPreventionWrapper user={user}>
+            <div className="flex flex-col min-h-screen">
+              {/* Non-intrusive Live System Update Notification */}
+              {newVersionAvailable && (
+                <div className="fixed bottom-4 right-4 z-[999999] bg-slate-900/95 border-2 border-indigo-500/70 text-white px-4 py-3 rounded-2xl shadow-2xl backdrop-blur-md flex items-center gap-3 animate-fade-in font-sans">
+                  <div className="p-2 bg-indigo-600/30 text-indigo-400 rounded-xl shrink-0">
+                    <RefreshCw className="w-4 h-4 animate-spin text-indigo-400" />
                   </div>
-                  <p className="text-[11px] text-slate-300 mt-0.5">
-                    A fresh system update is deployed. Refresh when ready without interrupting active drafts.
-                  </p>
+                  <div className="pr-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-black text-white uppercase tracking-wider">System Update Ready</span>
+                      <span className="text-[10px] bg-indigo-950 text-indigo-300 border border-indigo-700/60 px-1.5 py-0.2 rounded font-mono font-bold">
+                        {newVersionAvailable}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-300 mt-0.5">
+                      A fresh system update is deployed. Refresh when ready without interrupting active drafts.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => window.location.reload()}
+                      className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
+                    >
+                      Refresh Now
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNewVersionAvailable(null)}
+                      className="p-1.5 text-slate-400 hover:text-white rounded-lg transition cursor-pointer"
+                      title="Dismiss notice"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => window.location.reload()}
-                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
-                  >
-                    Refresh Now
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setNewVersionAvailable(null)}
-                    className="p-1.5 text-slate-400 hover:text-white rounded-lg transition cursor-pointer"
-                    title="Dismiss notice"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            )}
+              )}
 
-            {isImpersonating && (
-              <div className="bg-amber-500 text-black px-8 py-2.5 flex items-center justify-between text-xs font-bold uppercase tracking-wider z-[999] shadow-md border-b border-amber-600 shrink-0">
-                <div className="flex items-center gap-2">
-                  <span className="animate-pulse flex h-2.5 w-2.5 rounded-full bg-red-600"></span>
-                  <span>Currently viewing/logged in as: <span className="font-black text-amber-950">{user?.fullName} ({user?.email})</span></span>
+              {isImpersonating && (
+                <div className="bg-amber-500 text-black px-8 py-2.5 flex items-center justify-between text-xs font-bold uppercase tracking-wider z-[999] shadow-md border-b border-amber-600 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <span className="animate-pulse flex h-2.5 w-2.5 rounded-full bg-red-600"></span>
+                    <span>Currently viewing/logged in as: <span className="font-black text-amber-950">{user?.fullName} ({user?.email})</span></span>
+                  </div>
+                  <button 
+                    onClick={() => handleImpersonate(null)}
+                    className="bg-amber-950 text-white hover:bg-amber-900 transition-colors px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-widest shadow-sm cursor-pointer"
+                  >
+                    Exit Impersonation
+                  </button>
                 </div>
-                <button 
-                  onClick={() => handleImpersonate(null)}
-                  className="bg-amber-950 text-white hover:bg-amber-900 transition-colors px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-widest shadow-sm cursor-pointer"
-                >
-                  Exit Impersonation
-                </button>
+              )}
+              <div className="flex-1 flex flex-col min-h-0">
+                <SecurityShield user={user}>
+                  {user.portalMode === 'neda' ? (
+                    <NEDAPortal 
+                      user={user} 
+                      onLogout={handleLogout} 
+                      onImpersonate={handleImpersonate} 
+                    />
+                  ) : (
+                    <Dashboard 
+                      user={user} 
+                      onLogout={handleLogout} 
+                      onImpersonate={handleImpersonate} 
+                    />
+                  )}
+                </SecurityShield>
               </div>
-            )}
-            <div className="flex-1 flex flex-col min-h-0">
-              <SecurityShield user={user}>
-                {user.portalMode === 'neda' ? (
-                  <NEDAPortal 
-                    user={user} 
-                    onLogout={handleLogout} 
-                    onImpersonate={handleImpersonate} 
-                  />
-                ) : (
-                  <Dashboard 
-                    user={user} 
-                    onLogout={handleLogout} 
-                    onImpersonate={handleImpersonate} 
-                  />
-                )}
-              </SecurityShield>
             </div>
-          </div>
-        </DataLossPreventionWrapper>
-      </FinancialYearProvider>
+          </DataLossPreventionWrapper>
+        </FinancialYearProvider>
+      )}
     </ThemeProvider>
   );
 }

@@ -1,92 +1,47 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useEffect } from 'react';
 
-export type Theme = 'dark' | 'light';
+export type Theme = 'dark';
 
 interface ThemeContextType {
-  theme: Theme;
-  isDark: boolean;
-  setTheme: (theme: Theme) => void;
+  theme: 'dark';
+  isDark: true;
+  setTheme: (theme?: any) => void;
   toggleTheme: () => void;
 }
 
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+const defaultValue: ThemeContextType = {
+  theme: 'dark',
+  isDark: true,
+  setTheme: () => {},
+  toggleTheme: () => {},
+};
 
-const THEME_STORAGE_KEY = 'mzansi_app_theme';
+const ThemeContext = createContext<ThemeContextType>(defaultValue);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(THEME_STORAGE_KEY);
-      if (saved === 'dark' || saved === 'light') {
-        return saved;
-      }
-    }
-    return 'dark'; // Default to dark theme for executive dashboard aesthetics
-  });
-
-  const applyThemeToDOM = (activeTheme: Theme) => {
+  useEffect(() => {
     if (typeof document !== 'undefined') {
       const root = document.documentElement;
       const body = document.body;
-
-      if (activeTheme === 'dark') {
-        root.classList.add('dark');
-        root.classList.remove('light');
-        root.setAttribute('data-theme', 'dark');
-        body.classList.add('dark-theme');
-        body.classList.remove('light-theme');
-      } else {
-        root.classList.remove('dark');
-        root.classList.add('light');
-        root.setAttribute('data-theme', 'light');
-        body.classList.remove('dark-theme');
-        body.classList.add('light-theme');
-      }
+      root.classList.remove('light');
+      root.classList.add('dark');
+      root.setAttribute('data-theme', 'dark');
+      root.style.colorScheme = 'dark';
+      body.classList.remove('light-theme');
+      body.classList.add('dark-theme');
+      try {
+        localStorage.removeItem('mzansi_app_theme');
+      } catch (e) {}
     }
-  };
-
-  useEffect(() => {
-    applyThemeToDOM(theme);
-  }, [theme]);
-
-  const setTheme = (newTheme: Theme) => {
-    setThemeState(newTheme);
-    localStorage.setItem(THEME_STORAGE_KEY, newTheme);
-    applyThemeToDOM(newTheme);
-    window.dispatchEvent(new CustomEvent('mzansi_theme_changed', { detail: { theme: newTheme } }));
-  };
-
-  const toggleTheme = () => {
-    const next = theme === 'dark' ? 'light' : 'dark';
-    setTheme(next);
-  };
+  }, []);
 
   return (
-    <ThemeContext.Provider
-      value={{
-        theme,
-        isDark: theme === 'dark',
-        setTheme,
-        toggleTheme,
-      }}
-    >
+    <ThemeContext.Provider value={defaultValue}>
       {children}
     </ThemeContext.Provider>
   );
 };
 
 export const useTheme = (): ThemeContextType => {
-  const context = useContext(ThemeContext);
-  if (!context) {
-    const isDarkDefault = typeof document !== 'undefined' 
-      ? (document.documentElement.classList.contains('dark') || !document.documentElement.classList.contains('light'))
-      : true;
-    return {
-      theme: isDarkDefault ? 'dark' : 'light',
-      isDark: isDarkDefault,
-      setTheme: () => {},
-      toggleTheme: () => {},
-    };
-  }
-  return context;
+  return useContext(ThemeContext) || defaultValue;
 };

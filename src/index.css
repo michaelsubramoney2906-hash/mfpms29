@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@variant dark (&:where(.dark, .dark *, [data-theme="dark"], [data-theme="dark"] *));
 @custom-variant dark (&:where(.dark, .dark *, [data-theme="dark"], [data-theme="dark"] *));
 
 @theme {
@@ -13,30 +14,32 @@ html {
   text-size-adjust: 100%;
   text-rendering: optimizeSpeed;
   scroll-behavior: smooth;
-  color-scheme: light dark;
-}
-
-html.dark {
   color-scheme: dark;
 }
 
-html.light {
-  color-scheme: light;
-}
-
 body {
-  @apply font-sans text-gray-900 bg-gray-50 antialiased transition-colors duration-200;
+  @apply font-sans text-slate-100 bg-slate-950 antialiased;
+  background-color: #020617;
+  color: #f8fafc;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
 }
 
-body.dark-theme {
-  @apply bg-slate-950 text-slate-100;
+/* Universal Form Controls - High Contrast Visibility */
+input, textarea, select {
+  font-family: inherit;
 }
 
-body.light-theme {
-  @apply bg-gray-50 text-slate-900;
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
+textarea,
+select {
+  caret-color: #34d399;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #94a3b8;
 }
 
 h1, h2, h3, h4, h5, h6 {
