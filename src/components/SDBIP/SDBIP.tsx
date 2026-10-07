@@ -331,8 +331,31 @@ export function sanitizeSdbipRow(row: SdbipRow): SdbipRow {
   const kpiVal = String(row.kpi || row.operationalActivity || (row as any).KPI || (row as any).Description || (row as any).kpiDescription || '').trim();
   const activityVal = String(row.operationalActivity || row.kpi || (row as any).Description || (row as any).KPI || '').trim();
 
+  // Strict Azure AD Approver & Submitter normalization for specific statutory KPIs
+  let normalizedApprover = row.approver || '';
+  let normalizedSubmitter = row.submitter || '';
+
+  const cleanRef = String(row.refNum || '').trim().toUpperCase();
+  if (cleanRef === 'M_13' || cleanRef === 'M13') {
+    if (!normalizedApprover || normalizedApprover.toLowerCase().includes('mayor') || normalizedApprover.toLowerCase().includes('executive')) {
+      normalizedApprover = 'Mmaphiri R. Rampedi';
+    }
+    if (!normalizedSubmitter) {
+      normalizedSubmitter = 'Jimmy Nhlapho';
+    }
+  } else if (cleanRef === 'M_17' || cleanRef === 'M17') {
+    if (!normalizedApprover || normalizedApprover.toLowerCase().includes('mayor') || normalizedApprover.toLowerCase().includes('executive')) {
+      normalizedApprover = 'Juliet N. Ralephaleng';
+    }
+    if (!normalizedSubmitter) {
+      normalizedSubmitter = 'Quinton Skhosana';
+    }
+  }
+
   return {
     ...row,
+    submitter: normalizedSubmitter,
+    approver: normalizedApprover,
     kpi: kpiVal || activityVal,
     operationalActivity: activityVal || kpiVal,
     bsd: chosenKpa === 'bsd' ? 'X' : '',
@@ -3093,8 +3116,14 @@ Timestamp: ${new Date().toLocaleString()}
       );
     }
 
-    const wf = row.workflows?.[phase] || { status: 'draft' };
-    const status = wf.status || 'draft';
+    const wf = (row.workflows?.[phase] || {}) as any;
+    const status = wf.status || (
+      (row.workflowStatus === 'Submitted to Approver' || row.workflowStatus === 'Submitted') ? 'pending_approval' :
+      (row.workflowStatus === 'Approved') ? 'approved' :
+      (row.workflowStatus === 'Reviewed' || row.workflowStatus === 'Pending Review') ? 'pending_review' :
+      (row.workflowStatus === 'Pending Audit') ? 'pending_audit' :
+      (row.workflowStatus === 'Returned') ? 'draft' : 'draft'
+    );
     const submitterName = currentUser.fullName || currentUser.email.split('@')[0];
 
     if (isLocked) {
@@ -3107,8 +3136,8 @@ Timestamp: ${new Date().toLocaleString()}
             </span>
           )}
           {status === 'pending_approval' && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-amber-50 text-amber-700 border-amber-200 shadow-xs">
-              <Clock className="w-2.5 h-2.5" /> Pend. Appr.
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-amber-50 text-amber-700 border-amber-300 shadow-xs">
+              <Clock className="w-2.5 h-2.5" /> Submitted
             </span>
           )}
           {status === 'pending_review' && (
@@ -3179,8 +3208,8 @@ Timestamp: ${new Date().toLocaleString()}
         )}
         {status === 'pending_approval' && (
           <div className="flex flex-col items-center gap-1">
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-amber-50 text-amber-700 border-amber-200 shadow-xs">
-              <Clock className="w-2.5 h-2.5" /> Pend. Appr.
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-amber-50 text-amber-700 border-amber-300 shadow-xs">
+              <Clock className="w-2.5 h-2.5" /> Submitted
             </span>
             {isSuperAdminMike && (
               <button
@@ -5164,6 +5193,7 @@ Timestamp: ${new Date().toLocaleString()}
                     <th className="p-3 border-r border-slate-200 w-44 text-center sticky top-0 z-20 bg-rose-100 text-rose-900">MID TERM</th>
                     <th className="p-3 border-r border-slate-200 w-44 sticky top-0 z-20 bg-slate-100">3RD QUARTER</th>
                     <th className="p-3 border-r border-slate-200 w-44 sticky top-0 z-20 bg-slate-100">4TH QUARTER</th>
+                    <th className="p-3 border-r border-slate-200 w-44 sticky top-0 z-20 bg-amber-50 text-amber-900 font-bold text-center">STATUS</th>
                     <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-indigo-50 text-indigo-900">SUBMITTER</th>
                     <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-emerald-50 text-emerald-900">APPROVER</th>
                     <th className="p-3 border-r border-slate-200 w-64 sticky top-0 z-20 bg-violet-50 text-violet-900">REVIEWER</th>
@@ -5176,7 +5206,7 @@ Timestamp: ${new Date().toLocaleString()}
                 <tbody className="text-xs font-medium text-slate-800 divide-y divide-slate-100">
                   {paginatedTableRows.length === 0 ? (
                     <tr>
-                      <td colSpan={26} className="p-16 text-center bg-white">
+                      <td colSpan={27} className="p-16 text-center bg-white">
                         <div className="flex flex-col items-center justify-center max-w-md mx-auto space-y-3">
                           <div className="p-4 bg-slate-50 text-slate-400 rounded-2xl border border-slate-200/80">
                             <Layers className="w-8 h-8 text-slate-400" />
@@ -5459,9 +5489,58 @@ Timestamp: ${new Date().toLocaleString()}
                         />
                       </td>
 
+                      {/* Workflow Status */}
+                      <td className="p-2 border-r border-slate-150 text-center bg-slate-50/20">
+                        {(() => {
+                          const status = (row as any).workflowStatus || (
+                            row.workflows?.q1?.status === 'pending_approval' || row.workflows?.q2?.status === 'pending_approval' || row.workflows?.midTerm?.status === 'pending_approval' || row.workflows?.q3?.status === 'pending_approval' || row.workflows?.q4?.status === 'pending_approval' ? 'Submitted to Approver' :
+                            row.workflows?.q1?.status === 'approved' ? 'Approved' :
+                            row.workflows?.q1?.status === 'pending_review' ? 'Pending Review' : 'Draft'
+                          );
+                          if (status === 'Submitted to Approver' || status === 'Submitted') {
+                            return (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9.5px] font-black tracking-wider uppercase bg-amber-50 text-amber-700 border-amber-300 shadow-2xs">
+                                <Clock className="w-2.5 h-2.5 text-amber-500" />
+                                <span>Submitted</span>
+                              </span>
+                            );
+                          }
+                          if (status === 'Approved') {
+                            return (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9.5px] font-black tracking-wider uppercase bg-emerald-50 text-emerald-700 border-emerald-300 shadow-2xs">
+                                <CheckCircle className="w-2.5 h-2.5 text-emerald-600" />
+                                <span>Approved</span>
+                              </span>
+                            );
+                          }
+                          if (status === 'Pending Review' || status === 'Reviewed') {
+                            return (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9.5px] font-black tracking-wider uppercase bg-violet-50 text-violet-700 border-violet-300 shadow-2xs">
+                                <Clock className="w-2.5 h-2.5 text-violet-500" />
+                                <span>Awaiting Review</span>
+                              </span>
+                            );
+                          }
+                          if (status === 'Returned') {
+                            return (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9.5px] font-black tracking-wider uppercase bg-rose-50 text-rose-700 border-rose-300 shadow-2xs">
+                                <XCircle className="w-2.5 h-2.5 text-rose-500" />
+                                <span>Returned</span>
+                              </span>
+                            );
+                          }
+                          return (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9.5px] font-black tracking-wider uppercase bg-slate-100 text-slate-600 border-slate-200 shadow-2xs">
+                              <FileText className="w-2.5 h-2.5 text-slate-400" />
+                              <span>Draft</span>
+                            </span>
+                          );
+                        })()}
+                      </td>
+
                       {/* Submitter */}
                       <td className="p-2 border-r border-slate-150">
-                        <div className="text-[11px] font-medium text-slate-800 px-1 py-0.5 whitespace-pre-wrap break-words">
+                        <div className="text-[11px] font-medium text-slate-800 px-1 py-0.5 whitespace-pre-wrap break-words flex flex-col gap-0.5">
                           {row.submitter || row.responsibleUnit ? (
                             <span className="inline-flex items-center gap-1 text-slate-800 font-semibold">
                               {row.submitter || row.responsibleUnit}
@@ -5469,18 +5548,28 @@ Timestamp: ${new Date().toLocaleString()}
                           ) : (
                             <span className="text-slate-300 italic text-[10px]">Unassigned</span>
                           )}
+                          {((row as any).workflowStatus === 'Submitted to Approver' || (row as any).workflowStatus === 'Submitted' || row.workflows?.q1?.status === 'pending_approval') && (
+                            <span className="text-[8px] font-mono font-bold px-1 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-300 inline-flex items-center gap-0.5 w-fit">
+                              <Clock className="w-2 h-2 text-amber-600" /> Submitted
+                            </span>
+                          )}
                         </div>
                       </td>
 
                       {/* Approver */}
                       <td className="p-2 border-r border-slate-150">
-                        <div className="text-[11px] font-medium text-slate-800 px-1 py-0.5 whitespace-pre-wrap break-words">
+                        <div className="text-[11px] font-medium text-slate-800 px-1 py-0.5 whitespace-pre-wrap break-words flex flex-col gap-0.5">
                           {row.approver ? (
                             <span className="inline-flex items-center gap-1 text-slate-800 font-semibold">
                               {row.approver}
                             </span>
                           ) : (
                             <span className="text-slate-300 italic text-[10px]">Unassigned</span>
+                          )}
+                          {((row as any).workflowStatus === 'Submitted to Approver' || (row as any).workflowStatus === 'Submitted' || row.workflows?.q1?.status === 'pending_approval') && (
+                            <span className="text-[8px] font-mono font-bold px-1 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-300 inline-flex items-center gap-0.5 w-fit">
+                              <Clock className="w-2 h-2 text-amber-600" /> Awaiting Approval
+                            </span>
                           )}
                         </div>
                       </td>
@@ -6292,6 +6381,11 @@ Timestamp: ${new Date().toLocaleString()}
                       <td className="p-2 border-r border-slate-150 text-center bg-slate-50/10">
                         {(() => {
                           const details = getRagDetails(row);
+                          const isSubmitted = (row as any).workflowStatus === 'Submitted to Approver' || 
+                                              (row as any).workflowStatus === 'Submitted' || 
+                                              row.workflows?.[workflowPhase]?.status === 'pending_approval' ||
+                                              row.workflows?.q1?.status === 'pending_approval' ||
+                                              row.auditChecklist?.auditSubmitted;
                           return (
                             <div className="flex flex-col items-center gap-1">
                               <div 
@@ -6301,8 +6395,10 @@ Timestamp: ${new Date().toLocaleString()}
                                 <span className="text-sm leading-none">{details.face}</span>
                                 <span className="text-[9px] uppercase tracking-wider font-extrabold">{details.label}</span>
                               </div>
-                              {row.auditChecklist?.auditSubmitted && (
-                                <span className="text-[9px] font-black text-emerald-600 uppercase tracking-wider">Submitted</span>
+                              {isSubmitted && (
+                                <span className="text-[9px] font-black text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded uppercase tracking-wider flex items-center gap-0.5 shadow-2xs">
+                                  <Clock className="w-2 h-2 text-amber-600" /> Submitted
+                                </span>
                               )}
                             </div>
                           );
@@ -6347,8 +6443,14 @@ Timestamp: ${new Date().toLocaleString()}
                             );
                           }
 
-                          const wf = row.workflows?.[workflowPhase] || { status: 'draft' };
-                          const status = wf.status || 'draft';
+                          const wf = (row.workflows?.[workflowPhase] || {}) as any;
+                          const status = wf.status || (
+                            (row.workflowStatus === 'Submitted to Approver' || row.workflowStatus === 'Submitted') ? 'pending_approval' :
+                            (row.workflowStatus === 'Approved') ? 'approved' :
+                            (row.workflowStatus === 'Reviewed' || row.workflowStatus === 'Pending Review') ? 'pending_review' :
+                            (row.workflowStatus === 'Pending Audit') ? 'pending_audit' :
+                            (row.workflowStatus === 'Returned') ? 'draft' : 'draft'
+                          );
                           const phaseLabel = workflowPhase === 'midTerm' ? 'Mid-Term' : workflowPhase === 'annual' ? 'Annual' : workflowPhase.toUpperCase();
                           const submitterName = currentUser.fullName || currentUser.email.split('@')[0];
                           
@@ -6356,13 +6458,13 @@ Timestamp: ${new Date().toLocaleString()}
                             <div className="flex flex-col items-center gap-1.5 py-1">
                               {/* Current Badge */}
                               {status === 'approved' && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-emerald-50 text-emerald-700 border-emerald-200">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-emerald-50 text-emerald-700 border-emerald-200 shadow-2xs">
                                   <CheckCircle className="w-2.5 h-2.5" /> Approved & Sealed
                                 </span>
                               )}
                               {status === 'pending_approval' && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-amber-50 text-amber-700 border-amber-200">
-                                  <Clock className="w-2.5 h-2.5" /> Pend. Appr.
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-amber-50 text-amber-700 border-amber-300 shadow-2xs">
+                                  <Clock className="w-2.5 h-2.5 text-amber-500" /> Submitted
                                 </span>
                               )}
                               {status === 'pending_review' && (
@@ -7498,6 +7600,13 @@ Timestamp: ${new Date().toLocaleString()}
                             isFitAll={isFitAllReportingCells}
                             disabled={!isReportingAssignmentsUnlocked && isSubmitterApproverLockedInReporting(row)}
                           />
+                          {((row as any).workflowStatus === 'Submitted to Approver' || (row as any).workflowStatus === 'Submitted' || row.workflows?.q1?.status === 'pending_approval') && (
+                            <div className="flex items-center gap-1 justify-center">
+                              <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-0.5 shadow-2xs">
+                                <Clock className="w-2 h-2 text-amber-600" /> SUBMITTED
+                              </span>
+                            </div>
+                          )}
                           {(!isSubmitterApproverLockedInReporting(row) || isReportingAssignmentsUnlocked) && (
                             <div className="flex items-center gap-1 justify-center">
                               <span className="text-[8px] font-bold font-mono px-1 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
@@ -7519,6 +7628,13 @@ Timestamp: ${new Date().toLocaleString()}
                             isFitAll={isFitAllReportingCells}
                             disabled={!isReportingAssignmentsUnlocked && isSubmitterApproverLockedInReporting(row)}
                           />
+                          {((row as any).workflowStatus === 'Submitted to Approver' || (row as any).workflowStatus === 'Submitted' || row.workflows?.q1?.status === 'pending_approval') && (
+                            <div className="flex items-center gap-1 justify-center">
+                              <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-0.5 shadow-2xs">
+                                <Clock className="w-2 h-2 text-amber-600" /> AWAITING APPROVER
+                              </span>
+                            </div>
+                          )}
                           {(!isSubmitterApproverLockedInReporting(row) || isReportingAssignmentsUnlocked) && (
                             <div className="flex items-center gap-1 justify-center">
                               <span className="text-[8px] font-bold font-mono px-1 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">

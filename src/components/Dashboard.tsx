@@ -76,6 +76,8 @@ import { GuidedIPMSWorkflow, GUIDE_STEPS } from './IPMS/GuidedIPMSWorkflow';
 import { FinancialYearModal } from './FinancialYearModal';
 import { FinancialYearSwitcher } from './FinancialYearSwitcher';
 import { useFinancialYear } from '../context/FinancialYearContext';
+import { ThemeToggle } from './ThemeToggle';
+import { useTheme } from '../context/ThemeContext';
 
 const fetchWithRetry = async (url: string, options?: RequestInit, retries = 3, delay = 1000): Promise<Response> => {
   try {
@@ -102,6 +104,7 @@ interface DashboardProps {
 
 export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
   const { financialYear, isPriorYear, getEffectiveYearForModule } = useFinancialYear();
+  const { isDark, theme } = useTheme();
   const userEmail = (user.email || '').toLowerCase().trim();
   
   // Check if session is currently impersonating another persona
@@ -679,7 +682,10 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
   return (
     <div className="min-h-screen bg-transparent flex flex-col font-sans overflow-hidden">
       {/* Top Header */}
-      <header className="flex items-center justify-between px-8 py-4 border-b border-gray-100 bg-white z-50">
+      <header className={cn(
+        "flex items-center justify-between px-8 py-4 border-b z-50 transition-colors duration-200",
+        isDark ? "border-slate-800 bg-slate-900/95 text-white" : "border-gray-200 bg-white text-gray-900"
+      )}>
         <div className="flex items-center space-x-2">
           <Logo />
         </div>
@@ -696,8 +702,8 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                 className={cn(
                   "flex items-center gap-1.5 px-4 py-2 border-b-2 cursor-pointer transition-colors text-sm font-bold relative",
                   activeModule.id === mod.id 
-                    ? "border-green-600 bg-green-50/50 text-green-700" 
-                    : "border-transparent text-gray-600 hover:border-gray-200"
+                    ? (isDark ? "border-green-500 bg-green-950/40 text-green-400" : "border-green-600 bg-green-50/50 text-green-700")
+                    : (isDark ? "border-transparent text-slate-300 hover:text-white hover:border-slate-700" : "border-transparent text-gray-600 hover:border-gray-200 hover:text-gray-900")
                 )}
               >
                 {mod.name}
@@ -711,15 +717,26 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
 
               {/* Dropdown Menu */}
               {getFilteredSubModules(mod).length > 0 && (
-              <div className="absolute top-[100%] left-0 mt-1 w-72 bg-white border border-gray-100 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 transform origin-top max-h-[60vh] overflow-y-auto hide-scrollbar p-1 pointer-events-none group-hover:pointer-events-auto group-hover:-translate-y-0.5">
+              <div className={cn(
+                "absolute top-[100%] left-0 mt-1 w-72 border shadow-[0_10px_40px_-10px_rgba(0,0,0,0.2)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 transform origin-top max-h-[60vh] overflow-y-auto hide-scrollbar p-1 pointer-events-none group-hover:pointer-events-auto group-hover:-translate-y-0.5 rounded-xl",
+                isDark ? "bg-slate-900 border-slate-800" : "bg-white border-gray-100"
+              )}>
                 <div className="space-y-0.5">
                   {getFilteredSubModules(mod).map(sub => (
                     <button 
                       key={sub.id}
                       onClick={() => { setActiveModule(mod); handleSubModuleSelect(sub); }}
-                      className="w-full flex items-center gap-3 px-3 py-2 text-[13px] font-bold text-gray-600 hover:text-green-700 hover:bg-gray-50 transition-colors text-left group/btn"
+                      className={cn(
+                        "w-full flex items-center gap-3 px-3 py-2 text-[13px] font-bold transition-colors text-left group/btn rounded-lg",
+                        isDark 
+                          ? "text-slate-300 hover:text-green-400 hover:bg-slate-800" 
+                          : "text-gray-600 hover:text-green-700 hover:bg-gray-50"
+                      )}
                     >
-                      <sub.icon className="w-4 h-4 text-gray-400 group-hover/btn:text-green-600 transition-colors" />
+                      <sub.icon className={cn(
+                        "w-4 h-4 transition-colors",
+                        isDark ? "text-slate-400 group-hover/btn:text-green-400" : "text-gray-400 group-hover/btn:text-green-600"
+                      )} />
                       <span className="flex-1 truncate uppercase tracking-tight">{sub.name}</span>
                     </button>
                   ))}
@@ -731,13 +748,27 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
         </nav>
 
         <div className="flex items-center space-x-3">
+          {/* Dark / Light Mode Switcher */}
+          <ThemeToggle />
+
           <div className="text-right hidden sm:block mr-2">
-            <p className="text-[11px] font-black text-gray-900 uppercase tracking-widest leading-none">{user.role.replace('_', ' ')}</p>
-            <p className="text-[10px] text-gray-500 font-bold">{user.email}</p>
+            <p className={cn(
+              "text-[11px] font-black uppercase tracking-widest leading-none",
+              isDark ? "text-white" : "text-gray-900"
+            )}>{user.role.replace('_', ' ')}</p>
+            <p className={cn(
+              "text-[10px] font-bold",
+              isDark ? "text-slate-400" : "text-gray-500"
+            )}>{user.email}</p>
           </div>
           <button 
             onClick={onLogout}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-white rounded-xl font-bold transition-colors text-[11px] uppercase tracking-wider shadow-sm cursor-pointer"
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-colors text-[11px] uppercase tracking-wider shadow-sm cursor-pointer border",
+              isDark 
+                ? "bg-slate-800/90 border-slate-700 hover:bg-slate-700 text-white" 
+                : "bg-slate-900 border-slate-800 hover:bg-slate-800 text-white"
+            )}
             title="Sign Out of Mzansi Flow"
           >
             <LogOut className="w-3.5 h-3.5 text-stone-300" />
@@ -751,8 +782,16 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
 
       {/* Main Content Area */}
       <main className="relative flex-1 flex flex-col">
-        <div className="absolute inset-0 bg-gradient-to-br from-black via-gray-900 to-green-950 opacity-90 -z-10">
-          <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(#ffffff 0.5px, transparent 0.5px)', backgroundSize: '20px 20px' }}></div>
+        <div className={cn(
+          "absolute inset-0 -z-10 transition-opacity duration-300",
+          isDark 
+            ? "bg-gradient-to-br from-black via-gray-900 to-green-950 opacity-90" 
+            : "bg-gradient-to-br from-slate-100 via-gray-50 to-emerald-50/50 opacity-100"
+        )}>
+          <div className={cn(
+            "absolute inset-0",
+            isDark ? "opacity-20" : "opacity-10"
+          )} style={{ backgroundImage: 'radial-gradient(#059669 0.5px, transparent 0.5px)', backgroundSize: '20px 20px' }}></div>
         </div>
 
         <div className="flex-1 p-8 xl:p-10 max-w-[1600px] mx-auto w-full flex flex-col gap-8 relative z-10 overflow-auto hide-scrollbar">
@@ -762,24 +801,30 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
             <div>
               {activeSubModule ? (
                 <div className="flex items-center gap-4">
-                  <button onClick={() => setActiveSubModule(null)} className="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-green-600 transition-colors">
+                  <button onClick={() => setActiveSubModule(null)} className={cn(
+                    "w-8 h-8 flex items-center justify-center rounded-full transition-colors cursor-pointer",
+                    isDark ? "bg-white/10 text-white hover:bg-green-600" : "bg-slate-200 text-slate-800 hover:bg-green-600 hover:text-white"
+                  )}>
                     <ArrowLeft className="w-4 h-4" />
                   </button>
                   <div>
-                    <h3 className="text-white text-xl font-bold">{activeSubModule.name}</h3>
-                    <p className="text-gray-400 text-xs mt-1">Manage settings and configurations</p>
+                    <h3 className={cn("text-xl font-bold", isDark ? "text-white" : "text-slate-900")}>{activeSubModule.name}</h3>
+                    <p className={cn("text-xs mt-1", isDark ? "text-gray-400" : "text-slate-500")}>Manage settings and configurations</p>
                   </div>
                 </div>
               ) : (
                 <>
-                  <h3 className="text-white text-xl font-bold">{activeModule.name} Modules</h3>
-                  <p className="text-gray-400 text-xs mt-1">Management Suite for System-Wide Performance Oversight</p>
+                  <h3 className={cn("text-xl font-bold", isDark ? "text-white" : "text-slate-900")}>{activeModule.name} Modules</h3>
+                  <p className={cn("text-xs mt-1", isDark ? "text-gray-400" : "text-slate-500")}>Management Suite for System-Wide Performance Oversight</p>
                 </>
               )}
             </div>
             
             <div className="flex items-center gap-4">
-              <div className="bg-slate-900/80 border border-slate-700/60 p-1 rounded-2xl shadow-sm">
+              <div className={cn(
+                "p-1 rounded-2xl shadow-sm border",
+                isDark ? "bg-slate-900/80 border-slate-700/60" : "bg-white border-slate-200"
+              )}>
                 <FinancialYearSwitcher />
               </div>
 

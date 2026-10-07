@@ -9867,9 +9867,26 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
               const itemsArray = Array.isArray(parsed) ? parsed : (parsed?.items || []);
               if (Array.isArray(itemsArray)) {
                 const clean = isSdbip23 ? itemsArray : itemsArray.filter((it: any) => !isSdbipPlaceholder(it));
-                if (clean.length > 0) {
-                  sdbipMemoryStore.set(docId, clean);
-                  return clean;
+                const normalized = clean.map((it: any) => {
+                  const ref = String(it.refNum || it.Ref_Number || '').trim().toUpperCase();
+                  let approver = it.approver || it.Approver || '';
+                  let submitter = it.submitter || it.Submitter || '';
+                  if (ref === 'M_13' || ref === 'M13') {
+                    if (!approver || approver.toLowerCase().includes('mayor') || approver.toLowerCase().includes('executive')) {
+                      approver = 'Mmaphiri R. Rampedi';
+                    }
+                    if (!submitter) submitter = 'Jimmy Nhlapho';
+                  } else if (ref === 'M_17' || ref === 'M17') {
+                    if (!approver || approver.toLowerCase().includes('mayor') || approver.toLowerCase().includes('executive')) {
+                      approver = 'Juliet N. Ralephaleng';
+                    }
+                    if (!submitter) submitter = 'Quinton Skhosana';
+                  }
+                  return { ...it, approver, submitter };
+                });
+                if (normalized.length > 0) {
+                  sdbipMemoryStore.set(docId, normalized);
+                  return normalized;
                 }
               }
             } catch (parseErr) {
@@ -9920,8 +9937,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             q4: item.Q4_Target || '-',
             weight: '10',
             responsibleUnit: item.Responsible_Owner || 'Municipal Administration',
-            submitter: item.Submitter || item.Responsible_Owner || 'Municipal Administration',
-            approver: item.Approver || 'Accounting Officer',
+            submitter: (item.Ref_Number === 'M_13' ? 'Jimmy Nhlapho' : item.Ref_Number === 'M_17' ? 'Quinton Skhosana' : (item.Submitter || item.Responsible_Owner || 'Municipal Administration')),
+            approver: (item.Ref_Number === 'M_13' ? 'Mmaphiri R. Rampedi' : item.Ref_Number === 'M_17' ? 'Juliet N. Ralephaleng' : (item.Approver || 'Accounting Officer')),
             evaluationUser: item.Submitter || 'Municipal Official',
             reviewManager: item.Approver || 'Municipal Manager',
             poeStatus: item.POE_Description || 'Portfolio of Evidence required',
@@ -10040,7 +10057,15 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         if (Array.isArray(peerItems) && peerItems.length > 0) {
           let hasPeerChanges = false;
           const updatedPeerItems = peerItems.map((peerItem: any) => {
-            const match = cleanItems.find((it: any) => it.refNum && it.refNum === peerItem.refNum);
+            const match = cleanItems.find((it: any) => {
+              if (it.id && peerItem.id && it.id === peerItem.id) return true;
+              if (it.refNum && peerItem.refNum) {
+                const normA = String(it.refNum).trim().replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+                const normB = String(peerItem.refNum).trim().replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+                if (normA && normB && normA === normB) return true;
+              }
+              return false;
+            });
             if (match) {
               hasPeerChanges = true;
               return {
@@ -10088,16 +10113,20 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
               sdbipMemoryStore.set(pDocId, updatedPeerItems);
               if (supabase) {
                 const ptId = !isSdbip23 ? pDocId.replace('sdbip23_', '') : pDocId.replace('sdbip_', '');
-                supabase.from('messages').upsert({
-                  id: pDocId,
-                  tenant_id: ptId,
-                  sender_id: 'sdbip_peer_sync_tool',
-                  sender_email: 'sdbip@system.local',
-                  sender_name: 'SDBIP Peer Sync',
-                  content: JSON.stringify({ items: updatedPeerItems }),
-                  message_type: !isSdbip23 ? 'sdbip23_list' : 'sdbip_list',
-                  created_at: new Date().toISOString()
-                }).catch(() => {});
+                try {
+                  await supabase.from('messages').upsert({
+                    id: pDocId,
+                    tenant_id: ptId,
+                    sender_id: 'sdbip_peer_sync_tool',
+                    sender_email: 'sdbip@system.local',
+                    sender_name: 'SDBIP Peer Sync',
+                    content: JSON.stringify({ items: updatedPeerItems }),
+                    message_type: !isSdbip23 ? 'sdbip23_list' : 'sdbip_list',
+                    created_at: new Date().toISOString()
+                  });
+                } catch (_) {
+                  // Non-blocking background sync catch
+                }
               }
             }
             invalidateCachePrefix(!isSdbip23 ? 'sdbip23_' : 'sdbip_');
@@ -10436,7 +10465,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         'mduduzi lukele': 'lukhelema@nkangaladm.gov.za',
         'amos d. twala': 'twalaad@nkangaladm.gov.za',
         'peggy l. seerane': 'seeranepl@nkangaladm.gov.za',
-        'jayvanti morar': 'morarj@nkanagaladm.gov.za',
+        'jayvanti morar': 'morarj@nkangaladm.gov.za',
         'katlego masemola': 'masemolak@nkangaladm.gov.za',
         'sthembile c. mpanza': 'mpanzacs@nkangaladm.gov.za'
       };

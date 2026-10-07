@@ -917,10 +917,18 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
 
       await loadNotifications();
       
+      const submittedItem = updatedRows.find(x => x.id === selectedKpi.id) || null;
       setRows(updatedRows);
-      setSuccess(`SDBIP KPI ${selectedKpi.refNum} successfully submitted to Executive Approver (${approverTarget})!`);
-      setTimeout(() => setSuccess(null), 4000);
-      setSelectedKpi(null);
+      if (submittedItem) {
+        setSelectedKpi(submittedItem);
+      }
+      
+      try {
+        window.dispatchEvent(new CustomEvent('sdbip:refresh', { detail: { count: updatedRows.length, items: updatedRows } }));
+      } catch (_) {}
+
+      setSuccess(`✅ SDBIP KPI ${selectedKpi.refNum} successfully submitted to Executive Approver (${approverTarget})! Status updated to SUBMITTED.`);
+      setTimeout(() => setSuccess(null), 5000);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -941,7 +949,6 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
       isUserMatch(r.submitter, currentUser) ||
       isUserMatch((r as any).submitterName, currentUser) ||
       isUserMatch((r as any).person, currentUser) ||
-      isUserMatch((r as any).submitterRole, currentUser) ||
       isUserMatch(r.responsibleUnit, currentUser);
     return matchesKpa && matchesSearch && matchesMine;
   });
@@ -964,7 +971,6 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
       isUserMatch(selectedKpi.submitter, currentUser) ||
       isUserMatch((selectedKpi as any).submitterName, currentUser) ||
       isUserMatch((selectedKpi as any).person, currentUser) ||
-      isUserMatch((selectedKpi as any).submitterRole, currentUser) ||
       isUserMatch(selectedKpi.responsibleUnit, currentUser)
     )
   );
@@ -993,17 +999,47 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
     switch (s) {
       case 'Submitted':
       case 'Submitted to Approver':
-        return <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider">Awaiting Approver</span>;
+        return (
+          <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider inline-flex items-center gap-1 shadow-2xs">
+            <Clock className="w-2.5 h-2.5 text-amber-400" />
+            <span>Submitted (Awaiting Approver)</span>
+          </span>
+        );
       case 'Pending Review':
-        return <span className="bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider">Awaiting Reviewer</span>;
+        return (
+          <span className="bg-blue-500/20 text-blue-300 border border-blue-500/40 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider inline-flex items-center gap-1 shadow-2xs">
+            <Clock className="w-2.5 h-2.5 text-blue-400" />
+            <span>Awaiting Reviewer</span>
+          </span>
+        );
       case 'Reviewed':
-        return <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider">Awaiting MM Approval</span>;
+        return (
+          <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider inline-flex items-center gap-1 shadow-2xs">
+            <CheckCircle2 className="w-2.5 h-2.5 text-indigo-400" />
+            <span>Awaiting MM Approval</span>
+          </span>
+        );
       case 'Approved':
-        return <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider">Approved & Locked</span>;
+        return (
+          <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider inline-flex items-center gap-1 shadow-2xs">
+            <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />
+            <span>Approved & Locked</span>
+          </span>
+        );
       case 'Returned':
-        return <span className="bg-rose-500/20 text-rose-300 border border-rose-500/30 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider">Returned / Action Required</span>;
+        return (
+          <span className="bg-rose-500/20 text-rose-300 border border-rose-500/40 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider inline-flex items-center gap-1 shadow-2xs">
+            <AlertTriangle className="w-2.5 h-2.5 text-rose-400" />
+            <span>Returned / Action Required</span>
+          </span>
+        );
       default:
-        return <span className="bg-slate-500/20 text-slate-300 border border-slate-500/30 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider">Draft Workspace</span>;
+        return (
+          <span className="bg-slate-500/20 text-slate-300 border border-slate-500/30 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider inline-flex items-center gap-1 shadow-2xs">
+            <FileText className="w-2.5 h-2.5 text-slate-400" />
+            <span>Draft Workspace</span>
+          </span>
+        );
     }
   };
 
@@ -1245,7 +1281,11 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
             ) : (
               filteredRows.map(row => {
                 const isSelected = selectedKpi?.id === row.id;
-                const status = (row as any).workflowStatus || 'Draft';
+                const status = (row as any).workflowStatus || (
+                  row.workflows?.q1?.status === 'pending_approval' || row.workflows?.q2?.status === 'pending_approval' || row.workflows?.midTerm?.status === 'pending_approval' || row.workflows?.q3?.status === 'pending_approval' || row.workflows?.q4?.status === 'pending_approval' ? 'Submitted to Approver' :
+                  row.workflows?.q1?.status === 'approved' ? 'Approved' :
+                  row.workflows?.q1?.status === 'pending_review' ? 'Pending Review' : 'Draft'
+                );
                 return (
                   <div 
                     key={row.id}

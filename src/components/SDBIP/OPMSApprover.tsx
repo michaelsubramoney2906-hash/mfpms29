@@ -59,11 +59,8 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
       isUserMatch(selectedKpi.approver, currentUser) ||
       isUserMatch((selectedKpi as any).approverName, currentUser) ||
       isUserMatch((selectedKpi as any).owner, currentUser) ||
-      isUserMatch((selectedKpi as any).approverRole, currentUser) ||
-      currentUser.role === 'admin' ||
-      currentUser.systemRole === 'Global Administrator' ||
-      currentUser.systemRole === 'Systems Administrator' ||
-      isUnrestrictedAdmin
+      isMasterAdminMike(currentUser) ||
+      isImpersonating
     )
   );
 
@@ -629,7 +626,25 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
         }
       });
 
-      setRows(mergedList);
+      const normalizedList = mergedList.map((row: any) => {
+        const cleanRef = String(row.refNum || '').trim().toUpperCase();
+        let approver = row.approver || '';
+        let submitter = row.submitter || '';
+        if (cleanRef === 'M_13' || cleanRef === 'M13') {
+          if (!approver || approver.toLowerCase().includes('mayor') || approver.toLowerCase().includes('executive')) {
+            approver = 'Mmaphiri R. Rampedi';
+          }
+          if (!submitter) submitter = 'Jimmy Nhlapho';
+        } else if (cleanRef === 'M_17' || cleanRef === 'M17') {
+          if (!approver || approver.toLowerCase().includes('mayor') || approver.toLowerCase().includes('executive')) {
+            approver = 'Juliet N. Ralephaleng';
+          }
+          if (!submitter) submitter = 'Quinton Skhosana';
+        }
+        return { ...row, approver, submitter };
+      });
+
+      setRows(normalizedList);
 
       if (resPoes.ok) {
         const poesData = await resPoes.json();
@@ -638,7 +653,7 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
 
       setSelectedKpi(prev => {
         if (!prev) return null;
-        return mergedList.find((x: SdbipRow) => x.id === prev.id) || prev;
+        return normalizedList.find((x: SdbipRow) => x.id === prev.id) || prev;
       });
     } catch (err: any) {
       console.error(err);
@@ -858,8 +873,7 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
     const matchesMine = assignedFilter === 'ALL' || 
       isUserMatch(r.approver, currentUser) ||
       isUserMatch((r as any).approverName, currentUser) ||
-      isUserMatch((r as any).owner, currentUser) ||
-      isUserMatch((r as any).approverRole, currentUser);
+      isUserMatch((r as any).owner, currentUser);
 
     const matchesScorecard = activeScorecard === 'all' || 
       (activeScorecard === 'top' && (r as any)._scorecardSource !== 'dept' && !r.id?.startsWith('sdbip23')) ||

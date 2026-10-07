@@ -101,30 +101,40 @@ export function isUserMatch(
   const normTarget = normalizeName(target);
   const normFullName = normalizeName(fullName);
 
-  // Canonical directory matching for Nkangala District Municipality officials
+  // 1. Direct Email Matching (Authoritative Azure AD Identity)
+  if (target.includes('@')) {
+    if (target === email) return true;
+    if (emailPrefix && target.split('@')[0] === emailPrefix) return true;
+    return false; // Target specifies an exact email address; no other user should match.
+  }
+
+  // 2. Exact Identity Matches (Full Name, Username, Email Prefix)
+  if (target === email) return true;
+  if (emailPrefix && target === emailPrefix) return true;
+  if (fullName && target === fullName) return true;
+  if (normFullName && normTarget && normFullName === normTarget) return true;
+  if (username && target === username) return true;
+
+  // 3. Canonical directory matching for Nkangala District Municipality officials
   const NKANGALA_OFFICIAL_MAP: Record<string, string[]> = {
     // Executive Approvers
     'standeral@nkangaladm.gov.za': [
-      'alice l. stander', 'alice stander', 'a.l. stander', 'a stander', 'stander', 'alice',
-      'chief financial officer', 'cfo', 'finance', 'financial services', 'general manager: financial services'
+      'alice l. stander', 'alice stander', 'a.l. stander', 'a stander', 'stander', 'alice'
     ],
     'rampedimr@nkangaladm.gov.za': [
-      'mmaphiri r. rampedi', 'mmaphiri rampedi', 'm rampedi', 'rampedi',
-      'general manager: community services', 'community services'
+      'mmaphiri r. rampedi', 'mmaphiri rampedi', 'm rampedi', 'rampedi'
     ],
     'lengwatetm@nkangaladm.gov.za': [
-      'thandiwe m. lengwate', 'thandiwe lengwate', 't lengwate', 'lengwate',
-      'general manager: corporate services', 'corporate services'
+      'thandiwe m. lengwate', 'thandiwe lengwate', 't lengwate', 'lengwate'
     ],
     'ralephalengjn@nkangaladm.gov.za': [
-      'juliet n. ralephaleng', 'juliet ralephaleng', 'j ralephaleng', 'ralephaleng',
-      'general manager: infrastructure development', 'infrastructure development & technical services', 'technical services'
+      'juliet n. ralephaleng', 'juliet ralephaleng', 'j ralephaleng', 'ralephaleng', 'jane ralephaleng'
     ],
     'bvumaa@nkangaladm.gov.za': [
-      'alvin bvuma', 'a bvuma', 'bvuma', 'deputy municipal manager', 'dmm'
+      'alvin bvuma', 'a bvuma', 'bvuma'
     ],
     'shabangusm@nkangaladm.gov.za': [
-      'sibusiso m. shabangu', 'sibusiso shabangu', 's shabangu', 'shabangu', 'manager: office of the mm', 'office of the mm'
+      'sibusiso m. shabangu', 'sibusiso shabangu', 's shabangu', 'shabangu'
     ],
     'khumalobs@nkangaladm.gov.za': [
       'bongani s. khumalo', 'bongani khumalo', 'b khumalo', 'khumalo'
@@ -136,13 +146,13 @@ export function isUserMatch(
       'walter m. mtshweni', 'walter mtshweni', 'w mtshweni', 'mtshweni'
     ],
     'mahlangu@nkangaladm.gov.za': [
-      'mandla m. mahlangu', 'mandla l. mahlangu', 'mandla mahlangu', 'm mahlangu', 'mahlangu', 'municipal manager', 'mm', 'accounting officer'
+      'mandla m. mahlangu', 'mandla l. mahlangu', 'mandla mahlangu', 'm mahlangu', 'mahlangu'
     ],
     'mahlanguml@nkangaladm.gov.za': [
-      'mandla m. mahlangu', 'mandla l. mahlangu', 'mandla mahlangu', 'm mahlangu', 'mahlangu', 'municipal manager', 'mm', 'accounting officer'
+      'mandla m. mahlangu', 'mandla l. mahlangu', 'mandla mahlangu', 'm mahlangu', 'mahlangu'
     ],
     'twalaad@nkangaladm.gov.za': [
-      'amos d. twala', 'amos twala', 'a twala', 'twala', 'chief audit executive', 'internal auditor', 'internal audit'
+      'amos d. twala', 'amos twala', 'a twala', 'twala'
     ],
 
     // Departmental Submitters & Officials
@@ -156,23 +166,23 @@ export function isUserMatch(
     'mapitsingmm@nkangaladm.gov.za': ['monantsi mapitsing', 'm mapitsing', 'mapitsing'],
     'mapitsinglm@nkangaladm.gov.za': ['monantsi mapitsing', 'm mapitsing', 'mapitsing'],
     'mapitsingm@nkangaladm.gov.za': ['monantsi mapitsing', 'm mapitsing', 'mapitsing'],
-    'skhosanaqj@nkangaladm.gov.za': ['quinton skhosana', 'q skhosana', 'quinton', 'risk officer', 'risk unit', 'risk management'],
-    'shabanguf@nkangaladm.gov.za': ['fortress shabangu', 'f shabangu', 'fortress', 'general manager: development planning', 'planning', 'development planning'],
-    'kubhekavs@nkangaladm.gov.za': ['vusumuzi s. kubheka', 'vusumuzi kubheka', 'v kubheka', 'kubheka', 'divisional manager: town planning', 'town planning'],
-    'masekofm@nkangaladm.gov.za': ['fikile maseko', 'f maseko', 'maseko', 'senior led officer', 'led officer', 'led'],
+    'skhosanaqj@nkangaladm.gov.za': ['quinton skhosana', 'q skhosana', 'quinton'],
+    'shabanguf@nkangaladm.gov.za': ['fortress shabangu', 'f shabangu', 'fortress'],
+    'kubhekavs@nkangaladm.gov.za': ['vusumuzi s. kubheka', 'vusumuzi kubheka', 'v kubheka', 'kubheka'],
+    'masekofm@nkangaladm.gov.za': ['fikile maseko', 'f maseko', 'maseko'],
     'phalahl@nkangaladm.gov.za': ['hlabishi l. phala', 'hlabishi phala', 'h phala', 'phala'],
-    'msizaas@nkangaladm.gov.za': ['ali s. msiza', 'ali msiza', 'a msiza', 'chief financial officer', 'cfo', 'finance'],
-    'nsibandenp@nkangaladm.gov.za': ['nompumelelo p. nsibande', 'nompumelelo nsibande', 'n nsibande', 'manager: pms', 'pms manager', 'pms team', 'pms'],
-    'hlongwaan@nkangaladm.gov.za': ['andile n. hlongwa', 'andile hlongwa', 'a hlongwa', 'hlongwa', 'division manager: supply chain management', 'manager: supply chain management', 'supply chain', 'scm'],
+    'msizaas@nkangaladm.gov.za': ['ali s. msiza', 'ali msiza', 'a msiza'],
+    'nsibandenp@nkangaladm.gov.za': ['nompumelelo p. nsibande', 'nompumelelo nsibande', 'n nsibande'],
+    'hlongwaan@nkangaladm.gov.za': ['andile n. hlongwa', 'andile hlongwa', 'a hlongwa', 'hlongwa'],
     'morarj@nkangaladm.gov.za': ['jayvanti morar', 'j morar', 'morar'],
     'dimpems@nkangaladm.gov.za': ['meshack s. dimpe', 'meshack dimpe', 'm dimpe', 'dimpe'],
-    'mazwit@nkangaladm.gov.za': ['thandiwe mazwi', 't mazwi', 'mazwi', 'secretary to the member of the mayoral committee', 'secretary to mmc', 'secretary'],
-    'mthimunyen@nkangaladm.gov.za': ['nokuthula d. mthimunye', 'nokuthula mthimunye', 'n mthimunye', 'mthimunye', 'manager: ict', 'ict manager', 'ict'],
+    'mazwit@nkangaladm.gov.za': ['thandiwe mazwi', 't mazwi', 'mazwi'],
+    'mthimunyen@nkangaladm.gov.za': ['nokuthula d. mthimunye', 'nokuthula mthimunye', 'n mthimunye', 'mthimunye'],
     'mabundatt@nkangaladm.gov.za': ['tiro mabunda', 't mabunda', 'mabunda'],
     'nkosis@nkangaladm.gov.za': ['sanele nkosi', 'sipho nkosi', 's nkosi', 'nkosi'],
     'nkosiss@nkangaladm.gov.za': ['sanele nkosi', 's nkosi', 'nkosi'],
     'vanniekerkt@nkangaladm.gov.za': ['trudie van niekerk', 'theuns van niekerk', 't van niekerk', 'van niekerk'],
-    'bembem@nkangaladm.gov.za': ['mxolisi bembe', 'm bembe', 'bembe', 'senior technician: civil engineering', 'civil engineering'],
+    'bembem@nkangaladm.gov.za': ['mxolisi bembe', 'm bembe', 'bembe'],
     'wakenis@nkangaladm.gov.za': ['sipokazi wakeni', 's wakeni', 'wakeni'],
     'mokgolomothome@nkangaladm.gov.za': ['mokgadi mokgolomotho', 'm mokgolomotho', 'mokgolomotho'],
     'linkss@nkangaladm.gov.za': ['solly links', 'sipho links', 's links', 'links'],
@@ -180,7 +190,7 @@ export function isUserMatch(
     'msizaa@nkangaladm.gov.za': ['annah msiza', 'a msiza', 'annah'],
     'mametjae@nkangaladm.gov.za': ['edwin mametja', 'e mametja', 'mametja'],
     'simelanenl@nkangaladm.gov.za': ['nompumelelo simelane', 'nomusa simelane', 'n simelane', 'simelane'],
-    'msokil@nkangaladm.gov.za': ['lucky msoki', 'l msoki', 'msoki', 'project manager'],
+    'msokil@nkangaladm.gov.za': ['lucky msoki', 'l msoki', 'msoki'],
     'aphanemr@nkangaladm.gov.za': ['mmaphefo aphane', 'm aphane', 'aphane']
   };
 
@@ -189,65 +199,33 @@ export function isUserMatch(
     if (isEmailCurrent) {
       if (aliases.some(alias => {
         const normAlias = normalizeName(alias);
-        return target.includes(alias) || alias.includes(target) ||
-               (normTarget && (normTarget.includes(normAlias) || normAlias.includes(normTarget)));
+        return target === alias || normTarget === normAlias;
       })) {
         return true;
       }
     }
-    if (target.includes(canonicalEmail) || aliases.some(alias => {
+    if (aliases.some(alias => {
       const normAlias = normalizeName(alias);
-      return target.includes(alias) || (normTarget && normTarget === normAlias);
+      return target === alias || (normTarget && normTarget === normAlias);
     })) {
-      if (isEmailCurrent || (normFullName && aliases.some(alias => normFullName.includes(normalizeName(alias))))) {
+      if (isEmailCurrent || (normFullName && aliases.some(alias => normFullName === normalizeName(alias)))) {
         return true;
       }
     }
   }
 
-  // Exact or normalized prefix matches
-  if (target === email) return true;
-  if (fullName && target === fullName) return true;
-  if (normFullName && normTarget && normFullName === normTarget) return true;
-  if (username && target === username) return true;
-  if (emailPrefix && target === emailPrefix) return true;
-
-  // Surname / Token matching between target and email prefix
+  // 4. Specific Surname / Multi-Word Token Matching
   const targetWords = target.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, ' ').split(/\s+/).filter(w => w.length >= 4);
-  const genericWords = ['executive', 'manager', 'department', 'submitter', 'approver', 'services', 'general', 'office', 'internal', 'audit', 'director', 'unit', 'financial'];
+  const genericWords = ['executive', 'manager', 'department', 'submitter', 'approver', 'services', 'general', 'office', 'internal', 'audit', 'director', 'unit', 'financial', 'technical', 'development'];
   const specificWords = targetWords.filter(w => !genericWords.includes(w));
   if (specificWords.length > 0 && emailPrefix) {
-    if (specificWords.some(w => emailPrefix.includes(w) || w.includes(emailPrefix))) {
+    if (specificWords.some(w => emailPrefix === w || emailPrefix.includes(w))) {
       return true;
     }
   }
 
-  // Contains match for partial names or emails
-  if (fullName && (fullName.includes(target) || target.includes(fullName))) return true;
-  if (normFullName && normTarget && (normFullName.includes(normTarget) || normTarget.includes(normFullName))) return true;
-
-  // PMS Reviewer matches
-  if (isPmsMember && (target.includes('reviewer') || target.includes('pms') || PMS_TEAM_REVIEWERS.some(r => r.toLowerCase() === target))) return true;
-
-  // Internal Audit matches
-  if (isAuditMember && (target.includes('audit') || target.includes('auditor') || INTERNAL_AUDIT_USERS.some(a => a.toLowerCase() === target))) return true;
-
-  // Role and Designation based checks with full administrative aliases
-  if (target.includes('approver') && (user.role?.includes('approver') || user.role === 'admin' || user.role === 'superadmin' || isMasterAdminMike(user))) return true;
-  if (target.includes('reviewer') && (user.role?.includes('reviewer') || user.role === 'admin' || user.role === 'superadmin' || isPmsMember || isMasterAdminMike(user))) return true;
-  if ((target.includes('audit') || target.includes('auditor')) && (user.role?.includes('audit') || user.role === 'admin' || user.role === 'superadmin' || isAuditMember || isMasterAdminMike(user))) return true;
-  if (target.includes('submitter') && (user.role?.includes('submitter') || user.role === 'admin' || user.role === 'superadmin' || isMasterAdminMike(user))) return true;
-
-  // Executive Designation aliases & robust role mappings
-  if ((target.includes('municipal manager') || target === 'mm' || target.includes('accounting officer')) && (email.includes('mandla') || email.includes('mm') || email.includes('municipalmanager') || email.includes('nkangaladm') || isMasterAdminMike(user))) return true;
-  if ((target.includes('chief financial officer') || target === 'cfo' || target.includes('finance') || target.includes('financial officer')) && (email.includes('cfo') || email.includes('finance') || email.includes('accounting') || isMasterAdminMike(user))) return true;
-  if ((target.includes('corporate services') || target.includes('corporate') || target.includes('general manager: corporate')) && (email.includes('corporate') || email.includes('lezard') || email.includes('dimpe') || isMasterAdminMike(user))) return true;
-  if ((target.includes('technical services') || target.includes('technical') || target.includes('infrastructure') || target.includes('engineer')) && (email.includes('technical') || email.includes('mthembu') || email.includes('infrastructure') || isMasterAdminMike(user))) return true;
-  if ((target.includes('planning') || target.includes('development planning') || target.includes('economic development')) && (email.includes('planning') || email.includes('led') || email.includes('economic') || isMasterAdminMike(user))) return true;
-  if ((target.includes('community') || target.includes('social services')) && (email.includes('community') || email.includes('social') || isMasterAdminMike(user))) return true;
-  if ((target.includes('risk') || target.includes('risk officer')) && (email.includes('risk') || email.includes('governance') || isMasterAdminMike(user))) return true;
-  if ((target.includes('labour') || target.includes('hr') || target.includes('relations') || target.includes('human resource')) && (email.includes('labour') || email.includes('hr') || email.includes('personnel') || isMasterAdminMike(user))) return true;
-  if ((target.includes('pms') || target.includes('performance') || target.includes('evaluat')) && (email.includes('pms') || email.includes('performance') || isPmsMember || isMasterAdminMike(user))) return true;
+  // 5. Full Name contains check
+  if (fullName && (fullName === target || normFullName === normTarget)) return true;
 
   return false;
 }
