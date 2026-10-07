@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Lock, Unlock, ShieldAlert, X, AlertTriangle } from 'lucide-react';
 import type { User } from '../types';
 import { isUserUnrestricted } from '../utils/unrestrictedHelper';
+import { IPMSMaintenanceLockScreen } from './IPMS/IPMSMaintenanceLockScreen';
 
 interface RestrictedModuleWrapperProps {
   currentUser: User;
@@ -62,8 +63,29 @@ export function RestrictedModuleWrapper({ currentUser, item, unlockedModules, on
     return <>{children}</>;
   }
 
-  // If this specific module or parent is unlocked for the user, grant direct access
   const parentId = SUBMODULE_TO_PARENT_MAP[item.id] || item.id;
+  const userEmail = (currentUser.email || '').trim().toLowerCase();
+  const isNkangalaUser = userEmail.endsWith('@nkangaladm.gov.za') || userEmail.includes('@nkangaladm.gov.za');
+  const isIpmsMaintenanceUnlocked = typeof window !== 'undefined' && sessionStorage.getItem(`ipms_maintenance_unlocked_${userEmail}`) === 'true';
+
+  // Strict maintenance lock for all @nkangaladm.gov.za users on IPMS
+  if (parentId === 'ipms' && isNkangalaUser && !isIpmsMaintenanceUnlocked) {
+    return (
+      <IPMSMaintenanceLockScreen
+        currentUser={currentUser}
+        onUnlock={() => {
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem(`ipms_maintenance_unlocked_${userEmail}`, 'true');
+          }
+          onUnlock(parentId);
+          onUnlock(item.id);
+        }}
+        onNavigateHome={onClose}
+      />
+    );
+  }
+
+  // If this specific module or parent is unlocked for the user, grant direct access
   if (unlockedModules && (unlockedModules.includes(item.id) || unlockedModules.includes(parentId))) {
     return <>{children}</>;
   }
@@ -75,7 +97,6 @@ export function RestrictedModuleWrapper({ currentUser, item, unlockedModules, on
   const targetId = item.id === 'pa-templates' ? 'pa-templates' : parentId;
 
   const isMikeOnlyModule = ['ipms-manager-review', 'ipms-internal-audit', 'ipms-dpmc', 'ipms-reports'].includes(item.id);
-  const userEmail = (currentUser.email || '').trim().toLowerCase();
   const isAuthorizedAdmin = [
     'mike@mzansiflow.co.za',
     'audrey@mzansiflow.co.za',

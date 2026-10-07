@@ -27,6 +27,7 @@ interface OPMSReviewerProps {
 
 export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps) {
   const [rows, setRows] = useState<SdbipRow[]>([]);
+  const [activeScorecard, setActiveScorecard] = useState<'all' | 'top' | 'dept'>('all');
   const [notifications, setNotifications] = useState<SdbipWorkflowNotification[]>([]);
   const [assignedFilter, setAssignedFilter] = useState<'ALL' | 'MINE'>('ALL');
   const [poes, setPoes] = useState<SdbipPoeFile[]>([]);
@@ -239,19 +240,59 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
     return list;
   };
 
+  const saveUpdatedRows = async (updatedRows: SdbipRow[], targetRow?: SdbipRow | null) => {
+    const rowToTarget = targetRow || selectedKpi;
+    const isDept = (rowToTarget as any)?._scorecardSource === 'dept' || rowToTarget?.id?.startsWith('sdbip23');
+    const endpoint = isDept
+      ? `/api/tenant/${activeTenantId}/sdbip23`
+      : `/api/tenant/${activeTenantId}/sdbip`;
+    
+    const itemsForSource = updatedRows.filter(r => isDept 
+      ? ((r as any)._scorecardSource === 'dept' || r.id?.startsWith('sdbip23'))
+      : ((r as any)._scorecardSource !== 'dept' && !r.id?.startsWith('sdbip23'))
+    );
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items: itemsForSource.length > 0 ? itemsForSource : updatedRows })
+    });
+    if (!res.ok) throw new Error(`Failed to save to ${isDept ? 'Departmental' : 'Top Layer'} scorecard on Supabase`);
+    return res;
+  };
+
   const fetchSDBIPData = async (isBackground = false) => {
     if (!isBackground) setLoading(true);
     if (!isBackground) setError(null);
     try {
-      const [resSdbip, resPoes] = await Promise.all([
+      const [resSdbip, resSdbip23, resPoes] = await Promise.all([
         fetch(`/api/tenant/${activeTenantId}/sdbip`),
+        fetch(`/api/tenant/${activeTenantId}/sdbip23`),
         fetch(`/api/tenant/${activeTenantId}/sdbip-poes`)
       ]);
       
-      if (!resSdbip.ok) throw new Error('Failed to retrieve SDBIP scorecard data');
-      const data = await resSdbip.json();
-      const freshItems = data.items || [];
-      setRows(freshItems);
+      if (!resSdbip.ok && !resSdbip23.ok) throw new Error('Failed to retrieve SDBIP scorecard data');
+      const dataTop = resSdbip.ok ? await resSdbip.json() : { items: [] };
+      const dataDept = resSdbip23.ok ? await resSdbip23.json() : { items: [] };
+
+      const topItems = (dataTop.items || []).map((x: any) => ({ ...x, _scorecardSource: 'top' as const }));
+      const deptItems = (dataDept.items || []).map((x: any) => ({ ...x, _scorecardSource: 'dept' as const }));
+
+      const mergedList = [...topItems];
+      deptItems.forEach((d: any) => {
+        const existingIdx = mergedList.findIndex(t => t.id === d.id);
+        if (existingIdx >= 0) {
+          mergedList[existingIdx] = {
+            ...mergedList[existingIdx],
+            ...d,
+            _scorecardSource: 'dept'
+          };
+        } else {
+          mergedList.push(d);
+        }
+      });
+
+      setRows(mergedList);
       
       if (resPoes.ok) {
         const poesData = await resPoes.json();
@@ -260,7 +301,7 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
 
       setSelectedKpi(prev => {
         if (!prev) return null;
-        return freshItems.find((x: SdbipRow) => x.id === prev.id) || prev;
+        return mergedList.find((x: SdbipRow) => x.id === prev.id) || prev;
       });
     } catch (err: any) {
       console.error(err);
@@ -304,13 +345,7 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
         return r;
       });
 
-      const response = await fetch(`/api/tenant/${activeTenantId}/sdbip`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: updatedRows })
-      });
-
-      if (!response.ok) throw new Error('Failed to update review recommendations to Supabase');
+      await saveUpdatedRows(updatedRows, selectedKpi);
       
       setRows(updatedRows);
       setSuccess('SDBIP Item recommended for Executive Sign-off successfully!');
@@ -357,13 +392,7 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
         return r;
       });
 
-      const response = await fetch(`/api/tenant/${activeTenantId}/sdbip`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: updatedRows })
-      });
-
-      if (!response.ok) throw new Error('Failed to push item to Internal Audit');
+      await saveUpdatedRows(updatedRows, selectedKpi);
 
       // Dispatch real-time notification to Internal Audit, Submitter and Approver
       const auditTargets = Array.from(new Set([auditorTarget, selectedKpi.submitter, selectedKpi.approver, ...INTERNAL_AUDIT_USERS].filter(Boolean)));
@@ -444,11 +473,7 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
         return r;
       });
 
-      const response = await fetch(`/api/tenant/${activeTenantId}/sdbip`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: updatedRows })
-      });
+      await saveUpdatedRows(updatedRows, selectedKpi);
 
       if (!response.ok) throw new Error('Failed to dispatch correction request');
 
@@ -502,8 +527,12 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
       (r.kpi && r.kpi.toLowerCase().includes(searchQuery.toLowerCase()));
 
     const matchesMine = assignedFilter === 'ALL' || isUserMatch(r.reviewer, currentUser);
+
+    const matchesScorecard = activeScorecard === 'all' || 
+      (activeScorecard === 'top' && (r as any)._scorecardSource !== 'dept' && !r.id?.startsWith('sdbip23')) ||
+      (activeScorecard === 'dept' && ((r as any)._scorecardSource === 'dept' || r.id?.startsWith('sdbip23')));
     
-    return matchesKpa && matchesStatus && matchesSearch && matchesMine;
+    return matchesKpa && matchesStatus && matchesSearch && matchesMine && matchesScorecard;
   });
 
   // Calculate high level stats
@@ -686,6 +715,29 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
 
             {/* Smart Filters */}
             <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex rounded-lg border border-slate-800 bg-slate-950 p-0.5 text-[10px] font-bold">
+                <button
+                  type="button"
+                  onClick={() => setActiveScorecard('all')}
+                  className={`px-2 py-1 rounded transition cursor-pointer ${activeScorecard === 'all' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                >
+                  All Scorecards
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveScorecard('top')}
+                  className={`px-2 py-1 rounded transition cursor-pointer ${activeScorecard === 'top' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                >
+                  Top Layer
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveScorecard('dept')}
+                  className={`px-2 py-1 rounded transition cursor-pointer ${activeScorecard === 'dept' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                >
+                  Departmental
+                </button>
+              </div>
               
               <div className="inline-flex rounded-lg border border-slate-800 bg-slate-950 p-0.5 text-[10px] font-bold">
                 <button

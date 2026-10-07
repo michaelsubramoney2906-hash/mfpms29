@@ -30,6 +30,7 @@ interface OPMSApproverProps {
 
 export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps) {
   const [rows, setRows] = useState<SdbipRow[]>([]);
+  const [activeScorecard, setActiveScorecard] = useState<'all' | 'top' | 'dept'>('all');
   const [notifications, setNotifications] = useState<SdbipWorkflowNotification[]>([]);
   const [assignedFilter, setAssignedFilter] = useState<'ALL' | 'MINE'>('ALL');
   const [poes, setPoes] = useState<SdbipPoeFile[]>([]);
@@ -56,6 +57,9 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
   const isDesignatedApprover = Boolean(
     selectedKpi && (
       isUserMatch(selectedKpi.approver, currentUser) ||
+      isUserMatch((selectedKpi as any).approverName, currentUser) ||
+      isUserMatch((selectedKpi as any).owner, currentUser) ||
+      isUserMatch((selectedKpi as any).approverRole, currentUser) ||
       currentUser.role === 'admin' ||
       currentUser.systemRole === 'Global Administrator' ||
       currentUser.systemRole === 'Systems Administrator' ||
@@ -116,6 +120,27 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
     }
   }, [selectedKpi]);
 
+  const saveUpdatedRows = async (updatedRows: SdbipRow[], targetRow?: SdbipRow | null) => {
+    const rowToTarget = targetRow || selectedKpi;
+    const isDept = (rowToTarget as any)?._scorecardSource === 'dept' || rowToTarget?.id?.startsWith('sdbip23');
+    const endpoint = isDept
+      ? `/api/tenant/${activeTenantId}/sdbip23`
+      : `/api/tenant/${activeTenantId}/sdbip`;
+    
+    const itemsForSource = updatedRows.filter(r => isDept 
+      ? ((r as any)._scorecardSource === 'dept' || r.id?.startsWith('sdbip23'))
+      : ((r as any)._scorecardSource !== 'dept' && !r.id?.startsWith('sdbip23'))
+    );
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items: itemsForSource.length > 0 ? itemsForSource : updatedRows })
+    });
+    if (!res.ok) throw new Error(`Failed to save to ${isDept ? 'Departmental' : 'Top Layer'} scorecard on Supabase`);
+    return res;
+  };
+
   const handleSaveQ1Actual = async () => {
     if (!selectedKpi) return;
     setSavingQ1(true);
@@ -133,12 +158,7 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
         return r;
       });
 
-      const res = await fetch(`/api/tenant/${activeTenantId}/sdbip`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: updatedRows })
-      });
-      if (!res.ok) throw new Error('Failed to update Q1 actual on Supabase');
+      await saveUpdatedRows(updatedRows, selectedKpi);
 
       // Log into audit trail
       await fetch('/api/audit/log-access', {
@@ -206,12 +226,7 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
         return r;
       });
 
-      const response = await fetch(`/api/tenant/${activeTenantId}/sdbip`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: updatedRows })
-      });
-      if (!response.ok) throw new Error('Failed to revoke approval on Supabase');
+      await saveUpdatedRows(updatedRows, selectedKpi);
 
       fetch('/api/audit/log-access', {
         method: 'POST',
@@ -271,12 +286,7 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
         return r;
       });
 
-      const response = await fetch(`/api/tenant/${activeTenantId}/sdbip`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: updatedRows })
-      });
-      if (!response.ok) throw new Error('Failed to revert KPI to Draft on Supabase');
+      await saveUpdatedRows(updatedRows, selectedKpi);
 
       fetch('/api/audit/log-access', {
         method: 'POST',
@@ -342,12 +352,7 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
         return r;
       });
 
-      const response = await fetch(`/api/tenant/${activeTenantId}/sdbip`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: updatedRows })
-      });
-      if (!response.ok) throw new Error('Failed to update lock status on Supabase');
+      await saveUpdatedRows(updatedRows, targetRow);
 
       fetch('/api/audit/log-access', {
         method: 'POST',
@@ -595,15 +600,36 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
     if (!isBackground) setLoading(true);
     if (!isBackground) setError(null);
     try {
-      const [resSdbip, resPoes] = await Promise.all([
+      const [resSdbip, resSdbip23, resPoes] = await Promise.all([
         fetch(`/api/tenant/${activeTenantId}/sdbip`),
+        fetch(`/api/tenant/${activeTenantId}/sdbip23`),
         fetch(`/api/tenant/${activeTenantId}/sdbip-poes`)
       ]);
 
-      if (!resSdbip.ok) throw new Error('Failed to retrieve SDBIP scorecard data');
-      const data = await resSdbip.json();
-      const freshItems = data.items || [];
-      setRows(freshItems);
+      if (!resSdbip.ok && !resSdbip23.ok) throw new Error('Failed to retrieve SDBIP scorecard data');
+
+      const dataTop = resSdbip.ok ? await resSdbip.json() : { items: [] };
+      const dataDept = resSdbip23.ok ? await resSdbip23.json() : { items: [] };
+
+      const topItems = (dataTop.items || []).map((x: any) => ({ ...x, _scorecardSource: 'top' as const }));
+      const deptItems = (dataDept.items || []).map((x: any) => ({ ...x, _scorecardSource: 'dept' as const }));
+
+      // Merge items, deduplicating if identical ID exists across both
+      const mergedList = [...topItems];
+      deptItems.forEach((d: any) => {
+        const existingIdx = mergedList.findIndex(t => t.id === d.id);
+        if (existingIdx >= 0) {
+          mergedList[existingIdx] = {
+            ...mergedList[existingIdx],
+            ...d,
+            _scorecardSource: 'dept'
+          };
+        } else {
+          mergedList.push(d);
+        }
+      });
+
+      setRows(mergedList);
 
       if (resPoes.ok) {
         const poesData = await resPoes.json();
@@ -612,7 +638,7 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
 
       setSelectedKpi(prev => {
         if (!prev) return null;
-        return freshItems.find((x: SdbipRow) => x.id === prev.id) || prev;
+        return mergedList.find((x: SdbipRow) => x.id === prev.id) || prev;
       });
     } catch (err: any) {
       console.error(err);
@@ -655,14 +681,8 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
         return r;
       });
 
-      const response = await fetch(`/api/tenant/${activeTenantId}/sdbip`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: updatedRows })
-      });
+      await saveUpdatedRows(updatedRows, selectedKpi);
 
-      if (!response.ok) throw new Error('Failed to record Executive Approval to Supabase');
-      
       setRows(updatedRows);
       setSuccess('SDBIP Item officially APPROVED and LOCKED in compliance archives!');
       setTimeout(() => setSuccess(null), 4000);
@@ -708,13 +728,7 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
         return r;
       });
 
-      const response = await fetch(`/api/tenant/${activeTenantId}/sdbip`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: updatedRows })
-      });
-
-      if (!response.ok) throw new Error('Failed to push item to Reviewer');
+      await saveUpdatedRows(updatedRows, selectedKpi);
 
       // Dispatch real-time notification to the specified Reviewer, Submitter & PMS Team members
       const reviewerTargets = Array.from(new Set([reviewerTarget, selectedKpi.submitter, ...PMS_TEAM_REVIEWERS].filter(Boolean)));
@@ -795,11 +809,7 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
         return r;
       });
 
-      const response = await fetch(`/api/tenant/${activeTenantId}/sdbip`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: updatedRows })
-      });
+      await saveUpdatedRows(updatedRows, selectedKpi);
 
       if (!response.ok) throw new Error('Failed to dispatch rejection directive');
 
@@ -852,8 +862,12 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
       isUserMatch((r as any).approverName, currentUser) ||
       isUserMatch((r as any).owner, currentUser) ||
       isUserMatch((r as any).approverRole, currentUser);
+
+    const matchesScorecard = activeScorecard === 'all' || 
+      (activeScorecard === 'top' && (r as any)._scorecardSource !== 'dept' && !r.id?.startsWith('sdbip23')) ||
+      (activeScorecard === 'dept' && ((r as any)._scorecardSource === 'dept' || r.id?.startsWith('sdbip23')));
     
-    return matchesStatus && matchesSearch && matchesMine;
+    return matchesStatus && matchesSearch && matchesMine && matchesScorecard;
   });
 
   // Calculate high level stats
@@ -1039,6 +1053,30 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
 
             {/* Stage Quick filters */}
             <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex rounded-lg border border-slate-800 bg-slate-950 p-0.5 text-[10px] font-bold">
+                <button
+                  type="button"
+                  onClick={() => setActiveScorecard('all')}
+                  className={`px-2 py-1 rounded transition cursor-pointer ${activeScorecard === 'all' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                >
+                  All Scorecards
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveScorecard('top')}
+                  className={`px-2 py-1 rounded transition cursor-pointer ${activeScorecard === 'top' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                >
+                  Top Layer
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveScorecard('dept')}
+                  className={`px-2 py-1 rounded transition cursor-pointer ${activeScorecard === 'dept' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                >
+                  Departmental
+                </button>
+              </div>
+
               <div className="inline-flex rounded-lg border border-slate-800 bg-slate-950 p-0.5 text-[10px] font-bold">
                 <button
                   type="button"

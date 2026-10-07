@@ -3416,7 +3416,7 @@ Timestamp: ${new Date().toLocaleString()}
     // Filter notifications for active user (allow all in showAllKpisInDesk mode, or matching user)
     const myNotifs = showAllKpisInDesk 
       ? notifications.filter(n => !n.read)
-      : notifications.filter(n => n.targetUser?.toLowerCase() === currentUserDisplayName.toLowerCase() && !n.read);
+      : notifications.filter(n => (isUserMatch(n.targetUser, currentUser) || n.targetUser?.toLowerCase() === currentUserDisplayName.toLowerCase()) && !n.read);
 
     // Filter rows for each role based on simulation mode or logged-in user
     const mySubmissions = rows;
@@ -3445,7 +3445,7 @@ Timestamp: ${new Date().toLocaleString()}
               <div className="flex items-center gap-2.5">
                 <button 
                   onClick={() => {
-                    const updated = notifications.map(n => n.targetUser?.toLowerCase() === currentUserDisplayName.toLowerCase() ? { ...n, read: true } : n);
+                    const updated = notifications.map(n => (isUserMatch(n.targetUser, currentUser) || n.targetUser?.toLowerCase() === currentUserDisplayName.toLowerCase()) ? { ...n, read: true } : n);
                     saveNotifications(updated);
                   }}
                   className="text-[10px] text-amber-700 font-bold hover:underline cursor-pointer"
@@ -3632,7 +3632,7 @@ Timestamp: ${new Date().toLocaleString()}
                     setTimeout(() => setSuccessToast(null), 8000);
                     
                     const updated = notifications.map(n => 
-                      n.targetUser?.toLowerCase() === currentUserDisplayName.toLowerCase() 
+                      (isUserMatch(n.targetUser, currentUser) || n.targetUser?.toLowerCase() === currentUserDisplayName.toLowerCase())
                         ? { ...n, read: true } 
                         : n
                     );

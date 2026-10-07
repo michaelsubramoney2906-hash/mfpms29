@@ -10021,6 +10021,84 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           logSupabaseError(`sdbip upsert ${docId}`, err);
         }
       }
+
+      // 2b. Two-Way Cross-Scorecard Synchronization:
+      // If saving Departmental (sdbip23), synchronize changes to Top Layer (sdbip), and vice versa.
+      try {
+        const peerDocId = isSdbip23 ? `sdbip_${tenantId}` : `sdbip23_${tenantId}`;
+        const peerMem = sdbipMemoryStore.get(peerDocId);
+        let peerItems = Array.isArray(peerMem) && peerMem.length > 0 ? peerMem : null;
+        if (!peerItems && supabase) {
+          const { data: pData } = await supabase.from('messages').select('content').eq('id', peerDocId).maybeSingle();
+          if (pData && pData.content) {
+            const pParsed = typeof pData.content === 'string' ? JSON.parse(pData.content) : pData.content;
+            peerItems = Array.isArray(pParsed) ? pParsed : (pParsed?.items || []);
+          }
+        }
+        if (Array.isArray(peerItems) && peerItems.length > 0) {
+          let hasPeerChanges = false;
+          const updatedPeerItems = peerItems.map((peerItem: any) => {
+            const match = cleanItems.find((it: any) => it.refNum && it.refNum === peerItem.refNum);
+            if (match) {
+              hasPeerChanges = true;
+              return {
+                ...peerItem,
+                workflowStatus: match.workflowStatus || peerItem.workflowStatus,
+                q1Actual: match.q1Actual !== undefined ? match.q1Actual : peerItem.q1Actual,
+                q1Variance: match.q1Variance !== undefined ? match.q1Variance : peerItem.q1Variance,
+                q1Corrective: match.q1Corrective !== undefined ? match.q1Corrective : peerItem.q1Corrective,
+                q2Actual: match.q2Actual !== undefined ? match.q2Actual : peerItem.q2Actual,
+                q2Variance: match.q2Variance !== undefined ? match.q2Variance : peerItem.q2Variance,
+                q2Corrective: match.q2Corrective !== undefined ? match.q2Corrective : peerItem.q2Corrective,
+                q3Actual: match.q3Actual !== undefined ? match.q3Actual : peerItem.q3Actual,
+                q3Variance: match.q3Variance !== undefined ? match.q3Variance : peerItem.q3Variance,
+                q3Corrective: match.q3Corrective !== undefined ? match.q3Corrective : peerItem.q3Corrective,
+                q4Actual: match.q4Actual !== undefined ? match.q4Actual : peerItem.q4Actual,
+                q4Variance: match.q4Variance !== undefined ? match.q4Variance : peerItem.q4Variance,
+                q4Corrective: match.q4Corrective !== undefined ? match.q4Corrective : peerItem.q4Corrective,
+                poeDesc: match.poeDesc || peerItem.poeDesc,
+                q1Poes: (match.q1Poes && match.q1Poes.length > 0) ? match.q1Poes : peerItem.q1Poes,
+                submitterNotes: match.submitterNotes || peerItem.submitterNotes,
+                approverNotes: match.approverNotes || peerItem.approverNotes,
+                reviewerNotes: match.reviewerNotes || peerItem.reviewerNotes,
+                auditNotes: match.auditNotes || peerItem.auditNotes,
+                submittedBy: match.submittedBy || peerItem.submittedBy,
+                approvedBy: match.approvedBy || peerItem.approvedBy,
+                reviewedBy: match.reviewedBy || peerItem.reviewedBy,
+                auditedBy: match.auditedBy || peerItem.auditedBy,
+                workflows: match.workflows || peerItem.workflows,
+                workflowHistory: match.workflowHistory || peerItem.workflowHistory
+              };
+            }
+            return peerItem;
+          });
+
+          if (hasPeerChanges) {
+            const peerTargetDocIds = isSdbip23 
+              ? [`sdbip_${tenantId}`, 'sdbip_tenant-229', 'sdbip_nkangala_auto', 'sdbip_global', 'sdbip_default', 'sdbip_nkangala']
+              : [`sdbip23_${tenantId}`, 'sdbip23_tenant-229', 'sdbip23_nkangala_auto', 'sdbip23_global', 'sdbip23_default'];
+            for (const pDocId of peerTargetDocIds) {
+              sdbipMemoryStore.set(pDocId, updatedPeerItems);
+              if (supabase) {
+                const ptId = !isSdbip23 ? pDocId.replace('sdbip23_', '') : pDocId.replace('sdbip_', '');
+                supabase.from('messages').upsert({
+                  id: pDocId,
+                  tenant_id: ptId,
+                  sender_id: 'sdbip_peer_sync_tool',
+                  sender_email: 'sdbip@system.local',
+                  sender_name: 'SDBIP Peer Sync',
+                  content: JSON.stringify({ items: updatedPeerItems }),
+                  message_type: !isSdbip23 ? 'sdbip23_list' : 'sdbip_list',
+                  created_at: new Date().toISOString()
+                }).catch(() => {});
+              }
+            }
+            invalidateCachePrefix(!isSdbip23 ? 'sdbip23_' : 'sdbip_');
+          }
+        }
+      } catch (peerErr) {
+        console.warn("Peer SDBIP sync non-blocking warning:", peerErr);
+      }
       
       // Invalidate SDBIP/SDBIP23 and users cache
       invalidateCachePrefix(isSdbip23 ? 'sdbip23_' : 'sdbip_');
@@ -10129,6 +10207,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           message_type: 'sdbip_draft_snapshot',
           content: JSON.stringify({
             kpiId,
+            refNum: req.body?.refNum || '',
             userEmail,
             draftData,
             savedAt: new Date().toISOString(),
@@ -10166,6 +10245,9 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             const parsed = JSON.parse(item.content);
             if (parsed && parsed.kpiId) {
               draftsMap[parsed.kpiId] = parsed;
+              if (parsed.refNum) {
+                draftsMap[parsed.refNum] = parsed;
+              }
             }
           } catch (e) {}
         }

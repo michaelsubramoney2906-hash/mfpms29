@@ -14,7 +14,7 @@ export const PMS_TEAM_REVIEWERS = [
 export const INTERNAL_AUDIT_USERS = [
   'twalaad@nkangaladm.gov.za',
   'seeranepl@nkangaladm.gov.za',
-  'morarj@nkanagaladm.gov.za',
+  'morarj@nkangaladm.gov.za',
   'masemolak@nkangaladm.gov.za',
   'mpanzacs@nkangaladm.gov.za'
 ];
@@ -86,49 +86,145 @@ export function isUserMatch(
   const username = (user.username || '').trim().toLowerCase();
   const jobFunction = (user.jobFunction || (user as any).job_function || '').trim().toLowerCase();
 
+  // Helper to normalize names by removing punctuation and single-character middle initials
+  const normalizeName = (str: string): string => {
+    if (!str) return '';
+    return str.toLowerCase()
+      .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .split(' ')
+      .filter(w => w.length > 1)
+      .join(' ');
+  };
+
+  const normTarget = normalizeName(target);
+  const normFullName = normalizeName(fullName);
+
   // Canonical directory matching for Nkangala District Municipality officials
   const NKANGALA_OFFICIAL_MAP: Record<string, string[]> = {
+    // Executive Approvers
+    'standeral@nkangaladm.gov.za': [
+      'alice l. stander', 'alice stander', 'a.l. stander', 'a stander', 'stander', 'alice',
+      'chief financial officer', 'cfo', 'finance', 'financial services', 'general manager: financial services'
+    ],
+    'rampedimr@nkangaladm.gov.za': [
+      'mmaphiri r. rampedi', 'mmaphiri rampedi', 'm rampedi', 'rampedi',
+      'general manager: community services', 'community services'
+    ],
+    'lengwatetm@nkangaladm.gov.za': [
+      'thandiwe m. lengwate', 'thandiwe lengwate', 't lengwate', 'lengwate',
+      'general manager: corporate services', 'corporate services'
+    ],
+    'ralephalengjn@nkangaladm.gov.za': [
+      'juliet n. ralephaleng', 'juliet ralephaleng', 'j ralephaleng', 'ralephaleng',
+      'general manager: infrastructure development', 'infrastructure development & technical services', 'technical services'
+    ],
+    'bvumaa@nkangaladm.gov.za': [
+      'alvin bvuma', 'a bvuma', 'bvuma', 'deputy municipal manager', 'dmm'
+    ],
+    'shabangusm@nkangaladm.gov.za': [
+      'sibusiso m. shabangu', 'sibusiso shabangu', 's shabangu', 'shabangu', 'manager: office of the mm', 'office of the mm'
+    ],
+    'khumalobs@nkangaladm.gov.za': [
+      'bongani s. khumalo', 'bongani khumalo', 'b khumalo', 'khumalo'
+    ],
+    'nkosibs@nkangaladm.gov.za': [
+      'bongani s. khumalo', 'bongani khumalo', 'b khumalo', 'khumalo'
+    ],
+    'mtshweniwm@nkangaladm.gov.za': [
+      'walter m. mtshweni', 'walter mtshweni', 'w mtshweni', 'mtshweni'
+    ],
+    'mahlangu@nkangaladm.gov.za': [
+      'mandla m. mahlangu', 'mandla l. mahlangu', 'mandla mahlangu', 'm mahlangu', 'mahlangu', 'municipal manager', 'mm', 'accounting officer'
+    ],
+    'mahlanguml@nkangaladm.gov.za': [
+      'mandla m. mahlangu', 'mandla l. mahlangu', 'mandla mahlangu', 'm mahlangu', 'mahlangu', 'municipal manager', 'mm', 'accounting officer'
+    ],
+    'twalaad@nkangaladm.gov.za': [
+      'amos d. twala', 'amos twala', 'a twala', 'twala', 'chief audit executive', 'internal auditor', 'internal audit'
+    ],
+
+    // Departmental Submitters & Officials
+    'skosanah@nkangaladm.gov.za': ['headman skosana', 'h skosana', 'skosana'],
+    'skosanaj@nkangaladm.gov.za': ['jackson skosana', 'j skosana', 'skosana'],
+    'nhlaphomj@nkangaladm.gov.za': ['jimmy nhlapho', 'j nhlapho', 'nhlapho'],
+    'maphangant@nkangaladm.gov.za': ['nomhle maphanga', 'n maphanga', 'maphanga'],
+    'maphangan@nkangaladm.gov.za': ['nomhle maphanga', 'n maphanga', 'maphanga'],
+    'masilelasi@nkangaladm.gov.za': ['sipho masilela', 's masilela', 'masilela'],
+    'masilelas@nkangaladm.gov.za': ['sipho masilela', 's masilela', 'masilela'],
+    'mapitsingmm@nkangaladm.gov.za': ['monantsi mapitsing', 'm mapitsing', 'mapitsing'],
+    'mapitsinglm@nkangaladm.gov.za': ['monantsi mapitsing', 'm mapitsing', 'mapitsing'],
+    'mapitsingm@nkangaladm.gov.za': ['monantsi mapitsing', 'm mapitsing', 'mapitsing'],
     'skhosanaqj@nkangaladm.gov.za': ['quinton skhosana', 'q skhosana', 'quinton', 'risk officer', 'risk unit', 'risk management'],
     'shabanguf@nkangaladm.gov.za': ['fortress shabangu', 'f shabangu', 'fortress', 'general manager: development planning', 'planning', 'development planning'],
     'kubhekavs@nkangaladm.gov.za': ['vusumuzi s. kubheka', 'vusumuzi kubheka', 'v kubheka', 'kubheka', 'divisional manager: town planning', 'town planning'],
     'masekofm@nkangaladm.gov.za': ['fikile maseko', 'f maseko', 'maseko', 'senior led officer', 'led officer', 'led'],
+    'phalahl@nkangaladm.gov.za': ['hlabishi l. phala', 'hlabishi phala', 'h phala', 'phala'],
     'msizaas@nkangaladm.gov.za': ['ali s. msiza', 'ali msiza', 'a msiza', 'chief financial officer', 'cfo', 'finance'],
     'nsibandenp@nkangaladm.gov.za': ['nompumelelo p. nsibande', 'nompumelelo nsibande', 'n nsibande', 'manager: pms', 'pms manager', 'pms team', 'pms'],
     'hlongwaan@nkangaladm.gov.za': ['andile n. hlongwa', 'andile hlongwa', 'a hlongwa', 'hlongwa', 'division manager: supply chain management', 'manager: supply chain management', 'supply chain', 'scm'],
+    'morarj@nkangaladm.gov.za': ['jayvanti morar', 'j morar', 'morar'],
+    'dimpems@nkangaladm.gov.za': ['meshack s. dimpe', 'meshack dimpe', 'm dimpe', 'dimpe'],
     'mazwit@nkangaladm.gov.za': ['thandiwe mazwi', 't mazwi', 'mazwi', 'secretary to the member of the mayoral committee', 'secretary to mmc', 'secretary'],
     'mthimunyen@nkangaladm.gov.za': ['nokuthula d. mthimunye', 'nokuthula mthimunye', 'n mthimunye', 'mthimunye', 'manager: ict', 'ict manager', 'ict'],
+    'mabundatt@nkangaladm.gov.za': ['tiro mabunda', 't mabunda', 'mabunda'],
+    'nkosis@nkangaladm.gov.za': ['sanele nkosi', 'sipho nkosi', 's nkosi', 'nkosi'],
+    'nkosiss@nkangaladm.gov.za': ['sanele nkosi', 's nkosi', 'nkosi'],
+    'vanniekerkt@nkangaladm.gov.za': ['trudie van niekerk', 'theuns van niekerk', 't van niekerk', 'van niekerk'],
     'bembem@nkangaladm.gov.za': ['mxolisi bembe', 'm bembe', 'bembe', 'senior technician: civil engineering', 'civil engineering'],
+    'wakenis@nkangaladm.gov.za': ['sipokazi wakeni', 's wakeni', 'wakeni'],
+    'mokgolomothome@nkangaladm.gov.za': ['mokgadi mokgolomotho', 'm mokgolomotho', 'mokgolomotho'],
+    'linkss@nkangaladm.gov.za': ['solly links', 'sipho links', 's links', 'links'],
+    'ndlovutf@nkangaladm.gov.za': ['thembi ndlovu', 't ndlovu', 'ndlovu'],
+    'msizaa@nkangaladm.gov.za': ['annah msiza', 'a msiza', 'annah'],
+    'mametjae@nkangaladm.gov.za': ['edwin mametja', 'e mametja', 'mametja'],
+    'simelanenl@nkangaladm.gov.za': ['nompumelelo simelane', 'nomusa simelane', 'n simelane', 'simelane'],
     'msokil@nkangaladm.gov.za': ['lucky msoki', 'l msoki', 'msoki', 'project manager'],
-    'mahlangu@nkangaladm.gov.za': ['mandla m. mahlangu', 'mandla mahlangu', 'm mahlangu', 'mahlangu', 'municipal manager', 'mm', 'accounting officer'],
-    'twalaad@nkangaladm.gov.za': ['amos d. twala', 'amos twala', 'a twala', 'twala', 'chief audit executive', 'internal auditor', 'internal audit'],
-    'linkss@nkangaladm.gov.za': ['sipho links', 's links', 'links'],
-    'nhlaphomj@nkangaladm.gov.za': ['jimmy nhlapho', 'j nhlapho', 'nhlapho'],
-    'vanniekerkt@nkangaladm.gov.za': ['theuns van niekerk', 't van niekerk', 'van niekerk'],
-    'simelanenl@nkangaladm.gov.za': ['nomusa simelane', 'n simelane', 'simelane'],
-    'nkosis@nkangaladm.gov.za': ['sipho nkosi', 's nkosi', 'nkosi']
+    'aphanemr@nkangaladm.gov.za': ['mmaphefo aphane', 'm aphane', 'aphane']
   };
 
   for (const [canonicalEmail, aliases] of Object.entries(NKANGALA_OFFICIAL_MAP)) {
-    if (email === canonicalEmail) {
-      if (aliases.some(alias => target.includes(alias) || alias.includes(target))) {
+    const isEmailCurrent = email === canonicalEmail;
+    if (isEmailCurrent) {
+      if (aliases.some(alias => {
+        const normAlias = normalizeName(alias);
+        return target.includes(alias) || alias.includes(target) ||
+               (normTarget && (normTarget.includes(normAlias) || normAlias.includes(normTarget)));
+      })) {
         return true;
       }
     }
-    if (target.includes(canonicalEmail) || aliases.some(alias => target.includes(alias))) {
-      if (email === canonicalEmail || (fullName && aliases.some(alias => fullName.includes(alias)))) {
+    if (target.includes(canonicalEmail) || aliases.some(alias => {
+      const normAlias = normalizeName(alias);
+      return target.includes(alias) || (normTarget && normTarget === normAlias);
+    })) {
+      if (isEmailCurrent || (normFullName && aliases.some(alias => normFullName.includes(normalizeName(alias))))) {
         return true;
       }
     }
   }
 
-  // Exact or prefix matches
+  // Exact or normalized prefix matches
   if (target === email) return true;
   if (fullName && target === fullName) return true;
+  if (normFullName && normTarget && normFullName === normTarget) return true;
   if (username && target === username) return true;
   if (emailPrefix && target === emailPrefix) return true;
 
+  // Surname / Token matching between target and email prefix
+  const targetWords = target.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, ' ').split(/\s+/).filter(w => w.length >= 4);
+  const genericWords = ['executive', 'manager', 'department', 'submitter', 'approver', 'services', 'general', 'office', 'internal', 'audit', 'director', 'unit', 'financial'];
+  const specificWords = targetWords.filter(w => !genericWords.includes(w));
+  if (specificWords.length > 0 && emailPrefix) {
+    if (specificWords.some(w => emailPrefix.includes(w) || w.includes(emailPrefix))) {
+      return true;
+    }
+  }
+
   // Contains match for partial names or emails
   if (fullName && (fullName.includes(target) || target.includes(fullName))) return true;
+  if (normFullName && normTarget && (normFullName.includes(normTarget) || normTarget.includes(normFullName))) return true;
 
   // PMS Reviewer matches
   if (isPmsMember && (target.includes('reviewer') || target.includes('pms') || PMS_TEAM_REVIEWERS.some(r => r.toLowerCase() === target))) return true;

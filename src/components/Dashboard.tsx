@@ -3,7 +3,7 @@ import { Logo, cn } from './Branding';
 import { modules, tenants } from '../data';
 import type { User, Module } from '../types';
 import { isUserUnrestricted, isGlobalAdminEmail } from '../utils/unrestrictedHelper';
-import { ChevronDown, LogOut, ShieldCheck, ChevronRight, LayoutGrid, Calendar as CalendarIcon, Bell, ArrowLeft, Layers } from 'lucide-react';
+import { ChevronDown, LogOut, ShieldCheck, ChevronRight, LayoutGrid, Calendar as CalendarIcon, Bell, ArrowLeft, Layers, Lock } from 'lucide-react';
 import { UserManagement } from './UserManagement';
 import { SharePoint } from './SharePoint';
 import { APR } from './APR/APR';
@@ -51,6 +51,7 @@ import { OfficeOfTheMayor } from './OfficeOfTheMayor/OfficeOfTheMayor';
 import { OfficeOfTheMM } from './OfficeOfTheMM/OfficeOfTheMM';
 import { PriorSystemArchive } from './PriorSystemArchive';
 import { RestrictedModuleWrapper } from './RestrictedModuleWrapper';
+import { IPMSMaintenanceLockScreen } from './IPMS/IPMSMaintenanceLockScreen';
 import { FredBusinessIntelligence } from './FredBusinessIntelligence';
 import { MTAS } from './MTAS/MTAS';
 import { LEDProjects } from './LED/LEDProjects';
@@ -166,6 +167,40 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
   const [fullUserProfile, setFullUserProfile] = useState<User>(user);
   const [completedIPMSSteps, setCompletedIPMSSteps] = useState<string[]>([]);
   const [lockedStepAlert, setLockedStepAlert] = useState<{ isOpen: boolean; currentClickedName: string; requiredPrevName: string } | null>(null);
+
+  // IPMS Maintenance Lock for @nkangaladm.gov.za users (CFO & PMS Department directive)
+  const activeUserEmail = ((fullUserProfile?.email || user.email) || '').toLowerCase().trim();
+  const isNkangalaUser = activeUserEmail.endsWith('@nkangaladm.gov.za') || activeUserEmail.includes('@nkangaladm.gov.za');
+
+  const [isIpmsUnlocked, setIsIpmsUnlocked] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem(`ipms_maintenance_unlocked_${activeUserEmail}`) === 'true';
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setIsIpmsUnlocked(sessionStorage.getItem(`ipms_maintenance_unlocked_${activeUserEmail}`) === 'true');
+    }
+  }, [activeUserEmail]);
+
+  const handleUnlockIpms = () => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem(`ipms_maintenance_unlocked_${activeUserEmail}`, 'true');
+    }
+    setIsIpmsUnlocked(true);
+  };
+
+  const handleRelockIpms = () => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem(`ipms_maintenance_unlocked_${activeUserEmail}`);
+    }
+    setIsIpmsUnlocked(false);
+    setActiveSubModuleState(null);
+  };
+
+  const isIpmsLockedForUser = isNkangalaUser && !isIpmsUnlocked;
 
   const availableTenants = user.role === 'admin' 
     ? [{ id: 'global', name: 'Global Administrator Space' }, ...tenants]
@@ -530,6 +565,10 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
 
   const handleSubModuleSelect = (sub: any) => {
     if (activeModule.id === 'ipms') {
+      if (isIpmsLockedForUser) {
+        setActiveSubModuleState(null);
+        return;
+      }
       const profileToUse = fullUserProfile || user;
       const email = (profileToUse?.email || '').toLowerCase().trim();
       const role = (profileToUse?.role || '').toLowerCase().trim();
@@ -662,6 +701,11 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                 )}
               >
                 {mod.name}
+                {mod.id === 'ipms' && isIpmsLockedForUser && (
+                  <span className="bg-amber-500/20 text-amber-500 border border-amber-500/40 p-0.5 rounded ml-1 flex items-center" title="Restricted: Maintenance Updates Underway (CFO & PMS Directive)">
+                    <Lock className="w-3 h-3 text-amber-500" />
+                  </span>
+                )}
                 {getFilteredSubModules(mod).length > 0 && <ChevronDown className={cn("w-4 h-4 ml-1 opacity-50", activeModule.id === mod.id && "rotate-180 opacity-100")} />}
               </button>
 
@@ -763,11 +807,21 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                     Active Tenant: {currentTenant.name}
                  </div>
               </div>
+              {activeModule.id === 'ipms' && isNkangalaUser && isIpmsUnlocked && (
+                <button
+                  onClick={handleRelockIpms}
+                  className="bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider shadow-sm flex items-center gap-1.5 cursor-pointer transition"
+                  title="Click to lock the IPMS module under maintenance directive"
+                >
+                  <Lock className="w-3 h-3 text-amber-400" />
+                  <span>Lock IPMS</span>
+                </button>
+              )}
             </div>
           </div>
 
           {/* IPMS GUIDED WORKFLOW WORKSPACE BAR */}
-          {activeModule.id === 'ipms' && (
+          {activeModule.id === 'ipms' && !isIpmsLockedForUser && (
             <GuidedIPMSWorkflow
               activeTenantId={activeTenantId}
               currentUser={fullUserProfile}
@@ -780,7 +834,16 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
           )}
 
         {/* Content Area */}
-        {activeModule.id === 'dashboard' ? (
+        {activeModule.id === 'ipms' && isIpmsLockedForUser ? (
+          <IPMSMaintenanceLockScreen
+            currentUser={fullUserProfile}
+            onUnlock={handleUnlockIpms}
+            onNavigateHome={() => {
+              setActiveModule(modules.find(m => m.id === 'dashboard') || modules[0]);
+              setActiveSubModule(null);
+            }}
+          />
+        ) : activeModule.id === 'dashboard' ? (
             <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
               <DashboardOverview currentUser={fullUserProfile} activeTenantId={activeTenantId} />
             </div>

@@ -24,6 +24,7 @@ interface InternalAuditProps {
 export function InternalAudit({ currentUser, activeTenantId }: InternalAuditProps) {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'rcm' | 'compliance' | 'iam' | 'modules' | 'workflows' | 'integration' | 'inbox' | 'templates'>('dashboard');
   const [sdbipRows, setSdbipRows] = useState<any[]>([]);
+  const [activeScorecard, setActiveScorecard] = useState<'all' | 'top' | 'dept'>('all');
   const [notifications, setNotifications] = useState<SdbipWorkflowNotification[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedAuditKpi, setSelectedAuditKpi] = useState<any | null>(null);
@@ -55,36 +56,58 @@ export function InternalAudit({ currentUser, activeTenantId }: InternalAuditProp
     }
   };
 
+  const saveUpdatedRows = async (updatedRows: any[], targetRow?: any | null) => {
+    const rowToTarget = targetRow || selectedAuditKpi;
+    const isDept = rowToTarget?._scorecardSource === 'dept' || rowToTarget?.id?.startsWith('sdbip23');
+    const endpoint = isDept
+      ? `/api/tenant/${activeTenantId}/sdbip23`
+      : `/api/tenant/${activeTenantId}/sdbip`;
+    
+    const itemsForSource = updatedRows.filter(r => isDept 
+      ? (r._scorecardSource === 'dept' || r.id?.startsWith('sdbip23'))
+      : (r._scorecardSource !== 'dept' && !r.id?.startsWith('sdbip23'))
+    );
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items: itemsForSource.length > 0 ? itemsForSource : updatedRows })
+    });
+    if (!res.ok) throw new Error(`Failed to save to ${isDept ? 'Departmental' : 'Top Layer'} scorecard on Supabase`);
+    return res;
+  };
+
   const fetchSdbip = (isBackground = false) => {
     if (!isBackground) setLoading(true);
-    fetch(`/api/tenant/${activeTenantId}/sdbip`)
-      .then(async res => {
-        if (res.status === 429) {
-          console.warn("HTTP 429: Rate limited while loading SDBIP. Postponing reload.");
-          return { items: sdbipRows }; // return existing state
-        }
-        if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-        const contentType = res.headers.get("content-type");
-        if (!contentType || !contentType.toLowerCase().includes("application/json")) {
-          throw new Error(`Non-JSON response received: ${contentType}`);
-        }
-        return await res.json();
-      })
-      .then(data => {
-        if (!data) return;
-        const items = data.items || [];
-        setSdbipRows(items);
+    Promise.all([
+      fetch(`/api/tenant/${activeTenantId}/sdbip`),
+      fetch(`/api/tenant/${activeTenantId}/sdbip23`)
+    ])
+      .then(async ([resTop, resDept]) => {
+        const topData = resTop.ok ? await resTop.json() : { items: [] };
+        const deptData = resDept.ok ? await resDept.json() : { items: [] };
+
+        const topItems = (topData.items || []).map((x: any) => ({ ...x, _scorecardSource: 'top' as const }));
+        const deptItems = (deptData.items || []).map((x: any) => ({ ...x, _scorecardSource: 'dept' as const }));
+
+        const mergedList = [...topItems];
+        deptItems.forEach((d: any) => {
+          const existingIdx = mergedList.findIndex(t => t.id === d.id);
+          if (existingIdx >= 0) {
+            mergedList[existingIdx] = { ...mergedList[existingIdx], ...d, _scorecardSource: 'dept' };
+          } else {
+            mergedList.push(d);
+          }
+        });
+
+        setSdbipRows(mergedList);
         setSelectedAuditKpi(prev => {
           if (!prev) return null;
-          return items.find((x: any) => x.id === prev.id) || prev;
+          return mergedList.find((x: any) => x.id === prev.id) || prev;
         });
       })
       .catch(err => {
-        if (err.message && err.message.includes('429')) {
-          console.warn("Gracefully deferred SDBIP refresh due to 429 rate-limiting.");
-        } else {
-          console.warn("Error fetching SDBIP in InternalAudit:", err);
-        }
+        console.warn("Error fetching SDBIP in InternalAudit:", err);
       })
       .finally(() => {
         if (!isBackground) setLoading(false);
@@ -188,11 +211,7 @@ export function InternalAudit({ currentUser, activeTenantId }: InternalAuditProp
     });
 
     try {
-      const res = await fetch(`/api/tenant/${activeTenantId}/sdbip`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: updatedRows })
-      });
+      const res = await saveUpdatedRows(updatedRows, targetRow);
       if (res.ok) {
         setSdbipRows(updatedRows);
 
@@ -523,6 +542,42 @@ export function InternalAudit({ currentUser, activeTenantId }: InternalAuditProp
 
               {/* Filter Controls */}
               <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg text-xs font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setActiveScorecard('all')}
+                    className={`px-2.5 py-1 rounded-md transition cursor-pointer ${
+                      activeScorecard === 'all' 
+                        ? 'bg-indigo-600 text-white shadow-xs' 
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    All Scorecards
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveScorecard('top')}
+                    className={`px-2.5 py-1 rounded-md transition cursor-pointer ${
+                      activeScorecard === 'top' 
+                        ? 'bg-indigo-600 text-white shadow-xs' 
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Top Layer
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveScorecard('dept')}
+                    className={`px-2.5 py-1 rounded-md transition cursor-pointer ${
+                      activeScorecard === 'dept' 
+                        ? 'bg-indigo-600 text-white shadow-xs' 
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Departmental
+                  </button>
+                </div>
+
                 <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg text-xs font-bold">
                   {(['ALL', 'Pending Audit', 'Submitted', 'Reviewed', 'Approved'] as const).map((filterOpt) => (
                     <button

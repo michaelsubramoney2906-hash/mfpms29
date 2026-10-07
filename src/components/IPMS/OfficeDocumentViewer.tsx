@@ -461,8 +461,8 @@ export function OfficeDocumentViewer({ doc, document: propDocument, onClose }: O
 
   // Safe file download using lightweight memory-safe Blob Object URLs
   const handleDownload = () => {
-    if (!targetDoc) {
-      alert("No data available to download.");
+    if (!targetDoc || !targetDoc.dataUrl) {
+      console.warn("No data available to download.");
       return;
     }
     downloadOriginalFile(targetDoc.name, targetDoc.dataUrl, {
@@ -667,7 +667,35 @@ export function OfficeDocumentViewer({ doc, document: propDocument, onClose }: O
                         <img src={displayUrl} alt={targetDoc.name} className="max-h-[60vh] object-contain rounded-lg shadow-sm" referrerPolicy="no-referrer" />
                       </div>
                     ) : isPdf && displayUrl ? (
-                      <iframe src={displayUrl} title={targetDoc.name} className="w-full h-full rounded-2xl bg-white shadow-lg border border-slate-300" />
+                      <div className="w-full h-full flex flex-col rounded-2xl overflow-hidden bg-slate-900 border border-slate-700 shadow-xl">
+                        <div className="bg-slate-800 px-4 py-2 border-b border-slate-700 flex items-center justify-between text-xs text-slate-300">
+                          <span className="font-bold flex items-center gap-2">
+                            <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                            Official Municipal Evidence Document (PDF)
+                          </span>
+                          <button
+                            onClick={handleDownload}
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] uppercase tracking-wider px-3 py-1 rounded-lg flex items-center gap-1.5 cursor-pointer border-0 shadow-sm transition"
+                          >
+                            <Download className="w-3.5 h-3.5" /> Download / Save Original File
+                          </button>
+                        </div>
+                        <div className="flex-1 w-full h-full bg-slate-950 flex items-center justify-center p-1">
+                          <object data={displayUrl} type="application/pdf" className="w-full h-full rounded-xl bg-white shadow-inner">
+                            <iframe src={displayUrl} title={targetDoc.name} className="w-full h-full rounded-xl bg-white border-0">
+                              <div className="p-8 text-center bg-white rounded-2xl shadow">
+                                <p className="text-slate-800 font-bold mb-4">Official Evidence PDF File: {targetDoc.name}</p>
+                                <button
+                                  onClick={handleDownload}
+                                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs uppercase tracking-wider inline-flex items-center gap-2 cursor-pointer border-0"
+                                >
+                                  <Download className="w-4 h-4" /> Download / View Evidence
+                                </button>
+                              </div>
+                            </iframe>
+                          </object>
+                        </div>
+                      </div>
                     ) : (
                       <div className="text-center bg-white p-8 rounded-2xl shadow-xl border border-slate-200 max-w-md w-full">
                         <File className="w-16 h-16 text-slate-300 mx-auto mb-4" />

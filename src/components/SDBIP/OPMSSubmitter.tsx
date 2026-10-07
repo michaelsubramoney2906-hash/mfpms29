@@ -267,6 +267,7 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             kpiId: selectedKpi.id,
+            refNum: selectedKpi.refNum,
             userEmail: currentUser.email,
             draftData
           })
@@ -485,8 +486,12 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
         }
         return r;
       });
+      const currentScorecardEndpoint = activeScorecard === 'dept'
+        ? `/api/tenant/${activeTenantId}/sdbip23`
+        : `/api/tenant/${activeTenantId}/sdbip`;
+
       setRows(updatedRows);
-      await fetch(`/api/tenant/${activeTenantId}/sdbip`, {
+      await fetch(currentScorecardEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ items: updatedRows })
@@ -548,7 +553,11 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
         return r;
       });
 
-      const response = await fetch(`/api/tenant/${activeTenantId}/sdbip`, {
+      const currentScorecardEndpoint = activeScorecard === 'dept'
+        ? `/api/tenant/${activeTenantId}/sdbip23`
+        : `/api/tenant/${activeTenantId}/sdbip`;
+
+      const response = await fetch(currentScorecardEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ items: updatedRows })
@@ -613,7 +622,11 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
         return r;
       });
 
-      const response = await fetch(`/api/tenant/${activeTenantId}/sdbip`, {
+      const currentScorecardEndpoint = activeScorecard === 'dept'
+        ? `/api/tenant/${activeTenantId}/sdbip23`
+        : `/api/tenant/${activeTenantId}/sdbip`;
+
+      const response = await fetch(currentScorecardEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ items: updatedRows })
@@ -684,7 +697,11 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
         return r;
       });
 
-      const response = await fetch(`/api/tenant/${activeTenantId}/sdbip`, {
+      const currentScorecardEndpoint = activeScorecard === 'dept'
+        ? `/api/tenant/${activeTenantId}/sdbip23`
+        : `/api/tenant/${activeTenantId}/sdbip`;
+
+      const response = await fetch(currentScorecardEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ items: updatedRows })
@@ -756,7 +773,11 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
         return r;
       });
 
-      const response = await fetch(`/api/tenant/${activeTenantId}/sdbip`, {
+      const currentScorecardEndpoint = activeScorecard === 'dept'
+        ? `/api/tenant/${activeTenantId}/sdbip23`
+        : `/api/tenant/${activeTenantId}/sdbip`;
+
+      const response = await fetch(currentScorecardEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ items: updatedRows })
@@ -793,6 +814,27 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
     setLoading(true);
     try {
       const approverTarget = selectedKpi.approver || 'Approver';
+      // Zero Data Loss safeguard: if input values are blank in state, check cloud draft or current row values
+      const draftFallback = cloudDrafts[selectedKpi.id] || cloudDrafts[selectedKpi.refNum] || (cloudDrafts[selectedKpi.refNum]?.draftData) || {};
+      const effQ1Actual = q1Actual || draftFallback.q1Actual || selectedKpi.q1Actual || '';
+      const effQ1Variance = q1Variance || draftFallback.q1Variance || selectedKpi.q1Variance || '';
+      const effQ1Corrective = q1Corrective || draftFallback.q1Corrective || selectedKpi.q1Corrective || '';
+
+      const effQ2Actual = q2Actual || draftFallback.q2Actual || selectedKpi.q2Actual || '';
+      const effQ2Variance = q2Variance || draftFallback.q2Variance || selectedKpi.q2Variance || '';
+      const effQ2Corrective = q2Corrective || draftFallback.q2Corrective || selectedKpi.q2Corrective || '';
+
+      const effQ3Actual = q3Actual || draftFallback.q3Actual || selectedKpi.q3Actual || '';
+      const effQ3Variance = q3Variance || draftFallback.q3Variance || selectedKpi.q3Variance || '';
+      const effQ3Corrective = q3Corrective || draftFallback.q3Corrective || selectedKpi.q3Corrective || '';
+
+      const effQ4Actual = q4Actual || draftFallback.q4Actual || selectedKpi.q4Actual || '';
+      const effQ4Variance = q4Variance || draftFallback.q4Variance || selectedKpi.q4Variance || '';
+      const effQ4Corrective = q4Corrective || draftFallback.q4Corrective || selectedKpi.q4Corrective || '';
+
+      const effPoeDesc = poeDesc || draftFallback.poeDesc || selectedKpi.poeDesc || selectedKpi.q1PoeDesc || '';
+      const effNotes = submitterNotes || draftFallback.submitterNotes || (selectedKpi as any).submitterNotes || '';
+
       const updatedRows = rows.map(r => {
         if (r.id === selectedKpi.id) {
           const currentHistory = (r as any).workflowHistory || [];
@@ -800,7 +842,7 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
             date: new Date().toISOString(),
             action: 'Submitted to Approver',
             user: currentUser.fullName || currentUser.email,
-            notes: submitterNotes || `Submitted to Executive Approver (${approverTarget}) through OPMS Submitter dashboard.`
+            notes: effNotes || `Submitted to Executive Approver (${approverTarget}) through OPMS Submitter dashboard.`
           };
 
           const workflows = r.workflows || {};
@@ -813,16 +855,20 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
             };
           });
 
+          const kpiPoesList = extractKpiPoes(r, poes).map(p => p.name).filter(Boolean);
+          const finalQ1Poes = (r.q1Poes && r.q1Poes.length > 0) ? r.q1Poes : kpiPoesList;
+
           return {
             ...r,
-            q1Actual, q1Variance, q1Corrective,
-            q2Actual, q2Variance, q2Corrective,
-            q3Actual, q3Variance, q3Corrective,
-            q4Actual, q4Variance, q4Corrective,
-            poeDesc,
+            q1Actual: effQ1Actual, q1Variance: effQ1Variance, q1Corrective: effQ1Corrective,
+            q2Actual: effQ2Actual, q2Variance: effQ2Variance, q2Corrective: effQ2Corrective,
+            q3Actual: effQ3Actual, q3Variance: effQ3Variance, q3Corrective: effQ3Corrective,
+            q4Actual: effQ4Actual, q4Variance: effQ4Variance, q4Corrective: effQ4Corrective,
+            poeDesc: effPoeDesc,
+            q1Poes: finalQ1Poes,
             workflowStatus: 'Submitted to Approver',
             submittedBy: currentUser.fullName || currentUser.email,
-            submitterNotes: submitterNotes,
+            submitterNotes: effNotes,
             workflows,
             workflowHistory: [...currentHistory, newHistoryItem]
           } as SdbipRow;
@@ -830,7 +876,11 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
         return r;
       });
 
-      const response = await fetch(`/api/tenant/${activeTenantId}/sdbip`, {
+      const currentScorecardEndpoint = activeScorecard === 'dept'
+        ? `/api/tenant/${activeTenantId}/sdbip23`
+        : `/api/tenant/${activeTenantId}/sdbip`;
+
+      const response = await fetch(currentScorecardEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ items: updatedRows })
@@ -846,8 +896,15 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
       setAutoSaveStatus('saved');
 
       // Dispatch real-time notification to specified approver
+      const approverTargets = Array.from(new Set([
+        approverTarget,
+        (selectedKpi as any).approverEmail,
+        (selectedKpi as any).approverName,
+        selectedKpi.approver
+      ].filter(Boolean))) as string[];
+
       await dispatchSdbipNotification(activeTenantId, {
-        targetUser: approverTarget,
+        targetUser: approverTargets.length > 0 ? approverTargets : 'Executive Approver',
         senderUser: currentUser.fullName || currentUser.email,
         kpiId: selectedKpi.id,
         refNum: selectedKpi.refNum,
