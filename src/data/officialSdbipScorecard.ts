@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { getOfficialAssignment } from './officialKpiAssignments';
 
 export interface SdbipDatasetItem {
   id: string;
@@ -1881,8 +1882,8 @@ export function getOfficialSdbipDataset(): SdbipDatasetItem[] {
       q3: item.q3,
       q4: item.q4,
       responsibleUnit: item.unit,
-      submitter: 'Departmental Submitter',
-      approver: 'Executive Manager',
+      submitter: getOfficialAssignment(item.ref, item.unit).submitter,
+      approver: getOfficialAssignment(item.ref, item.unit).approver,
       poeStatus: item.poe,
       q1PoeDesc: item.poe,
       q2PoeDesc: item.poe,

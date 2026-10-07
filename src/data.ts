@@ -1,7 +1,7 @@
 import {
   FileText, Archive, Upload, PieChart, RefreshCw, CheckSquare,
   FileBadge, FlaskConical, LayoutTemplate, Map, Flag, Activity,
-  Briefcase, Target, Building, AlertTriangle, Layers,
+  Briefcase, Target, Building, AlertTriangle, Layers, Award,
   Users, Landmark, Search, ShieldAlert, Users2, Mic, Settings,
   MessageCircle, HelpCircle, Calendar, Database, Box, GraduationCap,
   Shield, Key, Ticket, List, MessageSquare, FileBarChart, UserCheck, LayoutGrid, BadgePlus, Mail,
@@ -396,6 +396,7 @@ export const modules: Module[] = [
     name: 'Administrator',
     icon: Shield,
     subModules: [
+      { id: 'compliance-cert', name: 'Compliance Certificate', icon: Award },
       { id: 'perf', name: 'Performance & Bottlenecks', icon: Activity },
       { id: 'backups', name: 'Nkangala Backups & 1-Click Restore', icon: Archive },
       { id: 'um', name: 'User Management', icon: Users },

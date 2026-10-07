@@ -475,8 +475,6 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
 
       await saveUpdatedRows(updatedRows, selectedKpi);
 
-      if (!response.ok) throw new Error('Failed to dispatch correction request');
-
       // Dispatch notification to Submitter and Approver
       await dispatchSdbipNotification(activeTenantId, {
         targetUser: [submitterTarget, selectedKpi.approver || ''].filter(Boolean),

@@ -2143,7 +2143,15 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
       return r;
     });
     setRows(updated);
-    debouncedSaveRows(updated);
+    if (field === 'submitter' || field === 'approver' || field === 'reviewer' || field === 'internalAudit') {
+      lastUserEditTimeRef.current = Date.now();
+      if (saveDebounceTimeoutRef.current) {
+        clearTimeout(saveDebounceTimeoutRef.current);
+      }
+      saveRows(updated);
+    } else {
+      debouncedSaveRows(updated);
+    }
   };
 
   const triggerUploadModal = (rowId: string, refNum: string, quarter: 'q1' | 'q2' | 'midTerm' | 'q3' | 'q4' | 'general' = 'general') => {
@@ -7483,7 +7491,7 @@ Timestamp: ${new Date().toLocaleString()}
                       <td className={`p-1.5 border-r border-slate-100 ${(!isReportingAssignmentsUnlocked && isSubmitterApproverLockedInReporting(row)) ? 'bg-slate-100/40' : 'bg-emerald-50/20'}`}>
                         <div className="flex flex-col gap-1">
                           <AzureADPicker 
-                            value={row.submitter || row.responsibleUnit || ''}
+                            value={row.submitter || ''}
                             onChange={(val) => handleCellChange(row.id, 'submitter', val)}
                             roleType="submitter"
                             activeTenantId={activeTenantId}

@@ -67,6 +67,7 @@ import { PerformanceMonitor } from './Admin/PerformanceMonitor';
 import { AuditLogs } from './Admin/AuditLogs';
 import { SystemControlPanel } from './Admin/SystemControlPanel';
 import { NkangalaBackupVault } from './Admin/NkangalaBackupVault';
+import { ComplianceCertificate } from './Admin/ComplianceCertificate';
 import { logUserAccess } from '../utils/auditLogger';
 import { RiskManagement } from './RiskManagement';
 import { FredExtractionAgent } from './FredExtractionAgent';
@@ -75,7 +76,6 @@ import { GuidedIPMSWorkflow, GUIDE_STEPS } from './IPMS/GuidedIPMSWorkflow';
 import { FinancialYearModal } from './FinancialYearModal';
 import { FinancialYearSwitcher } from './FinancialYearSwitcher';
 import { useFinancialYear } from '../context/FinancialYearContext';
-import { Lock } from 'lucide-react';
 
 const fetchWithRetry = async (url: string, options?: RequestInit, retries = 3, delay = 1000): Promise<Response> => {
   try {
@@ -887,6 +887,13 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                   setActiveSubModule(null);
                   window.dispatchEvent(new CustomEvent('command-center-force-refresh'));
                 }}
+              />
+            </div>
+          ) : activeSubModule.id === 'compliance-cert' ? (
+            <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
+              <ComplianceCertificate
+                currentUser={fullUserProfile}
+                activeTenantId={activeTenantId}
               />
             </div>
           ) : activeSubModule.id === 'backups' ? (

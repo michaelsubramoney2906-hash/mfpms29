@@ -811,8 +811,6 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
 
       await saveUpdatedRows(updatedRows, selectedKpi);
 
-      if (!response.ok) throw new Error('Failed to dispatch rejection directive');
-
       // Dispatch real-time notification to the specified Submitter
       await dispatchSdbipNotification(activeTenantId, {
         targetUser: submitterTarget,

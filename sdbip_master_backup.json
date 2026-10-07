@@ -10,7 +10,7 @@
       "ggpp": "",
       "midt": "X",
       "sr": "",
-      "kpas": "KPA 1: Institutional Development and Transformation (MIDT)",
+      "kpas": "Municipal Institutional Development and Transformation (MIDT)",
       "operationalActivity": "Maximum acceptable percentage of Staff vacancy rate (circular 88) per quarter",
       "kpi": "Maximum acceptable percentage of Staff vacancy rate (circular 88) per quarter",
       "compliance": "compliant",
@@ -25,9 +25,9 @@
       "q3": "≤10%",
       "q4": "≤10%",
       "weight": "10",
-      "responsibleUnit": "Corporate Services & Administration",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Jimmy Nhlapho",
+      "submitter": "Jimmy Nhlapho",
+      "approver": "Mmaphiri R. Rampedi",
       "poeStatus": "Signed Vacancy Rate Report (Indicating the vacancy rate percentage)",
       "poeDesc": "Signed Vacancy Rate Report (Indicating the vacancy rate percentage)",
       "q1PoeDesc": "Signed Vacancy Rate Report (Indicating the vacancy rate percentage)",
@@ -56,7 +56,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_02",
@@ -68,7 +69,7 @@
       "ggpp": "",
       "midt": "X",
       "sr": "",
-      "kpas": "KPA 1: Institutional Development and Transformation (MIDT)",
+      "kpas": "Municipal Institutional Development and Transformation (MIDT)",
       "operationalActivity": "Percentage of vacant posts filled within 6 months (circular 88) by 30 June 2027.",
       "kpi": "Percentage of vacant posts filled within 6 months (circular 88) by 30 June 2027.",
       "compliance": "compliant",
@@ -83,9 +84,9 @@
       "q3": "93%",
       "q4": "93%",
       "weight": "10",
-      "responsibleUnit": "Corporate Services & Administration",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Jimmy Nhlapho",
+      "submitter": "Jimmy Nhlapho",
+      "approver": "Mmaphiri R. Rampedi",
       "poeStatus": "Signed Vacancy Rate Report (indicating the vacancy rate)",
       "poeDesc": "Signed Vacancy Rate Report (indicating the vacancy rate)",
       "q1PoeDesc": "Signed Vacancy Rate Report (indicating the vacancy rate)",
@@ -114,7 +115,42 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual",
+      "workflowStatus": "Submitted to Approver",
+      "submittedBy": "Jimmy Nhlapho",
+      "workflows": {
+        "q1": {
+          "status": "pending_approval",
+          "submittedBy": "Jimmy Nhlapho",
+          "submittedAt": "10/2/2026"
+        },
+        "q2": {
+          "status": "pending_approval",
+          "submittedBy": "Jimmy Nhlapho",
+          "submittedAt": "10/2/2026"
+        },
+        "midTerm": {
+          "status": "pending_approval",
+          "submittedBy": "Jimmy Nhlapho",
+          "submittedAt": "10/2/2026"
+        },
+        "q3": {
+          "status": "pending_approval",
+          "submittedBy": "Jimmy Nhlapho",
+          "submittedAt": "10/2/2026"
+        },
+        "q4": {
+          "status": "pending_approval",
+          "submittedBy": "Jimmy Nhlapho",
+          "submittedAt": "10/2/2026"
+        },
+        "annual": {
+          "status": "pending_approval",
+          "submittedBy": "Jimmy Nhlapho",
+          "submittedAt": "10/2/2026"
+        }
+      }
     },
     {
       "id": "sdbip-tl-M_03",
@@ -126,7 +162,7 @@
       "ggpp": "",
       "midt": "X",
       "sr": "",
-      "kpas": "KPA 1: Institutional Development and Transformation (MIDT)",
+      "kpas": "Municipal Institutional Development and Transformation (MIDT)",
       "operationalActivity": "Percentage of allocated budget spent implementing the Workplace Skills Plan (GKPI) by 30 June 2027",
       "kpi": "Percentage of allocated budget spent implementing the Workplace Skills Plan (GKPI) by 30 June 2027",
       "compliance": "compliant",
@@ -141,9 +177,9 @@
       "q3": "N/A",
       "q4": "90%",
       "weight": "10",
-      "responsibleUnit": "Corporate Services & Administration",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Jimmy Nhlapho",
+      "submitter": "Jimmy Nhlapho",
+      "approver": "Mmaphiri R. Rampedi",
       "poeStatus": "Signed Training Report, Workplace Skills Plan and Budget Vote Report.",
       "poeDesc": "Signed Training Report, Workplace Skills Plan and Budget Vote Report.",
       "q1PoeDesc": "Signed Training Report, Workplace Skills Plan and Budget Vote Report.",
@@ -172,7 +208,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_04",
@@ -184,7 +221,7 @@
       "ggpp": "",
       "midt": "X",
       "sr": "",
-      "kpas": "KPA 1: Institutional Development and Transformation (MIDT)",
+      "kpas": "Municipal Institutional Development and Transformation (MIDT)",
       "operationalActivity": "Percentage of employees from previously disadvantaged groups appointed in the three (3) highest levels of management (level 0 to 3) as per the approved EE plan (GKPI) by 30 June 2027.",
       "kpi": "Percentage of employees from previously disadvantaged groups appointed in the three (3) highest levels of management (level 0 to 3) as per the approved EE plan (GKPI) by 30 June 2027.",
       "compliance": "compliant",
@@ -199,9 +236,9 @@
       "q3": "100%",
       "q4": "100%",
       "weight": "10",
-      "responsibleUnit": "Corporate Services & Administration",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Jimmy Nhlapho",
+      "submitter": "Jimmy Nhlapho",
+      "approver": "Mmaphiri R. Rampedi",
       "poeStatus": "Signed Quarterly Reports on the Implementation of the EE Plan. (indicating the appointed previously disadvantaged groups rate).",
       "poeDesc": "Signed Quarterly Reports on the Implementation of the EE Plan. (indicating the appointed previously disadvantaged groups rate).",
       "q1PoeDesc": "Signed Quarterly Reports on the Implementation of the EE Plan. (indicating the appointed previously disadvantaged groups rate).",
@@ -230,7 +267,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_05",
@@ -242,7 +280,7 @@
       "ggpp": "",
       "midt": "X",
       "sr": "",
-      "kpas": "KPA 1: Institutional Development and Transformation (MIDT)",
+      "kpas": "Municipal Institutional Development and Transformation (MIDT)",
       "operationalActivity": "Quarterly salary bill expended on suspended officials (circular 88) per quarter",
       "kpi": "Quarterly salary bill expended on suspended officials (circular 88) per quarter",
       "compliance": "compliant",
@@ -257,9 +295,9 @@
       "q3": "R0,00 (not above R0,00)",
       "q4": "R0,00 (not above R0,00)",
       "weight": "10",
-      "responsibleUnit": "Corporate Services & Administration",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Nomhle Maphanga",
+      "submitter": "Nomhle Maphanga",
+      "approver": "Mmaphiri R. Rampedi",
       "poeStatus": "Signed quarterly salary bill report indicating the salary expenditure for suspended officials. (If no officials suspended, a signed quarterly memo confirming that there were no suspensions)",
       "poeDesc": "Signed quarterly salary bill report indicating the salary expenditure for suspended officials. (If no officials suspended, a signed quarterly memo confirming that there were no suspensions)",
       "q1PoeDesc": "Signed quarterly salary bill report indicating the salary expenditure for suspended officials. (If no officials suspended, a signed quarterly memo confirming that there were no suspensions)",
@@ -288,7 +326,42 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual",
+      "workflowStatus": "Submitted to Approver",
+      "submittedBy": "Nomhle Maphanga",
+      "workflows": {
+        "q1": {
+          "status": "pending_approval",
+          "submittedBy": "Nomhle Maphanga",
+          "submittedAt": "2026/10/02"
+        },
+        "q2": {
+          "status": "pending_approval",
+          "submittedBy": "Nomhle Maphanga",
+          "submittedAt": "2026/10/02"
+        },
+        "midTerm": {
+          "status": "pending_approval",
+          "submittedBy": "Nomhle Maphanga",
+          "submittedAt": "2026/10/02"
+        },
+        "q3": {
+          "status": "pending_approval",
+          "submittedBy": "Nomhle Maphanga",
+          "submittedAt": "2026/10/02"
+        },
+        "q4": {
+          "status": "pending_approval",
+          "submittedBy": "Nomhle Maphanga",
+          "submittedAt": "2026/10/02"
+        },
+        "annual": {
+          "status": "pending_approval",
+          "submittedBy": "Nomhle Maphanga",
+          "submittedAt": "2026/10/02"
+        }
+      }
     },
     {
       "id": "sdbip-tl-M_06",
@@ -300,7 +373,7 @@
       "ggpp": "",
       "midt": "X",
       "sr": "",
-      "kpas": "KPA 1: Institutional Development and Transformation (MIDT)",
+      "kpas": "Municipal Institutional Development and Transformation (MIDT)",
       "operationalActivity": "Number of active suspensions longer than three months (circular 88) per quarter",
       "kpi": "Number of active suspensions longer than three months (circular 88) per quarter",
       "compliance": "compliant",
@@ -315,9 +388,9 @@
       "q3": "0 (not above 0)",
       "q4": "0 (not above 0)",
       "weight": "10",
-      "responsibleUnit": "Corporate Services & Administration",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Nomhle Maphanga",
+      "submitter": "Nomhle Maphanga",
+      "approver": "Mmaphiri R. Rampedi",
       "poeStatus": "Signed Quarterly Personnel Report (indicating number of suspensions).",
       "poeDesc": "Signed Quarterly Personnel Report (indicating number of suspensions).",
       "q1PoeDesc": "Signed Quarterly Personnel Report (indicating number of suspensions).",
@@ -346,7 +419,42 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual",
+      "workflowStatus": "Submitted to Approver",
+      "submittedBy": "Nomhle Maphanga",
+      "workflows": {
+        "q1": {
+          "status": "pending_approval",
+          "submittedBy": "Nomhle Maphanga",
+          "submittedAt": "2026/10/02"
+        },
+        "q2": {
+          "status": "pending_approval",
+          "submittedBy": "Nomhle Maphanga",
+          "submittedAt": "2026/10/02"
+        },
+        "midTerm": {
+          "status": "pending_approval",
+          "submittedBy": "Nomhle Maphanga",
+          "submittedAt": "2026/10/02"
+        },
+        "q3": {
+          "status": "pending_approval",
+          "submittedBy": "Nomhle Maphanga",
+          "submittedAt": "2026/10/02"
+        },
+        "q4": {
+          "status": "pending_approval",
+          "submittedBy": "Nomhle Maphanga",
+          "submittedAt": "2026/10/02"
+        },
+        "annual": {
+          "status": "pending_approval",
+          "submittedBy": "Nomhle Maphanga",
+          "submittedAt": "2026/10/02"
+        }
+      }
     },
     {
       "id": "sdbip-tl-M_07",
@@ -358,7 +466,7 @@
       "ggpp": "",
       "midt": "X",
       "sr": "",
-      "kpas": "KPA 1: Institutional Development and Transformation (MIDT)",
+      "kpas": "Municipal Institutional Development and Transformation (MIDT)",
       "operationalActivity": "Percentage of administrative staff who have declared their financial interests (circular 88) by 30 June 2027",
       "kpi": "Percentage of administrative staff who have declared their financial interests (circular 88) by 30 June 2027",
       "compliance": "compliant",
@@ -373,9 +481,9 @@
       "q3": "100%",
       "q4": "100%",
       "weight": "10",
-      "responsibleUnit": "Corporate Services & Administration",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Sipho Masilela",
+      "submitter": "Sipho Masilela",
+      "approver": "Alice L. Stander",
       "poeStatus": "Signed Report on Declarations of Interests of Employees.",
       "poeDesc": "Signed Report on Declarations of Interests of Employees.",
       "q1PoeDesc": "Signed Report on Declarations of Interests of Employees.",
@@ -404,7 +512,42 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual",
+      "workflowStatus": "Submitted to Approver",
+      "submittedBy": "Sipho Masilela",
+      "workflows": {
+        "q1": {
+          "status": "pending_approval",
+          "submittedBy": "Sipho Masilela",
+          "submittedAt": "10/2/2026"
+        },
+        "q2": {
+          "status": "pending_approval",
+          "submittedBy": "Sipho Masilela",
+          "submittedAt": "10/2/2026"
+        },
+        "midTerm": {
+          "status": "pending_approval",
+          "submittedBy": "Sipho Masilela",
+          "submittedAt": "10/2/2026"
+        },
+        "q3": {
+          "status": "pending_approval",
+          "submittedBy": "Sipho Masilela",
+          "submittedAt": "10/2/2026"
+        },
+        "q4": {
+          "status": "pending_approval",
+          "submittedBy": "Sipho Masilela",
+          "submittedAt": "10/2/2026"
+        },
+        "annual": {
+          "status": "pending_approval",
+          "submittedBy": "Sipho Masilela",
+          "submittedAt": "10/2/2026"
+        }
+      }
     },
     {
       "id": "sdbip-tl-M_08",
@@ -416,7 +559,7 @@
       "ggpp": "",
       "midt": "X",
       "sr": "",
-      "kpas": "KPA 1: Institutional Development and Transformation (MIDT)",
+      "kpas": "Municipal Institutional Development and Transformation (MIDT)",
       "operationalActivity": "Percentage of councillors who have declared their financial interests (Circular 88) by 30 June 2027",
       "kpi": "Percentage of councillors who have declared their financial interests (Circular 88) by 30 June 2027",
       "compliance": "compliant",
@@ -431,9 +574,9 @@
       "q3": "100%",
       "q4": "100%",
       "weight": "10",
-      "responsibleUnit": "Office of the Municipal Manager / Strategic Executive",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Thandiwe Mazwi",
+      "submitter": "Thandiwe Mazwi",
+      "approver": "Mmaphiri R. Rampedi",
       "poeStatus": "Signed Report on Declarations of Interest by Councillors",
       "poeDesc": "Signed Report on Declarations of Interest by Councillors",
       "q1PoeDesc": "Signed Report on Declarations of Interest by Councillors",
@@ -462,7 +605,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_09",
@@ -474,7 +618,7 @@
       "ggpp": "",
       "midt": "X",
       "sr": "",
-      "kpas": "KPA 1: Institutional Development and Transformation (MIDT)",
+      "kpas": "Municipal Institutional Development and Transformation (MIDT)",
       "operationalActivity": "Percentage of 2025/2026 individual performance evaluations conducted with all employees by 30 June 2027.",
       "kpi": "Percentage of 2025/2026 individual performance evaluations conducted with all employees by 30 June 2027.",
       "compliance": "compliant",
@@ -489,9 +633,9 @@
       "q3": "N/A",
       "q4": "100%",
       "weight": "10",
-      "responsibleUnit": "Corporate Services & Administration",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Nompumelelo P. Nsibande",
+      "submitter": "Nompumelelo P. Nsibande",
+      "approver": "Sibusiso M. Shabangu",
       "poeStatus": "Consolidated Annual Performance Evaluation Report to Council and Council resolution.",
       "poeDesc": "Consolidated Annual Performance Evaluation Report to Council and Council resolution.",
       "q1PoeDesc": "Consolidated Annual Performance Evaluation Report to Council and Council resolution.",
@@ -520,7 +664,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_10",
@@ -532,7 +677,7 @@
       "ggpp": "",
       "midt": "X",
       "sr": "",
-      "kpas": "KPA 1: Institutional Development and Transformation (MIDT)",
+      "kpas": "Municipal Institutional Development and Transformation (MIDT)",
       "operationalActivity": "Number of Circular 88 planning reports submitted to CoGHSTA in line with the MFMA per quarter",
       "kpi": "Number of Circular 88 planning reports submitted to CoGHSTA in line with the MFMA per quarter",
       "compliance": "compliant",
@@ -547,9 +692,9 @@
       "q3": "1",
       "q4": "1",
       "weight": "10",
-      "responsibleUnit": "Office of the Municipal Manager / Strategic Executive",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Nompumelelo P. Nsibande",
+      "submitter": "Nompumelelo P. Nsibande",
+      "approver": "Sibusiso M. Shabangu",
       "poeStatus": "Signed circular 88 reports and proof of submission (email)",
       "poeDesc": "Signed circular 88 reports and proof of submission (email)",
       "q1PoeDesc": "Signed circular 88 reports and proof of submission (email)",
@@ -578,7 +723,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_11",
@@ -590,7 +736,7 @@
       "ggpp": "",
       "midt": "X",
       "sr": "",
-      "kpas": "KPA 1: Institutional Development and Transformation (MIDT)",
+      "kpas": "Municipal Institutional Development and Transformation (MIDT)",
       "operationalActivity": "Number of new/reviewed policies approved by Council by 30 June 2027.",
       "kpi": "Number of new/reviewed policies approved by Council by 30 June 2027.",
       "compliance": "compliant",
@@ -605,9 +751,9 @@
       "q3": "N/A",
       "q4": "70",
       "weight": "10",
-      "responsibleUnit": "Corporate Services & Administration",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Jimmy Nhlapho",
+      "submitter": "Jimmy Nhlapho",
+      "approver": "Mmaphiri R. Rampedi",
       "poeStatus": "Report to Council and Council Resolution(s)",
       "poeDesc": "Report to Council and Council Resolution(s)",
       "q1PoeDesc": "Report to Council and Council Resolution(s)",
@@ -636,7 +782,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_12",
@@ -648,7 +795,7 @@
       "ggpp": "",
       "midt": "X",
       "sr": "",
-      "kpas": "KPA 1: Institutional Development and Transformation (MIDT)",
+      "kpas": "Municipal Institutional Development and Transformation (MIDT)",
       "operationalActivity": "Percentage of structural fire incidents attended to within the required 40 minutes attendance time (circular 88)",
       "kpi": "Percentage of structural fire incidents attended to within the required 40 minutes attendance time (circular 88)",
       "compliance": "compliant",
@@ -663,9 +810,9 @@
       "q3": "100%",
       "q4": "100%",
       "weight": "10",
-      "responsibleUnit": "Social Services & Community Development",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Monantsi Mapitsing",
+      "submitter": "Monantsi Mapitsing",
+      "approver": "Thandiwe M. Lengwate",
       "poeStatus": "Signed Quarterly Fire and rescue services report, spreadsheet Showing calculation of structural firefighting incident responded to within 40 minutes and call out slips.",
       "poeDesc": "Signed Quarterly Fire and rescue services report, spreadsheet Showing calculation of structural firefighting incident responded to within 40 minutes and call out slips.",
       "q1PoeDesc": "Signed Quarterly Fire and rescue services report, spreadsheet Showing calculation of structural firefighting incident responded to within 40 minutes and call out slips.",
@@ -694,7 +841,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_13",
@@ -706,7 +854,7 @@
       "ggpp": "",
       "midt": "X",
       "sr": "",
-      "kpas": "KPA 1: Institutional Development and Transformation (MIDT)",
+      "kpas": "Municipal Institutional Development and Transformation (MIDT)",
       "operationalActivity": "Percentage of findings on health and safety implemented by 30 June 2027",
       "kpi": "Percentage of findings on health and safety implemented by 30 June 2027",
       "compliance": "compliant",
@@ -721,9 +869,9 @@
       "q3": "100%",
       "q4": "100%",
       "weight": "10",
-      "responsibleUnit": "Corporate Services & Administration",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Jimmy Nhlapho",
+      "submitter": "Jimmy Nhlapho",
+      "approver": "Mmaphiri R. Rampedi",
       "poeStatus": "Signed Quarterly OHS Report",
       "poeDesc": "Signed Quarterly OHS Report",
       "q1PoeDesc": "Signed Quarterly OHS Report",
@@ -752,7 +900,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_14",
@@ -764,7 +913,7 @@
       "ggpp": "X",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 2: Good Governance and Public Participation (GGPP)",
+      "kpas": "Good Governance and Public Participation (GGPP)",
       "operationalActivity": "Number of Strategic Risk Register developed and approved by 30 June 2027.",
       "kpi": "Number of Strategic Risk Register developed and approved by 30 June 2027.",
       "compliance": "compliant",
@@ -779,9 +928,9 @@
       "q3": "N/A",
       "q4": "1",
       "weight": "10",
-      "responsibleUnit": "Office of the Municipal Manager / Strategic Executive",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Quinton Skhosana",
+      "submitter": "Quinton Skhosana",
+      "approver": "Juliet N. Ralephaleng",
       "poeStatus": "Approved Strategic Risk Register and council Resolution",
       "poeDesc": "Approved Strategic Risk Register and council Resolution",
       "q1PoeDesc": "Approved Strategic Risk Register and council Resolution",
@@ -810,7 +959,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_15",
@@ -822,7 +972,7 @@
       "ggpp": "X",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 2: Good Governance and Public Participation (GGPP)",
+      "kpas": "Good Governance and Public Participation (GGPP)",
       "operationalActivity": "Percentage of action plans implemented to address Strategic Risks Identified per quarter (Total organisation)",
       "kpi": "Percentage of action plans implemented to address Strategic Risks Identified per quarter (Total organisation)",
       "compliance": "compliant",
@@ -837,9 +987,9 @@
       "q3": "90%",
       "q4": "90%",
       "weight": "10",
-      "responsibleUnit": "Office of the Municipal Manager / Strategic Executive",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Quinton Skhosana",
+      "submitter": "Quinton Skhosana",
+      "approver": "Juliet N. Ralephaleng",
       "poeStatus": "Signed Quarterly Strategic Risk report",
       "poeDesc": "Signed Quarterly Strategic Risk report",
       "q1PoeDesc": "Signed Quarterly Strategic Risk report",
@@ -868,7 +1018,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_16",
@@ -880,7 +1031,7 @@
       "ggpp": "X",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 2: Good Governance and Public Participation (GGPP)",
+      "kpas": "Good Governance and Public Participation (GGPP)",
       "operationalActivity": "Percentage of action plans implemented to address Operational Risks Identified per quarter (Total Organisation)",
       "kpi": "Percentage of action plans implemented to address Operational Risks Identified per quarter (Total Organisation)",
       "compliance": "compliant",
@@ -895,9 +1046,9 @@
       "q3": "98%",
       "q4": "98%",
       "weight": "10",
-      "responsibleUnit": "Office of the Municipal Manager / Strategic Executive",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Quinton Skhosana",
+      "submitter": "Quinton Skhosana",
+      "approver": "Juliet N. Ralephaleng",
       "poeStatus": "Signed Quarterly Operational Risk report",
       "poeDesc": "Signed Quarterly Operational Risk report",
       "q1PoeDesc": "Signed Quarterly Operational Risk report",
@@ -926,7 +1077,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_17",
@@ -938,7 +1090,7 @@
       "ggpp": "X",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 2: Good Governance and Public Participation (GGPP)",
+      "kpas": "Good Governance and Public Participation (GGPP)",
       "operationalActivity": "Percentage of action plans implemented to address Fraud and corruption Risks Identified per quarter (Total Organisation)",
       "kpi": "Percentage of action plans implemented to address Fraud and corruption Risks Identified per quarter (Total Organisation)",
       "compliance": "compliant",
@@ -953,9 +1105,9 @@
       "q3": "96%",
       "q4": "96%",
       "weight": "10",
-      "responsibleUnit": "Office of the Municipal Manager / Strategic Executive",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Quinton Skhosana",
+      "submitter": "Quinton Skhosana",
+      "approver": "Juliet N. Ralephaleng",
       "poeStatus": "Signed Quarterly Fraud and corruption Risk report",
       "poeDesc": "Signed Quarterly Fraud and corruption Risk report",
       "q1PoeDesc": "Signed Quarterly Fraud and corruption Risk report",
@@ -984,7 +1136,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_18",
@@ -996,7 +1149,7 @@
       "ggpp": "X",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 2: Good Governance and Public Participation (GGPP)",
+      "kpas": "Good Governance and Public Participation (GGPP)",
       "operationalActivity": "Number of Final IDP tabled for approval to Council by 31 May 2027",
       "kpi": "Number of Final IDP tabled for approval to Council by 31 May 2027",
       "compliance": "compliant",
@@ -1011,9 +1164,9 @@
       "q3": "N/A",
       "q4": "1",
       "weight": "10",
-      "responsibleUnit": "Office of the Municipal Manager / Strategic Executive",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Fortress Shabangu",
+      "submitter": "Fortress Shabangu",
+      "approver": "Alvin Bvuma",
       "poeStatus": "Final IDP Document & Council Resolution",
       "poeDesc": "Final IDP Document & Council Resolution",
       "q1PoeDesc": "Final IDP Document & Council Resolution",
@@ -1042,7 +1195,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_19",
@@ -1054,7 +1208,7 @@
       "ggpp": "X",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 2: Good Governance and Public Participation (GGPP)",
+      "kpas": "Good Governance and Public Participation (GGPP)",
       "operationalActivity": "Number of Annual Report tabled to Council by 31 January 2027.",
       "kpi": "Number of Annual Report tabled to Council by 31 January 2027.",
       "compliance": "compliant",
@@ -1069,9 +1223,9 @@
       "q3": "1",
       "q4": "N/A",
       "weight": "10",
-      "responsibleUnit": "Office of the Municipal Manager / Strategic Executive",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Nompumelelo P. Nsibande",
+      "submitter": "Nompumelelo P. Nsibande",
+      "approver": "Sibusiso M. Shabangu",
       "poeStatus": "Approved Annual Report and Council Resolution.",
       "poeDesc": "Approved Annual Report and Council Resolution.",
       "q1PoeDesc": "Approved Annual Report and Council Resolution.",
@@ -1100,7 +1254,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_20",
@@ -1112,7 +1267,7 @@
       "ggpp": "X",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 2: Good Governance and Public Participation (GGPP)",
+      "kpas": "Good Governance and Public Participation (GGPP)",
       "operationalActivity": "Number of Oversight Report Submitted by MPAC to Council by 31 March 2027.",
       "kpi": "Number of Oversight Report Submitted by MPAC to Council by 31 March 2027.",
       "compliance": "compliant",
@@ -1127,9 +1282,9 @@
       "q3": "1",
       "q4": "N/A",
       "weight": "10",
-      "responsibleUnit": "Office of the Municipal Manager / Strategic Executive",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Hlabishi L. Phala",
+      "submitter": "Hlabishi L. Phala",
+      "approver": "Mmaphiri R. Rampedi",
       "poeStatus": "Oversight Report and Council Resolution.",
       "poeDesc": "Oversight Report and Council Resolution.",
       "q1PoeDesc": "Oversight Report and Council Resolution.",
@@ -1158,7 +1313,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_21",
@@ -1170,7 +1326,7 @@
       "ggpp": "X",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 2: Good Governance and Public Participation (GGPP)",
+      "kpas": "Good Governance and Public Participation (GGPP)",
       "operationalActivity": "Attain clean audit opinion by 31 December 2026.",
       "kpi": "Attain clean audit opinion by 31 December 2026.",
       "compliance": "compliant",
@@ -1185,9 +1341,9 @@
       "q3": "N/A",
       "q4": "N/A",
       "weight": "10",
-      "responsibleUnit": "Office of the Municipal Manager / Strategic Executive",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Andile N. Hlongwa",
+      "submitter": "Andile N. Hlongwa",
+      "approver": "Alice L. Stander",
       "poeStatus": "AG’s Audit Report",
       "poeDesc": "AG’s Audit Report",
       "q1PoeDesc": "AG’s Audit Report",
@@ -1216,7 +1372,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_22",
@@ -1228,7 +1385,7 @@
       "ggpp": "X",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 2: Good Governance and Public Participation (GGPP)",
+      "kpas": "Good Governance and Public Participation (GGPP)",
       "operationalActivity": "Number of repeat audit findings (circular 88) by 30 December 2026.",
       "kpi": "Number of repeat audit findings (circular 88) by 30 December 2026.",
       "compliance": "compliant",
@@ -1243,9 +1400,9 @@
       "q3": "N/A",
       "q4": "N/A",
       "weight": "10",
-      "responsibleUnit": "Office of the Municipal Manager / Strategic Executive",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Andile N. Hlongwa",
+      "submitter": "Andile N. Hlongwa",
+      "approver": "Alice L. Stander",
       "poeStatus": "AG’s Audit Report",
       "poeDesc": "AG’s Audit Report",
       "q1PoeDesc": "AG’s Audit Report",
@@ -1274,7 +1431,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_23",
@@ -1286,7 +1444,7 @@
       "ggpp": "X",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 2: Good Governance and Public Participation (GGPP)",
+      "kpas": "Good Governance and Public Participation (GGPP)",
       "operationalActivity": "Number of Action Plan on issues raised by the Auditor General tabled to Council by 30 December 2026.",
       "kpi": "Number of Action Plan on issues raised by the Auditor General tabled to Council by 30 December 2026.",
       "compliance": "compliant",
@@ -1301,9 +1459,9 @@
       "q3": "N/A",
       "q4": "N/A",
       "weight": "10",
-      "responsibleUnit": "Office of the Municipal Manager / Strategic Executive",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Andile N. Hlongwa",
+      "submitter": "Andile N. Hlongwa",
+      "approver": "Alice L. Stander",
       "poeStatus": "Audit Action Plan and Council resolution",
       "poeDesc": "Audit Action Plan and Council resolution",
       "q1PoeDesc": "Audit Action Plan and Council resolution",
@@ -1332,7 +1490,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_24",
@@ -1344,7 +1503,7 @@
       "ggpp": "X",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 2: Good Governance and Public Participation (GGPP)",
+      "kpas": "Good Governance and Public Participation (GGPP)",
       "operationalActivity": "Percentage of AG Findings raised in the Management Letter resolved by 30 June 2027 (Total organization).",
       "kpi": "Percentage of AG Findings raised in the Management Letter resolved by 30 June 2027 (Total organization).",
       "compliance": "compliant",
@@ -1359,9 +1518,9 @@
       "q3": "40%",
       "q4": "100%",
       "weight": "10",
-      "responsibleUnit": "Office of the Municipal Manager / Strategic Executive",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Andile N. Hlongwa",
+      "submitter": "Andile N. Hlongwa",
+      "approver": "Alice L. Stander",
       "poeStatus": "Signed Progress Report on the Implementation of the Audit Action Plan.",
       "poeDesc": "Signed Progress Report on the Implementation of the Audit Action Plan.",
       "q1PoeDesc": "Signed Progress Report on the Implementation of the Audit Action Plan.",
@@ -1390,7 +1549,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_25",
@@ -1402,7 +1562,7 @@
       "ggpp": "X",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 2: Good Governance and Public Participation (GGPP)",
+      "kpas": "Good Governance and Public Participation (GGPP)",
       "operationalActivity": "Number of Final 2027/2028 SDBIP approved by Executive Mayor within 28 days after approval of Annual Budget",
       "kpi": "Number of Final 2027/2028 SDBIP approved by Executive Mayor within 28 days after approval of Annual Budget",
       "compliance": "compliant",
@@ -1417,9 +1577,9 @@
       "q3": "N/A",
       "q4": "1",
       "weight": "10",
-      "responsibleUnit": "Office of the Municipal Manager / Strategic Executive",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Nompumelelo P. Nsibande",
+      "submitter": "Nompumelelo P. Nsibande",
+      "approver": "Sibusiso M. Shabangu",
       "poeStatus": "Approved and signed 2027/2028 SDBIP.",
       "poeDesc": "Approved and signed 2027/2028 SDBIP.",
       "q1PoeDesc": "Approved and signed 2027/2028 SDBIP.",
@@ -1448,7 +1608,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_26",
@@ -1460,7 +1621,7 @@
       "ggpp": "X",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 2: Good Governance and Public Participation (GGPP)",
+      "kpas": "Good Governance and Public Participation (GGPP)",
       "operationalActivity": "Number of Adjusted 2026/2027 SDBIP approved within 28 days after the approval of the Adjusted Budget.",
       "kpi": "Number of Adjusted 2026/2027 SDBIP approved within 28 days after the approval of the Adjusted Budget.",
       "compliance": "compliant",
@@ -1475,9 +1636,9 @@
       "q3": "1",
       "q4": "N/A",
       "weight": "10",
-      "responsibleUnit": "Office of the Municipal Manager / Strategic Executive",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Nompumelelo P. Nsibande",
+      "submitter": "Nompumelelo P. Nsibande",
+      "approver": "Sibusiso M. Shabangu",
       "poeStatus": "Approved and signed Adjusted 2026/2027 SDBIP and Council resolution",
       "poeDesc": "Approved and signed Adjusted 2026/2027 SDBIP and Council resolution",
       "q1PoeDesc": "Approved and signed Adjusted 2026/2027 SDBIP and Council resolution",
@@ -1506,7 +1667,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_27",
@@ -1518,7 +1680,7 @@
       "ggpp": "X",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 2: Good Governance and Public Participation (GGPP)",
+      "kpas": "Good Governance and Public Participation (GGPP)",
       "operationalActivity": "Number of 2027/2028 IDP Final Framework Plan approved by 30 August 2026.",
       "kpi": "Number of 2027/2028 IDP Final Framework Plan approved by 30 August 2026.",
       "compliance": "compliant",
@@ -1533,9 +1695,9 @@
       "q3": "N/A",
       "q4": "N/A",
       "weight": "10",
-      "responsibleUnit": "Office of the Municipal Manager / Strategic Executive",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Fortress Shabangu",
+      "submitter": "Fortress Shabangu",
+      "approver": "Alvin Bvuma",
       "poeStatus": "Final Framework Plan and Council resolution",
       "poeDesc": "Final Framework Plan and Council resolution",
       "q1PoeDesc": "Final Framework Plan and Council resolution",
@@ -1564,7 +1726,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_28",
@@ -1576,7 +1739,7 @@
       "ggpp": "X",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 2: Good Governance and Public Participation (GGPP)",
+      "kpas": "Good Governance and Public Participation (GGPP)",
       "operationalActivity": "Number of risk-based audit plan developed and approved by 30 June 2027.",
       "kpi": "Number of risk-based audit plan developed and approved by 30 June 2027.",
       "compliance": "compliant",
@@ -1591,9 +1754,9 @@
       "q3": "N/A",
       "q4": "1",
       "weight": "10",
-      "responsibleUnit": "Office of the Municipal Manager / Strategic Executive",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Jayvanti Morar",
+      "submitter": "Jayvanti Morar",
+      "approver": "Amos D. Twala",
       "poeStatus": "Approved risk-based audit plan and Council resolution",
       "poeDesc": "Approved risk-based audit plan and Council resolution",
       "q1PoeDesc": "Approved risk-based audit plan and Council resolution",
@@ -1622,7 +1785,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_29",
@@ -1634,7 +1798,7 @@
       "ggpp": "X",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 2: Good Governance and Public Participation (GGPP)",
+      "kpas": "Good Governance and Public Participation (GGPP)",
       "operationalActivity": "Number of quarterly District Municipal Manager's Forum meetings held by 30 June 2027.",
       "kpi": "Number of quarterly District Municipal Manager's Forum meetings held by 30 June 2027.",
       "compliance": "compliant",
@@ -1649,9 +1813,9 @@
       "q3": "1",
       "q4": "1",
       "weight": "10",
-      "responsibleUnit": "Office of the Municipal Manager / Strategic Executive",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Thandiwe Mazwi",
+      "submitter": "Thandiwe Mazwi",
+      "approver": "Mmaphiri R. Rampedi",
       "poeStatus": "Signed Notice, and Agenda, previous quarter unsigned minutes and attendance register.",
       "poeDesc": "Signed Notice, and Agenda, previous quarter unsigned minutes and attendance register.",
       "q1PoeDesc": "Signed Notice, and Agenda, previous quarter unsigned minutes and attendance register.",
@@ -1680,7 +1844,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_30",
@@ -1692,7 +1857,7 @@
       "ggpp": "X",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 2: Good Governance and Public Participation (GGPP)",
+      "kpas": "Good Governance and Public Participation (GGPP)",
       "operationalActivity": "Number of quarterly District Mayors Forum meetings held by 30 June 2027",
       "kpi": "Number of quarterly District Mayors Forum meetings held by 30 June 2027",
       "compliance": "compliant",
@@ -1707,9 +1872,9 @@
       "q3": "1",
       "q4": "1",
       "weight": "10",
-      "responsibleUnit": "Office of the Municipal Manager / Strategic Executive",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Thandiwe Mazwi",
+      "submitter": "Thandiwe Mazwi",
+      "approver": "Mmaphiri R. Rampedi",
       "poeStatus": "Signed Notice, and Agenda, previous quarter unsigned minutes and attendance register.",
       "poeDesc": "Signed Notice, and Agenda, previous quarter unsigned minutes and attendance register.",
       "q1PoeDesc": "Signed Notice, and Agenda, previous quarter unsigned minutes and attendance register.",
@@ -1738,7 +1903,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_31",
@@ -1750,7 +1916,7 @@
       "ggpp": "X",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 2: Good Governance and Public Participation (GGPP)",
+      "kpas": "Good Governance and Public Participation (GGPP)",
       "operationalActivity": "Number of Public Participation meetings held by 30 June 2027.",
       "kpi": "Number of Public Participation meetings held by 30 June 2027.",
       "compliance": "compliant",
@@ -1765,9 +1931,9 @@
       "q3": "N/A",
       "q4": "6",
       "weight": "10",
-      "responsibleUnit": "Office of the Municipal Manager / Strategic Executive",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Meshack S. Dimpe",
+      "submitter": "Meshack S. Dimpe",
+      "approver": "Mmaphiri R. Rampedi",
       "poeStatus": "Signed Mayoral Izimbizo Community Outreach Report and attendance registers",
       "poeDesc": "Signed Mayoral Izimbizo Community Outreach Report and attendance registers",
       "q1PoeDesc": "Signed Mayoral Izimbizo Community Outreach Report and attendance registers",
@@ -1796,7 +1962,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_32",
@@ -1808,7 +1975,7 @@
       "ggpp": "X",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 2: Good Governance and Public Participation (GGPP)",
+      "kpas": "Good Governance and Public Participation (GGPP)",
       "operationalActivity": "Number of Local Labour Forum (LLF) meetings held by 30 June 2027.",
       "kpi": "Number of Local Labour Forum (LLF) meetings held by 30 June 2027.",
       "compliance": "compliant",
@@ -1823,9 +1990,9 @@
       "q3": "2",
       "q4": "1",
       "weight": "10",
-      "responsibleUnit": "Corporate Services & Administration",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Jimmy Nhlapho",
+      "submitter": "Jimmy Nhlapho",
+      "approver": "Mmaphiri R. Rampedi",
       "poeStatus": "Signed Notice, and Agenda, previous quarter unsigned minutes and attendance register.",
       "poeDesc": "Signed Notice, and Agenda, previous quarter unsigned minutes and attendance register.",
       "q1PoeDesc": "Signed Notice, and Agenda, previous quarter unsigned minutes and attendance register.",
@@ -1854,7 +2021,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_33",
@@ -1866,7 +2034,7 @@
       "ggpp": "X",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 2: Good Governance and Public Participation (GGPP)",
+      "kpas": "Good Governance and Public Participation (GGPP)",
       "operationalActivity": "Number of Strategic Lekgotla report tabled to Council by 30 April 2027.",
       "kpi": "Number of Strategic Lekgotla report tabled to Council by 30 April 2027.",
       "compliance": "compliant",
@@ -1881,9 +2049,9 @@
       "q3": "N/A",
       "q4": "1",
       "weight": "10",
-      "responsibleUnit": "Office of the Municipal Manager / Strategic Executive",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Fortress Shabangu",
+      "submitter": "Fortress Shabangu",
+      "approver": "Alvin Bvuma",
       "poeStatus": "2027/2028 Strategic Lekgotla report and Council resolution",
       "poeDesc": "2027/2028 Strategic Lekgotla report and Council resolution",
       "q1PoeDesc": "2027/2028 Strategic Lekgotla report and Council resolution",
@@ -1912,7 +2080,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_34",
@@ -1924,7 +2093,7 @@
       "ggpp": "X",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 2: Good Governance and Public Participation (GGPP)",
+      "kpas": "Good Governance and Public Participation (GGPP)",
       "operationalActivity": "Number of Nkangala District One Plan (DDM) reports submitted to council by 30 June 2027.",
       "kpi": "Number of Nkangala District One Plan (DDM) reports submitted to council by 30 June 2027.",
       "compliance": "compliant",
@@ -1939,9 +2108,9 @@
       "q3": "1",
       "q4": "1",
       "weight": "10",
-      "responsibleUnit": "Office of the Municipal Manager / Strategic Executive",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Fortress Shabangu",
+      "submitter": "Fortress Shabangu",
+      "approver": "Alvin Bvuma",
       "poeStatus": "Quarterly Report on the Implementation of DDM One Plan and Council Resolutions.",
       "poeDesc": "Quarterly Report on the Implementation of DDM One Plan and Council Resolutions.",
       "q1PoeDesc": "Quarterly Report on the Implementation of DDM One Plan and Council Resolutions.",
@@ -1970,7 +2139,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_35",
@@ -1982,7 +2152,7 @@
       "ggpp": "X",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 2: Good Governance and Public Participation (GGPP)",
+      "kpas": "Good Governance and Public Participation (GGPP)",
       "operationalActivity": "Percentage of DDM One Plan resolutions implemented by NDM per quarter",
       "kpi": "Percentage of DDM One Plan resolutions implemented by NDM per quarter",
       "compliance": "compliant",
@@ -1997,9 +2167,9 @@
       "q3": "90%",
       "q4": "90%",
       "weight": "10",
-      "responsibleUnit": "Office of the Municipal Manager / Strategic Executive",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Fortress Shabangu",
+      "submitter": "Fortress Shabangu",
+      "approver": "Alvin Bvuma",
       "poeStatus": "Quarterly DDM One Plan resolution monitoring report.",
       "poeDesc": "Quarterly DDM One Plan resolution monitoring report.",
       "q1PoeDesc": "Quarterly DDM One Plan resolution monitoring report.",
@@ -2028,7 +2198,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_36",
@@ -2040,7 +2211,7 @@
       "ggpp": "X",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 2: Good Governance and Public Participation (GGPP)",
+      "kpas": "Good Governance and Public Participation (GGPP)",
       "operationalActivity": "Percentage of strategic lekgotla resolutions implemented by 30 June 2027.",
       "kpi": "Percentage of strategic lekgotla resolutions implemented by 30 June 2027.",
       "compliance": "compliant",
@@ -2055,9 +2226,9 @@
       "q3": "100%",
       "q4": "100%",
       "weight": "10",
-      "responsibleUnit": "Office of the Municipal Manager / Strategic Executive",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Fortress Shabangu",
+      "submitter": "Fortress Shabangu",
+      "approver": "Alvin Bvuma",
       "poeStatus": "Signed Strategic Lekgotla monitoring report",
       "poeDesc": "Signed Strategic Lekgotla monitoring report",
       "q1PoeDesc": "Signed Strategic Lekgotla monitoring report",
@@ -2086,7 +2257,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_37",
@@ -2098,7 +2270,7 @@
       "ggpp": "X",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 2: Good Governance and Public Participation (GGPP)",
+      "kpas": "Good Governance and Public Participation (GGPP)",
       "operationalActivity": "Number of reports on Council Resolutions submitted to Council per quarter",
       "kpi": "Number of reports on Council Resolutions submitted to Council per quarter",
       "compliance": "compliant",
@@ -2113,9 +2285,9 @@
       "q3": "1",
       "q4": "1",
       "weight": "10",
-      "responsibleUnit": "Office of the Municipal Manager / Strategic Executive",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Thandiwe Mazwi",
+      "submitter": "Thandiwe Mazwi",
+      "approver": "Mmaphiri R. Rampedi",
       "poeStatus": "Signed Quarterly Reports and Council Resolution.",
       "poeDesc": "Signed Quarterly Reports and Council Resolution.",
       "q1PoeDesc": "Signed Quarterly Reports and Council Resolution.",
@@ -2144,7 +2316,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_38",
@@ -2156,7 +2329,7 @@
       "ggpp": "X",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 2: Good Governance and Public Participation (GGPP)",
+      "kpas": "Good Governance and Public Participation (GGPP)",
       "operationalActivity": "Number of ICT Steering Committee meetings held per quarter",
       "kpi": "Number of ICT Steering Committee meetings held per quarter",
       "compliance": "compliant",
@@ -2171,9 +2344,9 @@
       "q3": "1",
       "q4": "1",
       "weight": "10",
-      "responsibleUnit": "Corporate Services & Administration",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Nokuthula D. Mthimunye",
+      "submitter": "Nokuthula D. Mthimunye",
+      "approver": "Bongani S. Khumalo",
       "poeStatus": "Signed Notice, and Agenda, previous quarter unsigned minutes and attendance register.",
       "poeDesc": "Signed Notice, and Agenda, previous quarter unsigned minutes and attendance register.",
       "q1PoeDesc": "Signed Notice, and Agenda, previous quarter unsigned minutes and attendance register.",
@@ -2202,7 +2375,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_39",
@@ -2214,7 +2388,7 @@
       "ggpp": "X",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 2: Good Governance and Public Participation (GGPP)",
+      "kpas": "Good Governance and Public Participation (GGPP)",
       "operationalActivity": "Percentage of ICT Steering Committee Recommendations implemented by 30 June 2027.",
       "kpi": "Percentage of ICT Steering Committee Recommendations implemented by 30 June 2027.",
       "compliance": "compliant",
@@ -2229,9 +2403,9 @@
       "q3": "100%",
       "q4": "100%",
       "weight": "10",
-      "responsibleUnit": "Corporate Services & Administration",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Nokuthula D. Mthimunye",
+      "submitter": "Nokuthula D. Mthimunye",
+      "approver": "Bongani S. Khumalo",
       "poeStatus": "Signed Quarterly report on implementation of ICT Steering Committee Recommendations",
       "poeDesc": "Signed Quarterly report on implementation of ICT Steering Committee Recommendations",
       "q1PoeDesc": "Signed Quarterly report on implementation of ICT Steering Committee Recommendations",
@@ -2260,7 +2434,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_40",
@@ -2272,7 +2447,7 @@
       "ggpp": "X",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 2: Good Governance and Public Participation (GGPP)",
+      "kpas": "Good Governance and Public Participation (GGPP)",
       "operationalActivity": "Percentage of internal audit recommendations implemented by 30 June 2027. (Total organization)",
       "kpi": "Percentage of internal audit recommendations implemented by 30 June 2027. (Total organization)",
       "compliance": "compliant",
@@ -2287,9 +2462,9 @@
       "q3": "100%",
       "q4": "100%",
       "weight": "10",
-      "responsibleUnit": "Office of the Municipal Manager / Strategic Executive",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Jayvanti Morar",
+      "submitter": "Jayvanti Morar",
+      "approver": "Amos D. Twala",
       "poeStatus": "Signed Quarterly IA report",
       "poeDesc": "Signed Quarterly IA report",
       "q1PoeDesc": "Signed Quarterly IA report",
@@ -2318,7 +2493,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_41",
@@ -2330,7 +2506,7 @@
       "ggpp": "X",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 2: Good Governance and Public Participation (GGPP)",
+      "kpas": "Good Governance and Public Participation (GGPP)",
       "operationalActivity": "Percentage of Audit Committee resolutions implemented by 30 June 2027.",
       "kpi": "Percentage of Audit Committee resolutions implemented by 30 June 2027.",
       "compliance": "compliant",
@@ -2345,9 +2521,9 @@
       "q3": "100%",
       "q4": "100%",
       "weight": "10",
-      "responsibleUnit": "Office of the Municipal Manager / Strategic Executive",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Jayvanti Morar",
+      "submitter": "Jayvanti Morar",
+      "approver": "Amos D. Twala",
       "poeStatus": "Signed Quarterly Audit committee resolution register",
       "poeDesc": "Signed Quarterly Audit committee resolution register",
       "q1PoeDesc": "Signed Quarterly Audit committee resolution register",
@@ -2376,7 +2552,42 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual",
+      "workflowStatus": "Submitted to Approver",
+      "submittedBy": "Jayvanti Morar",
+      "workflows": {
+        "q1": {
+          "status": "pending_approval",
+          "submittedBy": "Jayvanti Morar",
+          "submittedAt": "10/2/2026"
+        },
+        "q2": {
+          "status": "pending_approval",
+          "submittedBy": "Jayvanti Morar",
+          "submittedAt": "10/2/2026"
+        },
+        "midTerm": {
+          "status": "pending_approval",
+          "submittedBy": "Jayvanti Morar",
+          "submittedAt": "10/2/2026"
+        },
+        "q3": {
+          "status": "pending_approval",
+          "submittedBy": "Jayvanti Morar",
+          "submittedAt": "10/2/2026"
+        },
+        "q4": {
+          "status": "pending_approval",
+          "submittedBy": "Jayvanti Morar",
+          "submittedAt": "10/2/2026"
+        },
+        "annual": {
+          "status": "pending_approval",
+          "submittedBy": "Jayvanti Morar",
+          "submittedAt": "10/2/2026"
+        }
+      }
     },
     {
       "id": "sdbip-tl-M_42",
@@ -2388,7 +2599,7 @@
       "ggpp": "X",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 2: Good Governance and Public Participation (GGPP)",
+      "kpas": "Good Governance and Public Participation (GGPP)",
       "operationalActivity": "Number of Audit Committee reports submitted to Council by 30 June 2027",
       "kpi": "Number of Audit Committee reports submitted to Council by 30 June 2027",
       "compliance": "compliant",
@@ -2403,9 +2614,9 @@
       "q3": "1",
       "q4": "1",
       "weight": "10",
-      "responsibleUnit": "Office of the Municipal Manager / Strategic Executive",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Jayvanti Morar",
+      "submitter": "Jayvanti Morar",
+      "approver": "Amos D. Twala",
       "poeStatus": "Quarterly Signed Audit Committee Reports and Council Resolution.",
       "poeDesc": "Quarterly Signed Audit Committee Reports and Council Resolution.",
       "q1PoeDesc": "Quarterly Signed Audit Committee Reports and Council Resolution.",
@@ -2434,7 +2645,42 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual",
+      "workflowStatus": "Submitted to Approver",
+      "submittedBy": "Jayvanti Morar",
+      "workflows": {
+        "q1": {
+          "status": "pending_approval",
+          "submittedBy": "Jayvanti Morar",
+          "submittedAt": "10/2/2026"
+        },
+        "q2": {
+          "status": "pending_approval",
+          "submittedBy": "Jayvanti Morar",
+          "submittedAt": "10/2/2026"
+        },
+        "midTerm": {
+          "status": "pending_approval",
+          "submittedBy": "Jayvanti Morar",
+          "submittedAt": "10/2/2026"
+        },
+        "q3": {
+          "status": "pending_approval",
+          "submittedBy": "Jayvanti Morar",
+          "submittedAt": "10/2/2026"
+        },
+        "q4": {
+          "status": "pending_approval",
+          "submittedBy": "Jayvanti Morar",
+          "submittedAt": "10/2/2026"
+        },
+        "annual": {
+          "status": "pending_approval",
+          "submittedBy": "Jayvanti Morar",
+          "submittedAt": "10/2/2026"
+        }
+      }
     },
     {
       "id": "sdbip-tl-M_43",
@@ -2446,7 +2692,7 @@
       "ggpp": "X",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 2: Good Governance and Public Participation (GGPP)",
+      "kpas": "Good Governance and Public Participation (GGPP)",
       "operationalActivity": "Percentage of official complaints received and responded to through the municipal anti-fraud and anti-corruption hot line (only that are applicable to NDM functions) by 30 June 2027.",
       "kpi": "Percentage of official complaints received and responded to through the municipal anti-fraud and anti-corruption hot line (only that are applicable to NDM functions) by 30 June 2027.",
       "compliance": "compliant",
@@ -2461,9 +2707,9 @@
       "q3": "100%",
       "q4": "100%",
       "weight": "10",
-      "responsibleUnit": "Office of the Municipal Manager / Strategic Executive",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Quinton Skhosana",
+      "submitter": "Quinton Skhosana",
+      "approver": "Juliet N. Ralephaleng",
       "poeStatus": "Signed Reports on complaints (indicating the percentage of complaints received and responded to that are applicable to NDM functions)",
       "poeDesc": "Signed Reports on complaints (indicating the percentage of complaints received and responded to that are applicable to NDM functions)",
       "q1PoeDesc": "Signed Reports on complaints (indicating the percentage of complaints received and responded to that are applicable to NDM functions)",
@@ -2492,7 +2738,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_44",
@@ -2504,7 +2751,7 @@
       "ggpp": "X",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 2: Good Governance and Public Participation (GGPP)",
+      "kpas": "Good Governance and Public Participation (GGPP)",
       "operationalActivity": "Number of agenda items deferred to the next council meeting (circular 88) by 30 June 2027.",
       "kpi": "Number of agenda items deferred to the next council meeting (circular 88) by 30 June 2027.",
       "compliance": "compliant",
@@ -2519,9 +2766,9 @@
       "q3": "≤ 3",
       "q4": "≤ 3",
       "weight": "10",
-      "responsibleUnit": "Office of the Municipal Manager / Strategic Executive",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Thandiwe Mazwi",
+      "submitter": "Thandiwe Mazwi",
+      "approver": "Mmaphiri R. Rampedi",
       "poeStatus": "Signed Council Minutes of previous quarter and Council Minutes of the current quarter",
       "poeDesc": "Signed Council Minutes of previous quarter and Council Minutes of the current quarter",
       "q1PoeDesc": "Signed Council Minutes of previous quarter and Council Minutes of the current quarter",
@@ -2550,7 +2797,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_45",
@@ -2562,7 +2810,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 3: Local Economic Development (LED)",
+      "kpas": "Local Economic Development (LED)",
       "operationalActivity": "Number of EPWP Full Time Equivalent (FTE’s) job opportunities provided (GKPI) by 30 June 2027.",
       "kpi": "Number of EPWP Full Time Equivalent (FTE’s) job opportunities provided (GKPI) by 30 June 2027.",
       "compliance": "compliant",
@@ -2577,9 +2825,9 @@
       "q3": "30",
       "q4": "42",
       "weight": "10",
-      "responsibleUnit": "Planning & Economic Development",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Tiro Mabunda",
+      "submitter": "Tiro Mabunda",
+      "approver": "Alvin Bvuma",
       "poeStatus": "Signed progress reports and listing of employed EPWP Full Time Equivalent (FTE’s) (Employment Contracts and monthly attendance registers submitted on physical files)",
       "poeDesc": "Signed progress reports and listing of employed EPWP Full Time Equivalent (FTE’s) (Employment Contracts and monthly attendance registers submitted on physical files)",
       "q1PoeDesc": "Signed progress reports and listing of employed EPWP Full Time Equivalent (FTE’s) (Employment Contracts and monthly attendance registers submitted on physical files)",
@@ -2608,7 +2856,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_46",
@@ -2620,7 +2869,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 3: Local Economic Development (LED)",
+      "kpas": "Local Economic Development (LED)",
       "operationalActivity": "Number of EPWP Work Opportunities jobs created (GKPI) by 30 June 2027",
       "kpi": "Number of EPWP Work Opportunities jobs created (GKPI) by 30 June 2027",
       "compliance": "compliant",
@@ -2635,9 +2884,9 @@
       "q3": "0",
       "q4": "94",
       "weight": "10",
-      "responsibleUnit": "Planning & Economic Development",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Tiro Mabunda",
+      "submitter": "Tiro Mabunda",
+      "approver": "Alvin Bvuma",
       "poeStatus": "Signed progress reports and listing of employed EPWP (Employment Contracts and monthly attendance registers submitted on physical files)",
       "poeDesc": "Signed progress reports and listing of employed EPWP (Employment Contracts and monthly attendance registers submitted on physical files)",
       "q1PoeDesc": "Signed progress reports and listing of employed EPWP (Employment Contracts and monthly attendance registers submitted on physical files)",
@@ -2666,7 +2915,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_47",
@@ -2678,7 +2928,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 3: Local Economic Development (LED)",
+      "kpas": "Local Economic Development (LED)",
       "operationalActivity": "Number of Final LED Strategy Reviewed by 31 December 2026.",
       "kpi": "Number of Final LED Strategy Reviewed by 31 December 2026.",
       "compliance": "compliant",
@@ -2693,9 +2943,9 @@
       "q3": "N/A",
       "q4": "N/A",
       "weight": "10",
-      "responsibleUnit": "Planning & Economic Development",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Fikile Maseko",
+      "submitter": "Fikile Maseko",
+      "approver": "Alvin Bvuma",
       "poeStatus": "Final LED Strategy and Council resolution",
       "poeDesc": "Final LED Strategy and Council resolution",
       "q1PoeDesc": "Final LED Strategy and Council resolution",
@@ -2724,7 +2974,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_48",
@@ -2736,7 +2987,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 3: Local Economic Development (LED)",
+      "kpas": "Local Economic Development (LED)",
       "operationalActivity": "Percentage of companies owned by designated group (disabilities 3%, women 32%, youth 28% and Military Veterans 3%) benefited from NDM by 30 June 2027",
       "kpi": "Percentage of companies owned by designated group (disabilities 3%, women 32%, youth 28% and Military Veterans 3%) benefited from NDM by 30 June 2027",
       "compliance": "compliant",
@@ -2751,9 +3002,9 @@
       "q3": "40%",
       "q4": "66%",
       "weight": "10",
-      "responsibleUnit": "Financial Services & Budget Office",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Sanele Nkosi",
+      "submitter": "Sanele Nkosi",
+      "approver": "Walter M. Mtshweni",
       "poeStatus": "Signed SCM Quarterly Report on designated groups who benefited from NDM (Hard copies of signed appointment letters and BEE certificate)",
       "poeDesc": "Signed SCM Quarterly Report on designated groups who benefited from NDM (Hard copies of signed appointment letters and BEE certificate)",
       "q1PoeDesc": "Signed SCM Quarterly Report on designated groups who benefited from NDM (Hard copies of signed appointment letters and BEE certificate)",
@@ -2782,7 +3033,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_49",
@@ -2794,7 +3046,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 3: Local Economic Development (LED)",
+      "kpas": "Local Economic Development (LED)",
       "operationalActivity": "Number of Tourism Expo convened by 30 April 2027.",
       "kpi": "Number of Tourism Expo convened by 30 April 2027.",
       "compliance": "compliant",
@@ -2809,9 +3061,9 @@
       "q3": "N/A",
       "q4": "1",
       "weight": "10",
-      "responsibleUnit": "Planning & Economic Development",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Fikile Maseko",
+      "submitter": "Fikile Maseko",
+      "approver": "Alvin Bvuma",
       "poeStatus": "Attendance Registers and signed Report",
       "poeDesc": "Attendance Registers and signed Report",
       "q1PoeDesc": "Attendance Registers and signed Report",
@@ -2840,7 +3092,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_50",
@@ -2852,7 +3105,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 4: Municipal Financial Viability and Management (MFVM)",
+      "kpas": "Municipal Financial Viability and Management (MFVM)",
       "operationalActivity": "Report Current Ratio as expressed per quarter",
       "kpi": "Report Current Ratio as expressed per quarter",
       "compliance": "compliant",
@@ -2867,9 +3120,9 @@
       "q3": "1.0",
       "q4": "1.0",
       "weight": "10",
-      "responsibleUnit": "Financial Services & Budget Office",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Andile N. Hlongwa",
+      "submitter": "Andile N. Hlongwa",
+      "approver": "Alice L. Stander",
       "poeStatus": "Section 71 MFMA reports indicating Key Ratio calculation (The monthly Budget statement and financial report and the GKPI)",
       "poeDesc": "Section 71 MFMA reports indicating Key Ratio calculation (The monthly Budget statement and financial report and the GKPI)",
       "q1PoeDesc": "Section 71 MFMA reports indicating Key Ratio calculation (The monthly Budget statement and financial report and the GKPI)",
@@ -2898,7 +3151,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_51",
@@ -2910,7 +3164,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 4: Municipal Financial Viability and Management (MFVM)",
+      "kpas": "Municipal Financial Viability and Management (MFVM)",
       "operationalActivity": "Percentage reduction in Unauthorised, Irregular, Fruitless and Wasteful expenditure (UIFW) by 30 June 2027.",
       "kpi": "Percentage reduction in Unauthorised, Irregular, Fruitless and Wasteful expenditure (UIFW) by 30 June 2027.",
       "compliance": "compliant",
@@ -2925,9 +3179,9 @@
       "q3": "N/A",
       "q4": "75%",
       "weight": "10",
-      "responsibleUnit": "Financial Services & Budget Office",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Sipho Masilela",
+      "submitter": "Sipho Masilela",
+      "approver": "Alice L. Stander",
       "poeStatus": "Unauthorised, Irregular, Fruitless and Wasteful expenditure (UIFW) Register",
       "poeDesc": "Unauthorised, Irregular, Fruitless and Wasteful expenditure (UIFW) Register",
       "q1PoeDesc": "Unauthorised, Irregular, Fruitless and Wasteful expenditure (UIFW) Register",
@@ -2956,7 +3210,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_52",
@@ -2968,7 +3223,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 4: Municipal Financial Viability and Management (MFVM)",
+      "kpas": "Municipal Financial Viability and Management (MFVM)",
       "operationalActivity": "Percentage of total capital expenditure funded from own funding (internally generated funds + borrowing) (circular 88) by 30 June 2027.",
       "kpi": "Percentage of total capital expenditure funded from own funding (internally generated funds + borrowing) (circular 88) by 30 June 2027.",
       "compliance": "compliant",
@@ -2983,9 +3238,9 @@
       "q3": "100%",
       "q4": "100%",
       "weight": "10",
-      "responsibleUnit": "Financial Services & Budget Office",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Trudie Van Niekerk",
+      "submitter": "Trudie Van Niekerk",
+      "approver": "Alice L. Stander",
       "poeStatus": "Signed Capital expenditure progress report",
       "poeDesc": "Signed Capital expenditure progress report",
       "q1PoeDesc": "Signed Capital expenditure progress report",
@@ -3014,7 +3269,42 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual",
+      "workflowStatus": "Submitted to Approver",
+      "submittedBy": "Trudie Van Niekerk",
+      "workflows": {
+        "q1": {
+          "status": "pending_approval",
+          "submittedBy": "Trudie Van Niekerk",
+          "submittedAt": "2026/10/02"
+        },
+        "q2": {
+          "status": "pending_approval",
+          "submittedBy": "Trudie Van Niekerk",
+          "submittedAt": "2026/10/02"
+        },
+        "q3": {
+          "status": "pending_approval",
+          "submittedBy": "Trudie Van Niekerk",
+          "submittedAt": "2026/10/02"
+        },
+        "q4": {
+          "status": "pending_approval",
+          "submittedBy": "Trudie Van Niekerk",
+          "submittedAt": "2026/10/02"
+        },
+        "midTerm": {
+          "status": "pending_approval",
+          "submittedBy": "Trudie Van Niekerk",
+          "submittedAt": "2026/10/02"
+        },
+        "annual": {
+          "status": "pending_approval",
+          "submittedBy": "Trudie Van Niekerk",
+          "submittedAt": "2026/10/02"
+        }
+      }
     },
     {
       "id": "sdbip-tl-M_53",
@@ -3026,7 +3316,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 4: Municipal Financial Viability and Management (MFVM)",
+      "kpas": "Municipal Financial Viability and Management (MFVM)",
       "operationalActivity": "Percentage of operational budget actually spent (circular 88) by 30 June 2027.",
       "kpi": "Percentage of operational budget actually spent (circular 88) by 30 June 2027.",
       "compliance": "compliant",
@@ -3041,9 +3331,9 @@
       "q3": "60%",
       "q4": "91%",
       "weight": "10",
-      "responsibleUnit": "Financial Services & Budget Office",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Trudie Van Niekerk",
+      "submitter": "Trudie Van Niekerk",
+      "approver": "Alice L. Stander",
       "poeStatus": "Signed Operational Expenditure progress report",
       "poeDesc": "Signed Operational Expenditure progress report",
       "q1PoeDesc": "Signed Operational Expenditure progress report",
@@ -3072,7 +3362,42 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual",
+      "workflowStatus": "Submitted to Approver",
+      "submittedBy": "Trudie Van Niekerk",
+      "workflows": {
+        "q1": {
+          "status": "pending_approval",
+          "submittedBy": "Trudie Van Niekerk",
+          "submittedAt": "2026/10/02"
+        },
+        "q2": {
+          "status": "pending_approval",
+          "submittedBy": "Trudie Van Niekerk",
+          "submittedAt": "2026/10/02"
+        },
+        "midTerm": {
+          "status": "pending_approval",
+          "submittedBy": "Trudie Van Niekerk",
+          "submittedAt": "2026/10/02"
+        },
+        "q3": {
+          "status": "pending_approval",
+          "submittedBy": "Trudie Van Niekerk",
+          "submittedAt": "2026/10/02"
+        },
+        "q4": {
+          "status": "pending_approval",
+          "submittedBy": "Trudie Van Niekerk",
+          "submittedAt": "2026/10/02"
+        },
+        "annual": {
+          "status": "pending_approval",
+          "submittedBy": "Trudie Van Niekerk",
+          "submittedAt": "2026/10/02"
+        }
+      }
     },
     {
       "id": "sdbip-tl-M_54",
@@ -3084,7 +3409,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 4: Municipal Financial Viability and Management (MFVM)",
+      "kpas": "Municipal Financial Viability and Management (MFVM)",
       "operationalActivity": "Percentage of transfer and subsidies budget actually spent on projects (local Municipalities projects) by 30 June 2027",
       "kpi": "Percentage of transfer and subsidies budget actually spent on projects (local Municipalities projects) by 30 June 2027",
       "compliance": "compliant",
@@ -3099,9 +3424,9 @@
       "q3": "60%",
       "q4": "90%",
       "weight": "10",
-      "responsibleUnit": "Financial Services & Budget Office",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Trudie Van Niekerk",
+      "submitter": "Trudie Van Niekerk",
+      "approver": "Alice L. Stander",
       "poeStatus": "Transfer and subsidies Expenditure signed progress report",
       "poeDesc": "Transfer and subsidies Expenditure signed progress report",
       "q1PoeDesc": "Transfer and subsidies Expenditure signed progress report",
@@ -3130,7 +3455,42 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual",
+      "workflowStatus": "Submitted to Approver",
+      "submittedBy": "Trudie Van Niekerk",
+      "workflows": {
+        "q1": {
+          "status": "pending_approval",
+          "submittedBy": "Trudie Van Niekerk",
+          "submittedAt": "2026/10/02"
+        },
+        "q2": {
+          "status": "pending_approval",
+          "submittedBy": "Trudie Van Niekerk",
+          "submittedAt": "2026/10/02"
+        },
+        "midTerm": {
+          "status": "pending_approval",
+          "submittedBy": "Trudie Van Niekerk",
+          "submittedAt": "2026/10/02"
+        },
+        "q3": {
+          "status": "pending_approval",
+          "submittedBy": "Trudie Van Niekerk",
+          "submittedAt": "2026/10/02"
+        },
+        "q4": {
+          "status": "pending_approval",
+          "submittedBy": "Trudie Van Niekerk",
+          "submittedAt": "2026/10/02"
+        },
+        "annual": {
+          "status": "pending_approval",
+          "submittedBy": "Trudie Van Niekerk",
+          "submittedAt": "2026/10/02"
+        }
+      }
     },
     {
       "id": "sdbip-tl-M_55",
@@ -3142,7 +3502,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 4: Municipal Financial Viability and Management (MFVM)",
+      "kpas": "Municipal Financial Viability and Management (MFVM)",
       "operationalActivity": "Percentage of municipal payments made to service providers who submitted complete invoices within 30-days of invoice submission (circular 88) by 30 June 2027.",
       "kpi": "Percentage of municipal payments made to service providers who submitted complete invoices within 30-days of invoice submission (circular 88) by 30 June 2027.",
       "compliance": "compliant",
@@ -3157,9 +3517,9 @@
       "q3": "100%",
       "q4": "100%",
       "weight": "10",
-      "responsibleUnit": "Financial Services & Budget Office",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Trudie Van Niekerk",
+      "submitter": "Trudie Van Niekerk",
+      "approver": "Alice L. Stander",
       "poeStatus": "Signed Expenditure Report and official invoice register",
       "poeDesc": "Signed Expenditure Report and official invoice register",
       "q1PoeDesc": "Signed Expenditure Report and official invoice register",
@@ -3188,7 +3548,47 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual",
+      "workflowStatus": "Submitted to Approver",
+      "q1Poes": [
+        "1 INVOICE REGISTER JULY 2026.pdf",
+        "3 INVOICE REGISTER Sept 2026.pdf",
+        "2 INVOICE REGISTER AUG 2026.pdf"
+      ],
+      "submittedBy": "Trudie Van Niekerk",
+      "workflows": {
+        "q1": {
+          "status": "pending_approval",
+          "submittedBy": "Trudie Van Niekerk",
+          "submittedAt": "2026/10/02"
+        },
+        "q2": {
+          "status": "pending_approval",
+          "submittedBy": "Trudie Van Niekerk",
+          "submittedAt": "2026/10/02"
+        },
+        "q3": {
+          "status": "pending_approval",
+          "submittedBy": "Trudie Van Niekerk",
+          "submittedAt": "2026/10/02"
+        },
+        "q4": {
+          "status": "pending_approval",
+          "submittedBy": "Trudie Van Niekerk",
+          "submittedAt": "2026/10/02"
+        },
+        "midTerm": {
+          "status": "pending_approval",
+          "submittedBy": "Trudie Van Niekerk",
+          "submittedAt": "2026/10/02"
+        },
+        "annual": {
+          "status": "pending_approval",
+          "submittedBy": "Trudie Van Niekerk",
+          "submittedAt": "2026/10/02"
+        }
+      }
     },
     {
       "id": "sdbip-tl-M_56",
@@ -3200,7 +3600,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 4: Municipal Financial Viability and Management (MFVM)",
+      "kpas": "Municipal Financial Viability and Management (MFVM)",
       "operationalActivity": "Percentage spent on Financial Management Grant (FMG) by 30 June 2027.",
       "kpi": "Percentage spent on Financial Management Grant (FMG) by 30 June 2027.",
       "compliance": "compliant",
@@ -3215,9 +3615,9 @@
       "q3": "N/A",
       "q4": "100%",
       "weight": "10",
-      "responsibleUnit": "Financial Services & Budget Office",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Andile N. Hlongwa",
+      "submitter": "Andile N. Hlongwa",
+      "approver": "Alice L. Stander",
       "poeStatus": "Signed Financial Management Grant expenditure progress report",
       "poeDesc": "Signed Financial Management Grant expenditure progress report",
       "q1PoeDesc": "Signed Financial Management Grant expenditure progress report",
@@ -3246,7 +3646,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_57",
@@ -3258,7 +3659,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 4: Municipal Financial Viability and Management (MFVM)",
+      "kpas": "Municipal Financial Viability and Management (MFVM)",
       "operationalActivity": "Annual Financial Statements (AFS) submitted to Auditor General by 31 August 2026.",
       "kpi": "Annual Financial Statements (AFS) submitted to Auditor General by 31 August 2026.",
       "compliance": "compliant",
@@ -3273,9 +3674,9 @@
       "q3": "N/A",
       "q4": "N/A",
       "weight": "10",
-      "responsibleUnit": "Financial Services & Budget Office",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Ali S. Msiza",
+      "submitter": "Ali S. Msiza",
+      "approver": "Alice L. Stander",
       "poeStatus": "Signed Annual Financial Statements (AFS) and acknowledgement letter (of receipt) from the AG.",
       "poeDesc": "Signed Annual Financial Statements (AFS) and acknowledgement letter (of receipt) from the AG.",
       "q1PoeDesc": "Signed Annual Financial Statements (AFS) and acknowledgement letter (of receipt) from the AG.",
@@ -3304,7 +3705,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_58",
@@ -3316,7 +3718,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 4: Municipal Financial Viability and Management (MFVM)",
+      "kpas": "Municipal Financial Viability and Management (MFVM)",
       "operationalActivity": "Percentage of total municipal operating expenditure spent on contracted services physically residing within the District (circular 88) by 30 June 2027.",
       "kpi": "Percentage of total municipal operating expenditure spent on contracted services physically residing within the District (circular 88) by 30 June 2027.",
       "compliance": "compliant",
@@ -3331,9 +3733,9 @@
       "q3": "30%",
       "q4": "30%",
       "weight": "10",
-      "responsibleUnit": "Financial Services & Budget Office",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Sipho Masilela",
+      "submitter": "Sipho Masilela",
+      "approver": "Alice L. Stander",
       "poeStatus": "Signed contracted services report indicating contractors’ physical addresses and expenditure spent on contracted services physically residing within the District. (Hardcopies of signed appointment letters with proof of physical address)",
       "poeDesc": "Signed contracted services report indicating contractors’ physical addresses and expenditure spent on contracted services physically residing within the District. (Hardcopies of signed appointment letters with proof of physical address)",
       "q1PoeDesc": "Signed contracted services report indicating contractors’ physical addresses and expenditure spent on contracted services physically residing within the District. (Hardcopies of signed appointment letters with proof of physical address)",
@@ -3362,7 +3764,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_59",
@@ -3374,7 +3777,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 4: Municipal Financial Viability and Management (MFVM)",
+      "kpas": "Municipal Financial Viability and Management (MFVM)",
       "operationalActivity": "Number of MTREF Budget submitted for approval by 31 May 2027.",
       "kpi": "Number of MTREF Budget submitted for approval by 31 May 2027.",
       "compliance": "compliant",
@@ -3389,9 +3792,9 @@
       "q3": "N/A",
       "q4": "1",
       "weight": "10",
-      "responsibleUnit": "Financial Services & Budget Office",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Trudie Van Niekerk",
+      "submitter": "Trudie Van Niekerk",
+      "approver": "Alice L. Stander",
       "poeStatus": "Approved MTREF Budget and council resolution",
       "poeDesc": "Approved MTREF Budget and council resolution",
       "q1PoeDesc": "Approved MTREF Budget and council resolution",
@@ -3420,7 +3823,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_60",
@@ -3432,7 +3836,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 4: Municipal Financial Viability and Management (MFVM)",
+      "kpas": "Municipal Financial Viability and Management (MFVM)",
       "operationalActivity": "Number of Section 72 (midyear) MFMA report submitted to Executive Mayor by 25 January 2027.",
       "kpi": "Number of Section 72 (midyear) MFMA report submitted to Executive Mayor by 25 January 2027.",
       "compliance": "compliant",
@@ -3447,9 +3851,9 @@
       "q3": "1",
       "q4": "N/A",
       "weight": "10",
-      "responsibleUnit": "Financial Services & Budget Office",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Trudie Van Niekerk",
+      "submitter": "Trudie Van Niekerk",
+      "approver": "Alice L. Stander",
       "poeStatus": "Signed Section 72 (midyear) MFMA report and proof of submission to Executive Mayor’s office",
       "poeDesc": "Signed Section 72 (midyear) MFMA report and proof of submission to Executive Mayor’s office",
       "q1PoeDesc": "Signed Section 72 (midyear) MFMA report and proof of submission to Executive Mayor’s office",
@@ -3478,7 +3882,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_61",
@@ -3490,7 +3895,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 4: Municipal Financial Viability and Management (MFVM)",
+      "kpas": "Municipal Financial Viability and Management (MFVM)",
       "operationalActivity": "Number of quarterly SCM reports submitted to the Executive Mayor by 30 June 2027.",
       "kpi": "Number of quarterly SCM reports submitted to the Executive Mayor by 30 June 2027.",
       "compliance": "compliant",
@@ -3505,9 +3910,9 @@
       "q3": "1",
       "q4": "1",
       "weight": "10",
-      "responsibleUnit": "Financial Services & Budget Office",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Sipho Masilela",
+      "submitter": "Sipho Masilela",
+      "approver": "Alice L. Stander",
       "poeStatus": "Signed Quarterly SCM report and proof of submission to Executive Mayor’s office",
       "poeDesc": "Signed Quarterly SCM report and proof of submission to Executive Mayor’s office",
       "q1PoeDesc": "Signed Quarterly SCM report and proof of submission to Executive Mayor’s office",
@@ -3536,7 +3941,42 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual",
+      "workflowStatus": "Submitted to Approver",
+      "submittedBy": "Sipho Masilela",
+      "workflows": {
+        "q1": {
+          "status": "pending_approval",
+          "submittedBy": "Sipho Masilela",
+          "submittedAt": "10/2/2026"
+        },
+        "q2": {
+          "status": "pending_approval",
+          "submittedBy": "Sipho Masilela",
+          "submittedAt": "10/2/2026"
+        },
+        "midTerm": {
+          "status": "pending_approval",
+          "submittedBy": "Sipho Masilela",
+          "submittedAt": "10/2/2026"
+        },
+        "q3": {
+          "status": "pending_approval",
+          "submittedBy": "Sipho Masilela",
+          "submittedAt": "10/2/2026"
+        },
+        "q4": {
+          "status": "pending_approval",
+          "submittedBy": "Sipho Masilela",
+          "submittedAt": "10/2/2026"
+        },
+        "annual": {
+          "status": "pending_approval",
+          "submittedBy": "Sipho Masilela",
+          "submittedAt": "10/2/2026"
+        }
+      }
     },
     {
       "id": "sdbip-tl-M_62",
@@ -3548,7 +3988,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 4: Municipal Financial Viability and Management (MFVM)",
+      "kpas": "Municipal Financial Viability and Management (MFVM)",
       "operationalActivity": "Number of quarterly Section 52(d) MFMA reports submitted to Executive Mayor within 30 days after the end of each quarter",
       "kpi": "Number of quarterly Section 52(d) MFMA reports submitted to Executive Mayor within 30 days after the end of each quarter",
       "compliance": "compliant",
@@ -3563,9 +4003,9 @@
       "q3": "1",
       "q4": "1",
       "weight": "10",
-      "responsibleUnit": "Financial Services & Budget Office",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Trudie Van Niekerk",
+      "submitter": "Trudie Van Niekerk",
+      "approver": "Alice L. Stander",
       "poeStatus": "Signed Quarterly section 52(d) MFMA report and proof of submission to Executive Mayor’s",
       "poeDesc": "Signed Quarterly section 52(d) MFMA report and proof of submission to Executive Mayor’s",
       "q1PoeDesc": "Signed Quarterly section 52(d) MFMA report and proof of submission to Executive Mayor’s",
@@ -3594,7 +4034,46 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual",
+      "workflowStatus": "Submitted to Approver",
+      "q1Poes": [
+        "NDM- QUARTERLY REPORT June 2026 - Council Resolution.pdf",
+        "Section 52 Acknowledgement of Receipt - June 2026.pdf"
+      ],
+      "submittedBy": "Trudie Van Niekerk",
+      "workflows": {
+        "q1": {
+          "status": "pending_approval",
+          "submittedBy": "Trudie Van Niekerk",
+          "submittedAt": "2026/10/02"
+        },
+        "q2": {
+          "status": "pending_approval",
+          "submittedBy": "Trudie Van Niekerk",
+          "submittedAt": "2026/10/02"
+        },
+        "q3": {
+          "status": "pending_approval",
+          "submittedBy": "Trudie Van Niekerk",
+          "submittedAt": "2026/10/02"
+        },
+        "q4": {
+          "status": "pending_approval",
+          "submittedBy": "Trudie Van Niekerk",
+          "submittedAt": "2026/10/02"
+        },
+        "midTerm": {
+          "status": "pending_approval",
+          "submittedBy": "Trudie Van Niekerk",
+          "submittedAt": "2026/10/02"
+        },
+        "annual": {
+          "status": "pending_approval",
+          "submittedBy": "Trudie Van Niekerk",
+          "submittedAt": "2026/10/02"
+        }
+      }
     },
     {
       "id": "sdbip-tl-M_63",
@@ -3606,7 +4085,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 4: Municipal Financial Viability and Management (MFVM)",
+      "kpas": "Municipal Financial Viability and Management (MFVM)",
       "operationalActivity": "Number of monthly Section 71 MFMA reports submitted to Executive Mayor within 10 days after the end of each month",
       "kpi": "Number of monthly Section 71 MFMA reports submitted to Executive Mayor within 10 days after the end of each month",
       "compliance": "compliant",
@@ -3621,9 +4100,9 @@
       "q3": "3",
       "q4": "3",
       "weight": "10",
-      "responsibleUnit": "Financial Services & Budget Office",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Trudie Van Niekerk",
+      "submitter": "Trudie Van Niekerk",
+      "approver": "Alice L. Stander",
       "poeStatus": "Section 71 MFMA reports and proof of submission to Executive Mayor’s office",
       "poeDesc": "Section 71 MFMA reports and proof of submission to Executive Mayor’s office",
       "q1PoeDesc": "Section 71 MFMA reports and proof of submission to Executive Mayor’s office",
@@ -3652,7 +4131,31 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual",
+      "workflowStatus": "Draft",
+      "workflows": {
+        "q1": {
+          "status": "draft",
+          "submittedBy": "vanniekerkt@nkangaladm.gov.za",
+          "submittedAt": "2026/10/02"
+        },
+        "q2": {
+          "status": "draft",
+          "submittedBy": "vanniekerkt@nkangaladm.gov.za",
+          "submittedAt": "2026/10/02"
+        },
+        "q3": {
+          "status": "draft",
+          "submittedBy": "vanniekerkt@nkangaladm.gov.za",
+          "submittedAt": "2026/10/02"
+        },
+        "q4": {
+          "status": "draft",
+          "submittedBy": "vanniekerkt@nkangaladm.gov.za",
+          "submittedAt": "2026/10/02"
+        }
+      }
     },
     {
       "id": "sdbip-tl-M_64",
@@ -3664,7 +4167,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 4: Municipal Financial Viability and Management (MFVM)",
+      "kpas": "Municipal Financial Viability and Management (MFVM)",
       "operationalActivity": "Percentage implementation of the procurement plan by 30 June 2027.",
       "kpi": "Percentage implementation of the procurement plan by 30 June 2027.",
       "compliance": "compliant",
@@ -3679,9 +4182,9 @@
       "q3": "100%",
       "q4": "100%",
       "weight": "10",
-      "responsibleUnit": "Financial Services & Budget Office",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Sipho Masilela",
+      "submitter": "Sipho Masilela",
+      "approver": "Alice L. Stander",
       "poeStatus": "Signed Quarterly Procurement plan report",
       "poeDesc": "Signed Quarterly Procurement plan report",
       "q1PoeDesc": "Signed Quarterly Procurement plan report",
@@ -3710,7 +4213,45 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual",
+      "workflowStatus": "Submitted to Approver",
+      "q1Poes": [
+        "SCM_progress_report_on_procurement_plans_Jul_-_Sep_26.pdf"
+      ],
+      "submittedBy": "Sipho Masilela",
+      "workflows": {
+        "q1": {
+          "status": "pending_approval",
+          "submittedBy": "Sipho Masilela",
+          "submittedAt": "10/2/2026"
+        },
+        "q2": {
+          "status": "pending_approval",
+          "submittedBy": "Sipho Masilela",
+          "submittedAt": "10/2/2026"
+        },
+        "midTerm": {
+          "status": "pending_approval",
+          "submittedBy": "Sipho Masilela",
+          "submittedAt": "10/2/2026"
+        },
+        "q3": {
+          "status": "pending_approval",
+          "submittedBy": "Sipho Masilela",
+          "submittedAt": "10/2/2026"
+        },
+        "q4": {
+          "status": "pending_approval",
+          "submittedBy": "Sipho Masilela",
+          "submittedAt": "10/2/2026"
+        },
+        "annual": {
+          "status": "pending_approval",
+          "submittedBy": "Sipho Masilela",
+          "submittedAt": "10/2/2026"
+        }
+      }
     },
     {
       "id": "sdbip-tl-M_65",
@@ -3722,7 +4263,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 4: Municipal Financial Viability and Management (MFVM)",
+      "kpas": "Municipal Financial Viability and Management (MFVM)",
       "operationalActivity": "Average number of days from the point of advertising to the letter of award per 80/20 procurement process (circular 88) by 30 June 2027.",
       "kpi": "Average number of days from the point of advertising to the letter of award per 80/20 procurement process (circular 88) by 30 June 2027.",
       "compliance": "compliant",
@@ -3737,9 +4278,9 @@
       "q3": "120",
       "q4": "120",
       "weight": "10",
-      "responsibleUnit": "Financial Services & Budget Office",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Sipho Masilela",
+      "submitter": "Sipho Masilela",
+      "approver": "Alice L. Stander",
       "poeStatus": "Average number of days SCM official (Signed) report",
       "poeDesc": "Average number of days SCM official (Signed) report",
       "q1PoeDesc": "Average number of days SCM official (Signed) report",
@@ -3768,7 +4309,42 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual",
+      "workflowStatus": "Submitted to Approver",
+      "submittedBy": "Sipho Masilela",
+      "workflows": {
+        "q1": {
+          "status": "pending_approval",
+          "submittedBy": "Sipho Masilela",
+          "submittedAt": "10/2/2026"
+        },
+        "q2": {
+          "status": "pending_approval",
+          "submittedBy": "Sipho Masilela",
+          "submittedAt": "10/2/2026"
+        },
+        "midTerm": {
+          "status": "pending_approval",
+          "submittedBy": "Sipho Masilela",
+          "submittedAt": "10/2/2026"
+        },
+        "q3": {
+          "status": "pending_approval",
+          "submittedBy": "Sipho Masilela",
+          "submittedAt": "10/2/2026"
+        },
+        "q4": {
+          "status": "pending_approval",
+          "submittedBy": "Sipho Masilela",
+          "submittedAt": "10/2/2026"
+        },
+        "annual": {
+          "status": "pending_approval",
+          "submittedBy": "Sipho Masilela",
+          "submittedAt": "10/2/2026"
+        }
+      }
     },
     {
       "id": "sdbip-tl-M_66",
@@ -3780,7 +4356,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Percentage spent on Rural Assets Management Grant by 30 June 2027. (7302)",
       "kpi": "Percentage spent on Rural Assets Management Grant by 30 June 2027. (7302)",
       "compliance": "compliant",
@@ -3795,9 +4371,9 @@
       "q3": "60%",
       "q4": "100%",
       "weight": "10",
-      "responsibleUnit": "Infrastructure Development & Technical Services",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Jackson Skosana",
+      "submitter": "Jackson Skosana",
+      "approver": "Walter M. Mtshweni",
       "poeStatus": "Rural assets management grant Expenditure progress report signed off by CFO",
       "poeDesc": "Rural assets management grant Expenditure progress report signed off by CFO",
       "q1PoeDesc": "Rural assets management grant Expenditure progress report signed off by CFO",
@@ -3826,7 +4402,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_67",
@@ -3838,7 +4415,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Total m² of potholes patched on municipal roads by 30 June 2027. (185538)",
       "kpi": "Total m² of potholes patched on municipal roads by 30 June 2027. (185538)",
       "compliance": "compliant",
@@ -3853,9 +4430,9 @@
       "q3": "1000m²",
       "q4": "1000m²",
       "weight": "10",
-      "responsibleUnit": "Infrastructure Development & Technical Services",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Mxolisi Bembe",
+      "submitter": "Mxolisi Bembe",
+      "approver": "Walter M. Mtshweni",
       "poeStatus": "Signed quarterly reports",
       "poeDesc": "Signed quarterly reports",
       "q1PoeDesc": "Signed quarterly reports",
@@ -3884,7 +4461,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_68",
@@ -3896,7 +4474,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Number of SANITATION projects (as submitted by the LM's) that are Completed in terms of project schedules by 30 June 2027.",
       "kpi": "Number of SANITATION projects (as submitted by the LM's) that are Completed in terms of project schedules by 30 June 2027.",
       "compliance": "compliant",
@@ -3911,9 +4489,9 @@
       "q3": "N/A",
       "q4": "1",
       "weight": "10",
-      "responsibleUnit": "Infrastructure Development & Technical Services",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Mxolisi Bembe",
+      "submitter": "Mxolisi Bembe",
+      "approver": "Walter M. Mtshweni",
       "poeStatus": "Signed construction progress reports, 1 x Completion certificate",
       "poeDesc": "Signed construction progress reports, 1 x Completion certificate",
       "q1PoeDesc": "Signed construction progress reports, 1 x Completion certificate",
@@ -3942,7 +4520,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_69",
@@ -3954,7 +4533,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Number of WATER projects (as submitted by the LM's) that are Completed in terms of Project Schedules by 30 June 2027.",
       "kpi": "Number of WATER projects (as submitted by the LM's) that are Completed in terms of Project Schedules by 30 June 2027.",
       "compliance": "compliant",
@@ -3969,9 +4548,9 @@
       "q3": "N/A",
       "q4": "8",
       "weight": "10",
-      "responsibleUnit": "Infrastructure Development & Technical Services",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Mxolisi Bembe",
+      "submitter": "Mxolisi Bembe",
+      "approver": "Walter M. Mtshweni",
       "poeStatus": "1 x BSC resolutions, tender advert, BEC & BAC resolutions, 7x Signed construction progress reports, 7 x Completion certificate, 2 x Appointment Letter, 1x Signed Delivery Note(s) and Expenditure Reports",
       "poeDesc": "1 x BSC resolutions, tender advert, BEC & BAC resolutions, 7x Signed construction progress reports, 7 x Completion certificate, 2 x Appointment Letter, 1x Signed Delivery Note(s) and Expenditure Reports",
       "q1PoeDesc": "1 x BSC resolutions, tender advert, BEC & BAC resolutions, 7x Signed construction progress reports, 7 x Completion certificate, 2 x Appointment Letter, 1x Signed Delivery Note(s) and Expenditure Reports",
@@ -4000,7 +4579,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_93",
@@ -4012,7 +4592,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Number of Water projects (as submitted by LM’s) that are work in progress in terms of project schedules by 30 June 2027",
       "kpi": "Number of Water projects (as submitted by LM’s) that are work in progress in terms of project schedules by 30 June 2027",
       "compliance": "compliant",
@@ -4027,9 +4607,9 @@
       "q3": "N/A",
       "q4": "2",
       "weight": "10",
-      "responsibleUnit": "Infrastructure Development & Technical Services",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Mxolisi Bembe",
+      "submitter": "Mxolisi Bembe",
+      "approver": "Walter M. Mtshweni",
       "poeStatus": "2 x BSC Resolutions, Tender Adverts (Tear Sheet), BEC & BAC Resolutions, Contractors Appointment Letters.",
       "poeDesc": "2 x BSC Resolutions, Tender Adverts (Tear Sheet), BEC & BAC Resolutions, Contractors Appointment Letters.",
       "q1PoeDesc": "2 x BSC Resolutions, Tender Adverts (Tear Sheet), BEC & BAC Resolutions, Contractors Appointment Letters.",
@@ -4058,7 +4638,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_94",
@@ -4070,7 +4651,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Number of multi-year municipal facilities (NDM) projects that are completed in terms of project schedule by 30 June 2027",
       "kpi": "Number of multi-year municipal facilities (NDM) projects that are completed in terms of project schedule by 30 June 2027",
       "compliance": "compliant",
@@ -4085,9 +4666,9 @@
       "q3": "N/A",
       "q4": "1",
       "weight": "10",
-      "responsibleUnit": "Infrastructure Development & Technical Services",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Sipokazi Wakeni",
+      "submitter": "Sipokazi Wakeni",
+      "approver": "Walter M. Mtshweni",
       "poeStatus": "Construction Progress Report, Completion Certificate, Occupation Certificate, Certificate of Electrical Compliance (COC)",
       "poeDesc": "Construction Progress Report, Completion Certificate, Occupation Certificate, Certificate of Electrical Compliance (COC)",
       "q1PoeDesc": "Construction Progress Report, Completion Certificate, Occupation Certificate, Certificate of Electrical Compliance (COC)",
@@ -4116,7 +4697,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_70",
@@ -4128,7 +4710,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Number of ELECTRICITY Projects (as submitted by the LM's) that are Completed in terms of project schedules by 30 June 2027.",
       "kpi": "Number of ELECTRICITY Projects (as submitted by the LM's) that are Completed in terms of project schedules by 30 June 2027.",
       "compliance": "compliant",
@@ -4143,9 +4725,9 @@
       "q3": "N/A",
       "q4": "2",
       "weight": "10",
-      "responsibleUnit": "Infrastructure Development & Technical Services",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Mokgadi Mokgolomotho",
+      "submitter": "Mokgadi Mokgolomotho",
+      "approver": "Walter M. Mtshweni",
       "poeStatus": "Signed construction progress reports, 2 x completion certificate",
       "poeDesc": "Signed construction progress reports, 2 x completion certificate",
       "q1PoeDesc": "Signed construction progress reports, 2 x completion certificate",
@@ -4174,7 +4756,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_71",
@@ -4186,7 +4769,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Number of roads and storm water projects (as submitted by LMs) that are completed in-terms of project schedules by 30 June 2027.",
       "kpi": "Number of roads and storm water projects (as submitted by LMs) that are completed in-terms of project schedules by 30 June 2027.",
       "compliance": "compliant",
@@ -4201,9 +4784,9 @@
       "q3": "N/A",
       "q4": "1",
       "weight": "10",
-      "responsibleUnit": "Infrastructure Development & Technical Services",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Jackson Skosana",
+      "submitter": "Jackson Skosana",
+      "approver": "Walter M. Mtshweni",
       "poeStatus": "Signed Road Network Assessment progress report, 1 x completion certificate",
       "poeDesc": "Signed Road Network Assessment progress report, 1 x completion certificate",
       "q1PoeDesc": "Signed Road Network Assessment progress report, 1 x completion certificate",
@@ -4232,7 +4815,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_72",
@@ -4244,7 +4828,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Number of progress reports on households with access to basic services provided by local municipalities (Water, Sanitation, Electricity and Roads) submitted to Council by 30 June 2027",
       "kpi": "Number of progress reports on households with access to basic services provided by local municipalities (Water, Sanitation, Electricity and Roads) submitted to Council by 30 June 2027",
       "compliance": "compliant",
@@ -4259,9 +4843,9 @@
       "q3": "N/A",
       "q4": "1",
       "weight": "10",
-      "responsibleUnit": "Infrastructure Development & Technical Services",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Mxolisi Bembe",
+      "submitter": "Mxolisi Bembe",
+      "approver": "Walter M. Mtshweni",
       "poeStatus": "2x Signed progress reports and Council resolutions, 1 x completion certificate",
       "poeDesc": "2x Signed progress reports and Council resolutions, 1 x completion certificate",
       "q1PoeDesc": "2x Signed progress reports and Council resolutions, 1 x completion certificate",
@@ -4290,7 +4874,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_73",
@@ -4302,7 +4887,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Percentage of all registered food premises inspected in compliance with relevant legislation (Circular 88) per quarter",
       "kpi": "Percentage of all registered food premises inspected in compliance with relevant legislation (Circular 88) per quarter",
       "compliance": "compliant",
@@ -4317,9 +4902,9 @@
       "q3": "67%",
       "q4": "67%",
       "weight": "10",
-      "responsibleUnit": "Social Services & Community Development",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Solly Links",
+      "submitter": "Solly Links",
+      "approver": "Thandiwe M. Lengwate",
       "poeStatus": "Signed Quarterly MHS report and signed spreadsheets",
       "poeDesc": "Signed Quarterly MHS report and signed spreadsheets",
       "q1PoeDesc": "Signed Quarterly MHS report and signed spreadsheets",
@@ -4348,7 +4933,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_74",
@@ -4360,7 +4946,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Number of food samples conducted in terms of the Foodstuffs, Cosmetics, Disinfectant Act (FCDA) per quarter",
       "kpi": "Number of food samples conducted in terms of the Foodstuffs, Cosmetics, Disinfectant Act (FCDA) per quarter",
       "compliance": "compliant",
@@ -4375,9 +4961,9 @@
       "q3": "80",
       "q4": "80",
       "weight": "10",
-      "responsibleUnit": "Social Services & Community Development",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Solly Links",
+      "submitter": "Solly Links",
+      "approver": "Thandiwe M. Lengwate",
       "poeStatus": "Signed Quarterly MHS report and signed Laboratory Sampling Forms",
       "poeDesc": "Signed Quarterly MHS report and signed Laboratory Sampling Forms",
       "q1PoeDesc": "Signed Quarterly MHS report and signed Laboratory Sampling Forms",
@@ -4406,7 +4992,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_75",
@@ -4418,7 +5005,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Number of food handling and preparation facility inspections conducted in terms of the Foodstuffs, Cosmetics, Disinfectant Act (FCDA) per quarter",
       "kpi": "Number of food handling and preparation facility inspections conducted in terms of the Foodstuffs, Cosmetics, Disinfectant Act (FCDA) per quarter",
       "compliance": "compliant",
@@ -4433,9 +5020,9 @@
       "q3": "1250",
       "q4": "1250",
       "weight": "10",
-      "responsibleUnit": "Social Services & Community Development",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Solly Links",
+      "submitter": "Solly Links",
+      "approver": "Thandiwe M. Lengwate",
       "poeStatus": "Signed Quarterly food handling and preparation facility inspections reports and signed Spreadsheets",
       "poeDesc": "Signed Quarterly food handling and preparation facility inspections reports and signed Spreadsheets",
       "q1PoeDesc": "Signed Quarterly food handling and preparation facility inspections reports and signed Spreadsheets",
@@ -4464,7 +5051,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_76",
@@ -4476,7 +5064,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Number of inland water samples tested for monitoring purposes (circular 88) per quarter from the local municipalities, analysed as per the SANS 241 standard (circular 88)",
       "kpi": "Number of inland water samples tested for monitoring purposes (circular 88) per quarter from the local municipalities, analysed as per the SANS 241 standard (circular 88)",
       "compliance": "compliant",
@@ -4491,9 +5079,9 @@
       "q3": "850",
       "q4": "850",
       "weight": "10",
-      "responsibleUnit": "Social Services & Community Development",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Solly Links",
+      "submitter": "Solly Links",
+      "approver": "Thandiwe M. Lengwate",
       "poeStatus": "Signed Quarterly water samples report and signed Spreadsheets",
       "poeDesc": "Signed Quarterly water samples report and signed Spreadsheets",
       "q1PoeDesc": "Signed Quarterly water samples report and signed Spreadsheets",
@@ -4522,7 +5110,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_77",
@@ -4534,7 +5123,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Number of awareness campaigns on teenage pregnancy undertaken by 31 March 2027.",
       "kpi": "Number of awareness campaigns on teenage pregnancy undertaken by 31 March 2027.",
       "compliance": "compliant",
@@ -4549,9 +5138,9 @@
       "q3": "2",
       "q4": "2",
       "weight": "10",
-      "responsibleUnit": "Social Services & Community Development",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Headman Skosana",
+      "submitter": "Headman Skosana",
+      "approver": "Thandiwe M. Lengwate",
       "poeStatus": "Attendance registers and signed quarterly reports (proving number of awareness campaigns on teenage pregnancy undertaken)",
       "poeDesc": "Attendance registers and signed quarterly reports (proving number of awareness campaigns on teenage pregnancy undertaken)",
       "q1PoeDesc": "Attendance registers and signed quarterly reports (proving number of awareness campaigns on teenage pregnancy undertaken)",
@@ -4580,7 +5169,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_78",
@@ -4592,7 +5182,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Number of campaigns on drug / substance abuse held in partnership with SANCA by 30 June 2027.",
       "kpi": "Number of campaigns on drug / substance abuse held in partnership with SANCA by 30 June 2027.",
       "compliance": "compliant",
@@ -4607,9 +5197,9 @@
       "q3": "2",
       "q4": "2",
       "weight": "10",
-      "responsibleUnit": "Social Services & Community Development",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Headman Skosana",
+      "submitter": "Headman Skosana",
+      "approver": "Thandiwe M. Lengwate",
       "poeStatus": "Attendance registers and signed quarterly reports (proving number of campaigns on drug / substance abuse held)",
       "poeDesc": "Attendance registers and signed quarterly reports (proving number of campaigns on drug / substance abuse held)",
       "q1PoeDesc": "Attendance registers and signed quarterly reports (proving number of campaigns on drug / substance abuse held)",
@@ -4638,7 +5228,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_79",
@@ -4650,7 +5241,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Mayoral Academic Recognition of NDM Learners held by 31 March 2027.",
       "kpi": "Mayoral Academic Recognition of NDM Learners held by 31 March 2027.",
       "compliance": "compliant",
@@ -4665,9 +5256,9 @@
       "q3": "1",
       "q4": "N/A",
       "weight": "10",
-      "responsibleUnit": "Office of the Municipal Manager / Strategic Executive",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Headman Skosana",
+      "submitter": "Headman Skosana",
+      "approver": "Thandiwe M. Lengwate",
       "poeStatus": "Attendance registers and signed report",
       "poeDesc": "Attendance registers and signed report",
       "q1PoeDesc": "Attendance registers and signed report",
@@ -4696,7 +5287,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_80",
@@ -4708,7 +5300,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Number of Mandela month community programme to support vulnerable group by 30 July 2026.",
       "kpi": "Number of Mandela month community programme to support vulnerable group by 30 July 2026.",
       "compliance": "compliant",
@@ -4723,9 +5315,9 @@
       "q3": "N/A",
       "q4": "N/A",
       "weight": "10",
-      "responsibleUnit": "Social Services & Community Development",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Thembi Ndlovu",
+      "submitter": "Thembi Ndlovu",
+      "approver": "Thandiwe M. Lengwate",
       "poeStatus": "Attendance registers, signed reports, and fully completed and signed acknowledgement of receipts",
       "poeDesc": "Attendance registers, signed reports, and fully completed and signed acknowledgement of receipts",
       "q1PoeDesc": "Attendance registers, signed reports, and fully completed and signed acknowledgement of receipts",
@@ -4754,7 +5346,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_81",
@@ -4766,7 +5359,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Number of moral regeneration programme implemented to communities by 30 June 2027. (105053)",
       "kpi": "Number of moral regeneration programme implemented to communities by 30 June 2027. (105053)",
       "compliance": "compliant",
@@ -4781,9 +5374,9 @@
       "q3": "1",
       "q4": "N/A",
       "weight": "10",
-      "responsibleUnit": "Social Services & Community Development",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Annah Msiza",
+      "submitter": "Annah Msiza",
+      "approver": "Thandiwe M. Lengwate",
       "poeStatus": "Signed Quarterly reports proving Number of Moral programmes and attendance registers",
       "poeDesc": "Signed Quarterly reports proving Number of Moral programmes and attendance registers",
       "q1PoeDesc": "Signed Quarterly reports proving Number of Moral programmes and attendance registers",
@@ -4812,7 +5405,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_82",
@@ -4824,7 +5418,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Number of vulnerable groups programmes aimed at Gender Based Violence & Femicide, women, older person, children, men, LGBTIQ+ and People with Disability held by 30 June 2027.",
       "kpi": "Number of vulnerable groups programmes aimed at Gender Based Violence & Femicide, women, older person, children, men, LGBTIQ+ and People with Disability held by 30 June 2027.",
       "compliance": "compliant",
@@ -4839,9 +5433,9 @@
       "q3": "2",
       "q4": "2",
       "weight": "10",
-      "responsibleUnit": "Social Services & Community Development",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Annah Msiza",
+      "submitter": "Annah Msiza",
+      "approver": "Thandiwe M. Lengwate",
       "poeStatus": "Signed Quarterly reports proving Number of vulnerable groups programmes (one each per program: Gender Based Violence & Femicide, women, older person, children, men, LGBTIQ+ and People with Disability) held and attendance registers",
       "poeDesc": "Signed Quarterly reports proving Number of vulnerable groups programmes (one each per program: Gender Based Violence & Femicide, women, older person, children, men, LGBTIQ+ and People with Disability) held and attendance registers",
       "q1PoeDesc": "Signed Quarterly reports proving Number of vulnerable groups programmes (one each per program: Gender Based Violence & Femicide, women, older person, children, men, LGBTIQ+ and People with Disability) held and attendance registers",
@@ -4870,7 +5464,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_83",
@@ -4882,7 +5477,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Number of quarterly District AIDS Council (DAC) meetings held by 30 June 2027. (24363)",
       "kpi": "Number of quarterly District AIDS Council (DAC) meetings held by 30 June 2027. (24363)",
       "compliance": "compliant",
@@ -4897,9 +5492,9 @@
       "q3": "1",
       "q4": "1",
       "weight": "10",
-      "responsibleUnit": "Social Services & Community Development",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Annah Msiza",
+      "submitter": "Annah Msiza",
+      "approver": "Thandiwe M. Lengwate",
       "poeStatus": "Signed Notice, and Agenda, previous quarter unsigned minutes and attendance register.",
       "poeDesc": "Signed Notice, and Agenda, previous quarter unsigned minutes and attendance register.",
       "q1PoeDesc": "Signed Notice, and Agenda, previous quarter unsigned minutes and attendance register.",
@@ -4928,7 +5523,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_84",
@@ -4940,7 +5536,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Number of HIV/AIDS Programmes (Awareness campaigns, Jamboree, HIV/AIDS Lekgotla) conducted by 30 June 2027. (24363)",
       "kpi": "Number of HIV/AIDS Programmes (Awareness campaigns, Jamboree, HIV/AIDS Lekgotla) conducted by 30 June 2027. (24363)",
       "compliance": "compliant",
@@ -4955,9 +5551,9 @@
       "q3": "1",
       "q4": "1",
       "weight": "10",
-      "responsibleUnit": "Social Services & Community Development",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Annah Msiza",
+      "submitter": "Annah Msiza",
+      "approver": "Thandiwe M. Lengwate",
       "poeStatus": "Signed HIV/AIDS Awareness Quarterly report and attendance registers",
       "poeDesc": "Signed HIV/AIDS Awareness Quarterly report and attendance registers",
       "q1PoeDesc": "Signed HIV/AIDS Awareness Quarterly report and attendance registers",
@@ -4986,7 +5582,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_85",
@@ -4998,7 +5595,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Number of community-based campaigns conducted by 30 June 2027. (Disaster Risk reduction awareness, MHS & Environmental Management awareness and Climate Change Awareness). (185556)",
       "kpi": "Number of community-based campaigns conducted by 30 June 2027. (Disaster Risk reduction awareness, MHS & Environmental Management awareness and Climate Change Awareness). (185556)",
       "compliance": "compliant",
@@ -5013,9 +5610,9 @@
       "q3": "1",
       "q4": "1",
       "weight": "10",
-      "responsibleUnit": "Social Services & Community Development",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Edwin Mametja",
+      "submitter": "Edwin Mametja",
+      "approver": "Thandiwe M. Lengwate",
       "poeStatus": "Signed Quarterly Reports on Community Based Programmes (Disaster Risk reduction awareness, MHS & Environmental Management awareness and Climate Change Awareness) and attendance registers",
       "poeDesc": "Signed Quarterly Reports on Community Based Programmes (Disaster Risk reduction awareness, MHS & Environmental Management awareness and Climate Change Awareness) and attendance registers",
       "q1PoeDesc": "Signed Quarterly Reports on Community Based Programmes (Disaster Risk reduction awareness, MHS & Environmental Management awareness and Climate Change Awareness) and attendance registers",
@@ -5044,7 +5641,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_86",
@@ -5056,7 +5654,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Number of Climate Change Mitigation and Adaptation Trainings conducted by 30 June 2027.",
       "kpi": "Number of Climate Change Mitigation and Adaptation Trainings conducted by 30 June 2027.",
       "compliance": "compliant",
@@ -5071,9 +5669,9 @@
       "q3": "1",
       "q4": "1",
       "weight": "10",
-      "responsibleUnit": "Social Services & Community Development",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Edwin Mametja",
+      "submitter": "Edwin Mametja",
+      "approver": "Thandiwe M. Lengwate",
       "poeStatus": "Attendance Register and Signed Quarterly Report",
       "poeDesc": "Attendance Register and Signed Quarterly Report",
       "q1PoeDesc": "Attendance Register and Signed Quarterly Report",
@@ -5102,7 +5700,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_87",
@@ -5114,7 +5713,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Number of compliance audits conducted with respect to Sec 21 listed activities as per the NEMAQA by 30 June 2027",
       "kpi": "Number of compliance audits conducted with respect to Sec 21 listed activities as per the NEMAQA by 30 June 2027",
       "compliance": "compliant",
@@ -5129,9 +5728,9 @@
       "q3": "9",
       "q4": "10",
       "weight": "10",
-      "responsibleUnit": "Social Services & Community Development",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Nompumelelo Simelane",
+      "submitter": "Nompumelelo Simelane",
+      "approver": "Thandiwe M. Lengwate",
       "poeStatus": "Attendance registers and signed quarterly report (proving of number of compliance audits conducted)",
       "poeDesc": "Attendance registers and signed quarterly report (proving of number of compliance audits conducted)",
       "q1PoeDesc": "Attendance registers and signed quarterly report (proving of number of compliance audits conducted)",
@@ -5160,7 +5759,32 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual",
+      "workflowStatus": "Submitted",
+      "q1Poes": [
+        "Attendance Register 02 September 2026 Eskom Holding SOC Ltd Matla Power Station.pdf",
+        "Attendance Register 03 September 2026 Eskom Holding SOC Ltd Matla Power Station.pdf",
+        "Attendance Register 04 August 2026 South Saharan Mining (Pty) Ltd.pdf",
+        "Attendance Register 07 August 2026 Dangote Cement SA (Pty) T.A Sephaku Cement Delmas Factory.pdf",
+        "Attendance Register 08 September 2026 Char Technology (Pty) Ltd.pdf",
+        "Attendance Register 09 September 2026 Char Technology AFC.pdf",
+        "Attendance Register 18 August 2026 Corobrik (Pty) Ltd Middelwit Factory.pdf",
+        "Attendance Register 19 August 2026 Corobrik (Pty) Ltd - Eastbrick Factory.pdf",
+        "Attendance Register 21 September 2026 African Rainbow Minerals.pdf",
+        "Attendance Register 22 September 2026 Elkem Ferroveld Joint Venture.pdf",
+        "Attendance Register 25 August 2026 Eskom Holding SOC Ltd Kendal Power Station.pdf",
+        "Attendance Register 26 August 2026 Eskom Holding SOC Ltd Kendal Power Station.pdf",
+        "Signed 1st Quarter Report on Compliance Audits (2026-2027).pdf"
+      ],
+      "submittedBy": "Nompumelelo Simelane",
+      "workflows": {
+        "q1": {
+          "status": "pending_approval",
+          "submittedBy": "Nompumelelo Simelane",
+          "submittedAt": "2026/10/02"
+        }
+      }
     },
     {
       "id": "sdbip-tl-M_88",
@@ -5172,7 +5796,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Number of Education Career Expos held by 30 June 2027.",
       "kpi": "Number of Education Career Expos held by 30 June 2027.",
       "compliance": "compliant",
@@ -5187,9 +5811,9 @@
       "q3": "N/A",
       "q4": "1",
       "weight": "10",
-      "responsibleUnit": "Social Services & Community Development",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Headman Skosana",
+      "submitter": "Headman Skosana",
+      "approver": "Thandiwe M. Lengwate",
       "poeStatus": "Attendance Registers and signed Quarterly Reports (proving of number of Education Career Expos held)",
       "poeDesc": "Attendance Registers and signed Quarterly Reports (proving of number of Education Career Expos held)",
       "q1PoeDesc": "Attendance Registers and signed Quarterly Reports (proving of number of Education Career Expos held)",
@@ -5218,7 +5842,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_89",
@@ -5230,7 +5855,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Number of existing qualifying learners identified by 31 March 2027. (366)",
       "kpi": "Number of existing qualifying learners identified by 31 March 2027. (366)",
       "compliance": "compliant",
@@ -5245,9 +5870,9 @@
       "q3": "15",
       "q4": "N/A",
       "weight": "10",
-      "responsibleUnit": "Office of the Municipal Manager / Strategic Executive",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Headman Skosana",
+      "submitter": "Headman Skosana",
+      "approver": "Thandiwe M. Lengwate",
       "poeStatus": "Bursary offer letters, academic transcript, and signed Progress report of existing qualifying learners",
       "poeDesc": "Bursary offer letters, academic transcript, and signed Progress report of existing qualifying learners",
       "q1PoeDesc": "Bursary offer letters, academic transcript, and signed Progress report of existing qualifying learners",
@@ -5276,7 +5901,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_90",
@@ -5288,7 +5914,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Number of new qualifying learners identified by 31 March 2027. (366)",
       "kpi": "Number of new qualifying learners identified by 31 March 2027. (366)",
       "compliance": "compliant",
@@ -5303,9 +5929,9 @@
       "q3": "7",
       "q4": "N/A",
       "weight": "10",
-      "responsibleUnit": "Office of the Municipal Manager / Strategic Executive",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Headman Skosana",
+      "submitter": "Headman Skosana",
+      "approver": "Thandiwe M. Lengwate",
       "poeStatus": "Bursary offer letters, acceptance letter/proof of registration, and signed Progress report on new qualifying learners",
       "poeDesc": "Bursary offer letters, acceptance letter/proof of registration, and signed Progress report on new qualifying learners",
       "q1PoeDesc": "Bursary offer letters, acceptance letter/proof of registration, and signed Progress report on new qualifying learners",
@@ -5334,7 +5960,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_91",
@@ -5346,7 +5973,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "X",
-      "kpas": "KPA 6: Spatial Rationale and Municipal Planning (SR)",
+      "kpas": "Spatial Rationale (SR)",
       "operationalActivity": "Percentage of compliant applications considered by municipal tribunal with respect to land use application within 120 days by 30 June 2027.",
       "kpi": "Percentage of compliant applications considered by municipal tribunal with respect to land use application within 120 days by 30 June 2027.",
       "compliance": "compliant",
@@ -5361,9 +5988,9 @@
       "q3": "100%",
       "q4": "100%",
       "weight": "10",
-      "responsibleUnit": "Planning & Economic Development",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Vusumuzi S. Kubheka",
+      "submitter": "Vusumuzi S. Kubheka",
+      "approver": "Alvin Bvuma",
       "poeStatus": "Signed Register of application compliant and signed minutes of municipal tribunal and Spreadsheet (Proving the average days taken and actual performance percentage calculation)",
       "poeDesc": "Signed Register of application compliant and signed minutes of municipal tribunal and Spreadsheet (Proving the average days taken and actual performance percentage calculation)",
       "q1PoeDesc": "Signed Register of application compliant and signed minutes of municipal tribunal and Spreadsheet (Proving the average days taken and actual performance percentage calculation)",
@@ -5392,7 +6019,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-M_92",
@@ -5404,7 +6032,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "X",
-      "kpas": "KPA 6: Spatial Rationale and Municipal Planning (SR)",
+      "kpas": "Spatial Rationale (SR)",
       "operationalActivity": "Number of quarterly reports on land development applications received and responded to by the Local Municipalities by 30 June 2027.",
       "kpi": "Number of quarterly reports on land development applications received and responded to by the Local Municipalities by 30 June 2027.",
       "compliance": "compliant",
@@ -5419,9 +6047,9 @@
       "q3": "1",
       "q4": "1",
       "weight": "10",
-      "responsibleUnit": "Planning & Economic Development",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Vusumuzi S. Kubheka",
+      "submitter": "Vusumuzi S. Kubheka",
+      "approver": "Alvin Bvuma",
       "poeStatus": "Progress report on Land Development applications",
       "poeDesc": "Progress report on Land Development applications",
       "q1PoeDesc": "Progress report on Land Development applications",
@@ -5450,7 +6078,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-P_01",
@@ -5462,7 +6091,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 3: Local Economic Development (LED)",
+      "kpas": "Local Economic Development (LED)",
       "operationalActivity": "50 SASSETA Learnership (Security) recruited and trained by 30 June 2027 (34377)",
       "kpi": "50 SASSETA Learnership (Security) recruited and trained by 30 June 2027 (34377)",
       "compliance": "compliant",
@@ -5477,9 +6106,9 @@
       "q3": "Stage 3: implementation on Stage (75%): Theory Training",
       "q4": "Stage 3: implementation Stage (100%) Practical Training",
       "weight": "10",
-      "responsibleUnit": "Planning & Economic Development",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Tiro Mabunda",
+      "submitter": "Tiro Mabunda",
+      "approver": "Alvin Bvuma",
       "poeStatus": "Appointment Letter, Contracts of learners, signed Site Visit Reports with attendance register attached (Contracts available on hard copy files)",
       "poeDesc": "Appointment Letter, Contracts of learners, signed Site Visit Reports with attendance register attached (Contracts available on hard copy files)",
       "q1PoeDesc": "Appointment Letter, Contracts of learners, signed Site Visit Reports with attendance register attached (Contracts available on hard copy files)",
@@ -5508,7 +6137,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-P_02",
@@ -5520,7 +6150,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 3: Local Economic Development (LED)",
+      "kpas": "Local Economic Development (LED)",
       "operationalActivity": "Support to SMMEs/ Cooperatives/ Informal Traders by 30 June 2027. (34409)",
       "kpi": "Support to SMMEs/ Cooperatives/ Informal Traders by 30 June 2027. (34409)",
       "compliance": "compliant",
@@ -5535,9 +6165,9 @@
       "q3": "Stage 2: Procurement Stage (100%): Bid Evaluation Committee Resolution, Bid Adjudication Committee Resolution and Appointment of Service Provider",
       "q4": "Stage 3: Implementation Stage (100%) - Signing of agreement between NDM and beneficiaries. Supply and Delivery of tools/equipment’s to SMMEs/Cooperatives/ Informal Traders",
       "weight": "10",
-      "responsibleUnit": "Planning & Economic Development",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Fikile Maseko",
+      "submitter": "Fikile Maseko",
+      "approver": "Alvin Bvuma",
       "poeStatus": "BSC Resolution, Tender Advert (Tear Sheet), BEC Resolution, BAC Resolution, Signed & Dated Appointment Letter, list of beneficiaries, Signed Agreements, and Delivery Notes.",
       "poeDesc": "BSC Resolution, Tender Advert (Tear Sheet), BEC Resolution, BAC Resolution, Signed & Dated Appointment Letter, list of beneficiaries, Signed Agreements, and Delivery Notes.",
       "q1PoeDesc": "BSC Resolution, Tender Advert (Tear Sheet), BEC Resolution, BAC Resolution, Signed & Dated Appointment Letter, list of beneficiaries, Signed Agreements, and Delivery Notes.",
@@ -5566,7 +6196,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-P_03",
@@ -5578,7 +6209,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 4: Municipal Financial Viability and Management (MFVM)",
+      "kpas": "Municipal Financial Viability and Management (MFVM)",
       "operationalActivity": "Preparation of Consolidated AFS for NDM and NEDA AFS by 31 December 2026.",
       "kpi": "Preparation of Consolidated AFS for NDM and NEDA AFS by 31 December 2026.",
       "compliance": "compliant",
@@ -5593,9 +6224,9 @@
       "q3": "N/A",
       "q4": "N/A",
       "weight": "10",
-      "responsibleUnit": "Financial Services & Budget Office",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Andile N. Hlongwa",
+      "submitter": "Andile N. Hlongwa",
+      "approver": "Alice L. Stander",
       "poeStatus": "Acknowledgement of receipt from AG, Final Consolidated AFS., Signed progress report",
       "poeDesc": "Acknowledgement of receipt from AG, Final Consolidated AFS., Signed progress report",
       "q1PoeDesc": "Acknowledgement of receipt from AG, Final Consolidated AFS., Signed progress report",
@@ -5624,7 +6255,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-P_04",
@@ -5636,7 +6268,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 4: Municipal Financial Viability and Management (MFVM)",
+      "kpas": "Municipal Financial Viability and Management (MFVM)",
       "operationalActivity": "Actuarial valuations paid by 31 December 2026.",
       "kpi": "Actuarial valuations paid by 31 December 2026.",
       "compliance": "compliant",
@@ -5651,9 +6283,9 @@
       "q3": "N/A",
       "q4": "N/A",
       "weight": "10",
-      "responsibleUnit": "Financial Services & Budget Office",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Trudie Van Niekerk",
+      "submitter": "Trudie Van Niekerk",
+      "approver": "Alice L. Stander",
       "poeStatus": "Actuarial valuations report (Q1) and proof of payment (Q2)",
       "poeDesc": "Actuarial valuations report (Q1) and proof of payment (Q2)",
       "q1PoeDesc": "Actuarial valuations report (Q1) and proof of payment (Q2)",
@@ -5682,7 +6314,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-P_05",
@@ -5694,7 +6327,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 4: Municipal Financial Viability and Management (MFVM)",
+      "kpas": "Municipal Financial Viability and Management (MFVM)",
       "operationalActivity": "SCM/Debtors verification system paid by 30 June 2027.",
       "kpi": "SCM/Debtors verification system paid by 30 June 2027.",
       "compliance": "compliant",
@@ -5709,9 +6342,9 @@
       "q3": "Stage 3: Implementation Stage (67%): spending as per Finance Related Projects Report",
       "q4": "Stage 3: Implementation Stage (100%): spending as per Finance Related Projects Report",
       "weight": "10",
-      "responsibleUnit": "Financial Services & Budget Office",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Trudie Van Niekerk",
+      "submitter": "Trudie Van Niekerk",
+      "approver": "Alice L. Stander",
       "poeStatus": "Signed progress report",
       "poeDesc": "Signed progress report",
       "q1PoeDesc": "Signed progress report",
@@ -5740,7 +6373,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-P_06",
@@ -5752,7 +6386,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 4: Municipal Financial Viability and Management (MFVM)",
+      "kpas": "Municipal Financial Viability and Management (MFVM)",
       "operationalActivity": "AFS Assistance and Review of AFS for NDM and Reviewal of AFS for NEDA by 31 December 2026.",
       "kpi": "AFS Assistance and Review of AFS for NDM and Reviewal of AFS for NEDA by 31 December 2026.",
       "compliance": "compliant",
@@ -5767,9 +6401,9 @@
       "q3": "N/A",
       "q4": "N/A",
       "weight": "10",
-      "responsibleUnit": "Financial Services & Budget Office",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Andile N. Hlongwa",
+      "submitter": "Andile N. Hlongwa",
+      "approver": "Alice L. Stander",
       "poeStatus": "NDM AFS Review Report (Q1) and NEDA AFS Review Reports (Q1), COMAF Register (with comments from the independent reviewer)",
       "poeDesc": "NDM AFS Review Report (Q1) and NEDA AFS Review Reports (Q1), COMAF Register (with comments from the independent reviewer)",
       "q1PoeDesc": "NDM AFS Review Report (Q1) and NEDA AFS Review Reports (Q1), COMAF Register (with comments from the independent reviewer)",
@@ -5798,7 +6432,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-P_07",
@@ -5810,7 +6445,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Refurbishment & Upgrading Delmas WWTW by 30 June 2027",
       "kpi": "Refurbishment & Upgrading Delmas WWTW by 30 June 2027",
       "compliance": "compliant",
@@ -5825,9 +6460,9 @@
       "q3": "Stage 3: Construction Stage (98%): Construction Progress",
       "q4": "Stage 3: Construction Stage (100%): Construction Progress",
       "weight": "10",
-      "responsibleUnit": "Infrastructure Development & Technical Services",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Lucky Msoki",
+      "submitter": "Lucky Msoki",
+      "approver": "Walter M. Mtshweni",
       "poeStatus": "Signed Construction progress report, Completion certificate",
       "poeDesc": "Signed Construction progress report, Completion certificate",
       "q1PoeDesc": "Signed Construction progress report, Completion certificate",
@@ -5856,7 +6491,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-P_08",
@@ -5868,7 +6504,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Refurbishment of Emalahleni Bulk Water Infrastructure by 30 June 2027",
       "kpi": "Refurbishment of Emalahleni Bulk Water Infrastructure by 30 June 2027",
       "compliance": "compliant",
@@ -5883,9 +6519,9 @@
       "q3": "Stage 3: Construction Stage (65%): Construction Progress",
       "q4": "Stage 3: Construction Stage (100%): Construction Progress",
       "weight": "10",
-      "responsibleUnit": "Infrastructure Development & Technical Services",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Mmaphefo Aphane",
+      "submitter": "Mmaphefo Aphane",
+      "approver": "Walter M. Mtshweni",
       "poeStatus": "Signed Construction progress report, Completion certificate",
       "poeDesc": "Signed Construction progress report, Completion certificate",
       "q1PoeDesc": "Signed Construction progress report, Completion certificate",
@@ -5914,7 +6550,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-P_09",
@@ -5926,7 +6563,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Loskop Regional Bulk Water Supply: WP1 by 30 June 2027",
       "kpi": "Loskop Regional Bulk Water Supply: WP1 by 30 June 2027",
       "compliance": "compliant",
@@ -5941,9 +6578,9 @@
       "q3": "Stage 3: Construction Stage (100%): Construction Progress",
       "q4": "N/A",
       "weight": "10",
-      "responsibleUnit": "Infrastructure Development & Technical Services",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Sanele Nkosi",
+      "submitter": "Sanele Nkosi",
+      "approver": "Walter M. Mtshweni",
       "poeStatus": "Signed Construction progress report., Completion certificate",
       "poeDesc": "Signed Construction progress report., Completion certificate",
       "q1PoeDesc": "Signed Construction progress report., Completion certificate",
@@ -5972,7 +6609,42 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual",
+      "workflowStatus": "Submitted to Approver",
+      "submittedBy": "Sanele Nkosi",
+      "workflows": {
+        "q1": {
+          "status": "pending_approval",
+          "submittedBy": "Sanele Nkosi",
+          "submittedAt": "10/2/2026"
+        },
+        "q2": {
+          "status": "pending_approval",
+          "submittedBy": "Sanele Nkosi",
+          "submittedAt": "10/2/2026"
+        },
+        "midTerm": {
+          "status": "pending_approval",
+          "submittedBy": "Sanele Nkosi",
+          "submittedAt": "10/2/2026"
+        },
+        "q3": {
+          "status": "pending_approval",
+          "submittedBy": "Sanele Nkosi",
+          "submittedAt": "10/2/2026"
+        },
+        "q4": {
+          "status": "pending_approval",
+          "submittedBy": "Sanele Nkosi",
+          "submittedAt": "10/2/2026"
+        },
+        "annual": {
+          "status": "pending_approval",
+          "submittedBy": "Sanele Nkosi",
+          "submittedAt": "10/2/2026"
+        }
+      }
     },
     {
       "id": "sdbip-tl-P_10",
@@ -5984,7 +6656,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Loskop Regional Bulk Water Supply: WP2 by 30 June 2027",
       "kpi": "Loskop Regional Bulk Water Supply: WP2 by 30 June 2027",
       "compliance": "compliant",
@@ -5999,9 +6671,9 @@
       "q3": "Stage 3: Construction Stage (100%): Construction Progress",
       "q4": "N/A",
       "weight": "10",
-      "responsibleUnit": "Infrastructure Development & Technical Services",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Sanele Nkosi",
+      "submitter": "Sanele Nkosi",
+      "approver": "Walter M. Mtshweni",
       "poeStatus": "Signed Construction progress report., Completion certificate",
       "poeDesc": "Signed Construction progress report., Completion certificate",
       "q1PoeDesc": "Signed Construction progress report., Completion certificate",
@@ -6030,7 +6702,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-P_11",
@@ -6042,7 +6715,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Loskop Regional Bulk Water Supply: WP3 by 30 June 2027",
       "kpi": "Loskop Regional Bulk Water Supply: WP3 by 30 June 2027",
       "compliance": "compliant",
@@ -6057,9 +6730,9 @@
       "q3": "Stage 3: Construction Stage (100%): Construction Progress",
       "q4": "N/A",
       "weight": "10",
-      "responsibleUnit": "Infrastructure Development & Technical Services",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Sanele Nkosi",
+      "submitter": "Sanele Nkosi",
+      "approver": "Walter M. Mtshweni",
       "poeStatus": "Signed Construction progress report., Completion certificate",
       "poeDesc": "Signed Construction progress report., Completion certificate",
       "q1PoeDesc": "Signed Construction progress report., Completion certificate",
@@ -6088,7 +6761,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-P_19",
@@ -6100,7 +6774,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Loskop Regional Bulk Water Supply: WP4 by 30 June 2027 (Roll Over)",
       "kpi": "Loskop Regional Bulk Water Supply: WP4 by 30 June 2027 (Roll Over)",
       "compliance": "compliant",
@@ -6115,9 +6789,9 @@
       "q3": "N/A",
       "q4": "Stage 3: Construction Stage (100%): Construction Progress",
       "weight": "10",
-      "responsibleUnit": "Infrastructure Development & Technical Services",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Mxolisi Bembe",
+      "submitter": "Mxolisi Bembe",
+      "approver": "Walter M. Mtshweni",
       "poeStatus": "Signed Construction progress report., Completion certificate",
       "poeDesc": "Signed Construction progress report., Completion certificate",
       "q1PoeDesc": "Signed Construction progress report., Completion certificate",
@@ -6146,7 +6820,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-P_12",
@@ -6158,7 +6833,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Loskop Regional Bulk Water Supply: WP6(A) by 30 June 2027",
       "kpi": "Loskop Regional Bulk Water Supply: WP6(A) by 30 June 2027",
       "compliance": "compliant",
@@ -6173,9 +6848,9 @@
       "q3": "Stage 3: Construction Stage (60%): Construction Progress",
       "q4": "Stage 3: Construction Stage (100%): Construction Progress",
       "weight": "10",
-      "responsibleUnit": "Infrastructure Development & Technical Services",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Sipokazi Wakeni",
+      "submitter": "Sipokazi Wakeni",
+      "approver": "Walter M. Mtshweni",
       "poeStatus": "BSC resolutions, tender advert, BEC & BAC resolutions and signed appointment letter",
       "poeDesc": "BSC resolutions, tender advert, BEC & BAC resolutions and signed appointment letter",
       "q1PoeDesc": "BSC resolutions, tender advert, BEC & BAC resolutions and signed appointment letter",
@@ -6204,7 +6879,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-P_13",
@@ -6216,7 +6892,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Loskop Regional Bulk Water Supply: WP6 (B) by 30 June 2027",
       "kpi": "Loskop Regional Bulk Water Supply: WP6 (B) by 30 June 2027",
       "compliance": "compliant",
@@ -6231,9 +6907,9 @@
       "q3": "Stage 3: Construction Stage (70%): Construction Progress",
       "q4": "Stage 3: Construction Stage (100%): Construction Progress",
       "weight": "10",
-      "responsibleUnit": "Infrastructure Development & Technical Services",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Sanele Nkosi",
+      "submitter": "Sanele Nkosi",
+      "approver": "Walter M. Mtshweni",
       "poeStatus": "Signed Construction progress report., Completion certificate",
       "poeDesc": "Signed Construction progress report., Completion certificate",
       "q1PoeDesc": "Signed Construction progress report., Completion certificate",
@@ -6262,7 +6938,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-P_14",
@@ -6274,7 +6951,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Borehole Materials: Dr JS Moroka",
       "kpi": "Borehole Materials: Dr JS Moroka",
       "compliance": "compliant",
@@ -6289,9 +6966,9 @@
       "q3": "Stage 3: Implementation Stage (70%): Expenditure Progress",
       "q4": "Stage 3: Implementation Stage (100%): Expenditure Progress",
       "weight": "10",
-      "responsibleUnit": "Infrastructure Development & Technical Services",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Sipokazi Wakeni",
+      "submitter": "Sipokazi Wakeni",
+      "approver": "Walter M. Mtshweni",
       "poeStatus": "Appointment Letter, Signed Delivery Note(s) and Expenditure Report",
       "poeDesc": "Appointment Letter, Signed Delivery Note(s) and Expenditure Report",
       "q1PoeDesc": "Appointment Letter, Signed Delivery Note(s) and Expenditure Report",
@@ -6320,7 +6997,21 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual",
+      "workflowStatus": "Reviewed",
+      "submittedBy": "Sipokazi Wakeni",
+      "reviewedBy": "Sipokazi Wakeni",
+      "workflows": {
+        "q1": {
+          "status": "pending_review",
+          "submittedBy": "Sipokazi Wakeni",
+          "submittedAt": "10/2/2026",
+          "approvedBy": "Sipokazi Wakeni",
+          "approvedAt": "10/2/2026",
+          "comments": "Approved by Executive Approver."
+        }
+      }
     },
     {
       "id": "sdbip-tl-P_20",
@@ -6332,7 +7023,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Western Highveld Regional Bulkwater Supply Scheme WP1 by 30 June 2027",
       "kpi": "Western Highveld Regional Bulkwater Supply Scheme WP1 by 30 June 2027",
       "compliance": "compliant",
@@ -6347,9 +7038,9 @@
       "q3": "Stage 2 – Procurement Stage (75%): Tender Advertisement, BEC & BAC Resolutions",
       "q4": "Stage 2 – Procurement Stage (100%): Appointment of service provider",
       "weight": "10",
-      "responsibleUnit": "Infrastructure Development & Technical Services",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Mxolisi Bembe",
+      "submitter": "Mxolisi Bembe",
+      "approver": "Walter M. Mtshweni",
       "poeStatus": "BSC Resolutions, Tender Adverts (Tear Sheet), BEC & BAC Resolutions, Contractors Appointment Letters.",
       "poeDesc": "BSC Resolutions, Tender Adverts (Tear Sheet), BEC & BAC Resolutions, Contractors Appointment Letters.",
       "q1PoeDesc": "BSC Resolutions, Tender Adverts (Tear Sheet), BEC & BAC Resolutions, Contractors Appointment Letters.",
@@ -6378,7 +7069,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-P_21",
@@ -6390,7 +7082,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Western Highveld Regional Bulkwater Supply Scheme WP2 by 30 June 2027",
       "kpi": "Western Highveld Regional Bulkwater Supply Scheme WP2 by 30 June 2027",
       "compliance": "compliant",
@@ -6405,9 +7097,9 @@
       "q3": "Stage 2 – Procurement Stage (75%): Tender Advertisement, BEC & BAC Resolutions",
       "q4": "Stage 2 – Procurement Stage (100%): Appointment of service provider",
       "weight": "10",
-      "responsibleUnit": "Infrastructure Development & Technical Services",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Mxolisi Bembe",
+      "submitter": "Mxolisi Bembe",
+      "approver": "Walter M. Mtshweni",
       "poeStatus": "BSC Resolutions, Tender Adverts (Tear Sheet), BEC & BAC Resolutions, Contractors Appointment Letters.",
       "poeDesc": "BSC Resolutions, Tender Adverts (Tear Sheet), BEC & BAC Resolutions, Contractors Appointment Letters.",
       "q1PoeDesc": "BSC Resolutions, Tender Adverts (Tear Sheet), BEC & BAC Resolutions, Contractors Appointment Letters.",
@@ -6436,7 +7128,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-P_22",
@@ -6448,7 +7141,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Construction of Disaster Management Centre by 30 June 2027 (Roll Over)",
       "kpi": "Construction of Disaster Management Centre by 30 June 2027 (Roll Over)",
       "compliance": "compliant",
@@ -6463,9 +7156,9 @@
       "q3": "Not Applicable",
       "q4": "Not Appliable",
       "weight": "10",
-      "responsibleUnit": "Infrastructure Development & Technical Services",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Sipokazi Wakeni",
+      "submitter": "Sipokazi Wakeni",
+      "approver": "Walter M. Mtshweni",
       "poeStatus": "Construction Progress Report, Completion Certificate, Occupation Certificate, Certificate of Electrical Compliance (COC)",
       "poeDesc": "Construction Progress Report, Completion Certificate, Occupation Certificate, Certificate of Electrical Compliance (COC)",
       "q1PoeDesc": "Construction Progress Report, Completion Certificate, Occupation Certificate, Certificate of Electrical Compliance (COC)",
@@ -6494,7 +7187,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-P_15",
@@ -6506,7 +7200,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "Rural Road Asset Management by 30 June 2027. (7302)",
       "kpi": "Rural Road Asset Management by 30 June 2027. (7302)",
       "compliance": "compliant",
@@ -6521,9 +7215,9 @@
       "q3": "Stage 2: Implementation Stage (95%): Road Network Assessment",
       "q4": "Stage 2: Implementation Stage (100%): Road Network Assessment",
       "weight": "10",
-      "responsibleUnit": "Infrastructure Development & Technical Services",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Mokgadi Mokgolomotho",
+      "submitter": "Mokgadi Mokgolomotho",
+      "approver": "Walter M. Mtshweni",
       "poeStatus": "Signed Road Network Assessment progress reports, Completion certificate",
       "poeDesc": "Signed Road Network Assessment progress reports, Completion certificate",
       "q1PoeDesc": "Signed Road Network Assessment progress reports, Completion certificate",
@@ -6552,7 +7246,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-P_16",
@@ -6564,7 +7259,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "High mast Lights Retrofitting by 30 June 2027. (185541) - Victor Khanye LM",
       "kpi": "High mast Lights Retrofitting by 30 June 2027. (185541) - Victor Khanye LM",
       "compliance": "compliant",
@@ -6579,9 +7274,9 @@
       "q3": "Stage 3: Construction Stage (60%): Construction Progress",
       "q4": "Stage 3: Construction Stage (100%): Construction Progress",
       "weight": "10",
-      "responsibleUnit": "Infrastructure Development & Technical Services",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Mokgadi Mokgolomotho",
+      "submitter": "Mokgadi Mokgolomotho",
+      "approver": "Walter M. Mtshweni",
       "poeStatus": "Signed Construction progress report and completion certificate, Approved Business plan",
       "poeDesc": "Signed Construction progress report and completion certificate, Approved Business plan",
       "q1PoeDesc": "Signed Construction progress report and completion certificate, Approved Business plan",
@@ -6610,7 +7305,8 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     },
     {
       "id": "sdbip-tl-P_17",
@@ -6622,7 +7318,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "",
-      "kpas": "KPA 5: Basic Service Delivery and Infrastructure Development (BSD)",
+      "kpas": "Basic Service Delivery and Infrastructure Development (BSD)",
       "operationalActivity": "High mast Lights Retrofitting by 30 June 2027. (185541) - Dr JS Moroka LM",
       "kpi": "High mast Lights Retrofitting by 30 June 2027. (185541) - Dr JS Moroka LM",
       "compliance": "compliant",
@@ -6637,9 +7333,9 @@
       "q3": "Stage 3: Construction Stage (60%): Construction Progress",
       "q4": "Stage 3: Construction Progress (100%): Construction Progress",
       "weight": "10",
-      "responsibleUnit": "Infrastructure Development & Technical Services",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Mmaphefo Aphane",
+      "submitter": "Mmaphefo Aphane",
+      "approver": "Walter M. Mtshweni",
       "poeStatus": "Signed Construction progress report and completion certificate, Approved Business plan",
       "poeDesc": "Signed Construction progress report and completion certificate, Approved Business plan",
       "q1PoeDesc": "Signed Construction progress report and completion certificate, Approved Business plan",
@@ -6668,7 +7364,23 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual",
+      "workflowStatus": "Submitted",
+      "q1Poes": [
+        "Business Plan Approval 26.27.pdf",
+        "Progress Report energy.pptx"
+      ],
+      "submittedBy": "Mmaphefo Aphane",
+      "workflows": {
+        "q1": {
+          "status": "pending_approval",
+          "submittedBy": "Mmaphefo Aphane",
+          "submittedAt": "10/2/2026",
+          "approvedBy": "Mmaphefo Aphane",
+          "comments": "Corrective measure was not indicated ."
+        }
+      }
     },
     {
       "id": "sdbip-tl-P_18",
@@ -6680,7 +7392,7 @@
       "ggpp": "",
       "midt": "",
       "sr": "X",
-      "kpas": "KPA 6: Spatial Rationale and Municipal Planning (SR)",
+      "kpas": "Spatial Rationale (SR)",
       "operationalActivity": "Finalisation of a Township Establishment in Siyathuthuka",
       "kpi": "Finalisation of a Township Establishment in Siyathuthuka",
       "compliance": "compliant",
@@ -6695,9 +7407,9 @@
       "q3": "Stage 2: Implementation Stage (60%): Draft Special Study and Draft Opening of Township Register",
       "q4": "Stage 2: Implementation Stage (100%): Final Special Study and Final of Opening of Township Register",
       "weight": "10",
-      "responsibleUnit": "Planning & Economic Development",
-      "submitter": "Departmental Submitter",
-      "approver": "Executive Manager",
+      "responsibleUnit": "Vusumuzi S. Kubheka",
+      "submitter": "Vusumuzi S. Kubheka",
+      "approver": "Alvin Bvuma",
       "poeStatus": "Appointment Letter, Inception Report, Draft Special Study and Opening of Township Register, Final Special Study and Opening of Township Register",
       "poeDesc": "Appointment Letter, Inception Report, Draft Special Study and Opening of Township Register, Final Special Study and Opening of Township Register",
       "q1PoeDesc": "Appointment Letter, Inception Report, Draft Special Study and Opening of Township Register, Final Special Study and Opening of Township Register",
@@ -6726,8 +7438,9 @@
       "q4Corrective": "",
       "q4Expenditure": "",
       "isPlaceholder": false,
-      "_isPlaceholder": false
+      "_isPlaceholder": false,
+      "source": "manual"
     }
   ],
-  "updatedAt": "2026-10-06T22:34:30.478Z"
+  "updatedAt": "2026-10-07T09:51:02.896Z"
 }
