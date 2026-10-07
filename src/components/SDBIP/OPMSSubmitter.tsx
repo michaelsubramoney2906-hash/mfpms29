@@ -428,8 +428,12 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
         });
 
         setRows(updatedRows);
-        setSuccess(`Evidence document "${file.name}" uploaded and encrypted into Supabase Cloud Vault.`);
-        setTimeout(() => setSuccess(null), 4000);
+        if (!q1Actual || q1Actual.trim() === '') {
+          setSuccess(`Evidence document "${file.name}" uploaded successfully! ⚠️ Reminder: Please also log your Q1 Actual performance figure before pushing to your Approver.`);
+        } else {
+          setSuccess(`Evidence document "${file.name}" uploaded and encrypted into Supabase Cloud Vault.`);
+        }
+        setTimeout(() => setSuccess(null), 5000);
       };
 
       reader.readAsDataURL(file);
@@ -819,6 +823,19 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
       const effQ1Actual = q1Actual || draftFallback.q1Actual || selectedKpi.q1Actual || '';
       const effQ1Variance = q1Variance || draftFallback.q1Variance || selectedKpi.q1Variance || '';
       const effQ1Corrective = q1Corrective || draftFallback.q1Corrective || selectedKpi.q1Corrective || '';
+
+      // Mandatory Submitter Validation: Prevent pushing empty actuals to Approver
+      const isTargetNA = selectedKpi.q1 && (selectedKpi.q1.trim().toUpperCase() === 'N/A' || selectedKpi.q1.trim().toUpperCase() === 'NOT APPLICABLE');
+      if (!isTargetNA && (!effQ1Actual || effQ1Actual.trim() === '')) {
+        const kpiPoesList = extractKpiPoes(selectedKpi, poes);
+        const poeMsg = kpiPoesList.length > 0
+          ? `You have attached ${kpiPoesList.length} Portfolio of Evidence (PoE) document(s), but your Q1 Actual progress is blank.`
+          : `Reporting Q1 Actual achievement is required before submitting to your Executive Approver.`;
+        setError(`Validation Notice: ${poeMsg} Please enter your Q1 Actual progress figure before submitting.`);
+        setTimeout(() => setError(null), 6000);
+        setLoading(false);
+        return;
+      }
 
       const effQ2Actual = q2Actual || draftFallback.q2Actual || selectedKpi.q2Actual || '';
       const effQ2Variance = q2Variance || draftFallback.q2Variance || selectedKpi.q2Variance || '';
@@ -1303,6 +1320,12 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                       </div>
                       <div className="flex items-center gap-1.5 flex-wrap justify-end">
                         {getStatusBadge(status)}
+                        {(status === 'Submitted' || status === 'Submitted to Approver') && (!row.q1Actual || row.q1Actual.trim() === '') && (
+                          <span className="bg-rose-500/20 text-rose-300 border border-rose-500/40 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider inline-flex items-center gap-1 shadow-2xs">
+                            <AlertTriangle className="w-2.5 h-2.5 text-rose-400" />
+                            <span>Missing Actual</span>
+                          </span>
+                        )}
                         {isSuperAdminMike && (status === 'Approved' || status === 'Reviewed' || (row as any).adminLocked) && (
                           <button
                             type="button"
@@ -1570,6 +1593,21 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                     Switch to My KPIs
                   </button>
                 )}
+              </div>
+            )}
+
+            {/* Incomplete Submission Warning Banner */}
+            {((selectedKpi as any).workflowStatus === 'Submitted to Approver' || (selectedKpi as any).workflowStatus === 'Submitted') && (!q1Actual || q1Actual.trim() === '') && (
+              <div className="p-3 bg-amber-500/15 border border-amber-500/40 rounded-xl flex items-start gap-2.5 text-xs text-amber-200 shadow-sm animate-pulse">
+                <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <div className="font-bold text-amber-300 text-xs uppercase tracking-wide flex items-center gap-1.5">
+                    <span>Action Required: Incomplete Submission Detected</span>
+                  </div>
+                  <p className="leading-relaxed text-[11.5px] text-amber-100/90">
+                    This scorecard was submitted to your Approver without an entered Q1 Actual performance figure. The Approver cannot approve a blank record. Please enter your genuine Q1 performance figure in the <strong>Actual progress</strong> box below, then click <strong>"Update & Re-Submit to Approver"</strong>.
+                  </p>
+                </div>
               </div>
             )}
 
@@ -2023,7 +2061,11 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                     title={`Push to Approver (${selectedKpi.approver || 'Executive Approver'})`}
                   >
                     <Send className="w-3.5 h-3.5" />
-                    <span>Push to Approver</span>
+                    <span>
+                      {((selectedKpi as any).workflowStatus === 'Submitted to Approver' || (selectedKpi as any).workflowStatus === 'Submitted') && (!q1Actual || q1Actual.trim() === '')
+                        ? 'Update & Re-Submit to Approver'
+                        : 'Push to Approver'}
+                    </span>
                   </button>
                 </div>
               </div>

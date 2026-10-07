@@ -1154,6 +1154,12 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
                       </span>
                       <div className="flex items-center gap-1.5 flex-wrap justify-end">
                         {getStatusBadge(status)}
+                        {(status === 'Submitted' || status === 'Submitted to Approver') && (!row.q1Actual || row.q1Actual.trim() === '') && (
+                          <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider inline-flex items-center gap-1 shadow-2xs">
+                            <AlertCircle className="w-2.5 h-2.5 text-amber-400" />
+                            <span>No Actuals Logged</span>
+                          </span>
+                        )}
                         {isSuperAdminMike && (status === 'Approved' || status === 'Reviewed' || (row as any).adminLocked) && (
                           <button
                             type="button"
@@ -1285,6 +1291,19 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
                       </>
                     )}
                   </button>
+                </div>
+              </div>
+            )}
+
+            {/* Incomplete Submission Warning for Approver */}
+            {((selectedKpi as any).workflowStatus === 'Submitted to Approver' || (selectedKpi as any).workflowStatus === 'Submitted') && (!selectedKpi.q1Actual || selectedKpi.q1Actual.trim() === '') && (
+              <div className="p-3 bg-amber-500/15 border border-amber-500/40 rounded-xl flex items-start gap-2.5 text-xs text-amber-200 shadow-sm">
+                <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <span className="font-bold text-amber-300 block text-xs uppercase tracking-wide">Incomplete Submitter Record</span>
+                  <p className="leading-relaxed text-[11.5px] text-amber-100/90">
+                    Submitter ({selectedKpi.submitter || selectedKpi.responsibleUnit || 'Unassigned'}) submitted this scorecard without reporting a Q1 Actual performance figure. You can use <strong>"Return to Submitter"</strong> below with a correction note, or if verified offline, you can enter the genuine actual achievement directly in the editable Q1 Actual box below.
+                  </p>
                 </div>
               </div>
             )}

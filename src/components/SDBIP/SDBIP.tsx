@@ -1754,10 +1754,16 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     const targetRow = rows.find(r => r.id === rowId);
     if (targetRow && status === 'pending_approval') {
       const assignedSubmitter = targetRow.submitter || targetRow.responsibleUnit;
-      const isMatch = isUserMatch(assignedSubmitter, currentUser);
+      const isMatch = isUserMatch(assignedSubmitter, currentUser) || isSuperAdminMike || isUserUnrestricted(currentUser);
       if (!isMatch) {
         setSuccessToast(`Submission Restricted: Only the designated Submitter (${assignedSubmitter}) can submit KPI ${targetRow.refNum || ''} for approval.`);
         setTimeout(() => setSuccessToast(null), 4000);
+        return;
+      }
+      const isTargetNA = targetRow.q1 && (targetRow.q1.trim().toUpperCase() === 'N/A' || targetRow.q1.trim().toUpperCase() === 'NOT APPLICABLE');
+      if (phase === 'q1' && !isTargetNA && (!targetRow.q1Actual || targetRow.q1Actual.trim() === '')) {
+        setSuccessToast(`Validation Error: Cannot submit KPI ${targetRow.refNum} to Approver without Q1 Actual performance figure.`);
+        setTimeout(() => setSuccessToast(null), 5000);
         return;
       }
     }
@@ -2063,7 +2069,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
       const targetRow = rows.find(r => r.id === rowId);
       if (targetRow && (targetRow.submitter || targetRow.responsibleUnit)) {
         const assignedSubmitter = targetRow.submitter || targetRow.responsibleUnit;
-        const isMatch = isUserMatch(assignedSubmitter, currentUser);
+        const isMatch = isUserMatch(assignedSubmitter, currentUser) || isSuperAdminMike || isUserUnrestricted(currentUser);
         if (!isMatch) {
           setSuccessToast(`Reporting Restricted: Only the designated Submitter (${assignedSubmitter}) can report on actuals for KPI ${targetRow.refNum || ''}.`);
           setTimeout(() => setSuccessToast(null), 4000);
@@ -2186,7 +2192,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     const targetRow = rows.find(r => r.id === rowId);
     if (targetRow && (targetRow.submitter || targetRow.responsibleUnit)) {
       const assignedSubmitter = targetRow.submitter || targetRow.responsibleUnit;
-      const isMatch = isUserMatch(assignedSubmitter, currentUser);
+      const isMatch = isUserMatch(assignedSubmitter, currentUser) || isSuperAdminMike || isUserUnrestricted(currentUser);
       if (!isMatch) {
         setSuccessToast(`Upload Restricted: Only the designated Submitter (${assignedSubmitter}) can upload or edit POE for KPI ${targetRow.refNum || ''}.`);
         setTimeout(() => setSuccessToast(null), 4000);
@@ -6197,7 +6203,7 @@ Timestamp: ${new Date().toLocaleString()}
                     </tr>
                   ) : (
                     paginatedReportingRows.map((row) => {
-                    const isRowSubmitter = isUserMatch(row.submitter || row.responsibleUnit, currentUser);
+                    const isRowSubmitter = isUserMatch(row.submitter || row.responsibleUnit, currentUser) || isSuperAdminMike || isUserUnrestricted(currentUser);
                     return (
                     <tr key={row.id} className="group hover:bg-slate-50/70 transition-colors">
                       <td className="p-2 border-r border-slate-150 sticky left-0 z-10 bg-white group-hover:bg-slate-50/95 transition-colors font-mono text-[11px] drop-shadow-[1px_0_0_rgba(203,213,225,1)]">
