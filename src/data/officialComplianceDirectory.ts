@@ -931,6 +931,14 @@ export const OFFICIAL_COMPLIANCE_DIRECTORY: VerifiedOfficial[] = [
     refCode: "SEC57-NDM-0802",
     status: "Section 57 Verified"
   },
+  {
+    fullName: "Annah Msiza",
+    jobFunction: "Disability, Gender & Elderly Coordinator / SDBIP Submitter",
+    department: "Community Development Services / Social Services",
+    email: "msizaa@nkangaladm.gov.za",
+    refCode: "SEC57-NDM-0803",
+    status: "Section 57 Verified"
+  },
 
   // 9. Office of the Executive Mayor & Council Support
   {

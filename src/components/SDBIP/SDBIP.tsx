@@ -73,12 +73,14 @@ let globalReportingAssignmentsUnlocked = false;
  * Determines whether Submitter & Approver are unlocked in the SDBIP Top Layer reporting table.
  */
 export const isKpiUnlockedForSubmitterApprover = (row: { refNum?: string; id?: string; kpi?: string } | null | undefined): boolean => {
-  if (isQuarter1UnlockedKpi(row)) return true;
+  const cleanRef = String(row?.refNum || (row as any)?.Ref_Number || '').trim().toUpperCase();
+  if (['M_81', 'M_82', 'M_83', 'M_84', 'M81', 'M82', 'M83', 'M84'].includes(cleanRef)) return false;
   return globalReportingAssignmentsUnlocked; 
 };
 
 export const isSubmitterApproverLockedInReporting = (row: { refNum?: string; id?: string; kpi?: string; adminLocked?: boolean; workflowStatus?: string } | null | undefined): boolean => {
-  if (isQuarter1UnlockedKpi(row)) return false;
+  const cleanRef = String(row?.refNum || (row as any)?.Ref_Number || '').trim().toUpperCase();
+  if (['M_81', 'M_82', 'M_83', 'M_84', 'M81', 'M82', 'M83', 'M84'].includes(cleanRef)) return true;
   if (globalReportingAssignmentsUnlocked) return false;
   return true; 
 };
@@ -353,6 +355,9 @@ export function sanitizeSdbipRow(row: SdbipRow): SdbipRow {
     if (!normalizedSubmitter) {
       normalizedSubmitter = 'Quinton Skhosana';
     }
+  } else if (['M_81', 'M_82', 'M_83', 'M_84', 'M81', 'M82', 'M83', 'M84'].includes(cleanRef)) {
+    normalizedSubmitter = 'Annah Msiza';
+    normalizedApprover = 'Thandiwe M. Lengwate';
   }
 
   return {
@@ -1787,8 +1792,9 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
 
     const targetRow = rows.find(r => r.id === rowId);
     if (targetRow && status === 'pending_approval') {
-      const assignedSubmitter = targetRow.submitter || targetRow.responsibleUnit;
-      const isMatch = isUserMatch(assignedSubmitter, currentUser) || isSuperAdminMike || isUserUnrestricted(currentUser) || isQuarter1UnlockedKpi(targetRow);
+      const isM81to84 = isQuarter1UnlockedKpi(targetRow);
+      const assignedSubmitter = isM81to84 ? 'Annah Msiza' : (targetRow.submitter || targetRow.responsibleUnit);
+      const isMatch = isUserMatch(assignedSubmitter, currentUser) || isSuperAdminMike || isUserUnrestricted(currentUser);
       if (!isMatch) {
         setSuccessToast(`Submission Restricted: Only the designated Submitter (${assignedSubmitter}) can submit KPI ${targetRow.refNum || ''} for approval.`);
         setTimeout(() => setSuccessToast(null), 4000);
@@ -2075,19 +2081,27 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
       return;
     }
 
-    // Lock Submitter and Approver fields in reporting view to prevent changing assigned responsibilities
-    if (activeTab === 'reporting' && (field === 'submitter' || field === 'approver') && !isReportingAssignmentsUnlocked && !isSuperAdminMike) {
-      const targetRow = rows.find(r => r.id === rowId);
-      if (!isQuarter1UnlockedKpi(targetRow)) {
-        setSuccessToast(`Field Locked: Submitter and Approver assignments are locked in the reporting view for KPI ${targetRow?.refNum || ''} to preserve responsible personnel assignments.`);
+    // Lock Submitter and Approver fields to prevent changing assigned responsibilities
+    const targetRow = rows.find(r => r.id === rowId);
+    const cleanRowRef = String(targetRow?.refNum || '').trim().toUpperCase();
+    const isTargetM81to84 = ['M_81', 'M_82', 'M_83', 'M_84', 'M81', 'M82', 'M83', 'M84'].includes(cleanRowRef);
+
+    if ((field === 'submitter' || field === 'approver') && isTargetM81to84) {
+      if (!isSuperAdminMike) {
+        setSuccessToast(`Statutory Locked: KPI ${cleanRowRef} Submitter is permanently locked as Annah Msiza and Approver as Thandiwe M. Lengwate.`);
         setTimeout(() => setSuccessToast(null), 4000);
         return;
       }
     }
 
+    if (activeTab === 'reporting' && (field === 'submitter' || field === 'approver') && !isReportingAssignmentsUnlocked && !isSuperAdminMike) {
+      setSuccessToast(`Field Locked: Submitter and Approver assignments are locked in the reporting view for KPI ${targetRow?.refNum || ''} to preserve responsible personnel assignments.`);
+      setTimeout(() => setSuccessToast(null), 4000);
+      return;
+    }
+
     // Locked targets and midterm expenditure
     if (activeTab === 'reporting' && (field === 'q1' || field === 'midTermExpenditure')) {
-      const targetRow = rows.find(r => r.id === rowId);
       setSuccessToast(`Field Locked: ${field === 'q1' ? 'Q1 Target' : 'Mid-Term Expenditure'} is locked in the reporting view for KPI ${targetRow?.refNum || ''}.`);
       setTimeout(() => setSuccessToast(null), 4000);
       return;
@@ -2102,11 +2116,8 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
       'q1Expenditure', 'q2Expenditure', 'midTermExpenditure', 'q3Expenditure', 'q4Expenditure'
     ];
     if (actualsFields.includes(field as string)) {
-      const targetRow = rows.find(r => r.id === rowId);
-      const isQ1Field = ['score', 'q1Actual', 'q1Corrective', 'q1Expenditure', 'q1PoeDesc', 'poeDesc'].includes(field as string);
-      const isSpecialQ1 = isQ1Field && isQuarter1UnlockedKpi(targetRow);
-      if (!isSpecialQ1 && targetRow && (targetRow.submitter || targetRow.responsibleUnit)) {
-        const assignedSubmitter = targetRow.submitter || targetRow.responsibleUnit;
+      if (targetRow && (targetRow.submitter || targetRow.responsibleUnit || isTargetM81to84)) {
+        const assignedSubmitter = isTargetM81to84 ? 'Annah Msiza' : (targetRow.submitter || targetRow.responsibleUnit);
         const isMatch = isUserMatch(assignedSubmitter, currentUser) || isSuperAdminMike || isUserUnrestricted(currentUser);
         if (!isMatch) {
           setSuccessToast(`Reporting Restricted: Only the designated Submitter (${assignedSubmitter}) can report on actuals for KPI ${targetRow.refNum || ''}.`);
@@ -5595,14 +5606,26 @@ Timestamp: ${new Date().toLocaleString()}
                       {/* Submitter */}
                       <td className="p-1.5 border-r border-slate-150">
                         <div className="flex flex-col gap-1">
-                          <AzureADPicker 
-                            value={row.submitter || ''}
-                            onChange={(val) => handleCellChange(row.id, 'submitter', val)}
-                            roleType="submitter"
-                            activeTenantId={activeTenantId}
-                            isFitAll={isFitAllTopLayerCells}
-                            disabled={!isReportingAssignmentsUnlocked && !isSuperAdminMike && !isQuarter1UnlockedKpi(row)}
-                          />
+                          {(() => {
+                            const isRowM81to84 = isQuarter1UnlockedKpi(row);
+                            return (
+                              <>
+                                <AzureADPicker 
+                                  value={isRowM81to84 ? 'Annah Msiza' : (row.submitter || '')}
+                                  onChange={(val) => handleCellChange(row.id, 'submitter', val)}
+                                  roleType="submitter"
+                                  activeTenantId={activeTenantId}
+                                  isFitAll={isFitAllTopLayerCells}
+                                  disabled={isRowM81to84 ? !isSuperAdminMike : (!isReportingAssignmentsUnlocked && !isSuperAdminMike)}
+                                />
+                                {isRowM81to84 && (
+                                  <span className="text-[8px] font-mono font-bold px-1 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-300 inline-flex items-center gap-0.5 w-fit shadow-2xs">
+                                    <Lock className="w-2 h-2 text-slate-500" /> Locked Submitter
+                                  </span>
+                                )}
+                              </>
+                            );
+                          })()}
                           {((row as any).workflowStatus === 'Submitted to Approver' || (row as any).workflowStatus === 'Submitted' || row.workflows?.q1?.status === 'pending_approval') && (
                             <span className="text-[8px] font-mono font-bold px-1 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-300 inline-flex items-center gap-0.5 w-fit">
                               <Clock className="w-2 h-2 text-amber-600" /> Submitted
@@ -5614,14 +5637,26 @@ Timestamp: ${new Date().toLocaleString()}
                       {/* Approver */}
                       <td className="p-1.5 border-r border-slate-150">
                         <div className="flex flex-col gap-1">
-                          <AzureADPicker 
-                            value={row.approver || ''}
-                            onChange={(val) => handleCellChange(row.id, 'approver', val)}
-                            roleType="approver"
-                            activeTenantId={activeTenantId}
-                            isFitAll={isFitAllTopLayerCells}
-                            disabled={!isReportingAssignmentsUnlocked && !isSuperAdminMike && !isQuarter1UnlockedKpi(row)}
-                          />
+                          {(() => {
+                            const isRowM81to84 = isQuarter1UnlockedKpi(row);
+                            return (
+                              <>
+                                <AzureADPicker 
+                                  value={isRowM81to84 ? 'Thandiwe M. Lengwate' : (row.approver || '')}
+                                  onChange={(val) => handleCellChange(row.id, 'approver', val)}
+                                  roleType="approver"
+                                  activeTenantId={activeTenantId}
+                                  isFitAll={isFitAllTopLayerCells}
+                                  disabled={isRowM81to84 ? !isSuperAdminMike : (!isReportingAssignmentsUnlocked && !isSuperAdminMike)}
+                                />
+                                {isRowM81to84 && (
+                                  <span className="text-[8px] font-mono font-bold px-1 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-300 inline-flex items-center gap-0.5 w-fit shadow-2xs">
+                                    <Lock className="w-2 h-2 text-slate-500" /> Locked Approver
+                                  </span>
+                                )}
+                              </>
+                            );
+                          })()}
                           {((row as any).workflowStatus === 'Submitted to Approver' || (row as any).workflowStatus === 'Submitted' || row.workflows?.q1?.status === 'pending_approval') && (
                             <span className="text-[8px] font-mono font-bold px-1 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-300 inline-flex items-center gap-0.5 w-fit">
                               <Clock className="w-2 h-2 text-amber-600" /> Awaiting Approval
@@ -6269,8 +6304,11 @@ Timestamp: ${new Date().toLocaleString()}
                     </tr>
                   ) : (
                     paginatedReportingRows.map((row) => {
-                    const isSpecialQ1 = isQuarter1UnlockedKpi(row);
-                    const isRowSubmitter = isSpecialQ1 || isUserMatch(row.submitter || row.responsibleUnit, currentUser) || isSuperAdminMike || isUserUnrestricted(currentUser);
+                    const isM81to84 = isQuarter1UnlockedKpi(row);
+                    const isSpecialQ1 = isM81to84;
+                    const isRowSubmitter = isM81to84
+                      ? (isUserMatch('Annah Msiza', currentUser) || isSuperAdminMike || isUserUnrestricted(currentUser))
+                      : (isUserMatch(row.submitter || row.responsibleUnit, currentUser) || isSuperAdminMike || isUserUnrestricted(currentUser));
                     return (
                     <tr key={row.id} className="group hover:bg-slate-50/70 transition-colors">
                       <td className="p-2 border-r border-slate-150 sticky left-0 z-10 bg-white group-hover:bg-slate-50/95 transition-colors font-mono text-[11px] drop-shadow-[1px_0_0_rgba(203,213,225,1)]">
@@ -7672,14 +7710,28 @@ Timestamp: ${new Date().toLocaleString()}
                       {/* Submitter */}
                       <td className={`p-1.5 border-r border-slate-100 ${!isReportingAssignmentsUnlocked && !isSuperAdminMike ? 'bg-slate-100/40' : 'bg-emerald-50/20'}`}>
                         <div className="flex flex-col gap-1">
-                          <AzureADPicker 
-                            value={row.submitter || ''}
-                            onChange={(val) => handleCellChange(row.id, 'submitter', val)}
-                            roleType="submitter"
-                            activeTenantId={activeTenantId}
-                            isFitAll={isFitAllReportingCells}
-                            disabled={!isReportingAssignmentsUnlocked && !isSuperAdminMike && !isQuarter1UnlockedKpi(row)}
-                          />
+                          {(() => {
+                            const isRowM81to84 = isQuarter1UnlockedKpi(row);
+                            return (
+                              <>
+                                <AzureADPicker 
+                                  value={isRowM81to84 ? 'Annah Msiza' : (row.submitter || '')}
+                                  onChange={(val) => handleCellChange(row.id, 'submitter', val)}
+                                  roleType="submitter"
+                                  activeTenantId={activeTenantId}
+                                  isFitAll={isFitAllReportingCells}
+                                  disabled={isRowM81to84 ? !isSuperAdminMike : (!isReportingAssignmentsUnlocked && !isSuperAdminMike)}
+                                />
+                                {isRowM81to84 && (
+                                  <div className="flex items-center gap-1 justify-center">
+                                    <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 rounded bg-slate-200 text-slate-800 border border-slate-300 flex items-center gap-0.5 shadow-2xs">
+                                      <Lock className="w-2 h-2 text-slate-600" /> LOCKED: ANNAH MSIZA
+                                    </span>
+                                  </div>
+                                )}
+                              </>
+                            );
+                          })()}
                           {((row as any).workflowStatus === 'Submitted to Approver' || (row as any).workflowStatus === 'Submitted' || row.workflows?.q1?.status === 'pending_approval') && (
                             <div className="flex items-center gap-1 justify-center">
                               <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-0.5 shadow-2xs">
@@ -7687,7 +7739,7 @@ Timestamp: ${new Date().toLocaleString()}
                               </span>
                             </div>
                           )}
-                          {(isReportingAssignmentsUnlocked || isSuperAdminMike) && (
+                          {!isQuarter1UnlockedKpi(row) && (isReportingAssignmentsUnlocked || isSuperAdminMike) && (
                             <div className="flex items-center gap-1 justify-center">
                               <span className="text-[8px] font-bold font-mono px-1 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
                                 UNLOCKED
@@ -7700,14 +7752,28 @@ Timestamp: ${new Date().toLocaleString()}
                       {/* Approver */}
                       <td className={`p-1.5 border-r border-slate-100 ${!isReportingAssignmentsUnlocked && !isSuperAdminMike ? 'bg-slate-100/40' : 'bg-emerald-50/20'}`}>
                         <div className="flex flex-col gap-1">
-                          <AzureADPicker 
-                            value={row.approver || ''}
-                            onChange={(val) => handleCellChange(row.id, 'approver', val)}
-                            roleType="approver"
-                            activeTenantId={activeTenantId}
-                            isFitAll={isFitAllReportingCells}
-                            disabled={!isReportingAssignmentsUnlocked && !isSuperAdminMike && !isQuarter1UnlockedKpi(row)}
-                          />
+                          {(() => {
+                            const isRowM81to84 = isQuarter1UnlockedKpi(row);
+                            return (
+                              <>
+                                <AzureADPicker 
+                                  value={isRowM81to84 ? 'Thandiwe M. Lengwate' : (row.approver || '')}
+                                  onChange={(val) => handleCellChange(row.id, 'approver', val)}
+                                  roleType="approver"
+                                  activeTenantId={activeTenantId}
+                                  isFitAll={isFitAllReportingCells}
+                                  disabled={isRowM81to84 ? !isSuperAdminMike : (!isReportingAssignmentsUnlocked && !isSuperAdminMike)}
+                                />
+                                {isRowM81to84 && (
+                                  <div className="flex items-center gap-1 justify-center">
+                                    <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 rounded bg-slate-200 text-slate-800 border border-slate-300 flex items-center gap-0.5 shadow-2xs">
+                                      <Lock className="w-2 h-2 text-slate-600" /> LOCKED: THANDIWE M. LENGWATE
+                                    </span>
+                                  </div>
+                                )}
+                              </>
+                            );
+                          })()}
                           {((row as any).workflowStatus === 'Submitted to Approver' || (row as any).workflowStatus === 'Submitted' || row.workflows?.q1?.status === 'pending_approval') && (
                             <div className="flex items-center gap-1 justify-center">
                               <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-0.5 shadow-2xs">
@@ -7715,7 +7781,7 @@ Timestamp: ${new Date().toLocaleString()}
                               </span>
                             </div>
                           )}
-                          {(isReportingAssignmentsUnlocked || isSuperAdminMike) && (
+                          {!isQuarter1UnlockedKpi(row) && (isReportingAssignmentsUnlocked || isSuperAdminMike) && (
                             <div className="flex items-center gap-1 justify-center">
                               <span className="text-[8px] font-bold font-mono px-1 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
                                 UNLOCKED

@@ -899,7 +899,8 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
 
     setLoading(true);
     try {
-      const approverTarget = selectedKpi.approver || 'Approver';
+      const isM81to84 = selectedKpi && isQuarter1UnlockedKpi(selectedKpi);
+      const approverTarget = isM81to84 ? 'Thandiwe M. Lengwate' : (selectedKpi.approver || 'Approver');
       // Zero Data Loss safeguard: if input values are blank in state, check cloud draft or current row values
       const draftFallback = cloudDrafts[selectedKpi.id] || cloudDrafts[selectedKpi.refNum] || (cloudDrafts[selectedKpi.refNum]?.draftData) || {};
       const effQ1Actual = q1Actual || draftFallback.q1Actual || selectedKpi.q1Actual || '';
@@ -962,8 +963,11 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
           const kpiPoesList = extractKpiPoes(r, poes).map(p => p.name).filter(Boolean);
           const finalQ1Poes = (r.q1Poes && r.q1Poes.length > 0) ? r.q1Poes : kpiPoesList;
 
+          const isRowM81to84 = isQuarter1UnlockedKpi(r);
           return {
             ...r,
+            submitter: isRowM81to84 ? 'Annah Msiza' : (r.submitter || currentUser.fullName || currentUser.email),
+            approver: isRowM81to84 ? 'Thandiwe M. Lengwate' : (r.approver || approverTarget),
             q1Actual: effQ1Actual, q1Variance: effQ1Variance, q1Corrective: effQ1Corrective,
             q2Actual: effQ2Actual, q2Variance: effQ2Variance, q2Corrective: effQ2Corrective,
             q3Actual: effQ3Actual, q3Variance: effQ3Variance, q3Corrective: effQ3Corrective,
@@ -1000,12 +1004,14 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
       setAutoSaveStatus('saved');
 
       // Dispatch real-time notification to specified approver
-      const approverTargets = Array.from(new Set([
-        approverTarget,
-        (selectedKpi as any).approverEmail,
-        (selectedKpi as any).approverName,
-        selectedKpi.approver
-      ].filter(Boolean))) as string[];
+      const approverTargets = isM81to84
+        ? ['Thandiwe M. Lengwate', 'lengwatetm@nkangaladm.gov.za']
+        : Array.from(new Set([
+            approverTarget,
+            (selectedKpi as any).approverEmail,
+            (selectedKpi as any).approverName,
+            selectedKpi.approver
+          ].filter(Boolean))) as string[];
 
       await dispatchSdbipNotification(activeTenantId, {
         targetUser: approverTargets.length > 0 ? approverTargets : 'Executive Approver',
@@ -1078,7 +1084,7 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
 
   // Directly assigned rows for the logged-in user
   const userDirectAssignedRows = useMemo(() => {
-    return rows.filter(r => (r.submitter && isUserMatch(r.submitter, currentUser)) || (Boolean((r as any).submitterName) && isUserMatch((r as any).submitterName, currentUser)) || isQuarter1UnlockedKpi(r));
+    return rows.filter(r => (r.submitter && isUserMatch(r.submitter, currentUser)) || (Boolean((r as any).submitterName) && isUserMatch((r as any).submitterName, currentUser)));
   }, [rows, currentUser]);
 
   const filteredRows = useMemo(() => {
@@ -1090,13 +1096,12 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
         (r.strategicObj && r.strategicObj.toLowerCase().includes(searchQuery.toLowerCase()));
 
       const isSpecifiedUser = (r.submitter && isUserMatch(r.submitter, currentUser)) ||
-        Boolean((r as any).submitterName && isUserMatch((r as any).submitterName, currentUser)) ||
-        isQuarter1UnlockedKpi(r);
+        Boolean((r as any).submitterName && isUserMatch((r as any).submitterName, currentUser));
 
       let matchesMine = true;
       if (isUnrestrictedAdmin) {
         if (selectedSubmitterFilter !== 'ALL') {
-          matchesMine = r.submitter === selectedSubmitterFilter || isUserMatch(r.submitter, { fullName: selectedSubmitterFilter }) || isQuarter1UnlockedKpi(r);
+          matchesMine = r.submitter === selectedSubmitterFilter || isUserMatch(r.submitter, { fullName: selectedSubmitterFilter });
         } else if (assignedFilter === 'ALL') {
           matchesMine = true;
         } else {
@@ -1115,7 +1120,7 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
   const myAssignedRows = useMemo(() => {
     if (isUnrestrictedAdmin) {
       if (selectedSubmitterFilter !== 'ALL') {
-        return rows.filter(r => r.submitter === selectedSubmitterFilter || isUserMatch(r.submitter, { fullName: selectedSubmitterFilter }) || isQuarter1UnlockedKpi(r));
+        return rows.filter(r => r.submitter === selectedSubmitterFilter || isUserMatch(r.submitter, { fullName: selectedSubmitterFilter }));
       }
       return (assignedFilter === 'MINE' && userDirectAssignedRows.length > 0) ? userDirectAssignedRows : rows;
     }
@@ -1129,12 +1134,16 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
   const approvedCount = myAssignedRows.filter(r => (r as any).workflowStatus === 'Approved').length;
   const returnedCount = myAssignedRows.filter(r => (r as any).workflowStatus === 'Returned').length;
 
+  const isKpiM81to84 = Boolean(selectedKpi && isQuarter1UnlockedKpi(selectedKpi));
   const isActualDesignatedSubmitter = Boolean(
     selectedKpi && (
       isUnrestrictedAdmin ||
-      isQuarter1UnlockedKpi(selectedKpi) ||
-      Boolean(selectedKpi.submitter && isUserMatch(selectedKpi.submitter, currentUser)) ||
-      Boolean((selectedKpi as any).submitterName && isUserMatch((selectedKpi as any).submitterName, currentUser))
+      (isKpiM81to84
+        ? isUserMatch('Annah Msiza', currentUser)
+        : (
+          Boolean(selectedKpi.submitter && isUserMatch(selectedKpi.submitter, currentUser)) ||
+          Boolean((selectedKpi as any).submitterName && isUserMatch((selectedKpi as any).submitterName, currentUser))
+        ))
     )
   );
 
@@ -1840,9 +1849,11 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                       </span>
                     </div>
                     <p className="text-[11px] text-slate-400 mt-0.5">
-                      {assignedFilter === 'ALL'
-                        ? "Scorecards selected under 'All KPIs' are strictly read-only. Switch to 'My KPIs' where you are the designated submitter to edit Q1 achievements."
-                        : `You are not the designated submitter (${selectedKpi.submitter || selectedKpi.responsibleUnit || 'Unassigned'}) for this scorecard.`
+                      {isKpiM81to84
+                        ? `KPI ${selectedKpi.refNum} is statutorily assigned to Annah Msiza (Submitter) and Thandiwe M. Lengwate (Approver). Only Annah Msiza can edit actuals and submit evidence for this KPI.`
+                        : assignedFilter === 'ALL'
+                          ? "Scorecards selected under 'All KPIs' are strictly read-only. Switch to 'My KPIs' where you are the designated submitter to edit Q1 achievements."
+                          : `You are not the designated submitter (${selectedKpi.submitter || selectedKpi.responsibleUnit || 'Unassigned'}) for this scorecard.`
                       }
                     </p>
                   </div>

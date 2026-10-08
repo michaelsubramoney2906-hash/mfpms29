@@ -20,7 +20,8 @@ import {
   PMS_TEAM_REVIEWERS,
   OFFICIAL_REVIEWERS,
   ReviewerOfficial,
-  isMasterAdminMike
+  isMasterAdminMike,
+  isQuarter1UnlockedKpi
 } from '../../utils/sdbipWorkflowHelper';
 import { calcOpmsVariance } from '../../utils/varianceCalculator';
 import { isUserUnrestricted } from '../../utils/unrestrictedHelper';
@@ -58,11 +59,16 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
     !!(localStorage.getItem('originalAdminUser') || sessionStorage.getItem('originalAdminUser'));
   const isUnrestrictedAdmin = isUserUnrestricted(currentUser) || isMasterAdminMike(currentUser) || isImpersonating;
 
+  const isSelectedKpiM81to84 = Boolean(selectedKpi && isQuarter1UnlockedKpi(selectedKpi));
   const isDesignatedApprover = Boolean(
     selectedKpi && (
-      isUserMatch(selectedKpi.approver, currentUser) ||
-      isUserMatch((selectedKpi as any).approverName, currentUser) ||
-      isUserMatch((selectedKpi as any).owner, currentUser) ||
+      (isSelectedKpiM81to84
+        ? isUserMatch('Thandiwe M. Lengwate', currentUser)
+        : (
+          isUserMatch(selectedKpi.approver, currentUser) ||
+          isUserMatch((selectedKpi as any).approverName, currentUser) ||
+          isUserMatch((selectedKpi as any).owner, currentUser)
+        )) ||
       isMasterAdminMike(currentUser) ||
       isImpersonating
     )
@@ -1061,7 +1067,9 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
       (r.kpi && r.kpi.toLowerCase().includes(searchQuery.toLowerCase()));
 
     // Strict approver user matching: only KPIs specifying their user name (or all if unrestricted admin)
-    const isSpecifiedApprover = Boolean(r.approver && isUserMatch(r.approver, currentUser)) ||
+    const isRowM81to84 = isQuarter1UnlockedKpi(r);
+    const effApprover = isRowM81to84 ? 'Thandiwe M. Lengwate' : r.approver;
+    const isSpecifiedApprover = Boolean(effApprover && isUserMatch(effApprover, currentUser)) ||
       Boolean((r as any).approverName && isUserMatch((r as any).approverName, currentUser));
 
     const matchesMine = isUnrestrictedAdmin && assignedFilter === 'ALL'
@@ -1076,7 +1084,9 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
     const rowStatus = (r as any).workflowStatus;
     const isSent = rowStatus === 'Submitted' || rowStatus === 'Submitted to Approver' || rowStatus === 'Pending Approval' || rowStatus === 'Approved' || rowStatus === 'Returned' || rowStatus === 'Reviewed' || r.workflows?.q1?.status === 'pending_approval';
     if (!isSent) return false;
-    const isAssigned = Boolean(r.approver && isUserMatch(r.approver, currentUser)) || Boolean((r as any).approverName && isUserMatch((r as any).approverName, currentUser));
+    const isRowM81to84 = isQuarter1UnlockedKpi(r);
+    const effApprover = isRowM81to84 ? 'Thandiwe M. Lengwate' : r.approver;
+    const isAssigned = Boolean(effApprover && isUserMatch(effApprover, currentUser)) || Boolean((r as any).approverName && isUserMatch((r as any).approverName, currentUser));
     return isUnrestrictedAdmin && assignedFilter === 'ALL' ? true : isAssigned;
   });
 

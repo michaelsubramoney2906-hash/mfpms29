@@ -9883,6 +9883,9 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
                       approver = 'Juliet N. Ralephaleng';
                     }
                     if (!submitter) submitter = 'Quinton Skhosana';
+                  } else if (['M_81', 'M_82', 'M_83', 'M_84', 'M81', 'M82', 'M83', 'M84'].includes(ref)) {
+                    submitter = 'Annah Msiza';
+                    approver = 'Thandiwe M. Lengwate';
                   }
                   return { ...it, approver, submitter };
                 });
@@ -9997,9 +10000,15 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
     const { items } = req.body;
     const isSdbip23 = req.path.endsWith('/sdbip23');
     try {
-      const cleanItems = isSdbip23 
+      const cleanItems = (isSdbip23 
         ? (items || [])
-        : (items || []).filter((it: any) => !isSdbipPlaceholder(it));
+        : (items || []).filter((it: any) => !isSdbipPlaceholder(it))).map((it: any) => {
+          const ref = String(it.refNum || it.Ref_Number || '').trim().toUpperCase();
+          if (['M_81', 'M_82', 'M_83', 'M_84', 'M81', 'M82', 'M83', 'M84'].includes(ref)) {
+            return { ...it, submitter: 'Annah Msiza', approver: 'Thandiwe M. Lengwate' };
+          }
+          return it;
+        });
 
       let targetDocIds = isSdbip23 
         ? [`sdbip23_${tenantId}`, 'sdbip23_tenant-229', 'sdbip23_nkangala_auto', 'sdbip23_global', 'sdbip23_default']
