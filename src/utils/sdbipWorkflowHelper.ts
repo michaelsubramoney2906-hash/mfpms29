@@ -11,12 +11,74 @@ export const PMS_TEAM_REVIEWERS = [
   'khuboniy@nkangaladm.gov.za'
 ];
 
+export interface ReviewerOfficial {
+  fullName: string;
+  email: string;
+  username: string;
+  displayName: string;
+}
+
+export const OFFICIAL_REVIEWERS: ReviewerOfficial[] = [
+  { 
+    fullName: 'Nompumelelo P. Nsibande', 
+    email: 'nsibandenp@nkangaladm.gov.za', 
+    username: 'nsibandenp',
+    displayName: 'Nompumelelo P. Nsibande (@nsibandenp)'
+  },
+  { 
+    fullName: 'Sibusiso M Shabangu', 
+    email: 'shabangusm@nkangaladm.gov.za', 
+    username: 'shabangusm',
+    displayName: 'Sibusiso M Shabangu (@shabangusm)'
+  },
+  { 
+    fullName: 'Noluthando Zulu', 
+    email: 'zulune@nkangaladm.gov.za', 
+    username: 'zulune',
+    displayName: 'Noluthando Zulu (@zulune)'
+  },
+  { 
+    fullName: 'Mduduzi Lukhele', 
+    email: 'lukhelema@nkangaladm.gov.za', 
+    username: 'lukhelema',
+    displayName: 'Mduduzi Lukhele (@lukhelema)'
+  }
+];
+
 export const INTERNAL_AUDIT_USERS = [
   'twalaad@nkangaladm.gov.za',
   'seeranepl@nkangaladm.gov.za',
   'morarj@nkangaladm.gov.za',
   'masemolak@nkangaladm.gov.za',
   'mpanzacs@nkangaladm.gov.za'
+];
+
+export interface InternalAuditorOfficial {
+  fullName: string;
+  email: string;
+  username: string;
+  displayName: string;
+}
+
+export const OFFICIAL_INTERNAL_AUDITORS: InternalAuditorOfficial[] = [
+  { 
+    fullName: 'Amos D. Twala', 
+    email: 'twalaad@nkangaladm.gov.za', 
+    username: 'twalaad',
+    displayName: 'Amos D. Twala (@twalaad)'
+  },
+  { 
+    fullName: 'Peggy L. Seerane', 
+    email: 'seeranepl@nkangaladm.gov.za', 
+    username: 'seeranepl',
+    displayName: 'Peggy L. Seerane (@seeranepl)'
+  },
+  { 
+    fullName: 'Katlego Masemola', 
+    email: 'masemolak@nkangaladm.gov.za', 
+    username: 'masemolak',
+    displayName: 'Katlego Masemola (@masemolak)'
+  }
 ];
 
 /**

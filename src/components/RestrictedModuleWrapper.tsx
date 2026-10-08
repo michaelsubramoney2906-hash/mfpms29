@@ -327,5 +327,98 @@ export function RestrictedModuleWrapper({ currentUser, item, unlockedModules, on
     }
   }
 
+  // Strict OPMS Workflow Module Isolation per SDBIP Governance Rules
+  const isOpmsWorkflowModule = 
+    item.id === 'opms-submitter' || 
+    item.id === 'opms-approver' || 
+    item.id === 'opms-reviewer' || 
+    item.id === 'opms-audit';
+
+  if (isOpmsWorkflowModule) {
+    const isGlobalAdmin = 
+      currentUser.email === 'mike@mzansiflow.co.za' || 
+      currentUser.email === 'mike@massivedynamixdistributors.com' ||
+      (currentUser.email?.endsWith('@mzansiflow.co.za') && !currentUser.email?.includes('nkangaladm'));
+
+    if (!isGlobalAdmin) {
+      const email = (currentUser.email || '').toLowerCase().trim();
+      const role = (currentUser.role || '').toLowerCase().trim();
+      const sysRole = (currentUser.systemRole || '').toLowerCase().trim();
+      const job = (currentUser.jobFunction || '').toLowerCase().trim();
+      const dept = (currentUser.department || '').toLowerCase().trim();
+      const name = (currentUser.fullName || (currentUser as any)?.name || '').toLowerCase().trim();
+
+      const isAuditor = email === 'twalaad@nkangaladm.gov.za' || 
+                        email === 'seeranepl@nkangaladm.gov.za' || 
+                        email === 'masemolak@nkangaladm.gov.za' || 
+                        email === 'morarj@nkangaladm.gov.za' || 
+                        email.includes('audit') || role.includes('audit') || 
+                        sysRole.includes('audit') || job.includes('audit') || 
+                        dept.includes('audit') || name.includes('twala') || 
+                        name.includes('seerane') || name.includes('masemola');
+
+      const isReviewer = email === 'nsibandenp@nkangaladm.gov.za' || 
+                         email === 'shabangusm@nkangaladm.gov.za' || 
+                         email === 'zulune@nkangaladm.gov.za' || 
+                         email === 'lukhelema@nkangaladm.gov.za' || 
+                         email === 'khuboniy@nkangaladm.gov.za' || 
+                         name.includes('nsibande') || name.includes('shabangu') || 
+                         name.includes('zulu') || name.includes('lukhele');
+
+      let hasOpmsAccess = true;
+      let deniedReason = '';
+
+      if (item.id === 'opms-audit') {
+        if (!isAuditor) {
+          hasOpmsAccess = false;
+          deniedReason = 'Only designated Internal Audit officials have access to the Internal Audit module.';
+        }
+      } else if (item.id === 'opms-reviewer') {
+        if (!isReviewer) {
+          hasOpmsAccess = false;
+          deniedReason = 'Only designated PMU Reviewers have access to the OPMS Reviewer module.';
+        }
+      } else if (item.id === 'opms-approver') {
+        if (isAuditor || isReviewer) {
+          hasOpmsAccess = false;
+          deniedReason = 'Reviewers and Internal Auditors are restricted from accessing the Executive Approver module.';
+        }
+      } else if (item.id === 'opms-submitter') {
+        if (isAuditor || isReviewer) {
+          hasOpmsAccess = false;
+          deniedReason = 'Reviewers and Internal Auditors are restricted from accessing the Submitter module.';
+        }
+      }
+
+      if (!hasOpmsAccess) {
+        return (
+          <div className="flex-1 flex flex-col items-center justify-center p-8 m-6 min-h-[500px] bg-red-950/20 backdrop-blur-md border-2 border-red-500/30 rounded-3xl relative z-10 shadow-[0_20px_50px_rgba(239,68,68,0.15)] ring-1 ring-red-500/10">
+            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-red-500 to-transparent opacity-80" />
+            <button 
+              onClick={onClose} 
+              className="absolute top-6 right-6 text-red-400 hover:text-red-200 hover:bg-red-900/40 p-2.5 rounded-full transition-all cursor-pointer border border-transparent hover:border-red-500/20"
+              aria-label="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="flex items-center justify-center w-20 h-20 rounded-full bg-red-500/10 border border-red-500/30 text-red-500 mb-6 shadow-[0_0_30px_rgba(239,68,68,0.2)]">
+              <ShieldAlert className="w-8 h-8" />
+            </div>
+            <h2 className="text-xl font-black text-red-400 uppercase tracking-[0.2em] text-center mb-2 font-mono">
+              ⚠️ Module Access Restricted
+            </h2>
+            <div className="w-16 h-[2px] bg-red-500/30 mb-4" />
+            <p className="text-red-300 text-xs text-center max-w-sm font-sans mb-4 leading-relaxed">
+              {deniedReason}
+            </p>
+            <p className="text-slate-400 text-[11px] text-center max-w-xs font-mono">
+              Per SDBIP governance rules, Submitters, Approvers, Reviewers, and Internal Auditors are restricted strictly to their designated operational modules.
+            </p>
+          </div>
+        );
+      }
+    }
+  }
+
   return <>{children}</>;
 }

@@ -16,7 +16,9 @@ import {
   dispatchSdbipNotification, 
   markSdbipNotificationRead,
   extractKpiPoes,
-  INTERNAL_AUDIT_USERS
+  INTERNAL_AUDIT_USERS,
+  OFFICIAL_INTERNAL_AUDITORS,
+  InternalAuditorOfficial
 } from '../../utils/sdbipWorkflowHelper';
 import { calcOpmsVariance } from '../../utils/varianceCalculator';
 
@@ -41,6 +43,7 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
   const [searchQuery, setSearchQuery] = useState('');
   const [inboxTheme, setInboxTheme] = useState<'dark' | 'light'>('dark');
   const [reviewerNotes, setReviewerNotes] = useState('');
+  const [selectedAuditorUsername, setSelectedAuditorUsername] = useState<string>('twalaad');
 
   const calcVar = (target: string | undefined, actual: string | undefined) => {
     return calcOpmsVariance(target, actual, selectedKpi?.uom);
@@ -82,6 +85,14 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
   useEffect(() => {
     if (selectedKpi) {
       setReviewerNotes((selectedKpi as any).reviewerNotes || '');
+      if (selectedKpi.internalAudit) {
+        const matched = OFFICIAL_INTERNAL_AUDITORS.find(a => 
+          a.fullName.toLowerCase() === selectedKpi.internalAudit?.toLowerCase() ||
+          a.username.toLowerCase() === selectedKpi.internalAudit?.toLowerCase() ||
+          a.email.toLowerCase() === selectedKpi.internalAudit?.toLowerCase()
+        );
+        if (matched) setSelectedAuditorUsername(matched.username);
+      }
     } else {
       setReviewerNotes('');
     }
@@ -363,15 +374,19 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
     if (!selectedKpi) return;
     setLoading(true);
     try {
-      const auditorTarget = selectedKpi.internalAudit || 'Internal Audit Desk';
+      const selectedAuditorObj = OFFICIAL_INTERNAL_AUDITORS.find(a => a.username === selectedAuditorUsername) || OFFICIAL_INTERNAL_AUDITORS[0];
+      const auditorTarget = selectedAuditorObj.fullName;
+      const auditorEmail = selectedAuditorObj.email;
+      const auditorUsername = selectedAuditorObj.username;
+
       const updatedRows = rows.map(r => {
         if (r.id === selectedKpi.id) {
           const currentHistory = (r as any).workflowHistory || [];
           const newHistoryItem = {
             date: new Date().toISOString(),
-            action: 'Reviewed & Pushed to Internal Audit',
+            action: `Reviewed & Pushed to Internal Audit (${auditorTarget})`,
             user: currentUser.fullName || currentUser.email,
-            notes: reviewerNotes || `Pushed to Internal Audit desk (${auditorTarget}) for statutory compliance verification.`
+            notes: reviewerNotes || `Pushed to Internal Auditor ${auditorTarget} (@${auditorUsername}) for statutory compliance verification.`
           };
 
           const workflows = r.workflows || {};
@@ -383,6 +398,9 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
 
           return {
             ...r,
+            internalAudit: auditorTarget,
+            internalAuditEmail: auditorEmail,
+            internalAuditUsername: auditorUsername,
             workflowStatus: 'Pending Audit',
             reviewedBy: currentUser.fullName || currentUser.email,
             reviewerNotes: reviewerNotes,
@@ -396,7 +414,7 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
       await saveUpdatedRows(updatedRows, selectedKpi);
 
       // Dispatch real-time notification to Internal Audit, Submitter and Approver
-      const auditTargets = Array.from(new Set([auditorTarget, selectedKpi.submitter, selectedKpi.approver, ...INTERNAL_AUDIT_USERS].filter(Boolean)));
+      const auditTargets = Array.from(new Set([auditorEmail, auditorTarget, auditorUsername, selectedKpi.submitter, selectedKpi.approver, ...INTERNAL_AUDIT_USERS].filter(Boolean)));
       await dispatchSdbipNotification(activeTenantId, {
         targetUser: auditTargets,
         senderUser: currentUser.fullName || currentUser.email,
@@ -404,7 +422,7 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
         refNum: selectedKpi.refNum,
         kpiName: selectedKpi.kpi,
         phase: 'General',
-        message: `KPI ${selectedKpi.refNum} review sign-off completed by ${currentUser.fullName || currentUser.email} and routed to Internal Audit desk.`,
+        message: `KPI ${selectedKpi.refNum} review sign-off completed by ${currentUser.fullName || currentUser.email} and routed to Internal Auditor ${auditorTarget} (@${auditorUsername}).`,
         comment: reviewerNotes,
         actionType: 'pushed_to_audit'
       });
@@ -418,7 +436,7 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
           refNum: selectedKpi.refNum,
           kpiName: selectedKpi.kpi,
           roleType: 'internal_audit',
-          officialIdentifier: auditorTarget,
+          officialIdentifier: auditorEmail,
           assignedBy: currentUser.fullName || currentUser.email || 'PMU Reviewer'
         })
       }).catch(console.error);
@@ -426,7 +444,7 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
       await loadNotifications();
       
       setRows(updatedRows);
-      setSuccess(`SDBIP Item ${selectedKpi.refNum} successfully pushed to Internal Audit desk (${auditorTarget})!`);
+      setSuccess(`SDBIP Item ${selectedKpi.refNum} successfully pushed to Internal Auditor ${auditorTarget} (@${auditorUsername})!`);
       setTimeout(() => setSuccess(null), 4000);
       setSelectedKpi(null);
     } catch (err: any) {
@@ -1163,11 +1181,31 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
 
             {/* Reviewer Action Buttons */}
             {((selectedKpi as any).workflowStatus !== 'Approved') ? (
-              <div className="space-y-2 pt-3 border-t border-slate-850">
+              <div className="space-y-3 pt-3 border-t border-slate-850">
                 <div className="flex items-center justify-between text-xs text-slate-400 px-1 font-mono">
                   <span>Submitter: <strong className="text-amber-400 font-bold">{selectedKpi.submitter || 'None assigned'}</strong></span>
-                  <span>Internal Audit Target: <strong className="text-rose-400 font-bold">{selectedKpi.internalAudit || 'Internal Audit Desk'}</strong></span>
+                  <span>Approver: <strong className="text-emerald-400 font-bold">{selectedKpi.approver || 'Executive Approver'}</strong></span>
                 </div>
+
+                {/* Internal Auditor Selection for Review Push */}
+                <div className="space-y-1.5 bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+                  <label className="text-[10px] font-black uppercase text-rose-300 flex items-center justify-between">
+                    <span>Designated Internal Auditor Target (for Verification Routing)</span>
+                    <span className="text-[9px] text-slate-400 font-mono">Official Internal Audit Directory</span>
+                  </label>
+                  <select
+                    value={selectedAuditorUsername}
+                    onChange={(e) => setSelectedAuditorUsername(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-white focus:border-rose-500 outline-none font-medium"
+                  >
+                    {OFFICIAL_INTERNAL_AUDITORS.map(a => (
+                      <option key={a.username} value={a.username} className="bg-slate-900 text-white">
+                        {a.fullName} (@{a.username})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   <button
                     onClick={handleReturnToSubmitter}
@@ -1182,7 +1220,7 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
                     onClick={handlePushToAudit}
                     disabled={loading}
                     className="w-full bg-gradient-to-r from-violet-600 via-indigo-600 to-rose-600 hover:from-violet-500 hover:to-rose-500 text-white rounded-xl py-3 font-bold text-[11px] uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-lg"
-                    title={`Accept review and push to Internal Audit (${selectedKpi.internalAudit || 'Internal Audit Desk'})`}
+                    title={`Accept review and push to Internal Auditor (${OFFICIAL_INTERNAL_AUDITORS.find(a => a.username === selectedAuditorUsername)?.fullName || 'Internal Audit Desk'})`}
                   >
                     <Check className="w-3.5 h-3.5" />
                     <span>Accept & Push to Internal Audit</span>

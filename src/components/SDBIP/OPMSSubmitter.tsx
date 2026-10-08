@@ -960,19 +960,19 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
 
       await loadNotifications();
       
-      // Clear any pending resubmission notifications for this specific KPI
-      const remainingNotifs = notifications.filter(n => !(
-        (n.kpiId === selectedKpi.id || n.refNum === selectedKpi.refNum) &&
-        n.actionType === 'returned'
-      ));
-      if (remainingNotifs.length !== notifications.length) {
-        setNotifications(remainingNotifs);
-        fetch(`/api/tenant/${activeTenantId}/sdbip-notifications`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ notifications: remainingNotifs })
-        }).catch(() => {});
-      }
+      // Zero Data Loss: Mark return notifications as attended / read, preserving all historical return notifications from the approver!
+      const updatedNotifs = notifications.map(n => {
+        if ((n.kpiId === selectedKpi.id || n.refNum === selectedKpi.refNum) && n.actionType === 'returned') {
+          return { ...n, read: true, attended: true, attendedAt: new Date().toISOString() };
+        }
+        return n;
+      });
+      setNotifications(updatedNotifs);
+      fetch(`/api/tenant/${activeTenantId}/sdbip-notifications`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notifications: updatedNotifs })
+      }).catch(() => {});
       
       const submittedItem = updatedRows.find(x => x.id === selectedKpi.id) || null;
       setRows(updatedRows);
@@ -2102,6 +2102,42 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                 })()}
               </div>
 
+              {/* Historical Redo & Resubmit Notifications from Executive Approver */}
+              {(() => {
+                const kpiReturnNotifs = notifications.filter(n => 
+                  (n.kpiId === selectedKpi.id || n.refNum === selectedKpi.refNum) && 
+                  n.actionType === 'returned'
+                );
+                if (kpiReturnNotifs.length === 0) return null;
+                return (
+                  <div className="bg-amber-950/50 border border-amber-800/70 rounded-xl p-3.5 text-xs space-y-2">
+                    <div className="flex items-center justify-between text-amber-400 font-bold uppercase text-[10px] font-mono">
+                      <div className="flex items-center gap-1.5">
+                        <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Approver Redo & Resubmit Directives ({kpiReturnNotifs.length} request{kpiReturnNotifs.length > 1 ? 's' : ''}):</span>
+                      </div>
+                      <span className="text-[9px] bg-amber-900/60 px-2 py-0.5 rounded text-amber-200">Mandatory Action Required</span>
+                    </div>
+                    <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                      {kpiReturnNotifs.map((rn, idx) => (
+                        <div key={rn.id || idx} className="bg-black/40 p-2.5 rounded-lg border border-amber-900/50 text-[11px] space-y-1">
+                          <div className="flex items-center justify-between text-[10px] text-amber-400">
+                            <span className="font-semibold">{rn.senderUser || 'Executive Approver'}</span>
+                            <span className="text-amber-500/80">{rn.createdAt ? new Date(rn.createdAt).toLocaleString() : 'Recent'}</span>
+                          </div>
+                          <p className="text-amber-100 font-medium">{rn.message}</p>
+                          {rn.comment && (
+                            <p className="text-amber-200/90 italic pl-2 border-l border-amber-700/60 font-sans">
+                              "{rn.comment}"
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Feedback History Cards from Approver, Reviewer, and Audit */}
               {((selectedKpi as any).approverNotes || (selectedKpi as any).reviewerNotes || (selectedKpi as any).auditNotes) && (
                 <div className="space-y-2">
@@ -2231,7 +2267,7 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                       title={`Push to Approver (${selectedKpi.approver || 'Executive Approver'})`}
                     >
                       <Send className="w-3.5 h-3.5" />
-                      <span>Push to Approver</span>
+                      <span>{((selectedKpi as any).workflowStatus === 'Returned' || (selectedKpi as any).workflowStatus === 'Redo Required') ? 'Resubmit to Approver' : 'Push to Approver'}</span>
                     </button>
                   </div>
                 )}

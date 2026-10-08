@@ -3,7 +3,7 @@ import { Logo, cn } from './Branding';
 import { modules, tenants } from '../data';
 import type { User, Module } from '../types';
 import { isUserUnrestricted, isGlobalAdminEmail } from '../utils/unrestrictedHelper';
-import { isUserMatch } from '../utils/sdbipWorkflowHelper';
+import { isUserMatch, isMasterAdminMike } from '../utils/sdbipWorkflowHelper';
 import { ChevronDown, LogOut, ShieldCheck, ChevronRight, LayoutGrid, Calendar as CalendarIcon, Bell, ArrowLeft, Layers, Lock } from 'lucide-react';
 import { UserManagement } from './UserManagement';
 import { SharePoint } from './SharePoint';
@@ -492,7 +492,6 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
 
   const getFilteredSubModules = (mod: Module) => {
     if (!mod) return [];
-    if (isUnrestricted || isUserUnrestricted(fullUserProfile || user)) return mod.subModules;
 
     const profileToUse = fullUserProfile || user;
     const email = (profileToUse?.email || '').toLowerCase().trim();
@@ -502,17 +501,13 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
     const jobFunction = (profileToUse?.jobFunction || '').toLowerCase().trim();
     const department = (profileToUse?.department || '').toLowerCase().trim();
 
-    if (mod.id === 'opms-admin' || mod.id === 'opms') {
-      const isGlobalAdminUser = email === 'mike@mzansiflow.co.za' || 
-                                email.endsWith('@mzansiflow.co.za') || 
-                                profileToUse?.role === 'admin' || 
-                                user.role === 'admin' || 
-                                profileToUse?.systemRole === 'Global Administrator' || 
-                                user.systemRole === 'Global Administrator' ||
-                                profileToUse?.systemRole === 'Systems Administrator' ||
-                                user.systemRole === 'Systems Administrator';
+    const isMasterAdmin = 
+      isMasterAdminMike(profileToUse) || 
+      isGlobalAdminEmail(email) || 
+      (email.endsWith('@mzansiflow.co.za') && !email.includes('nkangaladm'));
 
-      if (isGlobalAdminUser) return mod.subModules;
+    if (mod.id === 'opms-admin' || mod.id === 'opms') {
+      if (isMasterAdmin) return mod.subModules;
 
       const isNamedReviewer = email === 'nsibandenp@nkangaladm.gov.za' ||
                               email === 'shabangusm@nkangaladm.gov.za' ||
@@ -530,7 +525,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                                   email === 'morarj@nkangaladm.gov.za' ||
                                   email === 'masemolak@nkangaladm.gov.za' ||
                                   email === 'mpanzacs@nkangaladm.gov.za' ||
-                                  email === 'audit@mzansiflow.co.za' ||
+                                  email.includes('audit') ||
                                   role.includes('internal audit') || role.includes('audit') ||
                                   systemRole.includes('audit') ||
                                   jobFunction.includes('internal audit') || jobFunction.includes('audit') ||
@@ -544,22 +539,48 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
       const isSubmitter = isSdbipSubmitter;
       const isApprover = isSdbipApprover;
 
+      // Strict role resolution for OPMS workflow modules:
+      let isExclusiveAuditor = false;
+      let isExclusiveReviewer = false;
+      let isExclusiveApprover = false;
+      let isExclusiveSubmitter = false;
+
+      if (isInternalAuditUser) {
+        isExclusiveAuditor = true;
+      } else if (isNamedReviewer) {
+        isExclusiveReviewer = true;
+      } else if (isApprover && !isSubmitter) {
+        isExclusiveApprover = true;
+      } else if (isSubmitter && !isApprover) {
+        isExclusiveSubmitter = true;
+      } else if (isApprover) {
+        if (role.includes('manager') || role.includes('hod') || systemRole.includes('approver') || systemRole.includes('executive') || jobFunction.includes('manager') || jobFunction.includes('hod')) {
+          isExclusiveApprover = true;
+        } else {
+          isExclusiveSubmitter = true;
+        }
+      } else if (isSubmitter) {
+        isExclusiveSubmitter = true;
+      }
+
       return mod.subModules.filter(sub => {
         if (sub.id === 'opms-submitter') {
-          return isSubmitter;
+          return isExclusiveSubmitter;
         }
         if (sub.id === 'opms-approver') {
-          return isApprover;
+          return isExclusiveApprover;
         }
         if (sub.id === 'opms-reviewer') {
-          return isNamedReviewer;
+          return isExclusiveReviewer;
         }
         if (sub.id === 'opms-audit') {
-          return isInternalAuditUser;
+          return isExclusiveAuditor;
         }
         return true;
       });
     }
+
+    if (isUnrestricted || isUserUnrestricted(fullUserProfile || user)) return mod.subModules;
 
     if (mod.id !== 'ipms') return mod.subModules;
 

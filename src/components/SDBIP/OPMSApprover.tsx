@@ -18,6 +18,8 @@ import {
   markSdbipNotificationRead,
   extractKpiPoes,
   PMS_TEAM_REVIEWERS,
+  OFFICIAL_REVIEWERS,
+  ReviewerOfficial,
   isMasterAdminMike
 } from '../../utils/sdbipWorkflowHelper';
 import { calcOpmsVariance } from '../../utils/varianceCalculator';
@@ -44,6 +46,7 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
   const [approverNotes, setApproverNotes] = useState('');
   const [deckTheme, setDeckTheme] = useState<'dark' | 'light'>('dark');
   const [showCertificate, setShowCertificate] = useState(false);
+  const [selectedReviewerUsername, setSelectedReviewerUsername] = useState<string>('nsibandenp');
 
   // Q1 Actual states for designated Approver
   const [q1Actual, setQ1Actual] = useState('');
@@ -66,6 +69,20 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
   );
 
   const isSuperAdminMike = isMasterAdminMike(currentUser);
+
+  const isReturnedAwaitingSubmitter = Boolean(
+    selectedKpi && (
+      (selectedKpi as any).workflowStatus === 'Returned' ||
+      (selectedKpi as any).workflowStatus === 'Returned to Submitter' ||
+      (selectedKpi as any).workflowStatus === 'Redo Required' ||
+      (selectedKpi.workflows?.q1?.status as any) === 'returned_for_redo' ||
+      selectedKpi.workflows?.q1?.status === 'draft'
+    ) && (
+      (selectedKpi as any).workflowStatus !== 'Submitted to Approver' &&
+      (selectedKpi as any).workflowStatus !== 'Submitted' &&
+      selectedKpi.workflows?.q1?.status !== 'pending_approval'
+    )
+  );
 
   const calcVar = (target: string | undefined, actual: string | undefined) => {
     return calcOpmsVariance(target, actual, selectedKpi?.uom);
@@ -110,6 +127,14 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
       setQ1Actual(selectedKpi.q1Actual || '');
       setQ1Variance(selectedKpi.q1Variance || '');
       setQ1Corrective(selectedKpi.q1Corrective || '');
+      if (selectedKpi.reviewer) {
+        const matched = OFFICIAL_REVIEWERS.find(r => 
+          r.fullName.toLowerCase() === selectedKpi.reviewer?.toLowerCase() ||
+          r.username.toLowerCase() === selectedKpi.reviewer?.toLowerCase() ||
+          r.email.toLowerCase() === selectedKpi.reviewer?.toLowerCase()
+        );
+        if (matched) setSelectedReviewerUsername(matched.username);
+      }
     } else {
       setApproverNotes('');
       setQ1Actual('');
@@ -612,23 +637,13 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
       const topItems = (dataTop.items || []).map((x: any) => ({ ...x, _scorecardSource: 'top' as const }));
       const deptItems = (dataDept.items || []).map((x: any) => ({ ...x, _scorecardSource: 'dept' as const }));
 
-      // Merge items, deduplicating if identical ID exists across both
-      const mergedList = [...topItems];
-      deptItems.forEach((d: any) => {
-        const existingIdx = mergedList.findIndex(t => t.id === d.id);
-        if (existingIdx >= 0) {
-          mergedList[existingIdx] = {
-            ...mergedList[existingIdx],
-            ...d,
-            _scorecardSource: 'dept'
-          };
-        } else {
-          mergedList.push(d);
-        }
-      });
-
-      const normalizedList = mergedList.map((row: any) => {
+      // Strict Deduplication Engine: Guarantee zero duplicate KPIs on Approver end
+      const dedupeMap = new Map<string, any>();
+      const processRow = (row: any, src: 'top' | 'dept') => {
         const cleanRef = String(row.refNum || '').trim().toUpperCase();
+        const dedupeKey = cleanRef || String(row.id || '').trim();
+        if (!dedupeKey) return;
+        
         let approver = row.approver || '';
         let submitter = row.submitter || '';
         if (cleanRef === 'M_13' || cleanRef === 'M13') {
@@ -642,8 +657,28 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
           }
           if (!submitter) submitter = 'Quinton Skhosana';
         }
-        return { ...row, approver, submitter };
-      });
+
+        const normalizedRow = { ...row, approver, submitter, _scorecardSource: src };
+
+        if (dedupeMap.has(dedupeKey)) {
+          const existing = dedupeMap.get(dedupeKey);
+          dedupeMap.set(dedupeKey, {
+            ...existing,
+            ...normalizedRow,
+            workflowStatus: normalizedRow.workflowStatus || existing.workflowStatus,
+            q1Actual: normalizedRow.q1Actual || existing.q1Actual,
+            workflowHistory: normalizedRow.workflowHistory || existing.workflowHistory,
+            workflows: normalizedRow.workflows || existing.workflows
+          });
+        } else {
+          dedupeMap.set(dedupeKey, normalizedRow);
+        }
+      };
+
+      topItems.forEach((x: any) => processRow(x, 'top'));
+      deptItems.forEach((x: any) => processRow(x, 'dept'));
+
+      const normalizedList = Array.from(dedupeMap.values());
 
       let currentPoesList: SdbipPoeFile[] = [];
       if (resPoes.ok) {
@@ -830,6 +865,11 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
 
   const handlePushToReviewer = async () => {
     if (!selectedKpi) return;
+    if (isReturnedAwaitingSubmitter) {
+      setError("This KPI is currently returned to the Submitter for corrections. The Submitter must attend to and resubmit actuals & PoE before routing to Reviewer.");
+      setTimeout(() => setError(null), 5000);
+      return;
+    }
     const effActual = (selectedKpi.q1Actual || q1Actual || '').trim();
     const kpiPoesList = extractKpiPoes(selectedKpi, poes);
     if (!effActual || kpiPoesList.length === 0) {
@@ -839,15 +879,19 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
     }
     setLoading(true);
     try {
-      const reviewerTarget = selectedKpi.reviewer || 'Reviewer';
+      const selectedRevObj = OFFICIAL_REVIEWERS.find(r => r.username === selectedReviewerUsername) || OFFICIAL_REVIEWERS[0];
+      const reviewerTarget = selectedRevObj.fullName;
+      const reviewerEmail = selectedRevObj.email;
+      const reviewerUsername = selectedRevObj.username;
+
       const updatedRows = rows.map(r => {
         if (r.id === selectedKpi.id) {
           const currentHistory = (r as any).workflowHistory || [];
           const newHistoryItem = {
             date: new Date().toISOString(),
-            action: 'Approved & Pushed to Reviewer',
+            action: `Approved & Pushed to Reviewer (${reviewerTarget})`,
             user: currentUser.fullName || currentUser.email,
-            notes: approverNotes || `Approved by Executive Approver and routed to Reviewer (${reviewerTarget}).`
+            notes: approverNotes || `Approved by Executive Approver and routed to Reviewer ${reviewerTarget} (@${reviewerUsername}).`
           };
 
           const workflows = r.workflows || {};
@@ -859,6 +903,9 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
 
           return {
             ...r,
+            reviewer: reviewerTarget,
+            reviewerEmail: reviewerEmail,
+            reviewerUsername: reviewerUsername,
             workflowStatus: 'Pending Review',
             approvedBy: currentUser.fullName || currentUser.email,
             approverNotes: approverNotes,
@@ -872,7 +919,7 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
       await saveUpdatedRows(updatedRows, selectedKpi);
 
       // Dispatch real-time notification to the specified Reviewer, Submitter & PMS Team members
-      const reviewerTargets = Array.from(new Set([reviewerTarget, selectedKpi.submitter, ...PMS_TEAM_REVIEWERS].filter(Boolean)));
+      const reviewerTargets = Array.from(new Set([reviewerEmail, reviewerTarget, reviewerUsername, selectedKpi.submitter, ...PMS_TEAM_REVIEWERS].filter(Boolean)));
       await dispatchSdbipNotification(activeTenantId, {
         targetUser: reviewerTargets,
         senderUser: currentUser.fullName || currentUser.email,
@@ -880,7 +927,7 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
         refNum: selectedKpi.refNum,
         kpiName: selectedKpi.kpi,
         phase: 'General',
-        message: `KPI ${selectedKpi.refNum} approved by Executive Approver ${currentUser.fullName || currentUser.email} and routed to PMS Team for Review sign-off.`,
+        message: `KPI ${selectedKpi.refNum} approved by Executive Approver ${currentUser.fullName || currentUser.email} and routed to Reviewer ${reviewerTarget} (@${reviewerUsername}) for sign-off.`,
         comment: approverNotes,
         actionType: 'pushed_to_reviewer'
       });
@@ -894,7 +941,7 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
           refNum: selectedKpi.refNum,
           kpiName: selectedKpi.kpi,
           roleType: 'reviewer',
-          officialIdentifier: reviewerTarget,
+          officialIdentifier: reviewerEmail,
           assignedBy: currentUser.fullName || currentUser.email || 'Executive Approver'
         })
       }).catch(console.error);
@@ -902,7 +949,7 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
       await loadNotifications();
       
       setRows(updatedRows);
-      setSuccess(`SDBIP Item ${selectedKpi.refNum} successfully approved and pushed to Reviewer (${reviewerTarget})!`);
+      setSuccess(`SDBIP Item ${selectedKpi.refNum} successfully approved and pushed to Reviewer ${reviewerTarget} (@${reviewerUsername})!`);
       setTimeout(() => setSuccess(null), 4000);
       setSelectedKpi(null);
     } catch (err: any) {
@@ -914,8 +961,13 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
 
   const handleRejectToReviewer = async () => {
     if (!selectedKpi) return;
+    if (isReturnedAwaitingSubmitter) {
+      setError('A Redo & Resubmit directive is already active for this KPI. The Submitter must attend to this KPI with updated actuals & PoE before another redo request can be sent.');
+      setTimeout(() => setError(null), 5000);
+      return;
+    }
     if (!approverNotes.trim()) {
-      setError('Please provide executive notes explaining the rejection directive.');
+      setError('Please provide executive notes explaining the redo/resubmit directive.');
       setTimeout(() => setError(null), 4000);
       return;
     }
@@ -927,7 +979,7 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
           const currentHistory = (r as any).workflowHistory || [];
           const newHistoryItem = {
             date: new Date().toISOString(),
-            action: 'Rejected & Returned to Submitter',
+            action: 'Redo & Resubmit Requested by Approver',
             user: currentUser.fullName || currentUser.email,
             notes: approverNotes
           };
@@ -935,13 +987,13 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
           const workflows = r.workflows || {};
           ['q1', 'q2', 'midTerm', 'q3', 'q4', 'annual'].forEach(ph => {
             if (workflows[ph]) {
-              workflows[ph] = { ...workflows[ph], status: 'draft' };
+              workflows[ph] = { ...workflows[ph], status: 'draft', returnNotes: approverNotes } as any;
             }
           });
 
           return {
             ...r,
-            workflowStatus: 'Returned', // return back to submitter with feedback
+            workflowStatus: 'Returned to Submitter',
             approverNotes: approverNotes,
             workflows,
             workflowHistory: [...currentHistory, newHistoryItem]
@@ -952,7 +1004,7 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
 
       await saveUpdatedRows(updatedRows, selectedKpi);
 
-      // Dispatch real-time notification to the specified Submitter
+      // Dispatch real-time notification to the specified Submitter referencing the exact KPI and notes
       await dispatchSdbipNotification(activeTenantId, {
         targetUser: submitterTarget,
         senderUser: currentUser.fullName || currentUser.email,
@@ -960,7 +1012,7 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
         refNum: selectedKpi.refNum,
         kpiName: selectedKpi.kpi,
         phase: 'General',
-        message: `KPI ${selectedKpi.refNum} returned by Executive Approver ${currentUser.fullName || currentUser.email} for corrections and resubmission.`,
+        message: `Redo and Resubmit Required: KPI ${selectedKpi.refNum} returned by Executive Approver ${currentUser.fullName || currentUser.email}. Submitter must attend to actuals & PoE prior to further review.`,
         comment: approverNotes,
         actionType: 'returned'
       });
@@ -968,8 +1020,8 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
       await loadNotifications();
       
       setRows(updatedRows);
-      setSuccess(`KPI ${selectedKpi.refNum} rejected and returned to Submitter (${submitterTarget}) with correction instructions.`);
-      setTimeout(() => setSuccess(null), 4000);
+      setSuccess(`KPI ${selectedKpi.refNum} returned to Submitter (${submitterTarget}) for redo & resubmission. Further redo requests locked until submitter resubmits.`);
+      setTimeout(() => setSuccess(null), 5000);
       setSelectedKpi(null);
     } catch (err: any) {
       setError(err.message);
@@ -1841,34 +1893,66 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
 
             {/* Action buttons */}
             {((selectedKpi as any).workflowStatus !== 'Approved') ? (
-              <div className="space-y-2 pt-3 border-t border-slate-850">
+              <div className="space-y-3 pt-3 border-t border-slate-850">
                 <div className="flex items-center justify-between text-xs text-slate-400 px-1 font-mono">
-                  <span>Submitter: <strong className="text-amber-400 font-bold">{selectedKpi.submitter || 'None assigned'}</strong></span>
-                  <span>Reviewer Target: <strong className="text-indigo-400 font-bold">{selectedKpi.reviewer || 'PMU Reviewer'}</strong></span>
+                  <span>Designated Submitter: <strong className="text-amber-400 font-bold">{selectedKpi.submitter || 'None assigned'}</strong></span>
+                  <span>Status: <strong className={isReturnedAwaitingSubmitter ? "text-amber-400 font-bold" : "text-emerald-400 font-bold"}>{selectedKpi.workflowStatus || 'Draft'}</strong></span>
                 </div>
+
+                {/* Reviewer Selection for Approval Push */}
+                <div className="space-y-1.5 bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+                  <label className="text-[10px] font-black uppercase text-indigo-300 flex items-center justify-between">
+                    <span>Designated Reviewer Target (for Approval Routing)</span>
+                    <span className="text-[9px] text-slate-400 font-mono">Official PMS Team Directory</span>
+                  </label>
+                  <select
+                    value={selectedReviewerUsername}
+                    onChange={(e) => setSelectedReviewerUsername(e.target.value)}
+                    disabled={isReturnedAwaitingSubmitter}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-white focus:border-indigo-500 outline-none font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {OFFICIAL_REVIEWERS.map(r => (
+                      <option key={r.username} value={r.username} className="bg-slate-900 text-white">
+                        {r.fullName} (@{r.username})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {isReturnedAwaitingSubmitter && (
+                  <div className="p-3 bg-amber-950/40 border border-amber-800/70 rounded-xl text-amber-200 text-xs flex items-center gap-2.5">
+                    <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span>
+                      <strong>Redo Directive Active:</strong> You requested a Redo & Resubmit for this KPI. The Submitter must attend to this KPI with updated actuals & PoE before you can take another review or redo action.
+                    </span>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                   <button
                     onClick={handleRejectToReviewer}
-                    disabled={loading}
-                    className="w-full bg-rose-950/40 hover:bg-rose-900/40 text-rose-300 border border-rose-800/40 rounded-xl py-3 font-bold text-[11px] uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-sm"
-                    title={`Reject KPI and send back to Submitter (${selectedKpi.submitter || 'Submitter'}) with comments`}
+                    disabled={loading || isReturnedAwaitingSubmitter}
+                    className="w-full bg-rose-950/40 hover:bg-rose-900/40 text-rose-300 border border-rose-800/40 rounded-xl py-3 font-bold text-[11px] uppercase tracking-wider transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 shadow-sm"
+                    title={isReturnedAwaitingSubmitter 
+                      ? "Redo already requested. Submitter must attend to this KPI prior to another redo request."
+                      : `Request Redo & Resubmit from Submitter (${selectedKpi.submitter || 'Submitter'})`}
                   >
-                    <X className="w-3.5 h-3.5" />
-                    <span>Reject & Request Resend</span>
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>{isReturnedAwaitingSubmitter ? 'Redo Requested (Awaiting Submitter)' : 'Request Redo & Resubmit'}</span>
                   </button>
                   <button
                     onClick={handlePushToReviewer}
-                    disabled={loading}
-                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl py-3 font-bold text-[11px] uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-md"
-                    title={`Accept and route to Reviewer (${selectedKpi.reviewer || 'Reviewer'})`}
+                    disabled={loading || isReturnedAwaitingSubmitter}
+                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl py-3 font-bold text-[11px] uppercase tracking-wider transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 shadow-md"
+                    title={`Accept and route to Reviewer (${OFFICIAL_REVIEWERS.find(r => r.username === selectedReviewerUsername)?.fullName || 'Reviewer'})`}
                   >
                     <Check className="w-3.5 h-3.5" />
                     <span>Accept & Push to Reviewer</span>
                   </button>
                   <button
                     onClick={handleGrantApproval}
-                    disabled={loading}
-                    className="w-full bg-gradient-to-r from-emerald-600 to-teal-650 hover:from-emerald-500 hover:to-teal-600 text-white rounded-xl py-3 font-bold text-[11px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-lg disabled:opacity-50"
+                    disabled={loading || isReturnedAwaitingSubmitter}
+                    className="w-full bg-gradient-to-r from-emerald-600 to-teal-650 hover:from-emerald-500 hover:to-teal-600 text-white rounded-xl py-3 font-bold text-[11px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <CheckCircle className="w-3.5 h-3.5" />
                     <span>Grant Direct Sign-off</span>

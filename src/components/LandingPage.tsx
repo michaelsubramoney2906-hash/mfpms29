@@ -153,25 +153,25 @@ export function LandingPage({ onLogin }: LandingPageProps) {
 
   return (
     <div 
-      className="min-h-screen relative flex font-sans overflow-hidden bg-slate-950 text-slate-100"
+      className="min-h-screen relative flex font-sans overflow-hidden bg-[#070b14] text-slate-100"
       onMouseMove={handleMouseMove}
     >
       {/* Background Image / Gradient */}
       <motion.div 
-        className="absolute inset-[-50px] bg-cover bg-center z-0 opacity-15"
+        className="absolute inset-[-50px] bg-cover bg-center z-0 opacity-10"
         style={{ 
           backgroundImage: 'url("https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=2069&auto=format&fit=crop")',
           x: xOffset,
           y: yOffset
         }}
       ></motion.div>
-      <div className="absolute inset-0 z-0 pointer-events-none bg-gradient-to-br from-slate-950/95 via-slate-900/90 to-black">
-        <div className="absolute inset-0 opacity-[0.15]" style={{ backgroundImage: 'radial-gradient(rgba(255,255,255,0.2) 0.5px, transparent 0.5px)', backgroundSize: '30px 30px' }}></div>
+      <div className="absolute inset-0 z-0 pointer-events-none bg-[#070b14]/90">
+        <div className="absolute inset-0 opacity-[0.10]" style={{ backgroundImage: 'radial-gradient(rgba(255,255,255,0.2) 0.5px, transparent 0.5px)', backgroundSize: '30px 30px' }}></div>
       </div>
 
       <div className="relative z-10 w-full flex flex-col md:flex-row h-screen">
         {/* Left Content - Selling Points */}
-        <div className="flex-1 border-r border-slate-800 bg-slate-950/75 backdrop-blur-md overflow-y-auto hide-scrollbar">
+        <div className="flex-1 border-r border-slate-800/80 bg-[#070b14] overflow-y-auto hide-scrollbar">
           <div className="min-h-full p-12 lg:p-24 flex flex-col justify-center">
             <div className="max-w-2xl space-y-8">
               <h1 className="text-4xl lg:text-5xl font-bold mb-4 leading-tight text-white">
@@ -244,12 +244,12 @@ export function LandingPage({ onLogin }: LandingPageProps) {
         </div>
 
         {/* Right Content - Login Area */}
-        <div className="w-full md:w-[480px] overflow-y-auto hide-scrollbar border-l border-slate-800 bg-slate-900/95 text-slate-100 relative backdrop-blur-md">
+        <div className="w-full md:w-[480px] overflow-y-auto hide-scrollbar border-l border-slate-800/80 bg-[#070b14] text-slate-100 relative">
           <div className="min-h-full w-full px-12 py-12 flex flex-col justify-center">
             <div className="w-full">
               
               {/* Portal Mode Switcher */}
-              <div className="flex p-1 rounded-xl mb-8 bg-slate-950 border border-slate-800">
+              <div className="flex p-1 rounded-xl mb-8 bg-[#0b101d] border border-slate-800/80">
                 <button
                   type="button"
                   onClick={() => setPortalMode('municipality')}
