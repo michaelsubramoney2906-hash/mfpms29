@@ -175,7 +175,7 @@ export function LandingPage({ onLogin }: LandingPageProps) {
           <div className="min-h-full p-12 lg:p-24 flex flex-col justify-center">
             <div className="max-w-2xl space-y-8">
               <h1 className="text-4xl lg:text-5xl font-bold mb-4 leading-tight text-white">
-                The <span className="text-[#39FF14] font-black drop-shadow-[0_0_10px_rgba(57,255,20,0.5)]">Flow</span> of Excellence
+                The <span className="text-[#00A854] font-black drop-shadow-[0_0_10px_rgba(0,168,84,0.4)]">Flow</span> of Excellence
               </h1>
               <p className="text-sm leading-relaxed uppercase tracking-widest font-semibold mb-12 text-slate-400">
                 Performance Management Perfected
@@ -227,13 +227,13 @@ export function LandingPage({ onLogin }: LandingPageProps) {
                     visible: { opacity: 1, x: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
                   }}
                   whileHover={{ scale: 1.05, x: 10 }}
-                  className="group flex items-start space-x-5 p-4 rounded-2xl border transition-colors cursor-pointer bg-slate-900/60 border-slate-800 hover:border-[#39FF14]/60 hover:bg-slate-800/80 text-white shadow-lg"
+                  className="group flex items-start space-x-5 p-4 rounded-2xl border transition-colors cursor-pointer bg-slate-900/60 border-slate-800 hover:border-[#00A854]/60 hover:bg-slate-800/80 text-white shadow-lg"
                 >
-                  <div className="bg-[#39FF14] p-3 rounded-xl flex-shrink-0 transition-colors shadow-lg shadow-[rgba(57,255,20,0.25)] group-hover:shadow-[rgba(57,255,20,0.5)]">
+                  <div className="bg-[#00A854] p-3 rounded-xl flex-shrink-0 transition-colors shadow-lg shadow-[rgba(0,168,84,0.25)] group-hover:shadow-[rgba(0,168,84,0.5)]">
                     {pro.icon}
                   </div>
                   <div>
-                    <h4 className="font-extrabold text-lg mb-1 transition-colors text-white group-hover:text-[#39FF14]">{pro.title}</h4>
+                    <h4 className="font-extrabold text-lg mb-1 transition-colors text-white group-hover:text-[#00A854]">{pro.title}</h4>
                     <p className="text-sm leading-relaxed font-medium text-slate-300">{pro.desc}</p>
                   </div>
                 </motion.div>

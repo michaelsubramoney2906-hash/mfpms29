@@ -23,7 +23,7 @@ export function Logo({
         <span className={isLight ? "text-black" : "text-white"}>
           Mzansi
         </span>
-        <span className="text-[#39FF14] font-black ml-1.5 drop-shadow-[0_0_10px_rgba(57,255,20,0.5)]">Flow</span>
+        <span className="text-[#00A854] font-black ml-1.5 drop-shadow-[0_0_10px_rgba(0,168,84,0.4)]">Flow</span>
       </h1>
       {!hideSubtitle && (
         <div className={cn(
