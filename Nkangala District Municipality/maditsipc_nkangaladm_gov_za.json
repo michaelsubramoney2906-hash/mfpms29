@@ -1,0 +1,14 @@
+{
+  "id": "8cadac11-4644-4a36-b049-1cb94d666ef7",
+  "fullName": "Pontsho C. Maditsi",
+  "email": "maditsipc@nkangaladm.gov.za",
+  "jobFunction": "Control Room Operator",
+  "department": "Community Development Services",
+  "source": "azure_ad",
+  "role": "Standard User",
+  "tenantId": "nkangala_auto",
+  "manager": "Sibusiso PL. Myeni",
+  "directorate": "Community Services",
+  "reportTo": "Sibusiso PL. Myeni",
+  "level": "1"
+}

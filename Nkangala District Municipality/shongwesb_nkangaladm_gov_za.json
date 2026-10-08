@@ -1,0 +1,14 @@
+{
+  "id": "86837200-ccb9-44fb-9988-c5d168975ab4",
+  "fullName": "Sifiso B. Shongwe",
+  "email": "shongwesb@nkangaladm.gov.za",
+  "jobFunction": "Network Administrator",
+  "department": "Information and Communication Technology",
+  "source": "azure_ad",
+  "role": "Standard User",
+  "tenantId": "nkangala_auto",
+  "manager": "BS Nkosi",
+  "directorate": "Office of the MM",
+  "reportTo": "",
+  "level": "1"
+}

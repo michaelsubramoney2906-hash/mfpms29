@@ -76,8 +76,7 @@ export const isKpiUnlockedForSubmitterApprover = (row: { refNum?: string; id?: s
 
 export const isSubmitterApproverLockedInReporting = (row: { refNum?: string; id?: string; kpi?: string; adminLocked?: boolean; workflowStatus?: string } | null | undefined): boolean => {
   if (globalReportingAssignmentsUnlocked) return false;
-  if (row && (row.adminLocked === false || row.workflowStatus === 'Draft')) return false;
-  return !globalReportingAssignmentsUnlocked; 
+  return true; 
 };
 
 interface SDBIPProps {
@@ -7651,10 +7650,10 @@ Timestamp: ${new Date().toLocaleString()}
                               </span>
                             </div>
                           )}
-                          {(!isSubmitterApproverLockedInReporting(row) || isReportingAssignmentsUnlocked) && (
+                          {isReportingAssignmentsUnlocked && (
                             <div className="flex items-center gap-1 justify-center">
                               <span className="text-[8px] font-bold font-mono px-1 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
-                                EXCEPTION UNLOCKED
+                                UNLOCKED
                               </span>
                             </div>
                           )}
@@ -7679,10 +7678,10 @@ Timestamp: ${new Date().toLocaleString()}
                               </span>
                             </div>
                           )}
-                          {(!isSubmitterApproverLockedInReporting(row) || isReportingAssignmentsUnlocked) && (
+                          {isReportingAssignmentsUnlocked && (
                             <div className="flex items-center gap-1 justify-center">
                               <span className="text-[8px] font-bold font-mono px-1 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
-                                EXCEPTION UNLOCKED
+                                UNLOCKED
                               </span>
                             </div>
                           )}

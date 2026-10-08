@@ -32,7 +32,7 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
   const [rows, setRows] = useState<SdbipRow[]>([]);
   const [activeScorecard, setActiveScorecard] = useState<'all' | 'top' | 'dept'>('all');
   const [notifications, setNotifications] = useState<SdbipWorkflowNotification[]>([]);
-  const [assignedFilter, setAssignedFilter] = useState<'ALL' | 'MINE'>('ALL');
+  const [assignedFilter, setAssignedFilter] = useState<'ALL' | 'MINE'>('MINE');
   const [poes, setPoes] = useState<SdbipPoeFile[]>([]);
   const [previewDoc, setPreviewDoc] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
@@ -645,16 +645,127 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
         return { ...row, approver, submitter };
       });
 
-      setRows(normalizedList);
-
+      let currentPoesList: SdbipPoeFile[] = [];
       if (resPoes.ok) {
         const poesData = await resPoes.json();
-        setPoes(poesData.poes || []);
+        currentPoesList = poesData.poes || [];
+        setPoes(currentPoesList);
       }
+
+      // Automated Compliance Scan: Ensure no approver receives a KPI missing actuals or POEs
+      // Any KPI submitted without actuals or POEs is automatically returned for resubmission with zero data loss.
+      let finalRows = normalizedList;
+      const invalidSubmissions = normalizedList.filter((r: any) => {
+        const isSubmitted = r.workflowStatus === 'Submitted to Approver' || 
+          r.workflowStatus === 'Submitted' || 
+          r.workflows?.q1?.status === 'pending_approval';
+        if (!isSubmitted) return false;
+
+        const hasActual = Boolean(r.q1Actual && String(r.q1Actual).trim() !== '');
+        const rowPoes = extractKpiPoes(r, currentPoesList);
+        const hasPoe = rowPoes.length > 0 || (Array.isArray(r.q1Poes) && r.q1Poes.length > 0);
+        return !hasActual || !hasPoe;
+      });
+
+      if (invalidSubmissions.length > 0) {
+        const updatedList = [...normalizedList];
+        for (const badRow of invalidSubmissions) {
+          const idx = updatedList.findIndex(x => x.id === badRow.id);
+          if (idx >= 0) {
+            const missingParts: string[] = [];
+            if (!badRow.q1Actual || String(badRow.q1Actual).trim() === '') missingParts.push('Actual performance figure');
+            const rowPoes = extractKpiPoes(badRow, currentPoesList);
+            if (rowPoes.length === 0 && (!badRow.q1Poes || badRow.q1Poes.length === 0)) missingParts.push('Portfolio of Evidence (PoE)');
+
+            const reason = `Automated Compliance Return: KPI ${badRow.refNum} was submitted without ${missingParts.join(' and ')}. Both actuals and supporting PoE are strictly required before approver review. Returned for resubmission.`;
+            const currentHistory = (updatedList[idx] as any).workflowHistory || [];
+
+            updatedList[idx] = {
+              ...updatedList[idx],
+              workflowStatus: 'Returned',
+              returnReason: reason,
+              workflows: {
+                ...updatedList[idx].workflows,
+                q1: {
+                  ...updatedList[idx].workflows?.q1,
+                  status: 'draft',
+                  comments: reason
+                }
+              },
+              workflowHistory: [
+                ...currentHistory,
+                {
+                  date: new Date().toISOString(),
+                  action: 'Returned for Resubmission (Automated Policy)',
+                  user: 'System Compliance Policy Engine',
+                  notes: reason
+                }
+              ]
+            };
+
+            // Dispatch notification to the Submitter referencing the specific KPI
+            const submitterTarget = badRow.submitter || (badRow as any).submitterName || '';
+            if (submitterTarget) {
+              dispatchSdbipNotification(activeTenantId, {
+                targetUser: submitterTarget,
+                senderUser: 'Executive Approver System',
+                kpiId: badRow.id,
+                refNum: badRow.refNum,
+                kpiName: badRow.kpi,
+                phase: 'Q1',
+                message: `Resubmission Required: KPI ${badRow.refNum} was returned because ${missingParts.join(' and ')} ${missingParts.length > 1 ? 'were' : 'was'} missing.`,
+                comment: `Policy Enforcement: A KPI cannot be submitted to an Approver without both an Actual progress figure and Portfolio of Evidence (PoE). Please provide both and re-submit.`,
+                actionType: 'returned'
+              }).catch(() => {});
+            }
+          }
+        }
+
+        finalRows = updatedList;
+
+        // Persist safely to Supabase with Zero Data Loss
+        const topToSave = updatedList.filter(x => (x as any)._scorecardSource !== 'dept' && !x.id?.startsWith('sdbip23'));
+        const deptToSave = updatedList.filter(x => (x as any)._scorecardSource === 'dept' || x.id?.startsWith('sdbip23'));
+        
+        if (topToSave.length > 0) {
+          fetch(`/api/tenant/${activeTenantId}/sdbip`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items: topToSave })
+          }).catch(() => {});
+        }
+        if (deptToSave.length > 0) {
+          fetch(`/api/tenant/${activeTenantId}/sdbip23`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items: deptToSave })
+          }).catch(() => {});
+        }
+
+        // Clean up stale notifications for these returned KPIs
+        const badIds = new Set(invalidSubmissions.map(x => x.id));
+        const badRefs = new Set(invalidSubmissions.map(x => x.refNum));
+        fetchSdbipNotifications(activeTenantId).then(notifs => {
+          const cleaned = notifs.filter(n => !(
+            (badIds.has(n.kpiId) || badRefs.has(n.refNum)) &&
+            n.actionType === 'submitted'
+          ));
+          if (cleaned.length !== notifs.length) {
+            fetch(`/api/tenant/${activeTenantId}/sdbip-notifications`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ notifications: cleaned })
+            }).catch(() => {});
+            setNotifications(cleaned);
+          }
+        }).catch(() => {});
+      }
+
+      setRows(finalRows);
 
       setSelectedKpi(prev => {
         if (!prev) return null;
-        return normalizedList.find((x: SdbipRow) => x.id === prev.id) || prev;
+        return finalRows.find((x: SdbipRow) => x.id === prev.id) || prev;
       });
     } catch (err: any) {
       console.error(err);
@@ -666,6 +777,13 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
 
   const handleGrantApproval = async () => {
     if (!selectedKpi) return;
+    const effActual = (selectedKpi.q1Actual || q1Actual || '').trim();
+    const kpiPoesList = extractKpiPoes(selectedKpi, poes);
+    if (!effActual || kpiPoesList.length === 0) {
+      setError("Compliance Rule Enforced: This KPI cannot be approved because it lacks either actuals or Portfolio of Evidence (PoE). It must be returned to the Submitter for mandatory resubmission.");
+      setTimeout(() => setError(null), 6000);
+      return;
+    }
     setLoading(true);
     try {
       const updatedRows = rows.map(r => {
@@ -855,13 +973,25 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
 
   const filteredRows = rows.filter(r => {
     const rowStatus = (r as any).workflowStatus || 'Draft';
+
+    // The approver should ONLY see KPIs sent by the submitter, NOT the entire SDBIP top layer or raw drafts!
+    const isSentBySubmitter = 
+      rowStatus === 'Submitted' || 
+      rowStatus === 'Submitted to Approver' || 
+      rowStatus === 'Pending Approval' || 
+      rowStatus === 'Approved' || 
+      rowStatus === 'Returned' || 
+      rowStatus === 'Reviewed' ||
+      r.workflows?.q1?.status === 'pending_approval' ||
+      r.workflows?.q1?.status === 'approved' ||
+      (r.workflows?.q1?.status as any) === 'returned';
+
+    if (!isSentBySubmitter) return false;
+
     let matchesStatus = true;
     if (statusFilter !== 'ALL') {
-      if (statusFilter === 'Reviewed' || statusFilter === 'Submitted') {
-        matchesStatus = rowStatus === 'Reviewed' || rowStatus === 'Submitted' || rowStatus === 'Submitted to Approver' || rowStatus === 'Pending Approval' ||
-          r.workflows?.q1?.status === 'pending_approval' || r.workflows?.q2?.status === 'pending_approval' ||
-          r.workflows?.q3?.status === 'pending_approval' || r.workflows?.q4?.status === 'pending_approval' ||
-          r.workflows?.q1?.status === 'pending_review' || r.workflows?.q2?.status === 'pending_review';
+      if (statusFilter === 'Submitted') {
+        matchesStatus = rowStatus === 'Submitted' || rowStatus === 'Submitted to Approver' || rowStatus === 'Pending Approval' || r.workflows?.q1?.status === 'pending_approval';
       } else {
         matchesStatus = rowStatus === statusFilter;
       }
@@ -871,23 +1001,31 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
       (r.refNum && r.refNum.toLowerCase().includes(searchQuery.toLowerCase())) || 
       (r.kpi && r.kpi.toLowerCase().includes(searchQuery.toLowerCase()));
 
-    const matchesMine = assignedFilter === 'ALL' || 
-      isUserMatch(r.approver, currentUser) ||
-      isUserMatch((r as any).approverName, currentUser) ||
-      isUserMatch((r as any).owner, currentUser);
+    // Strict approver user matching: only KPIs specifying their user name (or all if unrestricted admin)
+    const isSpecifiedApprover = isUserMatch(r.approver, currentUser) ||
+      isUserMatch((r as any).approverName, currentUser);
 
-    const matchesScorecard = activeScorecard === 'all' || 
-      (activeScorecard === 'top' && (r as any)._scorecardSource !== 'dept' && !r.id?.startsWith('sdbip23')) ||
-      (activeScorecard === 'dept' && ((r as any)._scorecardSource === 'dept' || r.id?.startsWith('sdbip23')));
-    
-    return matchesStatus && matchesSearch && matchesMine && matchesScorecard;
+    const matchesMine = isUnrestrictedAdmin && assignedFilter === 'ALL'
+      ? true
+      : isSpecifiedApprover;
+
+    return matchesStatus && matchesSearch && matchesMine;
   });
 
-  // Calculate high level stats
-  const totalKpis = rows.length;
-  const submittedCount = rows.filter(r => (r as any).workflowStatus === 'Submitted to Approver' || (r as any).workflowStatus === 'Submitted').length;
-  const reviewedCount = rows.filter(r => (r as any).workflowStatus === 'Reviewed' || (r as any).workflowStatus === 'Pending Review').length;
-  const approvedCount = rows.filter(r => (r as any).workflowStatus === 'Approved').length;
+  // Calculate high level stats strictly for the Approver queue
+  const approverQueueRows = rows.filter(r => {
+    const rowStatus = (r as any).workflowStatus;
+    const isSent = rowStatus === 'Submitted' || rowStatus === 'Submitted to Approver' || rowStatus === 'Pending Approval' || rowStatus === 'Approved' || rowStatus === 'Returned' || rowStatus === 'Reviewed' || r.workflows?.q1?.status === 'pending_approval';
+    if (!isSent) return false;
+    const isAssigned = isUserMatch(r.approver, currentUser) || isUserMatch((r as any).approverName, currentUser);
+    return isUnrestrictedAdmin && assignedFilter === 'ALL' ? true : isAssigned;
+  });
+
+  const totalKpis = approverQueueRows.length;
+  const submittedCount = approverQueueRows.filter(r => (r as any).workflowStatus === 'Submitted to Approver' || (r as any).workflowStatus === 'Submitted' || r.workflows?.q1?.status === 'pending_approval').length;
+  const reviewedCount = approverQueueRows.filter(r => (r as any).workflowStatus === 'Reviewed' || (r as any).workflowStatus === 'Pending Review').length;
+  const approvedCount = approverQueueRows.filter(r => (r as any).workflowStatus === 'Approved').length;
+  const returnedCount = approverQueueRows.filter(r => (r as any).workflowStatus === 'Returned').length;
 
   const getStatusBadge = (status: string | undefined) => {
     const s = status || 'Draft';
@@ -1139,50 +1277,32 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
 
             {/* Stage Quick filters */}
             <div className="flex flex-wrap items-center gap-2">
-              <div className={`inline-flex rounded-lg border p-0.5 text-[10px] font-bold ${
-                deckTheme === 'light' ? 'border-slate-300 bg-slate-100' : 'border-slate-800 bg-slate-950'
-              }`}>
-                <button
-                  type="button"
-                  onClick={() => setActiveScorecard('all')}
-                  className={`px-2 py-1 rounded transition cursor-pointer ${activeScorecard === 'all' ? 'bg-indigo-600 text-white' : deckTheme === 'light' ? 'text-slate-700 hover:text-black' : 'text-slate-400 hover:text-white'}`}
-                >
-                  All Scorecards
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveScorecard('top')}
-                  className={`px-2 py-1 rounded transition cursor-pointer ${activeScorecard === 'top' ? 'bg-indigo-600 text-white' : deckTheme === 'light' ? 'text-slate-700 hover:text-black' : 'text-slate-400 hover:text-white'}`}
-                >
-                  Top Layer
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveScorecard('dept')}
-                  className={`px-2 py-1 rounded transition cursor-pointer ${activeScorecard === 'dept' ? 'bg-indigo-600 text-white' : deckTheme === 'light' ? 'text-slate-700 hover:text-black' : 'text-slate-400 hover:text-white'}`}
-                >
-                  Departmental
-                </button>
-              </div>
-
-              <div className={`inline-flex rounded-lg border p-0.5 text-[10px] font-bold ${
-                deckTheme === 'light' ? 'border-slate-300 bg-slate-100' : 'border-slate-800 bg-slate-950'
-              }`}>
-                <button
-                  type="button"
-                  onClick={() => setAssignedFilter('MINE')}
-                  className={`px-2 py-1 rounded transition cursor-pointer ${assignedFilter === 'MINE' ? 'bg-emerald-600 text-white' : deckTheme === 'light' ? 'text-slate-700 hover:text-black' : 'text-slate-400 hover:text-white'}`}
-                >
-                  My Approvals
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAssignedFilter('ALL')}
-                  className={`px-2 py-1 rounded transition cursor-pointer ${assignedFilter === 'ALL' ? 'bg-emerald-600 text-white' : deckTheme === 'light' ? 'text-slate-700 hover:text-black' : 'text-slate-400 hover:text-white'}`}
-                >
-                  All Items
-                </button>
-              </div>
+              {isUnrestrictedAdmin ? (
+                <div className={`inline-flex rounded-lg border p-0.5 text-[10px] font-bold ${
+                  deckTheme === 'light' ? 'border-slate-300 bg-slate-100' : 'border-slate-800 bg-slate-950'
+                }`}>
+                  <button
+                    type="button"
+                    onClick={() => setAssignedFilter('MINE')}
+                    className={`px-2 py-1 rounded transition cursor-pointer ${assignedFilter === 'MINE' ? 'bg-emerald-600 text-white' : deckTheme === 'light' ? 'text-slate-700 hover:text-black' : 'text-slate-400 hover:text-white'}`}
+                  >
+                    My Approvals
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAssignedFilter('ALL')}
+                    className={`px-2 py-1 rounded transition cursor-pointer ${assignedFilter === 'ALL' ? 'bg-emerald-600 text-white' : deckTheme === 'light' ? 'text-slate-700 hover:text-black' : 'text-slate-400 hover:text-white'}`}
+                  >
+                    All Submitted KPIs
+                  </button>
+                </div>
+              ) : (
+                <div className={`inline-flex items-center px-2.5 py-1 rounded-lg border text-[10px] font-bold ${
+                  deckTheme === 'light' ? 'border-slate-300 bg-slate-100 text-slate-800' : 'border-slate-800 bg-slate-950 text-emerald-400'
+                }`}>
+                  <span>Designated Approver: {currentUser.fullName || currentUser.email}</span>
+                </div>
+              )}
 
               <div className="relative shrink-0 w-36">
                 <Search className={`absolute left-2.5 top-2 w-3.5 h-3.5 ${deckTheme === 'light' ? 'text-slate-400' : 'text-slate-500'}`} />

@@ -1,0 +1,14 @@
+{
+  "id": "f78d0fc6-e48a-4f2d-bfa9-f34e5d23d4f8",
+  "fullName": "Fortress Shabangu",
+  "email": "shabanguf@nkangaladm.gov.za",
+  "jobFunction": "IDP Officer",
+  "department": "Planning and Economic Development",
+  "source": "azure_ad",
+  "role": "Standard User",
+  "tenantId": "nkangala_auto",
+  "manager": "A Bvuma",
+  "directorate": "PED",
+  "reportTo": "",
+  "level": "3"
+}

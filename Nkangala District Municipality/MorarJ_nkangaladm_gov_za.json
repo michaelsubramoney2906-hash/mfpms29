@@ -1,0 +1,14 @@
+{
+  "id": "f1a282b9-490f-4a6b-9672-5664c634acbc",
+  "fullName": "Jayvanti Morar",
+  "email": "MorarJ@nkangaladm.gov.za",
+  "jobFunction": "Internal Auditor",
+  "department": "Internal Audit",
+  "source": "azure_ad",
+  "role": "tenant_user",
+  "tenantId": "nkangala_auto",
+  "manager": "Kgomotso Gwangwa",
+  "directorate": "Office of the MM",
+  "reportTo": "",
+  "level": "1"
+}

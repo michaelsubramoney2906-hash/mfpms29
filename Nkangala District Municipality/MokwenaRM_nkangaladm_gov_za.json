@@ -1,0 +1,14 @@
+{
+  "id": "716dbd99-6781-424c-baf8-460116572fb3",
+  "fullName": "Reginah M. Mokwena",
+  "email": "MokwenaRM@nkangaladm.gov.za",
+  "jobFunction": "Information Security Officer",
+  "department": "Information and Communication Technology",
+  "source": "azure_ad",
+  "role": "Standard User",
+  "tenantId": "nkangala_auto",
+  "manager": "SB Nkosi",
+  "directorate": "Office of the MM",
+  "reportTo": "",
+  "level": "1"
+}

@@ -1,0 +1,14 @@
+{
+  "id": "0b1e5fd6-7e68-484b-bca5-5cc7cb8edfba",
+  "fullName": "Mkhulu D. Sithole",
+  "email": "sitholedm@nkangaladm.gov.za",
+  "jobFunction": "System Administrator",
+  "department": "Information and Communication Technology",
+  "source": "azure_ad",
+  "role": "Standard User",
+  "tenantId": "nkangala_auto",
+  "manager": "Bongani S Nkosi",
+  "directorate": "Office of the MM",
+  "reportTo": "",
+  "level": "1"
+}

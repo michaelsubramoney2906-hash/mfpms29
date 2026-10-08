@@ -1,0 +1,14 @@
+{
+  "id": "1d387aa8-cbea-4f5b-8471-04f20b725712",
+  "fullName": "Yolanda Segami",
+  "email": "segamiy@nkangaladm.gov.za",
+  "jobFunction": "Chief Environmental Health Practioner",
+  "department": "Community Development Services",
+  "source": "azure_ad",
+  "role": "Standard User",
+  "tenantId": "nkangala_auto",
+  "manager": "Solly Links",
+  "directorate": "Community Services",
+  "reportTo": "Solly Links",
+  "level": "1"
+}

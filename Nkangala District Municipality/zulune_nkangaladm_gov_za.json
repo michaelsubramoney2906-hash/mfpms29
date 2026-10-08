@@ -1,0 +1,14 @@
+{
+  "id": "f60af742-7b20-4eae-93ff-6ae7877fce6a",
+  "fullName": "Noluthando Zulu",
+  "email": "zulune@nkangaladm.gov.za",
+  "jobFunction": "PMS Officer",
+  "department": "Performance Management Unit",
+  "source": "azure_ad",
+  "role": "tenant_user",
+  "tenantId": "nkangala_auto",
+  "manager": "Yena Khuboni",
+  "directorate": "Office of the Municipal Manager",
+  "reportTo": "Yena Khuboni",
+  "level": "4"
+}

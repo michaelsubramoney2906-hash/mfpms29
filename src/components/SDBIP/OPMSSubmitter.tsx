@@ -31,7 +31,7 @@ interface OPMSSubmitterProps {
 export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProps) {
   const [rows, setRows] = useState<SdbipRow[]>([]);
   const [notifications, setNotifications] = useState<SdbipWorkflowNotification[]>([]);
-  const [assignedFilter, setAssignedFilter] = useState<'ALL' | 'MINE'>('ALL');
+  const [assignedFilter, setAssignedFilter] = useState<'ALL' | 'MINE'>('MINE');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -383,6 +383,14 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
     if (isReadOnlyMode) {
       setError("Action Restricted: Read-only mode active. Only designated submitters under 'My KPIs' can upload evidence.");
       setTimeout(() => setError(null), 4000);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    const effActual = (q1Actual || selectedKpi.q1Actual || '').trim();
+    if (!effActual) {
+      setError("Validation Rule: A Portfolio of Evidence (PoE) cannot be uploaded without entering an Actual performance figure first. Please enter your Q1 Actual achievement.");
+      setTimeout(() => setError(null), 5000);
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
@@ -819,8 +827,8 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
 
     // Duplicate submission safeguard
     const kpiStatus = (selectedKpi as any).workflowStatus;
-    const isAlreadySubmitted = kpiStatus === 'Submitted to Approver' || kpiStatus === 'Submitted' || kpiStatus === 'Approved';
-    const isReturnedOrRejected = kpiStatus === 'Returned' || kpiStatus === 'Rejected';
+    const isAlreadySubmitted = kpiStatus === 'Submitted to Approver' || kpiStatus === 'Submitted' || kpiStatus === 'Approved' || kpiStatus === 'Reviewed' || selectedKpi.workflows?.q1?.status === 'pending_approval' || selectedKpi.workflows?.q1?.status === 'approved';
+    const isReturnedOrRejected = kpiStatus === 'Returned' || kpiStatus === 'Rejected' || Boolean((selectedKpi as any).returnReason);
 
     if (isAlreadySubmitted && !isReturnedOrRejected) {
       setError("Duplicate Submission Safeguard: This KPI actual and PoE have already been submitted to the Executive Approver and are awaiting review. Re-submission or duplicate reporting is disabled unless the Approver rejects or returns it for resubmission.");
@@ -837,14 +845,19 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
       const effQ1Variance = q1Variance || draftFallback.q1Variance || selectedKpi.q1Variance || '';
       const effQ1Corrective = q1Corrective || draftFallback.q1Corrective || selectedKpi.q1Corrective || '';
 
-      // Mandatory Submitter Validation: Prevent pushing empty actuals to Approver
-      const isTargetNA = selectedKpi.q1 && (selectedKpi.q1.trim().toUpperCase() === 'N/A' || selectedKpi.q1.trim().toUpperCase() === 'NOT APPLICABLE');
-      if (!isTargetNA && (!effQ1Actual || effQ1Actual.trim() === '')) {
-        const kpiPoesList = extractKpiPoes(selectedKpi, poes);
-        const poeMsg = kpiPoesList.length > 0
-          ? `You have attached ${kpiPoesList.length} Portfolio of Evidence (PoE) document(s), but your Q1 Actual progress is blank.`
-          : `Reporting Q1 Actual achievement is required before submitting to your Executive Approver.`;
-        setError(`Validation Notice: ${poeMsg} Please enter your Q1 Actual progress figure before submitting.`);
+      // Mandatory Submitter Validation: No KPI can be sent to Approver without both actuals and PoE
+      const effQ1Trimmed = (effQ1Actual || '').trim();
+      const kpiPoesList = extractKpiPoes(selectedKpi, poes);
+
+      if (!effQ1Trimmed) {
+        setError(`Policy Requirement: KPI ${selectedKpi.refNum} cannot be submitted without an Actual performance figure. Please enter your Q1 Actual achievement.`);
+        setTimeout(() => setError(null), 6000);
+        setLoading(false);
+        return;
+      }
+
+      if (kpiPoesList.length === 0) {
+        setError(`Policy Requirement: KPI ${selectedKpi.refNum} cannot be submitted without Portfolio of Evidence (PoE). You must upload supporting evidence before pushing to Approver.`);
         setTimeout(() => setError(null), 6000);
         setLoading(false);
         return;
@@ -947,6 +960,20 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
 
       await loadNotifications();
       
+      // Clear any pending resubmission notifications for this specific KPI
+      const remainingNotifs = notifications.filter(n => !(
+        (n.kpiId === selectedKpi.id || n.refNum === selectedKpi.refNum) &&
+        n.actionType === 'returned'
+      ));
+      if (remainingNotifs.length !== notifications.length) {
+        setNotifications(remainingNotifs);
+        fetch(`/api/tenant/${activeTenantId}/sdbip-notifications`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ notifications: remainingNotifs })
+        }).catch(() => {});
+      }
+      
       const submittedItem = updatedRows.find(x => x.id === selectedKpi.id) || null;
       setRows(updatedRows);
       if (submittedItem) {
@@ -969,44 +996,51 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
   // Compute unique KPAs for filtering
   const kpas = Array.from(new Set(rows.map(r => r.kpas).filter(Boolean)));
 
+  // Check if currentUser is an unrestricted admin/impersonator
+  const isImpersonating = typeof window !== 'undefined' && 
+    !!(localStorage.getItem('originalAdminUser') || sessionStorage.getItem('originalAdminUser'));
+  const isUnrestrictedAdmin = isUserUnrestricted(currentUser) || isMasterAdminMike(currentUser) || isImpersonating;
+
   const filteredRows = rows.filter(r => {
     const matchesKpa = kpaFilter === 'ALL' || r.kpas === kpaFilter;
     const matchesSearch = searchQuery === '' || 
       (r.refNum && r.refNum.toLowerCase().includes(searchQuery.toLowerCase())) || 
       (r.kpi && r.kpi.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (r.strategicObj && r.strategicObj.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesMine = assignedFilter === 'ALL' || 
-      isUserMatch(r.submitter, currentUser) ||
-      isUserMatch((r as any).submitterName, currentUser) ||
-      isUserMatch((r as any).person, currentUser) ||
-      isUserMatch(r.responsibleUnit, currentUser);
+
+    // Strict submitter matching: the submitter should only see KPIs that specify their user name
+    const isSpecifiedUser = isUserMatch(r.submitter, currentUser) ||
+      isUserMatch((r as any).submitterName, currentUser);
+
+    const matchesMine = isUnrestrictedAdmin && assignedFilter === 'ALL'
+      ? true
+      : isSpecifiedUser;
+
     return matchesKpa && matchesSearch && matchesMine;
   });
 
-  // Calculate high level stats
-  const totalKpis = rows.length;
-  const draftCount = rows.filter(r => !(r as any).workflowStatus || (r as any).workflowStatus === 'Draft').length;
-  const submittedCount = rows.filter(r => (r as any).workflowStatus === 'Submitted to Approver' || (r as any).workflowStatus === 'Submitted').length;
-  const reviewedCount = rows.filter(r => (r as any).workflowStatus === 'Reviewed' || (r as any).workflowStatus === 'Pending Review').length;
-  const approvedCount = rows.filter(r => (r as any).workflowStatus === 'Approved').length;
-  const returnedCount = rows.filter(r => (r as any).workflowStatus === 'Returned').length;
+  // Calculate high level stats strictly scoped to assigned KPIs
+  const myAssignedRows = isUnrestrictedAdmin && assignedFilter === 'ALL'
+    ? rows
+    : rows.filter(r => isUserMatch(r.submitter, currentUser) || isUserMatch((r as any).submitterName, currentUser));
 
-  // Check if currentUser is the specifically assigned Submitter or Unit for the selected KPI, OR if user is an unrestricted admin/impersonator
-  const isImpersonating = typeof window !== 'undefined' && 
-    !!(localStorage.getItem('originalAdminUser') || sessionStorage.getItem('originalAdminUser'));
-  const isUnrestrictedAdmin = isUserUnrestricted(currentUser) || isMasterAdminMike(currentUser) || isImpersonating;
+  const totalKpis = myAssignedRows.length;
+  const draftCount = myAssignedRows.filter(r => !(r as any).workflowStatus || (r as any).workflowStatus === 'Draft').length;
+  const submittedCount = myAssignedRows.filter(r => (r as any).workflowStatus === 'Submitted to Approver' || (r as any).workflowStatus === 'Submitted').length;
+  const reviewedCount = myAssignedRows.filter(r => (r as any).workflowStatus === 'Reviewed' || (r as any).workflowStatus === 'Pending Review').length;
+  const approvedCount = myAssignedRows.filter(r => (r as any).workflowStatus === 'Approved').length;
+  const returnedCount = myAssignedRows.filter(r => (r as any).workflowStatus === 'Returned').length;
+
   const isActualDesignatedSubmitter = Boolean(
     selectedKpi && (
       isUnrestrictedAdmin ||
       isUserMatch(selectedKpi.submitter, currentUser) ||
-      isUserMatch((selectedKpi as any).submitterName, currentUser) ||
-      isUserMatch((selectedKpi as any).person, currentUser) ||
-      isUserMatch(selectedKpi.responsibleUnit, currentUser)
+      isUserMatch((selectedKpi as any).submitterName, currentUser)
     )
   );
 
-  // Read-only mode: When selecting "All KPIs" (and not an unrestricted admin), or when not the designated submitter of this KPI
-  const isReadOnlyMode = (assignedFilter === 'ALL' && !isUnrestrictedAdmin) || !isActualDesignatedSubmitter;
+  // Read-only mode: When not the designated submitter of this KPI
+  const isReadOnlyMode = !isActualDesignatedSubmitter;
 
   // Q1 is currently active for municipal reporting
   const isQ1ActivePeriod = isQuarterInReportingPeriod('q1');
@@ -1302,24 +1336,32 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
 
             {/* Smart Inline Filters */}
             <div className="flex flex-wrap items-center gap-2">
-              <div className={`inline-flex rounded-lg border p-0.5 text-[10px] font-bold ${
-                scorecardsTheme === 'light' ? 'border-slate-300 bg-slate-100' : 'border-slate-800 bg-slate-950'
-              }`}>
-                <button
-                  type="button"
-                  onClick={() => setAssignedFilter('MINE')}
-                  className={`px-2 py-1 rounded transition cursor-pointer ${assignedFilter === 'MINE' ? 'bg-indigo-600 text-white' : scorecardsTheme === 'light' ? 'text-slate-700 hover:text-black' : 'text-slate-400 hover:text-white'}`}
-                >
-                  My KPIs
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAssignedFilter('ALL')}
-                  className={`px-2 py-1 rounded transition cursor-pointer ${assignedFilter === 'ALL' ? 'bg-indigo-600 text-white' : scorecardsTheme === 'light' ? 'text-slate-700 hover:text-black' : 'text-slate-400 hover:text-white'}`}
-                >
-                  All KPIs
-                </button>
-              </div>
+              {isUnrestrictedAdmin ? (
+                <div className={`inline-flex rounded-lg border p-0.5 text-[10px] font-bold ${
+                  scorecardsTheme === 'light' ? 'border-slate-300 bg-slate-100' : 'border-slate-800 bg-slate-950'
+                }`}>
+                  <button
+                    type="button"
+                    onClick={() => setAssignedFilter('MINE')}
+                    className={`px-2 py-1 rounded transition cursor-pointer ${assignedFilter === 'MINE' ? 'bg-indigo-600 text-white' : scorecardsTheme === 'light' ? 'text-slate-700 hover:text-black' : 'text-slate-400 hover:text-white'}`}
+                  >
+                    My KPIs
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAssignedFilter('ALL')}
+                    className={`px-2 py-1 rounded transition cursor-pointer ${assignedFilter === 'ALL' ? 'bg-indigo-600 text-white' : scorecardsTheme === 'light' ? 'text-slate-700 hover:text-black' : 'text-slate-400 hover:text-white'}`}
+                  >
+                    All KPIs
+                  </button>
+                </div>
+              ) : (
+                <div className={`inline-flex items-center px-2.5 py-1 rounded-lg border text-[10px] font-bold ${
+                  scorecardsTheme === 'light' ? 'border-slate-300 bg-slate-100 text-slate-800' : 'border-slate-800 bg-slate-950 text-indigo-300'
+                }`}>
+                  <span>Assigned to You: {currentUser.fullName || currentUser.email}</span>
+                </div>
+              )}
 
               <div className="relative shrink-0 w-36">
                 <Search className={`absolute left-2.5 top-2 w-3.5 h-3.5 ${scorecardsTheme === 'light' ? 'text-slate-400' : 'text-slate-500'}`} />
@@ -1932,19 +1974,41 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                       className="hidden"
                       accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.png,.jpg,.jpeg,.webp,.svg,.txt"
                     />
-                    <button
-                      type="button"
-                      disabled={isReadOnlyMode || uploadingPoe || (selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed'}
-                      onClick={() => {
-                        if (isReadOnlyMode) return;
-                        fileInputRef.current?.click();
-                      }}
-                      className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded text-[10px] font-bold flex items-center gap-1 transition cursor-pointer shadow-sm disabled:cursor-not-allowed"
-                      title={isReadOnlyMode ? "Read-Only: Evidence upload is restricted to the designated submitter under 'My KPIs'." : "Upload evidence document"}
-                    >
-                      <Upload className="w-3 h-3" />
-                      <span>{uploadingPoe ? 'Uploading...' : 'Upload PoE File'}</span>
-                    </button>
+                    {(() => {
+                      const effActual = (q1Actual || selectedKpi?.q1Actual || '').trim();
+                      const isNoActual = !effActual;
+                      return (
+                        <div className="flex flex-col items-end gap-1">
+                          <button
+                            type="button"
+                            disabled={isReadOnlyMode || uploadingPoe || (selectedKpi as any).workflowStatus === 'Approved' || (selectedKpi as any).workflowStatus === 'Reviewed' || isNoActual}
+                            onClick={() => {
+                              if (isReadOnlyMode) return;
+                              if (isNoActual) {
+                                setError("Policy Rule: You must enter your Q1 Actual performance figure above before uploading Portfolio of Evidence (PoE).");
+                                setTimeout(() => setError(null), 5000);
+                                return;
+                              }
+                              fileInputRef.current?.click();
+                            }}
+                            className={`px-2.5 py-1 rounded text-[10px] font-bold flex items-center gap-1 transition shadow-sm ${
+                              isNoActual 
+                                ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
+                                : 'bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer'
+                            }`}
+                            title={isNoActual ? "Enter Q1 Actual above to enable PoE upload" : "Upload evidence document"}
+                          >
+                            <Upload className="w-3 h-3" />
+                            <span>{uploadingPoe ? 'Uploading...' : 'Upload PoE File'}</span>
+                          </button>
+                          {isNoActual && (
+                            <span className="text-[9px] text-amber-400 font-medium">
+                              ⚠️ Enter Q1 Actual above to enable PoE upload
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
 

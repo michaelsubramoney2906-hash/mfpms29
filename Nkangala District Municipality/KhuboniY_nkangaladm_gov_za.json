@@ -1,0 +1,14 @@
+{
+  "id": "32640881-296d-4a3d-82c0-5be1e8d51305",
+  "fullName": "Yena Khuboni",
+  "email": "KhuboniY@nkangaladm.gov.za",
+  "jobFunction": "PMS Coordinator",
+  "department": "Performance Management Unit",
+  "source": "azure_ad",
+  "role": "tenant_user",
+  "tenantId": "nkangala_auto",
+  "manager": "Sibusiso M. Shabangu",
+  "directorate": "Office of the Municipal Manager",
+  "reportTo": "Sibusiso M. Shabangu",
+  "level": "3"
+}

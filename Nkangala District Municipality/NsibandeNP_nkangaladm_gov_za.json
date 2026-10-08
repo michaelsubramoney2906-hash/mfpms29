@@ -1,0 +1,14 @@
+{
+  "id": "169d4306-8f98-4635-a290-b255f00a19e5",
+  "fullName": "Nompumelelo P. Nsibande",
+  "email": "NsibandeNP@nkangaladm.gov.za",
+  "jobFunction": "PMS Officer",
+  "department": "Performance Management Unit",
+  "source": "azure_ad",
+  "role": "tenant_user",
+  "tenantId": "nkangala_auto",
+  "manager": "Yena Khuboni",
+  "directorate": "Office of the Municipal Manager",
+  "reportTo": "Yena Khuboni",
+  "level": "4"
+}
