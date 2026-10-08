@@ -31,7 +31,6 @@ export const FIXED_REVIEWERS = [
 export const FIXED_INTERNAL_AUDITORS = [
   'Amos D. Twala',
   'Peggy L. Seerane',
-  'Jayvanti Morar',
   'Katlego Masemola',
   'Sthembile C. Mpanza'
 ];

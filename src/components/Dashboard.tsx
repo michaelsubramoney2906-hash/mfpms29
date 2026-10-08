@@ -509,14 +509,21 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
     if (mod.id === 'opms-admin' || mod.id === 'opms') {
       if (isMasterAdmin) return mod.subModules;
 
-      const isNamedReviewer = email === 'zulune@nkangaladm.gov.za' ||
+      const isJayvantiMorar = email === 'morarj@nkangaladm.gov.za' ||
+                              email.includes('morarj') ||
+                              fullName.includes('jayvanti') ||
+                              (fullName.includes('morar') && !fullName.includes('morari'));
+
+      const isNamedReviewer = !isJayvantiMorar && (
+                              email === 'zulune@nkangaladm.gov.za' ||
                               email === 'khuboniy@nkangaladm.gov.za' ||
                               email === 'lukhelema@nkangaladm.gov.za' ||
                               fullName.includes('noluthando') || fullName.includes('zulu') ||
                               fullName.includes('yena') || fullName.includes('khuboni') ||
-                              fullName.includes('mduduzi') || fullName.includes('lukhele');
+                              fullName.includes('mduduzi') || fullName.includes('lukhele'));
 
-      const isInternalAuditUser = email === 'seeranepl@nkangaladm.gov.za' ||
+      const isInternalAuditUser = !isJayvantiMorar && (
+                                  email === 'seeranepl@nkangaladm.gov.za' ||
                                   email === 'masemolak@nkangaladm.gov.za' ||
                                   email === 'mpanzacs@nkangaladm.gov.za' ||
                                   email.includes('audit') ||
@@ -526,20 +533,21 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                                   department.includes('audit') ||
                                   fullName.includes('peggy') || fullName.includes('seerane') ||
                                   fullName.includes('katlego') || fullName.includes('masemola') ||
-                                  fullName.includes('sthembile') || fullName.includes('mpanza');
+                                  fullName.includes('sthembile') || fullName.includes('mpanza'));
 
-      const isSubmitter = isSdbipSubmitter;
-      const isApprover = isSdbipApprover;
+      const isSubmitter = isJayvantiMorar || isSdbipSubmitter;
+      const isApprover = !isJayvantiMorar && isSdbipApprover;
 
       // Strict role resolution for OPMS workflow modules (no dual roles):
+      // Jayvanti Morar is strictly restricted to Submitter only (no dual roles)
       // Designated submitters have access to Submitter module (e.g. Nompumelelo Nsibande, Jayvanti Morar)
       // Designated approvers have access to Approver module (e.g. Sibusiso Shabangu, Amos Twala)
       // Appointed PMU Reviewers have access to Reviewer module (e.g. Noluthando Zulu, Mduduzi Lukhele)
       // Appointed Internal Auditors have access to Audit module (e.g. Peggy Seerane, Katlego Masemola)
       const canAccessSubmitter = isSubmitter || isMasterAdmin;
-      const canAccessApprover = isApprover || isMasterAdmin;
-      const canAccessReviewer = isNamedReviewer || isMasterAdmin;
-      const canAccessAuditor = isInternalAuditUser || isMasterAdmin;
+      const canAccessApprover = !isJayvantiMorar && (isApprover || isMasterAdmin);
+      const canAccessReviewer = !isJayvantiMorar && (isNamedReviewer || isMasterAdmin);
+      const canAccessAuditor = !isJayvantiMorar && (isInternalAuditUser || isMasterAdmin);
 
       return mod.subModules.filter(sub => {
         if (sub.id === 'opms-submitter') {

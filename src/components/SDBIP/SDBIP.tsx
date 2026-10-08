@@ -550,7 +550,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     return bytes.buffer;
   };
 
-  // Custom SDBIP officials states (exactly 4 reviewers and 5 auditors)
+  // Custom SDBIP officials states (appointed reviewers and auditors)
   const [reviewers, setReviewers] = useState<string[]>([
     'Nompumelelo P. Nsibande',
     'Sibusiso M. Shabanga',
@@ -560,7 +560,6 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
   const [internalAuditors, setInternalAuditors] = useState<string[]>([
     'Amos D. Twala',
     'Peggy L. Seerane',
-    'Jayvanti Morar',
     'Katlego Masemola',
     'Sthembile C. Mpanza'
   ]);
@@ -1026,11 +1025,17 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
         }
 
         if (officialsData) {
-          if (Array.isArray(officialsData.reviewers)) {
-            setReviewers(officialsData.reviewers);
+          const filterMorar = (list: any[]) => Array.isArray(list)
+            ? list.filter(item => {
+                const s = String(item || '').toLowerCase();
+                return !s.includes('jayvanti') && !s.includes('morar');
+              })
+            : [];
+          if (Array.isArray(officialsData.reviewers) && officialsData.reviewers.length > 0) {
+            setReviewers(filterMorar(officialsData.reviewers));
           }
-          if (Array.isArray(officialsData.internalAuditors)) {
-            setInternalAuditors(officialsData.internalAuditors);
+          if (Array.isArray(officialsData.internalAuditors) && officialsData.internalAuditors.length > 0) {
+            setInternalAuditors(filterMorar(officialsData.internalAuditors));
           }
         }
       })

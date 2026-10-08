@@ -165,8 +165,7 @@ export function normalizeDepartment(rawDept?: string, jobFunction?: string, emai
     d.includes('audit') || 
     j.includes('audit') || 
     j.includes('auditor') ||
-    em.includes('twalaad') ||
-    em.includes('morarj')
+    em.includes('twalaad')
   ) {
     return 'Internal Audit Unit';
   }
@@ -201,7 +200,8 @@ export function normalizeDepartment(rawDept?: string, jobFunction?: string, emai
     em.includes('mahlanguml') ||
     em.includes('shabangusm') ||
     em.includes('nsibandenp') ||
-    em.includes('skhosanaqj')
+    em.includes('skhosanaqj') ||
+    em.includes('morarj')
   ) {
     return 'Office of the Municipal Manager';
   }

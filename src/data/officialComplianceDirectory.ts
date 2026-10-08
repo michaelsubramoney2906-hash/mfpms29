@@ -924,9 +924,9 @@ export const OFFICIAL_COMPLIANCE_DIRECTORY: VerifiedOfficial[] = [
     status: "Section 57 Verified"
   },
   {
-    fullName: "Jatin Morar",
-    jobFunction: "Senior Internal Auditor & Compliance Lead",
-    department: "Internal Audit Unit",
+    fullName: "Jayvanti Morar",
+    jobFunction: "Departmental SDBIP Submitter & Operations Specialist",
+    department: "Office of the Municipal Manager / Strategic Executive",
     email: "morarj@nkangaladm.gov.za",
     refCode: "SEC57-NDM-0802",
     status: "Section 57 Verified"

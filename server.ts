@@ -7601,12 +7601,14 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
               const p = JSON.parse(msg.content);
               if (Array.isArray(p.internalAuditors)) {
                 p.internalAuditors.forEach((a: string) => {
-                  if (a && !officialsAuditors.includes(a)) officialsAuditors.push(a);
+                  const s = String(a || '').toLowerCase();
+                  if (a && !s.includes('jayvanti') && !s.includes('morar') && !officialsAuditors.includes(a)) officialsAuditors.push(a);
                 });
               }
               if (Array.isArray(p.reviewers)) {
                 p.reviewers.forEach((r: string) => {
-                  if (r && !officialsReviewers.includes(r)) officialsReviewers.push(r);
+                  const s = String(r || '').toLowerCase();
+                  if (r && !s.includes('jayvanti') && !s.includes('morar') && !officialsReviewers.includes(r)) officialsReviewers.push(r);
                 });
               }
             } catch (e) {}
@@ -7619,7 +7621,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
 
       officialsAuditors.forEach((name) => {
         const cleanName = (name || '').trim();
-        if (!cleanName) return;
+        if (!cleanName || cleanName.toLowerCase().includes('jayvanti') || cleanName.toLowerCase().includes('morar')) return;
         const key = cleanName.toLowerCase();
         if (!existingNames.has(key)) {
           const email = `${cleanName.toLowerCase().replace(/[^a-z0-9]/g, '.')}@nkangaladm.gov.za`;
@@ -7658,7 +7660,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
 
       officialsReviewers.forEach((name) => {
         const cleanName = (name || '').trim();
-        if (!cleanName) return;
+        if (!cleanName || cleanName.toLowerCase().includes('jayvanti') || cleanName.toLowerCase().includes('morar')) return;
         const key = cleanName.toLowerCase();
         if (!existingNames.has(key)) {
           const email = `${cleanName.toLowerCase().replace(/[^a-z0-9]/g, '.')}@nkangaladm.gov.za`;
@@ -10431,252 +10433,6 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
     }
   });
 
-  // 17.0a-1 Fetch SDBIP KPI Quarter Unlocks for a tenant
-  app.get("/api/tenant/:tenantId/sdbip-quarter-unlocks", async (req, res) => {
-    const { tenantId } = req.params;
-    try {
-      const supabase = getSupabase();
-      const documentId = `sdbip_quarter_unlocks_${tenantId}`;
-      const { data, error } = await supabase
-        .from('messages')
-        .select('content')
-        .eq('id', documentId)
-        .maybeSingle();
-
-      if (error) {
-        logSupabaseError("SDBIP quarter unlocks", error);
-        return res.json({ unlocks: {} });
-      }
-
-      if (data && data.content) {
-        try {
-          const parsed = JSON.parse(data.content);
-          return res.json({ unlocks: parsed?.unlocks || parsed || {} });
-        } catch (parseErr) {
-          console.error("Error parsing SDBIP quarter unlocks JSON:", parseErr);
-        }
-      }
-      return res.json({ unlocks: {} });
-    } catch (err: any) {
-      console.error("SDBIP quarter unlocks load exception:", err);
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  // 17.0a-2 Save SDBIP KPI Quarter Unlocks for a tenant
-  app.post("/api/tenant/:tenantId/sdbip-quarter-unlocks", async (req, res) => {
-    const { tenantId } = req.params;
-    const { unlocks } = req.body;
-    try {
-      const supabase = getSupabase();
-      const documentId = `sdbip_quarter_unlocks_${tenantId}`;
-      const { error } = await supabase
-        .from('messages')
-        .upsert({ 
-          id: documentId,
-          tenant_id: tenantId,
-          sender_id: 'sdbip_unlock_manager',
-          sender_email: 'sdbip_unlocks@system.local',
-          sender_name: 'SDBIP Quarter Unlock Manager',
-          content: JSON.stringify({ unlocks: unlocks || {} }),
-          message_type: 'sdbip_quarter_unlocks_register',
-          created_at: new Date().toISOString()
-        });
-
-      if (error) throw error;
-      res.json({ success: true, unlocks: unlocks || {} });
-    } catch (err: any) {
-      console.error("SDBIP quarter unlocks save exception:", err);
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  // 17.0a-3 Batch Unlock/Lock Quarters for specific KPIs and automatically notify assigned submitters
-  app.post("/api/tenant/:tenantId/sdbip-unlock-quarter-kpis", async (req, res) => {
-    const { tenantId } = req.params;
-    const { 
-      quarter, 
-      kpis, 
-      unlocked = true, 
-      unlockedBy = 'Administrator', 
-      notes = '' 
-    } = req.body || {};
-
-    if (!quarter || !Array.isArray(kpis) || kpis.length === 0) {
-      return res.status(400).json({ error: "Missing quarter or kpis array" });
-    }
-
-    try {
-      const supabase = getSupabase();
-      const qKey = String(quarter).toLowerCase().trim();
-      const qDisplay = qKey === 'midterm' || qKey === 'mid-term' ? 'Mid-Term (Q1+Q2)' :
-                       qKey === 'q1' ? 'Quarter 1' :
-                       qKey === 'q2' ? 'Quarter 2' :
-                       qKey === 'q3' ? 'Quarter 3' :
-                       qKey === 'q4' ? 'Quarter 4' : qKey.toUpperCase();
-
-      // 1. Fetch existing quarter unlocks map
-      const unlockDocId = `sdbip_quarter_unlocks_${tenantId}`;
-      let currentUnlocks: Record<string, Record<string, boolean>> = {};
-      const { data: unlockData } = await supabase
-        .from('messages')
-        .select('content')
-        .eq('id', unlockDocId)
-        .maybeSingle();
-
-      if (unlockData?.content) {
-        try {
-          const parsed = JSON.parse(unlockData.content);
-          currentUnlocks = parsed?.unlocks || parsed || {};
-        } catch (e) {
-          console.error("Error parsing current unlocks:", e);
-        }
-      }
-
-      // Update unlock state for all selected KPIs
-      for (const kpi of kpis) {
-        if (kpi.id) {
-          currentUnlocks[kpi.id] = currentUnlocks[kpi.id] || {};
-          currentUnlocks[kpi.id][qKey] = Boolean(unlocked);
-        }
-        if (kpi.refNum) {
-          currentUnlocks[kpi.refNum] = currentUnlocks[kpi.refNum] || {};
-          currentUnlocks[kpi.refNum][qKey] = Boolean(unlocked);
-        }
-      }
-
-      // Upsert updated unlocks
-      await supabase.from('messages').upsert({
-        id: unlockDocId,
-        tenant_id: tenantId,
-        sender_id: 'sdbip_unlock_manager',
-        sender_email: 'sdbip_unlocks@system.local',
-        sender_name: 'SDBIP Quarter Unlock Manager',
-        content: JSON.stringify({ unlocks: currentUnlocks }),
-        message_type: 'sdbip_quarter_unlocks_register',
-        created_at: new Date().toISOString()
-      });
-
-      // 2. Fetch existing notifications and dispatch new notifications to submitters
-      const notifDocId = `sdbip_notifications_${tenantId}`;
-      let existingNotifs: any[] = [];
-      const { data: notifData } = await supabase
-        .from('messages')
-        .select('content')
-        .eq('id', notifDocId)
-        .maybeSingle();
-
-      if (notifData?.content) {
-        try {
-          const parsed = JSON.parse(notifData.content);
-          if (Array.isArray(parsed)) existingNotifs = parsed;
-        } catch (e) {
-          console.error("Error parsing existing notifications:", e);
-        }
-      }
-
-      const newNotifications: any[] = [];
-      for (const kpi of kpis) {
-        const assignedSubmitter = kpi.submitter || '';
-        const ref = kpi.refNum || 'SDBIP-KPI';
-        const title = kpi.kpi || 'SDBIP Key Performance Indicator';
-
-        const notifMsg = unlocked
-          ? `Quarter ${qDisplay} reporting has been UNLOCKED for KPI ${ref}: "${title}". Designated submitter (${assignedSubmitter || 'Assigned'}) can now capture actual performance, expenditure, variances, and submit PoE evidence.`
-          : `Quarter ${qDisplay} reporting has been LOCKED for KPI ${ref}: "${title}".`;
-
-        const newNotif = {
-          id: `notif-q-unlock-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-          targetUser: assignedSubmitter,
-          senderUser: unlockedBy,
-          kpiId: kpi.id || '',
-          refNum: ref,
-          kpiName: title,
-          phase: qDisplay,
-          message: notifMsg,
-          comment: notes ? notes : (unlocked ? `Unlocked for ${qDisplay} quarterly reporting` : `Locked by administrator`),
-          actionType: unlocked ? 'quarter_unlocked' : 'quarter_locked',
-          createdAt: new Date().toISOString(),
-          read: false
-        };
-        newNotifications.push(newNotif);
-      }
-
-      const updatedNotifs = [...newNotifications, ...existingNotifs];
-      await supabase.from('messages').upsert({
-        id: notifDocId,
-        tenant_id: tenantId,
-        sender_id: 'sdbip_notifier_tool',
-        sender_email: 'sdbip_notifications@system.local',
-        sender_name: 'SDBIP Workflow Notifications Manager',
-        content: JSON.stringify(updatedNotifs),
-        message_type: 'sdbip_notifications_list',
-        created_at: new Date().toISOString()
-      });
-
-      // 3. Update master SDBIP document in Supabase if rows exist
-      try {
-        const sdbipDocId = `sdbip_${tenantId}`;
-        const { data: sdbipDoc } = await supabase
-          .from('messages')
-          .select('content')
-          .eq('id', sdbipDocId)
-          .maybeSingle();
-
-        if (sdbipDoc?.content) {
-          const parsed = JSON.parse(sdbipDoc.content);
-          let rowsArr: any[] = Array.isArray(parsed) ? parsed : (parsed.rows || []);
-          if (Array.isArray(rowsArr) && rowsArr.length > 0) {
-            let modified = false;
-            rowsArr = rowsArr.map(r => {
-              const matches = kpis.some((k: any) => k.id === r.id || (k.refNum && k.refNum === r.refNum));
-              if (matches) {
-                modified = true;
-                const currentList = Array.isArray(r.unlockedQuarters) ? [...r.unlockedQuarters] : [];
-                if (unlocked) {
-                  if (!currentList.includes(qKey)) currentList.push(qKey);
-                } else {
-                  const filtered = currentList.filter((item: string) => item !== qKey);
-                  return { ...r, unlockedQuarters: filtered };
-                }
-                return { ...r, unlockedQuarters: currentList };
-              }
-              return r;
-            });
-
-            if (modified) {
-              const updatedContent = Array.isArray(parsed) ? rowsArr : { ...parsed, rows: rowsArr };
-              await supabase.from('messages').upsert({
-                id: sdbipDocId,
-                tenant_id: tenantId,
-                sender_id: 'sdbip_master_engine',
-                sender_email: 'sdbip_toplayer@system.local',
-                sender_name: 'SDBIP Top Layer System',
-                content: JSON.stringify(updatedContent),
-                message_type: 'sdbip_dataset_master',
-                created_at: new Date().toISOString()
-              });
-            }
-          }
-        }
-      } catch (docErr) {
-        console.warn("Could not sync unlockedQuarters to sdbip master doc:", docErr);
-      }
-
-      res.json({
-        success: true,
-        count: kpis.length,
-        quarter: qDisplay,
-        unlocked: Boolean(unlocked),
-        unlocks: currentUnlocks,
-        newNotifications
-      });
-    } catch (err: any) {
-      console.error("SDBIP batch quarter unlock exception:", err);
-      res.status(500).json({ error: err.message });
-    }
-  });
-
   // 17.0c Auto Unlock Official (Reviewer or Internal Auditor) upon SDBIP selection
   // Automatically unlocks module for specified official, sends inbox notifications to official and all Global Administrators,
   // logs in audit trails, and persistently stores on Supabase.
@@ -11137,18 +10893,28 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         return res.json(defaultOfficials);
       }
 
+      const filterMorar = (list: any[]) => Array.isArray(list)
+        ? list.filter(item => {
+            const s = String(item || '').toLowerCase();
+            return !s.includes('jayvanti') && !s.includes('morar');
+          })
+        : [];
+
       if (data && data.content) {
         try {
           const parsed = JSON.parse(data.content);
           return res.json({
-            reviewers: parsed.reviewers || defaultOfficials.reviewers,
-            internalAuditors: parsed.internalAuditors || defaultOfficials.internalAuditors
+            reviewers: filterMorar(parsed.reviewers || defaultOfficials.reviewers),
+            internalAuditors: filterMorar(parsed.internalAuditors || defaultOfficials.internalAuditors)
           });
         } catch (parseErr) {
           console.error("Error parsing sdbip officials JSON:", parseErr);
         }
       }
-      return res.json(defaultOfficials);
+      return res.json({
+        reviewers: filterMorar(defaultOfficials.reviewers),
+        internalAuditors: filterMorar(defaultOfficials.internalAuditors)
+      });
     } catch (err: any) {
       console.error("SDBIP officials load exception:", err);
       res.status(500).json({ error: err.message });
@@ -11162,6 +10928,15 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
     try {
       const supabase = getSupabase();
       const documentId = `sdbip_officials_${tenantId}`;
+      const filterMorar = (list: any[]) => Array.isArray(list)
+        ? list.filter(item => {
+            const s = String(item || '').toLowerCase();
+            return !s.includes('jayvanti') && !s.includes('morar');
+          })
+        : [];
+      const cleanReviewers = filterMorar(reviewers);
+      const cleanAuditors = filterMorar(internalAuditors);
+
       const { error } = await supabase
         .from('messages')
         .upsert({ 
@@ -11170,7 +10945,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           sender_id: 'sdbip_officials_editor',
           sender_email: 'sdbip_officials@system.local',
           sender_name: 'SDBIP Officials Configurator',
-          content: JSON.stringify({ reviewers, internalAuditors }),
+          content: JSON.stringify({ reviewers: cleanReviewers, internalAuditors: cleanAuditors }),
           message_type: 'sdbip_officials_list',
           created_at: new Date().toISOString()
         });

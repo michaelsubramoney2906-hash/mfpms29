@@ -348,17 +348,24 @@ export function RestrictedModuleWrapper({ currentUser, item, unlockedModules, on
       const dept = (currentUser.department || '').toLowerCase().trim();
       const name = (currentUser.fullName || (currentUser as any)?.name || '').toLowerCase().trim();
 
-      const isAuditor = email === 'seeranepl@nkangaladm.gov.za' || 
+      const isJayvantiMorar = email === 'morarj@nkangaladm.gov.za' ||
+                              email.includes('morarj') ||
+                              name.includes('jayvanti') ||
+                              (name.includes('morar') && !name.includes('morari'));
+
+      const isAuditor = !isJayvantiMorar && (
+                        email === 'seeranepl@nkangaladm.gov.za' || 
                         email === 'masemolak@nkangaladm.gov.za' || 
                         email.includes('audit') || role.includes('audit') || 
                         sysRole.includes('audit') || job.includes('audit') || 
                         dept.includes('audit') || 
-                        name.includes('seerane') || name.includes('masemola');
+                        name.includes('seerane') || name.includes('masemola'));
 
-      const isReviewer = email === 'zulune@nkangaladm.gov.za' || 
+      const isReviewer = !isJayvantiMorar && (
+                         email === 'zulune@nkangaladm.gov.za' || 
                          email === 'lukhelema@nkangaladm.gov.za' || 
                          email === 'khuboniy@nkangaladm.gov.za' || 
-                         name.includes('zulu') || name.includes('lukhele');
+                         name.includes('zulu') || name.includes('lukhele'));
 
       let hasOpmsAccess = true;
       let deniedReason = '';
@@ -374,12 +381,12 @@ export function RestrictedModuleWrapper({ currentUser, item, unlockedModules, on
           deniedReason = 'Only designated PMU Reviewers have access to the OPMS Reviewer module.';
         }
       } else if (item.id === 'opms-approver') {
-        if (isAuditor || isReviewer) {
+        if (isAuditor || isReviewer || isJayvantiMorar) {
           hasOpmsAccess = false;
-          deniedReason = 'Reviewers and Internal Auditors are restricted from accessing the Executive Approver module.';
+          deniedReason = 'Reviewers, Internal Auditors, and Submitters are restricted from accessing the Executive Approver module.';
         }
       } else if (item.id === 'opms-submitter') {
-        if (isAuditor || isReviewer) {
+        if (!isJayvantiMorar && (isAuditor || isReviewer)) {
           hasOpmsAccess = false;
           deniedReason = 'Reviewers and Internal Auditors are restricted from accessing the Submitter module.';
         }
