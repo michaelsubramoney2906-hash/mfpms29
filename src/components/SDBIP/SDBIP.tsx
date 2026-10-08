@@ -10,11 +10,13 @@ import { AzureADPicker } from './AzureADPicker';
 import { SDBIPPagination } from './SDBIPPagination';
 import { ExpandableCell, CellExpandModal, ExpandModalState } from './ExpandableCell';
 import { isQuarterInReportingPeriod, getQuarterLockNotice, REPORTING_PERIOD_CONFIGS, getCurrentMunicipalQuarter, ReportingPhase } from '../../utils/reportingPeriods';
-import { PMS_TEAM_REVIEWERS, INTERNAL_AUDIT_USERS, isUserMatch, dispatchSdbipNotification, isMasterAdminMike } from '../../utils/sdbipWorkflowHelper';
+import { PMS_TEAM_REVIEWERS, INTERNAL_AUDIT_USERS, isUserMatch, dispatchSdbipNotification, isMasterAdminMike, isQuarter1UnlockedKpi } from '../../utils/sdbipWorkflowHelper';
 import { isUserUnrestricted } from '../../utils/unrestrictedHelper';
 import { OfficeDocumentViewer } from '../IPMS/OfficeDocumentViewer';
 import { calcVar, extractNumericValue } from '../../utils/varianceCalculator';
 import { ensureAllSdbipKpis } from '../../sdbip_catalog';
+
+export { isQuarter1UnlockedKpi };
 
 export const isSdbipPlaceholderRow = (row: any): boolean => {
   if (!row || typeof row !== 'object') return false;
@@ -71,10 +73,12 @@ let globalReportingAssignmentsUnlocked = false;
  * Determines whether Submitter & Approver are unlocked in the SDBIP Top Layer reporting table.
  */
 export const isKpiUnlockedForSubmitterApprover = (row: { refNum?: string; id?: string; kpi?: string } | null | undefined): boolean => {
+  if (isQuarter1UnlockedKpi(row)) return true;
   return globalReportingAssignmentsUnlocked; 
 };
 
 export const isSubmitterApproverLockedInReporting = (row: { refNum?: string; id?: string; kpi?: string; adminLocked?: boolean; workflowStatus?: string } | null | undefined): boolean => {
+  if (isQuarter1UnlockedKpi(row)) return false;
   if (globalReportingAssignmentsUnlocked) return false;
   return true; 
 };
@@ -1779,7 +1783,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     const targetRow = rows.find(r => r.id === rowId);
     if (targetRow && status === 'pending_approval') {
       const assignedSubmitter = targetRow.submitter || targetRow.responsibleUnit;
-      const isMatch = isUserMatch(assignedSubmitter, currentUser) || isSuperAdminMike || isUserUnrestricted(currentUser);
+      const isMatch = isUserMatch(assignedSubmitter, currentUser) || isSuperAdminMike || isUserUnrestricted(currentUser) || isQuarter1UnlockedKpi(targetRow);
       if (!isMatch) {
         setSuccessToast(`Submission Restricted: Only the designated Submitter (${assignedSubmitter}) can submit KPI ${targetRow.refNum || ''} for approval.`);
         setTimeout(() => setSuccessToast(null), 4000);
@@ -2069,9 +2073,11 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     // Lock Submitter and Approver fields in reporting view to prevent changing assigned responsibilities
     if (activeTab === 'reporting' && (field === 'submitter' || field === 'approver') && !isReportingAssignmentsUnlocked) {
       const targetRow = rows.find(r => r.id === rowId);
-      setSuccessToast(`Field Locked: Submitter and Approver assignments are locked in the reporting view for KPI ${targetRow?.refNum || ''} to preserve responsible personnel assignments.`);
-      setTimeout(() => setSuccessToast(null), 4000);
-      return;
+      if (!isQuarter1UnlockedKpi(targetRow)) {
+        setSuccessToast(`Field Locked: Submitter and Approver assignments are locked in the reporting view for KPI ${targetRow?.refNum || ''} to preserve responsible personnel assignments.`);
+        setTimeout(() => setSuccessToast(null), 4000);
+        return;
+      }
     }
 
     // Locked targets and midterm expenditure
@@ -2092,7 +2098,9 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     ];
     if (actualsFields.includes(field as string)) {
       const targetRow = rows.find(r => r.id === rowId);
-      if (targetRow && (targetRow.submitter || targetRow.responsibleUnit)) {
+      const isQ1Field = ['score', 'q1Actual', 'q1Corrective', 'q1Expenditure', 'q1PoeDesc', 'poeDesc'].includes(field as string);
+      const isSpecialQ1 = isQ1Field && isQuarter1UnlockedKpi(targetRow);
+      if (!isSpecialQ1 && targetRow && (targetRow.submitter || targetRow.responsibleUnit)) {
         const assignedSubmitter = targetRow.submitter || targetRow.responsibleUnit;
         const isMatch = isUserMatch(assignedSubmitter, currentUser) || isSuperAdminMike || isUserUnrestricted(currentUser);
         if (!isMatch) {
@@ -3025,7 +3033,8 @@ Timestamp: ${new Date().toLocaleString()}
     targetVal: string | undefined,
     isRowSubmitter: boolean
   ) => {
-    if (isTargetNA(targetVal)) {
+    const isSpecialQ1 = quarter === 'q1' && isQuarter1UnlockedKpi(row);
+    if (!isSpecialQ1 && isTargetNA(targetVal)) {
       return (
         <div className="flex flex-col items-center justify-center p-2 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none" title={`Expenditure reporting locked (${quarter.toUpperCase()} Target is N/A)`}>
           <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500">
@@ -3042,20 +3051,21 @@ Timestamp: ${new Date().toLocaleString()}
     const cellVal = row[fieldKey] || '';
     const isActive = isQuarterActive(quarter);
     const breakdown = getRowBudgetBreakdown(row);
+    const canEdit = isSpecialQ1 || (isRowSubmitter && isActive);
 
     return (
       <div className="space-y-1">
         <ExpandableCell
           value={cellVal}
-          disabled={!isRowSubmitter || !isActive}
+          disabled={!canEdit}
           onChange={(val) => handleCellChange(row.id, fieldKey, val)}
           cellTitle={`${quarter.toUpperCase()} Expenditure`}
           refNum={row.refNum}
           isFitAll={isFitAllReportingCells}
           minRows={1}
-          placeholder={!isRowSubmitter ? `Submitter Only (${row.submitter || row.responsibleUnit || 'Assigned'})` : !isActive ? "Locked" : "e.g. R 150 000"}
+          placeholder={!canEdit ? `Submitter Only (${row.submitter || row.responsibleUnit || 'Assigned'})` : !isActive && !isSpecialQ1 ? "Locked" : "e.g. R 150 000"}
           onOpenExpandModal={openCellExpandModal}
-          className={`font-bold ${!isRowSubmitter || !isActive ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-800'}`}
+          className={`font-bold ${!canEdit ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-800'}`}
         />
         {breakdown.totalBudget > 0 && (
           <div className="text-[10px] space-y-1">
@@ -3130,8 +3140,9 @@ Timestamp: ${new Date().toLocaleString()}
       phase === 'q4' ? row.q4 : row.annualTarget;
 
     const phaseLabel = phase === 'midTerm' ? 'Mid-Term' : phase === 'annual' ? 'Annual' : phase.toUpperCase();
+    const isSpecialQ1 = phase === 'q1' && isQuarter1UnlockedKpi(row);
 
-    if (isTargetNA(targetVal)) {
+    if (!isSpecialQ1 && isTargetNA(targetVal)) {
       return (
         <div 
           className="flex flex-col items-center justify-center gap-1 py-2 px-3 bg-slate-100/90 border border-dashed border-slate-300 rounded-lg text-center select-none min-w-[135px]"
@@ -3939,6 +3950,7 @@ Timestamp: ${new Date().toLocaleString()}
                             const pData = getPhaseData(row, workflowPhase);
                             const wf = row.workflows?.[workflowPhase] || { status: 'draft' };
                             const status = wf.status || 'draft';
+                            const isPhaseSpecialUnlocked = workflowPhase === 'q1' && isQuarter1UnlockedKpi(row);
 
                             return (
                               <tr 
@@ -3988,7 +4000,7 @@ Timestamp: ${new Date().toLocaleString()}
 
                                 {/* Active Workflow Status */}
                                 <td className="p-2 border-r border-slate-150 text-center bg-indigo-50/10 min-w-[130px]">
-                                  {isTargetNA(pData.target) ? (
+                                  {(!isPhaseSpecialUnlocked && isTargetNA(pData.target)) ? (
                                     <div className="flex flex-col items-center gap-0.5 py-1">
                                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-black uppercase bg-slate-200 text-slate-600 border-slate-300">
                                         <Lock className="w-2.5 h-2.5 text-slate-500" />
@@ -4000,22 +4012,22 @@ Timestamp: ${new Date().toLocaleString()}
                                   ) : (
                                     <div className="flex flex-col items-center gap-1 py-1">
                                       {status === 'approved' && (
-                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-emerald-50 text-emerald-700 border-emerald-200">
+                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-emerald-50 text-emerald-700 border-emerald-200">
                                           <CheckCircle className="w-2.5 h-2.5" /> Approved
                                         </span>
                                       )}
                                       {status === 'pending_approval' && (
-                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-amber-50 text-amber-700 border-amber-200">
+                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-amber-50 text-amber-700 border-amber-200">
                                           <Clock className="w-2.5 h-2.5" /> Pend. Appr.
                                         </span>
                                       )}
                                       {status === 'pending_review' && (
-                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-violet-50 text-violet-700 border-violet-200">
+                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-violet-50 text-violet-700 border-violet-200">
                                           <Clock className="w-2.5 h-2.5" /> Pend. Rev.
                                         </span>
                                       )}
                                       {status === 'draft' && (
-                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-slate-100 text-slate-600 border-slate-200">
+                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[9px] font-black tracking-wider uppercase bg-slate-100 text-slate-600 border-slate-200">
                                           <FileText className="w-2.5 h-2.5" /> Draft
                                         </span>
                                       )}
@@ -4025,7 +4037,7 @@ Timestamp: ${new Date().toLocaleString()}
 
                                 {/* Expenditure */}
                                 <td className="p-2 border-r border-slate-100 bg-teal-50/10" onClick={(e) => e.stopPropagation()}>
-                                  {isTargetNA(pData.target) ? (
+                                  {(!isPhaseSpecialUnlocked && isTargetNA(pData.target)) ? (
                                     <div className="text-center font-bold text-slate-400 text-[11px] flex items-center justify-center gap-1 select-none" title="Expenditure reporting locked (Target is N/A)">
                                       <Lock className="w-2.5 h-2.5 text-slate-400" /> <KeyRound className="w-2.5 h-2.5 text-amber-500" /> <span>Locked</span>
                                     </div>
@@ -4037,12 +4049,12 @@ Timestamp: ${new Date().toLocaleString()}
                                         <div className="space-y-1">
                                           <input 
                                             type="text"
-                                            disabled={!isQuarterActive(workflowPhase)}
+                                            disabled={!isQuarterActive(workflowPhase) && !isPhaseSpecialUnlocked}
                                             value={expVal}
                                             onChange={(e) => handlePhaseFieldChange(row.id, workflowPhase, 'exp', e.target.value)}
-                                            title={!isQuarterActive(workflowPhase) ? getQuarterLockNotice(workflowPhase) : undefined}
-                                            className={`w-full border p-1 rounded text-[11px] font-bold ${!isQuarterActive(workflowPhase) ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white text-slate-800 border-slate-200'}`}
-                                            placeholder={!isQuarterActive(workflowPhase) ? "Locked" : "e.g. R 150 000"}
+                                            title={!isQuarterActive(workflowPhase) && !isPhaseSpecialUnlocked ? getQuarterLockNotice(workflowPhase) : undefined}
+                                            className={`w-full border p-1 rounded text-[11px] font-bold ${!isQuarterActive(workflowPhase) && !isPhaseSpecialUnlocked ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white text-slate-800 border-slate-200'}`}
+                                            placeholder={!isQuarterActive(workflowPhase) && !isPhaseSpecialUnlocked ? "Locked" : "e.g. R 150 000"}
                                           />
                                           {breakdown.totalBudget > 0 && (
                                             <div className="text-[9px]">
@@ -4065,7 +4077,7 @@ Timestamp: ${new Date().toLocaleString()}
 
                                 {/* POE Column */}
                                 <td className="p-2 border-r border-slate-100 bg-indigo-50/10" onClick={(e) => e.stopPropagation()}>
-                                  {isTargetNA(pData.target) ? (
+                                  {(!isPhaseSpecialUnlocked && isTargetNA(pData.target)) ? (
                                     <div className="flex flex-col items-center justify-center p-2 bg-slate-100/90 rounded border border-slate-200 text-slate-500 gap-0.5 select-none" title="POE reporting locked (Target is N/A)">
                                       <div className="flex items-center gap-1 text-[10px] font-bold text-slate-600">
                                         <Lock className="w-3 h-3 text-slate-500" /> <KeyRound className="w-3 h-3 text-amber-600" /> <span>Locked</span>
@@ -4096,10 +4108,10 @@ Timestamp: ${new Date().toLocaleString()}
                                       )}
                                       <div className="flex gap-1">
                                         <button 
-                                          disabled={!isQuarterActive(workflowPhase)}
+                                          disabled={!isQuarterActive(workflowPhase) && !isPhaseSpecialUnlocked}
                                           onClick={() => triggerUploadModal(row.id, row.refNum, workflowPhase as any)}
-                                          title={!isQuarterActive(workflowPhase) ? getQuarterLockNotice(workflowPhase) : "Upload/Edit POE"}
-                                          className={`flex-1 py-0.5 text-[9px] font-bold rounded border transition-colors flex items-center justify-center gap-1 ${!isQuarterActive(workflowPhase) ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 cursor-pointer'}`}
+                                          title={!isQuarterActive(workflowPhase) && !isPhaseSpecialUnlocked ? getQuarterLockNotice(workflowPhase) : "Upload/Edit POE"}
+                                          className={`flex-1 py-0.5 text-[9px] font-bold rounded border transition-colors flex items-center justify-center gap-1 ${!isQuarterActive(workflowPhase) && !isPhaseSpecialUnlocked ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 cursor-pointer'}`}
                                         >
                                           <Upload className="w-2 h-2" /> Upload
                                         </button>
@@ -4109,7 +4121,7 @@ Timestamp: ${new Date().toLocaleString()}
                                               <span className="text-[8px] text-rose-800 font-bold text-center leading-none">Delete?</span>
                                               <div className="flex gap-1 justify-center">
                                                 <button
-                                                  disabled={!isQuarterActive(workflowPhase)}
+                                                  disabled={!isQuarterActive(workflowPhase) && !isPhaseSpecialUnlocked}
                                                   onClick={() => {
                                                     clearQuarterPoe(row.id, workflowPhase as any);
                                                     setConfirmDelete(null);
@@ -4128,10 +4140,10 @@ Timestamp: ${new Date().toLocaleString()}
                                             </div>
                                           ) : (
                                             <button 
-                                              disabled={!isQuarterActive(workflowPhase)}
+                                              disabled={!isQuarterActive(workflowPhase) && !isPhaseSpecialUnlocked}
                                               onClick={() => setConfirmDelete({ rowId: row.id, type: workflowPhase as any })}
-                                              title={!isQuarterActive(workflowPhase) ? getQuarterLockNotice(workflowPhase) : "Delete POE"}
-                                              className={`p-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center ${!isQuarterActive(workflowPhase) ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 cursor-pointer'}`}
+                                              title={!isQuarterActive(workflowPhase) && !isPhaseSpecialUnlocked ? getQuarterLockNotice(workflowPhase) : "Delete POE"}
+                                              className={`p-1 text-[9px] font-bold rounded border transition-colors flex items-center justify-center ${!isQuarterActive(workflowPhase) && !isPhaseSpecialUnlocked ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 cursor-pointer'}`}
                                             >
                                               <Trash2 className="w-2.5 h-2.5" />
                                             </button>
@@ -4149,7 +4161,7 @@ Timestamp: ${new Date().toLocaleString()}
 
                                 {/* ACTUAL */}
                                 <td className="p-2 border-r border-slate-100 bg-indigo-50/5 relative" onClick={(e) => e.stopPropagation()}>
-                                  {isTargetNA(pData.target) ? (
+                                  {(!isPhaseSpecialUnlocked && isTargetNA(pData.target)) ? (
                                     <div className="text-center font-bold text-slate-400 text-[11px] flex items-center justify-center gap-1 py-2 bg-slate-100 rounded border border-slate-200 select-none" title="Actual reporting locked (Target is N/A)">
                                       <Lock className="w-2.5 h-2.5 text-slate-400" /> <KeyRound className="w-2.5 h-2.5 text-amber-600" /> <span>Locked</span>
                                     </div>
@@ -4157,12 +4169,12 @@ Timestamp: ${new Date().toLocaleString()}
                                     <>
                                       <textarea 
                                         rows={2} 
-                                        disabled={!isQuarterActive(workflowPhase)}
+                                        disabled={!isQuarterActive(workflowPhase) && !isPhaseSpecialUnlocked}
                                         value={getPhaseFieldValue(row, workflowPhase, 'actual') || ''} 
                                         onChange={(e) => handlePhaseFieldChange(row.id, workflowPhase, 'actual', e.target.value)} 
-                                        title={!isQuarterActive(workflowPhase) ? getQuarterLockNotice(workflowPhase) : undefined}
-                                        className={`w-full border p-1 rounded text-[11px] ${!isQuarterActive(workflowPhase) ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white border-slate-200 focus:ring-1 focus:ring-indigo-300'}`} 
-                                        placeholder={!isQuarterActive(workflowPhase) ? "Locked for this period" : "Actual..."} 
+                                        title={!isQuarterActive(workflowPhase) && !isPhaseSpecialUnlocked ? getQuarterLockNotice(workflowPhase) : undefined}
+                                        className={`w-full border p-1 rounded text-[11px] ${!isQuarterActive(workflowPhase) && !isPhaseSpecialUnlocked ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white border-slate-200 focus:ring-1 focus:ring-indigo-300'}`} 
+                                        placeholder={!isQuarterActive(workflowPhase) && !isPhaseSpecialUnlocked ? "Locked for this period" : "Actual..."} 
                                       />
                                       {pData.actual && pData.target && pData.actual !== pData.target && (
                                         <div className="absolute top-1 right-1" title={`Target Discrepancy: Target is ${pData.target}, Actual is ${pData.actual}`}>
@@ -4175,7 +4187,7 @@ Timestamp: ${new Date().toLocaleString()}
 
                                 {/* VARIANCE */}
                                 <td className="p-2 border-r border-slate-100 bg-indigo-50/5 text-center font-bold text-slate-700">
-                                  {isTargetNA(pData.target) ? (
+                                  {(!isPhaseSpecialUnlocked && isTargetNA(pData.target)) ? (
                                     <div className="text-center font-bold text-slate-400 text-[11px] flex items-center justify-center gap-1 select-none" title="Variance locked (Target is N/A)">
                                       <Lock className="w-2.5 h-2.5 text-slate-400" /> <KeyRound className="w-2.5 h-2.5 text-amber-600" /> <span>Locked</span>
                                     </div>
@@ -4186,7 +4198,7 @@ Timestamp: ${new Date().toLocaleString()}
 
                                 {/* CORRECTIVE MEASURES */}
                                 <td className="p-2 border-r border-slate-100 bg-indigo-50/5" onClick={(e) => e.stopPropagation()}>
-                                  {isTargetNA(pData.target) ? (
+                                  {(!isPhaseSpecialUnlocked && isTargetNA(pData.target)) ? (
                                     <div className="text-center font-bold text-slate-400 text-[11px] flex items-center justify-center gap-1 py-2 bg-slate-100 rounded border border-slate-200 select-none" title="Corrective measure locked (Target is N/A)">
                                       <Lock className="w-2.5 h-2.5 text-slate-400" /> <KeyRound className="w-2.5 h-2.5 text-amber-600" /> <span>Locked</span>
                                     </div>
@@ -4194,11 +4206,11 @@ Timestamp: ${new Date().toLocaleString()}
                                     <textarea 
                                       rows={2} 
                                       value={getPhaseFieldValue(row, workflowPhase, 'corr') || ''} 
-                                      disabled={!isQuarterActive(workflowPhase) || isFieldDisabled(getPhaseFieldValue(row, workflowPhase, 'var'))}
+                                      disabled={(!isQuarterActive(workflowPhase) && !isPhaseSpecialUnlocked) || (!isPhaseSpecialUnlocked && isFieldDisabled(getPhaseFieldValue(row, workflowPhase, 'var')))}
                                       onChange={(e) => handlePhaseFieldChange(row.id, workflowPhase, 'corr', e.target.value)} 
-                                      title={!isQuarterActive(workflowPhase) ? getQuarterLockNotice(workflowPhase) : undefined}
-                                      className={`w-full p-1 rounded text-[11px] transition-colors ${!isQuarterActive(workflowPhase) || isFieldDisabled(getPhaseFieldValue(row, workflowPhase, 'var')) ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed italic font-normal' : 'bg-white border-slate-200 text-slate-800 focus:ring-1 focus:ring-indigo-300'}`} 
-                                      placeholder={!isQuarterActive(workflowPhase) ? "Locked for this period" : isFieldDisabled(getPhaseFieldValue(row, workflowPhase, 'var')) ? "No variance." : "Corrective..."} 
+                                      title={!isQuarterActive(workflowPhase) && !isPhaseSpecialUnlocked ? getQuarterLockNotice(workflowPhase) : undefined}
+                                      className={`w-full p-1 rounded text-[11px] transition-colors ${(!isQuarterActive(workflowPhase) && !isPhaseSpecialUnlocked) || (!isPhaseSpecialUnlocked && isFieldDisabled(getPhaseFieldValue(row, workflowPhase, 'var'))) ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed italic font-normal' : 'bg-white border-slate-200 text-slate-800 focus:ring-1 focus:ring-indigo-300'}`} 
+                                      placeholder={(!isQuarterActive(workflowPhase) && !isPhaseSpecialUnlocked) ? "Locked for this period" : isFieldDisabled(getPhaseFieldValue(row, workflowPhase, 'var')) && !isPhaseSpecialUnlocked ? "No variance." : "Corrective..."} 
                                     />
                                   )}
                                 </td>
@@ -6248,7 +6260,8 @@ Timestamp: ${new Date().toLocaleString()}
                     </tr>
                   ) : (
                     paginatedReportingRows.map((row) => {
-                    const isRowSubmitter = isUserMatch(row.submitter || row.responsibleUnit, currentUser) || isSuperAdminMike || isUserUnrestricted(currentUser);
+                    const isSpecialQ1 = isQuarter1UnlockedKpi(row);
+                    const isRowSubmitter = isSpecialQ1 || isUserMatch(row.submitter || row.responsibleUnit, currentUser) || isSuperAdminMike || isUserUnrestricted(currentUser);
                     return (
                     <tr key={row.id} className="group hover:bg-slate-50/70 transition-colors">
                       <td className="p-2 border-r border-slate-150 sticky left-0 z-10 bg-white group-hover:bg-slate-50/95 transition-colors font-mono text-[11px] drop-shadow-[1px_0_0_rgba(203,213,225,1)]">
@@ -6262,6 +6275,13 @@ Timestamp: ${new Date().toLocaleString()}
                           onOpenExpandModal={openCellExpandModal}
                           className="font-mono font-bold text-slate-800"
                         />
+                        {isSpecialQ1 && (
+                          <div className="mt-1">
+                            <span className="text-[8px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 py-0.5 rounded inline-flex items-center gap-1 shadow-2xs">
+                              <Unlock className="w-2.5 h-2.5 text-emerald-700" /> Q1 Unlocked
+                            </span>
+                          </div>
+                        )}
                         {isSuperAdminMike && (
                           <div className="flex flex-col gap-1 mt-1 pt-1 border-t border-amber-300">
                             <div className="flex items-center gap-1 flex-wrap">
@@ -6735,7 +6755,7 @@ Timestamp: ${new Date().toLocaleString()}
 
                       {/* Q1 POE Column */}
                       <td className="p-2 border-r border-slate-100 bg-indigo-50/10">
-                        {isTargetNA(row.q1) ? (
+                        {isTargetNA(row.q1) && !isSpecialQ1 ? (
                           <div className="flex flex-col items-center justify-center p-2.5 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-1 select-none min-h-[72px]" title="Q1 Target is N/A - POE submission locked">
                             <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
                               <Lock className="w-3.5 h-3.5 text-slate-500" />
@@ -6848,7 +6868,7 @@ Timestamp: ${new Date().toLocaleString()}
                       </td>
 
                       <td className="p-2 border-r border-slate-100 bg-indigo-50/5 relative group">
-                        {isTargetNA(row.q1) ? (
+                        {isTargetNA(row.q1) && !isSpecialQ1 ? (
                           <div className="flex flex-col items-center justify-center p-2.5 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none min-h-[58px]" title="Q1 Target is N/A - Actual reporting is locked">
                             <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
                               <Lock className="w-3.5 h-3.5 text-slate-500" />
@@ -6890,7 +6910,7 @@ Timestamp: ${new Date().toLocaleString()}
                         )}
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-indigo-50/5">
-                        {isTargetNA(row.q1) ? (
+                        {isTargetNA(row.q1) && !isSpecialQ1 ? (
                           <div className="flex flex-col items-center justify-center p-2 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none" title="Q1 Target is N/A - Variance calculation is locked">
                             <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500">
                               <Lock className="w-3 h-3 text-slate-400" />
@@ -6914,7 +6934,7 @@ Timestamp: ${new Date().toLocaleString()}
                         )}
                       </td>
                       <td className="p-2 border-r border-slate-100 bg-indigo-50/5">
-                        {isTargetNA(row.q1) ? (
+                        {isTargetNA(row.q1) && !isSpecialQ1 ? (
                           <div className="flex flex-col items-center justify-center p-2.5 bg-slate-100/90 border border-slate-200 rounded-lg text-slate-500 gap-0.5 select-none min-h-[58px]" title="Q1 Target is N/A - Corrective measures locked">
                             <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
                               <Lock className="w-3.5 h-3.5 text-slate-500" />

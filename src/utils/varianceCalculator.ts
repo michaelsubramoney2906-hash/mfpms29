@@ -107,10 +107,16 @@ export const calcVar = (target: string | undefined, actual: string | undefined, 
   const aVal = (actual || '').trim();
   if (!tVal && !aVal) return '';
 
-  if (isCellNA(tVal) || isCellNA(aVal)) return '';
+  const nA = extractNumericValue(aVal);
+  if (isCellNA(tVal)) {
+    if (nA !== null) {
+      return (nA > 0 ? '+' : '') + Number(nA.toFixed(2)).toLocaleString();
+    }
+    return '';
+  }
+  if (isCellNA(aVal)) return '';
 
   const nT = extractNumericValue(tVal);
-  const nA = extractNumericValue(aVal);
 
   if (nT === null || nA === null) {
     if (!tVal || !aVal) return '';
@@ -143,8 +149,13 @@ export const calcOpmsVariance = (target: string | undefined, actual: string | un
   const aVal = (actual || '').trim();
   if (!tVal && !aVal) return '';
 
-  const nT = extractNumericValue(tVal);
   const nA = extractNumericValue(aVal);
+  if (isCellNA(tVal) && nA !== null) {
+    const sign = nA > 0 ? '+' : '';
+    return `${sign}${Number(nA.toFixed(2)).toLocaleString()}`;
+  }
+
+  const nT = extractNumericValue(tVal);
 
   if (nT === null || nA === null) return '';
 

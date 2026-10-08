@@ -19,7 +19,8 @@ import {
   dispatchSdbipNotification, 
   markSdbipNotificationRead,
   extractKpiPoes,
-  isMasterAdminMike
+  isMasterAdminMike,
+  isQuarter1UnlockedKpi
 } from '../../utils/sdbipWorkflowHelper';
 import { isUserUnrestricted } from '../../utils/unrestrictedHelper';
 import { calcOpmsVariance } from '../../utils/varianceCalculator';
@@ -1019,7 +1020,7 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
 
   // Directly assigned rows for the logged-in user
   const userDirectAssignedRows = useMemo(() => {
-    return rows.filter(r => (r.submitter && isUserMatch(r.submitter, currentUser)) || (Boolean((r as any).submitterName) && isUserMatch((r as any).submitterName, currentUser)));
+    return rows.filter(r => (r.submitter && isUserMatch(r.submitter, currentUser)) || (Boolean((r as any).submitterName) && isUserMatch((r as any).submitterName, currentUser)) || isQuarter1UnlockedKpi(r));
   }, [rows, currentUser]);
 
   const filteredRows = useMemo(() => {
@@ -1031,12 +1032,13 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
         (r.strategicObj && r.strategicObj.toLowerCase().includes(searchQuery.toLowerCase()));
 
       const isSpecifiedUser = (r.submitter && isUserMatch(r.submitter, currentUser)) ||
-        Boolean((r as any).submitterName && isUserMatch((r as any).submitterName, currentUser));
+        Boolean((r as any).submitterName && isUserMatch((r as any).submitterName, currentUser)) ||
+        isQuarter1UnlockedKpi(r);
 
       let matchesMine = true;
       if (isUnrestrictedAdmin) {
         if (selectedSubmitterFilter !== 'ALL') {
-          matchesMine = r.submitter === selectedSubmitterFilter || isUserMatch(r.submitter, { fullName: selectedSubmitterFilter });
+          matchesMine = r.submitter === selectedSubmitterFilter || isUserMatch(r.submitter, { fullName: selectedSubmitterFilter }) || isQuarter1UnlockedKpi(r);
         } else if (assignedFilter === 'ALL') {
           matchesMine = true;
         } else {
@@ -1055,7 +1057,7 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
   const myAssignedRows = useMemo(() => {
     if (isUnrestrictedAdmin) {
       if (selectedSubmitterFilter !== 'ALL') {
-        return rows.filter(r => r.submitter === selectedSubmitterFilter || isUserMatch(r.submitter, { fullName: selectedSubmitterFilter }));
+        return rows.filter(r => r.submitter === selectedSubmitterFilter || isUserMatch(r.submitter, { fullName: selectedSubmitterFilter }) || isQuarter1UnlockedKpi(r));
       }
       return (assignedFilter === 'MINE' && userDirectAssignedRows.length > 0) ? userDirectAssignedRows : rows;
     }
@@ -1072,6 +1074,7 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
   const isActualDesignatedSubmitter = Boolean(
     selectedKpi && (
       isUnrestrictedAdmin ||
+      isQuarter1UnlockedKpi(selectedKpi) ||
       Boolean(selectedKpi.submitter && isUserMatch(selectedKpi.submitter, currentUser)) ||
       Boolean((selectedKpi as any).submitterName && isUserMatch((selectedKpi as any).submitterName, currentUser))
     )

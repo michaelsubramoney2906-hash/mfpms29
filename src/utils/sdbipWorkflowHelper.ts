@@ -78,6 +78,21 @@ export function isMasterAdminMike(
   );
 }
 
+/**
+ * KPI IDs M_81, M_82, M_83, M_84 are designated to be unlocked for Quarter 1 only.
+ */
+export const UNLOCKED_Q1_KPIS = ['M_81', 'M_82', 'M_83', 'M_84'] as const;
+
+export function isQuarter1UnlockedKpi(
+  kpiOrRef?: { refNum?: string; ref?: string; id?: string; kpi?: string } | string | null
+): boolean {
+  if (!kpiOrRef) return false;
+  const refStr = typeof kpiOrRef === 'string'
+    ? kpiOrRef
+    : (kpiOrRef.refNum || kpiOrRef.ref || kpiOrRef.id || '');
+  return /(^|[^a-zA-Z0-9])M_?8[1-4]($|[^a-zA-Z0-9])/i.test(refStr.trim());
+}
+
 export interface SdbipWorkflowNotification {
   id: string;
   targetUser: string;
