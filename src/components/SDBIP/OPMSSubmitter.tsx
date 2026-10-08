@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import type { User } from '../../types';
 import { SdbipRow } from './SDBIP';
-import { downloadOriginalFile } from '../../utils/documentBinaryHelper';
+import { downloadOriginalFile, getMimeTypeForFile } from '../../utils/documentBinaryHelper';
 import { isQuarterInReportingPeriod, getQuarterLockNotice } from '../../utils/reportingPeriods';
 import { OfficeDocumentViewer, PoeDocument } from '../IPMS/OfficeDocumentViewer';
 import { 
@@ -380,6 +380,34 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
     fetchSDBIPData(false, sc);
   };
 
+  const getKpiPoesTotalSizeBytes = (kpi: any, globalPoes: any[]): number => {
+    if (!kpi) return 0;
+    const kpiPoesList = extractKpiPoes(kpi, globalPoes);
+    return kpiPoesList.reduce((total, p) => {
+      if ((p as any).sizeBytes && typeof (p as any).sizeBytes === 'number') {
+        return total + (p as any).sizeBytes;
+      }
+      if (p.size) {
+        const match = String(p.size).match(/([\d.]+)\s*(MB|KB|GB|B)/i);
+        if (match) {
+          const val = parseFloat(match[1]);
+          const unit = match[2].toUpperCase();
+          if (unit === 'GB') return total + val * 1024 * 1024 * 1024;
+          if (unit === 'MB') return total + val * 1024 * 1024;
+          if (unit === 'KB') return total + val * 1024;
+          if (unit === 'B') return total + val;
+        }
+      }
+      const dataUrl = p.dataUrl || p.fileData;
+      if (dataUrl && typeof dataUrl === 'string') {
+        const base64Str = dataUrl.split(',')[1] || '';
+        const byteLen = Math.round((base64Str.length * 3) / 4);
+        return total + byteLen;
+      }
+      return total;
+    }, 0);
+  };
+
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files || files.length === 0 || !selectedKpi) return;
@@ -398,60 +426,90 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
       return;
     }
     
+    const selectedFiles = Array.from(files);
+    const newBatchSizeBytes = selectedFiles.reduce((acc, f) => acc + f.size, 0);
+    const existingSizeBytes = getKpiPoesTotalSizeBytes(selectedKpi, poes);
+    const maxLimitBytes = 200 * 1024 * 1024; // 200MB limit per KPI
+
+    if (existingSizeBytes + newBatchSizeBytes > maxLimitBytes) {
+      const existingMB = (existingSizeBytes / (1024 * 1024)).toFixed(2);
+      const newMB = (newBatchSizeBytes / (1024 * 1024)).toFixed(2);
+      const combinedMB = ((existingSizeBytes + newBatchSizeBytes) / (1024 * 1024)).toFixed(2);
+      setError(`Size Limit Exceeded: Uploading these ${selectedFiles.length} file(s) (${newMB} MB) exceeds the maximum 200MB limit per KPI for ${selectedKpi.refNum}. Current existing total: ${existingMB} MB, Combined total: ${combinedMB} MB.`);
+      setTimeout(() => setError(null), 7000);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
     setUploadingPoe(true);
     try {
-      const file = files[0];
-      const reader = new FileReader();
-      
-      reader.onload = async () => {
-        const dataUrl = reader.result as string;
-        const newPoeItem = {
-          id: `poe-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-          refNum: selectedKpi.refNum,
-          name: file.name,
-          size: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
-          date: new Date().toISOString().split('T')[0],
-          fileData: dataUrl,
-          fileType: file.type || 'application/octet-stream',
-          uploadedBy: currentUser.email,
-          uploadedAt: new Date().toISOString()
-        };
-
-        const updatedPoes = [newPoeItem, ...poes.filter(p => !(p.refNum === selectedKpi.refNum && p.name === file.name))];
-        
-        await fetch(`/api/tenant/${activeTenantId}/sdbip-poes`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ poes: updatedPoes })
+      const readPromises = selectedFiles.map((file) => {
+        return new Promise<any>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const dataUrl = reader.result as string;
+            resolve({
+              id: `poe-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+              refNum: selectedKpi.refNum,
+              name: file.name,
+              size: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
+              sizeBytes: file.size,
+              date: new Date().toISOString().split('T')[0],
+              fileData: dataUrl,
+              fileType: file.type || getMimeTypeForFile(file.name) || 'application/octet-stream',
+              uploadedBy: currentUser.email,
+              uploadedAt: new Date().toISOString()
+            });
+          };
+          reader.onerror = () => reject(new Error(`Failed to read file ${file.name}`));
+          reader.readAsDataURL(file);
         });
+      });
 
-        setPoes(updatedPoes);
+      const newPoeItems = await Promise.all(readPromises);
 
-        // Also update the row's general or active quarter poes list
-        const updatedRows = rows.map(r => {
-          if (r.id === selectedKpi.id) {
-            const currentQ1Poes = r.q1Poes || [];
-            return {
-              ...r,
-              q1Poes: Array.from(new Set([...currentQ1Poes, file.name]))
-            };
-          }
-          return r;
-        });
+      // Deduplicate against existing POE list by name for this KPI
+      const newFileNamesSet = new Set(newPoeItems.map(p => p.name));
+      const filteredPoes = poes.filter(p => !(p.refNum === selectedKpi.refNum && newFileNamesSet.has(p.name)));
+      const updatedPoes = [...newPoeItems, ...filteredPoes];
 
-        setRows(updatedRows);
-        if (!q1Actual || q1Actual.trim() === '') {
-          setSuccess(`Evidence document "${file.name}" uploaded successfully! ⚠️ Reminder: Please also log your Q1 Actual performance figure before pushing to your Approver.`);
-        } else {
-          setSuccess(`Evidence document "${file.name}" uploaded and encrypted into Supabase Cloud Vault.`);
+      await fetch(`/api/tenant/${activeTenantId}/sdbip-poes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ poes: updatedPoes })
+      });
+
+      setPoes(updatedPoes);
+
+      // Update row's q1Poes array (and selectedKpi) with all uploaded file names
+      const newUploadedNames = newPoeItems.map(p => p.name);
+      const updatedRows = rows.map(r => {
+        if (r.id === selectedKpi.id) {
+          const currentQ1Poes = r.q1Poes || [];
+          return {
+            ...r,
+            q1Poes: Array.from(new Set([...currentQ1Poes, ...newUploadedNames]))
+          };
         }
-        setTimeout(() => setSuccess(null), 5000);
-      };
+        return r;
+      });
 
-      reader.readAsDataURL(file);
+      setRows(updatedRows);
+      setSelectedKpi(prev => prev ? ({
+        ...prev,
+        q1Poes: Array.from(new Set([...(prev.q1Poes || []), ...newUploadedNames]))
+      }) : null);
+
+      const totalKpiMB = ((existingSizeBytes + newBatchSizeBytes) / (1024 * 1024)).toFixed(2);
+      if (!q1Actual || q1Actual.trim() === '') {
+        setSuccess(`${newPoeItems.length} evidence document(s) uploaded successfully! ⚠️ Reminder: Please also log your Q1 Actual performance figure before pushing to your Approver. (Total KPI size: ${totalKpiMB} MB / 200 MB max)`);
+      } else {
+        setSuccess(`Successfully uploaded ${newPoeItems.length} evidence file(s) for KPI ${selectedKpi.refNum} into Supabase Cloud Vault. (Total PoE size: ${totalKpiMB} MB / 200 MB max).`);
+      }
+      setTimeout(() => setSuccess(null), 5000);
     } catch (err: any) {
       console.error(err);
-      setError('Failed to upload POE document: ' + err.message);
+      setError('Failed to upload POE documents: ' + err.message);
     } finally {
       setUploadingPoe(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -2047,7 +2105,8 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                       ref={fileInputRef}
                       onChange={handleFileUpload}
                       className="hidden"
-                      accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.png,.jpg,.jpeg,.webp,.svg,.txt"
+                      multiple
+                      accept="*"
                     />
                     {(() => {
                       const effActual = (q1Actual || selectedKpi?.q1Actual || '').trim();
@@ -2074,7 +2133,7 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                             title={isNoActual ? "Enter Q1 Actual above to enable PoE upload" : "Upload evidence document"}
                           >
                             <Upload className="w-3 h-3" />
-                            <span>{uploadingPoe ? 'Uploading...' : 'Upload PoE File'}</span>
+                            <span>{uploadingPoe ? 'Uploading...' : 'Upload PoE File(s)'}</span>
                           </button>
                           {isNoActual && (
                             <span className="text-[9px] text-amber-400 font-medium">

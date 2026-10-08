@@ -7859,12 +7859,13 @@ Timestamp: ${new Date().toLocaleString()}
                     {uploadMode === 'single' ? 'Click to select a file or drag & drop here' : 'Click to add files or drag & drop here'}
                   </span>
                   <span className="text-[8.5px] text-slate-400 block mt-0.5">
-                    Supports PDF, DOCX, XLSX, images (Up to 200 files, 200MB total)
+                    Supports any file format (Up to 200 files, 200MB total limit per KPI)
                   </span>
                   <input 
                     type="file" 
                     className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                    multiple={uploadMode === 'multi'}
+                    multiple
+                    accept="*"
                     onChange={async (e) => {
                       if (!e.target.files || e.target.files.length === 0) return;
                       const selectedList = Array.from(e.target.files);
@@ -7920,7 +7921,7 @@ Timestamp: ${new Date().toLocaleString()}
                       }, 400);
 
                       let updatedList: { name: string; size: string; fileData?: string; fileType?: string }[] = [];
-                      if (uploadMode === 'single') {
+                      if (uploadMode === 'single' && newFilesList.length === 1) {
                         updatedList = [newFilesList[0]];
                       } else {
                         updatedList = [...poeUploadedFiles, ...newFilesList];
@@ -7931,19 +7932,28 @@ Timestamp: ${new Date().toLocaleString()}
                         return;
                       }
 
-                      const totalSizeMB = updatedList.reduce((sum, f) => {
+                      const newTotalMB = updatedList.reduce((sum, f) => {
                         const val = parseFloat(f.size);
                         return sum + (isNaN(val) ? 0 : val);
                       }, 0);
 
-                      if (totalSizeMB > 200) {
-                        setSuccessToast(`Total file size of selected files (${totalSizeMB.toFixed(1)} MB) exceeds the 200MB limit.`);
+                      // Calculate existing POEs total size for this KPI
+                      const existingKpiPoes = poes.filter(p => p.refNum === poeModal.refNum);
+                      const existingSizeMB = existingKpiPoes.reduce((sum, p) => {
+                        const parsed = parseFloat(p.size || '0');
+                        return sum + (isNaN(parsed) ? 0 : parsed);
+                      }, 0);
+
+                      const grandTotalMB = existingSizeMB + newTotalMB;
+
+                      if (grandTotalMB > 200) {
+                        setSuccessToast(`Total file size for KPI ${poeModal.refNum} (${grandTotalMB.toFixed(1)} MB) exceeds the 200MB limit per KPI. (Existing: ${existingSizeMB.toFixed(1)} MB, New: ${newTotalMB.toFixed(1)} MB)`);
                         return;
                       }
 
                       setPoeUploadedFiles(updatedList);
                       setPoeFileName(updatedList.map(f => f.name).join(', '));
-                      setPoeFileSize(`${totalSizeMB.toFixed(2)} MB`);
+                      setPoeFileSize(`${grandTotalMB.toFixed(2)} MB`);
                     }}
                   />
                 </div>
