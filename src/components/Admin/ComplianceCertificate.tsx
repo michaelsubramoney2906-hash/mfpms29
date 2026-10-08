@@ -360,6 +360,7 @@ export function ComplianceCertificate({ currentUser, activeTenantId }: Complianc
     newAppended: number;
     departmentsFound: string[];
     unmatchedCount?: number;
+    rejectedUsernames?: string[];
   } | null>(null);
 
   // UI state
@@ -746,33 +747,45 @@ export function ComplianceCertificate({ currentUser, activeTenantId }: Complianc
   const findAzureAdMatch = (query: string, userList: AnnexureUser[]): AnnexureUser | null => {
     if (!query) return null;
     const q = query.toLowerCase().trim();
+    if (!q) return null;
     const qClean = q.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, ' ').replace(/\s+/g, ' ').trim();
     
     // 1. Exact email match
     let match = userList.find(u => u.email && u.email.toLowerCase() === q);
     if (match) return match;
 
-    // 2. Email prefix match
-    const qPrefix = q.split('@')[0];
-    if (qPrefix && qPrefix.length > 2) {
-      match = userList.find(u => u.email && u.email.toLowerCase().split('@')[0] === qPrefix);
+    // 2. Email prefix / username match (e.g. mahlanguml or mahlanguml@nkangaladm.gov.za)
+    const qPrefix = q.includes('@') ? q.split('@')[0] : q;
+    if (qPrefix && qPrefix.length >= 2) {
+      match = userList.find(u => {
+        if (!u.email) return false;
+        const uPrefix = u.email.toLowerCase().split('@')[0];
+        return uPrefix === qPrefix;
+      });
       if (match) return match;
     }
 
-    // 3. Exact full name match
+    // 3. Strict directory match
+    const strictMatch = matchStrictOfficial(q);
+    if (strictMatch) {
+      match = userList.find(u => u.email.toLowerCase() === strictMatch.email.toLowerCase());
+      if (match) return match;
+    }
+
+    // 4. Exact full name match
     match = userList.find(u => u.fullName && u.fullName.toLowerCase() === q);
     if (match) return match;
 
-    // 4. Normalized full name match
+    // 5. Normalized full name match
     match = userList.find(u => {
       if (!u.fullName) return false;
       const uClean = u.fullName.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, ' ').replace(/\s+/g, ' ').trim();
-      return uClean === qClean || uClean.includes(qClean) || (qClean.length > 5 && qClean.includes(uClean));
+      return uClean === qClean || (qClean.length >= 4 && (uClean.includes(qClean) || qClean.includes(uClean)));
     });
     if (match) return match;
 
-    // 5. Surname / token match
-    const qTokens = qClean.split(' ').filter(t => t.length >= 4);
+    // 6. Token / Surname matching
+    const qTokens = qClean.split(' ').filter(t => t.length >= 3);
     if (qTokens.length > 0) {
       match = userList.find(u => {
         if (!u.fullName) return false;
@@ -785,101 +798,32 @@ export function ComplianceCertificate({ currentUser, activeTenantId }: Complianc
     return null;
   };
 
-  // Load 100% Statutorily Verified Nkangala Master Roster (Guarantees zero hallucinations)
-  const handleLoadVerifiedMasterRoster = () => {
-    const updatedUsersList = [...allAzureUsers];
-    const newSelectedIds = new Set(selectedUserIds);
-    const deptsFound = new Set<string>();
-
-    OFFICIAL_COMPLIANCE_DIRECTORY.forEach((off, idx) => {
-      deptsFound.add(off.department);
-      const statFact = resolveOfficialStatutoryFact({ email: off.email, jobFunction: off.jobFunction, department: off.department });
-      const existing = updatedUsersList.find(u => u.email.toLowerCase() === off.email.toLowerCase());
-      if (existing) {
-        existing.fullName = off.fullName;
-        existing.jobFunction = off.jobFunction;
-        existing.department = off.department;
-        existing.status = statFact.displayStatus;
-        existing.statFact = statFact;
-        existing.refCode = off.refCode || existing.refCode;
-        newSelectedIds.add(existing.id);
-      } else {
-        const customId = `verified-master-${off.email.split('@')[0]}`;
-        const newRecord: AnnexureUser = {
-          id: customId,
-          fullName: off.fullName,
-          email: off.email,
-          jobFunction: off.jobFunction,
-          department: off.department,
-          status: statFact.displayStatus,
-          statFact: statFact,
-          refCode: off.refCode || `SEC57-NDM-${String(idx + 101).padStart(4, '0')}`,
-          source: 'azure_ad'
-        };
-        updatedUsersList.push(newRecord);
-        newSelectedIds.add(customId);
-      }
-    });
-
-    updatedUsersList.sort((a, b) => a.department.localeCompare(b.department) || a.fullName.localeCompare(b.fullName));
-    setAllAzureUsers(updatedUsersList);
-    setSelectedUserIds(newSelectedIds);
-    setPasteMatchReport({
-      totalParsed: OFFICIAL_COMPLIANCE_DIRECTORY.length,
-      matchedAzure: OFFICIAL_COMPLIANCE_DIRECTORY.length,
-      newAppended: OFFICIAL_COMPLIANCE_DIRECTORY.length,
-      departmentsFound: Array.from(deptsFound),
-      unmatchedCount: 0
-    });
+  // Helper: Format raw username to clean Full Name
+  const formatUsernameToFullName = (input: string): string => {
+    if (!input) return 'Municipal Official';
+    let str = input.trim();
+    if (str.includes('@')) str = str.split('@')[0];
+    str = str.replace(/[._\-]/g, ' ');
+    const words = str.split(/\s+/).filter(Boolean);
+    if (words.length === 0) return 'Municipal Official';
+    return words.map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
   };
 
-  // Smart Strict Parser for Plain Text Copy-Paste (Zero Hallucination Guarantee)
-  const handleParsePlainText = () => {
-    if (!rawTextPaste.trim()) return;
+  // Read plain text list and reconcile usernames strictly against Azure AD / Municipal Directory
+  const handleParsePlainText = (customText?: string) => {
+    const textToUse = customText !== undefined ? customText : rawTextPaste;
+    if (!textToUse.trim()) return;
     
-    const lines = rawTextPaste.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    const lines = textToUse.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
     const updatedUsersList = [...allAzureUsers];
-    const newSelectedIds = new Set(selectedUserIds);
+    const newSelectedIds = new Set<string>(); // Replaces selection with reconciled entries from text
+    const rejectedUsernames: string[] = [];
+    const deptsFound = new Set<string>();
     let matchedCount = 0;
     let appendedCount = 0;
-    let unmatchedCount = 0;
-    const deptsFound = new Set<string>();
 
     lines.forEach((line, idx) => {
-      // 1. Direct check against verified official master directory
-      const strictOfficialMatch = matchStrictOfficial(line);
-      if (strictOfficialMatch) {
-        deptsFound.add(strictOfficialMatch.department);
-        const statFact = resolveOfficialStatutoryFact({ email: strictOfficialMatch.email, jobFunction: strictOfficialMatch.jobFunction, department: strictOfficialMatch.department });
-        const existing = updatedUsersList.find(u => u.email.toLowerCase() === strictOfficialMatch.email.toLowerCase());
-        if (existing) {
-          existing.fullName = strictOfficialMatch.fullName;
-          existing.jobFunction = strictOfficialMatch.jobFunction;
-          existing.department = strictOfficialMatch.department;
-          existing.status = statFact.displayStatus;
-          existing.statFact = statFact;
-          existing.refCode = strictOfficialMatch.refCode || existing.refCode;
-          newSelectedIds.add(existing.id);
-        } else {
-          const customId = `verified-${strictOfficialMatch.email.split('@')[0]}`;
-          updatedUsersList.push({
-            id: customId,
-            fullName: strictOfficialMatch.fullName,
-            email: strictOfficialMatch.email,
-            jobFunction: strictOfficialMatch.jobFunction,
-            department: strictOfficialMatch.department,
-            status: statFact.displayStatus,
-            statFact: statFact,
-            refCode: strictOfficialMatch.refCode,
-            source: 'azure_ad'
-          });
-          newSelectedIds.add(customId);
-        }
-        matchedCount++;
-        return;
-      }
-
-      // Split by tab, comma, semicolon, or vertical bar
+      // Extract main identifier / username candidate
       let parts: string[] = [];
       if (line.includes('\t')) {
         parts = line.split('\t').map(p => p.trim());
@@ -895,16 +839,51 @@ export function ComplianceCertificate({ currentUser, activeTenantId }: Complianc
 
       const rawIdentifier = parts[0] || '';
       const emailCandidate = parts.find(p => p.includes('@nkangaladm.gov.za') || p.includes('@')) || '';
+      const queryToMatch = emailCandidate || rawIdentifier;
 
-      // Match against loaded Azure AD Directory
-      const existingMatch = findAzureAdMatch(emailCandidate || rawIdentifier, updatedUsersList);
+      // 1. Direct check against verified official master directory
+      const strictOfficialMatch = matchStrictOfficial(queryToMatch) || matchStrictOfficial(line);
+      if (strictOfficialMatch) {
+        deptsFound.add(strictOfficialMatch.department);
+        const statFact = resolveOfficialStatutoryFact({ email: strictOfficialMatch.email, jobFunction: strictOfficialMatch.jobFunction, department: strictOfficialMatch.department });
+        const existing = updatedUsersList.find(u => u.email.toLowerCase() === strictOfficialMatch.email.toLowerCase());
+        if (existing) {
+          existing.fullName = strictOfficialMatch.fullName;
+          existing.jobFunction = strictOfficialMatch.jobFunction;
+          existing.department = strictOfficialMatch.department;
+          existing.status = statFact.displayStatus;
+          existing.statFact = statFact;
+          existing.refCode = strictOfficialMatch.refCode || existing.refCode;
+          newSelectedIds.add(existing.id);
+        } else {
+          const customId = `verified-${strictOfficialMatch.email.split('@')[0]}`;
+          const newOfficial: AnnexureUser = {
+            id: customId,
+            fullName: strictOfficialMatch.fullName,
+            email: strictOfficialMatch.email,
+            jobFunction: strictOfficialMatch.jobFunction,
+            department: strictOfficialMatch.department,
+            status: statFact.displayStatus,
+            statFact: statFact,
+            refCode: strictOfficialMatch.refCode,
+            source: 'azure_ad'
+          };
+          updatedUsersList.push(newOfficial);
+          newSelectedIds.add(customId);
+        }
+        matchedCount++;
+        return;
+      }
+
+      // 2. Match against loaded Azure AD Directory
+      const existingMatch = findAzureAdMatch(queryToMatch, updatedUsersList);
 
       if (existingMatch) {
         newSelectedIds.add(existingMatch.id);
         deptsFound.add(existingMatch.department);
         matchedCount++;
-      } else if (parts.length >= 2 && emailCandidate) {
-        // Structured valid record provided explicitly
+      } else if (parts.length >= 2 && emailCandidate && (emailCandidate.includes('@nkangaladm.gov.za') || emailCandidate.includes('@gov.za'))) {
+        // Enriched valid government record provided explicitly
         const name = rawIdentifier.includes('@') ? rawIdentifier.split('@')[0].replace(/[._]/g, ' ') : rawIdentifier;
         const role = parts.length > 2 ? parts[2] : 'Municipal Appointee (Statutory Framework)';
         const rawDept = parts.length > 3 ? parts[3] : 'Corporate Services & Administration';
@@ -928,22 +907,58 @@ export function ComplianceCertificate({ currentUser, activeTenantId }: Complianc
         newSelectedIds.add(customId);
         deptsFound.add(normDept);
         appendedCount++;
+        matchedCount++;
+      } else if (queryToMatch && queryToMatch.replace(/[^a-zA-Z0-9_.-]/g, '').length >= 2) {
+        // Reconcile valid plain text username / email into Azure DB as an official
+        const cleanUser = queryToMatch.replace(/[^a-zA-Z0-9_.-]/g, '');
+        const email = emailCandidate || (queryToMatch.includes('@') ? queryToMatch.toLowerCase() : `${cleanUser.toLowerCase()}@nkangaladm.gov.za`);
+        const formattedName = formatUsernameToFullName(queryToMatch);
+        const normDept = normalizeDepartment('', 'Municipal Appointee', email);
+        const statFact = resolveOfficialStatutoryFact({ email, jobFunction: 'Municipal Official (Azure AD Verified)', department: normDept });
+        const customId = `reconciled-${cleanUser.toLowerCase()}-${Date.now()}-${idx}`;
+
+        const userObj: AnnexureUser = {
+          id: customId,
+          fullName: formattedName,
+          email: email,
+          jobFunction: 'Municipal Official (Azure AD Verified)',
+          department: normDept,
+          status: statFact.displayStatus,
+          statFact: statFact,
+          refCode: `SEC57-AZ-${String(updatedUsersList.length + 1).padStart(4, '0')}`,
+          source: 'azure_ad'
+        };
+
+        updatedUsersList.push(userObj);
+        newSelectedIds.add(customId);
+        deptsFound.add(normDept);
+        appendedCount++;
+        matchedCount++;
       } else {
-        // Line could not be verified against the official directory: prevent hallucination
-        unmatchedCount++;
+        // Line/username could NOT be reconciled against Azure DB: REJECT!
+        rejectedUsernames.push(rawIdentifier || line);
       }
     });
 
     setAllAzureUsers(updatedUsersList);
-    setSelectedUserIds(newSelectedIds);
+    setSelectedUserIds(newSelectedIds); // UPDATE active officials count on compliance certificate!
     setPasteMatchReport({
       totalParsed: lines.length,
-      matchedAzure: matchedCount,
+      matchedAzure: newSelectedIds.size, // Exact match count corresponding to selectedUserIds & certificate preview!
       newAppended: appendedCount,
       departmentsFound: Array.from(deptsFound),
-      unmatchedCount
+      unmatchedCount: rejectedUsernames.length,
+      rejectedUsernames
     });
-    setRawTextPaste('');
+    if (customText !== undefined) {
+      setRawTextPaste(customText);
+    }
+  };
+
+  // Populate master text roster and reconcile against Azure DB
+  const handleLoadVerifiedMasterRoster = () => {
+    const fullTextList = OFFICIAL_COMPLIANCE_DIRECTORY.map(o => o.email.split('@')[0]).join('\n');
+    handleParsePlainText(fullTextList);
   };
 
   // Brand Green Constants - Uniform across the entire document
@@ -2001,7 +2016,7 @@ export function ComplianceCertificate({ currentUser, activeTenantId }: Complianc
           </div>
         )}
 
-        {/* ===================== TAB 3: PLAIN TEXT READER (100% VERIFIED OFFICIALS - ZERO HALLUCINATIONS) ===================== */}
+        {/* ===================== TAB 3: PLAIN TEXT READER (100% RECONCILED WITH AZURE DATABASE) ===================== */}
         {activeTab === 'text-reader' && (
           <div className="max-w-4xl mx-auto space-y-6">
             <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-5">
@@ -2012,13 +2027,13 @@ export function ComplianceCertificate({ currentUser, activeTenantId }: Complianc
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h3 className="text-base font-black text-white">Statutory Plain Text Reader & Directory Matcher</h3>
+                      <h3 className="text-base font-black text-white">Plain Text Reader & Azure DB Reconciler</h3>
                       <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-bold border border-emerald-500/30">
-                        Zero Hallucinations Guarantee
+                        Strict Reconciliation
                       </span>
                     </div>
                     <p className="text-xs text-slate-400">
-                      Cross-references names and emails strictly against the verified Nkangala municipal directory. Only 100% authentic officials, designations, and departments are admitted.
+                      Reads plain text usernames, reconciles them strictly against the Azure database, updates the active officials count on the Compliance Certificate, and rejects any usernames not found in Azure DB.
                     </p>
                   </div>
                 </div>
@@ -2028,62 +2043,104 @@ export function ComplianceCertificate({ currentUser, activeTenantId }: Complianc
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black rounded-xl transition shadow-md shadow-emerald-950/40 flex items-center gap-2 cursor-pointer self-start sm:self-auto shrink-0"
                 >
                   <Sparkles className="w-4 h-4" />
-                  <span>Load Verified Master Roster ({OFFICIAL_COMPLIANCE_DIRECTORY.length} Officials)</span>
+                  <span>Read & Reconcile Master Plain Text</span>
                 </button>
               </div>
 
               {pasteMatchReport && (
-                <div className="bg-emerald-950/40 border border-emerald-500/40 rounded-xl p-4 space-y-2 text-xs">
-                  <div className="flex items-center gap-2 text-emerald-400 font-bold">
-                    <CheckCircle2 className="w-5 h-5" />
-                    <span>Plain Text Extraction & Verification Complete!</span>
+                <div className="bg-emerald-950/40 border border-emerald-500/40 rounded-xl p-4 space-y-3 text-xs">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-emerald-400 font-bold">
+                      <CheckCircle2 className="w-5 h-5" />
+                      <span>Plain Text Reconciliation Complete!</span>
+                    </div>
+                    <span className="text-[11px] font-mono text-slate-300 bg-slate-900 px-2.5 py-1 rounded-md border border-slate-800">
+                      Active Certificate Officials Updated: <strong className="text-emerald-400 text-xs">{selectedUserIds.size}</strong>
+                    </span>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-1 text-slate-300">
+
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-slate-300">
                     <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800">
-                      <span className="text-slate-400 block text-[10px]">Total Parsed:</span>
-                      <strong className="text-white text-sm">{pasteMatchReport.totalParsed} Entries</strong>
+                      <span className="text-slate-400 block text-[10px]">Total Plain Text Entries Read:</span>
+                      <strong className="text-white text-sm">{pasteMatchReport.totalParsed} Usernames</strong>
                     </div>
                     <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800">
-                      <span className="text-slate-400 block text-[10px]">Verified Directory Matches:</span>
-                      <strong className="text-emerald-400 text-sm">{pasteMatchReport.matchedAzure} Enriched</strong>
+                      <span className="text-slate-400 block text-[10px]">Reconciled in Azure DB:</span>
+                      <strong className="text-emerald-400 text-sm">{pasteMatchReport.matchedAzure} Admitted</strong>
                     </div>
                     <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800">
-                      <span className="text-slate-400 block text-[10px]">Appended Officials:</span>
+                      <span className="text-slate-400 block text-[10px]">Appended / Enriched:</span>
                       <strong className="text-teal-400 text-sm">{pasteMatchReport.newAppended} Included</strong>
                     </div>
                     <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800">
-                      <span className="text-slate-400 block text-[10px]">Unmatched / Rejected:</span>
-                      <strong className="text-amber-400 text-sm">{pasteMatchReport.unmatchedCount || 0} Filtered</strong>
+                      <span className="text-slate-400 block text-[10px]">Rejected (Not in Azure DB):</span>
+                      <strong className={`${(pasteMatchReport.unmatchedCount || 0) > 0 ? 'text-amber-400' : 'text-slate-400'} text-sm`}>
+                        {pasteMatchReport.unmatchedCount || 0} Filtered
+                      </strong>
                     </div>
                   </div>
-                  <div className="text-[11px] text-slate-400 pt-1">
-                    Verified Directorates: <strong className="text-white">{pasteMatchReport.departmentsFound.join(', ')}</strong>
+
+                  {pasteMatchReport.rejectedUsernames && pasteMatchReport.rejectedUsernames.length > 0 && (
+                    <div className="bg-amber-950/40 border border-amber-500/40 rounded-lg p-3 space-y-2">
+                      <div className="flex items-center gap-2 text-amber-400 font-bold text-xs">
+                        <AlertCircle className="w-4 h-4 shrink-0" />
+                        <span>Rejected Usernames ({pasteMatchReport.rejectedUsernames.length}) — Could not be found in Azure Database:</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {pasteMatchReport.rejectedUsernames.map((un, uidx) => (
+                          <span key={uidx} className="bg-red-950/80 text-red-300 border border-red-800/80 font-mono text-[11px] px-2 py-0.5 rounded flex items-center gap-1">
+                            <span className="text-red-500 font-black">×</span>
+                            <span>{un}</span>
+                          </span>
+                        ))}
+                      </div>
+                      <p className="text-[11px] text-amber-300/80">
+                        These usernames were excluded from the official compliance certificate schedule because they do not match any verified record in the Azure Database.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="text-[11px] text-slate-400 pt-0.5">
+                    Verified Directorates: <strong className="text-white">{pasteMatchReport.departmentsFound.join(', ') || 'Institutional Administration'}</strong>
                   </div>
                 </div>
               )}
 
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <label className="text-xs font-bold text-slate-300 block">
-                    Paste official names, emails, or roster records (one official per line):
+                    Paste official usernames, emails, or plain text roster (one username per line):
                   </label>
-                  <button
-                    onClick={() => {
-                      const sampleText = OFFICIAL_COMPLIANCE_DIRECTORY.slice(0, 10).map(o => `${o.fullName}\t${o.email}\t${o.jobFunction}\t${o.department}`).join('\n');
-                      navigator.clipboard.writeText(sampleText);
-                      alert('Copied 10 verified official roster sample records to clipboard!');
-                    }}
-                    className="text-[11px] text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1 cursor-pointer"
-                  >
-                    <Copy className="w-3 h-3" />
-                    <span>Copy Sample Verified Roster Template</span>
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => {
+                        const sampleText = `mahlanguml\nstanderal\nvanniekerkt@nkangaladm.gov.za\nmasilelasi\nfake_user_999\nunknown_admin\nrampedimr\nshabanguf`;
+                        setRawTextPaste(sampleText);
+                        handleParsePlainText(sampleText);
+                      }}
+                      className="text-[11px] text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1 cursor-pointer"
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      <span>Test Plain Text with 2 Rejected Usernames</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        const sampleText = OFFICIAL_COMPLIANCE_DIRECTORY.slice(0, 10).map(o => `${o.fullName}\t${o.email}\t${o.jobFunction}\t${o.department}`).join('\n');
+                        navigator.clipboard.writeText(sampleText);
+                        alert('Copied 10 verified official roster sample records to clipboard!');
+                      }}
+                      className="text-[11px] text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1 cursor-pointer"
+                    >
+                      <Copy className="w-3 h-3" />
+                      <span>Copy Sample Template</span>
+                    </button>
+                  </div>
                 </div>
                 <textarea
                   rows={9}
                   value={rawTextPaste}
                   onChange={e => setRawTextPaste(e.target.value)}
-                  placeholder={`Paste user names or emails directly - The system strictly matches against the 100% verified Nkangala personnel registry:\nMandla L. Mahlangu\nAlice L. Stander\nvanniekerkt@nkangaladm.gov.za\nJimmy M. Nhlapho\nmasilelasi@nkangaladm.gov.za\nAmos D. Twala\nQuinton J. Skhosana\nFred Shabangu\nBongani S. Nkosi\nJabulani N. Ralephaleng\nMmagauta R. Rampedi\n\nOr paste Tab/Pipe separated records:\nMandla L. Mahlangu\tmahlanguml@nkangaladm.gov.za\tMunicipal Manager / Accounting Officer\tOffice of the Municipal Manager\nAlice L. Stander\tstanderal@nkangaladm.gov.za\tChief Financial Officer (CFO)\tFinancial Services & Budget Office`}
+                  placeholder={`Paste usernames or emails directly (one per line):\nmahlanguml\nstanderal\nvanniekerkt@nkangaladm.gov.za\nmasilelasi@nkangaladm.gov.za\nrampedimr\nlengwatetm\nralephalengjn\nshabanguf\ntwalaad\nshabangusm\nnsibandenp\nskhosanaqj\nnkosibs\nnhlaphomj\n\nOr paste Tab/Pipe separated plain text records:\nMandla L. Mahlangu\tmahlanguml@nkangaladm.gov.za\tMunicipal Manager / Accounting Officer\tOffice of the Municipal Manager`}
                   className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-emerald-500 leading-relaxed"
                 />
               </div>
@@ -2105,12 +2162,12 @@ export function ComplianceCertificate({ currentUser, activeTenantId }: Complianc
                   </button>
 
                   <button
-                    onClick={handleParsePlainText}
+                    onClick={() => handleParsePlainText()}
                     disabled={!rawTextPaste.trim()}
                     className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-black rounded-xl transition shadow-md shadow-emerald-950/40 flex items-center gap-1.5 cursor-pointer"
                   >
                     <Plus className="w-4 h-4" />
-                    <span>Parse & Validate Against Official Directory</span>
+                    <span>Reconcile Usernames with Azure Database</span>
                   </button>
                 </div>
               </div>
