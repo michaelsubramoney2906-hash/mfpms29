@@ -830,6 +830,13 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
 
   const handlePushToReviewer = async () => {
     if (!selectedKpi) return;
+    const effActual = (selectedKpi.q1Actual || q1Actual || '').trim();
+    const kpiPoesList = extractKpiPoes(selectedKpi, poes);
+    if (!effActual || kpiPoesList.length === 0) {
+      setError("Compliance Rule Enforced: This KPI cannot be approved or pushed to reviewer because it lacks either actuals or Portfolio of Evidence (PoE). It must be returned to the Submitter for mandatory resubmission.");
+      setTimeout(() => setError(null), 6000);
+      return;
+    }
     setLoading(true);
     try {
       const reviewerTarget = selectedKpi.reviewer || 'Reviewer';

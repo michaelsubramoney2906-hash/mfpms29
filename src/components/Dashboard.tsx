@@ -549,15 +549,13 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
           return isSubmitter;
         }
         if (sub.id === 'opms-approver') {
-          return isSubmitter || isApprover;
+          return isApprover;
         }
         if (sub.id === 'opms-reviewer') {
-          if (isApprover && !isSubmitter && !isNamedReviewer) return false;
-          return isSubmitter || isNamedReviewer;
+          return isNamedReviewer;
         }
         if (sub.id === 'opms-audit') {
-          if (isApprover && !isSubmitter && !isInternalAuditUser) return false;
-          return isSubmitter || isInternalAuditUser;
+          return isInternalAuditUser;
         }
         return true;
       });
