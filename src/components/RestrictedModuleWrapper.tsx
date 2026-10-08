@@ -348,21 +348,16 @@ export function RestrictedModuleWrapper({ currentUser, item, unlockedModules, on
       const dept = (currentUser.department || '').toLowerCase().trim();
       const name = (currentUser.fullName || (currentUser as any)?.name || '').toLowerCase().trim();
 
-      const isAuditor = email === 'twalaad@nkangaladm.gov.za' || 
-                        email === 'seeranepl@nkangaladm.gov.za' || 
+      const isAuditor = email === 'seeranepl@nkangaladm.gov.za' || 
                         email === 'masemolak@nkangaladm.gov.za' || 
-                        email === 'morarj@nkangaladm.gov.za' || 
                         email.includes('audit') || role.includes('audit') || 
                         sysRole.includes('audit') || job.includes('audit') || 
-                        dept.includes('audit') || name.includes('twala') || 
+                        dept.includes('audit') || 
                         name.includes('seerane') || name.includes('masemola');
 
-      const isReviewer = email === 'nsibandenp@nkangaladm.gov.za' || 
-                         email === 'shabangusm@nkangaladm.gov.za' || 
-                         email === 'zulune@nkangaladm.gov.za' || 
+      const isReviewer = email === 'zulune@nkangaladm.gov.za' || 
                          email === 'lukhelema@nkangaladm.gov.za' || 
                          email === 'khuboniy@nkangaladm.gov.za' || 
-                         name.includes('nsibande') || name.includes('shabangu') || 
                          name.includes('zulu') || name.includes('lukhele');
 
       let hasOpmsAccess = true;

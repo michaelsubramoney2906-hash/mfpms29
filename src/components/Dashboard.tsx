@@ -509,20 +509,14 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
     if (mod.id === 'opms-admin' || mod.id === 'opms') {
       if (isMasterAdmin) return mod.subModules;
 
-      const isNamedReviewer = email === 'nsibandenp@nkangaladm.gov.za' ||
-                              email === 'shabangusm@nkangaladm.gov.za' ||
-                              email === 'zulune@nkangaladm.gov.za' ||
+      const isNamedReviewer = email === 'zulune@nkangaladm.gov.za' ||
                               email === 'khuboniy@nkangaladm.gov.za' ||
                               email === 'lukhelema@nkangaladm.gov.za' ||
-                              fullName.includes('nompumelelo') || fullName.includes('nsibande') ||
-                              fullName.includes('sibusiso') || fullName.includes('shabangu') ||
                               fullName.includes('noluthando') || fullName.includes('zulu') ||
                               fullName.includes('yena') || fullName.includes('khuboni') ||
                               fullName.includes('mduduzi') || fullName.includes('lukhele');
 
-      const isInternalAuditUser = email === 'twalaad@nkangaladm.gov.za' ||
-                                  email === 'seeranepl@nkangaladm.gov.za' ||
-                                  email === 'morarj@nkangaladm.gov.za' ||
+      const isInternalAuditUser = email === 'seeranepl@nkangaladm.gov.za' ||
                                   email === 'masemolak@nkangaladm.gov.za' ||
                                   email === 'mpanzacs@nkangaladm.gov.za' ||
                                   email.includes('audit') ||
@@ -530,51 +524,35 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                                   systemRole.includes('audit') ||
                                   jobFunction.includes('internal audit') || jobFunction.includes('audit') ||
                                   department.includes('audit') ||
-                                  fullName.includes('amos') || fullName.includes('twala') ||
                                   fullName.includes('peggy') || fullName.includes('seerane') ||
-                                  fullName.includes('jayvanti') || fullName.includes('morar') ||
                                   fullName.includes('katlego') || fullName.includes('masemola') ||
                                   fullName.includes('sthembile') || fullName.includes('mpanza');
 
       const isSubmitter = isSdbipSubmitter;
       const isApprover = isSdbipApprover;
 
-      // Strict role resolution for OPMS workflow modules:
-      let isExclusiveAuditor = false;
-      let isExclusiveReviewer = false;
-      let isExclusiveApprover = false;
-      let isExclusiveSubmitter = false;
-
-      if (isInternalAuditUser) {
-        isExclusiveAuditor = true;
-      } else if (isNamedReviewer) {
-        isExclusiveReviewer = true;
-      } else if (isApprover && !isSubmitter) {
-        isExclusiveApprover = true;
-      } else if (isSubmitter && !isApprover) {
-        isExclusiveSubmitter = true;
-      } else if (isApprover) {
-        if (role.includes('manager') || role.includes('hod') || systemRole.includes('approver') || systemRole.includes('executive') || jobFunction.includes('manager') || jobFunction.includes('hod')) {
-          isExclusiveApprover = true;
-        } else {
-          isExclusiveSubmitter = true;
-        }
-      } else if (isSubmitter) {
-        isExclusiveSubmitter = true;
-      }
+      // Strict role resolution for OPMS workflow modules (no dual roles):
+      // Designated submitters have access to Submitter module (e.g. Nompumelelo Nsibande, Jayvanti Morar)
+      // Designated approvers have access to Approver module (e.g. Sibusiso Shabangu, Amos Twala)
+      // Appointed PMU Reviewers have access to Reviewer module (e.g. Noluthando Zulu, Mduduzi Lukhele)
+      // Appointed Internal Auditors have access to Audit module (e.g. Peggy Seerane, Katlego Masemola)
+      const canAccessSubmitter = isSubmitter || isMasterAdmin;
+      const canAccessApprover = isApprover || isMasterAdmin;
+      const canAccessReviewer = isNamedReviewer || isMasterAdmin;
+      const canAccessAuditor = isInternalAuditUser || isMasterAdmin;
 
       return mod.subModules.filter(sub => {
         if (sub.id === 'opms-submitter') {
-          return isExclusiveSubmitter;
+          return canAccessSubmitter;
         }
         if (sub.id === 'opms-approver') {
-          return isExclusiveApprover;
+          return canAccessApprover;
         }
         if (sub.id === 'opms-reviewer') {
-          return isExclusiveReviewer;
+          return canAccessReviewer;
         }
         if (sub.id === 'opms-audit') {
-          return isExclusiveAuditor;
+          return canAccessAuditor;
         }
         return true;
       });

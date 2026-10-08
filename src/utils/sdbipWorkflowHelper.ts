@@ -4,9 +4,7 @@
  */
 
 export const PMS_TEAM_REVIEWERS = [
-  'nsibandenp@nkangaladm.gov.za',
   'zulune@nkangaladm.gov.za',
-  'shabangusm@nkangaladm.gov.za',
   'lukhelema@nkangaladm.gov.za',
   'khuboniy@nkangaladm.gov.za'
 ];
@@ -19,18 +17,6 @@ export interface ReviewerOfficial {
 }
 
 export const OFFICIAL_REVIEWERS: ReviewerOfficial[] = [
-  { 
-    fullName: 'Nompumelelo P. Nsibande', 
-    email: 'nsibandenp@nkangaladm.gov.za', 
-    username: 'nsibandenp',
-    displayName: 'Nompumelelo P. Nsibande (@nsibandenp)'
-  },
-  { 
-    fullName: 'Sibusiso M Shabangu', 
-    email: 'shabangusm@nkangaladm.gov.za', 
-    username: 'shabangusm',
-    displayName: 'Sibusiso M Shabangu (@shabangusm)'
-  },
   { 
     fullName: 'Noluthando Zulu', 
     email: 'zulune@nkangaladm.gov.za', 
@@ -46,9 +32,7 @@ export const OFFICIAL_REVIEWERS: ReviewerOfficial[] = [
 ];
 
 export const INTERNAL_AUDIT_USERS = [
-  'twalaad@nkangaladm.gov.za',
   'seeranepl@nkangaladm.gov.za',
-  'morarj@nkangaladm.gov.za',
   'masemolak@nkangaladm.gov.za',
   'mpanzacs@nkangaladm.gov.za'
 ];
@@ -61,12 +45,6 @@ export interface InternalAuditorOfficial {
 }
 
 export const OFFICIAL_INTERNAL_AUDITORS: InternalAuditorOfficial[] = [
-  { 
-    fullName: 'Amos D. Twala', 
-    email: 'twalaad@nkangaladm.gov.za', 
-    username: 'twalaad',
-    displayName: 'Amos D. Twala (@twalaad)'
-  },
   { 
     fullName: 'Peggy L. Seerane', 
     email: 'seeranepl@nkangaladm.gov.za', 
@@ -127,10 +105,8 @@ export function isUserMatch(
   const isPmsMember = PMS_TEAM_REVIEWERS.map(e => e.toLowerCase()).includes(email);
   const isAuditMember = INTERNAL_AUDIT_USERS.map(e => e.toLowerCase()).includes(email);
 
-  // If targetUser is null or undefined or empty, check membership in role lists
+  // If targetUser is null or undefined or empty, do not match any user
   if (!targetUser || !targetUser.trim()) {
-    if (isPmsMember) return true;
-    if (isAuditMember) return true;
     return false;
   }
 
@@ -145,7 +121,7 @@ export function isUserMatch(
 
   const emailPrefix = email.split('@')[0] || '';
   const fullName = (user.fullName || (user as any).full_name || (user as any).name || '').trim().toLowerCase();
-  const username = (user.username || '').trim().toLowerCase();
+  const username = (user.username || emailPrefix || '').trim().toLowerCase();
   const jobFunction = (user.jobFunction || (user as any).job_function || '').trim().toLowerCase();
 
   // Helper to normalize names by removing punctuation and single-character middle initials
@@ -173,117 +149,137 @@ export function isUserMatch(
   // 2. Exact Identity Matches (Full Name, Username, Email Prefix)
   if (target === email) return true;
   if (emailPrefix && target === emailPrefix) return true;
+  if (username && target === username) return true;
   if (fullName && target === fullName) return true;
   if (normFullName && normTarget && normFullName === normTarget) return true;
-  if (username && target === username) return true;
 
   // 3. Canonical directory matching for Nkangala District Municipality officials
   const NKANGALA_OFFICIAL_MAP: Record<string, string[]> = {
     // Executive Approvers
     'standeral@nkangaladm.gov.za': [
-      'alice l. stander', 'alice stander', 'a.l. stander', 'a stander', 'stander', 'alice'
+      'alice l. stander', 'alice stander', 'a.l. stander', 'a stander', 'stander', 'alice', 'standeral'
     ],
     'rampedimr@nkangaladm.gov.za': [
-      'mmaphiri r. rampedi', 'mmaphiri rampedi', 'm rampedi', 'rampedi'
+      'mmaphiri r. rampedi', 'mmaphiri rampedi', 'm rampedi', 'rampedi', 'rampedimr'
     ],
     'lengwatetm@nkangaladm.gov.za': [
-      'thandiwe m. lengwate', 'thandiwe lengwate', 't lengwate', 'lengwate'
+      'thandiwe m. lengwate', 'thandiwe lengwate', 't lengwate', 'lengwate', 'lengwatetm'
     ],
     'ralephalengjn@nkangaladm.gov.za': [
-      'juliet n. ralephaleng', 'juliet ralephaleng', 'j ralephaleng', 'ralephaleng', 'jane ralephaleng'
+      'juliet n. ralephaleng', 'juliet ralephaleng', 'j ralephaleng', 'ralephaleng', 'jane ralephaleng', 'ralephalengjn'
     ],
     'bvumaa@nkangaladm.gov.za': [
-      'alvin bvuma', 'a bvuma', 'bvuma'
+      'alvin bvuma', 'a bvuma', 'bvuma', 'bvumaa'
     ],
     'shabangusm@nkangaladm.gov.za': [
-      'sibusiso m. shabangu', 'sibusiso shabangu', 's shabangu', 'shabangu'
+      'sibusiso m. shabangu', 'sibusiso shabangu', 's.m. shabangu', 's shabangu', 'shabangusm', 'shabangus'
     ],
     'khumalobs@nkangaladm.gov.za': [
-      'bongani s. khumalo', 'bongani khumalo', 'b khumalo', 'khumalo'
+      'bongani s. khumalo', 'bongani khumalo', 'b khumalo', 'khumalobs'
     ],
     'nkosibs@nkangaladm.gov.za': [
-      'bongani s. khumalo', 'bongani khumalo', 'b khumalo', 'khumalo'
+      'bongani s. khumalo', 'bongani khumalo', 'b khumalo', 'nkosibs'
     ],
     'mtshweniwm@nkangaladm.gov.za': [
-      'walter m. mtshweni', 'walter mtshweni', 'w mtshweni', 'mtshweni'
+      'walter m. mtshweni', 'walter mtshweni', 'w mtshweni', 'mtshweniwm'
     ],
     'mahlangu@nkangaladm.gov.za': [
-      'mandla m. mahlangu', 'mandla l. mahlangu', 'mandla mahlangu', 'm mahlangu', 'mahlangu'
+      'mandla m. mahlangu', 'mandla l. mahlangu', 'mandla mahlangu', 'm mahlangu'
     ],
     'mahlanguml@nkangaladm.gov.za': [
-      'mandla m. mahlangu', 'mandla l. mahlangu', 'mandla mahlangu', 'm mahlangu', 'mahlangu'
+      'mandla m. mahlangu', 'mandla l. mahlangu', 'mandla mahlangu', 'm mahlangu', 'mahlanguml'
     ],
     'twalaad@nkangaladm.gov.za': [
-      'amos d. twala', 'amos twala', 'a twala', 'twala'
+      'amos d. twala', 'amos twala', 'a.d. twala', 'a twala', 'twalaad'
     ],
 
     // Departmental Submitters & Officials
-    'skosanah@nkangaladm.gov.za': ['headman skosana', 'h skosana', 'skosana'],
-    'skosanaj@nkangaladm.gov.za': ['jackson skosana', 'j skosana', 'skosana'],
-    'nhlaphomj@nkangaladm.gov.za': ['jimmy nhlapho', 'j nhlapho', 'nhlapho'],
-    'maphangant@nkangaladm.gov.za': ['nomhle maphanga', 'n maphanga', 'maphanga'],
-    'maphangan@nkangaladm.gov.za': ['nomhle maphanga', 'n maphanga', 'maphanga'],
-    'masilelasi@nkangaladm.gov.za': ['sipho masilela', 's masilela', 'masilela'],
-    'masilelas@nkangaladm.gov.za': ['sipho masilela', 's masilela', 'masilela'],
-    'mapitsingmm@nkangaladm.gov.za': ['monantsi mapitsing', 'm mapitsing', 'mapitsing'],
-    'mapitsinglm@nkangaladm.gov.za': ['monantsi mapitsing', 'm mapitsing', 'mapitsing'],
-    'mapitsingm@nkangaladm.gov.za': ['monantsi mapitsing', 'm mapitsing', 'mapitsing'],
-    'skhosanaqj@nkangaladm.gov.za': ['quinton skhosana', 'q skhosana', 'quinton'],
-    'shabanguf@nkangaladm.gov.za': ['fortress shabangu', 'f shabangu', 'fortress'],
-    'kubhekavs@nkangaladm.gov.za': ['vusumuzi s. kubheka', 'vusumuzi kubheka', 'v kubheka', 'kubheka'],
-    'masekofm@nkangaladm.gov.za': ['fikile maseko', 'f maseko', 'maseko'],
-    'phalahl@nkangaladm.gov.za': ['hlabishi l. phala', 'hlabishi phala', 'h phala', 'phala'],
-    'msizaas@nkangaladm.gov.za': ['ali s. msiza', 'ali msiza', 'a msiza'],
-    'nsibandenp@nkangaladm.gov.za': ['nompumelelo p. nsibande', 'nompumelelo nsibande', 'n nsibande'],
-    'hlongwaan@nkangaladm.gov.za': ['andile n. hlongwa', 'andile hlongwa', 'a hlongwa', 'hlongwa'],
-    'morarj@nkangaladm.gov.za': ['jayvanti morar', 'j morar', 'morar'],
-    'dimpems@nkangaladm.gov.za': ['meshack s. dimpe', 'meshack dimpe', 'm dimpe', 'dimpe'],
-    'mazwit@nkangaladm.gov.za': ['thandiwe mazwi', 't mazwi', 'mazwi'],
-    'mthimunyen@nkangaladm.gov.za': ['nokuthula d. mthimunye', 'nokuthula mthimunye', 'n mthimunye', 'mthimunye'],
-    'mabundatt@nkangaladm.gov.za': ['tiro mabunda', 't mabunda', 'mabunda'],
-    'nkosis@nkangaladm.gov.za': ['sanele nkosi', 'sipho nkosi', 's nkosi', 'nkosi'],
-    'nkosiss@nkangaladm.gov.za': ['sanele nkosi', 's nkosi', 'nkosi'],
-    'vanniekerkt@nkangaladm.gov.za': ['trudie van niekerk', 'theuns van niekerk', 't van niekerk', 'van niekerk'],
-    'bembem@nkangaladm.gov.za': ['mxolisi bembe', 'm bembe', 'bembe'],
-    'wakenis@nkangaladm.gov.za': ['sipokazi wakeni', 's wakeni', 'wakeni'],
-    'mokgolomothome@nkangaladm.gov.za': ['mokgadi mokgolomotho', 'm mokgolomotho', 'mokgolomotho'],
-    'linkss@nkangaladm.gov.za': ['solly links', 'sipho links', 's links', 'links'],
-    'ndlovutf@nkangaladm.gov.za': ['thembi ndlovu', 't ndlovu', 'ndlovu'],
-    'msizaa@nkangaladm.gov.za': ['annah msiza', 'a msiza', 'annah'],
-    'mametjae@nkangaladm.gov.za': ['edwin mametja', 'e mametja', 'mametja'],
-    'simelanenl@nkangaladm.gov.za': ['nompumelelo simelane', 'nomusa simelane', 'n simelane', 'simelane'],
-    'msokil@nkangaladm.gov.za': ['lucky msoki', 'l msoki', 'msoki'],
-    'aphanemr@nkangaladm.gov.za': ['mmaphefo aphane', 'm aphane', 'aphane']
+    'skosanah@nkangaladm.gov.za': ['headman skosana', 'hendrick skosana', 'h skosana', 'skosanah'],
+    'skosanaj@nkangaladm.gov.za': ['jackson skosana', 'j skosana', 'skosanaj'],
+    'nhlaphomj@nkangaladm.gov.za': ['jimmy nhlapho', 'jimmy m. nhlapho', 'j nhlapho', 'nhlaphomj', 'nhlapho'],
+    'maphangant@nkangaladm.gov.za': ['nomhle maphanga', 'nomhle t. maphanga', 'n maphanga', 'maphangant', 'maphanga'],
+    'maphangan@nkangaladm.gov.za': ['nomhle maphanga', 'n maphanga', 'maphangan', 'maphanga'],
+    'masilelasi@nkangaladm.gov.za': ['sipho masilela', 'simon masilela', 's masilela', 'masilelasi', 'masilela'],
+    'masilelas@nkangaladm.gov.za': ['sipho masilela', 'simon masilela', 's masilela', 'masilelas', 'masilela'],
+    'mapitsingmm@nkangaladm.gov.za': ['monantsi mapitsing', 'lordwick m. mapitsing', 'lordwick mapitsing', 'm mapitsing', 'mapitsingmm'],
+    'mapitsinglm@nkangaladm.gov.za': ['monantsi mapitsing', 'lordwick m. mapitsing', 'lordwick mapitsing', 'm mapitsing', 'mapitsinglm'],
+    'mapitsingm@nkangaladm.gov.za': ['monantsi mapitsing', 'lordwick m. mapitsing', 'lordwick mapitsing', 'm mapitsing', 'mapitsingm'],
+    'skhosanaqj@nkangaladm.gov.za': ['quinton skhosana', 'quinton j. skhosana', 'q skhosana', 'skhosanaqj', 'quinton'],
+    'shabanguf@nkangaladm.gov.za': ['fortress shabangu', 'f shabangu', 'shabanguf', 'fortress'],
+    'kubhekavs@nkangaladm.gov.za': ['vusumuzi s. kubheka', 'vusumuzi kubheka', 'v kubheka', 'kubhekavs'],
+    'kubhekazc@nkangaladm.gov.za': ['vusumuzi s. kubheka', 'vusumuzi kubheka', 'zwelakhe c. kubheka', 'kubhekazc'],
+    'masekofm@nkangaladm.gov.za': ['fikile maseko', 'f maseko', 'masekofm'],
+    'masekoat@nkangaladm.gov.za': ['fikile maseko', 'alfred t. maseko', 'masekoat'],
+    'masekome@nkangaladm.gov.za': ['fikile maseko', 'm. e. maseko', 'masekome'],
+    'phalahl@nkangaladm.gov.za': ['hlabishi l. phala', 'hlabishi phala', 'h phala', 'phalahl', 'phala'],
+    'msizaas@nkangaladm.gov.za': ['ali s. msiza', 'ali msiza', 'a msiza', 'msizaas'],
+    'nsibandenp@nkangaladm.gov.za': ['nompumelelo p. nsibande', 'nompumelelo nsibande', 'n.p. nsibande', 'n nsibande', 'nsibandenp', 'nsibande'],
+    'hlongwaan@nkangaladm.gov.za': ['andile n. hlongwa', 'andile hlongwa', 'ananias hlongwa', 'a hlongwa', 'hlongwaan', 'hlongwa'],
+    'morarj@nkangaladm.gov.za': ['jayvanti morar', 'jayvanti', 'j morar', 'morarj', 'morar'],
+    'dimpems@nkangaladm.gov.za': ['meshack s. dimpe', 'meshack dimpe', 'm dimpe', 'dimpems', 'dimpe'],
+    'mazwitc@nkangaladm.gov.za': ['thandiwe mazwi', 't.c. mazwi', 't mazwi', 'mazwitc', 'mazwi'],
+    'mazwit@nkangaladm.gov.za': ['thandiwe mazwi', 't mazwi', 'mazwit', 'mazwi'],
+    'mthimunyen@nkangaladm.gov.za': ['nokuthula d. mthimunye', 'nokuthula mthimunye', 'n mthimunye', 'mthimunyen', 'mthimunye'],
+    'mabundatt@nkangaladm.gov.za': ['tiro mabunda', 't.t. mabunda', 't mabunda', 'mabundatt', 'mabunda'],
+    'nkosis@nkangaladm.gov.za': ['sanele nkosi', 'sipho nkosi', 's nkosi', 'nkosis'],
+    'nkosiss@nkangaladm.gov.za': ['sanele nkosi', 's nkosi', 'nkosiss'],
+    'nkosiln@nkangaladm.gov.za': ['sanele nkosi', 'lungile n. nkosi', 'nkosiln'],
+    'nkosiwm@nkangaladm.gov.za': ['sanele nkosi', 'welile m. nkosi', 'nkosiwm'],
+    'vanniekerkt@nkangaladm.gov.za': ['trudie van niekerk', 'theuns van niekerk', 't van niekerk', 'vanniekerkt', 'van niekerk'],
+    'bembem@nkangaladm.gov.za': ['mxolisi bembe', 'mzilikazi bembe', 'm bembe', 'bembem', 'bembe'],
+    'wakenis@nkangaladm.gov.za': ['sipokazi wakeni', 's wakeni', 'wakenis', 'wakeni'],
+    'mokgolomothome@nkangaladm.gov.za': ['mokgadi mokgolomotho', 'm mokgolomotho', 'mokgolomothome', 'mokgolomotho'],
+    'linkss@nkangaladm.gov.za': ['solly links', 'sipho links', 's links', 'linkss', 'links'],
+    'ndlovutf@nkangaladm.gov.za': ['thembi ndlovu', 't ndlovu', 'ndlovutf'],
+    'ndlovur@nkangaladm.gov.za': ['thembi ndlovu', 'rose ndlovu', 'ndlovur'],
+    'msizaa@nkangaladm.gov.za': ['annah msiza', 'a msiza', 'msizaa'],
+    'mametjae@nkangaladm.gov.za': ['edwin mametja', 'e mametja', 'mametjae', 'mametja'],
+    'simelanenl@nkangaladm.gov.za': ['nompumelelo simelane', 'nomusa simelane', 'n simelane', 'simelanenl', 'simelane'],
+    'simelanebm@nkangaladm.gov.za': ['nompumelelo simelane', 'bongakonke m. simelane', 'simelanebm', 'simelane'],
+    'msokil@nkangaladm.gov.za': ['lucky msoki', 'l msoki', 'msokil', 'msoki'],
+    'msokilt@nkangaladm.gov.za': ['lucky msoki', 'l msoki', 'msokilt', 'msoki'],
+    'aphanemr@nkangaladm.gov.za': ['mmaphefo aphane', 'm aphane', 'aphanemr', 'aphane'],
+    'aphanesl@nkangaladm.gov.za': ['mmaphefo aphane', 'stephina l. aphane', 'aphanesl', 'aphane'],
+
+    // Reviewers & Internal Auditors
+    'zulune@nkangaladm.gov.za': ['noluthando zulu', 'n zulu', 'zulune', 'zulu'],
+    'lukhelema@nkangaladm.gov.za': ['mduduzi lukhele', 'm lukhele', 'lukhelema', 'lukhele'],
+    'khuboniy@nkangaladm.gov.za': ['yena khuboni', 'y khuboni', 'khuboniy', 'khuboni'],
+    'seeranepl@nkangaladm.gov.za': ['peggy l. seerane', 'peggy seerane', 'p seerane', 'seeranepl', 'seerane'],
+    'masemolak@nkangaladm.gov.za': ['katlego masemola', 'k masemola', 'masemolak', 'masemola'],
+    'mpanzacs@nkangaladm.gov.za': ['sthembile c. mpanza', 'sthembile mpanza', 's mpanza', 'mpanzacs', 'mpanza']
   };
 
   for (const [canonicalEmail, aliases] of Object.entries(NKANGALA_OFFICIAL_MAP)) {
     const isEmailCurrent = email === canonicalEmail;
-    if (isEmailCurrent) {
+    const isUsernameCurrent = username === canonicalEmail.split('@')[0];
+    const isCurrentIdentity = isEmailCurrent || isUsernameCurrent || (normFullName && aliases.some(alias => normFullName === normalizeName(alias)));
+
+    if (isCurrentIdentity) {
       if (aliases.some(alias => {
         const normAlias = normalizeName(alias);
-        return target === alias || normTarget === normAlias;
+        return target === alias || normTarget === normAlias || target === canonicalEmail || target === canonicalEmail.split('@')[0];
       })) {
         return true;
       }
     }
+
     if (aliases.some(alias => {
       const normAlias = normalizeName(alias);
       return target === alias || (normTarget && normTarget === normAlias);
     })) {
-      if (isEmailCurrent || (normFullName && aliases.some(alias => normFullName === normalizeName(alias)))) {
+      if (isCurrentIdentity) {
         return true;
       }
     }
   }
 
-  // 4. Specific Surname / Multi-Word Token Matching
-  const targetWords = target.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, ' ').split(/\s+/).filter(w => w.length >= 4);
-  const genericWords = ['executive', 'manager', 'department', 'submitter', 'approver', 'services', 'general', 'office', 'internal', 'audit', 'director', 'unit', 'financial', 'technical', 'development'];
-  const specificWords = targetWords.filter(w => !genericWords.includes(w));
-  if (specificWords.length > 0 && emailPrefix) {
-    if (specificWords.some(w => emailPrefix === w || emailPrefix.includes(w))) {
-      return true;
-    }
+  // 4. Exact Username or Email Prefix check
+  if (emailPrefix && (target === emailPrefix || normTarget === emailPrefix)) {
+    return true;
+  }
+  if (username && (target === username || normTarget === username)) {
+    return true;
   }
 
   // 5. Full Name contains check

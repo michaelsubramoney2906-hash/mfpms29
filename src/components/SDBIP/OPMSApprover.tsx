@@ -46,7 +46,7 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
   const [approverNotes, setApproverNotes] = useState('');
   const [deckTheme, setDeckTheme] = useState<'dark' | 'light'>('dark');
   const [showCertificate, setShowCertificate] = useState(false);
-  const [selectedReviewerUsername, setSelectedReviewerUsername] = useState<string>('nsibandenp');
+  const [selectedReviewerUsername, setSelectedReviewerUsername] = useState<string>('zulune');
 
   // Q1 Actual states for designated Approver
   const [q1Actual, setQ1Actual] = useState('');
@@ -1061,8 +1061,8 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
       (r.kpi && r.kpi.toLowerCase().includes(searchQuery.toLowerCase()));
 
     // Strict approver user matching: only KPIs specifying their user name (or all if unrestricted admin)
-    const isSpecifiedApprover = isUserMatch(r.approver, currentUser) ||
-      isUserMatch((r as any).approverName, currentUser);
+    const isSpecifiedApprover = Boolean(r.approver && isUserMatch(r.approver, currentUser)) ||
+      Boolean((r as any).approverName && isUserMatch((r as any).approverName, currentUser));
 
     const matchesMine = isUnrestrictedAdmin && assignedFilter === 'ALL'
       ? true
@@ -1076,7 +1076,7 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
     const rowStatus = (r as any).workflowStatus;
     const isSent = rowStatus === 'Submitted' || rowStatus === 'Submitted to Approver' || rowStatus === 'Pending Approval' || rowStatus === 'Approved' || rowStatus === 'Returned' || rowStatus === 'Reviewed' || r.workflows?.q1?.status === 'pending_approval';
     if (!isSent) return false;
-    const isAssigned = isUserMatch(r.approver, currentUser) || isUserMatch((r as any).approverName, currentUser);
+    const isAssigned = Boolean(r.approver && isUserMatch(r.approver, currentUser)) || Boolean((r as any).approverName && isUserMatch((r as any).approverName, currentUser));
     return isUnrestrictedAdmin && assignedFilter === 'ALL' ? true : isAssigned;
   });
 

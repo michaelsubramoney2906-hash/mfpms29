@@ -43,7 +43,7 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
   const [searchQuery, setSearchQuery] = useState('');
   const [inboxTheme, setInboxTheme] = useState<'dark' | 'light'>('dark');
   const [reviewerNotes, setReviewerNotes] = useState('');
-  const [selectedAuditorUsername, setSelectedAuditorUsername] = useState<string>('twalaad');
+  const [selectedAuditorUsername, setSelectedAuditorUsername] = useState<string>('seeranepl');
 
   const calcVar = (target: string | undefined, actual: string | undefined) => {
     return calcOpmsVariance(target, actual, selectedKpi?.uom);

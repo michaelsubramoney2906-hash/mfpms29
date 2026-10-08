@@ -10459,13 +10459,9 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
 
       // Fallback mapping for fixed reviewers / auditors
       const fixedEmailMap: Record<string, string> = {
-        'nompumelelo p. nsibande': 'nsibandenp@nkangaladm.gov.za',
-        'sibusiso m. shabanga': 'shabangusm@nkangaladm.gov.za',
         'noluthando zulu': 'zulune@nkangaladm.gov.za',
         'mduduzi lukele': 'lukhelema@nkangaladm.gov.za',
-        'amos d. twala': 'twalaad@nkangaladm.gov.za',
         'peggy l. seerane': 'seeranepl@nkangaladm.gov.za',
-        'jayvanti morar': 'morarj@nkangaladm.gov.za',
         'katlego masemola': 'masemolak@nkangaladm.gov.za',
         'sthembile c. mpanza': 'mpanzacs@nkangaladm.gov.za'
       };
@@ -10880,15 +10876,11 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
 
       const defaultOfficials = {
         reviewers: [
-          'Nompumelelo P. Nsibande',
-          'Sibusiso M. Shabanga',
           'Noluthando Zulu',
           'Mduduzi Lukele'
         ],
         internalAuditors: [
-          'Amos D. Twala',
           'Peggy L. Seerane',
-          'Jayvanti Morar',
           'Katlego Masemola',
           'Sthembile C. Mpanza'
         ]

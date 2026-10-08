@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   FileText, ArrowRight, CheckCircle, AlertTriangle, AlertCircle, 
   Send, RefreshCw, Layers, Database, Search, ChevronRight, 
   Clock, Plus, ShieldCheck, Check, MessageSquare, Info, Lock, Unlock,
   Upload, Eye, Trash2, Paperclip, FileSpreadsheet, Presentation, Image as ImageIcon,
-  Bell, CheckCircle2, UserCheck, ShieldAlert, X, RotateCcw, Cloud, Download, Building, Sun, Moon
+  Bell, CheckCircle2, UserCheck, ShieldAlert, X, RotateCcw, Cloud, Download, Building, Sun, Moon,
+  Users
 } from 'lucide-react';
 import type { User } from '../../types';
 import { SdbipRow } from './SDBIP';
@@ -32,6 +33,7 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
   const [rows, setRows] = useState<SdbipRow[]>([]);
   const [notifications, setNotifications] = useState<SdbipWorkflowNotification[]>([]);
   const [assignedFilter, setAssignedFilter] = useState<'ALL' | 'MINE'>('MINE');
+  const [selectedSubmitterFilter, setSelectedSubmitterFilter] = useState<string>('ALL');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -996,33 +998,69 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
   // Compute unique KPAs for filtering
   const kpas = Array.from(new Set(rows.map(r => r.kpas).filter(Boolean)));
 
+  // List of all submitters with their KPI counts for administrator selector
+  const submittersList = useMemo(() => {
+    const map = new Map<string, number>();
+    rows.forEach(r => {
+      const name = r.submitter || (r as any).submitterName || (r as any).responsibleUnit;
+      if (name && name.trim()) {
+        map.set(name, (map.get(name) || 0) + 1);
+      }
+    });
+    return Array.from(map.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [rows]);
+
   // Check if currentUser is an unrestricted admin/impersonator
   const isImpersonating = typeof window !== 'undefined' && 
     !!(localStorage.getItem('originalAdminUser') || sessionStorage.getItem('originalAdminUser'));
   const isUnrestrictedAdmin = isUserUnrestricted(currentUser) || isMasterAdminMike(currentUser) || isImpersonating;
 
-  const filteredRows = rows.filter(r => {
-    const matchesKpa = kpaFilter === 'ALL' || r.kpas === kpaFilter;
-    const matchesSearch = searchQuery === '' || 
-      (r.refNum && r.refNum.toLowerCase().includes(searchQuery.toLowerCase())) || 
-      (r.kpi && r.kpi.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (r.strategicObj && r.strategicObj.toLowerCase().includes(searchQuery.toLowerCase()));
+  // Directly assigned rows for the logged-in user
+  const userDirectAssignedRows = useMemo(() => {
+    return rows.filter(r => (r.submitter && isUserMatch(r.submitter, currentUser)) || (Boolean((r as any).submitterName) && isUserMatch((r as any).submitterName, currentUser)));
+  }, [rows, currentUser]);
 
-    // Strict submitter matching: the submitter should only see KPIs that specify their user name
-    const isSpecifiedUser = isUserMatch(r.submitter, currentUser) ||
-      isUserMatch((r as any).submitterName, currentUser);
+  const filteredRows = useMemo(() => {
+    return rows.filter(r => {
+      const matchesKpa = kpaFilter === 'ALL' || r.kpas === kpaFilter;
+      const matchesSearch = searchQuery === '' || 
+        (r.refNum && r.refNum.toLowerCase().includes(searchQuery.toLowerCase())) || 
+        (r.kpi && r.kpi.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (r.strategicObj && r.strategicObj.toLowerCase().includes(searchQuery.toLowerCase()));
 
-    const matchesMine = isUnrestrictedAdmin && assignedFilter === 'ALL'
-      ? true
-      : isSpecifiedUser;
+      const isSpecifiedUser = (r.submitter && isUserMatch(r.submitter, currentUser)) ||
+        Boolean((r as any).submitterName && isUserMatch((r as any).submitterName, currentUser));
 
-    return matchesKpa && matchesSearch && matchesMine;
-  });
+      let matchesMine = true;
+      if (isUnrestrictedAdmin) {
+        if (selectedSubmitterFilter !== 'ALL') {
+          matchesMine = r.submitter === selectedSubmitterFilter || isUserMatch(r.submitter, { fullName: selectedSubmitterFilter });
+        } else if (assignedFilter === 'ALL') {
+          matchesMine = true;
+        } else {
+          // If the admin themselves has assigned KPIs, show them; otherwise show all to prevent empty 0 screen
+          matchesMine = userDirectAssignedRows.length > 0 ? isSpecifiedUser : true;
+        }
+      } else {
+        matchesMine = assignedFilter === 'ALL' ? true : isSpecifiedUser;
+      }
 
-  // Calculate high level stats strictly scoped to assigned KPIs
-  const myAssignedRows = isUnrestrictedAdmin && assignedFilter === 'ALL'
-    ? rows
-    : rows.filter(r => isUserMatch(r.submitter, currentUser) || isUserMatch((r as any).submitterName, currentUser));
+      return matchesKpa && matchesSearch && matchesMine;
+    });
+  }, [rows, kpaFilter, searchQuery, currentUser, isUnrestrictedAdmin, selectedSubmitterFilter, assignedFilter, userDirectAssignedRows]);
+
+  // High-level stats strictly scoped to relevant scorecard rows
+  const myAssignedRows = useMemo(() => {
+    if (isUnrestrictedAdmin) {
+      if (selectedSubmitterFilter !== 'ALL') {
+        return rows.filter(r => r.submitter === selectedSubmitterFilter || isUserMatch(r.submitter, { fullName: selectedSubmitterFilter }));
+      }
+      return (assignedFilter === 'MINE' && userDirectAssignedRows.length > 0) ? userDirectAssignedRows : rows;
+    }
+    return userDirectAssignedRows;
+  }, [rows, isUnrestrictedAdmin, selectedSubmitterFilter, assignedFilter, userDirectAssignedRows]);
 
   const totalKpis = myAssignedRows.length;
   const draftCount = myAssignedRows.filter(r => !(r as any).workflowStatus || (r as any).workflowStatus === 'Draft').length;
@@ -1034,8 +1072,8 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
   const isActualDesignatedSubmitter = Boolean(
     selectedKpi && (
       isUnrestrictedAdmin ||
-      isUserMatch(selectedKpi.submitter, currentUser) ||
-      isUserMatch((selectedKpi as any).submitterName, currentUser)
+      Boolean(selectedKpi.submitter && isUserMatch(selectedKpi.submitter, currentUser)) ||
+      Boolean((selectedKpi as any).submitterName && isUserMatch((selectedKpi as any).submitterName, currentUser))
     )
   );
 
@@ -1337,29 +1375,63 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
             {/* Smart Inline Filters */}
             <div className="flex flex-wrap items-center gap-2">
               {isUnrestrictedAdmin ? (
-                <div className={`inline-flex rounded-lg border p-0.5 text-[10px] font-bold ${
-                  scorecardsTheme === 'light' ? 'border-slate-300 bg-slate-100' : 'border-slate-800 bg-slate-950'
-                }`}>
-                  <button
-                    type="button"
-                    onClick={() => setAssignedFilter('MINE')}
-                    className={`px-2 py-1 rounded transition cursor-pointer ${assignedFilter === 'MINE' ? 'bg-indigo-600 text-white' : scorecardsTheme === 'light' ? 'text-slate-700 hover:text-black' : 'text-slate-400 hover:text-white'}`}
-                  >
-                    My KPIs
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAssignedFilter('ALL')}
-                    className={`px-2 py-1 rounded transition cursor-pointer ${assignedFilter === 'ALL' ? 'bg-indigo-600 text-white' : scorecardsTheme === 'light' ? 'text-slate-700 hover:text-black' : 'text-slate-400 hover:text-white'}`}
-                  >
-                    All KPIs
-                  </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className={`inline-flex rounded-lg border p-0.5 text-[10px] font-bold ${
+                    scorecardsTheme === 'light' ? 'border-slate-300 bg-slate-100' : 'border-slate-800 bg-slate-950'
+                  }`}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAssignedFilter('MINE');
+                      }}
+                      className={`px-2 py-1 rounded transition cursor-pointer ${assignedFilter === 'MINE' ? 'bg-indigo-600 text-white' : scorecardsTheme === 'light' ? 'text-slate-700 hover:text-black' : 'text-slate-400 hover:text-white'}`}
+                    >
+                      My KPIs
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAssignedFilter('ALL');
+                        setSelectedSubmitterFilter('ALL');
+                      }}
+                      className={`px-2 py-1 rounded transition cursor-pointer ${assignedFilter === 'ALL' ? 'bg-indigo-600 text-white' : scorecardsTheme === 'light' ? 'text-slate-700 hover:text-black' : 'text-slate-400 hover:text-white'}`}
+                    >
+                      All KPIs
+                    </button>
+                  </div>
+
+                  {/* Submitter Selector for Admins */}
+                  <div className="flex items-center gap-1">
+                    <Users className={`w-3.5 h-3.5 ${scorecardsTheme === 'light' ? 'text-slate-500' : 'text-slate-400'}`} />
+                    <select
+                      value={selectedSubmitterFilter}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSelectedSubmitterFilter(val);
+                        if (val !== 'ALL') setAssignedFilter('MINE');
+                      }}
+                      className={`border rounded-lg px-2 py-1 text-[11px] font-semibold focus:outline-none focus:border-indigo-500 ${
+                        scorecardsTheme === 'light' ? 'bg-slate-50 border-slate-300 text-black' : 'bg-slate-950 border-slate-800 text-indigo-300'
+                      }`}
+                      title="Filter scorecards by designated municipal submitter from SDBIP reporting table"
+                    >
+                      <option value="ALL">All Submitters ({submittersList.length} Officials)</option>
+                      {submittersList.map(sub => (
+                        <option key={sub.name} value={sub.name}>
+                          {sub.name} ({sub.count} KPI{sub.count > 1 ? 's' : ''})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               ) : (
-                <div className={`inline-flex items-center px-2.5 py-1 rounded-lg border text-[10px] font-bold ${
-                  scorecardsTheme === 'light' ? 'border-slate-300 bg-slate-100 text-slate-800' : 'border-slate-800 bg-slate-950 text-indigo-300'
-                }`}>
-                  <span>Assigned to You: {currentUser.fullName || currentUser.email}</span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-bold ${
+                    scorecardsTheme === 'light' ? 'border-slate-300 bg-slate-100 text-slate-800' : 'border-slate-800 bg-slate-950 text-indigo-300'
+                  }`}>
+                    <UserCheck className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Assigned to You: {currentUser.fullName || currentUser.email} ({userDirectAssignedRows.length} KPIs)</span>
+                  </div>
                 </div>
               )}
 
