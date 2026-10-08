@@ -392,6 +392,32 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
   const [enteredPassword, setEnteredPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
 
+  const isMikeOnly = (currentUser?.email || '').toLowerCase().trim() === 'mike@mzansiflow.co.za';
+
+  const [mikeAuthModal, setMikeAuthModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    action: () => void;
+    passwordInput: string;
+    error: string | null;
+  }>({
+    isOpen: false,
+    title: '',
+    action: () => {},
+    passwordInput: '',
+    error: null,
+  });
+
+  const requestMikeAuth = (title: string, action: () => void) => {
+    setMikeAuthModal({
+      isOpen: true,
+      title,
+      action,
+      passwordInput: '',
+      error: null,
+    });
+  };
+
   const handleToggleAssignmentsLock = () => {
     if (isReportingAssignmentsUnlocked) {
       globalReportingAssignmentsUnlocked = false;
@@ -5114,26 +5140,30 @@ Timestamp: ${new Date().toLocaleString()}
                   <RefreshCw className={`w-3.5 h-3.5 ${isPulling ? 'animate-spin' : ''}`} />
                   <span>{isPulling ? 'Pulling Data...' : 'Pull SDBIP Data'}</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={handlePurgePlaceholders}
-                  disabled={isClearing}
-                  className="px-3.5 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition"
-                  title="Purge all placeholder indicators from SDBIP Top Layer table and Supabase"
-                >
-                  <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Purge Placeholders</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setClearTopLayerModal({ isOpen: true, clearTarget: 'all' })}
-                  disabled={isClearing || rows.length === 0}
-                  className="px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 hover:border-rose-300 text-rose-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition"
-                  title="Purge all records from SDBIP Top Layer table and Supabase"
-                >
-                  <Trash2 className="w-3.5 h-3.5 text-rose-600" />
-                  <span>Purge Top Layer Table</span>
-                </button>
+                {isMikeOnly && (
+                  <button
+                    type="button"
+                    onClick={() => requestMikeAuth("Purge Placeholders Authorization", handlePurgePlaceholders)}
+                    disabled={isClearing}
+                    className="px-3.5 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition"
+                    title="Purge all placeholder indicators from SDBIP Top Layer table and Supabase (Mike Only)"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Purge Placeholders</span>
+                  </button>
+                )}
+                {isMikeOnly && (
+                  <button
+                    type="button"
+                    onClick={() => requestMikeAuth("Purge Top Layer Table Authorization", () => setClearTopLayerModal({ isOpen: true, clearTarget: 'all' }))}
+                    disabled={isClearing || rows.length === 0}
+                    className="px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 hover:border-rose-300 text-rose-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition"
+                    title="Purge all records from SDBIP Top Layer table and Supabase (Mike Only)"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                    <span>Purge Top Layer Table</span>
+                  </button>
+                )}
                 <button 
                   type="button"
                   onClick={() => setIsFitAllTopLayerCells(!isFitAllTopLayerCells)}
@@ -5689,16 +5719,18 @@ Timestamp: ${new Date().toLocaleString()}
                   <Save className={`w-3.5 h-3.5 ${isExplicitlySaving ? 'animate-bounce' : ''}`} />
                   <span>{isExplicitlySaving ? 'Overwriting...' : 'Save & Overwrite to Supabase'}</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={pullSdbipTopLayerData}
-                  disabled={isPulling}
-                  className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-all border border-indigo-500/30"
-                  title="Pull all information currently in the SDBIP top layer table"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isPulling ? 'animate-spin' : ''}`} />
-                  <span>{isPulling ? 'Pulling Data...' : 'Pull SDBIP Top Layer Data'}</span>
-                </button>
+                {isMikeOnly && (
+                  <button
+                    type="button"
+                    onClick={() => requestMikeAuth("Pull SDBIP Top Layer Authorization", pullSdbipTopLayerData)}
+                    disabled={isPulling}
+                    className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-all border border-indigo-500/30"
+                    title="Pull all information currently in the SDBIP top layer table (Mike Only)"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isPulling ? 'animate-spin' : ''}`} />
+                    <span>{isPulling ? 'Pulling Data...' : 'Pull SDBIP Top Layer Data'}</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={handleToggleAssignmentsLock}
@@ -5739,40 +5771,46 @@ Timestamp: ${new Date().toLocaleString()}
                 >
                   <Download className="w-3.5 h-3.5" /> Export reporting data
                 </button>
-                <button
-                  type="button"
-                  onClick={clearSystemNotifications}
-                  className="px-3.5 py-1.5 bg-white hover:bg-amber-50 border border-slate-200 hover:border-amber-300 text-amber-700 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition"
-                  title="Clear all system notifications for SDBIP Top Layer"
-                >
-                  <BellOff className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Clear System Notifications</span>
-                  {notifications.length > 0 && (
-                    <span className="bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold">
-                      {notifications.length}
-                    </span>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={handlePurgePlaceholders}
-                  disabled={isClearing}
-                  className="px-3.5 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition"
-                  title="Purge all placeholder indicators from SDBIP Top Layer Reporting table and Supabase"
-                >
-                  <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Purge Placeholders</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setClearReportingModal({ isOpen: true, scope: 'entire_table' })}
-                  disabled={isClearing || rows.length === 0}
-                  className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 hover:border-rose-300 text-rose-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition"
-                  title="Purge placeholders and all reporting records from table and Supabase"
-                >
-                  <Trash2 className="w-3.5 h-3.5 text-rose-600" />
-                  <span>Purge Reporting Table</span>
-                </button>
+                {isMikeOnly && (
+                  <button
+                    type="button"
+                    onClick={() => requestMikeAuth("Clear System Notifications Authorization", clearSystemNotifications)}
+                    className="px-3.5 py-1.5 bg-white hover:bg-amber-50 border border-slate-200 hover:border-amber-300 text-amber-700 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition"
+                    title="Clear all system notifications for SDBIP Top Layer (Mike Only)"
+                  >
+                    <BellOff className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Clear System Notifications</span>
+                    {notifications.length > 0 && (
+                      <span className="bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold">
+                        {notifications.length}
+                      </span>
+                    )}
+                  </button>
+                )}
+                {isMikeOnly && (
+                  <button
+                    type="button"
+                    onClick={() => requestMikeAuth("Purge Placeholders Authorization", handlePurgePlaceholders)}
+                    disabled={isClearing}
+                    className="px-3.5 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition"
+                    title="Purge all placeholder indicators from SDBIP Top Layer Reporting table and Supabase (Mike Only)"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Purge Placeholders</span>
+                  </button>
+                )}
+                {isMikeOnly && (
+                  <button
+                    type="button"
+                    onClick={() => requestMikeAuth("Purge Reporting Table Authorization", () => setClearReportingModal({ isOpen: true, scope: 'entire_table' }))}
+                    disabled={isClearing || rows.length === 0}
+                    className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 hover:border-rose-300 text-rose-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition"
+                    title="Purge placeholders and all reporting records from table and Supabase (Mike Only)"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                    <span>Purge Reporting Table</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -8830,6 +8868,80 @@ Timestamp: ${new Date().toLocaleString()}
           </div>
         );
       })()}
+
+      {/* Master Security Password Modal for mike@mzansiflow.co.za */}
+      {mikeAuthModal.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 select-none">
+          <div className="bg-slate-900 border-2 border-indigo-500/60 rounded-2xl max-w-md w-full p-6 shadow-2xl text-white space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Lock className="w-5 h-5 text-amber-400 shrink-0" />
+                <h3 className="text-sm font-black uppercase tracking-wider text-white">
+                  {mikeAuthModal.title || 'Security Authorization Required'}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMikeAuthModal(p => ({ ...p, isOpen: false, passwordInput: '', error: null }))}
+                className="text-slate-400 hover:text-white p-1 rounded transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              This high-privilege administrative action is restricted exclusively to <strong>mike@mzansiflow.co.za</strong>. Please enter your master security authorization password to proceed.
+            </p>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (mikeAuthModal.passwordInput === '8655M9sznnes01*') {
+                  const actionToExecute = mikeAuthModal.action;
+                  setMikeAuthModal({ isOpen: false, title: '', action: () => {}, passwordInput: '', error: null });
+                  actionToExecute();
+                } else {
+                  setMikeAuthModal(p => ({ ...p, error: 'Incorrect password. Action rejected.' }));
+                }
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <input
+                  type="password"
+                  autoFocus
+                  value={mikeAuthModal.passwordInput}
+                  onChange={(e) => setMikeAuthModal(p => ({ ...p, passwordInput: e.target.value, error: null }))}
+                  placeholder="Enter security password (8655M9sznnes01*)..."
+                  className="w-full bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-xl px-4 py-2 text-sm text-white outline-none font-mono"
+                />
+                {mikeAuthModal.error && (
+                  <p className="text-rose-400 text-xs font-bold mt-1.5 flex items-center gap-1">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{mikeAuthModal.error}</span>
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setMikeAuthModal(p => ({ ...p, isOpen: false, passwordInput: '', error: null }))}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl shadow-md transition cursor-pointer"
+                >
+                  Authenticate & Proceed
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );

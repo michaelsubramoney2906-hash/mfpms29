@@ -5,7 +5,7 @@ import {
   Plus, Trash2, Save, Send, Download, Lock, CheckSquare, 
   HelpCircle, Archive, ClipboardList, Briefcase, FileDown,
   Check, Edit2, Sparkles, CheckCircle2, ShieldCheck, XSquare, Eye, EyeOff,
-  Maximize2, Minimize2, Paperclip, Upload, RefreshCw
+  Maximize2, Minimize2, Paperclip, Upload, RefreshCw, FileSpreadsheet
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { PADraftingSuite } from './PADraftingSuite';
@@ -1635,9 +1635,107 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
       { wch: 12 }  // Weighting (%)
     ];
 
+    const employeeName = (metadata.name || selectedUserEmail || currentUser?.fullName || currentUser?.email || 'Official').replace(/[^a-zA-Z0-9_-]/g, '_');
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Performance Plan");
-    XLSX.writeFile(workbook, `Performance_Plan_Export_${activeTenantId}.xlsx`);
+    XLSX.writeFile(workbook, `Performance_Plan_${employeeName}_${activeTenantId}.xlsx`);
+  };
+
+  // Export specific user's performance plan by email directly to Excel
+  const handleExportUserByEmailToExcel = async (targetEmail: string) => {
+    if (!targetEmail || targetEmail === (selectedUserEmail || currentUser?.email)) {
+      handleExportToExcel();
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/tenant/${activeTenantId}/${apiEndpoint}?userId=${encodeURIComponent(targetEmail)}&t=${Date.now()}`);
+      if (!res.ok) throw new Error("Could not fetch user performance plan");
+      const data = await res.json();
+      const targetMeta = data.metadata || {};
+      const targetItems = data.items || [];
+      const targetUserObj = users.find(u => (u.email || '').toLowerCase() === targetEmail.toLowerCase());
+      const displayName = targetMeta.name || targetUserObj?.fullName || targetUserObj?.full_name || targetEmail;
+
+      const publicHeaders = [
+        "Strategic Objective", "KPI No", "KPI Description",
+        "BSD (X)", "LED (X)", "MFVM (X)", "GGPP (X)", "MIDT (X)", "SR (X)",
+        "KPA", "Baseline Year", "Baseline", "Budget", "Annual Target", "Q1 Target", "Q1 Actual", "1st Qtr Actual Expense", "Q1 Comment", "Q2 Target", "Q2 Actual", "2nd Qtr Actual Expense", "Q2 Comment", "Midterm Review", "Midterm Actual", "Midterm Actual Expense", "Midterm Comment", "Q3 Target", "Q3 Actual", "3rd Qtr Actual Expense", "Q3 Comment", "Q4 Target", "Q4 Actual", "4th Qtr Actual Expense", "Q4 Comment", "Annual Actual", "Annual Actual Exp", "Annual Variance", "Annual Corrective", "POE",
+        "Weighting (%)"
+      ];
+
+      const metadataRows = [
+        ["Performance Plan Metadata Summary"],
+        ["Name & Surname", displayName],
+        ["Period", targetMeta.period || '2025/2026 Financial Year'],
+        ["Department", targetMeta.department || targetUserObj?.department || 'N/A'],
+        ["Position", targetMeta.position || targetUserObj?.jobFunction || 'N/A'],
+        ["Level", targetMeta.level || 'N/A'],
+        ["Email", targetEmail],
+        [],
+        publicHeaders
+      ];
+
+      const kpiRows = targetItems.map((item: any) => [
+        item.strategicGoal || '',
+        item.kpiNo || '',
+        item.kpi || '',
+        item.bsd ? 'X' : '',
+        item.led ? 'X' : '',
+        item.mfvm ? 'X' : '',
+        item.ggpp ? 'X' : '',
+        item.midt ? 'X' : '',
+        item.sr ? 'X' : '',
+        item.kpa || '',
+        item.baselineYear || '',
+        item.baseline || '',
+        item.budget || '',
+        item.annualTarget || '',
+        item.q1Target || '',
+        item.q1Actual || '',
+        item.q1ActualExpense || '',
+        item.q1Comment || '',
+        item.q2Target || '',
+        item.q2Actual || '',
+        item.q2ActualExpense || '',
+        item.q2Comment || '',
+        item.midtermTarget || '',
+        item.midtermActual || '',
+        item.midtermActualExpense || '',
+        item.midtermComment || '',
+        item.q3Target || '',
+        item.q3Actual || '',
+        item.q3ActualExpense || '',
+        item.q3Comment || '',
+        item.q4Target || '',
+        item.q4Actual || '',
+        item.q4ActualExpense || '',
+        item.q4Comment || item.q4Corrective || '',
+        item.annualActual || '',
+        item.annualActualExpense || item.annualActualExp || '',
+        item.annualVariance || calculateVariance(item.annualTarget, item.annualActual || item.q4Actual),
+        item.annualCorrective || '',
+        item.annualRequiredPoe || item.poe || '',
+        item.weighting || ''
+      ]);
+
+      const worksheetData = [...metadataRows, ...kpiRows];
+      const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+      worksheet['!cols'] = [
+        { wch: 25 }, { wch: 10 }, { wch: 55 }, { wch: 7 }, { wch: 7 }, { wch: 7 }, { wch: 7 }, { wch: 7 }, { wch: 7 },
+        { wch: 25 }, { wch: 14 }, { wch: 20 }, { wch: 18 }, { wch: 20 }, { wch: 14 }, { wch: 14 }, { wch: 20 }, { wch: 25 },
+        { wch: 14 }, { wch: 14 }, { wch: 20 }, { wch: 25 }, { wch: 16 }, { wch: 16 }, { wch: 20 }, { wch: 25 }, { wch: 14 },
+        { wch: 14 }, { wch: 20 }, { wch: 25 }, { wch: 14 }, { wch: 14 }, { wch: 20 }, { wch: 25 }, { wch: 25 }, { wch: 12 }
+      ];
+
+      const cleanFileName = displayName.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Performance Plan");
+      XLSX.writeFile(workbook, `Performance_Plan_${cleanFileName}_${activeTenantId}.xlsx`);
+    } catch (err) {
+      console.error("Export user plan error:", err);
+      alert("Could not export user performance plan: " + String(err));
+    }
   };
 
   // Word (.doc) Export (restricted columns filter compliant)
@@ -2206,7 +2304,27 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
                   </option>
                 ))}
             </select>
+            <button
+              type="button"
+              onClick={() => handleExportUserByEmailToExcel(selectedUserEmail || currentUser.email)}
+              className="p-1 text-emerald-400 hover:text-emerald-300 hover:bg-slate-700 rounded transition cursor-pointer"
+              title={`Download ${selectedUserEmail || currentUser.email}'s Performance Plan in Excel format`}
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+            </button>
           </div>
+        )}
+
+        {isPlan && (
+          <button
+            type="button"
+            onClick={handleExportToExcel}
+            className="bg-emerald-700 hover:bg-emerald-600 border border-emerald-500 text-white font-black px-3.5 py-1.5 rounded-xl text-[11px] uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer shadow-xs"
+            title={`Download ${metadata.name || selectedUserEmail || 'official'}'s Performance Plan in Excel (.xlsx) format`}
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-200" />
+            <span>Download to Excel</span>
+          </button>
         )}
 
         <span className="text-xs bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-xl text-slate-350 flex items-center gap-1.5 font-mono">
@@ -2785,6 +2903,16 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
               >
                 <Sparkles className="w-3.5 h-3.5 text-amber-300" />
                 <span>{isPullingFred ? 'Importing 97 KPIs...' : 'Import 97 KPIs'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleExportToExcel}
+                className="bg-emerald-700 hover:bg-emerald-650 border border-emerald-500 text-white font-bold px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-wide flex items-center gap-1.5 transition cursor-pointer shadow-xs"
+                title={`Download ${metadata.name || selectedUserEmail || 'official'}'s Performance Plan in Excel format`}
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-200" />
+                <span>Download to Excel</span>
               </button>
 
               <button

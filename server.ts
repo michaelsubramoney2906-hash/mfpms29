@@ -12299,6 +12299,128 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
     }
   });
 
+  // Push Core Competencies to Performance Agreement Drafting Suite
+  app.post("/api/tenant/:tenantId/core-competencies/push-to-pa", async (req, res) => {
+    const { tenantId: routeTenantId } = req.params;
+    const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : (req.body.userId || 'default');
+    const { items, cfoItems, pedItems, corporateServicesItems } = req.body;
+    try {
+      const supabase = getSupabase();
+      const tenantId = await resolveTenantId(routeTenantId, userId);
+      const docId = `core_competencies_${tenantId}_${userId}`;
+      await supabase
+        .from('messages')
+        .upsert({
+          id: docId,
+          tenant_id: tenantId,
+          sender_id: 'core_competencies_push_to_pa',
+          sender_email: 'core_competencies@system.local',
+          sender_name: 'Core Competencies Push Engine',
+          content: JSON.stringify({ items, cfoItems, pedItems, corporateServicesItems }),
+          message_type: 'core_competencies_list',
+          created_at: new Date().toISOString()
+        });
+
+      // Also persist to pa_drafting_suite document if present
+      const paDocId = `pa_draft_${tenantId}_${userId}`;
+      const { data: paData } = await supabase
+        .from('messages')
+        .select('content')
+        .eq('id', paDocId)
+        .maybeSingle();
+
+      let currentPa: any = {};
+      if (paData && paData.content) {
+        try { currentPa = JSON.parse(paData.content); } catch (e) {}
+      }
+      currentPa.coreCompetencies = items || currentPa.coreCompetencies;
+      currentPa.cfoCompetencies = cfoItems || currentPa.cfoCompetencies;
+      currentPa.pedCompetencies = pedItems || currentPa.pedCompetencies;
+      currentPa.corporateServicesCompetencies = corporateServicesItems || currentPa.corporateServicesCompetencies;
+
+      await supabase
+        .from('messages')
+        .upsert({
+          id: paDocId,
+          tenant_id: tenantId,
+          sender_id: 'core_competencies_push_to_pa',
+          sender_email: 'core_competencies@system.local',
+          sender_name: 'Core Competencies Push Engine',
+          content: JSON.stringify(currentPa),
+          message_type: 'pa_drafting_document',
+          created_at: new Date().toISOString()
+        });
+
+      res.json({ success: true, message: "Successfully pushed competencies to Performance Agreement Drafting Suite!" });
+    } catch (err: any) {
+      console.error("push-to-pa exception:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Core Competencies Evaluation Routes (Directors, PED, Corporate Services Self & Team Evaluation)
+  app.get("/api/tenant/:tenantId/core-competencies-evaluation", async (req, res) => {
+    const { tenantId: routeTenantId } = req.params;
+    const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
+    try {
+      const supabase = getSupabase();
+      const tenantId = await resolveTenantId(routeTenantId, userId);
+      const evalDocId = `cc_eval_${tenantId}_${userId}`;
+
+      const { data, error } = await supabase
+        .from('messages')
+        .select('content')
+        .eq('id', evalDocId)
+        .maybeSingle();
+
+      if (error) {
+        logSupabaseError("cc-evaluation load", error);
+        return res.json({ evaluation: {} });
+      }
+
+      if (data && data.content) {
+        try {
+          const parsed = JSON.parse(data.content);
+          return res.json({ evaluation: parsed });
+        } catch (parseErr) {}
+      }
+      return res.json({ evaluation: {} });
+    } catch (err: any) {
+      console.error("core-competencies-evaluation load exception:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/tenant/:tenantId/core-competencies-evaluation", async (req, res) => {
+    const { tenantId: routeTenantId } = req.params;
+    const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
+    const { evaluation } = req.body;
+    try {
+      const supabase = getSupabase();
+      const tenantId = await resolveTenantId(routeTenantId, userId);
+      const evalDocId = `cc_eval_${tenantId}_${userId}`;
+
+      const { error } = await supabase
+        .from('messages')
+        .upsert({
+          id: evalDocId,
+          tenant_id: tenantId,
+          sender_id: 'cc_evaluation_editor',
+          sender_email: userId,
+          sender_name: 'Core Competencies Evaluation',
+          content: JSON.stringify(evaluation || {}),
+          message_type: 'core_competencies_evaluation',
+          created_at: new Date().toISOString()
+        });
+
+      if (error) throw error;
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error("core-competencies-evaluation save exception:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Personal Development Plan (PDP) Routes
   app.get("/api/tenant/:tenantId/pdp", async (req, res) => {
     const { tenantId: routeTenantId } = req.params;
@@ -16303,6 +16425,74 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       
       res.json({ success: true });
     } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Compliance Certificate Settings Persistent Storage in Supabase
+  app.get("/api/tenant/:tenantId/compliance-certificate-settings", async (req, res) => {
+    try {
+      const { tenantId } = req.params;
+      const supabase = getSupabase();
+      if (!supabase) return res.status(500).json({ error: "Database client unavailable" });
+
+      const docId = `compliance_cert_settings_${tenantId || 'global'}`;
+      const { data, error } = await supabase
+        .from('messages')
+        .select('content')
+        .eq('id', docId)
+        .maybeSingle();
+
+      if (error) {
+        logSupabaseError("compliance-cert-settings-get", error);
+        return res.json({ success: true, settings: null });
+      }
+
+      let settings = null;
+      if (data && data.content) {
+        try {
+          settings = typeof data.content === 'string' ? JSON.parse(data.content) : data.content;
+        } catch (parseErr) {
+          console.error("Error parsing compliance certificate settings:", parseErr);
+          settings = null;
+        }
+      }
+
+      return res.json({ success: true, settings });
+    } catch (err: any) {
+      console.error("GET compliance-certificate-settings error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/tenant/:tenantId/compliance-certificate-settings", async (req, res) => {
+    try {
+      const { tenantId } = req.params;
+      const { settings } = req.body;
+      const supabase = getSupabase();
+      if (!supabase) return res.status(500).json({ error: "Database client unavailable" });
+
+      const docId = `compliance_cert_settings_${tenantId || 'global'}`;
+      const payload = {
+        id: docId,
+        tenant_id: tenantId || 'global',
+        sender_id: 'compliance_module',
+        sender_email: 'compliance@mzansiflow.co.za',
+        sender_name: 'Compliance Certificate Module',
+        content: typeof settings === 'string' ? settings : JSON.stringify(settings),
+        message_type: 'compliance_cert_settings',
+        created_at: new Date().toISOString()
+      };
+
+      const { error } = await supabase.from('messages').upsert(payload, { onConflict: 'id' });
+      if (error) {
+        logSupabaseError("compliance-cert-settings-post", error);
+        throw error;
+      }
+
+      res.json({ success: true, message: "Compliance certificate settings saved persistently." });
+    } catch (err: any) {
+      console.error("POST compliance-certificate-settings error:", err);
       res.status(500).json({ error: err.message });
     }
   });

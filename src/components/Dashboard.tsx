@@ -3,6 +3,7 @@ import { Logo, cn } from './Branding';
 import { modules, tenants } from '../data';
 import type { User, Module } from '../types';
 import { isUserUnrestricted, isGlobalAdminEmail } from '../utils/unrestrictedHelper';
+import { isUserMatch } from '../utils/sdbipWorkflowHelper';
 import { ChevronDown, LogOut, ShieldCheck, ChevronRight, LayoutGrid, Calendar as CalendarIcon, Bell, ArrowLeft, Layers, Lock } from 'lucide-react';
 import { UserManagement } from './UserManagement';
 import { SharePoint } from './SharePoint';
@@ -452,17 +453,117 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
     });
   };
 
+  const [sdbipSubmitterEmails, setSdbipSubmitterEmails] = useState<string[]>([]);
+  const [sdbipApproverEmails, setSdbipApproverEmails] = useState<string[]>([]);
+
+  useEffect(() => {
+    const fetchSdbipAssignments = async () => {
+      try {
+        const tenantToUse = activeTenantId || 'tenant-229';
+        const res = await fetch(`/api/tenant/${tenantToUse}/sdbip?t=${Date.now()}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const rows = Array.isArray(data) ? data : data.items || [];
+        const subSet = new Set<string>();
+        const appSet = new Set<string>();
+        rows.forEach((r: any) => {
+          if (r.submitter) subSet.add(r.submitter);
+          if (r.submitterEmail) subSet.add(r.submitterEmail);
+          if (r.submitterName) subSet.add(r.submitterName);
+          if (r.person) subSet.add(r.person);
+          if (r.responsibleUnit) subSet.add(r.responsibleUnit);
+
+          if (r.approver) appSet.add(r.approver);
+          if (r.approverEmail) appSet.add(r.approverEmail);
+          if (r.approverName) appSet.add(r.approverName);
+        });
+        setSdbipSubmitterEmails(Array.from(subSet));
+        setSdbipApproverEmails(Array.from(appSet));
+      } catch (err) {
+        console.warn("Failed to load SDBIP assignments in Dashboard:", err);
+      }
+    };
+    fetchSdbipAssignments();
+  }, [activeTenantId]);
+
+  const profileForMatching = fullUserProfile || user;
+  const isSdbipSubmitter = sdbipSubmitterEmails.some(s => isUserMatch(s, profileForMatching));
+  const isSdbipApprover = sdbipApproverEmails.some(a => isUserMatch(a, profileForMatching));
+
   const getFilteredSubModules = (mod: Module) => {
     if (!mod) return [];
-    if (mod.id !== 'ipms') return mod.subModules;
     if (isUnrestricted || isUserUnrestricted(fullUserProfile || user)) return mod.subModules;
 
     const profileToUse = fullUserProfile || user;
     const email = (profileToUse?.email || '').toLowerCase().trim();
+    const fullName = (profileToUse?.fullName || (profileToUse as any)?.full_name || (profileToUse as any)?.name || '').toLowerCase().trim();
     const role = (profileToUse?.role || '').toLowerCase().trim();
     const systemRole = (profileToUse?.systemRole || '').toLowerCase().trim();
     const jobFunction = (profileToUse?.jobFunction || '').toLowerCase().trim();
     const department = (profileToUse?.department || '').toLowerCase().trim();
+
+    if (mod.id === 'opms-admin' || mod.id === 'opms') {
+      const isGlobalAdminUser = email === 'mike@mzansiflow.co.za' || 
+                                email.endsWith('@mzansiflow.co.za') || 
+                                profileToUse?.role === 'admin' || 
+                                user.role === 'admin' || 
+                                profileToUse?.systemRole === 'Global Administrator' || 
+                                user.systemRole === 'Global Administrator' ||
+                                profileToUse?.systemRole === 'Systems Administrator' ||
+                                user.systemRole === 'Systems Administrator';
+
+      if (isGlobalAdminUser) return mod.subModules;
+
+      const isNamedReviewer = email === 'nsibandenp@nkangaladm.gov.za' ||
+                              email === 'shabangusm@nkangaladm.gov.za' ||
+                              email === 'zulune@nkangaladm.gov.za' ||
+                              email === 'khuboniy@nkangaladm.gov.za' ||
+                              email === 'lukhelema@nkangaladm.gov.za' ||
+                              fullName.includes('nompumelelo') || fullName.includes('nsibande') ||
+                              fullName.includes('sibusiso') || fullName.includes('shabangu') ||
+                              fullName.includes('noluthando') || fullName.includes('zulu') ||
+                              fullName.includes('yena') || fullName.includes('khuboni') ||
+                              fullName.includes('mduduzi') || fullName.includes('lukhele');
+
+      const isInternalAuditUser = email === 'twalaad@nkangaladm.gov.za' ||
+                                  email === 'seeranepl@nkangaladm.gov.za' ||
+                                  email === 'morarj@nkangaladm.gov.za' ||
+                                  email === 'masemolak@nkangaladm.gov.za' ||
+                                  email === 'mpanzacs@nkangaladm.gov.za' ||
+                                  email === 'audit@mzansiflow.co.za' ||
+                                  role.includes('internal audit') || role.includes('audit') ||
+                                  systemRole.includes('audit') ||
+                                  jobFunction.includes('internal audit') || jobFunction.includes('audit') ||
+                                  department.includes('audit') ||
+                                  fullName.includes('amos') || fullName.includes('twala') ||
+                                  fullName.includes('peggy') || fullName.includes('seerane') ||
+                                  fullName.includes('jayvanti') || fullName.includes('morar') ||
+                                  fullName.includes('katlego') || fullName.includes('masemola') ||
+                                  fullName.includes('sthembile') || fullName.includes('mpanza');
+
+      const isSubmitter = isSdbipSubmitter;
+      const isApprover = isSdbipApprover;
+
+      return mod.subModules.filter(sub => {
+        if (sub.id === 'opms-submitter') {
+          return isSubmitter;
+        }
+        if (sub.id === 'opms-approver') {
+          return isSubmitter || isApprover;
+        }
+        if (sub.id === 'opms-reviewer') {
+          if (isApprover && !isSubmitter && !isNamedReviewer) return false;
+          return isSubmitter || isNamedReviewer;
+        }
+        if (sub.id === 'opms-audit') {
+          if (isApprover && !isSubmitter && !isInternalAuditUser) return false;
+          return isSubmitter || isInternalAuditUser;
+        }
+        return true;
+      });
+    }
+
+    if (mod.id !== 'ipms') return mod.subModules;
 
     const isDPMCUser = email === 'dpmc@mzansiflow.co.za' || email === 'test.dpmc@local' || role.includes('dpmc') || systemRole.includes('dpmc') || jobFunction.includes('dpmc');
 
@@ -679,9 +780,9 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col font-sans overflow-hidden text-slate-100">
       {/* Top Header */}
-      <header className="flex items-center justify-between px-8 py-4 border-b border-slate-800 bg-slate-900/90 text-white z-50 backdrop-blur-md">
+      <header className="flex items-center justify-between px-8 py-4 border-b border-slate-200 bg-white text-slate-900 z-50 shadow-xs">
         <div className="flex items-center space-x-2">
-          <Logo />
+          <Logo isDashboardMenu={true} />
         </div>
 
         {/* Global Navigation */}
@@ -696,30 +797,30 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                 className={cn(
                   "flex items-center gap-1.5 px-4 py-2 border-b-2 cursor-pointer transition-colors text-sm font-bold relative",
                   activeModule.id === mod.id 
-                    ? "border-emerald-500 bg-emerald-950/40 text-emerald-400"
-                    : "border-transparent text-slate-400 hover:border-slate-700 hover:text-white"
+                    ? "border-emerald-600 bg-emerald-50 text-emerald-800"
+                    : "border-transparent text-slate-600 hover:border-slate-300 hover:text-slate-900"
                 )}
               >
                 {mod.name}
                 {mod.id === 'ipms' && isIpmsLockedForUser && (
-                  <span className="bg-amber-500/20 text-amber-500 border border-amber-500/40 p-0.5 rounded ml-1 flex items-center" title="Restricted: Maintenance Updates Underway (CFO & PMS Directive)">
-                    <Lock className="w-3 h-3 text-amber-500" />
+                  <span className="bg-amber-500/20 text-amber-600 border border-amber-500/40 p-0.5 rounded ml-1 flex items-center" title="Restricted: Maintenance Updates Underway (CFO & PMS Directive)">
+                    <Lock className="w-3 h-3 text-amber-600" />
                   </span>
                 )}
-                {getFilteredSubModules(mod).length > 0 && <ChevronDown className={cn("w-4 h-4 ml-1 opacity-50", activeModule.id === mod.id && "rotate-180 opacity-100")} />}
+                {getFilteredSubModules(mod).length > 0 && <ChevronDown className={cn("w-4 h-4 ml-1 opacity-60", activeModule.id === mod.id && "rotate-180 opacity-100")} />}
               </button>
 
               {/* Dropdown Menu */}
               {getFilteredSubModules(mod).length > 0 && (
-              <div className="absolute top-[100%] left-0 mt-1 w-72 border border-slate-800 bg-slate-900 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 transform origin-top max-h-[60vh] overflow-y-auto hide-scrollbar p-1 pointer-events-none group-hover:pointer-events-auto group-hover:-translate-y-0.5 rounded-xl">
+              <div className="absolute top-[100%] left-0 mt-1 w-72 border border-slate-200 bg-white shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 transform origin-top max-h-[60vh] overflow-y-auto hide-scrollbar p-1 pointer-events-none group-hover:pointer-events-auto group-hover:-translate-y-0.5 rounded-xl">
                 <div className="space-y-0.5">
                   {getFilteredSubModules(mod).map(sub => (
                     <button 
                       key={sub.id}
                       onClick={() => { setActiveModule(mod); handleSubModuleSelect(sub); }}
-                      className="w-full flex items-center gap-3 px-3 py-2 text-[13px] font-bold transition-colors text-left group/btn rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 cursor-pointer"
+                      className="w-full flex items-center gap-3 px-3 py-2 text-[13px] font-bold transition-colors text-left group/btn rounded-lg text-slate-700 hover:text-slate-900 hover:bg-slate-100 cursor-pointer"
                     >
-                      <sub.icon className="w-4 h-4 transition-colors text-slate-400 group-hover/btn:text-emerald-400" />
+                      <sub.icon className="w-4 h-4 transition-colors text-slate-500 group-hover/btn:text-emerald-600" />
                       <span className="flex-1 truncate uppercase tracking-tight">{sub.name}</span>
                     </button>
                   ))}
@@ -732,15 +833,15 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
 
         <div className="flex items-center space-x-3">
           <div className="text-right hidden sm:block mr-2">
-            <p className="text-[11px] font-black uppercase tracking-widest leading-none text-white">{user.role.replace('_', ' ')}</p>
-            <p className="text-[10px] font-bold text-slate-400">{user.email}</p>
+            <p className="text-[11px] font-black uppercase tracking-widest leading-none text-slate-900">{user.role.replace('_', ' ')}</p>
+            <p className="text-[10px] font-bold text-slate-500">{user.email}</p>
           </div>
           <button 
             onClick={onLogout}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-colors text-[11px] uppercase tracking-wider shadow-sm cursor-pointer border bg-slate-800 border-slate-700 hover:bg-slate-700 text-white"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-colors text-[11px] uppercase tracking-wider shadow-xs cursor-pointer border bg-slate-100 border-slate-300 hover:bg-slate-200 text-slate-800"
             title="Sign Out of Mzansi Flow"
           >
-            <LogOut className="w-3.5 h-3.5 text-stone-300" />
+            <LogOut className="w-3.5 h-3.5 text-slate-600" />
             Sign Out
           </button>
         </div>

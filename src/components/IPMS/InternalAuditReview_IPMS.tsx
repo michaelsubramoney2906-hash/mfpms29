@@ -37,6 +37,7 @@ import {
 import { IPMSWorkflowInbox } from './IPMSWorkflowInbox';
 import { OfficeDocumentViewer } from './OfficeDocumentViewer';
 import { JSCInternalAuditorReviewSection } from './JSCModules';
+import { CoreCompetenciesAuditorReviewSection } from './CoreCompetenciesSelfEvaluation';
 import { calculateVariance } from './Evaluation_IPMS';
 import { downloadOriginalFile } from '../../utils/documentBinaryHelper';
 import { isUserUnrestricted } from '../../utils/unrestrictedHelper';
@@ -47,7 +48,7 @@ interface Props {
 }
 
 export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) {
-  const [auditSubTab, setAuditSubTab] = useState<'kpi' | 'competencies'>('kpi');
+  const [auditSubTab, setAuditSubTab] = useState<'kpi' | 'competencies' | 'jsc'>('kpi');
   const [loading, setLoading] = useState(true);
   const [teamPlans, setTeamPlans] = useState<any[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
@@ -1766,11 +1767,28 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
           >
             🛡️ Core Competencies Audit Review
           </button>
+          <button
+            type="button"
+            onClick={() => setAuditSubTab('jsc')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase transition cursor-pointer ${
+              auditSubTab === 'jsc'
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            🎯 JSCs Audit Review
+          </button>
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 bg-slate-100">
         {auditSubTab === 'competencies' ? (
+          <CoreCompetenciesAuditorReviewSection
+            currentUser={currentUser}
+            activeTenantId={activeTenantId}
+            defaultEmployeeEmail={selectedPlan?.userId || ''}
+          />
+        ) : auditSubTab === 'jsc' ? (
           <JSCInternalAuditorReviewSection
             currentUser={currentUser}
             activeTenantId={activeTenantId}

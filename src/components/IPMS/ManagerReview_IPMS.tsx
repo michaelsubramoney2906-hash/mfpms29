@@ -9,6 +9,7 @@ import {
 import { IPMSWorkflowInbox } from './IPMSWorkflowInbox';
 import { OfficeDocumentViewer } from './OfficeDocumentViewer';
 import { JSCManagerApprovalSection } from './JSCModules';
+import { CoreCompetenciesManagerApprovalSection } from './CoreCompetenciesSelfEvaluation';
 import { calculateVariance } from './Evaluation_IPMS';
 import { isUserUnrestricted } from '../../utils/unrestrictedHelper';
 
@@ -33,7 +34,7 @@ const safeJson = async (res: Response) => {
 };
 
 export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
-  const [mgrTab, setMgrTab] = useState<'kpi' | 'jsc'>('kpi');
+  const [mgrTab, setMgrTab] = useState<'kpi' | 'jsc' | 'cc'>('kpi');
   const [loading, setLoading] = useState(true);
   const [teamPlans, setTeamPlans] = useState<any[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
@@ -1367,6 +1368,19 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
             <CheckCircle className="w-4 h-4" />
             <span>2. JSC Manager Approvals</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setMgrTab('cc')}
+            className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition cursor-pointer ${
+              mgrTab === 'cc' 
+                ? 'bg-indigo-600 text-white shadow-sm' 
+                : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+            }`}
+          >
+            <Award className="w-4 h-4" />
+            <span>3. Core Competencies Manager Approvals</span>
+          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 bg-slate-100 space-y-8">
@@ -1376,6 +1390,14 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
                 currentUser={currentUser} 
                 activeTenantId={activeTenantId} 
                 defaultEmployeeEmail={selectedPlan?.userId} 
+              />
+            </div>
+          ) : mgrTab === 'cc' ? (
+            <div className="max-w-5xl mx-auto">
+              <CoreCompetenciesManagerApprovalSection
+                currentUser={currentUser}
+                activeTenantId={activeTenantId}
+                defaultEmployeeEmail={selectedPlan?.userId}
               />
             </div>
           ) : (

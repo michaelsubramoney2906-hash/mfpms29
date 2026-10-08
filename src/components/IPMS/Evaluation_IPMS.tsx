@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   FileSignature, Send, User, Target, ClipboardList,
   Upload, X, File, FileSpreadsheet, Image, FileText, Check, AlertCircle, Info, CalendarCheck, HelpCircle, Presentation,
-  Bell, AlertTriangle, CheckCircle, Eye, Download, CheckSquare, Square, Trash2, FileBadge, UserCheck, FileBarChart
+  Bell, AlertTriangle, CheckCircle, Eye, Download, CheckSquare, Square, Trash2, FileBadge, UserCheck, FileBarChart, Award
 } from 'lucide-react';
 import { IPMSWorkflowInbox } from './IPMSWorkflowInbox';
 import { OfficeDocumentViewer } from './OfficeDocumentViewer';
@@ -13,6 +13,7 @@ import {
   JSCManagerApprovalSection, 
   JSCAnalyticalReportingSection 
 } from './JSCModules';
+import { CoreCompetenciesSelfEvaluation } from './CoreCompetenciesSelfEvaluation';
 
 export interface PoeDocument {
   id: string;
@@ -393,7 +394,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
       </div>
     );
   };
-  const [evalPhase, setEvalPhase] = useState<'kpi_self' | 'jsc_self' | 'jsc_manager' | 'jsc_reporting'>('kpi_self');
+  const [evalPhase, setEvalPhase] = useState<'kpi_self' | 'jsc_self' | 'cc_self' | 'jsc_manager' | 'jsc_reporting'>('kpi_self');
   const [loading, setLoading] = useState(true);
   const [pplanData, setPplanData] = useState<{ metadata: any, items: any[] }>({ metadata: {}, items: [] });
   const [saving, setSaving] = useState(false);
@@ -1224,15 +1225,15 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
 
         <button
           type="button"
-          onClick={() => setEvalPhase('jsc_manager')}
+          onClick={() => setEvalPhase('cc_self')}
           className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition cursor-pointer ${
-            evalPhase === 'jsc_manager' 
-              ? 'bg-emerald-600 text-white shadow-sm' 
-              : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+            evalPhase === 'cc_self' 
+              ? 'bg-indigo-600 text-white shadow-sm' 
+              : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
           }`}
         >
-          <UserCheck className="w-4 h-4" />
-          <span>3. JSC Manager Approval</span>
+          <Award className="w-4 h-4" />
+          <span>3. Core Competencies Self Evaluation</span>
         </button>
 
         <button
@@ -1240,8 +1241,8 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
           onClick={() => setEvalPhase('jsc_reporting')}
           className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition cursor-pointer ${
             evalPhase === 'jsc_reporting' 
-              ? 'bg-indigo-600 text-white shadow-sm' 
-              : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+              ? 'bg-slate-900 text-white shadow-sm' 
+              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
           }`}
         >
           <FileBarChart className="w-4 h-4" />
@@ -1273,9 +1274,9 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
           <div className="max-w-5xl mx-auto">
             <JSCSelfEvaluationSection currentUser={currentUser} activeTenantId={activeTenantId} isTeamJSC={isTeamEvaluation} />
           </div>
-        ) : evalPhase === 'jsc_manager' ? (
-          <div className="max-w-5xl mx-auto">
-            <JSCManagerApprovalSection currentUser={currentUser} activeTenantId={activeTenantId} isTeamJSC={isTeamEvaluation} />
+        ) : evalPhase === 'cc_self' ? (
+          <div className="max-w-6xl mx-auto">
+            <CoreCompetenciesSelfEvaluation currentUser={currentUser} activeTenantId={activeTenantId} isTeamEvaluation={isTeamEvaluation} />
           </div>
         ) : evalPhase === 'jsc_reporting' ? (
           <div className="max-w-5xl mx-auto">

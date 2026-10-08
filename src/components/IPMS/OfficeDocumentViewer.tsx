@@ -193,8 +193,23 @@ export function OfficeDocumentViewer({ doc, document: propDocument, onClose }: O
                 </div>
               `);
             }
+          } else if (extension === 'txt') {
+            try {
+              const textContent = new TextDecoder('utf-8').decode(new Uint8Array(arrayBuffer));
+              setRenderedWordHtml(`
+                <div class="p-6 bg-white font-mono text-xs select-text">
+                  <div class="flex items-center gap-2 mb-4 pb-2 border-b border-slate-200 text-slate-500 font-sans text-xs">
+                    <span class="font-bold text-slate-800 text-sm">📝 ${targetDoc.name}</span>
+                    <span class="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono uppercase font-bold">Notepad Document</span>
+                  </div>
+                  <pre class="font-mono text-xs whitespace-pre-wrap text-slate-800 leading-relaxed font-normal">${textContent || '(Empty text document)'}</pre>
+                </div>
+              `);
+            } catch (e) {
+              setRenderedWordHtml(`<pre class="font-mono text-xs whitespace-pre-wrap text-slate-800">Error reading text content</pre>`);
+            }
           } else {
-            // Fallback for .doc, .rtf, .txt
+            // Fallback for .doc, .rtf
             try {
               const base64 = dataUrlStr.split(',')[1] || dataUrlStr;
               const cleanBase64 = base64.trim().replace(/\s/g, '');

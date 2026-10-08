@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { OfficeDocumentViewer } from './OfficeDocumentViewer';
 import { JSCDpmcReviewSection } from './JSCModules';
+import { CoreCompetenciesDpmcReviewSection } from './CoreCompetenciesSelfEvaluation';
 
 interface Props {
   currentUser: any;
@@ -30,7 +31,7 @@ interface Props {
 }
 
 export function DepartmentModerationIPMS({ currentUser, activeTenantId }: Props) {
-  const [dpmcSubTab, setDpmcSubTab] = useState<'kpi' | 'competencies'>('kpi');
+  const [dpmcSubTab, setDpmcSubTab] = useState<'kpi' | 'jsc' | 'competencies'>('kpi');
   const [loading, setLoading] = useState(true);
   const [teamPlans, setTeamPlans] = useState<any[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
@@ -850,7 +851,18 @@ export function DepartmentModerationIPMS({ currentUser, activeTenantId }: Props)
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            📊 Performance Indicators Moderation
+            📊 Individual KPIs Moderation
+          </button>
+          <button
+            type="button"
+            onClick={() => setDpmcSubTab('jsc')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase transition cursor-pointer ${
+              dpmcSubTab === 'jsc'
+                ? 'bg-purple-600 text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            🎯 JSCs DPMC Review
           </button>
           <button
             type="button"
@@ -867,8 +879,14 @@ export function DepartmentModerationIPMS({ currentUser, activeTenantId }: Props)
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 bg-slate-100">
-        {dpmcSubTab === 'competencies' ? (
+        {dpmcSubTab === 'jsc' ? (
           <JSCDpmcReviewSection
+            currentUser={currentUser}
+            activeTenantId={activeTenantId}
+            defaultEmployeeEmail={selectedPlan?.userId || ''}
+          />
+        ) : dpmcSubTab === 'competencies' ? (
+          <CoreCompetenciesDpmcReviewSection
             currentUser={currentUser}
             activeTenantId={activeTenantId}
             defaultEmployeeEmail={selectedPlan?.userId || ''}

@@ -4,7 +4,7 @@ import {
   Send, RefreshCw, Layers, Database, Search, ChevronRight, 
   Clock, Plus, ShieldCheck, Check, MessageSquare, Info, Lock, Unlock,
   Upload, Eye, Trash2, Paperclip, FileSpreadsheet, Presentation, Image as ImageIcon,
-  Bell, CheckCircle2, UserCheck, ShieldAlert, X, RotateCcw, Cloud, Download, Building
+  Bell, CheckCircle2, UserCheck, ShieldAlert, X, RotateCcw, Cloud, Download, Building, Sun, Moon
 } from 'lucide-react';
 import type { User } from '../../types';
 import { SdbipRow } from './SDBIP';
@@ -38,6 +38,7 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
   const [selectedKpi, setSelectedKpi] = useState<SdbipRow | null>(null);
   const [kpaFilter, setKpaFilter] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [scorecardsTheme, setScorecardsTheme] = useState<'dark' | 'light'>('dark');
   const [poes, setPoes] = useState<any[]>([]);
   const [previewDoc, setPreviewDoc] = useState<PoeDocument | null>(null);
   const [uploadingPoe, setUploadingPoe] = useState(false);
@@ -815,6 +816,18 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
       setTimeout(() => setError(null), 4000);
       return;
     }
+
+    // Duplicate submission safeguard
+    const kpiStatus = (selectedKpi as any).workflowStatus;
+    const isAlreadySubmitted = kpiStatus === 'Submitted to Approver' || kpiStatus === 'Submitted' || kpiStatus === 'Approved';
+    const isReturnedOrRejected = kpiStatus === 'Returned' || kpiStatus === 'Rejected';
+
+    if (isAlreadySubmitted && !isReturnedOrRejected) {
+      setError("Duplicate Submission Safeguard: This KPI actual and PoE have already been submitted to the Executive Approver and are awaiting review. Re-submission or duplicate reporting is disabled unless the Approver rejects or returns it for resubmission.");
+      setTimeout(() => setError(null), 6000);
+      return;
+    }
+
     setLoading(true);
     try {
       const approverTarget = selectedKpi.approver || 'Approver';
@@ -1013,47 +1026,66 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
 
   const getStatusBadge = (status: string | undefined) => {
     const s = status || 'Draft';
+    const isLight = scorecardsTheme === 'light';
     switch (s) {
       case 'Submitted':
       case 'Submitted to Approver':
         return (
-          <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider inline-flex items-center gap-1 shadow-2xs">
-            <Clock className="w-2.5 h-2.5 text-amber-400" />
+          <span className={isLight
+            ? "bg-amber-100 text-amber-950 border border-amber-500 font-black px-2 py-0.5 rounded text-[10px] uppercase tracking-wider inline-flex items-center gap-1 shadow-2xs"
+            : "bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider inline-flex items-center gap-1 shadow-2xs"
+          }>
+            <Clock className={isLight ? "w-2.5 h-2.5 text-amber-800" : "w-2.5 h-2.5 text-amber-400"} />
             <span>Submitted (Awaiting Approver)</span>
           </span>
         );
       case 'Pending Review':
         return (
-          <span className="bg-blue-500/20 text-blue-300 border border-blue-500/40 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider inline-flex items-center gap-1 shadow-2xs">
-            <Clock className="w-2.5 h-2.5 text-blue-400" />
+          <span className={isLight
+            ? "bg-blue-100 text-blue-950 border border-blue-500 font-black px-2 py-0.5 rounded text-[10px] uppercase tracking-wider inline-flex items-center gap-1 shadow-2xs"
+            : "bg-blue-500/20 text-blue-300 border border-blue-500/40 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider inline-flex items-center gap-1 shadow-2xs"
+          }>
+            <Clock className={isLight ? "w-2.5 h-2.5 text-blue-800" : "w-2.5 h-2.5 text-blue-400"} />
             <span>Awaiting Reviewer</span>
           </span>
         );
       case 'Reviewed':
         return (
-          <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider inline-flex items-center gap-1 shadow-2xs">
-            <CheckCircle2 className="w-2.5 h-2.5 text-indigo-400" />
+          <span className={isLight
+            ? "bg-indigo-100 text-indigo-950 border border-indigo-500 font-black px-2 py-0.5 rounded text-[10px] uppercase tracking-wider inline-flex items-center gap-1 shadow-2xs"
+            : "bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider inline-flex items-center gap-1 shadow-2xs"
+          }>
+            <CheckCircle2 className={isLight ? "w-2.5 h-2.5 text-indigo-800" : "w-2.5 h-2.5 text-indigo-400"} />
             <span>Awaiting MM Approval</span>
           </span>
         );
       case 'Approved':
         return (
-          <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider inline-flex items-center gap-1 shadow-2xs">
-            <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />
+          <span className={isLight
+            ? "bg-emerald-100 text-emerald-950 border border-emerald-500 font-black px-2 py-0.5 rounded text-[10px] uppercase tracking-wider inline-flex items-center gap-1 shadow-2xs"
+            : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider inline-flex items-center gap-1 shadow-2xs"
+          }>
+            <CheckCircle2 className={isLight ? "w-2.5 h-2.5 text-emerald-800" : "w-2.5 h-2.5 text-emerald-400"} />
             <span>Approved & Locked</span>
           </span>
         );
       case 'Returned':
         return (
-          <span className="bg-rose-500/20 text-rose-300 border border-rose-500/40 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider inline-flex items-center gap-1 shadow-2xs">
-            <AlertTriangle className="w-2.5 h-2.5 text-rose-400" />
+          <span className={isLight
+            ? "bg-rose-100 text-rose-950 border border-rose-500 font-black px-2 py-0.5 rounded text-[10px] uppercase tracking-wider inline-flex items-center gap-1 shadow-2xs"
+            : "bg-rose-500/20 text-rose-300 border border-rose-500/40 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider inline-flex items-center gap-1 shadow-2xs"
+          }>
+            <AlertTriangle className={isLight ? "w-2.5 h-2.5 text-rose-800" : "w-2.5 h-2.5 text-rose-400"} />
             <span>Returned / Action Required</span>
           </span>
         );
       default:
         return (
-          <span className="bg-slate-500/20 text-slate-300 border border-slate-500/30 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider inline-flex items-center gap-1 shadow-2xs">
-            <FileText className="w-2.5 h-2.5 text-slate-400" />
+          <span className={isLight
+            ? "bg-slate-200 text-slate-900 border border-slate-400 font-black px-2 py-0.5 rounded text-[10px] uppercase tracking-wider inline-flex items-center gap-1 shadow-2xs"
+            : "bg-slate-500/20 text-slate-300 border border-slate-500/30 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider inline-flex items-center gap-1 shadow-2xs"
+          }>
+            <FileText className={isLight ? "w-2.5 h-2.5 text-slate-700" : "w-2.5 h-2.5 text-slate-400"} />
             <span>Draft Workspace</span>
           </span>
         );
@@ -1237,47 +1269,77 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         
         {/* Left Side: Scorecard List Pane */}
-        <div className={`flex flex-col space-y-3 bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4 min-h-[500px] ${selectedKpi ? 'lg:col-span-6 xl:col-span-7' : 'lg:col-span-12'}`}>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
-            <h2 className="text-sm font-black uppercase tracking-wider text-slate-300 flex items-center gap-2">
-              <Database className="w-4 h-4 text-indigo-500" />
-              Assigned Performance scorecards ({filteredRows.length})
-            </h2>
+        <div className={`flex flex-col space-y-3 rounded-2xl p-4 min-h-[500px] transition-colors ${
+          scorecardsTheme === 'light' 
+            ? 'bg-white border-2 border-slate-300 shadow-lg text-black' 
+            : 'bg-slate-900/40 border border-slate-800/80 text-white'
+        } ${selectedKpi ? 'lg:col-span-6 xl:col-span-7' : 'lg:col-span-12'}`}>
+          <div className={`flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pb-3 border-b ${
+            scorecardsTheme === 'light' ? 'border-slate-300' : 'border-slate-800'
+          }`}>
+            <div className="flex items-center gap-2">
+              <h2 className={`text-sm font-black uppercase tracking-wider flex items-center gap-2 ${
+                scorecardsTheme === 'light' ? 'text-black' : 'text-slate-300'
+              }`}>
+                <Database className="w-4 h-4 text-indigo-500" />
+                Assigned Performance scorecards ({filteredRows.length})
+              </h2>
+              {/* Light & Dark Theme Toggle Mode Button */}
+              <button
+                type="button"
+                onClick={() => setScorecardsTheme(t => t === 'dark' ? 'light' : 'dark')}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer border shadow-2xs ${
+                  scorecardsTheme === 'light'
+                    ? 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-900'
+                    : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-amber-300'
+                }`}
+                title="Toggle Light/Dark Theme Mode for Assigned Performance Scorecards"
+              >
+                {scorecardsTheme === 'light' ? <Moon className="w-3 h-3 text-indigo-600" /> : <Sun className="w-3 h-3 text-amber-400" />}
+                <span>{scorecardsTheme === 'light' ? 'Dark Mode' : 'Light Mode'}</span>
+              </button>
+            </div>
 
             {/* Smart Inline Filters */}
             <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex rounded-lg border border-slate-800 bg-slate-950 p-0.5 text-[10px] font-bold">
+              <div className={`inline-flex rounded-lg border p-0.5 text-[10px] font-bold ${
+                scorecardsTheme === 'light' ? 'border-slate-300 bg-slate-100' : 'border-slate-800 bg-slate-950'
+              }`}>
                 <button
                   type="button"
                   onClick={() => setAssignedFilter('MINE')}
-                  className={`px-2 py-1 rounded transition cursor-pointer ${assignedFilter === 'MINE' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                  className={`px-2 py-1 rounded transition cursor-pointer ${assignedFilter === 'MINE' ? 'bg-indigo-600 text-white' : scorecardsTheme === 'light' ? 'text-slate-700 hover:text-black' : 'text-slate-400 hover:text-white'}`}
                 >
                   My KPIs
                 </button>
                 <button
                   type="button"
                   onClick={() => setAssignedFilter('ALL')}
-                  className={`px-2 py-1 rounded transition cursor-pointer ${assignedFilter === 'ALL' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                  className={`px-2 py-1 rounded transition cursor-pointer ${assignedFilter === 'ALL' ? 'bg-indigo-600 text-white' : scorecardsTheme === 'light' ? 'text-slate-700 hover:text-black' : 'text-slate-400 hover:text-white'}`}
                 >
                   All KPIs
                 </button>
               </div>
 
               <div className="relative shrink-0 w-36">
-                <Search className="absolute left-2.5 top-2 w-3.5 h-3.5 text-slate-500" />
+                <Search className={`absolute left-2.5 top-2 w-3.5 h-3.5 ${scorecardsTheme === 'light' ? 'text-slate-400' : 'text-slate-500'}`} />
                 <input
                   type="text"
                   placeholder="Filter key ref..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-8 pr-2 py-1.5 text-[11px] text-white focus:outline-none focus:border-indigo-500"
+                  className={`w-full border rounded-lg pl-8 pr-2 py-1.5 text-[11px] focus:outline-none focus:border-indigo-500 ${
+                    scorecardsTheme === 'light' ? 'bg-slate-50 border-slate-300 text-black placeholder-slate-400' : 'bg-slate-950 border-slate-800 text-white'
+                  }`}
                 />
               </div>
 
               <select
                 value={kpaFilter}
                 onChange={(e) => setKpaFilter(e.target.value)}
-                className="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-[11px] text-slate-300 focus:outline-none focus:border-indigo-500"
+                className={`border rounded-lg px-2 py-1.5 text-[11px] focus:outline-none focus:border-indigo-500 ${
+                  scorecardsTheme === 'light' ? 'bg-slate-50 border-slate-300 text-black' : 'bg-slate-950 border-slate-800 text-slate-300'
+                }`}
               >
                 <option value="ALL">All KPAs</option>
                 {kpas.map(kpa => (
@@ -1288,9 +1350,9 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
           </div>
 
           {/* List/Table of KPIs */}
-          <div className="overflow-auto max-h-[520px] divide-y divide-slate-850">
+          <div className={`overflow-auto max-h-[520px] divide-y ${scorecardsTheme === 'light' ? 'divide-slate-200' : 'divide-slate-850'}`}>
             {filteredRows.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 text-slate-500">
+              <div className={`flex flex-col items-center justify-center py-20 ${scorecardsTheme === 'light' ? 'text-slate-600' : 'text-slate-500'}`}>
                 <AlertTriangle className="w-8 h-8 opacity-40 mb-2" />
                 <p className="text-xs font-bold">No assigned KPIs matching the current filter options.</p>
                 <p className="text-[10px] mt-0.5">Please ensure SDBIP top-layer tables have been configured or synchronized.</p>
@@ -1307,25 +1369,39 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                   <div 
                     key={row.id}
                     onClick={() => setSelectedKpi(row)}
-                    className={`p-3 transition-all cursor-pointer hover:bg-slate-850/50 flex flex-col space-y-2 border-l-4 ${isSelected ? 'bg-slate-850 border-l-indigo-500' : 'border-l-transparent'}`}
+                    className={`p-3 transition-all cursor-pointer flex flex-col space-y-2 border-l-4 ${
+                      isSelected 
+                        ? scorecardsTheme === 'light' ? 'bg-indigo-50/80 border-l-indigo-600' : 'bg-slate-850 border-l-indigo-500' 
+                        : scorecardsTheme === 'light' ? 'hover:bg-slate-100/80 border-l-transparent' : 'hover:bg-slate-850/50 border-l-transparent'
+                    }`}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-1.5 font-mono text-[11px] text-slate-400">
-                        <span className="bg-slate-950 px-2 py-0.5 border border-slate-800 text-slate-200 rounded font-bold">
+                      <div className={`flex items-center gap-1.5 font-mono text-[11px] ${scorecardsTheme === 'light' ? 'text-black' : 'text-slate-400'}`}>
+                        <span className={`px-2 py-0.5 border rounded font-bold ${
+                          scorecardsTheme === 'light' ? 'bg-slate-100 border-slate-300 text-black' : 'bg-slate-950 border-slate-800 text-slate-200'
+                        }`}>
                           {row.refNum}
                         </span>
-                        <span className="text-[10px] tracking-wide text-slate-500 truncate max-w-xs">
+                        <span className={`text-[10px] tracking-wide truncate max-w-xs ${
+                          scorecardsTheme === 'light' ? 'text-slate-800 font-bold' : 'text-slate-500'
+                        }`}>
                           {row.kpas}
                         </span>
                       </div>
                       <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                        {/* Submitted & Status badges strictly preserve original vibrant styling */}
                         {getStatusBadge(status)}
+                        {/* Missing actual badge with high contrast for light mode */}
                         {(status === 'Submitted' || status === 'Submitted to Approver') && (!row.q1Actual || row.q1Actual.trim() === '') && (
-                          <span className="bg-rose-500/20 text-rose-300 border border-rose-500/40 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider inline-flex items-center gap-1 shadow-2xs">
-                            <AlertTriangle className="w-2.5 h-2.5 text-rose-400" />
+                          <span className={scorecardsTheme === 'light'
+                            ? "bg-rose-100 text-rose-950 border border-rose-500 font-black px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider inline-flex items-center gap-1 shadow-2xs"
+                            : "bg-rose-500/20 text-rose-300 border border-rose-500/40 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider inline-flex items-center gap-1 shadow-2xs"
+                          }>
+                            <AlertTriangle className={scorecardsTheme === 'light' ? "w-2.5 h-2.5 text-rose-800" : "w-2.5 h-2.5 text-rose-400"} />
                             <span>Missing Actual</span>
                           </span>
                         )}
+                        {/* Unlock & Undo buttons */}
                         {isSuperAdminMike && (status === 'Approved' || status === 'Reviewed' || (row as any).adminLocked) && (
                           <button
                             type="button"
@@ -1334,10 +1410,13 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                               setSelectedKpi(row);
                               handleMasterToggleLock(row.id);
                             }}
-                            className="px-1.5 py-0.5 bg-rose-900/80 hover:bg-rose-800 text-rose-200 border border-rose-500/60 rounded text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition cursor-pointer shadow-xs"
+                            className={scorecardsTheme === 'light'
+                              ? "px-2 py-0.5 bg-rose-700 hover:bg-rose-800 text-white rounded text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition cursor-pointer shadow-xs"
+                              : "px-1.5 py-0.5 bg-rose-900/80 hover:bg-rose-800 text-rose-200 border border-rose-500/60 rounded text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition cursor-pointer shadow-xs"
+                            }
                             title="Quick Unlock Approval (Global Admin Mike Master Override)"
                           >
-                            <Unlock className="w-2.5 h-2.5 text-rose-300" />
+                            <Unlock className="w-2.5 h-2.5 text-white" />
                             <span>Unlock</span>
                           </button>
                         )}
@@ -1349,23 +1428,32 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                               setSelectedKpi(row);
                               handleMasterUndoSubmission();
                             }}
-                            className="px-1.5 py-0.5 bg-amber-900/80 hover:bg-amber-800 text-amber-200 border border-amber-500/60 rounded text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition cursor-pointer shadow-xs"
+                            className={scorecardsTheme === 'light'
+                              ? "px-2 py-0.5 bg-amber-700 hover:bg-amber-800 text-white rounded text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition cursor-pointer shadow-xs"
+                              : "px-1.5 py-0.5 bg-amber-900/80 hover:bg-amber-800 text-amber-200 border border-amber-500/60 rounded text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition cursor-pointer shadow-xs"
+                            }
                             title="Quick Undo Submission to Draft (Global Admin Mike Master Override)"
                           >
-                            <RotateCcw className="w-2.5 h-2.5 text-amber-300" />
-                            <span>Undo</span>
+                            <RotateCcw className="w-2.5 h-2.5 text-white" />
+                            <span>Undo Submission</span>
                           </button>
                         )}
                       </div>
                     </div>
                     
-                    <p className="text-xs text-slate-200 line-clamp-2 leading-relaxed">
-                      <strong>KPI:</strong> {row.kpi}
+                    <p className={`text-xs line-clamp-2 leading-relaxed ${
+                      scorecardsTheme === 'light' ? 'text-black font-semibold' : 'text-slate-200'
+                    }`}>
+                      <strong className={scorecardsTheme === 'light' ? 'text-black font-extrabold' : 'text-white'}>KPI:</strong> {row.kpi}
                     </p>
 
-                    <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium">
-                      <span>Annual Target: <strong className="text-indigo-400">{row.annualTarget}</strong></span>
-                      <span className="flex items-center gap-1 text-slate-400 font-semibold hover:text-white transition-colors">
+                    <div className={`flex items-center justify-between text-[10px] font-medium ${
+                      scorecardsTheme === 'light' ? 'text-black' : 'text-slate-500'
+                    }`}>
+                      <span>Annual Target: <strong className={scorecardsTheme === 'light' ? 'text-indigo-700 font-extrabold' : 'text-indigo-400'}>{row.annualTarget}</strong></span>
+                      <span className={`flex items-center gap-1 font-semibold transition-colors ${
+                        scorecardsTheme === 'light' ? 'text-indigo-800 hover:text-black font-bold' : 'text-slate-400 hover:text-white'
+                      }`}>
                         {assignedFilter === 'ALL' ? (
                           <>View (Read-Only) <Eye className="w-3 h-3 text-slate-400" /></>
                         ) : (
@@ -2046,28 +2134,43 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
                   <span>Designated Approver: <strong className="text-amber-400 font-bold">{selectedKpi.approver || 'Not assigned'}</strong></span>
                   <span>Reviewer: <strong className="text-indigo-400 font-bold">{selectedKpi.reviewer || 'Not assigned'}</strong></span>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={handleSaveDraft}
-                    disabled={loading}
-                    className="w-full bg-slate-950 hover:bg-slate-850 text-slate-300 border border-slate-800 rounded-xl py-3 font-bold text-xs uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50"
-                  >
-                    Save Draft
-                  </button>
-                  <button
-                    onClick={handleSubmitWorkflow}
-                    disabled={loading}
-                    className="w-full bg-gradient-to-r from-amber-600 via-amber-500 to-indigo-600 hover:from-amber-500 hover:to-indigo-500 text-white rounded-xl py-3 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg disabled:opacity-50"
-                    title={`Push to Approver (${selectedKpi.approver || 'Executive Approver'})`}
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                    <span>
-                      {((selectedKpi as any).workflowStatus === 'Submitted to Approver' || (selectedKpi as any).workflowStatus === 'Submitted') && (!q1Actual || q1Actual.trim() === '')
-                        ? 'Update & Re-Submit to Approver'
-                        : 'Push to Approver'}
-                    </span>
-                  </button>
-                </div>
+                {((selectedKpi as any).workflowStatus === 'Submitted to Approver' || (selectedKpi as any).workflowStatus === 'Submitted') ? (
+                  <div className="space-y-2">
+                    <div className="p-3 bg-amber-100 border border-amber-400 rounded-xl text-amber-950 text-xs font-mono flex items-center gap-2 shadow-sm">
+                      <Clock className="w-4 h-4 text-amber-800 shrink-0" />
+                      <span>
+                        <strong>Submitted (Awaiting Executive Review):</strong> Actuals & PoE have been pushed to <strong>{selectedKpi.approver || 'Executive Approver'}</strong>. Duplicate reporting or re-submission is disabled unless the Approver rejects or returns it for resubmission.
+                      </span>
+                    </div>
+                    <button
+                      disabled={true}
+                      className="w-full bg-slate-300 text-slate-600 border border-slate-400 rounded-xl py-3 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 cursor-not-allowed opacity-80"
+                      title="This KPI has already been submitted and cannot be re-submitted unless returned by the Approver."
+                    >
+                      <Lock className="w-3.5 h-3.5 text-slate-700" />
+                      <span>Submitted to Approver (Locked)</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={handleSaveDraft}
+                      disabled={loading}
+                      className="w-full bg-slate-950 hover:bg-slate-850 text-slate-300 border border-slate-800 rounded-xl py-3 font-bold text-xs uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      Save Draft
+                    </button>
+                    <button
+                      onClick={handleSubmitWorkflow}
+                      disabled={loading}
+                      className="w-full bg-gradient-to-r from-amber-600 via-amber-500 to-indigo-600 hover:from-amber-500 hover:to-indigo-500 text-white rounded-xl py-3 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg disabled:opacity-50"
+                      title={`Push to Approver (${selectedKpi.approver || 'Executive Approver'})`}
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      <span>Push to Approver</span>
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>

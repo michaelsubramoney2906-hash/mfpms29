@@ -1971,32 +1971,40 @@ export function JSCDpmcReviewSection({ currentUser, activeTenantId, defaultEmplo
     setRows(updated);
     await handleSaveToDatabase(updated);
 
+    const dpmcRecipients = [
+      { email: emailToSave, name: emailToSave.split('@')[0], role: 'Self Evaluator' },
+      { email: 'manager@domain.com', name: 'Line Manager', role: 'Manager' },
+      { email: 'internal_audit', name: 'Internal Audit Committee', role: 'Internal Audit' }
+    ];
+
     try {
-      await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          notification: {
-            id: `notif_jsc_moderated_${Date.now()}`,
-            userEmail: emailToSave,
-            recipientEmail: emailToSave,
-            recipientName: emailToSave.split('@')[0],
-            senderEmail: currentUser.email,
-            senderName: currentUser.name || currentUser.email,
-            type: 'jsc_dpmc_completed',
-            actionType: 'moderation',
-            title: `Core Competencies Moderated by DPMC Committee (${selectedQuarter.toUpperCase()})`,
-            message: `Department Performance Moderation Committee (DPMC) has finalized review of the Internal Auditor's assessment for ${selectedQuarter.toUpperCase()}.`,
-            read: false,
-            createdAt: new Date().toISOString()
-          }
+      await Promise.all(dpmcRecipients.map(r => 
+        fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            notification: {
+              id: `notif_jsc_dpmc_${r.role.toLowerCase()}_${Date.now()}_${Math.random().toString(36).substring(2,5)}`,
+              userEmail: r.email,
+              recipientEmail: r.email,
+              recipientName: r.name,
+              senderEmail: currentUser.email,
+              senderName: currentUser.name || currentUser.email,
+              type: 'jsc_dpmc_completed',
+              actionType: 'moderation',
+              title: `🎯 Job Specific Competency (JSC) Moderated by DPMC (${selectedQuarter.toUpperCase()})`,
+              message: `Department Performance Moderation Committee (DPMC) has finalized moderation review & scoring of JSCs for ${emailToSave} (${selectedQuarter.toUpperCase()}). Self Evaluator, Line Manager, and Internal Audit have been notified.`,
+              read: false,
+              createdAt: new Date().toISOString()
+            }
+          })
         })
-      });
+      ));
     } catch (e) {
       console.error("Failed notification sending:", e);
     }
 
-    alert(`Successfully submitted DPMC Committee Moderation on Core Competencies for ${emailToSave} (${selectedQuarter.toUpperCase()})!`);
+    alert(`Successfully submitted DPMC Committee Moderation on JSCs for ${emailToSave} (${selectedQuarter.toUpperCase()})! All parties (Self Evaluator, Manager, Internal Audit) notified.`);
   };
 
   return (

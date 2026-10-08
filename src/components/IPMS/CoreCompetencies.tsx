@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { BadgePlus, Plus, Trash2, Save, AlertTriangle, ShieldCheck, HelpCircle, Send, Loader2, FileSpreadsheet, CheckCircle2, ArrowRight } from 'lucide-react';
+import { 
+  BadgePlus, Plus, Trash2, Save, AlertTriangle, ShieldCheck, HelpCircle, Send, 
+  Loader2, FileSpreadsheet, CheckCircle2, ArrowRight, Eye, Download, Upload, 
+  Paperclip, X, File, Presentation, Image, FileText 
+} from 'lucide-react';
 import { JSCAllInOneCompetenciesTable } from './JSCModules';
+import { OfficeDocumentViewer, PoeDocument } from './OfficeDocumentViewer';
+import { downloadOriginalFile, getMimeTypeForFile } from '../../utils/documentBinaryHelper';
 
 interface CoreCompetenciesProps {
   currentUser?: {
@@ -26,6 +32,16 @@ interface CFOCompetencyRow {
   components: string;
   definition: string;
   weighting: string;
+  poeDescription?: string;
+  poeFile?: {
+    id?: string;
+    name: string;
+    mimeType: string;
+    size?: number | string;
+    dataUrl?: string;
+    uploadedAt?: string | Date;
+    uploadedBy?: string;
+  };
 }
 
 export function CoreCompetencies({ currentUser, activeTenantId }: CoreCompetenciesProps) {
@@ -240,7 +256,132 @@ export function CoreCompetencies({ currentUser, activeTenantId }: CoreCompetenci
     }
   ]);
 
-  const [corpRows, setCorpRows] = useState<CFOCompetencyRow[]>([]);
+  const [corpRows, setCorpRows] = useState<CFOCompetencyRow[]>([
+    {
+      id: 'corp-row-1',
+      competency: 'Human Capital & Workforce Strategy',
+      components: 'Workplace Skills Plan (WSP), Employment Equity, talent acquisition, performance coaching',
+      definition: 'Formulates and guides the institutional talent framework and human resources development systems.',
+      weighting: '25'
+    },
+    {
+      id: 'corp-row-2',
+      competency: 'Labor Relations & Dispute Resolution',
+      components: 'Local Labour Forum (LLF), disciplinary hearings, grievance management, SALGBC compliance',
+      definition: 'Maintains healthy collective bargaining relations and statutory municipal labor harmony.',
+      weighting: '25'
+    },
+    {
+      id: 'corp-row-3',
+      competency: 'ICT Governance & Digital Transformation',
+      components: 'Corporate ICT governance policy, cybersecurity safeguards, network continuity, digital archiving',
+      definition: 'Directs information systems modernization and information security safeguarding.',
+      weighting: '20'
+    },
+    {
+      id: 'corp-row-4',
+      competency: 'Records & Statutory Document Archives',
+      components: 'Registry management, National Archives Act compliance, PAIA compliance, electronic document tracking',
+      definition: 'Directs timeous archival preservation and access control to institutional municipal records.',
+      weighting: '15'
+    },
+    {
+      id: 'corp-row-5',
+      competency: 'Council Support & Auxiliary Administration',
+      components: 'Council agendas, mayoral committee secretariat, fleet management, facilities security',
+      definition: 'Directs reliable municipal secretariat support and facilities management services.',
+      weighting: '15'
+    }
+  ]);
+
+  const [previewDoc, setPreviewDoc] = useState<PoeDocument | null>(null);
+
+  const handlePoeDescriptionChange = (scope: 'cfo' | 'ped' | 'corp', rowId: string, desc: string) => {
+    if (scope === 'cfo') {
+      setCfoRows(prev => prev.map(r => r.id === rowId ? { ...r, poeDescription: desc } : r));
+    } else if (scope === 'ped') {
+      setPedRows(prev => prev.map(r => r.id === rowId ? { ...r, poeDescription: desc } : r));
+    } else {
+      setCorpRows(prev => prev.map(r => r.id === rowId ? { ...r, poeDescription: desc } : r));
+    }
+    setSyncStatus('cached');
+  };
+
+  const handlePoeFileUpload = (scope: 'cfo' | 'ped' | 'corp', rowId: string, file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      const poeFile = {
+        id: `poe-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+        name: file.name,
+        mimeType: file.type || getMimeTypeForFile(file.name),
+        size: file.size,
+        dataUrl: dataUrl,
+        uploadedAt: new Date().toISOString(),
+        uploadedBy: currentUser?.name || currentUser?.email || 'Official'
+      };
+
+      if (scope === 'cfo') {
+        setCfoRows(prev => prev.map(r => r.id === rowId ? { ...r, poeFile } : r));
+      } else if (scope === 'ped') {
+        setPedRows(prev => prev.map(r => r.id === rowId ? { ...r, poeFile } : r));
+      } else {
+        setCorpRows(prev => prev.map(r => r.id === rowId ? { ...r, poeFile } : r));
+      }
+      setSyncStatus('cached');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handlePoeFileRemove = (scope: 'cfo' | 'ped' | 'corp', rowId: string) => {
+    if (scope === 'cfo') {
+      setCfoRows(prev => prev.map(r => r.id === rowId ? { ...r, poeFile: undefined } : r));
+    } else if (scope === 'ped') {
+      setPedRows(prev => prev.map(r => r.id === rowId ? { ...r, poeFile: undefined } : r));
+    } else {
+      setCorpRows(prev => prev.map(r => r.id === rowId ? { ...r, poeFile: undefined } : r));
+    }
+    setSyncStatus('cached');
+  };
+
+  const handlePoeView = (row: CFOCompetencyRow, scopeName: string) => {
+    if (!row.poeFile) return;
+    setPreviewDoc({
+      id: row.poeFile.id,
+      name: row.poeFile.name,
+      mimeType: row.poeFile.mimeType,
+      size: typeof row.poeFile.size === 'number' ? row.poeFile.size : undefined,
+      dataUrl: row.poeFile.dataUrl,
+      kpiName: `${row.competency} (${scopeName} Core Competency)`,
+      quarter: 'Portfolio of Evidence'
+    });
+  };
+
+  const handlePoeDownload = async (row: CFOCompetencyRow, scopeName: string) => {
+    if (!row.poeFile) return;
+    await downloadOriginalFile(row.poeFile.name, row.poeFile.dataUrl, {
+      mimeType: row.poeFile.mimeType,
+      kpiName: `${row.competency} (${scopeName})`,
+      quarter: 'Annual Evidence'
+    });
+  };
+
+  const getPoeFileIcon = (mimeType?: string, name?: string) => {
+    const ext = (name || '').split('.').pop()?.toLowerCase() || '';
+    if (['ppt', 'pptx', 'pps'].includes(ext) || (mimeType && mimeType.includes('presentation'))) {
+      return <Presentation className="w-3.5 h-3.5 text-orange-500 shrink-0" />;
+    }
+    if ((mimeType && mimeType.startsWith('image/')) || ['png', 'jpg', 'jpeg', 'webp', 'svg'].includes(ext)) {
+      return <Image className="w-3.5 h-3.5 text-sky-500 shrink-0" />;
+    }
+    if (['xls', 'xlsx', 'csv'].includes(ext) || (mimeType && (mimeType.includes('spreadsheet') || mimeType.includes('excel')))) {
+      return <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-500 shrink-0" />;
+    }
+    if (['doc', 'docx', 'rtf', 'txt'].includes(ext) || (mimeType && (mimeType.includes('word') || mimeType.includes('text')))) {
+      return <FileText className="w-3.5 h-3.5 text-indigo-500 shrink-0" />;
+    }
+    return <File className="w-3.5 h-3.5 text-slate-500 shrink-0" />;
+  };
 
   // Handle cell edits for Standard rows
   const handleCellEdit = (rowId: string, field: keyof CompetencyRow, value: string) => {
@@ -1013,6 +1154,12 @@ export function CoreCompetencies({ currentUser, activeTenantId }: CoreCompetenci
                     <th className="p-4 border-b border-r border-slate-200">Components</th>
                     <th className="p-4 border-b border-r border-slate-200">Competency Definition</th>
                     <th className="p-4 border-b border-r border-slate-200 w-32 text-center">Weighting %</th>
+                    <th className="p-4 border-b border-r border-slate-200 min-w-[280px]">
+                      <div className="flex items-center gap-1.5">
+                        <Paperclip className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>Portfolio of Evidence (PoE)</span>
+                      </div>
+                    </th>
                     <th className="p-4 border-b border-slate-200 text-center w-16">Action</th>
                   </tr>
                 </thead>
@@ -1027,7 +1174,7 @@ export function CoreCompetencies({ currentUser, activeTenantId }: CoreCompetenci
                           placeholder="Enter Director competency..."
                         />
                       </td>
-                      <td className="p-3 border-r border-slate-100 whitespace-pre-wrap align-top w-1/3 bg-slate-50/20 focus-within:bg-slate-50/50 transition">
+                      <td className="p-3 border-r border-slate-100 whitespace-pre-wrap align-top w-1/4 bg-slate-50/20 focus-within:bg-slate-50/50 transition">
                         <textarea 
                           value={row.components} 
                           onChange={(e) => handleCfoCellEdit(row.id, 'components', e.target.value)}
@@ -1035,7 +1182,7 @@ export function CoreCompetencies({ currentUser, activeTenantId }: CoreCompetenci
                           placeholder="Define components..."
                         />
                       </td>
-                      <td className="p-3 border-r border-slate-100 whitespace-pre-wrap align-top w-1/3 bg-slate-50/20 focus-within:bg-slate-50/50 transition">
+                      <td className="p-3 border-r border-slate-100 whitespace-pre-wrap align-top w-1/4 bg-slate-50/20 focus-within:bg-slate-50/50 transition">
                         <textarea 
                           value={row.definition} 
                           onChange={(e) => handleCfoCellEdit(row.id, 'definition', e.target.value)}
@@ -1043,8 +1190,8 @@ export function CoreCompetencies({ currentUser, activeTenantId }: CoreCompetenci
                           placeholder="Define competency..."
                         />
                       </td>
-                      <td className="p-3 border-r border-slate-100 align-top text-center w-32 bg-indigo-50/10 focus-within:bg-indigo-50/30 transition">
-                        <div className="flex items-center gap-1 bg-white border border-slate-200 rounded px-2 py-1 max-w-[100px] mx-auto focus-within:ring-2 focus-within:ring-indigo-500">
+                      <td className="p-3 border-r border-slate-100 align-top text-center w-28 bg-indigo-50/10 focus-within:bg-indigo-50/30 transition">
+                        <div className="flex items-center gap-1 bg-white border border-slate-200 rounded px-2 py-1 max-w-[90px] mx-auto focus-within:ring-2 focus-within:ring-indigo-500">
                           <input 
                             type="number"
                             min="0"
@@ -1057,6 +1204,80 @@ export function CoreCompetencies({ currentUser, activeTenantId }: CoreCompetenci
                           <span className="text-slate-400 font-bold text-xs">%</span>
                         </div>
                       </td>
+
+                      {/* PoE Column for Directors */}
+                      <td className="p-3 border-r border-slate-100 align-top bg-slate-50/20 min-w-[280px]">
+                        <div className="space-y-2">
+                          <input
+                            type="text"
+                            value={row.poeDescription || ''}
+                            onChange={(e) => handlePoeDescriptionChange('cfo', row.id, e.target.value)}
+                            placeholder="Enter PoE description / evidence notes..."
+                            className="w-full text-xs font-medium text-slate-800 bg-white border border-slate-200 focus:border-indigo-500 rounded-lg px-2.5 py-1.5 outline-none transition"
+                          />
+
+                          {row.poeFile ? (
+                            <div className="flex items-center justify-between p-2 bg-white border border-slate-200 rounded-lg shadow-2xs">
+                              <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                {getPoeFileIcon(row.poeFile.mimeType, row.poeFile.name)}
+                                <span className="font-bold text-xs text-slate-700 truncate block max-w-[130px]" title={row.poeFile.name}>
+                                  {row.poeFile.name}
+                                </span>
+                                <span className="text-[9px] font-mono font-bold uppercase text-slate-400 bg-slate-100 px-1 py-0.5 rounded">
+                                  {row.poeFile.name.split('.').pop()}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => handlePoeView(row, 'Directors')}
+                                  className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-md transition cursor-pointer"
+                                  title="View PoE Document (Word, Excel, PowerPoint, Notepad, PDF, Images)"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handlePoeDownload(row, 'Directors')}
+                                  className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-md transition cursor-pointer"
+                                  title="Download in Exact Original File Format"
+                                >
+                                  <Download className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handlePoeFileRemove('cfo', row.id)}
+                                  className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-md transition cursor-pointer"
+                                  title="Remove File"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div>
+                              <label className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-white border border-dashed border-slate-300 hover:border-indigo-500 hover:bg-indigo-50/20 rounded-lg cursor-pointer transition text-xs font-bold text-slate-600">
+                                <Upload className="w-3.5 h-3.5 text-indigo-600" />
+                                <span>Upload PoE File</span>
+                                <input
+                                  type="file"
+                                  className="hidden"
+                                  accept=".doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.pdf,.txt,.png,.jpg,.jpeg,.webp"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) handlePoeFileUpload('cfo', row.id, file);
+                                    e.target.value = '';
+                                  }}
+                                />
+                              </label>
+                              <span className="text-[8.5px] text-slate-400 block text-center mt-1">
+                                Word, Excel, PowerPoint, Notepad, PDF, PNG, JPG
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+
                       <td className="p-3 align-middle text-center">
                         <button 
                           onClick={() => handleDeleteCfoRow(row.id)}
@@ -1071,7 +1292,7 @@ export function CoreCompetencies({ currentUser, activeTenantId }: CoreCompetenci
                   
                   {cfoRows.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="p-8 text-center bg-slate-50 border-b-2 border-dashed border-slate-300">
+                      <td colSpan={6} className="p-8 text-center bg-slate-50 border-b-2 border-dashed border-slate-300">
                         <div className="flex flex-col items-center justify-center space-y-2">
                            <BadgePlus className="w-8 h-8 text-slate-400" />
                            <p className="text-sm font-bold text-slate-600">No Directors core competencies defined.</p>
@@ -1090,6 +1311,12 @@ export function CoreCompetencies({ currentUser, activeTenantId }: CoreCompetenci
                     <th className="p-4 border-b border-r border-slate-200">Components</th>
                     <th className="p-4 border-b border-r border-slate-200">Competency Definition</th>
                     <th className="p-4 border-b border-r border-slate-200 w-32 text-center">Weighting %</th>
+                    <th className="p-4 border-b border-r border-slate-200 min-w-[280px]">
+                      <div className="flex items-center gap-1.5">
+                        <Paperclip className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>Portfolio of Evidence (PoE)</span>
+                      </div>
+                    </th>
                     <th className="p-4 border-b border-slate-200 text-center w-16">Action</th>
                   </tr>
                 </thead>
@@ -1104,7 +1331,7 @@ export function CoreCompetencies({ currentUser, activeTenantId }: CoreCompetenci
                           placeholder="Enter PED competency..."
                         />
                       </td>
-                      <td className="p-3 border-r border-slate-100 whitespace-pre-wrap align-top w-1/3 bg-slate-50/20 focus-within:bg-slate-50/50 transition">
+                      <td className="p-3 border-r border-slate-100 whitespace-pre-wrap align-top w-1/4 bg-slate-50/20 focus-within:bg-slate-50/50 transition">
                         <textarea 
                           value={row.components} 
                           onChange={(e) => handlePedCellEdit(row.id, 'components', e.target.value)}
@@ -1112,7 +1339,7 @@ export function CoreCompetencies({ currentUser, activeTenantId }: CoreCompetenci
                           placeholder="Define components..."
                         />
                       </td>
-                      <td className="p-3 border-r border-slate-100 whitespace-pre-wrap align-top w-1/3 bg-slate-50/20 focus-within:bg-slate-50/50 transition">
+                      <td className="p-3 border-r border-slate-100 whitespace-pre-wrap align-top w-1/4 bg-slate-50/20 focus-within:bg-slate-50/50 transition">
                         <textarea 
                           value={row.definition} 
                           onChange={(e) => handlePedCellEdit(row.id, 'definition', e.target.value)}
@@ -1120,8 +1347,8 @@ export function CoreCompetencies({ currentUser, activeTenantId }: CoreCompetenci
                           placeholder="Define competency..."
                         />
                       </td>
-                      <td className="p-3 border-r border-slate-100 align-top text-center w-32 bg-indigo-50/10 focus-within:bg-indigo-50/30 transition">
-                        <div className="flex items-center gap-1 bg-white border border-slate-200 rounded px-2 py-1 max-w-[100px] mx-auto focus-within:ring-2 focus-within:ring-indigo-500">
+                      <td className="p-3 border-r border-slate-100 align-top text-center w-28 bg-indigo-50/10 focus-within:bg-indigo-50/30 transition">
+                        <div className="flex items-center gap-1 bg-white border border-slate-200 rounded px-2 py-1 max-w-[90px] mx-auto focus-within:ring-2 focus-within:ring-indigo-500">
                           <input 
                             type="number"
                             min="0"
@@ -1134,6 +1361,80 @@ export function CoreCompetencies({ currentUser, activeTenantId }: CoreCompetenci
                           <span className="text-slate-400 font-bold text-xs">%</span>
                         </div>
                       </td>
+
+                      {/* PoE Column for PED */}
+                      <td className="p-3 border-r border-slate-100 align-top bg-slate-50/20 min-w-[280px]">
+                        <div className="space-y-2">
+                          <input
+                            type="text"
+                            value={row.poeDescription || ''}
+                            onChange={(e) => handlePoeDescriptionChange('ped', row.id, e.target.value)}
+                            placeholder="Enter PoE description / evidence notes..."
+                            className="w-full text-xs font-medium text-slate-800 bg-white border border-slate-200 focus:border-indigo-500 rounded-lg px-2.5 py-1.5 outline-none transition"
+                          />
+
+                          {row.poeFile ? (
+                            <div className="flex items-center justify-between p-2 bg-white border border-slate-200 rounded-lg shadow-2xs">
+                              <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                {getPoeFileIcon(row.poeFile.mimeType, row.poeFile.name)}
+                                <span className="font-bold text-xs text-slate-700 truncate block max-w-[130px]" title={row.poeFile.name}>
+                                  {row.poeFile.name}
+                                </span>
+                                <span className="text-[9px] font-mono font-bold uppercase text-slate-400 bg-slate-100 px-1 py-0.5 rounded">
+                                  {row.poeFile.name.split('.').pop()}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => handlePoeView(row, 'PED')}
+                                  className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-md transition cursor-pointer"
+                                  title="View PoE Document (Word, Excel, PowerPoint, Notepad, PDF, Images)"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handlePoeDownload(row, 'PED')}
+                                  className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-md transition cursor-pointer"
+                                  title="Download in Exact Original File Format"
+                                >
+                                  <Download className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handlePoeFileRemove('ped', row.id)}
+                                  className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-md transition cursor-pointer"
+                                  title="Remove File"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div>
+                              <label className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-white border border-dashed border-slate-300 hover:border-indigo-500 hover:bg-indigo-50/20 rounded-lg cursor-pointer transition text-xs font-bold text-slate-600">
+                                <Upload className="w-3.5 h-3.5 text-indigo-600" />
+                                <span>Upload PoE File</span>
+                                <input
+                                  type="file"
+                                  className="hidden"
+                                  accept=".doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.pdf,.txt,.png,.jpg,.jpeg,.webp"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) handlePoeFileUpload('ped', row.id, file);
+                                    e.target.value = '';
+                                  }}
+                                />
+                              </label>
+                              <span className="text-[8.5px] text-slate-400 block text-center mt-1">
+                                Word, Excel, PowerPoint, Notepad, PDF, PNG, JPG
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+
                       <td className="p-3 align-middle text-center">
                         <button 
                           onClick={() => handleDeletePedRow(row.id)}
@@ -1148,7 +1449,7 @@ export function CoreCompetencies({ currentUser, activeTenantId }: CoreCompetenci
                   
                   {pedRows.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="p-8 text-center bg-slate-50 border-b-2 border-dashed border-slate-300">
+                      <td colSpan={6} className="p-8 text-center bg-slate-50 border-b-2 border-dashed border-slate-300">
                         <div className="flex flex-col items-center justify-center space-y-2">
                            <BadgePlus className="w-8 h-8 text-slate-400" />
                            <p className="text-sm font-bold text-slate-600">No PED core competencies defined.</p>
@@ -1191,8 +1492,14 @@ export function CoreCompetencies({ currentUser, activeTenantId }: CoreCompetenci
                   <tr className="bg-slate-100/50 border-b-2 border-slate-200 text-slate-600 text-[10px] uppercase font-black tracking-wider">
                     <th className="p-3 w-1/4">Competency</th>
                     <th className="p-3 w-1/4">Components</th>
-                    <th className="p-3 w-1/3">Definition</th>
+                    <th className="p-3 w-1/4">Definition</th>
                     <th className="p-3 w-24 text-center">Weighting %</th>
+                    <th className="p-3 min-w-[280px]">
+                      <div className="flex items-center gap-1.5">
+                        <Paperclip className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>Portfolio of Evidence (PoE)</span>
+                      </div>
+                    </th>
                     <th className="p-3 w-16 text-center">Action</th>
                   </tr>
                 </thead>
@@ -1222,7 +1529,7 @@ export function CoreCompetencies({ currentUser, activeTenantId }: CoreCompetenci
                           placeholder="e.g. Disciplinary hearings, policy review..."
                         />
                       </td>
-                      <td className="p-3 border-r border-slate-100 whitespace-pre-wrap align-top w-1/3 text-xs text-slate-600">
+                      <td className="p-3 border-r border-slate-100 whitespace-pre-wrap align-top w-1/4 text-xs text-slate-600">
                         <textarea
                           value={row.definition}
                           onChange={(e) => {
@@ -1246,6 +1553,80 @@ export function CoreCompetencies({ currentUser, activeTenantId }: CoreCompetenci
                           />
                         </div>
                       </td>
+
+                      {/* PoE Column for Corporate Services */}
+                      <td className="p-3 border-r border-slate-100 align-top bg-slate-50/20 min-w-[280px]">
+                        <div className="space-y-2">
+                          <input
+                            type="text"
+                            value={row.poeDescription || ''}
+                            onChange={(e) => handlePoeDescriptionChange('corp', row.id, e.target.value)}
+                            placeholder="Enter PoE description / evidence notes..."
+                            className="w-full text-xs font-medium text-slate-800 bg-white border border-slate-200 focus:border-pink-500 rounded-lg px-2.5 py-1.5 outline-none transition"
+                          />
+
+                          {row.poeFile ? (
+                            <div className="flex items-center justify-between p-2 bg-white border border-slate-200 rounded-lg shadow-2xs">
+                              <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                {getPoeFileIcon(row.poeFile.mimeType, row.poeFile.name)}
+                                <span className="font-bold text-xs text-slate-700 truncate block max-w-[130px]" title={row.poeFile.name}>
+                                  {row.poeFile.name}
+                                </span>
+                                <span className="text-[9px] font-mono font-bold uppercase text-slate-400 bg-slate-100 px-1 py-0.5 rounded">
+                                  {row.poeFile.name.split('.').pop()}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => handlePoeView(row, 'Corporate Services')}
+                                  className="p-1.5 text-pink-600 hover:bg-pink-50 rounded-md transition cursor-pointer"
+                                  title="View PoE Document (Word, Excel, PowerPoint, Notepad, PDF, Images)"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handlePoeDownload(row, 'Corporate Services')}
+                                  className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-md transition cursor-pointer"
+                                  title="Download in Exact Original File Format"
+                                >
+                                  <Download className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handlePoeFileRemove('corp', row.id)}
+                                  className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-md transition cursor-pointer"
+                                  title="Remove File"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div>
+                              <label className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-white border border-dashed border-slate-300 hover:border-pink-500 hover:bg-pink-50/20 rounded-lg cursor-pointer transition text-xs font-bold text-slate-600">
+                                <Upload className="w-3.5 h-3.5 text-pink-600" />
+                                <span>Upload PoE File</span>
+                                <input
+                                  type="file"
+                                  className="hidden"
+                                  accept=".doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.pdf,.txt,.png,.jpg,.jpeg,.webp"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) handlePoeFileUpload('corp', row.id, file);
+                                    e.target.value = '';
+                                  }}
+                                />
+                              </label>
+                              <span className="text-[8.5px] text-slate-400 block text-center mt-1">
+                                Word, Excel, PowerPoint, Notepad, PDF, PNG, JPG
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+
                       <td className="p-3 text-center align-top">
                           <button
                             onClick={() => {
@@ -1263,7 +1644,7 @@ export function CoreCompetencies({ currentUser, activeTenantId }: CoreCompetenci
                   
                   {corpRows.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="p-8 text-center bg-slate-50 border-b-2 border-dashed border-slate-300">
+                      <td colSpan={6} className="p-8 text-center bg-slate-50 border-b-2 border-dashed border-slate-300">
                         <div className="flex flex-col items-center justify-center text-slate-400">
                           <AlertTriangle className="w-8 h-8 mb-2 text-slate-300" />
                           <p className="text-sm font-bold text-slate-500">No Corporate Services Competencies Configured</p>
@@ -1346,6 +1727,14 @@ export function CoreCompetencies({ currentUser, activeTenantId }: CoreCompetenci
         </div>
         )}
       </div>
+
+      {/* Office Document Viewer Modal for PoE (Word, Excel, PowerPoint, Notepad, PDF, PNG, JPG) */}
+      {previewDoc && (
+        <OfficeDocumentViewer
+          doc={previewDoc}
+          onClose={() => setPreviewDoc(null)}
+        />
+      )}
     </div>
   );
 }
