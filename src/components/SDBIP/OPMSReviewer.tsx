@@ -252,25 +252,42 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
     return list;
   };
 
-  const saveUpdatedRows = async (updatedRows: SdbipRow[], targetRow?: SdbipRow | null) => {
-    const rowToTarget = targetRow || selectedKpi;
-    const isDept = (rowToTarget as any)?._scorecardSource === 'dept' || rowToTarget?.id?.startsWith('sdbip23');
-    const endpoint = isDept
-      ? `/api/tenant/${activeTenantId}/sdbip23`
-      : `/api/tenant/${activeTenantId}/sdbip`;
-    
-    const itemsForSource = updatedRows.filter(r => isDept 
-      ? ((r as any)._scorecardSource === 'dept' || r.id?.startsWith('sdbip23'))
-      : ((r as any)._scorecardSource !== 'dept' && !r.id?.startsWith('sdbip23'))
-    );
+  const getWorkflowRank = (status: string | undefined): number => {
+    const s = String(status || '').trim().toLowerCase();
+    if (s === 'approved' || s === 'completed') return 6;
+    if (s === 'reviewed' || s === 'pending_audit' || s === 'pending audit') return 5;
+    if (s === 'pending review' || s === 'pending_review' || s === 'awaiting reviewer') return 4;
+    if (s === 'submitted' || s === 'submitted to approver' || s === 'pending approval' || s === 'pending_approval' || s === 'awaiting approver') return 3;
+    if (s === 'returned' || s === 'returned to submitter' || s === 'returned_for_redo') return 2;
+    return 1;
+  };
 
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ items: itemsForSource.length > 0 ? itemsForSource : updatedRows })
-    });
-    if (!res.ok) throw new Error(`Failed to save to ${isDept ? 'Departmental' : 'Top Layer'} scorecard on Supabase`);
-    return res;
+  const saveUpdatedRows = async (updatedRows: SdbipRow[], targetRow?: SdbipRow | null) => {
+    const topPayload = updatedRows.map(r => ({
+      ...r,
+      _scorecardSource: 'top' as const
+    }));
+
+    const deptPayload = updatedRows.map(r => ({
+      ...r,
+      _scorecardSource: 'dept' as const
+    }));
+
+    const [resTop, resDept] = await Promise.all([
+      fetch(`/api/tenant/${activeTenantId}/sdbip`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: topPayload })
+      }),
+      fetch(`/api/tenant/${activeTenantId}/sdbip23`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: deptPayload })
+      })
+    ]);
+
+    if (!resTop.ok && !resDept.ok) throw new Error('Failed to save scorecard data to Supabase');
+    return resTop.ok ? resTop : resDept;
   };
 
   const fetchSDBIPData = async (isBackground = false) => {
@@ -292,12 +309,30 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
 
       const mergedList = [...topItems];
       deptItems.forEach((d: any) => {
-        const existingIdx = mergedList.findIndex(t => t.id === d.id);
+        const cleanRefD = String(d.refNum || '').trim().toUpperCase();
+        const existingIdx = mergedList.findIndex(t => 
+          t.id === d.id || 
+          (cleanRefD && String(t.refNum || '').trim().toUpperCase() === cleanRefD)
+        );
         if (existingIdx >= 0) {
+          const existing = mergedList[existingIdx];
+          const existingRank = getWorkflowRank(existing.workflowStatus || existing.workflows?.q1?.status);
+          const incomingRank = getWorkflowRank(d.workflowStatus || d.workflows?.q1?.status);
+          const winnerStatus = incomingRank >= existingRank
+            ? (d.workflowStatus || existing.workflowStatus)
+            : (existing.workflowStatus || d.workflowStatus);
+          const winnerWorkflows = incomingRank >= existingRank
+            ? (d.workflows || existing.workflows)
+            : (existing.workflows || d.workflows);
+
           mergedList[existingIdx] = {
-            ...mergedList[existingIdx],
+            ...existing,
             ...d,
-            _scorecardSource: 'dept'
+            _scorecardSource: existing._scorecardSource,
+            workflowStatus: winnerStatus,
+            workflows: winnerWorkflows,
+            q1Actual: d.q1Actual || existing.q1Actual,
+            reviewer: d.reviewer || existing.reviewer
           };
         } else {
           mergedList.push(d);
@@ -313,7 +348,7 @@ export function OPMSReviewer({ currentUser, activeTenantId }: OPMSReviewerProps)
 
       setSelectedKpi(prev => {
         if (!prev) return null;
-        return mergedList.find((x: SdbipRow) => x.id === prev.id) || prev;
+        return mergedList.find((x: SdbipRow) => x.id === prev.id || (x.refNum && prev.refNum && x.refNum.toLowerCase() === prev.refNum.toLowerCase())) || prev;
       });
     } catch (err: any) {
       console.error(err);

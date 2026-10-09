@@ -10014,20 +10014,76 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         ? [`sdbip23_${tenantId}`, 'sdbip23_tenant-229', 'sdbip23_nkangala_auto', 'sdbip23_global', 'sdbip23_default']
         : [`sdbip_${tenantId}`, 'sdbip_tenant-229', 'sdbip_nkangala_auto', 'sdbip_global', 'sdbip_default', 'sdbip_nkangala'];
 
+      // Authoritative workflow rank hierarchy (guarantees zero unintended downgrades or regressions)
+      const getWorkflowRank = (status?: string, q1Status?: string): number => {
+        const s = String(status || '').trim().toLowerCase();
+        const q = String(q1Status || '').trim().toLowerCase();
+        if (s === 'approved' || s === 'completed' || q === 'approved') return 6;
+        if (s === 'reviewed' || s === 'pending audit' || s === 'pending_audit' || q === 'reviewed' || q === 'pending_audit') return 5;
+        if (s === 'pending review' || s === 'pending_review' || s === 'awaiting reviewer' || q === 'pending_review') return 4;
+        if (s === 'submitted' || s === 'submitted to approver' || s === 'pending approval' || s === 'pending_approval' || s === 'awaiting approver' || q === 'pending_approval') return 3;
+        if (s === 'returned' || s === 'returned to submitter' || s === 'returned_for_redo' || q === 'returned') return 2;
+        return 1;
+      };
+
+      // Merge incoming items against existing state to prevent stale clients from overwriting higher workflow stages
+      const primaryDocId = targetDocIds[0];
+      const existingItemsInMem = sdbipMemoryStore.get(primaryDocId) || sdbipMemoryStore.get('tenant-229') || [];
+      const mergedCleanItems = cleanItems.map((incoming: any) => {
+        const matchExisting = (existingItemsInMem as any[]).find((ex: any) => {
+          if (ex.id && incoming.id && ex.id === incoming.id) return true;
+          if (ex.refNum && incoming.refNum) {
+            const a = String(ex.refNum).trim().replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+            const b = String(incoming.refNum).trim().replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+            if (a && b && a === b) return true;
+          }
+          return false;
+        });
+
+        if (matchExisting) {
+          const incomingRank = getWorkflowRank(incoming.workflowStatus, incoming.workflows?.q1?.status);
+          const existingRank = getWorkflowRank(matchExisting.workflowStatus, matchExisting.workflows?.q1?.status);
+
+          // Check if incoming is an explicit manual redo/reject/undo action with new history entry
+          const incomingHistory = Array.isArray(incoming.workflowHistory) ? incoming.workflowHistory : [];
+          const existingHistory = Array.isArray(matchExisting.workflowHistory) ? matchExisting.workflowHistory : [];
+          const lastHistAction = (incomingHistory[incomingHistory.length - 1]?.action || '').toLowerCase();
+          const isExplicitRejectionOrUndo = incomingHistory.length > existingHistory.length && 
+            (lastHistAction.includes('reject') || lastHistAction.includes('return') || lastHistAction.includes('undo'));
+
+          if (existingRank > incomingRank && !isExplicitRejectionOrUndo) {
+            // Keep the more advanced workflow stage (e.g. Pending Review or Approved)
+            return {
+              ...matchExisting,
+              ...incoming,
+              workflowStatus: matchExisting.workflowStatus,
+              workflows: matchExisting.workflows || incoming.workflows,
+              reviewer: matchExisting.reviewer || incoming.reviewer,
+              reviewerEmail: matchExisting.reviewerEmail || incoming.reviewerEmail,
+              reviewerUsername: matchExisting.reviewerUsername || incoming.reviewerUsername,
+              approvedBy: matchExisting.approvedBy || incoming.approvedBy,
+              reviewedBy: matchExisting.reviewedBy || incoming.reviewedBy,
+              workflowHistory: incomingHistory.length >= existingHistory.length ? incomingHistory : existingHistory
+            };
+          }
+        }
+        return incoming;
+      });
+
       // 1. Immediately store in memory store
       for (const docId of targetDocIds) {
-        sdbipMemoryStore.set(docId, cleanItems);
+        sdbipMemoryStore.set(docId, mergedCleanItems);
       }
-      sdbipMemoryStore.set(tenantId, cleanItems);
-      sdbipMemoryStore.set('tenant-229', cleanItems);
-      sdbipMemoryStore.set('nkangala_auto', cleanItems);
-      sdbipMemoryStore.set('global', cleanItems);
-      sdbipMemoryStore.set('default', cleanItems);
+      sdbipMemoryStore.set(tenantId, mergedCleanItems);
+      sdbipMemoryStore.set('tenant-229', mergedCleanItems);
+      sdbipMemoryStore.set('nkangala_auto', mergedCleanItems);
+      sdbipMemoryStore.set('global', mergedCleanItems);
+      sdbipMemoryStore.set('default', mergedCleanItems);
 
       // 1b. Write disk backup for instant survival across cold restarts
       try {
         const backupFile = path.join(process.cwd(), isSdbip23 ? 'sdbip23_master_backup.json' : 'sdbip_master_backup.json');
-        fs.writeFileSync(backupFile, JSON.stringify({ items: cleanItems, updatedAt: new Date().toISOString() }, null, 2), 'utf8');
+        fs.writeFileSync(backupFile, JSON.stringify({ items: mergedCleanItems, updatedAt: new Date().toISOString() }, null, 2), 'utf8');
       } catch (fsErr) {}
 
       // 2. Persist in Supabase
@@ -10043,7 +10099,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
               sender_id: 'sdbip_editor_tool',
               sender_email: 'sdbip@system.local',
               sender_name: 'SDBIP Editor',
-              content: JSON.stringify({ items: cleanItems }),
+              content: JSON.stringify({ items: mergedCleanItems }),
               message_type: isSdbip23 ? 'sdbip23_list' : 'sdbip_list',
               created_at: new Date().toISOString()
             });
@@ -10068,7 +10124,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         if (Array.isArray(peerItems) && peerItems.length > 0) {
           let hasPeerChanges = false;
           const updatedPeerItems = peerItems.map((peerItem: any) => {
-            const match = cleanItems.find((it: any) => {
+            const match = mergedCleanItems.find((it: any) => {
               if (it.id && peerItem.id && it.id === peerItem.id) return true;
               if (it.refNum && peerItem.refNum) {
                 const normA = String(it.refNum).trim().replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
@@ -10079,14 +10135,27 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             });
             if (match) {
               hasPeerChanges = true;
+              const matchRank = getWorkflowRank(match.workflowStatus, match.workflows?.q1?.status);
+              const peerRank = getWorkflowRank(peerItem.workflowStatus, peerItem.workflows?.q1?.status);
+
+              // Respect workflow hierarchy: winner status is the more advanced workflow stage
+              const winnerStatus = matchRank >= peerRank
+                ? (match.workflowStatus || peerItem.workflowStatus)
+                : (peerItem.workflowStatus || match.workflowStatus);
+              const winnerWorkflows = matchRank >= peerRank
+                ? (match.workflows || peerItem.workflows)
+                : (peerItem.workflows || match.workflows);
+
               return {
                 ...peerItem,
                 submitter: match.submitter || peerItem.submitter,
                 approver: match.approver || peerItem.approver,
                 reviewer: match.reviewer || peerItem.reviewer,
+                reviewerEmail: match.reviewerEmail || peerItem.reviewerEmail,
+                reviewerUsername: match.reviewerUsername || peerItem.reviewerUsername,
                 internalAudit: match.internalAudit || peerItem.internalAudit,
                 responsibleUnit: match.responsibleUnit || peerItem.responsibleUnit,
-                workflowStatus: match.workflowStatus || peerItem.workflowStatus,
+                workflowStatus: winnerStatus,
                 q1Actual: match.q1Actual !== undefined ? match.q1Actual : peerItem.q1Actual,
                 q1Variance: match.q1Variance !== undefined ? match.q1Variance : peerItem.q1Variance,
                 q1Corrective: match.q1Corrective !== undefined ? match.q1Corrective : peerItem.q1Corrective,
@@ -10109,7 +10178,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
                 approvedBy: match.approvedBy || peerItem.approvedBy,
                 reviewedBy: match.reviewedBy || peerItem.reviewedBy,
                 auditedBy: match.auditedBy || peerItem.auditedBy,
-                workflows: match.workflows || peerItem.workflows,
+                workflows: winnerWorkflows,
                 workflowHistory: match.workflowHistory || peerItem.workflowHistory
               };
             }
@@ -10140,17 +10209,17 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
                 }
               }
             }
-            invalidateCachePrefix(!isSdbip23 ? 'sdbip23_' : 'sdbip_');
           }
         }
       } catch (peerErr) {
         console.warn("Peer SDBIP sync non-blocking warning:", peerErr);
       }
       
-      // Invalidate SDBIP/SDBIP23 and users cache
-      invalidateCachePrefix(isSdbip23 ? 'sdbip23_' : 'sdbip_');
+      // Invalidate both SDBIP & SDBIP23 caches immediately so clients always receive latest authoritative state
+      invalidateCachePrefix('sdbip_');
+      invalidateCachePrefix('sdbip23_');
       invalidateUsersCache();
-      res.json({ success: true, count: cleanItems.length });
+      res.json({ success: true, count: mergedCleanItems.length });
     } catch (err: any) {
       console.error("SDBIP save exception:", err);
       res.status(500).json({ error: err.message });

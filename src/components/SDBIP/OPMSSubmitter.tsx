@@ -363,7 +363,7 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
       setRows(freshItems);
       setSelectedKpi(prev => {
         if (!prev) return null;
-        return freshItems.find((x: SdbipRow) => x.id === prev.id) || prev;
+        return freshItems.find((x: SdbipRow) => x.id === prev.id || (x.refNum && prev.refNum && x.refNum.toLowerCase() === prev.refNum.toLowerCase())) || prev;
       });
       fetchCloudDrafts();
     } catch (err: any) {
@@ -888,8 +888,8 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
 
     // Duplicate submission safeguard
     const kpiStatus = (selectedKpi as any).workflowStatus;
-    const isAlreadySubmitted = kpiStatus === 'Submitted to Approver' || kpiStatus === 'Submitted' || kpiStatus === 'Approved' || kpiStatus === 'Reviewed' || selectedKpi.workflows?.q1?.status === 'pending_approval' || selectedKpi.workflows?.q1?.status === 'approved';
-    const isReturnedOrRejected = kpiStatus === 'Returned' || kpiStatus === 'Rejected' || Boolean((selectedKpi as any).returnReason);
+    const isAlreadySubmitted = kpiStatus === 'Submitted to Approver' || kpiStatus === 'Submitted' || kpiStatus === 'Pending Review' || kpiStatus === 'Approved' || kpiStatus === 'Reviewed' || selectedKpi.workflows?.q1?.status === 'pending_approval' || selectedKpi.workflows?.q1?.status === 'pending_review' || selectedKpi.workflows?.q1?.status === 'approved';
+    const isReturnedOrRejected = kpiStatus === 'Returned' || kpiStatus === 'Returned to Submitter' || kpiStatus === 'Rejected' || Boolean((selectedKpi as any).returnReason);
 
     if (isAlreadySubmitted && !isReturnedOrRejected) {
       setError("Duplicate Submission Safeguard: This KPI actual and PoE have already been submitted to the Executive Approver and are awaiting review. Re-submission or duplicate reporting is disabled unless the Approver rejects or returns it for resubmission.");
@@ -984,17 +984,30 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
         return r;
       });
 
-      const currentScorecardEndpoint = activeScorecard === 'dept'
-        ? `/api/tenant/${activeTenantId}/sdbip23`
-        : `/api/tenant/${activeTenantId}/sdbip`;
+      const topPayload = updatedRows.map(r => ({
+        ...r,
+        _scorecardSource: 'top' as const
+      }));
 
-      const response = await fetch(currentScorecardEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: updatedRows })
-      });
+      const deptPayload = updatedRows.map(r => ({
+        ...r,
+        _scorecardSource: 'dept' as const
+      }));
 
-      if (!response.ok) throw new Error('Failed to submit SDBIP item to Approver');
+      const [resTop, resDept] = await Promise.all([
+        fetch(`/api/tenant/${activeTenantId}/sdbip`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: topPayload })
+        }),
+        fetch(`/api/tenant/${activeTenantId}/sdbip23`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: deptPayload })
+        })
+      ]);
+
+      if (!resTop.ok && !resDept.ok) throw new Error('Failed to submit SDBIP item to Approver');
 
       // Clean up 5-second draft backup buffer
       const draftKey = `sdbip_draft_${activeTenantId}_${selectedKpi.id}_${currentUser.email}`;
@@ -1129,10 +1142,11 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
 
   const totalKpis = myAssignedRows.length;
   const draftCount = myAssignedRows.filter(r => !(r as any).workflowStatus || (r as any).workflowStatus === 'Draft').length;
-  const submittedCount = myAssignedRows.filter(r => (r as any).workflowStatus === 'Submitted to Approver' || (r as any).workflowStatus === 'Submitted').length;
-  const reviewedCount = myAssignedRows.filter(r => (r as any).workflowStatus === 'Reviewed' || (r as any).workflowStatus === 'Pending Review').length;
+  const submittedCount = myAssignedRows.filter(r => (r as any).workflowStatus === 'Submitted to Approver' || (r as any).workflowStatus === 'Submitted' || r.workflows?.q1?.status === 'pending_approval').length;
+  const pendingReviewCount = myAssignedRows.filter(r => (r as any).workflowStatus === 'Pending Review' || r.workflows?.q1?.status === 'pending_review').length;
+  const reviewedCount = myAssignedRows.filter(r => (r as any).workflowStatus === 'Reviewed').length;
   const approvedCount = myAssignedRows.filter(r => (r as any).workflowStatus === 'Approved').length;
-  const returnedCount = myAssignedRows.filter(r => (r as any).workflowStatus === 'Returned').length;
+  const returnedCount = myAssignedRows.filter(r => (r as any).workflowStatus === 'Returned' || (r as any).workflowStatus === 'Returned to Submitter').length;
 
   const isKpiM81to84 = Boolean(selectedKpi && isQuarter1UnlockedKpi(selectedKpi));
   const isActualDesignatedSubmitter = Boolean(
@@ -1187,8 +1201,8 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
             ? "bg-blue-100 text-blue-950 border border-blue-500 font-black px-2 py-0.5 rounded text-[10px] uppercase tracking-wider inline-flex items-center gap-1 shadow-2xs"
             : "bg-blue-500/20 text-blue-300 border border-blue-500/40 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider inline-flex items-center gap-1 shadow-2xs"
           }>
-            <Clock className={isLight ? "w-2.5 h-2.5 text-blue-800" : "w-2.5 h-2.5 text-blue-400"} />
-            <span>Awaiting Reviewer</span>
+            <CheckCircle2 className={isLight ? "w-2.5 h-2.5 text-blue-800" : "w-2.5 h-2.5 text-blue-400"} />
+            <span>Approved by Approver (Awaiting Reviewer)</span>
           </span>
         );
       case 'Reviewed':

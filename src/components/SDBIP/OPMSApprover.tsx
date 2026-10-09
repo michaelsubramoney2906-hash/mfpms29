@@ -149,25 +149,47 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
     }
   }, [selectedKpi]);
 
-  const saveUpdatedRows = async (updatedRows: SdbipRow[], targetRow?: SdbipRow | null) => {
-    const rowToTarget = targetRow || selectedKpi;
-    const isDept = (rowToTarget as any)?._scorecardSource === 'dept' || rowToTarget?.id?.startsWith('sdbip23');
-    const endpoint = isDept
-      ? `/api/tenant/${activeTenantId}/sdbip23`
-      : `/api/tenant/${activeTenantId}/sdbip`;
-    
-    const itemsForSource = updatedRows.filter(r => isDept 
-      ? ((r as any)._scorecardSource === 'dept' || r.id?.startsWith('sdbip23'))
-      : ((r as any)._scorecardSource !== 'dept' && !r.id?.startsWith('sdbip23'))
-    );
+  const getWorkflowRank = (status: string | undefined): number => {
+    const s = String(status || '').trim().toLowerCase();
+    if (s === 'approved' || s === 'completed') return 6;
+    if (s === 'reviewed' || s === 'pending_audit' || s === 'pending audit') return 5;
+    if (s === 'pending review' || s === 'pending_review' || s === 'awaiting reviewer') return 4;
+    if (s === 'submitted' || s === 'submitted to approver' || s === 'pending approval' || s === 'pending_approval' || s === 'awaiting approver') return 3;
+    if (s === 'returned' || s === 'returned to submitter' || s === 'returned_for_redo') return 2;
+    return 1; // Draft or default
+  };
 
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ items: itemsForSource.length > 0 ? itemsForSource : updatedRows })
-    });
-    if (!res.ok) throw new Error(`Failed to save to ${isDept ? 'Departmental' : 'Top Layer'} scorecard on Supabase`);
-    return res;
+  const saveUpdatedRows = async (updatedRows: SdbipRow[], targetRow?: SdbipRow | null) => {
+    // Zero Data Loss & Synchronized Multi-Source Pipeline:
+    // When saving an Approver decision (approving, routing to reviewer, updating actuals),
+    // save to BOTH the Top Layer (/sdbip) and Departmental (/sdbip23) scorecards simultaneously.
+    const topPayload = updatedRows.map(r => ({
+      ...r,
+      _scorecardSource: 'top' as const
+    }));
+
+    const deptPayload = updatedRows.map(r => ({
+      ...r,
+      _scorecardSource: 'dept' as const
+    }));
+
+    const [resTop, resDept] = await Promise.all([
+      fetch(`/api/tenant/${activeTenantId}/sdbip`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: topPayload })
+      }),
+      fetch(`/api/tenant/${activeTenantId}/sdbip23`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: deptPayload })
+      })
+    ]);
+
+    if (!resTop.ok && !resDept.ok) {
+      throw new Error('Failed to synchronize updated scorecard data to Supabase');
+    }
+    return resTop.ok ? resTop : resDept;
   };
 
   const handleSaveQ1Actual = async () => {
@@ -668,13 +690,41 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
 
         if (dedupeMap.has(dedupeKey)) {
           const existing = dedupeMap.get(dedupeKey);
+          const existingRank = getWorkflowRank(existing.workflowStatus || existing.workflows?.q1?.status);
+          const incomingRank = getWorkflowRank(normalizedRow.workflowStatus || normalizedRow.workflows?.q1?.status);
+
+          // Most advanced workflow status and workflows object always wins to prevent stale downgrades
+          const winnerStatus = incomingRank >= existingRank
+            ? (normalizedRow.workflowStatus || existing.workflowStatus)
+            : (existing.workflowStatus || normalizedRow.workflowStatus);
+
+          const winnerWorkflows = incomingRank >= existingRank
+            ? (normalizedRow.workflows || existing.workflows)
+            : (existing.workflows || normalizedRow.workflows);
+
+          // Deduplicate and merge workflowHistory uniquely by timestamp and action
+          const histMap = new Map<string, any>();
+          [...(existing.workflowHistory || []), ...(normalizedRow.workflowHistory || [])].forEach((h: any) => {
+            const hKey = `${h.date || ''}_${h.action || ''}_${h.user || ''}`;
+            histMap.set(hKey, h);
+          });
+          const mergedHistory = Array.from(histMap.values()).sort(
+            (a, b) => new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime()
+          );
+
           dedupeMap.set(dedupeKey, {
             ...existing,
             ...normalizedRow,
-            workflowStatus: normalizedRow.workflowStatus || existing.workflowStatus,
+            _scorecardSource: existing._scorecardSource || src,
+            workflowStatus: winnerStatus,
+            workflows: winnerWorkflows,
             q1Actual: normalizedRow.q1Actual || existing.q1Actual,
-            workflowHistory: normalizedRow.workflowHistory || existing.workflowHistory,
-            workflows: normalizedRow.workflows || existing.workflows
+            reviewer: normalizedRow.reviewer || existing.reviewer,
+            reviewerEmail: normalizedRow.reviewerEmail || existing.reviewerEmail,
+            reviewerUsername: normalizedRow.reviewerUsername || existing.reviewerUsername,
+            approvedBy: normalizedRow.approvedBy || existing.approvedBy,
+            approverNotes: normalizedRow.approverNotes || existing.approverNotes,
+            workflowHistory: mergedHistory
           });
         } else {
           dedupeMap.set(dedupeKey, normalizedRow);
@@ -700,7 +750,7 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
 
       setSelectedKpi(prev => {
         if (!prev) return null;
-        return normalizedList.find((x: SdbipRow) => x.id === prev.id) || prev;
+        return normalizedList.find((x: SdbipRow) => x.id === prev.id || (x.refNum && prev.refNum && x.refNum.toLowerCase() === prev.refNum.toLowerCase())) || prev;
       });
     } catch (err: any) {
       console.error(err);
@@ -753,9 +803,10 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
       await saveUpdatedRows(updatedRows, selectedKpi);
 
       setRows(updatedRows);
+      const updatedApprovedRow = updatedRows.find(r => r.id === selectedKpi.id) || null;
+      setSelectedKpi(updatedApprovedRow);
       setSuccess('SDBIP Item officially APPROVED and LOCKED in compliance archives!');
       setTimeout(() => setSuccess(null), 4000);
-      setSelectedKpi(null);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -849,9 +900,10 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
       await loadNotifications();
       
       setRows(updatedRows);
+      const updatedPushedRow = updatedRows.find(r => r.id === selectedKpi.id) || null;
+      setSelectedKpi(updatedPushedRow);
       setSuccess(`SDBIP Item ${selectedKpi.refNum} successfully approved and pushed to Reviewer ${reviewerTarget} (@${reviewerUsername})!`);
       setTimeout(() => setSuccess(null), 4000);
-      setSelectedKpi(null);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -933,15 +985,18 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
   const filteredRows = rows.filter(r => {
     const rowStatus = (r as any).workflowStatus || 'Draft';
 
-    // The approver should ONLY see KPIs sent by the submitter, NOT the entire SDBIP top layer or raw drafts!
+    // The approver should ONLY see KPIs sent by the submitter, including those in approval, review, and clearance stages!
     const isSentBySubmitter = 
       rowStatus === 'Submitted' || 
       rowStatus === 'Submitted to Approver' || 
       rowStatus === 'Pending Approval' || 
+      rowStatus === 'Pending Review' ||
       rowStatus === 'Approved' || 
       rowStatus === 'Returned' || 
+      rowStatus === 'Returned to Submitter' ||
       rowStatus === 'Reviewed' ||
       r.workflows?.q1?.status === 'pending_approval' ||
+      r.workflows?.q1?.status === 'pending_review' ||
       r.workflows?.q1?.status === 'approved' ||
       (r.workflows?.q1?.status as any) === 'returned';
 
@@ -951,6 +1006,10 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
     if (statusFilter !== 'ALL') {
       if (statusFilter === 'Submitted') {
         matchesStatus = rowStatus === 'Submitted' || rowStatus === 'Submitted to Approver' || rowStatus === 'Pending Approval' || r.workflows?.q1?.status === 'pending_approval';
+      } else if (statusFilter === 'Pending Review') {
+        matchesStatus = rowStatus === 'Pending Review' || r.workflows?.q1?.status === 'pending_review';
+      } else if (statusFilter === 'Returned') {
+        matchesStatus = rowStatus === 'Returned' || rowStatus === 'Returned to Submitter' || (r.workflows?.q1?.status as any) === 'returned';
       } else {
         matchesStatus = rowStatus === statusFilter;
       }
@@ -976,7 +1035,19 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
   // Calculate high level stats strictly for the Approver queue
   const approverQueueRows = rows.filter(r => {
     const rowStatus = (r as any).workflowStatus;
-    const isSent = rowStatus === 'Submitted' || rowStatus === 'Submitted to Approver' || rowStatus === 'Pending Approval' || rowStatus === 'Approved' || rowStatus === 'Returned' || rowStatus === 'Reviewed' || r.workflows?.q1?.status === 'pending_approval';
+    const isSent = 
+      rowStatus === 'Submitted' || 
+      rowStatus === 'Submitted to Approver' || 
+      rowStatus === 'Pending Approval' || 
+      rowStatus === 'Pending Review' ||
+      rowStatus === 'Approved' || 
+      rowStatus === 'Returned' || 
+      rowStatus === 'Returned to Submitter' ||
+      rowStatus === 'Reviewed' || 
+      r.workflows?.q1?.status === 'pending_approval' ||
+      r.workflows?.q1?.status === 'pending_review' ||
+      r.workflows?.q1?.status === 'approved' ||
+      (r.workflows?.q1?.status as any) === 'returned';
     if (!isSent) return false;
     const isRowM81to84 = isQuarter1UnlockedKpi(r);
     const effApprover = isRowM81to84 ? 'Thandiwe M. Lengwate' : r.approver;
@@ -986,9 +1057,10 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
 
   const totalKpis = approverQueueRows.length;
   const submittedCount = approverQueueRows.filter(r => (r as any).workflowStatus === 'Submitted to Approver' || (r as any).workflowStatus === 'Submitted' || r.workflows?.q1?.status === 'pending_approval').length;
-  const reviewedCount = approverQueueRows.filter(r => (r as any).workflowStatus === 'Reviewed' || (r as any).workflowStatus === 'Pending Review').length;
+  const pendingReviewCount = approverQueueRows.filter(r => (r as any).workflowStatus === 'Pending Review' || r.workflows?.q1?.status === 'pending_review').length;
+  const reviewedCount = approverQueueRows.filter(r => (r as any).workflowStatus === 'Reviewed').length;
   const approvedCount = approverQueueRows.filter(r => (r as any).workflowStatus === 'Approved').length;
-  const returnedCount = approverQueueRows.filter(r => (r as any).workflowStatus === 'Returned').length;
+  const returnedCount = approverQueueRows.filter(r => (r as any).workflowStatus === 'Returned' || (r as any).workflowStatus === 'Returned to Submitter').length;
 
   const getStatusBadge = (status: string | undefined) => {
     const s = status || 'Draft';
@@ -1011,8 +1083,8 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
             ? "bg-blue-100 text-blue-950 border border-blue-500 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider inline-flex items-center gap-1 shadow-2xs"
             : "bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider inline-flex items-center gap-1 shadow-2xs"
           }>
-            <Clock className={isLight ? "w-2.5 h-2.5 text-blue-800" : "w-2.5 h-2.5 text-blue-400"} />
-            <span>Awaiting Reviewer</span>
+            <CheckCircle2 className={isLight ? "w-2.5 h-2.5 text-blue-800" : "w-2.5 h-2.5 text-blue-400"} />
+            <span>Approved & Routed to Reviewer</span>
           </span>
         );
       case 'Reviewed':
@@ -1104,22 +1176,26 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between">
           <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Total Indicators</span>
           <span className="text-2xl font-black text-white mt-1">{totalKpis}</span>
         </div>
+        <div className="bg-amber-950/20 border border-amber-900/30 rounded-xl p-3.5 flex flex-col justify-between">
+          <span className="text-[10px] font-black text-amber-500 uppercase tracking-wider">Awaiting Approver</span>
+          <span className="text-2xl font-black text-amber-400 mt-1">{submittedCount}</span>
+        </div>
+        <div className="bg-blue-950/20 border border-blue-900/30 rounded-xl p-3.5 flex flex-col justify-between">
+          <span className="text-[10px] font-black text-blue-500 uppercase tracking-wider">Routed to Reviewer</span>
+          <span className="text-2xl font-black text-blue-400 mt-1">{pendingReviewCount}</span>
+        </div>
         <div className="bg-indigo-950/20 border border-indigo-900/30 rounded-xl p-3.5 flex flex-col justify-between">
-          <span className="text-[10px] font-black text-indigo-500 uppercase tracking-wider">Pending Decision</span>
+          <span className="text-[10px] font-black text-indigo-500 uppercase tracking-wider">Reviewed (Awaiting MM)</span>
           <span className="text-2xl font-black text-indigo-400 mt-1">{reviewedCount}</span>
         </div>
         <div className="bg-emerald-950/20 border border-emerald-900/30 rounded-xl p-3.5 flex flex-col justify-between">
-          <span className="text-[10px] font-black text-emerald-500 uppercase tracking-wider">Approved & Locked</span>
+          <span className="text-[10px] font-black text-emerald-500 uppercase tracking-wider">Approved & Sealed</span>
           <span className="text-2xl font-black text-emerald-400 mt-1">{approvedCount}</span>
-        </div>
-        <div className="bg-amber-950/20 border border-amber-900/30 rounded-xl p-3.5 flex flex-col justify-between">
-          <span className="text-[10px] font-black text-amber-500 uppercase tracking-wider">Under PMU Review</span>
-          <span className="text-2xl font-black text-amber-400 mt-1">{submittedCount}</span>
         </div>
       </div>
 
@@ -1288,10 +1364,11 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
                 }`}
               >
                 <option value="ALL">All States</option>
-                <option value="Reviewed">Awaiting Sign-off (Recommended)</option>
-                <option value="Approved">Officially Approved</option>
-                <option value="Submitted">Awaiting Review</option>
-                <option value="Returned">Returned / Correcting</option>
+                <option value="Submitted">Awaiting Approver</option>
+                <option value="Pending Review">Approved & Routed to Reviewer</option>
+                <option value="Reviewed">Reviewed (Awaiting MM)</option>
+                <option value="Approved">Approved & Sealed</option>
+                <option value="Returned">Returned to Submitter</option>
               </select>
             </div>
           </div>
@@ -1823,6 +1900,15 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
                   </select>
                 </div>
 
+                {(selectedKpi.workflowStatus === 'Pending Review' || selectedKpi.workflows?.q1?.status === 'pending_review') && (
+                  <div className="p-3 bg-blue-950/40 border border-blue-500/40 rounded-xl text-blue-200 text-xs flex items-center gap-2.5">
+                    <CheckCircle className="w-4 h-4 text-blue-400 shrink-0" />
+                    <span>
+                      <strong>Approved & Pushed to Reviewer:</strong> This KPI has been approved by the Executive Approver and routed to Reviewer <strong>{selectedKpi.reviewer || 'PMU Reviewer'}</strong> for compliance audit & sign-off.
+                    </span>
+                  </div>
+                )}
+
                 {isReturnedAwaitingSubmitter && (
                   <div className="p-3 bg-amber-950/40 border border-amber-800/70 rounded-xl text-amber-200 text-xs flex items-center gap-2.5">
                     <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
@@ -1851,7 +1937,7 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
                     title={`Accept and route to Reviewer (${OFFICIAL_REVIEWERS.find(r => r.username === selectedReviewerUsername)?.fullName || 'Reviewer'})`}
                   >
                     <Check className="w-3.5 h-3.5" />
-                    <span>Accept & Push to Reviewer</span>
+                    <span>{(selectedKpi.workflowStatus === 'Pending Review' || selectedKpi.workflows?.q1?.status === 'pending_review') ? 'Re-route / Update Reviewer' : 'Accept & Push to Reviewer'}</span>
                   </button>
                   <button
                     onClick={handleGrantApproval}

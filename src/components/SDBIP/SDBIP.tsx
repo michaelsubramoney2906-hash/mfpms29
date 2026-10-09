@@ -5626,9 +5626,29 @@ Timestamp: ${new Date().toLocaleString()}
                               </>
                             );
                           })()}
-                          {((row as any).workflowStatus === 'Submitted to Approver' || (row as any).workflowStatus === 'Submitted' || row.workflows?.q1?.status === 'pending_approval') && (
+                          {((row as any).workflowStatus === 'Submitted to Approver' || (row as any).workflowStatus === 'Submitted' || row.workflows?.q1?.status === 'pending_approval') && !['Pending Review', 'Reviewed', 'Approved', 'Pending Audit'].includes((row as any).workflowStatus) && !['pending_review', 'reviewed', 'approved', 'pending_audit'].includes(row.workflows?.q1?.status || '') && (
                             <span className="text-[8px] font-mono font-bold px-1 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-300 inline-flex items-center gap-0.5 w-fit">
                               <Clock className="w-2 h-2 text-amber-600" /> Submitted
+                            </span>
+                          )}
+                          {((row as any).workflowStatus === 'Pending Review' || row.workflows?.q1?.status === 'pending_review') && (
+                            <span className="text-[8px] font-mono font-bold px-1 py-0.2 rounded bg-indigo-100 text-indigo-800 border border-indigo-300 inline-flex items-center gap-0.5 w-fit">
+                              <CheckCircle className="w-2 h-2 text-indigo-600" /> Approved by Approver
+                            </span>
+                          )}
+                          {(row as any).workflowStatus === 'Reviewed' && (
+                            <span className="text-[8px] font-mono font-bold px-1 py-0.2 rounded bg-purple-100 text-purple-800 border border-purple-300 inline-flex items-center gap-0.5 w-fit">
+                              <CheckCircle className="w-2 h-2 text-purple-600" /> Reviewed
+                            </span>
+                          )}
+                          {(row as any).workflowStatus === 'Approved' && (
+                            <span className="text-[8px] font-mono font-bold px-1 py-0.2 rounded bg-emerald-100 text-emerald-800 border border-emerald-300 inline-flex items-center gap-0.5 w-fit">
+                              <CheckCircle className="w-2 h-2 text-emerald-600" /> Approved
+                            </span>
+                          )}
+                          {((row as any).workflowStatus === 'Returned' || (row as any).workflowStatus === 'Returned to Submitter') && (
+                            <span className="text-[8px] font-mono font-bold px-1 py-0.2 rounded bg-rose-100 text-rose-800 border border-rose-300 inline-flex items-center gap-0.5 w-fit">
+                              <XCircle className="w-2 h-2 text-rose-600" /> Returned / Redo
                             </span>
                           )}
                         </div>
@@ -5657,9 +5677,29 @@ Timestamp: ${new Date().toLocaleString()}
                               </>
                             );
                           })()}
-                          {((row as any).workflowStatus === 'Submitted to Approver' || (row as any).workflowStatus === 'Submitted' || row.workflows?.q1?.status === 'pending_approval') && (
+                          {((row as any).workflowStatus === 'Submitted to Approver' || (row as any).workflowStatus === 'Submitted' || row.workflows?.q1?.status === 'pending_approval') && !['Pending Review', 'Reviewed', 'Approved', 'Pending Audit'].includes((row as any).workflowStatus) && !['pending_review', 'reviewed', 'approved', 'pending_audit'].includes(row.workflows?.q1?.status || '') && (
                             <span className="text-[8px] font-mono font-bold px-1 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-300 inline-flex items-center gap-0.5 w-fit">
                               <Clock className="w-2 h-2 text-amber-600" /> Awaiting Approval
+                            </span>
+                          )}
+                          {((row as any).workflowStatus === 'Pending Review' || row.workflows?.q1?.status === 'pending_review') && (
+                            <span className="text-[8px] font-mono font-bold px-1 py-0.2 rounded bg-indigo-100 text-indigo-800 border border-indigo-300 inline-flex items-center gap-0.5 w-fit">
+                              <CheckCircle className="w-2 h-2 text-indigo-600" /> Approved & Pushed
+                            </span>
+                          )}
+                          {(row as any).workflowStatus === 'Reviewed' && (
+                            <span className="text-[8px] font-mono font-bold px-1 py-0.2 rounded bg-purple-100 text-purple-800 border border-purple-300 inline-flex items-center gap-0.5 w-fit">
+                              <CheckCircle className="w-2 h-2 text-purple-600" /> Reviewed
+                            </span>
+                          )}
+                          {(row as any).workflowStatus === 'Approved' && (
+                            <span className="text-[8px] font-mono font-bold px-1 py-0.2 rounded bg-emerald-100 text-emerald-800 border border-emerald-300 inline-flex items-center gap-0.5 w-fit">
+                              <CheckCircle className="w-2 h-2 text-emerald-600" /> Approved & Sealed
+                            </span>
+                          )}
+                          {((row as any).workflowStatus === 'Returned' || (row as any).workflowStatus === 'Returned to Submitter') && (
+                            <span className="text-[8px] font-mono font-bold px-1 py-0.2 rounded bg-rose-100 text-rose-800 border border-rose-300 inline-flex items-center gap-0.5 w-fit">
+                              <XCircle className="w-2 h-2 text-rose-600" /> Returned to Submitter
                             </span>
                           )}
                         </div>
@@ -5669,9 +5709,21 @@ Timestamp: ${new Date().toLocaleString()}
                       <td className="p-2 border-r border-slate-150">
                         <div className="text-[11px] font-medium text-slate-800 px-1 py-0.5 whitespace-pre-wrap break-words">
                           {row.reviewer ? (
-                            <span className="inline-flex items-center gap-1 text-slate-800 font-semibold">
-                              {row.reviewer}
-                            </span>
+                            <div className="flex flex-col gap-1">
+                              <span className="inline-flex items-center gap-1 text-slate-800 font-semibold">
+                                {row.reviewer}
+                              </span>
+                              {((row as any).workflowStatus === 'Pending Review' || row.workflows?.q1?.status === 'pending_review') && (
+                                <span className="text-[8px] font-mono font-bold px-1 py-0.2 rounded bg-blue-100 text-blue-800 border border-blue-300 inline-flex items-center gap-0.5 w-fit">
+                                  <Clock className="w-2 h-2 text-blue-600" /> Awaiting Review
+                                </span>
+                              )}
+                              {(row as any).workflowStatus === 'Reviewed' && (
+                                <span className="text-[8px] font-mono font-bold px-1 py-0.2 rounded bg-purple-100 text-purple-800 border border-purple-300 inline-flex items-center gap-0.5 w-fit">
+                                  <CheckCircle className="w-2 h-2 text-purple-600" /> Review Signed-off
+                                </span>
+                              )}
+                            </div>
                           ) : (
                             <span className="text-slate-300 italic text-[10px]">Unassigned</span>
                           )}
@@ -7732,10 +7784,38 @@ Timestamp: ${new Date().toLocaleString()}
                               </>
                             );
                           })()}
-                          {((row as any).workflowStatus === 'Submitted to Approver' || (row as any).workflowStatus === 'Submitted' || row.workflows?.q1?.status === 'pending_approval') && (
+                          {((row as any).workflowStatus === 'Submitted to Approver' || (row as any).workflowStatus === 'Submitted' || row.workflows?.q1?.status === 'pending_approval') && !['Pending Review', 'Reviewed', 'Approved', 'Pending Audit'].includes((row as any).workflowStatus) && !['pending_review', 'reviewed', 'approved', 'pending_audit'].includes(row.workflows?.q1?.status || '') && (
                             <div className="flex items-center gap-1 justify-center">
                               <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-0.5 shadow-2xs">
                                 <Clock className="w-2 h-2 text-amber-600" /> SUBMITTED
+                              </span>
+                            </div>
+                          )}
+                          {((row as any).workflowStatus === 'Pending Review' || row.workflows?.q1?.status === 'pending_review') && (
+                            <div className="flex items-center gap-1 justify-center">
+                              <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-800 border border-indigo-300 flex items-center gap-0.5 shadow-2xs">
+                                <CheckCircle className="w-2 h-2 text-indigo-600" /> APPROVED BY APPROVER
+                              </span>
+                            </div>
+                          )}
+                          {(row as any).workflowStatus === 'Reviewed' && (
+                            <div className="flex items-center gap-1 justify-center">
+                              <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 border border-purple-300 flex items-center gap-0.5 shadow-2xs">
+                                <CheckCircle className="w-2 h-2 text-purple-600" /> REVIEWED
+                              </span>
+                            </div>
+                          )}
+                          {(row as any).workflowStatus === 'Approved' && (
+                            <div className="flex items-center gap-1 justify-center">
+                              <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-0.5 shadow-2xs">
+                                <CheckCircle className="w-2 h-2 text-emerald-600" /> APPROVED
+                              </span>
+                            </div>
+                          )}
+                          {((row as any).workflowStatus === 'Returned' || (row as any).workflowStatus === 'Returned to Submitter') && (
+                            <div className="flex items-center gap-1 justify-center">
+                              <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-300 flex items-center gap-0.5 shadow-2xs">
+                                <XCircle className="w-2 h-2 text-rose-600" /> RETURNED / REDO
                               </span>
                             </div>
                           )}
@@ -7774,10 +7854,38 @@ Timestamp: ${new Date().toLocaleString()}
                               </>
                             );
                           })()}
-                          {((row as any).workflowStatus === 'Submitted to Approver' || (row as any).workflowStatus === 'Submitted' || row.workflows?.q1?.status === 'pending_approval') && (
+                          {((row as any).workflowStatus === 'Submitted to Approver' || (row as any).workflowStatus === 'Submitted' || row.workflows?.q1?.status === 'pending_approval') && !['Pending Review', 'Reviewed', 'Approved', 'Pending Audit'].includes((row as any).workflowStatus) && !['pending_review', 'reviewed', 'approved', 'pending_audit'].includes(row.workflows?.q1?.status || '') && (
                             <div className="flex items-center gap-1 justify-center">
                               <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-0.5 shadow-2xs">
                                 <Clock className="w-2 h-2 text-amber-600" /> AWAITING APPROVER
+                              </span>
+                            </div>
+                          )}
+                          {((row as any).workflowStatus === 'Pending Review' || row.workflows?.q1?.status === 'pending_review') && (
+                            <div className="flex items-center gap-1 justify-center">
+                              <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-800 border border-indigo-300 flex items-center gap-0.5 shadow-2xs">
+                                <CheckCircle className="w-2 h-2 text-indigo-600" /> APPROVED & ROUTED
+                              </span>
+                            </div>
+                          )}
+                          {(row as any).workflowStatus === 'Reviewed' && (
+                            <div className="flex items-center gap-1 justify-center">
+                              <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 border border-purple-300 flex items-center gap-0.5 shadow-2xs">
+                                <CheckCircle className="w-2 h-2 text-purple-600" /> REVIEWED
+                              </span>
+                            </div>
+                          )}
+                          {(row as any).workflowStatus === 'Approved' && (
+                            <div className="flex items-center gap-1 justify-center">
+                              <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-0.5 shadow-2xs">
+                                <CheckCircle className="w-2 h-2 text-emerald-600" /> APPROVED & SEALED
+                              </span>
+                            </div>
+                          )}
+                          {((row as any).workflowStatus === 'Returned' || (row as any).workflowStatus === 'Returned to Submitter') && (
+                            <div className="flex items-center gap-1 justify-center">
+                              <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-300 flex items-center gap-0.5 shadow-2xs">
+                                <XCircle className="w-2 h-2 text-rose-600" /> RETURNED TO SUBMITTER
                               </span>
                             </div>
                           )}
@@ -7793,13 +7901,29 @@ Timestamp: ${new Date().toLocaleString()}
 
                       {/* Reviewer */}
                       <td className="p-1.5 border-r border-slate-100 bg-slate-50/5">
-                        <AzureADPicker 
-                          value={row.reviewer || ''}
-                          onChange={(val) => handleCellChange(row.id, 'reviewer', val)}
-                          roleType="reviewer"
-                          activeTenantId={activeTenantId}
-                          isFitAll={isFitAllReportingCells}
-                        />
+                        <div className="flex flex-col gap-1">
+                          <AzureADPicker 
+                            value={row.reviewer || ''}
+                            onChange={(val) => handleCellChange(row.id, 'reviewer', val)}
+                            roleType="reviewer"
+                            activeTenantId={activeTenantId}
+                            isFitAll={isFitAllReportingCells}
+                          />
+                          {((row as any).workflowStatus === 'Pending Review' || row.workflows?.q1?.status === 'pending_review') && (
+                            <div className="flex items-center gap-1 justify-center">
+                              <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 border border-blue-300 flex items-center gap-0.5 shadow-2xs">
+                                <Clock className="w-2 h-2 text-blue-600" /> AWAITING REVIEWER
+                              </span>
+                            </div>
+                          )}
+                          {(row as any).workflowStatus === 'Reviewed' && (
+                            <div className="flex items-center gap-1 justify-center">
+                              <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 border border-purple-300 flex items-center gap-0.5 shadow-2xs">
+                                <CheckCircle className="w-2 h-2 text-purple-600" /> REVIEW SIGNED-OFF
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </td>
 
                       {/* Internal Audit */}
