@@ -693,120 +693,14 @@ export function OPMSApprover({ currentUser, activeTenantId }: OPMSApproverProps)
         setPoes(currentPoesList);
       }
 
-      // Automated Compliance Scan: Ensure no approver receives a KPI missing actuals or POEs
-      // Any KPI submitted without actuals or POEs is automatically returned for resubmission with zero data loss.
-      let finalRows = normalizedList;
-      const invalidSubmissions = normalizedList.filter((r: any) => {
-        const isSubmitted = r.workflowStatus === 'Submitted to Approver' || 
-          r.workflowStatus === 'Submitted' || 
-          r.workflows?.q1?.status === 'pending_approval';
-        if (!isSubmitted) return false;
-
-        const hasActual = Boolean(r.q1Actual && String(r.q1Actual).trim() !== '');
-        const rowPoes = extractKpiPoes(r, currentPoesList);
-        const hasPoe = rowPoes.length > 0 || (Array.isArray(r.q1Poes) && r.q1Poes.length > 0);
-        return !hasActual || !hasPoe;
-      });
-
-      if (invalidSubmissions.length > 0) {
-        const updatedList = [...normalizedList];
-        for (const badRow of invalidSubmissions) {
-          const idx = updatedList.findIndex(x => x.id === badRow.id);
-          if (idx >= 0) {
-            const missingParts: string[] = [];
-            if (!badRow.q1Actual || String(badRow.q1Actual).trim() === '') missingParts.push('Actual performance figure');
-            const rowPoes = extractKpiPoes(badRow, currentPoesList);
-            if (rowPoes.length === 0 && (!badRow.q1Poes || badRow.q1Poes.length === 0)) missingParts.push('Portfolio of Evidence (PoE)');
-
-            const reason = `Automated Compliance Return: KPI ${badRow.refNum} was submitted without ${missingParts.join(' and ')}. Both actuals and supporting PoE are strictly required before approver review. Returned for resubmission.`;
-            const currentHistory = (updatedList[idx] as any).workflowHistory || [];
-
-            updatedList[idx] = {
-              ...updatedList[idx],
-              workflowStatus: 'Returned',
-              returnReason: reason,
-              workflows: {
-                ...updatedList[idx].workflows,
-                q1: {
-                  ...updatedList[idx].workflows?.q1,
-                  status: 'draft',
-                  comments: reason
-                }
-              },
-              workflowHistory: [
-                ...currentHistory,
-                {
-                  date: new Date().toISOString(),
-                  action: 'Returned for Resubmission (Automated Policy)',
-                  user: 'System Compliance Policy Engine',
-                  notes: reason
-                }
-              ]
-            };
-
-            // Dispatch notification to the Submitter referencing the specific KPI
-            const submitterTarget = badRow.submitter || (badRow as any).submitterName || '';
-            if (submitterTarget) {
-              dispatchSdbipNotification(activeTenantId, {
-                targetUser: submitterTarget,
-                senderUser: 'Executive Approver System',
-                kpiId: badRow.id,
-                refNum: badRow.refNum,
-                kpiName: badRow.kpi,
-                phase: 'Q1',
-                message: `Resubmission Required: KPI ${badRow.refNum} was returned because ${missingParts.join(' and ')} ${missingParts.length > 1 ? 'were' : 'was'} missing.`,
-                comment: `Policy Enforcement: A KPI cannot be submitted to an Approver without both an Actual progress figure and Portfolio of Evidence (PoE). Please provide both and re-submit.`,
-                actionType: 'returned'
-              }).catch(() => {});
-            }
-          }
-        }
-
-        finalRows = updatedList;
-
-        // Persist safely to Supabase with Zero Data Loss
-        const topToSave = updatedList.filter(x => (x as any)._scorecardSource !== 'dept' && !x.id?.startsWith('sdbip23'));
-        const deptToSave = updatedList.filter(x => (x as any)._scorecardSource === 'dept' || x.id?.startsWith('sdbip23'));
-        
-        if (topToSave.length > 0) {
-          fetch(`/api/tenant/${activeTenantId}/sdbip`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ items: topToSave })
-          }).catch(() => {});
-        }
-        if (deptToSave.length > 0) {
-          fetch(`/api/tenant/${activeTenantId}/sdbip23`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ items: deptToSave })
-          }).catch(() => {});
-        }
-
-        // Clean up stale notifications for these returned KPIs
-        const badIds = new Set(invalidSubmissions.map(x => x.id));
-        const badRefs = new Set(invalidSubmissions.map(x => x.refNum));
-        fetchSdbipNotifications(activeTenantId).then(notifs => {
-          const cleaned = notifs.filter(n => !(
-            (badIds.has(n.kpiId) || badRefs.has(n.refNum)) &&
-            n.actionType === 'submitted'
-          ));
-          if (cleaned.length !== notifs.length) {
-            fetch(`/api/tenant/${activeTenantId}/sdbip-notifications`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ notifications: cleaned })
-            }).catch(() => {});
-            setNotifications(cleaned);
-          }
-        }).catch(() => {});
-      }
-
-      setRows(finalRows);
+      // Zero Data Loss: Human-authoritative workflow.
+      // Submissions remain in 'Submitted to Approver' / 'Waiting for Approval' state until an authorized Approver explicitly takes action.
+      // No automated background mutations or silent rejections.
+      setRows(normalizedList);
 
       setSelectedKpi(prev => {
         if (!prev) return null;
-        return finalRows.find((x: SdbipRow) => x.id === prev.id) || prev;
+        return normalizedList.find((x: SdbipRow) => x.id === prev.id) || prev;
       });
     } catch (err: any) {
       console.error(err);

@@ -1835,7 +1835,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
         } else if (status === 'approved' || status === 'completed') {
           workflowStatus = 'Approved';
         } else if (status === 'draft') {
-          workflowStatus = 'Returned';
+          workflowStatus = (r as any).workflowStatus === 'Returned' ? 'Returned' : 'Draft';
         }
 
         const currentHistory = (r as any).workflowHistory || [];
