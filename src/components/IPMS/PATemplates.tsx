@@ -113,7 +113,9 @@ interface PATemplate {
   pulledFilteredPplanItems?: any[] | null;
   pulledPdpItems?: any[] | null;
   pulledCompetencyRows?: any[] | null;
+  pulledDirectorCompetencyRows?: any[] | null;
   pulledCfoCompetencyRows?: any[] | null;
+  pulledMmCompetencyRows?: any[] | null;
   pulledPedCompetencyRows?: any[] | null;
   pulledCorpCompetencyRows?: any[] | null;
   pulledKhuboniJscRows?: any[] | null;
@@ -259,7 +261,9 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
   const [pulledFilteredPplanItems, setPulledFilteredPplanItems] = useState<any[] | null>(null);
   const [pulledPdpItems, setPulledPdpItems] = useState<any[] | null>(null);
   const [pulledCompetencyRows, setPulledCompetencyRows] = useState<any[] | null>(null);
+  const [pulledDirectorCompetencyRows, setPulledDirectorCompetencyRows] = useState<any[] | null>(null);
   const [pulledCfoCompetencyRows, setPulledCfoCompetencyRows] = useState<any[] | null>(null);
+  const [pulledMmCompetencyRows, setPulledMmCompetencyRows] = useState<any[] | null>(null);
   const [pulledPedCompetencyRows, setPulledPedCompetencyRows] = useState<any[] | null>(null);
   const [pulledCorpCompetencyRows, setPulledCorpCompetencyRows] = useState<any[] | null>(null);
   const [pulledKhuboniJscRows, setPulledKhuboniJscRows] = useState<any[] | null>(null);
@@ -304,7 +308,9 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
   const [pullingFilteredPplan, setPullingFilteredPplan] = useState(false);
   const [pullingPdp, setPullingPdp] = useState(false);
   const [pullingCompetencies, setPullingCompetencies] = useState(false);
+  const [pullingDirectorsCompetencies, setPullingDirectorsCompetencies] = useState(false);
   const [pullingCfoCompetencies, setPullingCfoCompetencies] = useState(false);
+  const [pullingMmCompetencies, setPullingMmCompetencies] = useState(false);
   const [pullingPedCompetencies, setPullingPedCompetencies] = useState(false);
   const [pullingPerfAssessment, setPullingPerfAssessment] = useState(false);
   const [pullingReviewTimetable, setPullingReviewTimetable] = useState(false);
@@ -1037,6 +1043,74 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
     );
   };
 
+  const RenderDirectorsCompetenciesTable = () => {
+    if (!pulledDirectorCompetencyRows || pulledDirectorCompetencyRows.length === 0) return null;
+
+    return (
+      <div className="space-y-4 mt-6 break-inside-avoid">
+        <h5 className="font-bold text-[10px] uppercase tracking-tight" style={{ color: headingColor }}>
+          Adopted Directors Core Competencies Table
+        </h5>
+        <div className="border rounded overflow-hidden" style={{ borderColor }}>
+          <table className="w-full text-left text-[9px] border-collapse bg-white">
+            <thead className="bg-slate-50 uppercase text-[8px] font-black tracking-widest text-slate-500">
+              <tr>
+                <th className="p-1.5 border-b border-r" style={{ borderColor }}>Competency</th>
+                <th className="p-1.5 border-b border-r" style={{ borderColor }}>Components</th>
+                <th className="p-1.5 border-b border-r" style={{ borderColor }}>Competency Definition</th>
+                <th className="p-1.5 border-b text-center w-24 font-bold" style={{ borderColor }}>Weighting % (100%)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pulledDirectorCompetencyRows.map((row, i) => (
+                <tr key={i} className="border-b last:border-b-0" style={{ borderColor }}>
+                  <td className="p-1.5 border-r font-bold align-top text-slate-900" style={{ borderColor }}>{row.competency || 'Core Competency'}</td>
+                  <td className="p-1.5 border-r align-top text-slate-600" style={{ borderColor }}>{row.components || '-'}</td>
+                  <td className="p-1.5 border-r align-top text-slate-700" style={{ borderColor }}>{row.definition || '-'}</td>
+                  <td className="p-1.5 align-top font-mono text-indigo-600 font-bold text-center" style={{ borderColor }}>{row.weighting || '0'}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
+  const RenderMmCompetenciesTable = () => {
+    if (!pulledMmCompetencyRows || pulledMmCompetencyRows.length === 0) return null;
+
+    return (
+      <div className="space-y-4 mt-6 break-inside-avoid">
+        <h5 className="font-bold text-[10px] uppercase tracking-tight" style={{ color: headingColor }}>
+          Adopted Municipal Managers Core Competencies Table
+        </h5>
+        <div className="border rounded overflow-hidden" style={{ borderColor }}>
+          <table className="w-full text-left text-[9px] border-collapse bg-white">
+            <thead className="bg-slate-50 uppercase text-[8px] font-black tracking-widest text-slate-500">
+              <tr>
+                <th className="p-1.5 border-b border-r" style={{ borderColor }}>Competency</th>
+                <th className="p-1.5 border-b border-r" style={{ borderColor }}>Components</th>
+                <th className="p-1.5 border-b border-r" style={{ borderColor }}>Competency Definition</th>
+                <th className="p-1.5 border-b text-center w-24 font-bold" style={{ borderColor }}>Weighting % (100%)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pulledMmCompetencyRows.map((row, i) => (
+                <tr key={i} className="border-b last:border-b-0" style={{ borderColor }}>
+                  <td className="p-1.5 border-r font-bold align-top text-slate-900" style={{ borderColor }}>{row.competency || 'Core Competency'}</td>
+                  <td className="p-1.5 border-r align-top text-slate-600" style={{ borderColor }}>{row.components || '-'}</td>
+                  <td className="p-1.5 border-r align-top text-slate-700" style={{ borderColor }}>{row.definition || '-'}</td>
+                  <td className="p-1.5 align-top font-mono text-emerald-700 font-bold text-center" style={{ borderColor }}>{row.weighting || '0'}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
   const RenderCustomTables = ({ sectionId }: { sectionId: string }) => {
     const isSection15 = sectionId === "section-1782677903090" || (() => {
       const sec = dynamicSections.find(s => s.id === sectionId);
@@ -1346,6 +1420,124 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
     }
   };
 
+  const handlePullDirectorsCompetencies = async () => {
+    setPullingDirectorsCompetencies(true);
+    try {
+      const res = await fetch(`/api/tenant/${activeTenantId}/core-competencies?userId=${currentUser.email}&t=${Date.now()}`);
+      if (res.ok) {
+        const data = await res.json();
+        const dirRowsToUse = (data && Array.isArray(data.directorItems) && data.directorItems.length > 0)
+          ? data.directorItems
+          : [
+              {
+                id: 'dir-row-1',
+                competency: 'Strategic Direction & Leadership',
+                components: 'Vision translation, institutional alignment, operational strategy execution, IDP alignment',
+                definition: 'Guides departmental strategy and aligns resources to institutional key performance areas and municipal priorities.',
+                weighting: '25'
+              },
+              {
+                id: 'dir-row-2',
+                competency: 'Operational Governance & Compliance',
+                components: 'Statutory compliance, audit action plans, risk registers, internal controls enforcement',
+                definition: 'Enforces statutory compliance and risk mitigation frameworks across all departmental activities.',
+                weighting: '25'
+              },
+              {
+                id: 'dir-row-3',
+                competency: 'Financial & Budgetary Management',
+                components: 'Departmental budget oversight, expenditure controls, procurement alignment, variance tracking',
+                definition: 'Manages departmental financial resources prudently in strict compliance with the MFMA and SCM regulations.',
+                weighting: '20'
+              },
+              {
+                id: 'dir-row-4',
+                competency: 'People & Performance Management',
+                components: 'Staff development, performance appraisals, labor harmony, consequence management',
+                definition: 'Develops human capital, oversees performance metrics, and maintains productive workplace culture.',
+                weighting: '15'
+              },
+              {
+                id: 'dir-row-5',
+                competency: 'Programme & Project Governance',
+                components: 'Project milestone tracking, contractor oversight, capital project delivery, service delivery monitoring',
+                definition: 'Oversees the effective execution of municipal projects and quality assurance of service delivery outputs.',
+                weighting: '15'
+              }
+            ];
+
+        setPulledDirectorCompetencyRows(dirRowsToUse);
+        triggerNotification(`Successfully pulled all ${dirRowsToUse.length} Directors Core Competencies!`, "success");
+      } else {
+        throw new Error("Failed to load Directors Competencies data.");
+      }
+    } catch (err: any) {
+      console.error(err);
+      triggerNotification("Error pulling Directors Competencies: " + err.message, "error");
+    } finally {
+      setPullingDirectorsCompetencies(false);
+    }
+  };
+
+  const handlePullMmCompetencies = async () => {
+    setPullingMmCompetencies(true);
+    try {
+      const res = await fetch(`/api/tenant/${activeTenantId}/core-competencies?userId=${currentUser.email}&t=${Date.now()}`);
+      if (res.ok) {
+        const data = await res.json();
+        const mmRowsToUse = (data && Array.isArray(data.mmItems) && data.mmItems.length > 0)
+          ? data.mmItems
+          : [
+              {
+                id: 'mm-row-1',
+                competency: 'Strategic Capability & Institutional Leadership',
+                components: 'Executive governance, IDP integration, Council directive execution, organizational strategy',
+                definition: 'Provides authoritative administrative leadership, translates political vision into institutional strategy, and coordinates overall municipal administration.',
+                weighting: '25'
+              },
+              {
+                id: 'mm-row-2',
+                competency: 'Financial Governance & Fiscal Sustainability',
+                components: 'Accounting officer responsibilities, clean audit oversight, resource allocation, budget approval',
+                definition: 'Fulfills accounting officer responsibilities under the MFMA, ensuring fiscal prudence, financial viability, and transparent public expenditure.',
+                weighting: '25'
+              },
+              {
+                id: 'mm-row-3',
+                competency: 'Service Delivery & Infrastructure Oversight',
+                components: 'SDBIP Top Layer accountability, bulk infrastructure governance, community impact tracking',
+                definition: 'Directs institutional service delivery performance to ensure equitable, efficient, and uninterrupted municipal services to all communities.',
+                weighting: '20'
+              },
+              {
+                id: 'mm-row-4',
+                competency: 'People & Institutional Transformation',
+                components: 'Section 56/57 performance contracts, workforce stability, organizational transformation, labor harmony',
+                definition: 'Steers organizational development, holds executive directors accountable to statutory scorecards, and fosters an ethical, high-performance culture.',
+                weighting: '15'
+              },
+              {
+                id: 'mm-row-5',
+                competency: 'Governance, Ethics & Intergovernmental Relations',
+                components: 'Council reporting, IGR forums, community consultation, statutory compliance, anti-corruption frameworks',
+                definition: 'Champions moral competence, institutional integrity, risk mitigation, and proactive intergovernmental collaboration.',
+                weighting: '15'
+              }
+            ];
+
+        setPulledMmCompetencyRows(mmRowsToUse);
+        triggerNotification(`Successfully pulled all ${mmRowsToUse.length} Municipal Managers Core Competencies!`, "success");
+      } else {
+        throw new Error("Failed to load Municipal Managers Competencies data.");
+      }
+    } catch (err: any) {
+      console.error(err);
+      triggerNotification("Error pulling Municipal Managers Competencies: " + err.message, "error");
+    } finally {
+      setPullingMmCompetencies(false);
+    }
+  };
+
   const handlePullCompetencies = async () => {
     setPullingCompetencies(true);
     try {
@@ -1546,7 +1738,9 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
           pulledFilteredPplanItems,
           pulledPdpItems,
           pulledCompetencyRows,
+          pulledDirectorCompetencyRows,
           pulledCfoCompetencyRows,
+          pulledMmCompetencyRows,
           pulledPedCompetencyRows,
           pulledCorpCompetencyRows,
           khuboniJscNotes,
@@ -1655,7 +1849,9 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
           pulledFilteredPplanItems,
           pulledPdpItems,
           pulledCompetencyRows,
+          pulledDirectorCompetencyRows,
           pulledCfoCompetencyRows,
+          pulledMmCompetencyRows,
           pulledPedCompetencyRows,
           pulledCorpCompetencyRows,
           khuboniJscNotes,
@@ -1851,7 +2047,9 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
               pulledFilteredPplanItems,
               pulledPdpItems,
               pulledCompetencyRows,
+              pulledDirectorCompetencyRows,
               pulledCfoCompetencyRows,
+              pulledMmCompetencyRows,
               pulledPedCompetencyRows,
               pulledCorpCompetencyRows,
               khuboniJscNotes,
@@ -2477,7 +2675,9 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
         pulledFilteredPplanItems,
         pulledPdpItems,
         pulledCompetencyRows,
+        pulledDirectorCompetencyRows,
         pulledCfoCompetencyRows,
+        pulledMmCompetencyRows,
         pulledPedCompetencyRows,
         khuboniJscNotes,
         pdpCustomTable,
@@ -2724,7 +2924,9 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
         pulledFilteredPplanItems,
         pulledPdpItems,
         pulledCompetencyRows,
+        pulledDirectorCompetencyRows,
         pulledCfoCompetencyRows,
+        pulledMmCompetencyRows,
         pulledPedCompetencyRows,
         pulledKhuboniJscRows,
         khuboniJscNotes,
@@ -2876,7 +3078,9 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
     setPulledFilteredPplanItems(tpl.pulledFilteredPplanItems !== undefined ? tpl.pulledFilteredPplanItems : null);
     setPulledPdpItems(tpl.pulledPdpItems !== undefined ? tpl.pulledPdpItems : null);
     setPulledCompetencyRows(tpl.pulledCompetencyRows !== undefined ? tpl.pulledCompetencyRows : null);
+    setPulledDirectorCompetencyRows(tpl.pulledDirectorCompetencyRows !== undefined ? tpl.pulledDirectorCompetencyRows : null);
     setPulledCfoCompetencyRows(tpl.pulledCfoCompetencyRows !== undefined ? tpl.pulledCfoCompetencyRows : null);
+    setPulledMmCompetencyRows(tpl.pulledMmCompetencyRows !== undefined ? tpl.pulledMmCompetencyRows : null);
     setPulledPedCompetencyRows(tpl.pulledPedCompetencyRows !== undefined ? tpl.pulledPedCompetencyRows : null);
     setPulledKhuboniJscRows(tpl.pulledKhuboniJscRows !== undefined ? tpl.pulledKhuboniJscRows : null);
 
@@ -3538,6 +3742,102 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
                         <span className="flex items-center gap-1.5">
                           <Trash2 className="w-3.5 h-3.5 text-rose-600" />
                           Remove Adopted PED Core Competencies Table
+                        </span>
+                        <span className="text-[8.5px] font-bold text-rose-600 uppercase">Clear Table</span>
+                      </button>
+                    )}
+                  </>
+                )}
+
+                {isMikeViewer && (
+                  <>
+                    <button
+                      id="btn-adopt-directors-competencies"
+                      type="button"
+                      disabled={pullingDirectorsCompetencies}
+                      onClick={handlePullDirectorsCompetencies}
+                      className={`w-full text-left font-bold text-[10px] px-3 py-2 rounded-lg border flex items-center justify-between transition-all cursor-pointer ${
+                        pulledDirectorCompetencyRows !== null 
+                          ? 'bg-emerald-50 border-emerald-300 text-emerald-800' 
+                          : 'bg-indigo-50 hover:bg-indigo-100/80 border-indigo-100 text-indigo-900'
+                      }`}
+                    >
+                      <span className="flex items-center gap-1.5 leading-snug">
+                        <Briefcase className="w-3.5 h-3.5 text-indigo-600 flex-shrink-0" />
+                        Adopt entire core competencies table and information contained in there, from core competencies Directors tab
+                      </span>
+                      {pullingDirectorsCompetencies ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" />
+                      ) : pulledDirectorCompetencyRows !== null ? (
+                        <span className="text-[8px] bg-emerald-200 text-emerald-800 px-1.5 py-0.5 rounded-full font-black uppercase flex-shrink-0">
+                          {pulledDirectorCompetencyRows.length} Directors Competencies Loaded
+                        </span>
+                      ) : (
+                        <ArrowRight className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0" />
+                      )}
+                    </button>
+
+                    {pulledDirectorCompetencyRows !== null && (
+                      <button
+                        id="btn-remove-adopted-directors-competencies"
+                        type="button"
+                        onClick={() => {
+                          setPulledDirectorCompetencyRows(null);
+                          triggerNotification("Removed adopted Directors core competencies table", "success");
+                        }}
+                        className="w-full text-left font-bold text-[10px] px-3 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100 flex items-center justify-between transition-all cursor-pointer"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                          Remove Adopted Directors Core Competencies Table
+                        </span>
+                        <span className="text-[8.5px] font-bold text-rose-600 uppercase">Clear Table</span>
+                      </button>
+                    )}
+                  </>
+                )}
+
+                {isMikeViewer && (
+                  <>
+                    <button
+                      id="btn-adopt-mm-competencies"
+                      type="button"
+                      disabled={pullingMmCompetencies}
+                      onClick={handlePullMmCompetencies}
+                      className={`w-full text-left font-bold text-[10px] px-3 py-2 rounded-lg border flex items-center justify-between transition-all cursor-pointer ${
+                        pulledMmCompetencyRows !== null 
+                          ? 'bg-emerald-50 border-emerald-300 text-emerald-800' 
+                          : 'bg-emerald-50 hover:bg-emerald-100/80 border-emerald-200 text-emerald-950'
+                      }`}
+                    >
+                      <span className="flex items-center gap-1.5 leading-snug">
+                        <Briefcase className="w-3.5 h-3.5 text-emerald-700 flex-shrink-0" />
+                        Adopt entire core competencies table and information contained in there, from core competencies Municipal Managers tab
+                      </span>
+                      {pullingMmCompetencies ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-700" />
+                      ) : pulledMmCompetencyRows !== null ? (
+                        <span className="text-[8px] bg-emerald-200 text-emerald-800 px-1.5 py-0.5 rounded-full font-black uppercase flex-shrink-0">
+                          {pulledMmCompetencyRows.length} MM Competencies Loaded
+                        </span>
+                      ) : (
+                        <ArrowRight className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                      )}
+                    </button>
+
+                    {pulledMmCompetencyRows !== null && (
+                      <button
+                        id="btn-remove-adopted-mm-competencies"
+                        type="button"
+                        onClick={() => {
+                          setPulledMmCompetencyRows(null);
+                          triggerNotification("Removed adopted Municipal Managers core competencies table", "success");
+                        }}
+                        className="w-full text-left font-bold text-[10px] px-3 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100 flex items-center justify-between transition-all cursor-pointer"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                          Remove Adopted Municipal Managers Core Competencies Table
                         </span>
                         <span className="text-[8.5px] font-bold text-rose-600 uppercase">Clear Table</span>
                       </button>
@@ -4510,7 +4810,9 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
                         </>
                       )}
                       {isSection6 && <RenderCompetenciesTable />}
+                      {isSection6 && <RenderDirectorsCompetenciesTable />}
                       {isSection6 && <RenderCfoCompetenciesTable />}
+                      {isSection6 && <RenderMmCompetenciesTable />}
                       {isSection6 && <RenderPedCompetenciesTable />}
                     </div>
                   </div>
@@ -5149,7 +5451,9 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
                           <RenderKhuboniJscTableBelow4_4 />
                         )}
                         {isSection6 && <RenderCompetenciesTable />}
+                        {isSection6 && <RenderDirectorsCompetenciesTable />}
                         {isSection6 && <RenderCfoCompetenciesTable />}
+                        {isSection6 && <RenderMmCompetenciesTable />}
                         {isSection6 && <RenderPedCompetenciesTable />}
                       </div>
                     </div>

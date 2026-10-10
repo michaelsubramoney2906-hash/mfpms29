@@ -4,7 +4,7 @@ import { modules, tenants } from '../data';
 import type { User, Module } from '../types';
 import { isUserUnrestricted, isGlobalAdminEmail } from '../utils/unrestrictedHelper';
 import { isUserMatch, isMasterAdminMike } from '../utils/sdbipWorkflowHelper';
-import { ChevronDown, LogOut, ShieldCheck, ChevronRight, LayoutGrid, Calendar as CalendarIcon, Bell, ArrowLeft, Layers, Lock } from 'lucide-react';
+import { ChevronDown, LogOut, ShieldCheck, ChevronRight, LayoutGrid, Calendar as CalendarIcon, Bell, ArrowLeft, Layers, Lock, Award } from 'lucide-react';
 import { UserManagement } from './UserManagement';
 import { SharePoint } from './SharePoint';
 import { APR } from './APR/APR';
@@ -169,21 +169,18 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
   const [completedIPMSSteps, setCompletedIPMSSteps] = useState<string[]>([]);
   const [lockedStepAlert, setLockedStepAlert] = useState<{ isOpen: boolean; currentClickedName: string; requiredPrevName: string } | null>(null);
 
-  // IPMS Maintenance Lock for @nkangaladm.gov.za users (CFO & PMS Department directive)
+  // IPMS Module is officially UNLOCKED for all @nkangaladm.gov.za users
   const activeUserEmail = ((fullUserProfile?.email || user.email) || '').toLowerCase().trim();
   const isNkangalaUser = activeUserEmail.endsWith('@nkangaladm.gov.za') || activeUserEmail.includes('@nkangaladm.gov.za');
 
-  const [isIpmsUnlocked, setIsIpmsUnlocked] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      return sessionStorage.getItem(`ipms_maintenance_unlocked_${activeUserEmail}`) === 'true';
-    }
-    return false;
-  });
+  // IPMS is permanently unlocked for all Nkangala users
+  const [isIpmsUnlocked, setIsIpmsUnlocked] = useState<boolean>(true);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setIsIpmsUnlocked(sessionStorage.getItem(`ipms_maintenance_unlocked_${activeUserEmail}`) === 'true');
+    if (typeof window !== 'undefined' && activeUserEmail) {
+      sessionStorage.setItem(`ipms_maintenance_unlocked_${activeUserEmail}`, 'true');
     }
+    setIsIpmsUnlocked(true);
   }, [activeUserEmail]);
 
   const handleUnlockIpms = () => {
@@ -194,14 +191,12 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
   };
 
   const handleRelockIpms = () => {
-    if (typeof window !== 'undefined') {
-      sessionStorage.removeItem(`ipms_maintenance_unlocked_${activeUserEmail}`);
-    }
-    setIsIpmsUnlocked(false);
-    setActiveSubModuleState(null);
+    // Kept as no-op or explicit unlock per instructions
+    setIsIpmsUnlocked(true);
   };
 
-  const isIpmsLockedForUser = isNkangalaUser && !isIpmsUnlocked;
+  // IPMS is officially unlocked for all @nkangaladm.gov.za users
+  const isIpmsLockedForUser = false;
 
   const availableTenants = user.role === 'admin' 
     ? [{ id: 'global', name: 'Global Administrator Space' }, ...tenants]
@@ -699,8 +694,8 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                             email.includes('khuboni') ||
                             email.includes('mike@massivedynamixdistributors.com');
 
-      const isDirectAccess = sub.id === 'ipms-demo' || sub.id === 'ipms-evaluation' || sub.id === 'pplan' || sub.id === 'team-pplan' || sub.id === 'team-pplan-2' || sub.id === 'pdp' || sub.id === 'team-pdp' || sub.id === 'team-pdp-2' || sub.id === 'pa' || sub.id === 'pa-cds-team' || sub.id === 'pa-technical-services' || sub.id === 'pa-corporate-services' || sub.id === 'pa-pms-team' || sub.id === 'pa-templates' || sub.id === 'jsc' || sub.id === 'team-jsc' || sub.id === 'team-jsc-2' || sub.id === 'ccomp' || sub.id === 'ipms-kpi' || sub.id === 'ipms-kpa' || sub.id === 'organogram' || sub.id === 'ipms-inbox' || sub.id === 'review-timetable' || sub.id === 'performance-assessment';
-      const isBypassAll = isUnrestricted || isUserUnrestricted(profileToUse) || isGlobalOrSystemAdmin || isPMSTeam || isManagerUser || isDirectAccess;
+      const isDirectAccess = sub.id === 'ipms-demo' || sub.id === 'ipms-evaluation' || sub.id === 'pplan' || sub.id === 'team-pplan' || sub.id === 'team-pplan-2' || sub.id === 'pdp' || sub.id === 'team-pdp' || sub.id === 'team-pdp-2' || sub.id === 'pa' || sub.id === 'pa-cds-team' || sub.id === 'pa-technical-services' || sub.id === 'pa-corporate-services' || sub.id === 'pa-pms-team' || sub.id === 'pa-templates' || sub.id === 'jsc' || sub.id === 'team-jsc' || sub.id === 'team-jsc-2' || sub.id === 'ccomp' || sub.id === 'fred-ccomp' || sub.id === 'fred-core-competencies' || sub.id === 'fred' || sub.id === 'fred-ipp' || sub.id === 'fred-gm' || sub.id === 'fred-sdbip' || sub.id === 'ipms-kpi' || sub.id === 'ipms-kpa' || sub.id === 'organogram' || sub.id === 'ipms-inbox' || sub.id === 'review-timetable' || sub.id === 'performance-assessment';
+      const isBypassAll = isNkangalaUser || isUnrestricted || isUserUnrestricted(profileToUse) || isGlobalOrSystemAdmin || isPMSTeam || isManagerUser || isDirectAccess;
 
       if (!isBypassAll) {
         const filteredSteps = getFilteredSteps();
@@ -913,15 +908,11 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                     Active Tenant: {currentTenant.name}
                  </div>
               </div>
-              {activeModule.id === 'ipms' && isNkangalaUser && isIpmsUnlocked && (
-                <button
-                  onClick={handleRelockIpms}
-                  className="bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider shadow-sm flex items-center gap-1.5 cursor-pointer transition"
-                  title="Click to lock the IPMS module under maintenance directive"
-                >
-                  <Lock className="w-3 h-3 text-amber-400" />
-                  <span>Lock IPMS</span>
-                </button>
+              {activeModule.id === 'ipms' && isNkangalaUser && (
+                <div className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider shadow-sm flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>IPMS Unlocked</span>
+                </div>
               )}
             </div>
           </div>
@@ -1131,7 +1122,18 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
               </div>
           ) : activeSubModule.id === 'ccomp' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
-                 <CoreCompetencies currentUser={fullUserProfile} activeTenantId={activeTenantId} />
+                 <CoreCompetencies 
+                   currentUser={fullUserProfile} 
+                   activeTenantId={activeTenantId} 
+                   onNavigateToSubModule={(subId) => {
+                     const ipmsModule = modules.find(m => m.id === 'ipms');
+                     if (ipmsModule) {
+                       const targetSub = ipmsModule.subModules?.find(s => s.id === (subId || 'fred-ccomp')) || { id: subId || 'fred-ccomp', name: 'Fred - Core Competencies Extractor', icon: Award };
+                       setActiveModule(ipmsModule);
+                       handleSubModuleSelect(targetSub);
+                     }
+                   }}
+                 />
               </div>
           ) : activeSubModule.id === 'pdp' || activeSubModule.id === 'team-pdp' || activeSubModule.id === 'team-pdp-2' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
@@ -1280,12 +1282,12 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                    }}
                 />
              </div>
-          ) : activeSubModule.id === 'fred' || activeSubModule.id === 'fred-ipp' || activeSubModule.id === 'fred-gm' || activeSubModule.id === 'fred-performance-plan' || activeSubModule.id === 'fred-sdbip' ? (
+          ) : activeSubModule.id === 'fred' || activeSubModule.id === 'fred-ipp' || activeSubModule.id === 'fred-gm' || activeSubModule.id === 'fred-performance-plan' || activeSubModule.id === 'fred-sdbip' || activeSubModule.id === 'fred-ccomp' || activeSubModule.id === 'fred-core-competencies' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
                  <FredSuite 
                     currentUser={fullUserProfile} 
                     activeTenantId={activeTenantId} 
-                    initialSubModule={activeSubModule.id === 'fred-sdbip' ? 'sdbip' : activeSubModule.id === 'fred-gm' ? 'gm-extractor' : 'performance-plan'}
+                    initialSubModule={activeSubModule.id === 'fred-sdbip' ? 'sdbip' : activeSubModule.id === 'fred-gm' ? 'gm-extractor' : (activeSubModule.id === 'fred-ccomp' || activeSubModule.id === 'fred-core-competencies') ? 'core-competencies' : 'performance-plan'}
                     onNavigateToIPMS={(subId) => {
                       const ipmsModule = modules.find(m => m.id === 'ipms');
                       if (ipmsModule) {

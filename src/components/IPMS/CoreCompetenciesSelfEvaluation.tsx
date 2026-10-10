@@ -64,6 +64,44 @@ const createDefaultQuarterData = (initialPoeDesc = ''): CompetencyEvaluationQuar
 
 const DEFAULT_DIRECTORS_COMPETENCIES = [
   {
+    id: 'dir-row-1',
+    competency: 'Strategic Direction & Leadership',
+    components: 'Vision translation, institutional alignment, operational strategy execution, IDP alignment',
+    definition: 'Guides departmental strategy and aligns resources to institutional key performance areas and municipal priorities.',
+    weighting: '25'
+  },
+  {
+    id: 'dir-row-2',
+    competency: 'Operational Governance & Compliance',
+    components: 'Statutory compliance, audit action plans, risk registers, internal controls enforcement',
+    definition: 'Enforces statutory compliance and risk mitigation frameworks across all departmental activities.',
+    weighting: '25'
+  },
+  {
+    id: 'dir-row-3',
+    competency: 'Financial & Budgetary Management',
+    components: 'Departmental budget oversight, expenditure controls, procurement alignment, variance tracking',
+    definition: 'Manages departmental financial resources prudently in strict compliance with the MFMA and SCM regulations.',
+    weighting: '20'
+  },
+  {
+    id: 'dir-row-4',
+    competency: 'People & Performance Management',
+    components: 'Staff development, performance appraisals, labor harmony, consequence management',
+    definition: 'Develops human capital, oversees performance metrics, and maintains productive workplace culture.',
+    weighting: '15'
+  },
+  {
+    id: 'dir-row-5',
+    competency: 'Programme & Project Governance',
+    components: 'Project milestone tracking, contractor oversight, capital project delivery, service delivery monitoring',
+    definition: 'Oversees the effective execution of municipal projects and quality assurance of service delivery outputs.',
+    weighting: '15'
+  }
+];
+
+const DEFAULT_CFO_COMPETENCIES = [
+  {
     id: 'cfo-row-1',
     competency: 'Strategic Financial Management',
     components: 'Financial planning, forecasting, policy formulation, capital program management',
@@ -96,6 +134,44 @@ const DEFAULT_DIRECTORS_COMPETENCIES = [
     competency: 'Financial Reporting & Auditing',
     components: 'Annual Financial Statements (AFS), liaison with Auditor-General, mSCOA alignment',
     definition: 'Directs timeous preparation and submission of accurate statutory financial reports.',
+    weighting: '15'
+  }
+];
+
+const DEFAULT_MM_COMPETENCIES = [
+  {
+    id: 'mm-row-1',
+    competency: 'Strategic Capability & Institutional Leadership',
+    components: 'Executive governance, IDP integration, Council directive execution, organizational strategy',
+    definition: 'Provides authoritative administrative leadership, translates political vision into institutional strategy, and coordinates overall municipal administration.',
+    weighting: '25'
+  },
+  {
+    id: 'mm-row-2',
+    competency: 'Financial Governance & Fiscal Sustainability',
+    components: 'Accounting officer responsibilities, clean audit oversight, resource allocation, budget approval',
+    definition: 'Fulfills accounting officer responsibilities under the MFMA, ensuring fiscal prudence, financial viability, and transparent public expenditure.',
+    weighting: '25'
+  },
+  {
+    id: 'mm-row-3',
+    competency: 'Service Delivery & Infrastructure Oversight',
+    components: 'SDBIP Top Layer accountability, bulk infrastructure governance, community impact tracking',
+    definition: 'Directs institutional service delivery performance to ensure equitable, efficient, and uninterrupted municipal services to all communities.',
+    weighting: '20'
+  },
+  {
+    id: 'mm-row-4',
+    competency: 'People & Institutional Transformation',
+    components: 'Section 56/57 performance contracts, workforce stability, organizational transformation, labor harmony',
+    definition: 'Steers organizational development, holds executive directors accountable to statutory scorecards, and fosters an ethical, high-performance culture.',
+    weighting: '15'
+  },
+  {
+    id: 'mm-row-5',
+    competency: 'Governance, Ethics & Intergovernmental Relations',
+    components: 'Council reporting, IGR forums, community consultation, statutory compliance, anti-corruption frameworks',
+    definition: 'Champions moral competence, institutional integrity, risk mitigation, and proactive intergovernmental collaboration.',
     weighting: '15'
   }
 ];
@@ -177,7 +253,7 @@ const DEFAULT_CORP_COMPETENCIES = [
 ];
 
 export function CoreCompetenciesSelfEvaluation({ currentUser, activeTenantId, isTeamEvaluation }: CoreCompetenciesSelfEvaluationProps) {
-  const [activeScope, setActiveScope] = useState<'directors' | 'ped' | 'corp'>('directors');
+  const [activeScope, setActiveScope] = useState<'directors' | 'cfo' | 'mm' | 'ped' | 'corp'>('directors');
   const [selectedQuarter, setSelectedQuarter] = useState<'q1' | 'q2' | 'q3' | 'q4'>('q1');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -185,6 +261,8 @@ export function CoreCompetenciesSelfEvaluation({ currentUser, activeTenantId, is
 
   // Separate evaluation rows for each scope
   const [directorsRows, setDirectorsRows] = useState<CoreCompetencyEvalItem[]>([]);
+  const [cfoRows, setCfoRows] = useState<CoreCompetencyEvalItem[]>([]);
+  const [mmRows, setMmRows] = useState<CoreCompetencyEvalItem[]>([]);
   const [pedRows, setPedRows] = useState<CoreCompetencyEvalItem[]>([]);
   const [corpRows, setCorpRows] = useState<CoreCompetencyEvalItem[]>([]);
 
@@ -198,6 +276,10 @@ export function CoreCompetenciesSelfEvaluation({ currentUser, activeTenantId, is
     switch (activeScope) {
       case 'directors':
         return { rows: directorsRows, setRows: setDirectorsRows };
+      case 'cfo':
+        return { rows: cfoRows, setRows: setCfoRows };
+      case 'mm':
+        return { rows: mmRows, setRows: setMmRows };
       case 'ped':
         return { rows: pedRows, setRows: setPedRows };
       case 'corp':
@@ -235,71 +317,54 @@ export function CoreCompetenciesSelfEvaluation({ currentUser, activeTenantId, is
 
         if (!active) return;
 
-        // Initialize Directors rows
-        const rawDirectors = (compData.cfoItems && Array.isArray(compData.cfoItems) && compData.cfoItems.length > 0)
-          ? compData.cfoItems
-          : DEFAULT_DIRECTORS_COMPETENCIES;
+        // Helper to merge rows with evaluation
+        const mergeWithEval = (rawList: any[], categoryKey: 'directors' | 'cfo' | 'mm' | 'ped' | 'corp', defaultPrefix: string) => {
+          return rawList.map((item: any, idx: number) => {
+            const id = item.id || `${defaultPrefix}-row-${idx + 1}`;
+            const savedEval = evalData[categoryKey]?.[id] || (evalData[`${categoryKey}Rows`]?.find((r: any) => r.id === id)) || {};
+            return {
+              id,
+              competency: item.competency || `${categoryKey.toUpperCase()} Competency ${idx + 1}`,
+              components: item.components || '',
+              definition: item.definition || '',
+              weighting: item.weighting || '20',
+              q1: savedEval.q1 || (item.poeFile ? { ...createDefaultQuarterData(item.poeDescription), poeDocs: [item.poeFile] } : createDefaultQuarterData(item.poeDescription)),
+              q2: savedEval.q2 || createDefaultQuarterData(item.poeDescription),
+              q3: savedEval.q3 || createDefaultQuarterData(item.poeDescription),
+              q4: savedEval.q4 || createDefaultQuarterData(item.poeDescription),
+            };
+          });
+        };
 
-        const mergedDirectors: CoreCompetencyEvalItem[] = rawDirectors.map((item: any, idx: number) => {
-          const id = item.id || `cfo-row-${idx + 1}`;
-          const savedEval = evalData.directors?.[id] || {};
-          return {
-            id,
-            competency: item.competency || `Director Competency ${idx + 1}`,
-            components: item.components || '',
-            definition: item.definition || '',
-            weighting: item.weighting || '20',
-            q1: savedEval.q1 || (item.poeFile ? { ...createDefaultQuarterData(item.poeDescription), poeDocs: [item.poeFile] } : createDefaultQuarterData(item.poeDescription)),
-            q2: savedEval.q2 || createDefaultQuarterData(item.poeDescription),
-            q3: savedEval.q3 || createDefaultQuarterData(item.poeDescription),
-            q4: savedEval.q4 || createDefaultQuarterData(item.poeDescription),
-          };
-        });
-        setDirectorsRows(mergedDirectors);
+        // Initialize Directors rows
+        const rawDirectors = (compData.directorItems && Array.isArray(compData.directorItems) && compData.directorItems.length > 0)
+          ? compData.directorItems
+          : DEFAULT_DIRECTORS_COMPETENCIES;
+        setDirectorsRows(mergeWithEval(rawDirectors, 'directors', 'dir'));
+
+        // Initialize CFO rows
+        const rawCfo = (compData.cfoItems && Array.isArray(compData.cfoItems) && compData.cfoItems.length > 0)
+          ? compData.cfoItems
+          : DEFAULT_CFO_COMPETENCIES;
+        setCfoRows(mergeWithEval(rawCfo, 'cfo', 'cfo'));
+
+        // Initialize Municipal Managers (MM) rows
+        const rawMm = (compData.mmItems && Array.isArray(compData.mmItems) && compData.mmItems.length > 0)
+          ? compData.mmItems
+          : DEFAULT_MM_COMPETENCIES;
+        setMmRows(mergeWithEval(rawMm, 'mm', 'mm'));
 
         // Initialize PED rows
         const rawPed = (compData.pedItems && Array.isArray(compData.pedItems) && compData.pedItems.length > 0)
           ? compData.pedItems
           : DEFAULT_PED_COMPETENCIES;
-
-        const mergedPed: CoreCompetencyEvalItem[] = rawPed.map((item: any, idx: number) => {
-          const id = item.id || `ped-row-${idx + 1}`;
-          const savedEval = evalData.ped?.[id] || {};
-          return {
-            id,
-            competency: item.competency || `PED Competency ${idx + 1}`,
-            components: item.components || '',
-            definition: item.definition || '',
-            weighting: item.weighting || '20',
-            q1: savedEval.q1 || (item.poeFile ? { ...createDefaultQuarterData(item.poeDescription), poeDocs: [item.poeFile] } : createDefaultQuarterData(item.poeDescription)),
-            q2: savedEval.q2 || createDefaultQuarterData(item.poeDescription),
-            q3: savedEval.q3 || createDefaultQuarterData(item.poeDescription),
-            q4: savedEval.q4 || createDefaultQuarterData(item.poeDescription),
-          };
-        });
-        setPedRows(mergedPed);
+        setPedRows(mergeWithEval(rawPed, 'ped', 'ped'));
 
         // Initialize Corporate Services rows
         const rawCorp = (compData.corporateServicesItems && Array.isArray(compData.corporateServicesItems) && compData.corporateServicesItems.length > 0)
           ? compData.corporateServicesItems
           : DEFAULT_CORP_COMPETENCIES;
-
-        const mergedCorp: CoreCompetencyEvalItem[] = rawCorp.map((item: any, idx: number) => {
-          const id = item.id || `corp-row-${idx + 1}`;
-          const savedEval = evalData.corp?.[id] || {};
-          return {
-            id,
-            competency: item.competency || `Corporate Services Competency ${idx + 1}`,
-            components: item.components || '',
-            definition: item.definition || '',
-            weighting: item.weighting || '20',
-            q1: savedEval.q1 || (item.poeFile ? { ...createDefaultQuarterData(item.poeDescription), poeDocs: [item.poeFile] } : createDefaultQuarterData(item.poeDescription)),
-            q2: savedEval.q2 || createDefaultQuarterData(item.poeDescription),
-            q3: savedEval.q3 || createDefaultQuarterData(item.poeDescription),
-            q4: savedEval.q4 || createDefaultQuarterData(item.poeDescription),
-          };
-        });
-        setCorpRows(mergedCorp);
+        setCorpRows(mergeWithEval(rawCorp, 'corp', 'corp'));
 
       } catch (err) {
         console.error("Error loading Core Competencies Self Evaluation data:", err);
@@ -315,6 +380,8 @@ export function CoreCompetenciesSelfEvaluation({ currentUser, activeTenantId, is
   // Persist evaluation state to server/Supabase
   const handleSaveToDatabase = async (overrideState?: {
     directors?: CoreCompetencyEvalItem[];
+    cfo?: CoreCompetencyEvalItem[];
+    mm?: CoreCompetencyEvalItem[];
     ped?: CoreCompetencyEvalItem[];
     corp?: CoreCompetencyEvalItem[];
   }) => {
@@ -322,6 +389,8 @@ export function CoreCompetenciesSelfEvaluation({ currentUser, activeTenantId, is
     setSaveMessage(null);
     try {
       const dirToSave = overrideState?.directors || directorsRows;
+      const cfoToSave = overrideState?.cfo || cfoRows;
+      const mmToSave = overrideState?.mm || mmRows;
       const pedToSave = overrideState?.ped || pedRows;
       const corpToSave = overrideState?.corp || corpRows;
 
@@ -341,8 +410,15 @@ export function CoreCompetenciesSelfEvaluation({ currentUser, activeTenantId, is
       const payload = {
         evaluation: {
           directors: serializeCategory(dirToSave),
+          cfo: serializeCategory(cfoToSave),
+          mm: serializeCategory(mmToSave),
           ped: serializeCategory(pedToSave),
           corp: serializeCategory(corpToSave),
+          directorsRows: dirToSave,
+          cfoRows: cfoToSave,
+          mmRows: mmToSave,
+          pedRows: pedToSave,
+          corpRows: corpToSave,
           lastUpdated: new Date().toISOString()
         }
       };
@@ -668,7 +744,7 @@ export function CoreCompetenciesSelfEvaluation({ currentUser, activeTenantId, is
             Core Competencies Self-Evaluation
           </h2>
           <p className="text-xs text-slate-500 mt-1 max-w-2xl">
-            Evaluate your core competencies across Directors, PED, and Corporate Services. Provide detailed ratings, motivations, and upload multi-format Portfolios of Evidence (Word, Excel, PowerPoint, Notepad, PDF, Images).
+            Evaluate your core competencies across Directors, CFO, Municipal Manager, PED, and Corporate Services. Provide detailed ratings, motivations, and upload multi-format Portfolios of Evidence (Word, Excel, PowerPoint, Notepad, PDF, Images).
           </p>
         </div>
 
@@ -728,9 +804,9 @@ export function CoreCompetenciesSelfEvaluation({ currentUser, activeTenantId, is
         </div>
       )}
 
-      {/* Scope Navigation Switcher (Directors, PED, Corporate Services) */}
+      {/* Scope Navigation Switcher (Directors, CFO, Municipal Manager, PED, Corporate Services) */}
       <div className="bg-white rounded-2xl p-2 border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl">
+        <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl flex-wrap">
           <button
             type="button"
             onClick={() => setActiveScope('directors')}
@@ -746,10 +822,36 @@ export function CoreCompetenciesSelfEvaluation({ currentUser, activeTenantId, is
 
           <button
             type="button"
+            onClick={() => setActiveScope('cfo')}
+            className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider flex items-center gap-2 transition cursor-pointer ${
+              activeScope === 'cfo' 
+                ? 'bg-blue-600 text-white shadow-xs' 
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+            }`}
+          >
+            <Briefcase className="w-4 h-4" />
+            <span>CFOs Core Competencies ({cfoRows.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveScope('mm')}
+            className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider flex items-center gap-2 transition cursor-pointer ${
+              activeScope === 'mm' 
+                ? 'bg-emerald-700 text-white shadow-xs' 
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+            }`}
+          >
+            <ShieldCheck className="w-4 h-4" />
+            <span>Municipal Managers Core Competencies ({mmRows.length})</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveScope('ped')}
             className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider flex items-center gap-2 transition cursor-pointer ${
               activeScope === 'ped' 
-                ? 'bg-emerald-600 text-white shadow-xs' 
+                ? 'bg-amber-600 text-white shadow-xs' 
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
             }`}
           >
@@ -844,6 +946,8 @@ export function CoreCompetenciesSelfEvaluation({ currentUser, activeTenantId, is
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
             <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider">
               {activeScope === 'directors' ? 'Directors Specific Core Competencies Matrix' :
+               activeScope === 'cfo' ? 'Chief Financial Officer (CFO) Specific Core Competencies Matrix' :
+               activeScope === 'mm' ? 'Municipal Manager (MM) Specific Core Competencies Matrix' :
                activeScope === 'ped' ? 'PED Specific Core Competencies Matrix' :
                'Corporate Services Specific Core Competencies Matrix'} ({selectedQuarter.toUpperCase()})
             </h3>
@@ -1092,6 +1196,7 @@ export function CoreCompetenciesManagerApprovalSection({
   defaultEmployeeEmail?: string;
 }) {
   const [selectedQuarter, setSelectedQuarter] = useState<'q1' | 'q2' | 'q3' | 'q4'>('q1');
+  const [reviewScope, setReviewScope] = useState<'directors' | 'cfo' | 'mm' | 'ped' | 'corp'>('directors');
   const [selectedUserEmail, setSelectedUserEmail] = useState<string>(defaultEmployeeEmail || '');
   const [subordinates, setSubordinates] = useState<Array<{ email: string; name: string }>>([]);
   const [rows, setRows] = useState<CoreCompetencyEvalItem[]>([]);
@@ -1168,9 +1273,22 @@ export function CoreCompetenciesManagerApprovalSection({
         const data = await res.json();
         if (active && data) {
           const evalData = data.evaluation || {};
-          const loadedRows = (evalData.directorsRows && evalData.directorsRows.length > 0)
-            ? evalData.directorsRows
-            : DEFAULT_DIRECTORS_COMPETENCIES.map((c, idx) => ({
+          let rawLoaded: any[] = [];
+          if (reviewScope === 'directors') rawLoaded = evalData.directorsRows || (evalData.directors ? Object.values(evalData.directors) : []);
+          else if (reviewScope === 'cfo') rawLoaded = evalData.cfoRows || (evalData.cfo ? Object.values(evalData.cfo) : []);
+          else if (reviewScope === 'mm') rawLoaded = evalData.mmRows || (evalData.mm ? Object.values(evalData.mm) : []);
+          else if (reviewScope === 'ped') rawLoaded = evalData.pedRows || (evalData.ped ? Object.values(evalData.ped) : []);
+          else if (reviewScope === 'corp') rawLoaded = evalData.corpRows || (evalData.corp ? Object.values(evalData.corp) : []);
+
+          const fallbackDefault = 
+            reviewScope === 'directors' ? DEFAULT_DIRECTORS_COMPETENCIES :
+            reviewScope === 'cfo' ? DEFAULT_CFO_COMPETENCIES :
+            reviewScope === 'mm' ? DEFAULT_MM_COMPETENCIES :
+            reviewScope === 'ped' ? DEFAULT_PED_COMPETENCIES : DEFAULT_CORP_COMPETENCIES;
+
+          const loadedRows = (rawLoaded && rawLoaded.length > 0)
+            ? rawLoaded
+            : fallbackDefault.map((c, idx) => ({
                 ...c,
                 q1: createDefaultQuarterData(),
                 q2: createDefaultQuarterData(),
@@ -1187,7 +1305,7 @@ export function CoreCompetenciesManagerApprovalSection({
     };
     fetchEval();
     return () => { active = false; };
-  }, [activeTenantId, selectedUserEmail, currentUser.email, defaultEmployeeEmail]);
+  }, [activeTenantId, selectedUserEmail, currentUser.email, defaultEmployeeEmail, reviewScope]);
 
   const handleSaveToDatabase = async (updatedRows: CoreCompetencyEvalItem[]) => {
     const emailToSave = selectedUserEmail || currentUser.email || '';
@@ -1198,7 +1316,7 @@ export function CoreCompetenciesManagerApprovalSection({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           evaluation: {
-            directorsRows: updatedRows,
+            [`${reviewScope}Rows`]: updatedRows,
             lastUpdatedBy: currentUser.email,
             updatedAt: new Date().toISOString()
           }
@@ -1430,6 +1548,65 @@ export function CoreCompetenciesManagerApprovalSection({
         </div>
       </div>
 
+      {/* Scope Selector */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-2 shadow-xs flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5 p-1 bg-gray-100 rounded-xl flex-wrap">
+          <button
+            type="button"
+            onClick={() => setReviewScope('directors')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer ${
+              reviewScope === 'directors' ? 'bg-indigo-600 text-white shadow-xs' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/60'
+            }`}
+          >
+            <Award className="w-3.5 h-3.5" />
+            <span>Directors</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setReviewScope('cfo')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer ${
+              reviewScope === 'cfo' ? 'bg-blue-600 text-white shadow-xs' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/60'
+            }`}
+          >
+            <Briefcase className="w-3.5 h-3.5" />
+            <span>CFO</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setReviewScope('mm')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer ${
+              reviewScope === 'mm' ? 'bg-emerald-700 text-white shadow-xs' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/60'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>Municipal Manager</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setReviewScope('ped')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer ${
+              reviewScope === 'ped' ? 'bg-amber-600 text-white shadow-xs' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/60'
+            }`}
+          >
+            <Compass className="w-3.5 h-3.5" />
+            <span>PED</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setReviewScope('corp')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer ${
+              reviewScope === 'corp' ? 'bg-purple-600 text-white shadow-xs' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/60'
+            }`}
+          >
+            <Briefcase className="w-3.5 h-3.5" />
+            <span>Corporate Services</span>
+          </button>
+        </div>
+        <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider px-2">
+          Reviewing: <span className="text-indigo-600 font-extrabold">{reviewScope.toUpperCase()}</span>
+        </div>
+      </div>
+
       {/* Table */}
       <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
         {loading ? (
@@ -1547,6 +1724,7 @@ export function CoreCompetenciesAuditorReviewSection({
   defaultEmployeeEmail?: string;
 }) {
   const [selectedQuarter, setSelectedQuarter] = useState<'q1' | 'q2' | 'q3' | 'q4'>('q1');
+  const [reviewScope, setReviewScope] = useState<'directors' | 'cfo' | 'mm' | 'ped' | 'corp'>('directors');
   const [selectedUserEmail, setSelectedUserEmail] = useState<string>(defaultEmployeeEmail || '');
   const [subordinates, setSubordinates] = useState<Array<{ email: string; name: string }>>([]);
   const [rows, setRows] = useState<CoreCompetencyEvalItem[]>([]);
@@ -1623,9 +1801,22 @@ export function CoreCompetenciesAuditorReviewSection({
         const data = await res.json();
         if (active && data) {
           const evalData = data.evaluation || {};
-          const loadedRows = (evalData.directorsRows && evalData.directorsRows.length > 0)
-            ? evalData.directorsRows
-            : DEFAULT_DIRECTORS_COMPETENCIES.map((c, idx) => ({
+          let rawLoaded: any[] = [];
+          if (reviewScope === 'directors') rawLoaded = evalData.directorsRows || (evalData.directors ? Object.values(evalData.directors) : []);
+          else if (reviewScope === 'cfo') rawLoaded = evalData.cfoRows || (evalData.cfo ? Object.values(evalData.cfo) : []);
+          else if (reviewScope === 'mm') rawLoaded = evalData.mmRows || (evalData.mm ? Object.values(evalData.mm) : []);
+          else if (reviewScope === 'ped') rawLoaded = evalData.pedRows || (evalData.ped ? Object.values(evalData.ped) : []);
+          else if (reviewScope === 'corp') rawLoaded = evalData.corpRows || (evalData.corp ? Object.values(evalData.corp) : []);
+
+          const fallbackDefault = 
+            reviewScope === 'directors' ? DEFAULT_DIRECTORS_COMPETENCIES :
+            reviewScope === 'cfo' ? DEFAULT_CFO_COMPETENCIES :
+            reviewScope === 'mm' ? DEFAULT_MM_COMPETENCIES :
+            reviewScope === 'ped' ? DEFAULT_PED_COMPETENCIES : DEFAULT_CORP_COMPETENCIES;
+
+          const loadedRows = (rawLoaded && rawLoaded.length > 0)
+            ? rawLoaded
+            : fallbackDefault.map((c, idx) => ({
                 ...c,
                 q1: createDefaultQuarterData(),
                 q2: createDefaultQuarterData(),
@@ -1642,7 +1833,7 @@ export function CoreCompetenciesAuditorReviewSection({
     };
     fetchEval();
     return () => { active = false; };
-  }, [activeTenantId, selectedUserEmail, currentUser.email, defaultEmployeeEmail]);
+  }, [activeTenantId, selectedUserEmail, currentUser.email, defaultEmployeeEmail, reviewScope]);
 
   const handleSaveToDatabase = async (updatedRows: CoreCompetencyEvalItem[]) => {
     const emailToSave = selectedUserEmail || currentUser.email || '';
@@ -1653,7 +1844,7 @@ export function CoreCompetenciesAuditorReviewSection({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           evaluation: {
-            directorsRows: updatedRows,
+            [`${reviewScope}Rows`]: updatedRows,
             lastUpdatedBy: currentUser.email,
             updatedAt: new Date().toISOString()
           }
@@ -1875,6 +2066,65 @@ export function CoreCompetenciesAuditorReviewSection({
         </div>
       </div>
 
+      {/* Scope Selector */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-2 shadow-xs flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5 p-1 bg-gray-100 rounded-xl flex-wrap">
+          <button
+            type="button"
+            onClick={() => setReviewScope('directors')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer ${
+              reviewScope === 'directors' ? 'bg-indigo-600 text-white shadow-xs' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/60'
+            }`}
+          >
+            <Award className="w-3.5 h-3.5" />
+            <span>Directors</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setReviewScope('cfo')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer ${
+              reviewScope === 'cfo' ? 'bg-blue-600 text-white shadow-xs' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/60'
+            }`}
+          >
+            <Briefcase className="w-3.5 h-3.5" />
+            <span>CFO</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setReviewScope('mm')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer ${
+              reviewScope === 'mm' ? 'bg-emerald-700 text-white shadow-xs' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/60'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>Municipal Manager</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setReviewScope('ped')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer ${
+              reviewScope === 'ped' ? 'bg-amber-600 text-white shadow-xs' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/60'
+            }`}
+          >
+            <Compass className="w-3.5 h-3.5" />
+            <span>PED</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setReviewScope('corp')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer ${
+              reviewScope === 'corp' ? 'bg-purple-600 text-white shadow-xs' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/60'
+            }`}
+          >
+            <Briefcase className="w-3.5 h-3.5" />
+            <span>Corporate Services</span>
+          </button>
+        </div>
+        <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider px-2">
+          Auditing: <span className="text-indigo-600 font-extrabold">{reviewScope.toUpperCase()}</span>
+        </div>
+      </div>
+
       {/* Table */}
       <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
         {loading ? (
@@ -1970,6 +2220,7 @@ export function CoreCompetenciesDpmcReviewSection({
   defaultEmployeeEmail?: string;
 }) {
   const [selectedQuarter, setSelectedQuarter] = useState<'q1' | 'q2' | 'q3' | 'q4'>('q1');
+  const [reviewScope, setReviewScope] = useState<'directors' | 'cfo' | 'mm' | 'ped' | 'corp'>('directors');
   const [selectedUserEmail, setSelectedUserEmail] = useState<string>(defaultEmployeeEmail || '');
   const [subordinates, setSubordinates] = useState<Array<{ email: string; name: string }>>([]);
   const [rows, setRows] = useState<CoreCompetencyEvalItem[]>([]);
@@ -2046,9 +2297,22 @@ export function CoreCompetenciesDpmcReviewSection({
         const data = await res.json();
         if (active && data) {
           const evalData = data.evaluation || {};
-          const loadedRows = (evalData.directorsRows && evalData.directorsRows.length > 0)
-            ? evalData.directorsRows
-            : DEFAULT_DIRECTORS_COMPETENCIES.map((c, idx) => ({
+          let rawLoaded: any[] = [];
+          if (reviewScope === 'directors') rawLoaded = evalData.directorsRows || (evalData.directors ? Object.values(evalData.directors) : []);
+          else if (reviewScope === 'cfo') rawLoaded = evalData.cfoRows || (evalData.cfo ? Object.values(evalData.cfo) : []);
+          else if (reviewScope === 'mm') rawLoaded = evalData.mmRows || (evalData.mm ? Object.values(evalData.mm) : []);
+          else if (reviewScope === 'ped') rawLoaded = evalData.pedRows || (evalData.ped ? Object.values(evalData.ped) : []);
+          else if (reviewScope === 'corp') rawLoaded = evalData.corpRows || (evalData.corp ? Object.values(evalData.corp) : []);
+
+          const fallbackDefault = 
+            reviewScope === 'directors' ? DEFAULT_DIRECTORS_COMPETENCIES :
+            reviewScope === 'cfo' ? DEFAULT_CFO_COMPETENCIES :
+            reviewScope === 'mm' ? DEFAULT_MM_COMPETENCIES :
+            reviewScope === 'ped' ? DEFAULT_PED_COMPETENCIES : DEFAULT_CORP_COMPETENCIES;
+
+          const loadedRows = (rawLoaded && rawLoaded.length > 0)
+            ? rawLoaded
+            : fallbackDefault.map((c, idx) => ({
                 ...c,
                 q1: createDefaultQuarterData(),
                 q2: createDefaultQuarterData(),
@@ -2065,7 +2329,7 @@ export function CoreCompetenciesDpmcReviewSection({
     };
     fetchEval();
     return () => { active = false; };
-  }, [activeTenantId, selectedUserEmail, currentUser.email, defaultEmployeeEmail]);
+  }, [activeTenantId, selectedUserEmail, currentUser.email, defaultEmployeeEmail, reviewScope]);
 
   const handleSaveToDatabase = async (updatedRows: CoreCompetencyEvalItem[]) => {
     const emailToSave = selectedUserEmail || currentUser.email || '';
@@ -2076,7 +2340,7 @@ export function CoreCompetenciesDpmcReviewSection({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           evaluation: {
-            directorsRows: updatedRows,
+            [`${reviewScope}Rows`]: updatedRows,
             lastUpdatedBy: currentUser.email,
             updatedAt: new Date().toISOString()
           }
@@ -2248,6 +2512,65 @@ export function CoreCompetenciesDpmcReviewSection({
             <CheckCircle2 className="w-3.5 h-3.5" />
             <span>Approve / Moderate</span>
           </button>
+        </div>
+      </div>
+
+      {/* Scope Selector */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-2 shadow-xs flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5 p-1 bg-gray-100 rounded-xl flex-wrap">
+          <button
+            type="button"
+            onClick={() => setReviewScope('directors')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer ${
+              reviewScope === 'directors' ? 'bg-indigo-600 text-white shadow-xs' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/60'
+            }`}
+          >
+            <Award className="w-3.5 h-3.5" />
+            <span>Directors</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setReviewScope('cfo')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer ${
+              reviewScope === 'cfo' ? 'bg-blue-600 text-white shadow-xs' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/60'
+            }`}
+          >
+            <Briefcase className="w-3.5 h-3.5" />
+            <span>CFO</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setReviewScope('mm')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer ${
+              reviewScope === 'mm' ? 'bg-emerald-700 text-white shadow-xs' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/60'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>Municipal Manager</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setReviewScope('ped')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer ${
+              reviewScope === 'ped' ? 'bg-amber-600 text-white shadow-xs' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/60'
+            }`}
+          >
+            <Compass className="w-3.5 h-3.5" />
+            <span>PED</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setReviewScope('corp')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer ${
+              reviewScope === 'corp' ? 'bg-purple-600 text-white shadow-xs' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/60'
+            }`}
+          >
+            <Briefcase className="w-3.5 h-3.5" />
+            <span>Corporate Services</span>
+          </button>
+        </div>
+        <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider px-2">
+          Moderating: <span className="text-purple-600 font-extrabold">{reviewScope.toUpperCase()}</span>
         </div>
       </div>
 

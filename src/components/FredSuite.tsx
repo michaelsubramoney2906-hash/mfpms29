@@ -8,14 +8,16 @@ import {
   FileText, 
   Layers, 
   ArrowRight, 
-  Info 
+  Info,
+  Award
 } from 'lucide-react';
 import type { User } from '../types';
 import { FredPerformancePlanExtractor } from './FredPerformancePlanExtractor';
 import { FredSDBIPExtractor } from './FredSDBIPExtractor';
 import { FredGmPerformancePlanExtractor } from './FredGmPerformancePlanExtractor';
+import { FredCoreCompetenciesExtractor } from './FredCoreCompetenciesExtractor';
 
-export type FredSubModule = 'performance-plan' | 'gm-extractor' | 'sdbip';
+export type FredSubModule = 'performance-plan' | 'gm-extractor' | 'sdbip' | 'core-competencies';
 
 interface FredSuiteProps {
   currentUser: User;
@@ -112,6 +114,23 @@ export function FredSuite({
                 OPMS Top Layer
               </span>
             </button>
+
+            <button
+              id="tab-fred-core-competencies"
+              type="button"
+              onClick={() => setActiveSubModule('core-competencies')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+                activeSubModule === 'core-competencies'
+                  ? 'bg-rose-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+              }`}
+            >
+              <Award className="w-3.5 h-3.5 text-rose-200" />
+              <span>4. Core Competencies Extractor</span>
+              <span className="text-[9px] px-1.5 py-0.2 rounded bg-rose-950/80 text-rose-300 font-extrabold border border-rose-500/30">
+                IPMS Matrix
+              </span>
+            </button>
           </div>
         </div>
 
@@ -139,11 +158,17 @@ export function FredSuite({
             activeTenantId={activeTenantId}
             onNavigateToIPMS={onNavigateToIPMS}
           />
-        ) : (
+        ) : activeSubModule === 'sdbip' ? (
           <FredSDBIPExtractor
             currentUser={currentUser}
             activeTenantId={activeTenantId}
             onNavigateToSDBIP={onNavigateToSDBIP}
+          />
+        ) : (
+          <FredCoreCompetenciesExtractor
+            currentUser={currentUser}
+            activeTenantId={activeTenantId}
+            onNavigateToIPMS={onNavigateToIPMS}
           />
         )}
       </div>

@@ -2064,6 +2064,410 @@ CRITICAL MAPPING & EXTRACTION RULES:
   });
 
   // =========================================================================
+  // DEDICATED CORE COMPETENCIES EXTRACTION AND MAPPING SERVICE
+  // Strictly extracts and maps ONLY:
+  // 1. competencies
+  // 2. components
+  // 3. compentency definition
+  // 4. weighting
+  // =========================================================================
+  function heuristicExtractCoreCompetencies(rawText: string): any[] {
+    const defaultCompetencies = [
+      {
+        competencies: "Strategic Direction & Leadership",
+        components: "Vision translation, institutional alignment, operational strategy execution, IDP alignment",
+        "compentency definition": "Guides departmental strategy and aligns resources to institutional key performance areas and municipal priorities.",
+        weighting: "25"
+      },
+      {
+        competencies: "Operational Governance & Compliance",
+        components: "Statutory compliance, audit action plans, risk registers, internal controls enforcement",
+        "compentency definition": "Enforces statutory compliance and risk mitigation frameworks across all departmental activities.",
+        weighting: "25"
+      },
+      {
+        competencies: "Financial & Budgetary Management",
+        components: "Departmental budget oversight, expenditure controls, procurement alignment, variance tracking",
+        "compentency definition": "Manages departmental financial resources prudently in strict compliance with the MFMA and SCM regulations.",
+        weighting: "20"
+      },
+      {
+        competencies: "People & Performance Management",
+        components: "Staff development, performance appraisals, labor harmony, consequence management",
+        "compentency definition": "Develops human capital, oversees performance metrics, and maintains productive workplace culture.",
+        weighting: "15"
+      },
+      {
+        competencies: "Programme & Project Governance",
+        components: "Project milestone tracking, contractor oversight, capital project delivery, service delivery monitoring",
+        "compentency definition": "Oversees the effective execution of municipal projects and quality assurance of service delivery outputs.",
+        weighting: "15"
+      }
+    ];
+
+    if (!rawText || rawText.trim().length < 20) {
+      return defaultCompetencies;
+    }
+
+    const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
+    const parsed: any[] = [];
+    const knownTitles = [
+      "Strategic Direction & Leadership",
+      "Strategic Capability & Leadership",
+      "Operational Governance & Compliance",
+      "Financial & Budgetary Management",
+      "Strategic Financial Management",
+      "People & Performance Management",
+      "People Management and Empowerment",
+      "Programme & Project Governance",
+      "Program and Project Management",
+      "Change Leadership",
+      "Governance Leadership",
+      "Moral Competence",
+      "Planning and Organising",
+      "Analysis and Innovation",
+      "Knowledge and Information Management",
+      "Communication",
+      "Results and Quality Focus",
+      "Supply Chain Management (SCM)",
+      "Supply Chain Management",
+      "Service Delivery & Infrastructure Oversight"
+    ];
+
+    for (const title of knownTitles) {
+      const idx = lines.findIndex(l => l.toLowerCase().includes(title.toLowerCase()));
+      if (idx !== -1) {
+        let components = "";
+        let definition = "";
+        let weighting = "20";
+
+        // Search surrounding lines for components, definition, weight
+        for (let i = idx; i <= Math.min(idx + 6, lines.length - 1); i++) {
+          const line = lines[i];
+          const wMatch = line.match(/(\d+(?:\.\d+)?)\s*%/i) || line.match(/weight(?:ing)?\s*[:.\-–]?\s*(\d+(?:\.\d+)?)/i);
+          if (wMatch && !weighting) {
+            weighting = wMatch[1];
+          }
+          if (line.toLowerCase().includes("component") || line.toLowerCase().includes("indicator")) {
+            components = line.replace(/^(components?|key indicators?)[:.\-–]\s*/i, '').trim();
+          } else if (line.toLowerCase().includes("definition") || line.toLowerCase().includes("standard")) {
+            definition = line.replace(/^(definitions?|behavioral standard)[:.\-–]\s*/i, '').trim();
+          }
+        }
+
+        parsed.push({
+          competencies: title,
+          components: components || defaultCompetencies.find(d => d.competencies === title)?.components || "Operational focus areas and departmental metrics",
+          "compentency definition": definition || defaultCompetencies.find(d => d.competencies === title)?.["compentency definition"] || `Demonstrates institutional leadership and mastery in ${title}.`,
+          weighting: weighting || "20"
+        });
+      }
+    }
+
+    return parsed.length > 0 ? parsed : defaultCompetencies;
+  }
+
+  const handleCoreCompetenciesExtraction = async (req: any, res: any) => {
+    try {
+      const { documentText, fileName, fileBase64, mimeType } = req.body;
+      if (!documentText && !fileBase64) {
+        return res.status(400).json({ error: "Missing document text or file payload for Core Competencies extraction." });
+      }
+
+      let textToProcess = String(documentText || '').trim();
+
+      // If binary file provided, extract raw text using mammoth or xlsx
+      if (fileBase64) {
+        const fileBuffer = Buffer.from(fileBase64, 'base64');
+        const name = (fileName || '').toLowerCase();
+        const type = (mimeType || '').toLowerCase();
+
+        if (name.endsWith('.docx') || type.includes('wordprocessingml') || type.includes('officedocument')) {
+          try {
+            const docxResult = await mammoth.extractRawText({ buffer: fileBuffer });
+            textToProcess = docxResult.value + '\n' + textToProcess;
+          } catch (e) {
+            console.warn("[Core Competencies Extractor] Mammoth extraction error:", e);
+          }
+        } else if (name.endsWith('.xlsx') || name.endsWith('.xls') || type.includes('spreadsheet') || type.includes('excel')) {
+          try {
+            const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
+            let sheetText = '';
+            workbook.SheetNames.forEach(sheetName => {
+              const ws = workbook.Sheets[sheetName];
+              sheetText += XLSX.utils.sheet_to_txt(ws) + '\n';
+            });
+            textToProcess = sheetText + '\n' + textToProcess;
+          } catch (e) {
+            console.warn("[Core Competencies Extractor] XLSX extraction error:", e);
+          }
+        }
+      }
+
+      const apiKey = process.env.GEMINI_API_KEY || process.env.GEMINI || process.env.gemini;
+      let extractedArray: any[] = [];
+
+      const systemInstruction = `You are a dedicated 100% deterministic CORE COMPETENCIES EXTRACTOR AND MAPPING ENGINE for South African municipal performance management and HR agreements.
+Your task is to extract ALL Core Competencies present in the document.
+
+CRITICAL EXTRACTION & MAPPING RULES:
+You must strictly extract and map ONLY the following four fields for every core competency row:
+1. competencies: The verbatim name or title of the competency (e.g. "Strategic Direction & Leadership", "Financial & Budgetary Management", "Operational Governance & Compliance", "People & Performance Management", "Programme & Project Governance").
+2. components: The verbatim operational components, key indicators, or behavioral components listed for this competency.
+3. compentency definition: The verbatim definition and standard description of what this competency requires.
+4. weighting: The weighting percentage (number only, e.g. "25", "20", "15", "10"). Do NOT include '%' symbol.
+
+EXCLUSION RULES:
+- Do NOT extract Key Performance Indicators (KPIs).
+- Do NOT extract Key Performance Areas (KPAs).
+- Do NOT extract personal development plan (PDP) line items.
+- Only extract Core Competencies.`;
+
+      if (apiKey) {
+        try {
+          const ai = new GoogleGenAI({
+            apiKey,
+            httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+          });
+
+          let contents: any[] = [];
+          if (fileBase64 && (mimeType?.includes('pdf') || mimeType?.includes('image'))) {
+            contents = [
+              {
+                role: 'user',
+                parts: [
+                  {
+                    inlineData: {
+                      data: fileBase64,
+                      mimeType: mimeType || 'application/pdf'
+                    }
+                  },
+                  {
+                    text: `Extract all Core Competencies from this document. Strictly extract ONLY these 4 fields per item: competencies, components, compentency definition, weighting.\n\nAdditional extracted text:\n${textToProcess.slice(0, 50000)}`
+                  }
+                ]
+              }
+            ];
+          } else {
+            contents = [
+              {
+                role: 'user',
+                parts: [
+                  {
+                    text: `Extract all Core Competencies from this document. Strictly extract ONLY these 4 fields per item: competencies, components, compentency definition, weighting.\n\nDOCUMENT CONTENT:\n${textToProcess.slice(0, 100000)}`
+                  }
+                ]
+              }
+            ];
+          }
+
+          const response = await generateContentWithRetry(ai, {
+            model: "gemini-2.5-flash",
+            contents,
+            config: {
+              systemInstruction,
+              temperature: 0.0,
+              responseMimeType: "application/json",
+              responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                  competencies: {
+                    type: Type.ARRAY,
+                    description: "List of extracted core competencies",
+                    items: {
+                      type: Type.OBJECT,
+                      properties: {
+                        competencies: { type: Type.STRING, description: "Verbatim competency name" },
+                        components: { type: Type.STRING, description: "Operational components" },
+                        compentencyDefinition: { type: Type.STRING, description: "Verbatim competency definition" },
+                        weighting: { type: Type.STRING, description: "Weighting percentage number only" }
+                      },
+                      required: ["competencies", "weighting"]
+                    }
+                  }
+                },
+                required: ["competencies"]
+              }
+            }
+          }, 6, 1200);
+
+          const responseText = response.text || "";
+          try {
+            const parsed = JSON.parse(responseText);
+            if (Array.isArray(parsed)) {
+              extractedArray = parsed;
+            } else if (parsed && typeof parsed === 'object') {
+              extractedArray = parsed.competencies || parsed.items || [];
+            }
+          } catch (pErr) {
+            const recovered: any = robustParseJson(responseText);
+            if (Array.isArray(recovered)) {
+              extractedArray = recovered;
+            } else if (recovered && typeof recovered === 'object') {
+              extractedArray = recovered.competencies || recovered.items || [];
+            }
+          }
+        } catch (aiErr) {
+          console.warn("[Core Competencies Extractor] Gemini AI call failed or timed out:", aiErr);
+        }
+      }
+
+      // Rule-based heuristic fallback if AI did not return items
+      if (!extractedArray || extractedArray.length === 0) {
+        extractedArray = heuristicExtractCoreCompetencies(textToProcess);
+      }
+
+      // Map strictly to the requested 4 fields
+      const formattedItems = (extractedArray || []).map((it: any, idx: number) => {
+        const competencyName = String(
+          it.competencies ?? 
+          it.competency ?? 
+          it.Competency ?? 
+          it.Competency_Name ?? 
+          it.name ?? 
+          `Core Competency ${idx + 1}`
+        ).trim();
+
+        const components = String(
+          it.components ?? 
+          it.Components ?? 
+          it.operationalComponents ?? 
+          it.subComponents ?? 
+          ''
+        ).trim();
+
+        const definition = String(
+          it['compentency definition'] ?? 
+          it['competency definition'] ?? 
+          it.compentencyDefinition ?? 
+          it.competencyDefinition ?? 
+          it.definition ?? 
+          it.Definition ?? 
+          it.Competency_Definition ?? 
+          ''
+        ).trim();
+
+        const rawWeight = String(
+          it.weighting ?? 
+          it.Weighting ?? 
+          it.weight ?? 
+          it.Weight ?? 
+          it.Weighting_Percent ?? 
+          '0'
+        ).replace(/[^0-9.]/g, '').trim();
+
+        return {
+          id: `cc-ext-${Date.now()}-${idx + 1}`,
+          _id: `cc-ext-${Date.now()}-${idx + 1}`,
+          _selected: true,
+          competencies: competencyName,
+          components: components,
+          "compentency definition": definition,
+          weighting: rawWeight || '0',
+          // Aliases for seamless direct sync with Core Competencies table
+          competency: competencyName,
+          definition: definition
+        };
+      });
+
+      return res.json({
+        success: true,
+        count: formattedItems.length,
+        items: formattedItems,
+        data: formattedItems,
+        fileName: fileName || 'Core Competencies Document'
+      });
+    } catch (err: any) {
+      console.error("[Core Competencies Extraction Error]:", err);
+      return res.status(500).json({ error: err.message || "Failed to perform Core Competencies extraction" });
+    }
+  };
+
+  app.post("/api/extract-core-competencies", handleCoreCompetenciesExtraction);
+
+  // Push Extracted Core Competencies directly to IPMS Core Competencies table
+  app.post("/api/tenant/:tenantId/fred-extraction/push-to-core-competencies", async (req, res) => {
+    const { tenantId: routeTenantId } = req.params;
+    const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : (req.body.userEmail || 'default');
+    const { items, targetScope } = req.body; // targetScope: 'directors' | 'cfo' | 'mm' | 'standard'
+    try {
+      const supabase = getSupabase();
+      const tenantId = await resolveTenantId(routeTenantId, userId);
+      const docId = `core_competencies_${tenantId}_${userId}`;
+
+      // Fetch current configuration
+      const { data: existingData } = await supabase
+        .from('messages')
+        .select('content')
+        .eq('id', docId)
+        .maybeSingle();
+
+      let currentConfig: any = { items: [], directorItems: [], cfoItems: [], mmItems: [], pedItems: [], corporateServicesItems: [] };
+      if (existingData && existingData.content) {
+        try { currentConfig = JSON.parse(existingData.content); } catch (e) {}
+      }
+
+      const formattedRows = (items || []).map((it: any, idx: number) => ({
+        id: it.id || `ext-row-${idx + 1}-${Date.now()}`,
+        competency: it.competencies || it.competency || '',
+        components: it.components || '',
+        definition: it['compentency definition'] || it.definition || '',
+        weighting: String(it.weighting || '0').replace(/[^0-9.]/g, '')
+      }));
+
+      const scope = targetScope || 'community_services';
+      if (scope === 'cfo') {
+        currentConfig.cfoItems = formattedRows;
+      } else if (scope === 'mm') {
+        currentConfig.mmItems = formattedRows;
+      } else if (scope === 'ped') {
+        currentConfig.pedItems = formattedRows;
+      } else if (scope === 'corp') {
+        currentConfig.corporateServicesItems = formattedRows;
+      } else if (scope === 'community_services' || scope === 'cds' || scope === 'directors') {
+        currentConfig.communityServicesItems = formattedRows;
+        currentConfig.directorItems = formattedRows;
+      } else if (scope === 'technical_services' || scope === 'ts') {
+        currentConfig.technicalServicesItems = formattedRows;
+      } else if (scope === 'standard') {
+        currentConfig.items = (items || []).map((it: any, idx: number) => ({
+          id: it.id || `std-row-${idx + 1}-${Date.now()}`,
+          competency: it.competencies || it.competency || '',
+          basic: it['compentency definition'] ? `Basic comprehension: ${it['compentency definition']}` : 'Basic criteria',
+          competent: it['compentency definition'] || 'Competent criteria',
+          advanced: it['compentency definition'] ? `Advanced execution: ${it['compentency definition']}` : 'Advanced criteria',
+          superior: it['compentency definition'] ? `Superior leadership: ${it['compentency definition']}` : 'Superior criteria'
+        }));
+      } else {
+        currentConfig.communityServicesItems = formattedRows;
+        currentConfig.directorItems = formattedRows;
+      }
+
+      await supabase
+        .from('messages')
+        .upsert({
+          id: docId,
+          tenant_id: tenantId,
+          sender_id: 'fred_core_competencies_extractor',
+          sender_email: userId !== 'default' ? userId : 'extraction@system.local',
+          sender_name: 'Fred Core Competencies Engine',
+          content: JSON.stringify(currentConfig),
+          message_type: 'core_competencies_list',
+          created_at: new Date().toISOString()
+        });
+
+      return res.json({
+        success: true,
+        message: `Pushed ${formattedRows.length} core competencies to IPMS Core Competencies (${scope.toUpperCase()}) for ${userId}`,
+        count: formattedRows.length
+      });
+    } catch (err: any) {
+      console.error("[Push Core Competencies Error]:", err);
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // =========================================================================
   // AUTOMATED EXTRACTION INTEGRITY & HALLUCINATION VALIDATION SERVICE
   // =========================================================================
   app.post("/api/validate-extraction-integrity", async (req, res) => {
@@ -2805,6 +3209,30 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           });
         } catch (e) {
           return res.status(500).json({ error: "Failed to parse saved extraction content." });
+        }
+      }
+
+      // If engineType is a competency engine and not found, check core_competencies_engine
+      if (engineType.includes('competencies')) {
+        const fallbackStorageId = `fred_ext_core_competencies_engine_${resolvedTenantId}${userSuffix}`;
+        const { data: fallbackData } = await supabase
+          .from('messages')
+          .select('content')
+          .eq('id', fallbackStorageId)
+          .maybeSingle();
+
+        if (fallbackData && fallbackData.content) {
+          try {
+            const parsed = JSON.parse(fallbackData.content);
+            return res.json({ 
+              success: true, 
+              data: parsed.data || parsed.items, 
+              items: parsed.items || parsed.data, 
+              kpas: parsed.kpas || [],
+              extractedAt: parsed.extractedAt, 
+              fileName: parsed.fileName 
+            });
+          } catch (e) {}
         }
       }
 
@@ -12343,16 +12771,43 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
 
       if (error) {
         logSupabaseError("core competencies", error);
-        return res.json({ items: [], cfoItems: [], pedItems: [], corporateServicesItems: [] });
+        return res.json({ items: [], directorItems: [], communityServicesItems: [], technicalServicesItems: [], cfoItems: [], mmItems: [], pedItems: [], corporateServicesItems: [] });
       }
 
       if (data && data.content) {
         try {
           const parsed = JSON.parse(data.content);
-          return res.json(parsed);
+          let loadedDirectorItems = parsed.directorItems || parsed.communityServicesItems || [];
+          let loadedCommunityServicesItems = parsed.communityServicesItems || parsed.directorItems || [];
+          let loadedTechnicalServicesItems = parsed.technicalServicesItems || [];
+          let loadedCfoItems = parsed.cfoItems || [];
+          let loadedMmItems = parsed.mmItems || parsed.municipalManagerItems || [];
+
+          // If loadedCfoItems contains legacy Director competencies (e.g. Strategic Direction)
+          const cfoHasDirectorComps = Array.isArray(loadedCfoItems) && loadedCfoItems.some((x: any) => 
+            x.competency && (x.competency.includes('Strategic Direction') || x.competency.includes('Moral competence'))
+          );
+          if (cfoHasDirectorComps) {
+            if (!loadedCommunityServicesItems || loadedCommunityServicesItems.length === 0) {
+              loadedCommunityServicesItems = loadedCfoItems;
+              loadedDirectorItems = loadedCfoItems;
+            }
+            loadedCfoItems = [];
+          }
+
+          return res.json({
+            items: parsed.items || [],
+            directorItems: loadedDirectorItems,
+            communityServicesItems: loadedCommunityServicesItems,
+            technicalServicesItems: loadedTechnicalServicesItems,
+            cfoItems: loadedCfoItems,
+            mmItems: loadedMmItems,
+            pedItems: parsed.pedItems || [],
+            corporateServicesItems: parsed.corporateServicesItems || []
+          });
         } catch (parseErr) {}
       }
-      return res.json({ items: [], cfoItems: [], pedItems: [], corporateServicesItems: [] });
+      return res.json({ items: [], directorItems: [], communityServicesItems: [], technicalServicesItems: [], cfoItems: [], mmItems: [], pedItems: [], corporateServicesItems: [] });
     } catch (err: any) {
       console.error("Core competencies load exception:", err);
       res.status(500).json({ error: err.message });
@@ -12362,7 +12817,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
   app.post("/api/tenant/:tenantId/core-competencies", async (req, res) => {
     const { tenantId: routeTenantId } = req.params;
     const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
-    const { items, cfoItems, pedItems, corporateServicesItems } = req.body;
+    const { items, directorItems, communityServicesItems, technicalServicesItems, cfoItems, mmItems, pedItems, corporateServicesItems } = req.body;
     try {
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
@@ -12377,7 +12832,16 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             sender_id: 'core_competencies_editor',
             sender_email: 'core_competencies@system.local',
             sender_name: 'Core Competencies Editor',
-            content: JSON.stringify({ items, cfoItems, pedItems, corporateServicesItems }),
+            content: JSON.stringify({ 
+              items: items || [], 
+              directorItems: communityServicesItems || directorItems || [], 
+              communityServicesItems: communityServicesItems || directorItems || [],
+              technicalServicesItems: technicalServicesItems || [],
+              cfoItems: cfoItems || [], 
+              mmItems: mmItems || [], 
+              pedItems: pedItems || [], 
+              corporateServicesItems: corporateServicesItems || [] 
+            }),
             message_type: 'core_competencies_list',
             created_at: new Date().toISOString()
           });
@@ -12394,7 +12858,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
   app.post("/api/tenant/:tenantId/core-competencies/push-to-pa", async (req, res) => {
     const { tenantId: routeTenantId } = req.params;
     const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : (req.body.userId || 'default');
-    const { items, cfoItems, pedItems, corporateServicesItems } = req.body;
+    const { items, directorItems, communityServicesItems, technicalServicesItems, cfoItems, mmItems, pedItems, corporateServicesItems } = req.body;
     try {
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
@@ -12407,7 +12871,16 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           sender_id: 'core_competencies_push_to_pa',
           sender_email: 'core_competencies@system.local',
           sender_name: 'Core Competencies Push Engine',
-          content: JSON.stringify({ items, cfoItems, pedItems, corporateServicesItems }),
+          content: JSON.stringify({ 
+            items: items || [], 
+            directorItems: communityServicesItems || directorItems || [], 
+            communityServicesItems: communityServicesItems || directorItems || [],
+            technicalServicesItems: technicalServicesItems || [],
+            cfoItems: cfoItems || [], 
+            mmItems: mmItems || [], 
+            pedItems: pedItems || [], 
+            corporateServicesItems: corporateServicesItems || [] 
+          }),
           message_type: 'core_competencies_list',
           created_at: new Date().toISOString()
         });
@@ -12425,7 +12898,11 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         try { currentPa = JSON.parse(paData.content); } catch (e) {}
       }
       currentPa.coreCompetencies = items || currentPa.coreCompetencies;
+      currentPa.directorCompetencies = communityServicesItems || directorItems || currentPa.directorCompetencies;
+      currentPa.communityServicesCompetencies = communityServicesItems || currentPa.communityServicesCompetencies;
+      currentPa.technicalServicesCompetencies = technicalServicesItems || currentPa.technicalServicesCompetencies;
       currentPa.cfoCompetencies = cfoItems || currentPa.cfoCompetencies;
+      currentPa.mmCompetencies = mmItems || currentPa.mmCompetencies;
       currentPa.pedCompetencies = pedItems || currentPa.pedCompetencies;
       currentPa.corporateServicesCompetencies = corporateServicesItems || currentPa.corporateServicesCompetencies;
 

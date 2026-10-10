@@ -37,7 +37,7 @@ const SUBMODULE_TO_PARENT_MAP: Record<string, string> = {
   'sharepoint-drives': 'sharepoint', 'sharepoint-nkangala': 'sharepoint', 'sharepoint-mzansiflow': 'sharepoint',
 
   // More
-  'fred': 'more', 'fred-ipp': 'more', 'fred-performance-plan': 'more', 'fred-sdbip': 'more',
+  'fred': 'more', 'fred-ipp': 'more', 'fred-performance-plan': 'more', 'fred-sdbip': 'more', 'fred-gm': 'more', 'fred-ccomp': 'more', 'fred-core-competencies': 'more',
   'ce': 'more', 'ear': 'more', 'fbi': 'more', 'fea': 'more',
   'ia': 'more', 'psa': 'more', 'mfa': 'more', 'slat': 'more'
 };
@@ -66,23 +66,13 @@ export function RestrictedModuleWrapper({ currentUser, item, unlockedModules, on
   const parentId = SUBMODULE_TO_PARENT_MAP[item.id] || item.id;
   const userEmail = (currentUser.email || '').trim().toLowerCase();
   const isNkangalaUser = userEmail.endsWith('@nkangaladm.gov.za') || userEmail.includes('@nkangaladm.gov.za');
-  const isIpmsMaintenanceUnlocked = typeof window !== 'undefined' && sessionStorage.getItem(`ipms_maintenance_unlocked_${userEmail}`) === 'true';
 
-  // Strict maintenance lock for all @nkangaladm.gov.za users on IPMS
-  if (parentId === 'ipms' && isNkangalaUser && !isIpmsMaintenanceUnlocked) {
-    return (
-      <IPMSMaintenanceLockScreen
-        currentUser={currentUser}
-        onUnlock={() => {
-          if (typeof window !== 'undefined') {
-            sessionStorage.setItem(`ipms_maintenance_unlocked_${userEmail}`, 'true');
-          }
-          onUnlock(parentId);
-          onUnlock(item.id);
-        }}
-        onNavigateHome={onClose}
-      />
-    );
+  // IPMS module is officially UNLOCKED for all @nkangaladm.gov.za users
+  if (parentId === 'ipms' && isNkangalaUser) {
+    if (typeof window !== 'undefined' && sessionStorage.getItem(`ipms_maintenance_unlocked_${userEmail}`) !== 'true') {
+      sessionStorage.setItem(`ipms_maintenance_unlocked_${userEmail}`, 'true');
+    }
+    return <>{children}</>;
   }
 
   // If this specific module or parent is unlocked for the user, grant direct access
