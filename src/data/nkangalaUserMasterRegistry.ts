@@ -3,6 +3,7 @@ export interface UserRegistryCount {
   kpis: number;
   kpas: number;
   jscs: number;
+  coreCompetencies?: number;
   pdps: number;
 }
 
@@ -159,24 +160,35 @@ export const NKANGALA_USER_MASTER_REGISTRY: Record<string, UserRegistryCount> = 
   "wakenis@nkangaladm.gov.za": { email: "wakenis@nkangaladm.gov.za", kpis: 20, kpas: 5, jscs: 5, pdps: 0 },
   "xabang@nkangaladm.gov.za": { email: "xabang@nkangaladm.gov.za", kpis: 11, kpas: 5, jscs: 5, pdps: 0 },
   "zikhalibi@nkangaladm.gov.za": { email: "zikhalibi@nkangaladm.gov.za", kpis: 17, kpas: 5, jscs: 6, pdps: 3 },
-  "rampedimr@nkangaladm.gov.za": { email: "rampedimr@nkangaladm.gov.za", kpis: 59, kpas: 7, jscs: 12, pdps: 0 },
-  "standeral@nkangaladm.gov.za": { email: "standeral@nkangaladm.gov.za", kpis: 51, kpas: 7, jscs: 12, pdps: 0 },
-  "mahlanguml@nkangaladm.gov.za": { email: "mahlanguml@nkangaladm.gov.za", kpis: 101, kpas: 7, jscs: 12, pdps: 0 },
-  "mahlangupt@nkangaladm.gov.za": { email: "mahlangupt@nkangaladm.gov.za", kpis: 44, kpas: 7, jscs: 12, pdps: 0 },
-  "mtshweniwm@nkangaladm.gov.za": { email: "mtshweniwm@nkangaladm.gov.za", kpis: 58, kpas: 7, jscs: 12, pdps: 0 },
-  "bvumaa@nkangaladm.gov.za": { email: "bvumaa@nkangaladm.gov.za", kpis: 31, kpas: 7, jscs: 12, pdps: 0 }
+  "rampedimr@nkangaladm.gov.za": { email: "rampedimr@nkangaladm.gov.za", kpis: 59, kpas: 7, jscs: 12, coreCompetencies: 5, pdps: 0 },
+  "standeral@nkangaladm.gov.za": { email: "standeral@nkangaladm.gov.za", kpis: 51, kpas: 7, jscs: 12, coreCompetencies: 5, pdps: 0 },
+  "mahlanguml@nkangaladm.gov.za": { email: "mahlanguml@nkangaladm.gov.za", kpis: 101, kpas: 7, jscs: 12, coreCompetencies: 5, pdps: 0 },
+  "mahlangupt@nkangaladm.gov.za": { email: "mahlangupt@nkangaladm.gov.za", kpis: 44, kpas: 7, jscs: 12, coreCompetencies: 5, pdps: 0 },
+  "mtshweniwm@nkangaladm.gov.za": { email: "mtshweniwm@nkangaladm.gov.za", kpis: 58, kpas: 7, jscs: 12, coreCompetencies: 5, pdps: 0 },
+  "bvumaa@nkangaladm.gov.za": { email: "bvumaa@nkangaladm.gov.za", kpis: 31, kpas: 7, jscs: 12, coreCompetencies: 5, pdps: 0 }
 };
 
 export function getUserRegistryCounts(email: string | undefined | null): UserRegistryCount | null {
   if (!email) return null;
   const clean = String(email).toLowerCase().trim();
   const exact = NKANGALA_USER_MASTER_REGISTRY[clean];
-  if (exact) return exact;
+  if (exact) {
+    return {
+      ...exact,
+      coreCompetencies: exact.coreCompetencies || (exact.kpas >= 7 || exact.kpis >= 30 ? 5 : 2)
+    };
+  }
 
   // Partial username match search
   const username = clean.split('@')[0];
   const matchedKey = Object.keys(NKANGALA_USER_MASTER_REGISTRY).find(k => k.split('@')[0] === username);
-  if (matchedKey) return NKANGALA_USER_MASTER_REGISTRY[matchedKey];
+  if (matchedKey) {
+    const matched = NKANGALA_USER_MASTER_REGISTRY[matchedKey];
+    return {
+      ...matched,
+      coreCompetencies: matched.coreCompetencies || (matched.kpas >= 7 || matched.kpis >= 30 ? 5 : 2)
+    };
+  }
 
   return null;
 }

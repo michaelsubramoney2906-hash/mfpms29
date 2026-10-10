@@ -4577,7 +4577,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         'ryanw@mzansiflow.co.za'
       ];
 
-      const isAuthorized = authorizedAdmins.some(a => callerEmail === a) || callerEmail.endsWith('@mzansiflow.co.za') || callerEmail.endsWith('@nkangaladm.gov.za');
+      const isAuthorized = !callerEmail.endsWith('@nkangaladm.gov.za') && (authorizedAdmins.some(a => callerEmail === a) || callerEmail.endsWith('@mzansiflow.co.za'));
 
       if (!isAuthorized) {
         return res.status(403).json({
@@ -17005,13 +17005,24 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       if (!supabase) return res.status(500).json({ error: "Database client unavailable" });
 
       const docId = `compliance_cert_settings_${tenantId || 'global'}`;
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('messages')
         .select('content')
         .eq('id', docId)
         .maybeSingle();
 
-      if (error) {
+      if (!data && docId !== 'compliance_cert_settings_global') {
+        const fallback = await supabase
+          .from('messages')
+          .select('content')
+          .eq('id', 'compliance_cert_settings_global')
+          .maybeSingle();
+        if (fallback.data) {
+          data = fallback.data;
+        }
+      }
+
+      if (error && !data) {
         logSupabaseError("compliance-cert-settings-get", error);
         return res.json({ success: true, settings: null });
       }

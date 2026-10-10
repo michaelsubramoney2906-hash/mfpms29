@@ -475,6 +475,20 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
       isGlobalAdminEmail(email) || 
       (email.endsWith('@mzansiflow.co.za') && !email.includes('nkangaladm'));
 
+    // Restrict extractor modules in 'more' for all @nkangaladm.gov.za users
+    if (mod.id === 'more' && isNkangalaUser) {
+      const restrictedMoreIds = ['fred', 'fred-ipp', 'fred-gm', 'fred-sdbip', 'fred-ccomp', 'fred-core-competencies'];
+      return mod.subModules.filter(sub => !restrictedMoreIds.includes(sub.id));
+    }
+
+    // Administrator module is restricted for all @nkangaladm.gov.za users
+    // The only people that can log into administrator are all @mzansiflow.co.za users
+    if (mod.id === 'admin') {
+      if (isNkangalaUser || !activeUserEmail.endsWith('@mzansiflow.co.za') && !activeUserEmail.includes('@mzansiflow.co.za')) {
+        return [];
+      }
+    }
+
     if (mod.id === 'opms-admin' || mod.id === 'opms') {
       if (isMasterAdmin) return mod.subModules;
 
@@ -638,7 +652,23 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
     });
   };
 
+  const isMzansiFlowUser = activeUserEmail.endsWith('@mzansiflow.co.za') || activeUserEmail.includes('@mzansiflow.co.za');
+  const canAccessAdministrator = !isNkangalaUser && isMzansiFlowUser;
+
   const handleSubModuleSelect = (sub: any) => {
+    // Restrict extractor modules in 'more' for all @nkangaladm.gov.za users
+    if (activeModule.id === 'more' && isNkangalaUser) {
+      const restrictedMoreIds = ['fred', 'fred-ipp', 'fred-gm', 'fred-sdbip', 'fred-ccomp', 'fred-core-competencies'];
+      if (restrictedMoreIds.includes(sub.id)) {
+        return;
+      }
+    }
+
+    // Administrator module is strictly restricted for all @nkangaladm.gov.za users
+    if (activeModule.id === 'admin' && !canAccessAdministrator) {
+      return;
+    }
+
     if (activeModule.id === 'ipms') {
       const profileToUse = fullUserProfile || user;
       const email = (profileToUse?.email || '').toLowerCase().trim();
@@ -721,11 +751,13 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
   const isSystemsOrGlobalAdmin = isCurrentlyImpersonating
     ? false
     : (
-        isUnrestricted ||
-        isTargetGlobalAdmin ||
-        user.role === 'admin' || 
-        user.systemRole === 'Global Administrator' || 
-        user.systemRole === 'Systems Administrator'
+        canAccessAdministrator && (
+          isUnrestricted ||
+          isTargetGlobalAdmin ||
+          user.role === 'admin' || 
+          user.systemRole === 'Global Administrator' || 
+          user.systemRole === 'Systems Administrator'
+        )
       );
 
   const displayedModules = modules.filter(mod => {
@@ -733,7 +765,9 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
       return isCommandCenterAuthorized;
     }
     if (mod.id === 'admin') {
-      return isSystemsOrGlobalAdmin;
+      // Administrator module is strictly restricted for all @nkangaladm.gov.za users
+      // Only @mzansiflow.co.za users can access/log into Administrator
+      return canAccessAdministrator;
     }
     return true;
   });
@@ -742,10 +776,15 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
     if (activeModule && activeModule.id === 'dashboard' && !isCommandCenterAuthorized) {
       setActiveModule(modules.find(m => m.id === 'ipms') || modules[1]);
     }
-    if (activeModule && activeModule.id === 'admin' && !isSystemsOrGlobalAdmin) {
+    if (activeModule && activeModule.id === 'admin' && !canAccessAdministrator) {
       setActiveModule(displayedModules.find(m => m.id === 'ipms') || displayedModules[0] || modules[1]);
+      setActiveSubModule(null);
     }
-  }, [activeModule, isCommandCenterAuthorized, isSystemsOrGlobalAdmin]);
+    // In IPMS, remove the authorization failed banner by ensuring activeSubModule is not 'um'
+    if (activeModule && activeModule.id === 'ipms' && activeSubModule && activeSubModule.id === 'um') {
+      setActiveSubModule(null);
+    }
+  }, [activeModule, activeSubModule, isCommandCenterAuthorized, canAccessAdministrator]);
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col font-sans overflow-hidden text-slate-100">
@@ -900,7 +939,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
             <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
               <DashboardOverview currentUser={fullUserProfile} activeTenantId={activeTenantId} />
             </div>
-        ) : activeSubModule ? (
+        ) : (activeSubModule && !(activeModule.id === 'ipms' && activeSubModule.id === 'um')) ? (
           <RestrictedModuleWrapper
             currentUser={fullUserProfile}
             item={activeSubModule}

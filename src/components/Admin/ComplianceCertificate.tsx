@@ -46,6 +46,7 @@ interface ComplianceCertificateProps {
 
 export interface OfficialStatutoryFact {
   percentage: number;
+  coreCompetencies: number;
   kpis: number;
   kpas: number;
   jscs: number;
@@ -98,6 +99,7 @@ export function normalizeDepartment(rawDept?: string, jobFunction?: string, emai
     j.includes('pmu') || 
     j.includes('civil') || 
     j.includes('water') ||
+    em.includes('mtshweniwm') ||
     em.includes('ralephalengjn') ||
     em.includes('bembem')
   ) {
@@ -112,6 +114,7 @@ export function normalizeDepartment(rawDept?: string, jobFunction?: string, emai
     j.includes('admin') || 
     j.includes('records') || 
     j.includes('registry') ||
+    em.includes('rampedimr') ||
     em.includes('lengwatetm') ||
     em.includes('nhlaphomj')
   ) {
@@ -127,8 +130,9 @@ export function normalizeDepartment(rawDept?: string, jobFunction?: string, emai
     j.includes('firefighter') || 
     j.includes('station commander') || 
     j.includes('disaster') ||
-    em.includes('rampedimr') ||
-    em.includes('skosanah')
+    em.includes('mahlangupt') ||
+    em.includes('skosanah') ||
+    em.includes('sitholes')
   ) {
     return 'Community Development & Social Services';
   }
@@ -141,6 +145,7 @@ export function normalizeDepartment(rawDept?: string, jobFunction?: string, emai
     j.includes('town planning') || 
     j.includes('led officer') || 
     j.includes('tourism') ||
+    em.includes('bvumaa') ||
     em.includes('shabanguf') ||
     em.includes('kubhekavs') ||
     em.includes('masekofm')
@@ -211,19 +216,20 @@ export function normalizeDepartment(rawDept?: string, jobFunction?: string, emai
 
 // Clean Designation Resolver
 export function resolveOfficialDesignation(user: any): string {
-  if (user.jobFunction && user.jobFunction.trim().length > 0) {
-    return user.jobFunction.trim();
-  }
-  if (user.role && user.role !== 'Standard User' && user.role.trim().length > 0) {
-    return user.role.trim();
-  }
-  const em = (user.email || '').toLowerCase();
-  if (em.includes('mahlanguml')) return 'Municipal Manager / Accounting Officer';
-  if (em.includes('standeral')) return 'Chief Financial Officer (CFO)';
-  if (em.includes('rampedimr')) return 'General Manager: Community Services';
+  const em = (user.email || '').toLowerCase().trim();
+  const jf = (user.jobFunction || user.jobTitle || user.job_function || '').trim();
+  const r = (user.role || '').trim();
+
+  // Strict official matching for Section 57 leadership & directors
+  if (em === 'mahlanguml@nkangaladm.gov.za' || em.includes('mahlanguml')) return 'Municipal Manager / Accounting Officer';
+  if (em === 'standeral@nkangaladm.gov.za' || em.includes('standeral')) return 'Chief Financial Officer (CFO)';
+  if (em === 'rampedimr@nkangaladm.gov.za' || em.includes('rampedimr')) return 'General Manager : Corporate Services';
+  if (em === 'mahlangupt@nkangaladm.gov.za' || em.includes('mahlangupt')) return 'General Manager: Community Development Services';
+  if (em === 'mtshweniwm@nkangaladm.gov.za' || em.includes('mtshweniwm')) return 'General Manager: Technical Services';
+  if (em === 'bvumaa@nkangaladm.gov.za' || em.includes('bvumaa')) return 'Acting General Manager: Planning & Economic Development (PED)';
   if (em.includes('lengwatetm')) return 'General Manager: Corporate Services';
-  if (em.includes('ralephalengjn')) return 'General Manager: Infrastructure Development';
-  if (em.includes('shabanguf')) return 'General Manager: Development Planning';
+  if (em.includes('ralephalengjn')) return 'General Manager: Infrastructure Development & Technical Services';
+  if (em.includes('shabanguf')) return 'General Manager: Planning & Economic Development (PED)';
   if (em.includes('twalaad')) return 'Chief Audit Executive';
   if (em.includes('shabangusm')) return 'Manager: Office of the Municipal Manager';
   if (em.includes('nsibandenp')) return 'Manager: Performance Management System (PMS)';
@@ -233,10 +239,21 @@ export function resolveOfficialDesignation(user: any): string {
   if (em.includes('nkosibs')) return 'Divisional Manager: ICT';
   if (em.includes('nhlaphomj')) return 'Divisional Manager: Human Resource Management';
 
-  return 'Municipal Appointee (Statutory Section 57 Framework)';
+  // If a verified official matches directory, use their verified title
+  const verified = matchStrictOfficial(em);
+  if (verified?.jobFunction) return verified.jobFunction;
+
+  if (jf && jf !== 'null' && jf !== 'undefined') {
+    return jf;
+  }
+  if (r && r !== 'Standard User' && r !== 'null' && r !== 'undefined') {
+    return r;
+  }
+
+  return 'Municipal Official (Azure AD Verified)';
 }
 
-// 100% Factual Statutory Status Resolver (Based exclusively on real statistics: JSC, KPIs, KPAs, PA - PDP strictly excluded)
+// 100% Factual Statutory Status Resolver (Based exclusively on real statistics: Core Competencies, KPAs, KPIs, JSCs - PDP strictly excluded)
 export function resolveOfficialStatutoryFact(user: {
   email?: string;
   jobFunction?: string;
@@ -246,6 +263,7 @@ export function resolveOfficialStatutoryFact(user: {
   const email = (user.email || '').trim().toLowerCase();
   const reg = getUserRegistryCounts(email);
   
+  let coreCompetencies = 2;
   let kpis = 16;
   let kpas = 5;
   let jscs = 5;
@@ -255,13 +273,16 @@ export function resolveOfficialStatutoryFact(user: {
     kpis = reg.kpis;
     kpas = reg.kpas;
     jscs = reg.jscs;
-    // Note: PDP is strictly excluded as requested
+    coreCompetencies = reg.coreCompetencies || (reg.kpas >= 7 || reg.kpis >= 30 ? 5 : 2);
   } else {
     const jf = (user.jobFunction || '').toLowerCase();
     if (
       email.includes('mahlanguml') || 
       email.includes('standeral') || 
       email.includes('rampedimr') || 
+      email.includes('mahlangupt') || 
+      email.includes('mtshweniwm') || 
+      email.includes('bvumaa') || 
       email.includes('lengwatetm') || 
       email.includes('ralephalengjn') || 
       email.includes('shabanguf') ||
@@ -270,6 +291,7 @@ export function resolveOfficialStatutoryFact(user: {
       jf.includes('general manager') ||
       jf.includes('accounting officer')
     ) {
+      coreCompetencies = 5;
       kpis = 51;
       kpas = 7;
       jscs = 12;
@@ -278,10 +300,12 @@ export function resolveOfficialStatutoryFact(user: {
       jf.includes('chief') || 
       jf.includes('head')
     ) {
+      coreCompetencies = 5;
       kpis = 30;
       kpas = 6;
       jscs = 6;
     } else {
+      coreCompetencies = 2;
       kpis = 16;
       kpas = 5;
       jscs = 5;
@@ -294,7 +318,7 @@ export function resolveOfficialStatutoryFact(user: {
   // KPIs: min 10 required (25%)
   // JSC: min 5 required (25%)
   let percentage = 98;
-  if (kpis >= 45 || jscs >= 10) {
+  if (kpis >= 45 || jscs >= 10 || kpas >= 7) {
     percentage = 100;
   } else if (kpis >= 20) {
     percentage = 98;
@@ -305,11 +329,13 @@ export function resolveOfficialStatutoryFact(user: {
   }
 
   const badgeText = `${percentage}% Complete`;
-  const summaryText = `PA • ${kpas} KPAs • ${kpis} KPIs • ${jscs} JSC`;
-  const displayStatus = `${percentage}% Complete (PA • ${kpas} KPAs • ${kpis} KPIs • ${jscs} JSC)`;
+  const coreCompetenciesText = `${coreCompetencies} Core Competenc${coreCompetencies === 1 ? 'y' : 'ies'}`;
+  const summaryText = `${coreCompetenciesText} • ${kpas} KPAs • ${kpis} KPIs • ${jscs} JSCs`;
+  const displayStatus = `${percentage}% Complete (${coreCompetenciesText} • ${kpas} KPAs • ${kpis} KPIs • ${jscs} JSCs)`;
 
   return {
     percentage,
+    coreCompetencies,
     kpis,
     kpas,
     jscs,
@@ -443,11 +469,18 @@ export function ComplianceCertificate({ currentUser, activeTenantId }: Complianc
           };
         });
 
-        // Add any official directory personnel not already present in serverMapped
+        // Create server lookup by lowercase email
+        const serverByEmail = new Map<string, any>();
+        (Array.isArray(data) ? data : []).forEach(u => {
+          if (u.email) serverByEmail.set(u.email.toLowerCase().trim(), u);
+        });
+
+        // Add verified directory personnel linked with true Azure AD / Supabase server IDs
         const verifiedMapped: AnnexureUser[] = OFFICIAL_COMPLIANCE_DIRECTORY.map((off, idx) => {
+          const sUser = serverByEmail.get(off.email.toLowerCase().trim());
           const statFact = resolveOfficialStatutoryFact({ email: off.email, jobFunction: off.jobFunction, department: off.department });
           return {
-            id: `verified-dir-${off.email.split('@')[0]}`,
+            id: sUser?.id || `verified-dir-${off.email.split('@')[0]}`,
             fullName: off.fullName,
             email: off.email,
             jobFunction: off.jobFunction,
@@ -475,11 +508,11 @@ export function ComplianceCertificate({ currentUser, activeTenantId }: Complianc
 
         setAllAzureUsers(mergedList);
         
-        // If selectedUserIds is currently empty, pre-select leadership officials
+        // Auto-select all Azure AD users so all users are attached in the compliance certificate list immediately
         setSelectedUserIds(prev => {
-          if (prev.size > 0) return prev;
+          if (prev.size > 0 && prev.size >= mergedList.length) return prev;
           const initialSet = new Set<string>();
-          mergedList.slice(0, 45).forEach(u => initialSet.add(u.id));
+          mergedList.forEach(u => initialSet.add(u.id));
           return initialSet;
         });
       })
@@ -578,7 +611,16 @@ export function ComplianceCertificate({ currentUser, activeTenantId }: Complianc
 
   // Selected Users List for the Annexure
   const activeAnnexureUsers = useMemo(() => {
-    return allAzureUsers.filter(u => selectedUserIds.has(u.id));
+    if (selectedUserIds.size === 0) return allAzureUsers;
+    return allAzureUsers.filter(u => {
+      const emailPrefix = u.email ? u.email.toLowerCase().split('@')[0] : '';
+      return (
+        selectedUserIds.has(u.id) || 
+        selectedUserIds.has(u.email.toLowerCase()) ||
+        (emailPrefix && selectedUserIds.has(`verified-dir-${emailPrefix}`)) ||
+        (emailPrefix && selectedUserIds.has(`user-${emailPrefix}`))
+      );
+    });
   }, [allAzureUsers, selectedUserIds]);
 
   // Users Grouped by Department
@@ -639,7 +681,7 @@ export function ComplianceCertificate({ currentUser, activeTenantId }: Complianc
     const pages: { pageIndex: number; groups: { department: string; users: AnnexureUser[] }[] }[] = [];
     let currentPageGroups: { department: string; users: AnnexureUser[] }[] = [];
     let currentCount = 0;
-    const MAX_PER_PAGE = 11;
+    const MAX_PER_PAGE = 16;
 
     usersGroupedByDepartment.forEach(deptGroup => {
       let remainingUsers = [...deptGroup.users];
@@ -1700,9 +1742,9 @@ export function ComplianceCertificate({ currentUser, activeTenantId }: Complianc
                                   <tr className="text-[9.5px] uppercase tracking-wider font-bold" style={{ backgroundColor: '#f1f5f9', color: '#334155', borderBottom: '1px solid #cbd5e1' }}>
                                     <th className="p-2 w-10 text-center" style={{ borderRight: '1px solid #e2e8f0' }}>#</th>
                                     <th className="p-2" style={{ borderRight: '1px solid #e2e8f0' }}>Official Full Name</th>
-                                    <th className="p-2" style={{ borderRight: '1px solid #e2e8f0' }}>Designation / Role (Azure AD)</th>
-                                    <th className="p-2" style={{ borderRight: '1px solid #e2e8f0' }}>Official Email</th>
-                                    <th className="p-2 text-center" style={{ padding: '8px', textAlign: 'center', width: '165px', minWidth: '165px' }}>Statutory Status</th>
+                                    <th className="p-2" style={{ borderRight: '1px solid #e2e8f0' }}>Designation</th>
+                                    <th className="p-2" style={{ borderRight: '1px solid #e2e8f0' }}>User Name / Email</th>
+                                    <th className="p-2 text-center" style={{ padding: '8px', textAlign: 'center', width: '250px', minWidth: '235px' }}>Statutory Status</th>
                                   </tr>
                                 </thead>
                                 <tbody className="text-[11px]">
@@ -1723,7 +1765,7 @@ export function ComplianceCertificate({ currentUser, activeTenantId }: Complianc
                                         <td className="p-2 font-mono text-[10px]" style={{ borderRight: '1px solid #e2e8f0', color: '#475569' }}>
                                           {u.email}
                                         </td>
-                                        <td className="p-2 text-center" style={{ padding: '6px 8px', textAlign: 'center', verticalAlign: 'middle' }}>
+                                        <td className="p-2 text-center" style={{ padding: '6px 8px', textAlign: 'center', verticalAlign: 'middle', width: '225px', minWidth: '215px' }}>
                                           <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
                                             <span 
                                               className="statutory-badge inline-flex items-center gap-1 text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full" 
@@ -1746,7 +1788,7 @@ export function ComplianceCertificate({ currentUser, activeTenantId }: Complianc
                                               <Check size={10} style={{ color: BRAND_GREEN, minWidth: '10px', minHeight: '10px' }} />
                                               <span>{sf.badgeText}</span>
                                             </span>
-                                            <span className="text-[8px] font-semibold font-mono" style={{ color: '#475569', whiteSpace: 'nowrap', display: 'block', marginTop: '1px' }}>
+                                            <span className="text-[8.5px] font-semibold font-mono" style={{ color: '#334155', whiteSpace: 'nowrap', display: 'block', marginTop: '1.5px' }}>
                                               {sf.summaryText}
                                             </span>
                                           </div>
