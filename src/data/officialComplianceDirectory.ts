@@ -162,6 +162,14 @@ export const OFFICIAL_COMPLIANCE_DIRECTORY: VerifiedOfficial[] = [
 
   // 3. Infrastructure Development & Technical Services
   {
+    fullName: "Walter M. Mtshweni",
+    jobFunction: "General Manager: Infrastructure Development & Technical Services",
+    department: "Infrastructure Development & Technical Services",
+    email: "mtshweniwm@nkangaladm.gov.za",
+    refCode: "SEC57-NDM-0300",
+    status: "Section 57 Verified"
+  },
+  {
     fullName: "Jabulani N. Ralephaleng",
     jobFunction: "General Manager: Infrastructure Development & Technical Services",
     department: "Infrastructure Development & Technical Services",
@@ -267,6 +275,14 @@ export const OFFICIAL_COMPLIANCE_DIRECTORY: VerifiedOfficial[] = [
   },
 
   // 4. Corporate Services & Administration
+  {
+    fullName: "Mmaphiri R. Rampedi",
+    jobFunction: "General Manager: Corporate Services",
+    department: "Corporate Services & Administration",
+    email: "rampedimr@nkangaladm.gov.za",
+    refCode: "SEC57-NDM-0400",
+    status: "Section 57 Verified"
+  },
   {
     fullName: "Thabitha M. Lengwate",
     jobFunction: "General Manager: Corporate Services",
@@ -790,10 +806,10 @@ export const OFFICIAL_COMPLIANCE_DIRECTORY: VerifiedOfficial[] = [
 
   // 5. Community Development & Social Services
   {
-    fullName: "Mmagauta R. Rampedi",
+    fullName: "Precious T. Mahlangu",
     jobFunction: "General Manager: Community Development & Social Services",
     department: "Community Development & Social Services",
-    email: "rampedimr@nkangaladm.gov.za",
+    email: "mahlangupt@nkangaladm.gov.za",
     refCode: "SEC57-NDM-0501",
     status: "Section 57 Verified"
   },
@@ -871,6 +887,14 @@ export const OFFICIAL_COMPLIANCE_DIRECTORY: VerifiedOfficial[] = [
   },
 
   // 6. Planning & Economic Development (PED)
+  {
+    fullName: "Alvin Bvuma",
+    jobFunction: "Acting General Manager: Planning & Economic Development (PED)",
+    department: "Planning & Economic Development (PED)",
+    email: "bvumaa@nkangaladm.gov.za",
+    refCode: "SEC57-NDM-0600",
+    status: "Section 57 Verified"
+  },
   {
     fullName: "Fred Shabangu",
     jobFunction: "General Manager: Planning & Economic Development (PED)",

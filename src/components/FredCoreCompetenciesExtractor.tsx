@@ -496,12 +496,12 @@ export function FredCoreCompetenciesExtractor({
 
             <div className="space-y-1.5">
               {[
-                { id: 'community_services', label: 'Community Service Core Competencies (GM: Community Development - RampediMR / MahlanguPT)', color: 'indigo' },
-                { id: 'technical_services', label: 'Technical Service Core Competencies (GM: Technical - RalephalengJN / MtshweniWM)', color: 'teal' },
-                { id: 'mm', label: 'Municipal Managers Core Competencies (MM - MahlanguML)', color: 'emerald' },
-                { id: 'cfo', label: 'CFOs Core Competencies (CFO - StanderAL)', color: 'blue' },
-                { id: 'corp', label: 'Corporate Services Competencies (GM: Corporate - LengwateTM / MahlanguA)', color: 'pink' },
-                { id: 'ped', label: 'PED Core Competencies (GM: PED - ShabanguF / BvumaA)', color: 'amber' },
+                { id: 'community_services', label: 'Community Service Core Competencies (GM: Community Development - mahlangupt@nkangaladm.gov.za)', color: 'indigo' },
+                { id: 'technical_services', label: 'Technical Service Core Competencies (GM: Technical - mtshweniwm@nkangaladm.gov.za)', color: 'teal' },
+                { id: 'mm', label: 'Municipal Managers Core Competencies (MM - mahlanguml@nkangaladm.gov.za)', color: 'emerald' },
+                { id: 'cfo', label: 'CFOs Core Competencies (CFO - standeral@nkangaladm.gov.za)', color: 'blue' },
+                { id: 'corp', label: 'Corporate Services Competencies (GM: Corporate - rampedimr@nkangaladm.gov.za)', color: 'pink' },
+                { id: 'ped', label: 'PED Core Competencies (GM: PED - bvumaa@nkangaladm.gov.za)', color: 'amber' },
                 { id: 'standard', label: 'Standard Core Competencies (General Municipal Appointees)', color: 'teal' }
               ].map(opt => (
                 <label 

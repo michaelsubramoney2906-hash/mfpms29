@@ -52,7 +52,6 @@ import { OfficeOfTheMayor } from './OfficeOfTheMayor/OfficeOfTheMayor';
 import { OfficeOfTheMM } from './OfficeOfTheMM/OfficeOfTheMM';
 import { PriorSystemArchive } from './PriorSystemArchive';
 import { RestrictedModuleWrapper } from './RestrictedModuleWrapper';
-import { IPMSMaintenanceLockScreen } from './IPMS/IPMSMaintenanceLockScreen';
 import { FredBusinessIntelligence } from './FredBusinessIntelligence';
 import { MTAS } from './MTAS/MTAS';
 import { LEDProjects } from './LED/LEDProjects';
@@ -169,34 +168,9 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
   const [completedIPMSSteps, setCompletedIPMSSteps] = useState<string[]>([]);
   const [lockedStepAlert, setLockedStepAlert] = useState<{ isOpen: boolean; currentClickedName: string; requiredPrevName: string } | null>(null);
 
-  // IPMS Module is officially UNLOCKED for all @nkangaladm.gov.za users
+  // User domain identification
   const activeUserEmail = ((fullUserProfile?.email || user.email) || '').toLowerCase().trim();
   const isNkangalaUser = activeUserEmail.endsWith('@nkangaladm.gov.za') || activeUserEmail.includes('@nkangaladm.gov.za');
-
-  // IPMS is permanently unlocked for all Nkangala users
-  const [isIpmsUnlocked, setIsIpmsUnlocked] = useState<boolean>(true);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined' && activeUserEmail) {
-      sessionStorage.setItem(`ipms_maintenance_unlocked_${activeUserEmail}`, 'true');
-    }
-    setIsIpmsUnlocked(true);
-  }, [activeUserEmail]);
-
-  const handleUnlockIpms = () => {
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem(`ipms_maintenance_unlocked_${activeUserEmail}`, 'true');
-    }
-    setIsIpmsUnlocked(true);
-  };
-
-  const handleRelockIpms = () => {
-    // Kept as no-op or explicit unlock per instructions
-    setIsIpmsUnlocked(true);
-  };
-
-  // IPMS is officially unlocked for all @nkangaladm.gov.za users
-  const isIpmsLockedForUser = false;
 
   const availableTenants = user.role === 'admin' 
     ? [{ id: 'global', name: 'Global Administrator Space' }, ...tenants]
@@ -666,10 +640,6 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
 
   const handleSubModuleSelect = (sub: any) => {
     if (activeModule.id === 'ipms') {
-      if (isIpmsLockedForUser) {
-        setActiveSubModuleState(null);
-        return;
-      }
       const profileToUse = fullUserProfile || user;
       const email = (profileToUse?.email || '').toLowerCase().trim();
       const role = (profileToUse?.role || '').toLowerCase().trim();
@@ -802,11 +772,6 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                 )}
               >
                 {mod.name}
-                {mod.id === 'ipms' && isIpmsLockedForUser && (
-                  <span className="bg-amber-500/20 text-amber-600 border border-amber-500/40 p-0.5 rounded ml-1 flex items-center" title="Restricted: Maintenance Updates Underway (CFO & PMS Directive)">
-                    <Lock className="w-3 h-3 text-amber-600" />
-                  </span>
-                )}
                 {getFilteredSubModules(mod).length > 0 && <ChevronDown className={cn("w-4 h-4 ml-1 opacity-60", activeModule.id === mod.id && "rotate-180 opacity-100")} />}
               </button>
 
@@ -918,7 +883,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
           </div>
 
           {/* IPMS GUIDED WORKFLOW WORKSPACE BAR */}
-          {activeModule.id === 'ipms' && !isIpmsLockedForUser && (
+          {activeModule.id === 'ipms' && (
             <GuidedIPMSWorkflow
               activeTenantId={activeTenantId}
               currentUser={fullUserProfile}
@@ -931,16 +896,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
           )}
 
         {/* Content Area */}
-        {activeModule.id === 'ipms' && isIpmsLockedForUser ? (
-          <IPMSMaintenanceLockScreen
-            currentUser={fullUserProfile}
-            onUnlock={handleUnlockIpms}
-            onNavigateHome={() => {
-              setActiveModule(modules.find(m => m.id === 'dashboard') || modules[0]);
-              setActiveSubModule(null);
-            }}
-          />
-        ) : activeModule.id === 'dashboard' ? (
+        {activeModule.id === 'dashboard' ? (
             <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
               <DashboardOverview currentUser={fullUserProfile} activeTenantId={activeTenantId} />
             </div>

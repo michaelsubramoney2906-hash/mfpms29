@@ -112,11 +112,11 @@ export function matchOfficialCoreRole(user?: {
     (deptLower.includes('office of the municipal manager') && (jobLower.includes('manager') || jobLower.includes('executive') || jobLower.includes('accounting')))
   ) {
     return {
-      fullName,
-      email,
-      jobFunction,
-      department,
-      refCode,
+      fullName: fullName || 'Mandla L. Mahlangu',
+      email: email || 'mahlanguml@nkangaladm.gov.za',
+      jobFunction: jobFunction || 'Municipal Manager / Accounting Officer',
+      department: department || 'Office of the Municipal Manager',
+      refCode: refCode || 'SEC57-MM-01',
       roleKey: 'mm',
       roleName: 'Municipal Managers Core Competencies'
     };
@@ -134,75 +134,20 @@ export function matchOfficialCoreRole(user?: {
     (deptLower.includes('financial services') && (jobLower.includes('manager') || jobLower.includes('cfo')))
   ) {
     return {
-      fullName,
-      email,
-      jobFunction,
-      department,
-      refCode,
+      fullName: fullName || 'Alice L. Stander',
+      email: email || 'standeral@nkangaladm.gov.za',
+      jobFunction: jobFunction || 'Chief Financial Officer (CFO)',
+      department: department || 'Financial Services & Budget Office',
+      refCode: refCode || 'SEC57-CFO-01',
       roleKey: 'cfo',
       roleName: 'CFOs Core Competencies'
     };
   }
 
-  // Rule 3: Technical Service -> ralephalengjn@nkangaladm.gov.za / technical / infrastructure
-  if (
-    emailRaw === 'ralephalengjn@nkangaladm.gov.za' ||
-    emailPrefix === 'ralephalengjn' ||
-    emailRaw.startsWith('technical@') ||
-    emailRaw.startsWith('infrastructure@') ||
-    emailRaw === 'mtshweniwm@nkangaladm.gov.za' ||
-    emailPrefix === 'mtshweniwm' ||
-    emailRaw === 'bembem@nkangaladm.gov.za' ||
-    jobLower.includes('infrastructure development') ||
-    jobLower.includes('technical services') ||
-    jobLower.includes('project management unit') ||
-    jobLower.includes('pmu') ||
-    jobLower.includes('civil infrastructure') ||
-    jobLower.includes('project engineer') ||
-    deptLower.includes('infrastructure development') ||
-    deptLower.includes('technical services')
-  ) {
-    return {
-      fullName,
-      email,
-      jobFunction,
-      department,
-      refCode,
-      roleKey: 'technical_services',
-      roleName: 'Technical Service Core Competencies'
-    };
-  }
-
-  // Rule 4: Community Service -> rampedimr@nkangaladm.gov.za / mahlangupt@... / cds / community
+  // Rule 3: Corporate Services -> rampedimr@nkangaladm.gov.za / lengwatetm@nkangaladm.gov.za / mahlangua@nkangaladm.gov.za
   if (
     emailRaw === 'rampedimr@nkangaladm.gov.za' ||
     emailPrefix === 'rampedimr' ||
-    emailRaw.startsWith('community@') ||
-    emailRaw === 'mahlangupt@nkangaladm.gov.za' ||
-    emailPrefix === 'mahlangupt' ||
-    emailRaw.startsWith('cds@') ||
-    jobLower.includes('community development') ||
-    jobLower.includes('social services') ||
-    jobLower.includes('community service') ||
-    jobLower.includes('emergency services') ||
-    jobLower.includes('disaster management') ||
-    jobLower.includes('municipal health') ||
-    deptLower.includes('community development') ||
-    deptLower.includes('social services')
-  ) {
-    return {
-      fullName,
-      email,
-      jobFunction,
-      department,
-      refCode,
-      roleKey: 'community_services',
-      roleName: 'Community Service Core Competencies'
-    };
-  }
-
-  // Rule 5: Corporate Services -> lengwatetm@nkangaladm.gov.za / mahlangua@nkangaladm.gov.za
-  if (
     emailRaw === 'lengwatetm@nkangaladm.gov.za' ||
     emailPrefix === 'lengwatetm' ||
     emailRaw === 'mahlangua@nkangaladm.gov.za' ||
@@ -215,23 +160,78 @@ export function matchOfficialCoreRole(user?: {
     deptLower.includes('corporate services')
   ) {
     return {
-      fullName,
-      email,
-      jobFunction,
-      department,
-      refCode,
+      fullName: emailPrefix === 'rampedimr' ? 'Mmaphiri R. Rampedi' : (fullName || 'General Manager: Corporate Services'),
+      email: email || (emailPrefix === 'rampedimr' ? 'rampedimr@nkangaladm.gov.za' : 'corporate@nkangaladm.gov.za'),
+      jobFunction: emailPrefix === 'rampedimr' ? 'General Manager: Corporate Services' : (jobFunction || 'Corporate Services Director'),
+      department: 'Corporate Services & Administration',
+      refCode: refCode || 'SEC57-CORP-01',
       roleKey: 'corp',
       roleName: 'Corporate Services Core Competencies'
     };
   }
 
-  // Rule 6: Planning & Economic Development (PED) -> shabanguf@nkangaladm.gov.za / bvumaa@...
+  // Rule 4: Community Development Services -> mahlangupt@nkangaladm.gov.za / cds / community
   if (
+    emailRaw === 'mahlangupt@nkangaladm.gov.za' ||
+    emailPrefix === 'mahlangupt' ||
+    emailRaw.startsWith('community@') ||
+    emailRaw.startsWith('cds@') ||
+    jobLower.includes('community development') ||
+    jobLower.includes('social services') ||
+    jobLower.includes('community service') ||
+    jobLower.includes('emergency services') ||
+    jobLower.includes('disaster management') ||
+    jobLower.includes('municipal health') ||
+    deptLower.includes('community development') ||
+    deptLower.includes('social services')
+  ) {
+    return {
+      fullName: emailPrefix === 'mahlangupt' ? 'P.T. Mahlangu' : (fullName || 'General Manager: Community Development & Social Services'),
+      email: email || (emailPrefix === 'mahlangupt' ? 'mahlangupt@nkangaladm.gov.za' : 'community@nkangaladm.gov.za'),
+      jobFunction: emailPrefix === 'mahlangupt' ? 'General Manager: Community Development & Social Services' : (jobFunction || 'Community Development Director'),
+      department: 'Community Development & Social Services',
+      refCode: refCode || 'SEC57-CDS-01',
+      roleKey: 'community_services',
+      roleName: 'Community Service Core Competencies'
+    };
+  }
+
+  // Rule 5: Technical Service -> mtshweniwm@nkangaladm.gov.za / ralephalengjn@nkangaladm.gov.za / technical / infrastructure
+  if (
+    emailRaw === 'mtshweniwm@nkangaladm.gov.za' ||
+    emailPrefix === 'mtshweniwm' ||
+    emailRaw === 'ralephalengjn@nkangaladm.gov.za' ||
+    emailPrefix === 'ralephalengjn' ||
+    emailRaw.startsWith('technical@') ||
+    emailRaw.startsWith('infrastructure@') ||
+    emailRaw === 'bembem@nkangaladm.gov.za' ||
+    jobLower.includes('infrastructure development') ||
+    jobLower.includes('technical services') ||
+    jobLower.includes('project management unit') ||
+    jobLower.includes('pmu') ||
+    jobLower.includes('civil infrastructure') ||
+    jobLower.includes('project engineer') ||
+    deptLower.includes('infrastructure development') ||
+    deptLower.includes('technical services')
+  ) {
+    return {
+      fullName: emailPrefix === 'mtshweniwm' ? 'Walter M. Mtshweni' : (fullName || 'General Manager: Infrastructure Development & Technical Services'),
+      email: email || (emailPrefix === 'mtshweniwm' ? 'mtshweniwm@nkangaladm.gov.za' : 'technical@nkangaladm.gov.za'),
+      jobFunction: emailPrefix === 'mtshweniwm' ? 'General Manager: Infrastructure Development & Technical Services' : (jobFunction || 'Technical Services Director'),
+      department: 'Infrastructure Development & Technical Services',
+      refCode: refCode || 'SEC57-TECH-01',
+      roleKey: 'technical_services',
+      roleName: 'Technical Service Core Competencies'
+    };
+  }
+
+  // Rule 6: Planning & Economic Development (PED) -> bvumaa@nkangaladm.gov.za / shabanguf@nkangaladm.gov.za / ped
+  if (
+    emailRaw === 'bvumaa@nkangaladm.gov.za' ||
+    emailPrefix === 'bvumaa' ||
     emailRaw === 'shabanguf@nkangaladm.gov.za' ||
     emailPrefix === 'shabanguf' ||
     emailRaw.startsWith('ped@') ||
-    emailRaw === 'bvumaa@nkangaladm.gov.za' ||
-    emailPrefix === 'bvumaa' ||
     jobLower.includes('planning & economic development') ||
     jobLower.includes('ped') ||
     jobLower.includes('spatial planning') ||
@@ -241,11 +241,11 @@ export function matchOfficialCoreRole(user?: {
     deptLower.includes('ped')
   ) {
     return {
-      fullName,
-      email,
-      jobFunction,
-      department,
-      refCode,
+      fullName: emailPrefix === 'bvumaa' ? 'Alvin Bvuma' : (fullName || 'Acting General Manager: Planning & Economic Development (PED)'),
+      email: email || (emailPrefix === 'bvumaa' ? 'bvumaa@nkangaladm.gov.za' : 'ped@nkangaladm.gov.za'),
+      jobFunction: emailPrefix === 'bvumaa' ? 'Acting General Manager: Planning & Economic Development (PED)' : (jobFunction || 'PED Director'),
+      department: 'Planning & Economic Development (PED)',
+      refCode: refCode || 'SEC57-PED-01',
       roleKey: 'ped',
       roleName: 'PED Core Competencies'
     };

@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Lock, Unlock, ShieldAlert, X, AlertTriangle } from 'lucide-react';
 import type { User } from '../types';
 import { isUserUnrestricted } from '../utils/unrestrictedHelper';
-import { IPMSMaintenanceLockScreen } from './IPMS/IPMSMaintenanceLockScreen';
 
 interface RestrictedModuleWrapperProps {
   currentUser: User;
@@ -67,11 +66,8 @@ export function RestrictedModuleWrapper({ currentUser, item, unlockedModules, on
   const userEmail = (currentUser.email || '').trim().toLowerCase();
   const isNkangalaUser = userEmail.endsWith('@nkangaladm.gov.za') || userEmail.includes('@nkangaladm.gov.za');
 
-  // IPMS module is officially UNLOCKED for all @nkangaladm.gov.za users
-  if (parentId === 'ipms' && isNkangalaUser) {
-    if (typeof window !== 'undefined' && sessionStorage.getItem(`ipms_maintenance_unlocked_${userEmail}`) !== 'true') {
-      sessionStorage.setItem(`ipms_maintenance_unlocked_${userEmail}`, 'true');
-    }
+  // IPMS module is permanently unlocked with all maintenance locks removed
+  if (parentId === 'ipms') {
     return <>{children}</>;
   }
 
