@@ -13598,8 +13598,29 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       `Q4: ${finalQ4}`
     ].join('\n');
 
+    // Marianne Joubert's Clean Audit KPI: Quarter 1 MUST be locked as N/A because it is only applicable in Quarter 3
+    const kpiDesc = (item.kpi || item.description || item.desc || '').toString().toLowerCase();
+    const isCleanAudit = kpiDesc.includes('clean audit');
+    const uClean = (userEmail || '').toLowerCase();
+    const isJoubert = uClean.includes('joubertm') || uClean.includes('joubert');
+
+    let q1TargetVal = item.q1Target;
+    let q1LockedVal = item.q1Locked;
+    let q3TargetVal = item.q3Target;
+
+    if (isCleanAudit && isJoubert) {
+      q1TargetVal = 'N/A';
+      q1LockedVal = true;
+      if (!q3TargetVal || q3TargetVal === 'N/A') {
+        q3TargetVal = '1 (Clean audit)';
+      }
+    }
+
     return {
       ...item,
+      q1Target: q1TargetVal,
+      q1Locked: q1LockedVal,
+      q3Target: q3TargetVal,
       poe: cleanParentPoe,
       annualRequiredPoe: finalAnnual,
       q1Poe: finalQ1,
