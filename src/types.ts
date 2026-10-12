@@ -30,6 +30,7 @@ export interface User {
   department?: string;
   directorate?: string;
   manager?: string;
+  managerEmail?: string;
   reportTo?: string;
   systemRole?: string;
   loginTime?: string;

@@ -151,7 +151,13 @@ export function Organogram({ currentUser, activeTenantId, onClose }: OrganogramP
       if (orgRes.ok) {
         const orgJson = await orgRes.json();
         if (orgJson && Array.isArray(orgJson.nodes) && orgJson.nodes.length > 0) {
-          loadedNodes = orgJson.nodes;
+          const mmNode = orgJson.nodes.find((n: any) => n.level === 0 || n.email?.toLowerCase().includes('mahlanguml'));
+          loadedNodes = orgJson.nodes.map((n: any) => {
+            if (n.email?.toLowerCase().includes('shabangusm') && mmNode) {
+              return { ...n, parentId: mmNode.id, department: 'Office of the Municipal Manager' };
+            }
+            return n;
+          });
         }
       }
 
@@ -241,7 +247,9 @@ export function Organogram({ currentUser, activeTenantId, onClose }: OrganogramP
 
       // Determine parent manager
       let parentId: string | null = mmNodeId;
-      if (user.manager) {
+      if (userEmail.includes('shabangusm')) {
+        parentId = mmNodeId;
+      } else if (user.manager) {
         const mgrUser = users.find(m => m.email?.toLowerCase() === user.manager?.toLowerCase() || m.fullName?.toLowerCase() === user.manager?.toLowerCase());
         if (mgrUser && mgrUser.email !== user.email) {
           const matchExisting = generated.find(g => g.email.toLowerCase() === mgrUser.email.toLowerCase());

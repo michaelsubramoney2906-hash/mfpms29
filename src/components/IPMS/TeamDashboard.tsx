@@ -46,11 +46,23 @@ export function TeamDashboard({ currentUser, activeTenantId }: TeamDashboardProp
       const mName = normalize(manager.fullName || manager.full_name || manager.email || '');
 
       const children = allReports.filter(u => {
-        const uManFields = [u.manager || '', u.reportTo || ''];
+        const uEmail = (u.email || '').toLowerCase().trim();
+        const mEmail = (manager.email || '').toLowerCase().trim();
+        // Explicit Rule: shabangusm reports to mahlanguml, NOT khuboniy
+        if (uEmail.includes('shabangusm')) {
+          if (mEmail.includes('khuboni') || mName.includes('khuboni') || mName.includes('yena')) {
+            return false;
+          }
+          if (mEmail.includes('mahlanguml') || mName.includes('mahlangu') || mName.includes('mandla')) {
+            return true;
+          }
+        }
+
+        const uManFields = [u.manager || '', u.reportTo || '', u.managerEmail || ''];
         return uManFields.some(field => {
           if (!field) return false;
           const normField = normalize(field);
-          if (normField === mName) return true;
+          if (normField === mName || (mEmail && normField === mEmail)) return true;
           
           const fParts = normField.split(' ');
           const mParts = mName.split(' ');
@@ -125,12 +137,25 @@ export function TeamDashboard({ currentUser, activeTenantId }: TeamDashboardProp
       // Helper to find direct reports for a given name
       const findDirectReports = (mName: string) => {
         const normM = normalize(mName);
+        const normManagerEmail = (currentUser.email || '').toLowerCase().trim();
         return allUsersData.filter((u: any) => {
-          const checkFields = [u.manager || '', u.reportTo || ''];
+          const uEmail = (u.email || '').toLowerCase().trim();
+          // Explicit Rule: shabangusm reports to mahlanguml, NOT khuboniy
+          if (uEmail.includes('shabangusm')) {
+            if (normManagerEmail.includes('khuboni') || normM.includes('khuboni') || normM.includes('yena')) {
+              return false;
+            }
+            if (normManagerEmail.includes('mahlanguml') || normM.includes('mahlangu') || normM.includes('mandla')) {
+              return true;
+            }
+          }
+
+          const checkFields = [u.manager || '', u.reportTo || '', u.managerEmail || ''];
           return checkFields.some(field => {
             if (!field) return false;
             const normF = normalize(field);
-            if (normF === normM) return true;
+            if (normF === normM || (normManagerEmail && normF === normManagerEmail)) return true;
+            if (u.managerEmail && normManagerEmail && u.managerEmail.toLowerCase().trim() === normManagerEmail) return true;
             
             // Loose name matching (first and last)
             const fParts = normF.split(' ');
@@ -225,6 +250,24 @@ export function TeamDashboard({ currentUser, activeTenantId }: TeamDashboardProp
 
       // Filter out the manager themselves if they accidentally report to themselves
       reports = reports.filter(r => r.email.toLowerCase() !== currentUser.email.toLowerCase());
+
+      // Ensure Shabangu is never under Khuboni, and always under Mahlangu
+      const activeCurrentEmail = (currentUser.email || '').toLowerCase().trim();
+      if (activeCurrentEmail.includes('khuboni')) {
+        reports = reports.filter(r => !r.email.toLowerCase().includes('shabangusm'));
+      }
+      if (activeCurrentEmail.includes('mahlanguml') || managerName.toLowerCase().includes('mahlangu')) {
+        const shabanguInPool = allUsersData.find(u => (u.email || '').toLowerCase().includes('shabangusm'));
+        if (shabanguInPool && !reports.some(r => r.email.toLowerCase().includes('shabangusm'))) {
+          reports.push({
+            ...shabanguInPool,
+            manager: currentUser.fullName || 'Mandla L. Mahlangu',
+            reportTo: currentUser.fullName || 'Mandla L. Mahlangu',
+            managerEmail: 'mahlanguml@nkangaladm.gov.za',
+            level: '3'
+          });
+        }
+      }
 
       // Map real metrics from performance plans
       reports = reports.map((r: any) => {

@@ -1,19 +1,5 @@
 [
   {
-    "id": "bdfeee3f-6281-4a6d-b810-25711f39e441",
-    "fullName": "Moosa Bhamjee",
-    "email": "bhamjeem@nkangaladm.gov.za",
-    "jobFunction": "Councillor",
-    "department": "Office of the Speaker",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "",
-    "directorate": "",
-    "reportTo": "",
-    "level": "1"
-  },
-  {
     "id": "91a2fb2a-7add-41ea-8487-dcc999e471bb",
     "fullName": "Bono",
     "email": "Bono@nkangaladm.gov.za",
@@ -25,20 +11,6 @@
     "manager": "",
     "directorate": "",
     "reportTo": "",
-    "level": "1"
-  },
-  {
-    "id": "871c0664-efa7-4478-ac94-1ce768bc0c6c",
-    "fullName": "Welile M. Nkosi",
-    "email": "NkosiWM@nkangaladm.gov.za",
-    "jobFunction": "Snr Environmental Health Practictioner: Victor Khanye",
-    "department": "Community Development Services",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "Yolanda Segami",
-    "directorate": "Community Services",
-    "reportTo": "Yolanda Segami",
     "level": "1"
   },
   {
@@ -98,20 +70,6 @@
     "level": "1"
   },
   {
-    "id": "79068b61-9cb7-4442-b24a-29ae613d3d7d",
-    "fullName": "Nomaswazi Matsebula",
-    "email": "matsebulan@nkangaladm.gov.za",
-    "jobFunction": "Senior Environmental Health Practitioner",
-    "department": "Community Development Services",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "Marianne Joubert",
-    "directorate": "Community Services",
-    "reportTo": "Marianne Joubert",
-    "level": "1"
-  },
-  {
     "id": "ec81dca5-3d58-4356-b514-59210bfd58a8",
     "fullName": "Levert T. Mohlabine",
     "email": "mohlabinelt@nkangaladm.gov.za",
@@ -140,6 +98,34 @@
     "level": "1"
   },
   {
+    "id": "seed_20jfhed23q6",
+    "fullName": "Bongani M.",
+    "email": "bongani@mzansiflow.co.za",
+    "jobFunction": "Global Administrator",
+    "department": null,
+    "source": "manual",
+    "role": "Global Administrator",
+    "tenantId": "global",
+    "manager": "",
+    "directorate": "",
+    "reportTo": "",
+    "level": "1"
+  },
+  {
+    "id": "bdfeee3f-6281-4a6d-b810-25711f39e441",
+    "fullName": "Moosa Bhamjee",
+    "email": "bhamjeem@nkangaladm.gov.za",
+    "jobFunction": "Councillor",
+    "department": "Office of the Speaker",
+    "source": "azure_ad",
+    "role": "Standard User",
+    "tenantId": "nkangala_auto",
+    "manager": "Bongani Masilela",
+    "directorate": "",
+    "reportTo": "Bongani M.",
+    "level": "1"
+  },
+  {
     "id": "0df28c52-7ad2-4fdd-9bd4-c5b8e194c68f",
     "fullName": "Sibusiso M. Shabangu",
     "email": "ShabanguSM@nkangaladm.gov.za",
@@ -149,6 +135,7 @@
     "role": "tenant_user",
     "tenantId": "nkangala_auto",
     "manager": "ML Mahlangu",
+    "managerEmail": "mahlanguml@nkangaladm.gov.za",
     "directorate": "Office of the Municipal Manager",
     "reportTo": "Mandla L. Mahlangu",
     "level": "3"
@@ -238,18 +225,18 @@
     "level": "1"
   },
   {
-    "id": "da57f8a7-7c8a-4d40-bdcd-6d4b41fcc8f8",
-    "fullName": "Nombuso Q. Mnisi",
-    "email": "MnisiNQ@nkangaladm.gov.za",
-    "jobFunction": "Executive Secretary to the Municipal Manager",
-    "department": "Office of the Municipal Manager",
+    "id": "169d4306-8f98-4635-a290-b255f00a19e5",
+    "fullName": "Nompumelelo P. Nsibande",
+    "email": "NsibandeNP@nkangaladm.gov.za",
+    "jobFunction": "PMS Officer",
+    "department": "Performance Management Unit",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "Mandla L Mahlangu",
-    "directorate": "Office of the MM",
-    "reportTo": "",
-    "level": "1"
+    "manager": "Yena Khuboni",
+    "directorate": "Office of the Municipal Manager",
+    "reportTo": "Yena Khuboni",
+    "level": "5"
   },
   {
     "id": "seed_43eq0tpuwel",
@@ -280,6 +267,48 @@
     "level": "1"
   },
   {
+    "id": "da57f8a7-7c8a-4d40-bdcd-6d4b41fcc8f8",
+    "fullName": "Nombuso Q. Mnisi",
+    "email": "MnisiNQ@nkangaladm.gov.za",
+    "jobFunction": "Executive Secretary to the Municipal Manager",
+    "department": "Office of the Municipal Manager",
+    "source": "azure_ad",
+    "role": "tenant_user",
+    "tenantId": "nkangala_auto",
+    "manager": "Mandla L Mahlangu",
+    "directorate": "Office of the MM",
+    "reportTo": "Mmaphiri R. Rampedi",
+    "level": "1"
+  },
+  {
+    "id": "79068b61-9cb7-4442-b24a-29ae613d3d7d",
+    "fullName": "Nomaswazi Matsebula",
+    "email": "matsebulan@nkangaladm.gov.za",
+    "jobFunction": "Senior Environmental Health Practitioner",
+    "department": "Community Development Services",
+    "source": "azure_ad",
+    "role": "Standard User",
+    "tenantId": "nkangala_auto",
+    "manager": "Marianne Joubert",
+    "directorate": "Community Services",
+    "reportTo": "Marianne Joubert",
+    "level": "5"
+  },
+  {
+    "id": "871c0664-efa7-4478-ac94-1ce768bc0c6c",
+    "fullName": "Welile M. Nkosi",
+    "email": "NkosiWM@nkangaladm.gov.za",
+    "jobFunction": "Snr Environmental Health Practictioner: Victor Khanye",
+    "department": "Community Development Services",
+    "source": "azure_ad",
+    "role": "Standard User",
+    "tenantId": "nkangala_auto",
+    "manager": "Yolanda Segami",
+    "directorate": "Community Services",
+    "reportTo": "Yolanda Segami",
+    "level": "5"
+  },
+  {
     "id": "60d455c3-6149-41a0-b3cf-850aa8fdb8c2",
     "fullName": "Chanel Marx",
     "email": "MarxC@nkangaladm.gov.za",
@@ -291,7 +320,7 @@
     "manager": "Nirisha Singh",
     "directorate": "Community Services",
     "reportTo": "Nirisha Singh",
-    "level": "1"
+    "level": "6"
   },
   {
     "id": "user-audrey-mzansiflow-auto",
@@ -364,20 +393,6 @@
     "level": "1"
   },
   {
-    "id": "735a07e2-1ff8-413c-bad7-9fcc70911d2c",
-    "fullName": "Phumeza Gyasi-Afful",
-    "email": "Giyasi-AffulPH@nkangaladm.gov.za",
-    "jobFunction": "Environmental Health Practitioner",
-    "department": "Community Development Services",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "Alfred S. Magampe",
-    "directorate": "Community Services",
-    "reportTo": "Alfred S. Magampe",
-    "level": "1"
-  },
-  {
     "id": "seed_85x89eh0jwe",
     "fullName": "Demo Line Manager",
     "email": "manager@mzansiflow.co.za",
@@ -406,6 +421,20 @@
     "level": "1"
   },
   {
+    "id": "735a07e2-1ff8-413c-bad7-9fcc70911d2c",
+    "fullName": "Phumeza Gyasi-Afful",
+    "email": "Giyasi-AffulPH@nkangaladm.gov.za",
+    "jobFunction": "Environmental Health Practitioner",
+    "department": "Community Development Services",
+    "source": "azure_ad",
+    "role": "Standard User",
+    "tenantId": "nkangala_auto",
+    "manager": "Alfred S. Magampe",
+    "directorate": "Community Services",
+    "reportTo": "Alfred S. Magampe",
+    "level": "6"
+  },
+  {
     "id": "6b581271-59f4-4e6e-9e24-83f9eabf31cb",
     "fullName": "Gladys G. Mokhabela",
     "email": "mokhabelagg@nkangaladm.gov.za",
@@ -417,7 +446,7 @@
     "manager": "Nirisha Singh",
     "directorate": "Community Services",
     "reportTo": "Nirisha Singh",
-    "level": "1"
+    "level": "5"
   },
   {
     "id": "user-audrey-mzansiflow-t229",
@@ -462,18 +491,18 @@
     "level": "1"
   },
   {
-    "id": "b0c18fcf-13e0-460f-b123-94799e46057e",
-    "fullName": "Mmaphefo Aphane",
-    "email": "aphanemr@nkangaladm.gov.za",
-    "jobFunction": "Engineering Technician",
-    "department": "Technical Services",
-    "source": "azure_ad",
-    "role": "tenant_user",
+    "id": "usr_nkangala_auto_thomasm@nkangaladm.gov.za",
+    "fullName": "Thomas P. Mahlangu",
+    "email": "thomasm@nkangaladm.gov.za",
+    "jobFunction": "Legal Advisor",
+    "department": "Corporate Services",
+    "source": "manual",
+    "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Mokgadi Elaine Mokgolomotho",
-    "directorate": "Techinical",
-    "reportTo": "",
-    "level": "1"
+    "manager": "Nomhle Maphanga",
+    "directorate": "",
+    "reportTo": "Nomhle Maphanga",
+    "level": "3"
   },
   {
     "id": "16a53976-4e84-47a8-ab4a-a4f26e7d8f69",
@@ -532,18 +561,18 @@
     "level": "1"
   },
   {
-    "id": "f26a2080-6eaf-4e54-bcb3-5bcf579e7f5a",
-    "fullName": "Nompumelelo T. Lesiela",
-    "email": "LesielaNT@nkangaladm.gov.za",
-    "jobFunction": "Multimedia Communication Officer",
-    "department": "Corporate Services",
+    "id": "d2493d72-a6f5-4825-ab2c-b3ad7b9587db",
+    "fullName": "Tiro Mabunda",
+    "email": "mabundatt@nkangaladm.gov.za",
+    "jobFunction": "Divisional Manager: EPWP &  CWP",
+    "department": "Planning and Economic Development",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "",
-    "directorate": "",
-    "reportTo": "",
-    "level": "1"
+    "manager": "A Bvuma",
+    "directorate": "PED",
+    "reportTo": "Alvin Bvuma",
+    "level": "3"
   },
   {
     "id": "31590499-2654-400a-bbb9-b5616cc37acb",
@@ -644,20 +673,6 @@
     "level": "1"
   },
   {
-    "id": "usr_nkangala_auto_standeral@nkangaladm.gov.za",
-    "fullName": "Alice L. Stander",
-    "email": "standeral@nkangaladm.gov.za",
-    "jobFunction": "Chief Financial Officer",
-    "department": "Finance Services",
-    "source": "manual",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "",
-    "directorate": "",
-    "reportTo": "",
-    "level": "1"
-  },
-  {
     "id": "9b55d32b-36b4-483c-8465-1e293e0d0312",
     "fullName": "Stephina L. Aphane",
     "email": "aphanesl@nkangaladm.gov.za",
@@ -666,24 +681,24 @@
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Motau AM",
+    "manager": "Asnath M. Motau",
     "directorate": "Finance",
-    "reportTo": "",
-    "level": "1"
+    "reportTo": "Asnath M. Motau",
+    "level": "7"
   },
   {
-    "id": "f6a8d607-7059-43bc-ba76-9c5cf995c6e2",
-    "fullName": "Thandiwe M. Lengwate",
-    "email": "lengwatetm@nkangaladm.gov.za",
-    "jobFunction": "Municipal Accountant",
-    "department": "Office of the Municipal Manager",
+    "id": "b0c18fcf-13e0-460f-b123-94799e46057e",
+    "fullName": "Mmaphefo Aphane",
+    "email": "aphanemr@nkangaladm.gov.za",
+    "jobFunction": "Engineering Technician",
+    "department": "Technical Services",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "Mandla L Mahlangu",
-    "directorate": "Finance",
-    "reportTo": "",
-    "level": "2"
+    "manager": "Mokgadi Mokgolomotho",
+    "directorate": "Techinical",
+    "reportTo": "Mokgadi Mokgolomotho",
+    "level": "5"
   },
   {
     "id": "c352e905-7619-4cf3-bb29-af2d6921d66c",
@@ -694,24 +709,10 @@
     "source": "azure_ad",
     "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "Mandla L Mahlangu",
+    "manager": "Walter M. Mtshweni",
     "directorate": "Technical",
-    "reportTo": "",
+    "reportTo": "Walter M. Mtshweni",
     "level": "2"
-  },
-  {
-    "id": "d2493d72-a6f5-4825-ab2c-b3ad7b9587db",
-    "fullName": "Tiro Mabunda",
-    "email": "mabundatt@nkangaladm.gov.za",
-    "jobFunction": "Divisional Manager: EPWP &  CWP",
-    "department": "Planning and Economic Development",
-    "source": "azure_ad",
-    "role": "tenant_user",
-    "tenantId": "nkangala_auto",
-    "manager": "A Bvuma",
-    "directorate": "PED",
-    "reportTo": "",
-    "level": "3"
   },
   {
     "id": "usr_nkangala_auto_williamm@nkangaladm.gov.za",
@@ -750,20 +751,6 @@
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "tenant-229",
-    "manager": "",
-    "directorate": "",
-    "reportTo": "",
-    "level": "1"
-  },
-  {
-    "id": "usr_nkangala_auto_thomasm@nkangaladm.gov.za",
-    "fullName": "Thomas P. Mahlangu",
-    "email": "thomasm@nkangaladm.gov.za",
-    "jobFunction": "Legal Advisor",
-    "department": "Corporate Services",
-    "source": "manual",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
     "manager": "",
     "directorate": "",
     "reportTo": "",
@@ -854,20 +841,6 @@
     "level": "1"
   },
   {
-    "id": "usr_tenant-229_rampedim@nkangaladm.gov.za",
-    "fullName": "Mmaphiri R. Rampedi",
-    "email": "rampedim@nkangaladm.gov.za",
-    "jobFunction": "General Manager : Corporate Services",
-    "department": "Corporate Services",
-    "source": "manual",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "",
-    "directorate": "",
-    "reportTo": "",
-    "level": "1"
-  },
-  {
     "id": "usr_global_rampedim@nkangaladm.gov.za",
     "fullName": "Mmaphiri R. Rampedi",
     "email": "rampedim@nkangaladm.gov.za",
@@ -876,10 +849,24 @@
     "source": "manual",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "",
-    "directorate": "",
-    "reportTo": "",
+    "manager": "Mandla L. Mahlangu",
+    "directorate": "Corporate Services",
+    "reportTo": "Mandla L. Mahlangu",
     "level": "1"
+  },
+  {
+    "id": "f26a2080-6eaf-4e54-bcb3-5bcf579e7f5a",
+    "fullName": "Nompumelelo T. Lesiela",
+    "email": "LesielaNT@nkangaladm.gov.za",
+    "jobFunction": "Multimedia Communication Officer",
+    "department": "Corporate Services",
+    "source": "azure_ad",
+    "role": "Standard User",
+    "tenantId": "nkangala_auto",
+    "manager": "Phaswana K. Madihlaba",
+    "directorate": "",
+    "reportTo": "Phaswana K. Madihlaba",
+    "level": "9"
   },
   {
     "id": "usr_tenant-229_mahlangup@nkangaladm.gov.za",
@@ -952,6 +939,48 @@
     "level": "1"
   },
   {
+    "id": "usr_tenant-229_rampedim@nkangaladm.gov.za",
+    "fullName": "Mmaphiri R. Rampedi",
+    "email": "rampedim@nkangaladm.gov.za",
+    "jobFunction": "General Manager : Corporate Services",
+    "department": "Corporate Services",
+    "source": "manual",
+    "role": "Standard User",
+    "tenantId": "nkangala_auto",
+    "manager": "Mandla L. Mahlangu",
+    "directorate": "",
+    "reportTo": "Mandla L. Mahlangu",
+    "level": "1"
+  },
+  {
+    "id": "usr_nkangala_auto_standeral@nkangaladm.gov.za",
+    "fullName": "Alice L. Stander",
+    "email": "standeral@nkangaladm.gov.za",
+    "jobFunction": "Chief Financial Officer",
+    "department": "Finance Services",
+    "source": "manual",
+    "role": "Standard User",
+    "tenantId": "nkangala_auto",
+    "manager": "Mandla L. Mahlangu",
+    "directorate": "",
+    "reportTo": "Mandla L. Mahlangu",
+    "level": "1"
+  },
+  {
+    "id": "f6a8d607-7059-43bc-ba76-9c5cf995c6e2",
+    "fullName": "Thandiwe M. Lengwate",
+    "email": "lengwatetm@nkangaladm.gov.za",
+    "jobFunction": "Municipal Accountant",
+    "department": "Office of the Municipal Manager",
+    "source": "azure_ad",
+    "role": "Standard User",
+    "tenantId": "nkangala_auto",
+    "manager": "Alice L. Stander",
+    "directorate": "Finance",
+    "reportTo": "Alice L. Stander",
+    "level": "2"
+  },
+  {
     "id": "f2c5b726-8d61-4217-bcd2-85dac9cbd6e8",
     "fullName": "Pieter G. Bezuidenhout",
     "email": "bezuidenhoutpg@nkangaladm.gov.za",
@@ -1008,32 +1037,18 @@
     "level": "9"
   },
   {
-    "id": "94c8bab1-e7df-4bc9-92b0-0ffa3231cc51",
-    "fullName": "Nomsa Maphalala",
-    "email": "maphalalanp@nkangaladm.gov.za",
-    "jobFunction": "Senior Accountant:Compliance & System Administrator",
-    "department": "Finance Services",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "AS Msiza",
-    "directorate": "Finance",
-    "reportTo": "",
-    "level": "1"
-  },
-  {
-    "id": "01b7d817-210f-4837-b24c-72a52c487f02",
-    "fullName": "Richard D. Hleza",
-    "email": "HlezaRD@nkangaladm.gov.za",
-    "jobFunction": "Manager: Office of The Executive Mayor",
+    "id": "usr_tenant-229_rampedimr@nkangaladm.gov.za",
+    "fullName": "Mmaphiri R. Rampedi",
+    "email": "rampedimr@nkangaladm.gov.za",
+    "jobFunction": "General Manager : Corporate Services",
     "department": "Corporate Services",
-    "source": "azure_ad",
+    "source": "manual",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
     "manager": "Mandla L. Mahlangu",
-    "directorate": "Corporate Services",
+    "directorate": "",
     "reportTo": "Mandla L. Mahlangu",
-    "level": "2"
+    "level": "1"
   },
   {
     "id": "usr_nkangala_auto_mandlaml@nkangaladm.gov.za",
@@ -1078,46 +1093,18 @@
     "level": "1"
   },
   {
-    "id": "usr_tenant-229_standera@nkangaladm.gov.za",
-    "fullName": "Alice L. Stander",
-    "email": "standera@nkangaladm.gov.za",
-    "jobFunction": "Chief Financial Officer",
-    "department": "Finance Services",
-    "source": "manual",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "",
-    "directorate": "",
-    "reportTo": "",
-    "level": "1"
-  },
-  {
-    "id": "usr_global_standera@nkangaladm.gov.za",
-    "fullName": "Alice L. Stander",
-    "email": "standera@nkangaladm.gov.za",
-    "jobFunction": "Chief Financial Officer",
-    "department": "Finance Services",
-    "source": "manual",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "",
-    "directorate": "",
-    "reportTo": "",
-    "level": "1"
-  },
-  {
-    "id": "usr_tenant-229_rampedimr@nkangaladm.gov.za",
-    "fullName": "Mmaphiri R. Rampedi",
-    "email": "rampedimr@nkangaladm.gov.za",
-    "jobFunction": "General Manager : Corporate Services",
+    "id": "01b7d817-210f-4837-b24c-72a52c487f02",
+    "fullName": "Richard D. Hleza",
+    "email": "HlezaRD@nkangaladm.gov.za",
+    "jobFunction": "Manager: Office of The Executive Mayor",
     "department": "Corporate Services",
-    "source": "manual",
+    "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "",
-    "directorate": "",
-    "reportTo": "",
-    "level": "1"
+    "manager": "Mmaphiri R. Rampedi",
+    "directorate": "Corporate Services",
+    "reportTo": "Mmaphiri R. Rampedi",
+    "level": "2"
   },
   {
     "id": "usr_global_rampedimr@nkangaladm.gov.za",
@@ -1188,6 +1175,48 @@
     "directorate": "",
     "reportTo": "",
     "level": "1"
+  },
+  {
+    "id": "usr_tenant-229_standera@nkangaladm.gov.za",
+    "fullName": "Alice L. Stander",
+    "email": "standera@nkangaladm.gov.za",
+    "jobFunction": "Chief Financial Officer",
+    "department": "Finance Services",
+    "source": "manual",
+    "role": "Standard User",
+    "tenantId": "nkangala_auto",
+    "manager": "Mandla L. Mahlangu",
+    "directorate": "",
+    "reportTo": "Mandla L. Mahlangu",
+    "level": "1"
+  },
+  {
+    "id": "usr_global_standera@nkangaladm.gov.za",
+    "fullName": "Alice L. Stander",
+    "email": "standera@nkangaladm.gov.za",
+    "jobFunction": "Chief Financial Officer",
+    "department": "Finance Services",
+    "source": "manual",
+    "role": "Standard User",
+    "tenantId": "nkangala_auto",
+    "manager": "Mandla L. Mahlangu",
+    "directorate": "",
+    "reportTo": "Mandla L. Mahlangu",
+    "level": "1"
+  },
+  {
+    "id": "94c8bab1-e7df-4bc9-92b0-0ffa3231cc51",
+    "fullName": "Nomsa Maphalala",
+    "email": "maphalalanp@nkangaladm.gov.za",
+    "jobFunction": "Senior Accountant:Compliance & System Administrator",
+    "department": "Finance Services",
+    "source": "azure_ad",
+    "role": "tenant_user",
+    "tenantId": "nkangala_auto",
+    "manager": "Ali S. Msiza",
+    "directorate": "Finance",
+    "reportTo": "Ali S. Msiza",
+    "level": "4"
   },
   {
     "id": "e14401c1-63a8-4615-bc97-9542ff54fa75",
@@ -1350,7 +1379,7 @@
     "jobFunction": "General Manager : Corporate Services",
     "department": "Corporate Services",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
     "manager": "",
     "directorate": "",
@@ -1391,20 +1420,6 @@
     "email": "mahlangupt@nkangaladm.gov.za",
     "jobFunction": "General Manager: Community Development Services",
     "department": "Community Development Services",
-    "source": "manual",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "",
-    "directorate": "",
-    "reportTo": "",
-    "level": "1"
-  },
-  {
-    "id": "usr_nkangala_auto_mahlangutp@nkangaladm.gov.za",
-    "fullName": "Thomas P. Mahlangu",
-    "email": "mahlangutp@nkangaladm.gov.za",
-    "jobFunction": "Legal Advisor",
-    "department": "Corporate Services",
     "source": "manual",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
@@ -1524,6 +1539,20 @@
     "directorate": "",
     "reportTo": "",
     "level": "1"
+  },
+  {
+    "id": "usr_nkangala_auto_mahlangutp@nkangaladm.gov.za",
+    "fullName": "Thomas P. Mahlangu",
+    "email": "mahlangutp@nkangaladm.gov.za",
+    "jobFunction": "Legal Advisor",
+    "department": "Corporate Services",
+    "source": "manual",
+    "role": "Standard User",
+    "tenantId": "nkangala_auto",
+    "manager": "Nomhle Maphanga",
+    "directorate": "",
+    "reportTo": "Nomhle Maphanga",
+    "level": "3"
   },
   {
     "id": "sdbip-auditor-fatima-patel",
@@ -1929,7 +1958,7 @@
     "manager": "Yena Khuboni",
     "directorate": "Office of the Municipal Manager",
     "reportTo": "Yena Khuboni",
-    "level": "4"
+    "level": "5"
   },
   {
     "id": "e8adb57b-12b5-4a87-afae-2e58eabee4ca",
@@ -1968,9 +1997,9 @@
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Ali Msiza",
+    "manager": "Ali S. Msiza",
     "directorate": "Finance",
-    "reportTo": "",
+    "reportTo": "Ali S. Msiza",
     "level": "3"
   },
   {
@@ -2024,9 +2053,9 @@
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "ML Mahlangu",
+    "manager": "Mmaphiri R. Rampedi",
     "directorate": "Corporate",
-    "reportTo": "",
+    "reportTo": "Mmaphiri R. Rampedi",
     "level": "2"
   },
   {
@@ -2036,25 +2065,11 @@
     "jobFunction": "Divisional Manager: Communication, Marketing & Branding",
     "department": "Corporate Services",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "NM Motswene",
+    "manager": "Nkululeko Motshwene",
     "directorate": "Corporate",
-    "reportTo": "",
-    "level": "3"
-  },
-  {
-    "id": "383eb5c6-3010-4d50-bfaa-6c4cba2a4516",
-    "fullName": "Meshack S. Dimpe",
-    "email": "DimpeMS@nkangaladm.gov.za",
-    "jobFunction": "Divisional Manager Public Participation",
-    "department": "Corporate Services",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "N Motshwene",
-    "directorate": "Corporate",
-    "reportTo": "",
+    "reportTo": "Nkululeko Motshwene",
     "level": "3"
   },
   {
@@ -2069,6 +2084,20 @@
     "manager": "Mandla L. Mahlangu",
     "directorate": "Office of the Municipal Manager",
     "reportTo": "Mandla L. Mahlangu",
+    "level": "3"
+  },
+  {
+    "id": "383eb5c6-3010-4d50-bfaa-6c4cba2a4516",
+    "fullName": "Meshack S. Dimpe",
+    "email": "DimpeMS@nkangaladm.gov.za",
+    "jobFunction": "Divisional Manager Public Participation",
+    "department": "Corporate Services",
+    "source": "azure_ad",
+    "role": "Standard User",
+    "tenantId": "nkangala_auto",
+    "manager": "Nkululeko Motshwene",
+    "directorate": "Corporate",
+    "reportTo": "Nkululeko Motshwene",
     "level": "3"
   },
   {
@@ -2097,7 +2126,7 @@
     "manager": "Nirisha Singh",
     "directorate": "Community Services",
     "reportTo": "Nirisha Singh",
-    "level": "1"
+    "level": "6"
   },
   {
     "id": "8b372fef-e7d3-4866-9a36-9574c7f9de3c",
@@ -2134,11 +2163,11 @@
     "jobFunction": "Divisional Manager: Transport Planner",
     "department": "Planning and Economic Development",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
     "manager": "Alvin Bvuma",
     "directorate": "PED",
-    "reportTo": "",
+    "reportTo": "Alvin Bvuma",
     "level": "3"
   },
   {
@@ -2198,20 +2227,6 @@
     "level": "1"
   },
   {
-    "id": "dd6c73f9-e627-402f-a07d-6103a7c9f422",
-    "fullName": "Thulani C. Tlou",
-    "email": "TlouTC@nkangaladm.gov.za",
-    "jobFunction": "Salaries Clerk - Expenditure",
-    "department": "Finance Services",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "Kwakwa TC",
-    "directorate": "Finance",
-    "reportTo": "",
-    "level": "1"
-  },
-  {
     "id": "72c4bd26-b058-48c9-9dac-09242bbf8ab2",
     "fullName": "Bismack S. Ndimande",
     "email": "NdimandeBS@nkangaladm.gov.za",
@@ -2226,6 +2241,20 @@
     "level": "1"
   },
   {
+    "id": "dd6c73f9-e627-402f-a07d-6103a7c9f422",
+    "fullName": "Thulani C. Tlou",
+    "email": "TlouTC@nkangaladm.gov.za",
+    "jobFunction": "Salaries Clerk - Expenditure",
+    "department": "Finance Services",
+    "source": "azure_ad",
+    "role": "Standard User",
+    "tenantId": "nkangala_auto",
+    "manager": "Tatswane C. Kwakwa",
+    "directorate": "Finance",
+    "reportTo": "Tatswane C. Kwakwa",
+    "level": "7"
+  },
+  {
     "id": "858bff84-0f55-4643-86b3-37137ba8d702",
     "fullName": "Gugu Ndhlovu",
     "email": "Ndhlovug@nkangaladm.gov.za",
@@ -2234,10 +2263,10 @@
     "source": "azure_ad",
     "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "Thokozile E. Zulu",
+    "manager": "Thandiwe M. Lengwate",
     "directorate": "Community Services",
-    "reportTo": "Thokozile E. Zulu",
-    "level": "1"
+    "reportTo": "Thandiwe M. Lengwate",
+    "level": "8"
   },
   {
     "id": "7e5084b9-ab0d-4753-8664-c011da00e665",
@@ -2310,34 +2339,6 @@
     "level": "1"
   },
   {
-    "id": "c9cea3b3-b487-4cf9-a2a6-caf768a35368",
-    "fullName": "Nasreen Modan",
-    "email": "nemodan@nkangaladm.gov.za",
-    "jobFunction": "Secretary to Manager",
-    "department": "Corporate Services",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "ML Mahlangu",
-    "directorate": "Corporate",
-    "reportTo": "",
-    "level": "1"
-  },
-  {
-    "id": "040a8c5c-389e-4a2f-8705-d484134dc7e8",
-    "fullName": "Nkululeko Z. Ndlovu",
-    "email": "NdlovuNZ@nkangaladm.gov.za",
-    "jobFunction": "Accountant: Budget and  Reporting",
-    "department": "Finance",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "Trudie Van Niekerk",
-    "directorate": "Finance",
-    "reportTo": "",
-    "level": "1"
-  },
-  {
     "id": "cfc3f768-aa47-46ee-b34a-43fd59c9888d",
     "fullName": "Hlengiwe Nkosi",
     "email": "nkosihb@nkangaladm.gov.za",
@@ -2346,10 +2347,38 @@
     "source": "azure_ad",
     "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "MJ Nhlapho",
+    "manager": "Jimmy Nhlapho",
     "directorate": "Corporate",
-    "reportTo": "",
-    "level": "1"
+    "reportTo": "Jimmy Nhlapho",
+    "level": "4"
+  },
+  {
+    "id": "e08dfaaf-0037-48c5-8bf3-d023751ce1e6",
+    "fullName": "Jimmy Nhlapho",
+    "email": "nhlaphomj@nkangaladm.gov.za",
+    "jobFunction": "Divisional Manager: HRM & Development",
+    "department": "Corporate Services",
+    "source": "azure_ad",
+    "role": "tenant_user",
+    "tenantId": "nkangala_auto",
+    "manager": "Nkululeko Motshwene",
+    "directorate": "Corporate",
+    "reportTo": "Nkululeko Motshwene",
+    "level": "3"
+  },
+  {
+    "id": "3d55d6c4-9f42-4755-841a-1891d0c55510",
+    "fullName": "Dumisani L. Ngoma",
+    "email": "NgomaDL@nkangaladm.gov.za",
+    "jobFunction": "Administrative Officer :PED",
+    "department": "Planning and Economic Development",
+    "source": "azure_ad",
+    "role": "tenant_user",
+    "tenantId": "nkangala_auto",
+    "manager": "A Bvuma ",
+    "directorate": "PED",
+    "reportTo": "Alvin Bvuma",
+    "level": "7"
   },
   {
     "id": "2d3ee94e-e7ae-4a9d-b395-2f8d11835c54",
@@ -2363,20 +2392,6 @@
     "manager": "",
     "directorate": "",
     "reportTo": "",
-    "level": "1"
-  },
-  {
-    "id": "8ab4bbe3-aadc-464e-85c7-b978a61f6372",
-    "fullName": "Zwelakhe C. Kubheka",
-    "email": "KubhekaZC@nkangaladm.gov.za",
-    "jobFunction": "Environmental Compliance Officer",
-    "department": "Community Development Services",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "Nompumelelo P. Nsibande",
-    "directorate": "Community Services",
-    "reportTo": "Nompumelelo Simelane",
     "level": "1"
   },
   {
@@ -2464,18 +2479,18 @@
     "level": "1"
   },
   {
-    "id": "2587503c-850c-4ef8-948c-3dffdeaf5e76",
-    "fullName": "Agatha N. Nhlapo",
-    "email": "NhlapoAN@nkangaladm.gov.za",
-    "jobFunction": "Committee Clerk",
+    "id": "c9cea3b3-b487-4cf9-a2a6-caf768a35368",
+    "fullName": "Nasreen Modan",
+    "email": "nemodan@nkangaladm.gov.za",
+    "jobFunction": "Secretary to Manager",
     "department": "Corporate Services",
     "source": "azure_ad",
-    "role": "tenant_user",
+    "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "NB Mtshali",
+    "manager": "Mmaphiri R. Rampedi",
     "directorate": "Corporate",
-    "reportTo": "",
-    "level": "1"
+    "reportTo": "Mmaphiri R. Rampedi",
+    "level": "8"
   },
   {
     "id": "47c75378-df9b-440d-a61f-c4db025adc2e",
@@ -2492,18 +2507,32 @@
     "level": "1"
   },
   {
-    "id": "e08dfaaf-0037-48c5-8bf3-d023751ce1e6",
-    "fullName": "Jimmy Nhlapho",
-    "email": "nhlaphomj@nkangaladm.gov.za",
-    "jobFunction": "Divisional Manager: HRM & Development",
+    "id": "72ed8290-b755-47e2-a168-5b99376a7284",
+    "fullName": "Thandeka KR. Ngoma",
+    "email": "NgomaTKR@nkangaladm.gov.za",
+    "jobFunction": "Chief Clerk Revenue",
+    "department": "Finance Services",
+    "source": "azure_ad",
+    "role": "Standard User",
+    "tenantId": "nkangala_auto",
+    "manager": "Nirupa Parbhoo",
+    "directorate": "Finance",
+    "reportTo": "Nirupa Parbhoo",
+    "level": "9"
+  },
+  {
+    "id": "adcc3bc4-46c2-4579-85b2-9d9722cdc0fa",
+    "fullName": "Lungile N. Nkosi",
+    "email": "NkosiLN@nkangaladm.gov.za",
+    "jobFunction": "PED Secretary",
     "department": "Corporate Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "NM Motswene",
-    "directorate": "Corporate",
-    "reportTo": "",
-    "level": "3"
+    "manager": "JP Mangani",
+    "directorate": "PED",
+    "reportTo": "Alvin Bvuma",
+    "level": "8"
   },
   {
     "id": "ada0a0ac-5472-489f-806a-6d6fb8fff816",
@@ -2548,32 +2577,32 @@
     "level": "1"
   },
   {
-    "id": "dccc7418-4ac5-4015-95c4-18676962d28e",
-    "fullName": "Smangele E. Nhlabathi",
-    "email": "nhlabathise@nkangaladm.gov.za",
-    "jobFunction": "Control Room Operator",
+    "id": "8ab4bbe3-aadc-464e-85c7-b978a61f6372",
+    "fullName": "Zwelakhe C. Kubheka",
+    "email": "KubhekaZC@nkangaladm.gov.za",
+    "jobFunction": "Environmental Compliance Officer",
     "department": "Community Development Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Sibusiso PL. Myeni",
+    "manager": "Isaac B. Sindane",
     "directorate": "Community Services",
-    "reportTo": "Sibusiso PL. Myeni",
-    "level": "1"
+    "reportTo": "Isaac B. Sindane",
+    "level": "5"
   },
   {
-    "id": "adcc3bc4-46c2-4579-85b2-9d9722cdc0fa",
-    "fullName": "Lungile N. Nkosi",
-    "email": "NkosiLN@nkangaladm.gov.za",
-    "jobFunction": "General Admin Intern",
-    "department": "Corporate Services",
+    "id": "85f3a6da-5ead-434a-b8f6-f660389989a6",
+    "fullName": "Thembi Ndlovu",
+    "email": "ndlovutf@nkangaladm.gov.za",
+    "jobFunction": "HIV/AIDS Coordinator",
+    "department": "Community Development Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "JP Mangani",
-    "directorate": "PED",
-    "reportTo": "",
-    "level": "1"
+    "manager": "Headman Skosana",
+    "directorate": "Community Services",
+    "reportTo": "Headman Skosana",
+    "level": "4"
   },
   {
     "id": "4cac7ee7-d2d2-4a7c-bf97-913db3c365a6",
@@ -2590,18 +2619,18 @@
     "level": "1"
   },
   {
-    "id": "85f3a6da-5ead-434a-b8f6-f660389989a6",
-    "fullName": "Thembi Ndlovu",
-    "email": "ndlovutf@nkangaladm.gov.za",
-    "jobFunction": "HIV/AIDS Coordinator",
+    "id": "8c202521-21df-44c5-b81a-bea0050c103c",
+    "fullName": "Mduduzi E. Makhubu",
+    "email": "MakhubuME@nkangaladm.gov.za",
+    "jobFunction": "Environmental Compliance , Monitoring and Enforcement Office",
     "department": "Community Development Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Zwelakhe C. Kubheka",
+    "manager": "Isaac B. Sindane",
     "directorate": "Community Services",
-    "reportTo": "Zwelakhe C. Kubheka",
-    "level": "1"
+    "reportTo": "Isaac B. Sindane",
+    "level": "5"
   },
   {
     "id": "1b76c267-63bc-4f55-9218-519cd0fc6e90",
@@ -2688,6 +2717,20 @@
     "level": "1"
   },
   {
+    "id": "040a8c5c-389e-4a2f-8705-d484134dc7e8",
+    "fullName": "Nkululeko Z. Ndlovu",
+    "email": "NdlovuNZ@nkangaladm.gov.za",
+    "jobFunction": "Accountant: Budget and  Reporting",
+    "department": "Finance",
+    "source": "azure_ad",
+    "role": "Standard User",
+    "tenantId": "nkangala_auto",
+    "manager": "Trudie Van Niekerk",
+    "directorate": "Finance",
+    "reportTo": "Trudie Van Niekerk",
+    "level": "5"
+  },
+  {
     "id": "ae8d0368-9280-4f48-93d5-7f57c5ad2906",
     "fullName": "Joyce Nkosi",
     "email": "NkosiJ@nkangaladm.gov.za",
@@ -2716,18 +2759,18 @@
     "level": "1"
   },
   {
-    "id": "3d55d6c4-9f42-4755-841a-1891d0c55510",
-    "fullName": "Dumisani L. Ngoma",
-    "email": "NgomaDL@nkangaladm.gov.za",
-    "jobFunction": "Administrative Officer :PED",
-    "department": "Planning and Economic Development",
+    "id": "dccc7418-4ac5-4015-95c4-18676962d28e",
+    "fullName": "Smangele E. Nhlabathi",
+    "email": "nhlabathise@nkangaladm.gov.za",
+    "jobFunction": "Control Room Operator",
+    "department": "Community Development Services",
     "source": "azure_ad",
-    "role": "tenant_user",
+    "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "A Bvuma ",
-    "directorate": "PED",
-    "reportTo": "",
-    "level": "1"
+    "manager": "Sibusiso PL. Myeni",
+    "directorate": "Community Services",
+    "reportTo": "Sibusiso PL. Myeni",
+    "level": "10"
   },
   {
     "id": "fdee1335-fc24-4422-8e0a-562b26baaea4",
@@ -2744,32 +2787,18 @@
     "level": "1"
   },
   {
-    "id": "72ed8290-b755-47e2-a168-5b99376a7284",
-    "fullName": "Thandeka KR. Ngoma",
-    "email": "NgomaTKR@nkangaladm.gov.za",
-    "jobFunction": "Chief Clerk Revenue",
-    "department": "Finance Services",
+    "id": "2587503c-850c-4ef8-948c-3dffdeaf5e76",
+    "fullName": "Agatha N. Nhlapo",
+    "email": "NhlapoAN@nkangaladm.gov.za",
+    "jobFunction": "Committee Clerk",
+    "department": "Corporate Services",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "N Parbhoo",
-    "directorate": "Finance",
-    "reportTo": "",
-    "level": "1"
-  },
-  {
-    "id": "8c202521-21df-44c5-b81a-bea0050c103c",
-    "fullName": "Mduduzi E. Makhubu",
-    "email": "MakhubuME@nkangaladm.gov.za",
-    "jobFunction": "Environmental Compliance , Monitoring and Enforcement Office",
-    "department": "Community Development Services",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "Nompumelelo Simelane",
-    "directorate": "Community Services",
-    "reportTo": "Nompumelelo Simelane",
-    "level": "1"
+    "manager": "Beauty Mtshali",
+    "directorate": "Corporate",
+    "reportTo": "Beauty Mtshali",
+    "level": "8"
   },
   {
     "id": "3bef3098-1441-4b6c-a6d6-55446b25eaa7",
@@ -2982,32 +3011,46 @@
     "level": "1"
   },
   {
-    "id": "169d4306-8f98-4635-a290-b255f00a19e5",
-    "fullName": "Nompumelelo P. Nsibande",
-    "email": "NsibandeNP@nkangaladm.gov.za",
-    "jobFunction": "PMS Officer",
-    "department": "Performance Management Unit",
+    "id": "e410d412-d91c-41a9-a2f5-c5016b2b0140",
+    "fullName": "Nqobile V. Nkosi",
+    "email": "NkosiNV@nkangaladm.gov.za",
+    "jobFunction": "Secretary: CFO",
+    "department": "Finance Services",
     "source": "azure_ad",
-    "role": "tenant_user",
+    "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Yena Khuboni",
-    "directorate": "Office of the Municipal Manager",
-    "reportTo": "Yena Khuboni",
-    "level": "4"
+    "manager": "Alice Stander",
+    "directorate": "Finance",
+    "reportTo": "Alice L. Stander",
+    "level": "8"
   },
   {
-    "id": "f46564e5-1149-41f1-897e-8d4f2c12e12c",
-    "fullName": "Sanele Nkosi",
-    "email": "NkosiS@nkangaladm.gov.za",
-    "jobFunction": "Divisional Manager: Projects",
+    "id": "a49aae9b-a9e8-426f-b4b7-a112860f91d1",
+    "fullName": "Bhekithemba Nsingwane",
+    "email": "nsingwaneb@nkangaladm.gov.za",
+    "jobFunction": "Jet Patcher",
     "department": "Technical Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Jackson April Skosana",
-    "directorate": "Technical",
-    "reportTo": "",
-    "level": "3"
+    "manager": "Mxolisi Bembe",
+    "directorate": "",
+    "reportTo": "Mxolisi Bembe",
+    "level": "8"
+  },
+  {
+    "id": "f21d45d5-c5fb-4bd0-99fa-4b9aba3564c9",
+    "fullName": "Nirupa Parbhoo",
+    "email": "nparbhoo@nkangaladm.gov.za",
+    "jobFunction": "Accountant",
+    "department": "Finance Services",
+    "source": "azure_ad",
+    "role": "Standard User",
+    "tenantId": "nkangala_auto",
+    "manager": "Andile N Hlongwa",
+    "directorate": "Finance",
+    "reportTo": "Andile N. Hlongwa",
+    "level": "5"
   },
   {
     "id": "7796bd8b-1c67-4350-bdc5-81908acb7fca",
@@ -3024,32 +3067,32 @@
     "level": "1"
   },
   {
-    "id": "a49aae9b-a9e8-426f-b4b7-a112860f91d1",
-    "fullName": "Bhekithemba Nsingwane",
-    "email": "nsingwaneb@nkangaladm.gov.za",
+    "id": "0abc61c2-42d3-4db1-bf33-e91be6656e77",
+    "fullName": "Michael P. Ntuli",
+    "email": "NtuliMP@nkangaladm.gov.za",
     "jobFunction": "Jet Patcher",
     "department": "Technical Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "",
+    "manager": "Mxolisi Bembe",
     "directorate": "",
-    "reportTo": "",
-    "level": "1"
+    "reportTo": "Mxolisi Bembe",
+    "level": "8"
   },
   {
-    "id": "5345be39-4f3b-41d4-87a6-703ae7598743",
-    "fullName": "Vusi M. Phetla",
-    "email": "PhetlaVM@nkangaladm.gov.za",
-    "jobFunction": "Security and Fleet Management Officer",
-    "department": "Planning and Economic Development",
+    "id": "9065fce2-e174-4b04-889b-4602c9950d2c",
+    "fullName": "Hlabishi L. Phala",
+    "email": "PhalaHL@nkangaladm.gov.za",
+    "jobFunction": "MPAC Researcher",
+    "department": "Office of the Speaker",
     "source": "azure_ad",
     "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "TC Mazwi",
+    "manager": "Nkululeko Motshwene",
     "directorate": "Corporate",
-    "reportTo": "",
-    "level": "1"
+    "reportTo": "Nkululeko Motshwene",
+    "level": "4"
   },
   {
     "id": "17d6de1d-ff5d-405c-926b-c5632fe56891",
@@ -3094,18 +3137,18 @@
     "level": "1"
   },
   {
-    "id": "7d82317c-1520-4b04-820b-5160aa5e3a73",
-    "fullName": "Siphesihle O. Nkosi",
-    "email": "NkosiSO@nkangaladm.gov.za",
-    "jobFunction": "Library & Records Officer",
+    "id": "c38b3008-8fd5-437e-b57d-6a7b13ab064d",
+    "fullName": "Besabakhe J. Ntuli",
+    "email": "NtuliBJ@nkangaladm.gov.za",
+    "jobFunction": "Communications Officer",
     "department": "Corporate Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Thandiwe Mazwi",
-    "directorate": "Corporate Services",
-    "reportTo": "Thandiwe Mazwi",
-    "level": "1"
+    "manager": "Phaswana K. Madihlaba",
+    "directorate": "Corporate",
+    "reportTo": "Phaswana K. Madihlaba",
+    "level": "5"
   },
   {
     "id": "b4f47e9e-4246-4eac-aca7-9eb98d5386b4",
@@ -3128,7 +3171,7 @@
     "jobFunction": "Divisional Manager: Development Re-intergration Affairs",
     "department": "Community Development Services",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
     "manager": "Vusi Mahlangu",
     "directorate": "Community Services",
@@ -3178,20 +3221,6 @@
     "level": "1"
   },
   {
-    "id": "e410d412-d91c-41a9-a2f5-c5016b2b0140",
-    "fullName": "Nqobile V. Nkosi",
-    "email": "NkosiNV@nkangaladm.gov.za",
-    "jobFunction": "Secretary: CFO",
-    "department": "Finance Services",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "Alice Stander",
-    "directorate": "Finance",
-    "reportTo": "",
-    "level": "1"
-  },
-  {
     "id": "ffc2be10-35a1-4a80-b4e2-cd7714e1cd14",
     "fullName": "Daniel S. Ntuli",
     "email": "NtuliDS@nkangaladm.gov.za",
@@ -3220,18 +3249,18 @@
     "level": "9"
   },
   {
-    "id": "f21d45d5-c5fb-4bd0-99fa-4b9aba3564c9",
-    "fullName": "Nirupa Parbhoo",
-    "email": "nparbhoo@nkangaladm.gov.za",
-    "jobFunction": "Accountant",
-    "department": "Finance Services",
+    "id": "7d82317c-1520-4b04-820b-5160aa5e3a73",
+    "fullName": "Siphesihle O. Nkosi",
+    "email": "NkosiSO@nkangaladm.gov.za",
+    "jobFunction": "Library & Records Officer",
+    "department": "Corporate Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Andile N Hlongwa",
-    "directorate": "Finance",
-    "reportTo": "",
-    "level": "1"
+    "manager": "Thandiwe Mazwi",
+    "directorate": "Corporate Services",
+    "reportTo": "Thandiwe Mazwi",
+    "level": "7"
   },
   {
     "id": "ee7f1309-0afa-400a-b2e5-87ee3731c708",
@@ -3318,32 +3347,32 @@
     "level": "1"
   },
   {
-    "id": "c38b3008-8fd5-437e-b57d-6a7b13ab064d",
-    "fullName": "Besabakhe J. Ntuli",
-    "email": "NtuliBJ@nkangaladm.gov.za",
-    "jobFunction": "Communications Officer",
-    "department": "Corporate Services",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": " Madihlaba Phaswana Kgomotso",
-    "directorate": "Corporate",
-    "reportTo": "",
-    "level": "1"
-  },
-  {
-    "id": "9065fce2-e174-4b04-889b-4602c9950d2c",
-    "fullName": "Hlabishi L. Phala",
-    "email": "PhalaHL@nkangaladm.gov.za",
-    "jobFunction": "MPAC Researcher",
-    "department": "Office of the Speaker",
+    "id": "5345be39-4f3b-41d4-87a6-703ae7598743",
+    "fullName": "Vusi M. Phetla",
+    "email": "PhetlaVM@nkangaladm.gov.za",
+    "jobFunction": "Security and Fleet Management Officer",
+    "department": "Planning and Economic Development",
     "source": "azure_ad",
     "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "Mahlangu Mandla Lucas",
+    "manager": "Thandiwe Mazwi",
     "directorate": "Corporate",
-    "reportTo": "",
-    "level": "1"
+    "reportTo": "Thandiwe Mazwi",
+    "level": "5"
+  },
+  {
+    "id": "f46564e5-1149-41f1-897e-8d4f2c12e12c",
+    "fullName": "Sanele Nkosi",
+    "email": "NkosiS@nkangaladm.gov.za",
+    "jobFunction": "Divisional Manager: Projects",
+    "department": "Technical Services",
+    "source": "azure_ad",
+    "role": "tenant_user",
+    "tenantId": "nkangala_auto",
+    "manager": "Jackson Skosana",
+    "directorate": "Technical",
+    "reportTo": "Jackson Skosana",
+    "level": "3"
   },
   {
     "id": "fbb859f8-8e77-4b96-af3a-805658ebb48c",
@@ -3351,20 +3380,6 @@
     "email": "PhoraKA@nkangaladm.gov.za",
     "jobFunction": "WIL CDS",
     "department": "Community Development Services",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "",
-    "directorate": "",
-    "reportTo": "",
-    "level": "1"
-  },
-  {
-    "id": "0abc61c2-42d3-4db1-bf33-e91be6656e77",
-    "fullName": "Michael P. Ntuli",
-    "email": "NtuliMP@nkangaladm.gov.za",
-    "jobFunction": "Jet Patcher",
-    "department": "Technical Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
@@ -3556,32 +3571,32 @@
     "level": "1"
   },
   {
-    "id": "d40bb01d-ba8d-4a0e-8c2b-c8956b1464af",
-    "fullName": "Eloise Prinsloo",
-    "email": "prinslooe@nkangaladm.gov.za",
-    "jobFunction": "Chief Clerk: Creditors",
+    "id": "228acc15-f558-4307-b6ef-6984822fdc2a",
+    "fullName": "Pretty Shabangu",
+    "email": "shabangup@nkangaladm.gov.za",
+    "jobFunction": "Database Administrator",
     "department": "Finance Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "NR Mogodi",
+    "manager": "Sipho Masilela",
     "directorate": "Finance",
-    "reportTo": "",
-    "level": "1"
+    "reportTo": "Sipho Masilela",
+    "level": "7"
   },
   {
-    "id": "3fee3be5-c1ed-4f67-b10e-991dc2088df6",
-    "fullName": "Gabriel Shabangu",
-    "email": "ShabanguG@nkangaladm.gov.za",
-    "jobFunction": "Committee Clerk",
+    "id": "0ff4df6d-9a46-4046-8149-76cbf8a499de",
+    "fullName": "Elias Raseroka",
+    "email": "RaserokaE@nkangaladm.gov.za",
+    "jobFunction": "Driver/VIP Protector",
     "department": "Corporate Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "NB Mtshali",
+    "manager": "Meshack S. Dimpe",
     "directorate": "Corporate",
-    "reportTo": "",
-    "level": "1"
+    "reportTo": "Meshack S. Dimpe",
+    "level": "5"
   },
   {
     "id": "99c67c34-d866-4bd8-95a7-4f7c3905a8aa",
@@ -3612,20 +3627,6 @@
     "level": "7"
   },
   {
-    "id": "329eb448-10be-45c3-8a8b-b1e8b748e225",
-    "fullName": "Johannah Rakau",
-    "email": "rakauj@nkangaladm.gov.za",
-    "jobFunction": "Senior Environmental Health Practitioner",
-    "department": "Community Development Services",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "Johannes MT. Tlou",
-    "directorate": "Community Services",
-    "reportTo": "Johannes MT. Tlou",
-    "level": "1"
-  },
-  {
     "id": "77235846-f5b5-4225-bffe-9ad074870178",
     "fullName": "Juliet N. Ralephaleng",
     "email": "RalephalengJN@nkangaladm.gov.za",
@@ -3634,10 +3635,24 @@
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "",
+    "manager": "Mandla L. Mahlangu",
     "directorate": "",
-    "reportTo": "",
+    "reportTo": "Mandla L. Mahlangu",
     "level": "3"
+  },
+  {
+    "id": "bbd6a71c-09e3-4d39-b7be-bb24b220175b",
+    "fullName": "Peggy L. Seerane",
+    "email": "seeranepl@nkangaladm.gov.za",
+    "jobFunction": "Internal Auditor",
+    "department": "Internal Audit",
+    "source": "azure_ad",
+    "role": "Standard User",
+    "tenantId": "nkangala_auto",
+    "manager": "Jayvanti Morar",
+    "directorate": "Office of the MM",
+    "reportTo": "Jayvanti Morar",
+    "level": "5"
   },
   {
     "id": "664f68f1-667c-469c-bb75-d404375abfaa",
@@ -3668,18 +3683,18 @@
     "level": "3"
   },
   {
-    "id": "75ab67dc-18df-400e-8139-fdb318bf051b",
-    "fullName": "Mogatle B. Rachidi",
-    "email": "RachidiMB@nkangaladm.gov.za",
-    "jobFunction": "Environmental Health Practictioner",
+    "id": "1d387aa8-cbea-4f5b-8471-04f20b725712",
+    "fullName": "Yolanda Segami",
+    "email": "segamiy@nkangaladm.gov.za",
+    "jobFunction": "Chief Environmental Health Practioner",
     "department": "Community Development Services",
     "source": "azure_ad",
-    "role": "tenant_user",
+    "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Nirisha Singh",
+    "manager": "Solly Links",
     "directorate": "Community Services",
-    "reportTo": "Nirisha Singh",
-    "level": "1"
+    "reportTo": "Solly Links",
+    "level": "4"
   },
   {
     "id": "d8083df5-fc7b-4eeb-a408-3bac9be60ed7",
@@ -3696,18 +3711,18 @@
     "level": "1"
   },
   {
-    "id": "0ff4df6d-9a46-4046-8149-76cbf8a499de",
-    "fullName": "Elias Raseroka",
-    "email": "RaserokaE@nkangaladm.gov.za",
-    "jobFunction": "Driver/VIP Protector",
-    "department": "Corporate Services",
+    "id": "f78d0fc6-e48a-4f2d-bfa9-f34e5d23d4f8",
+    "fullName": "Fortress Shabangu",
+    "email": "shabanguf@nkangaladm.gov.za",
+    "jobFunction": "IDP Officer",
+    "department": "Planning and Economic Development",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "SM Dimpe",
-    "directorate": "Corporate",
-    "reportTo": "",
-    "level": "1"
+    "manager": "A Bvuma",
+    "directorate": "PED",
+    "reportTo": "Alvin Bvuma",
+    "level": "3"
   },
   {
     "id": "109b8792-0251-4cc0-a39b-4bf68cbd01af",
@@ -3752,24 +3767,24 @@
     "level": "1"
   },
   {
-    "id": "f78d0fc6-e48a-4f2d-bfa9-f34e5d23d4f8",
-    "fullName": "Fortress Shabangu",
-    "email": "shabanguf@nkangaladm.gov.za",
-    "jobFunction": "IDP Officer",
-    "department": "Planning and Economic Development",
+    "id": "3b47a2b9-a4b3-4221-84ab-ade07ccfd364",
+    "fullName": "Mmanoko C. Seloba",
+    "email": "SelobaMC@nkangaladm.gov.za",
+    "jobFunction": "Control Room Operator",
+    "department": "Community Development Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "A Bvuma",
-    "directorate": "PED",
-    "reportTo": "",
-    "level": "3"
+    "manager": "Sibusiso PL. Myeni",
+    "directorate": "Community Services",
+    "reportTo": "Sibusiso PL. Myeni",
+    "level": "10"
   },
   {
-    "id": "1d387aa8-cbea-4f5b-8471-04f20b725712",
-    "fullName": "Yolanda Segami",
-    "email": "segamiy@nkangaladm.gov.za",
-    "jobFunction": "Chief Environmental Health Practioner",
+    "id": "329eb448-10be-45c3-8a8b-b1e8b748e225",
+    "fullName": "Johannah Rakau",
+    "email": "rakauj@nkangaladm.gov.za",
+    "jobFunction": "Chief Environmental Health Practitioner",
     "department": "Community Development Services",
     "source": "azure_ad",
     "role": "Standard User",
@@ -3777,21 +3792,21 @@
     "manager": "Solly Links",
     "directorate": "Community Services",
     "reportTo": "Solly Links",
-    "level": "1"
+    "level": "4"
   },
   {
-    "id": "129ef252-bab6-46a5-8da4-04e4f63affd3",
-    "fullName": "Sibongile G. Sekgobela",
-    "email": "SekgobelaSG@nkangaladm.gov.za",
-    "jobFunction": "Chief Accounting Clerk Compliance and System Administrator",
+    "id": "d40bb01d-ba8d-4a0e-8c2b-c8956b1464af",
+    "fullName": "Eloise Prinsloo",
+    "email": "prinslooe@nkangaladm.gov.za",
+    "jobFunction": "Chief Clerk: Creditors",
     "department": "Finance Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Nomsa P Maphalala",
+    "manager": "Rahab Mogodi",
     "directorate": "Finance",
-    "reportTo": "",
-    "level": "1"
+    "reportTo": "Rahab Mogodi",
+    "level": "7"
   },
   {
     "id": "2ee62864-f0d7-4317-97c1-54e910f3ae12",
@@ -3808,32 +3823,32 @@
     "level": "1"
   },
   {
-    "id": "3b47a2b9-a4b3-4221-84ab-ade07ccfd364",
-    "fullName": "Mmanoko C. Seloba",
-    "email": "SelobaMC@nkangaladm.gov.za",
-    "jobFunction": "Control Room Operator",
+    "id": "75ab67dc-18df-400e-8139-fdb318bf051b",
+    "fullName": "Mogatle B. Rachidi",
+    "email": "RachidiMB@nkangaladm.gov.za",
+    "jobFunction": "Environmental Health Practictioner",
     "department": "Community Development Services",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "Sibusiso PL. Myeni",
+    "manager": "Nirisha Singh",
     "directorate": "Community Services",
-    "reportTo": "Sibusiso PL. Myeni",
-    "level": "1"
+    "reportTo": "Nirisha Singh",
+    "level": "6"
   },
   {
-    "id": "bbd6a71c-09e3-4d39-b7be-bb24b220175b",
-    "fullName": "Peggy L. Seerane",
-    "email": "seeranepl@nkangaladm.gov.za",
-    "jobFunction": "Internal Auditor",
-    "department": "Internal Audit",
+    "id": "d093edbb-7999-41fb-8d2a-931ee682367e",
+    "fullName": "Mabowe J. Sereme",
+    "email": "SeremeMJ@nkangaladm.gov.za",
+    "jobFunction": "ICT Technician",
+    "department": "Information and Communication Technology",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Kgomotso Gwangwa",
-    "directorate": "Office of the MM",
-    "reportTo": "",
-    "level": "1"
+    "manager": "Bongani S. Khumalo",
+    "directorate": "Office of the Municipal Manager",
+    "reportTo": "Nokuthula D. Mthimunye",
+    "level": "5"
   },
   {
     "id": "f18a0c98-5709-4e2f-8e19-14132415177d",
@@ -3850,20 +3865,6 @@
     "level": "1"
   },
   {
-    "id": "d093edbb-7999-41fb-8d2a-931ee682367e",
-    "fullName": "Mabowe J. Sereme",
-    "email": "SeremeMJ@nkangaladm.gov.za",
-    "jobFunction": "ICT Technician",
-    "department": "Information and Communication Technology",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "Bongani S. Khumalo",
-    "directorate": "Office of the Municipal Manager",
-    "reportTo": "Nokuthula D. Mthimunye",
-    "level": "1"
-  },
-  {
     "id": "f5c2902e-e479-4494-a591-423a16472d89",
     "fullName": "Lucky Sethole",
     "email": "SetholeL@nkangaladm.gov.za",
@@ -3872,24 +3873,24 @@
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "TC Mazwi",
+    "manager": "Vusi M. Phetla",
     "directorate": "",
-    "reportTo": "",
-    "level": "1"
+    "reportTo": "Vusi M. Phetla",
+    "level": "11"
   },
   {
-    "id": "228acc15-f558-4307-b6ef-6984822fdc2a",
-    "fullName": "Pretty Shabangu",
-    "email": "shabangup@nkangaladm.gov.za",
-    "jobFunction": "Database Administrator",
-    "department": "Finance Services",
+    "id": "3fee3be5-c1ed-4f67-b10e-991dc2088df6",
+    "fullName": "Gabriel Shabangu",
+    "email": "ShabanguG@nkangaladm.gov.za",
+    "jobFunction": "Committee Clerk",
+    "department": "Corporate Services",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "Sipho Innocent Masilela",
-    "directorate": "Finance",
-    "reportTo": "",
-    "level": "1"
+    "manager": "Beauty Mtshali",
+    "directorate": "Corporate",
+    "reportTo": "Beauty Mtshali",
+    "level": "8"
   },
   {
     "id": "38cf5999-a06a-432d-a2b1-f0f455aea461",
@@ -3918,6 +3919,20 @@
     "directorate": "",
     "reportTo": "",
     "level": "1"
+  },
+  {
+    "id": "129ef252-bab6-46a5-8da4-04e4f63affd3",
+    "fullName": "Sibongile G. Sekgobela",
+    "email": "SekgobelaSG@nkangaladm.gov.za",
+    "jobFunction": "Chief Accounting Clerk Compliance and System Administrator",
+    "department": "Finance Services",
+    "source": "azure_ad",
+    "role": "Standard User",
+    "tenantId": "nkangala_auto",
+    "manager": "Nomsa Maphalala",
+    "directorate": "Finance",
+    "reportTo": "Nomsa Maphalala",
+    "level": "7"
   },
   {
     "id": "seed_62jew9obd9m",
@@ -4060,18 +4075,18 @@
     "level": "1"
   },
   {
-    "id": "0b1e5fd6-7e68-484b-bca5-5cc7cb8edfba",
-    "fullName": "Mkhulu D. Sithole",
-    "email": "sitholedm@nkangaladm.gov.za",
-    "jobFunction": "System Administrator",
+    "id": "86837200-ccb9-44fb-9988-c5d168975ab4",
+    "fullName": "Sifiso B. Shongwe",
+    "email": "shongwesb@nkangaladm.gov.za",
+    "jobFunction": "Network Administrator",
     "department": "Information and Communication Technology",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Bongani S Nkosi",
+    "manager": "Bongani S. Khumalo",
     "directorate": "Office of the Municipal Manager",
     "reportTo": "Nokuthula D. Mthimunye",
-    "level": "1"
+    "level": "5"
   },
   {
     "id": "568ab68b-0252-448e-8516-b4cb11b378b3",
@@ -4130,18 +4145,18 @@
     "level": "1"
   },
   {
-    "id": "4a76bff5-3402-4e94-90b9-eb2fbec0895b",
-    "fullName": "Sipho P. Sibeko",
-    "email": "sibekops@nkangaladm.gov.za",
-    "jobFunction": "Control Room Operator",
-    "department": "Community Development Services",
+    "id": "dce6670f-2c3b-42b9-bf3b-2e4c217d9f58",
+    "fullName": "Isaac B. Sindane",
+    "email": "SindaneIB@nkangaladm.gov.za",
+    "jobFunction": "Environmental Compliance, Monitoring & Enforcement Officer",
+    "department": "Planning and Economic Development",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Sibusiso PL. Myeni",
+    "manager": "Nompumelelo Simelane",
     "directorate": "Community Services",
-    "reportTo": "Sibusiso PL. Myeni",
-    "level": "1"
+    "reportTo": "Nompumelelo Simelane",
+    "level": "4"
   },
   {
     "id": "3bcbeffe-fa86-4090-9293-5cc87bb081b1",
@@ -4158,18 +4173,18 @@
     "level": "11"
   },
   {
-    "id": "b400c178-72f3-4614-a8cd-86ec143ca0e0",
-    "fullName": "Quinton Skhosana",
-    "email": "skhosanaqj@nkangaladm.gov.za",
-    "jobFunction": "Risk Officer",
-    "department": "Risk Unit",
+    "id": "0b1e5fd6-7e68-484b-bca5-5cc7cb8edfba",
+    "fullName": "Mkhulu D. Sithole",
+    "email": "sitholedm@nkangaladm.gov.za",
+    "jobFunction": "System Administrator",
+    "department": "Information and Communication Technology",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Juliet Ralephaleng",
-    "directorate": "Office of the MM",
-    "reportTo": "",
-    "level": "1"
+    "manager": "Bongani S Nkosi",
+    "directorate": "Office of the Municipal Manager",
+    "reportTo": "Nokuthula D. Mthimunye",
+    "level": "5"
   },
   {
     "id": "b503f760-58ee-4bfd-a555-02254ae35d20",
@@ -4200,18 +4215,18 @@
     "level": "1"
   },
   {
-    "id": "15b7f38f-2a83-4801-8241-adae1ead6de5",
-    "fullName": "Susan Silinda",
-    "email": "silindasn@nkangaladm.gov.za",
-    "jobFunction": "Senior Personnel Officer",
-    "department": "Corporate Services",
+    "id": "4a76bff5-3402-4e94-90b9-eb2fbec0895b",
+    "fullName": "Sipho P. Sibeko",
+    "email": "sibekops@nkangaladm.gov.za",
+    "jobFunction": "Control Room Operator",
+    "department": "Community Development Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Mark Ephraim Maseko",
-    "directorate": "Corporate",
-    "reportTo": "",
-    "level": "1"
+    "manager": "Sibusiso PL. Myeni",
+    "directorate": "Community Services",
+    "reportTo": "Sibusiso PL. Myeni",
+    "level": "10"
   },
   {
     "id": "57d7dda3-7478-456c-8122-4ebe9d421b17",
@@ -4219,34 +4234,6 @@
     "email": "SindaneAK@nkangaladm.gov.za",
     "jobFunction": "EPWP Data Capturer Intern",
     "department": "Planning and Economic Development",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "",
-    "directorate": "",
-    "reportTo": "",
-    "level": "1"
-  },
-  {
-    "id": "86837200-ccb9-44fb-9988-c5d168975ab4",
-    "fullName": "Sifiso B. Shongwe",
-    "email": "shongwesb@nkangaladm.gov.za",
-    "jobFunction": "Network Administrator",
-    "department": "Information and Communication Technology",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "Bongani S. Khumalo",
-    "directorate": "Office of the Municipal Manager",
-    "reportTo": "Nokuthula D. Mthimunye",
-    "level": "1"
-  },
-  {
-    "id": "c57d3831-b22c-40fc-a483-77e98ca9a6a2",
-    "fullName": "Nomthandazo Sindane",
-    "email": "SindaneN@nkangaladm.gov.za",
-    "jobFunction": "Environmental Compliance Intern",
-    "department": "Community Development Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
@@ -4264,24 +4251,38 @@
     "source": "azure_ad",
     "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "Xolisi Bembe",
+    "manager": "Walter M. Mtshweni",
     "directorate": "Technical",
-    "reportTo": "",
+    "reportTo": "Walter M. Mtshweni",
     "level": "2"
   },
   {
-    "id": "eb7be605-2b78-44f7-a455-432275d89f40",
-    "fullName": "Ruth L. Singo",
-    "email": "SingoRL@nkangaladm.gov.za",
-    "jobFunction": "Environmental Health Practitioner",
+    "id": "c57d3831-b22c-40fc-a483-77e98ca9a6a2",
+    "fullName": "Nomthandazo Sindane",
+    "email": "SindaneN@nkangaladm.gov.za",
+    "jobFunction": "Environmental Compliance Intern",
     "department": "Community Development Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Alfred S. Magampe",
-    "directorate": "Community Services",
-    "reportTo": "Alfred S. Magampe",
+    "manager": "",
+    "directorate": "",
+    "reportTo": "",
     "level": "1"
+  },
+  {
+    "id": "2f7b372f-e3a6-4089-82d5-8650d0ce71a5",
+    "fullName": "Christina Skosana",
+    "email": "skosanac@nkangaladm.gov.za",
+    "jobFunction": "Jet Patcher",
+    "department": "Technical Services",
+    "source": "azure_ad",
+    "role": "Standard User",
+    "tenantId": "nkangala_auto",
+    "manager": "Mxolisi Bembe",
+    "directorate": "",
+    "reportTo": "Mxolisi Bembe",
+    "level": "8"
   },
   {
     "id": "f2c2612c-3c55-42de-a4b5-abd2aa8ba413",
@@ -4323,7 +4324,7 @@
     "manager": "Solly Links",
     "directorate": "Community Services",
     "reportTo": "Solly Links",
-    "level": "1"
+    "level": "4"
   },
   {
     "id": "0375a59f-597c-4cf3-9a60-729fbc54c228",
@@ -4368,18 +4369,18 @@
     "level": "1"
   },
   {
-    "id": "2f7b372f-e3a6-4089-82d5-8650d0ce71a5",
-    "fullName": "Christina Skosana",
-    "email": "skosanac@nkangaladm.gov.za",
-    "jobFunction": "Jet Patcher",
-    "department": "Technical Services",
+    "id": "15b7f38f-2a83-4801-8241-adae1ead6de5",
+    "fullName": "Susan Silinda",
+    "email": "silindasn@nkangaladm.gov.za",
+    "jobFunction": "Senior Personnel Officer",
+    "department": "Corporate Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "",
-    "directorate": "",
-    "reportTo": "",
-    "level": "1"
+    "manager": "Mark E. Maseko",
+    "directorate": "Corporate",
+    "reportTo": "Mark E. Maseko",
+    "level": "7"
   },
   {
     "id": "472daf77-d644-46ba-b934-55f4675e6c02",
@@ -4399,15 +4400,15 @@
     "id": "109704ad-35e3-4baf-84e8-c789a44d95e0",
     "fullName": "Sbusiso T. Skosana",
     "email": "SkosanaST@nkangaladm.gov.za",
-    "jobFunction": "Finance Intern",
+    "jobFunction": "Cashier Clerk",
     "department": "Finance Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
     "manager": "Nirupha Parbhoo",
     "directorate": "Finance",
-    "reportTo": "",
-    "level": "1"
+    "reportTo": "Nirupa Parbhoo",
+    "level": "9"
   },
   {
     "id": "cc4c53be-c17f-41cc-bff7-a04b60a1030d",
@@ -4422,6 +4423,20 @@
     "directorate": "",
     "reportTo": "",
     "level": "1"
+  },
+  {
+    "id": "b400c178-72f3-4614-a8cd-86ec143ca0e0",
+    "fullName": "Quinton Skhosana",
+    "email": "skhosanaqj@nkangaladm.gov.za",
+    "jobFunction": "Risk Officer",
+    "department": "Risk Unit",
+    "source": "azure_ad",
+    "role": "Standard User",
+    "tenantId": "nkangala_auto",
+    "manager": "Juliet Ralephaleng",
+    "directorate": "Office of the MM",
+    "reportTo": "Juliet N. Ralephaleng",
+    "level": "5"
   },
   {
     "id": "1313c031-3af6-4e91-8dca-5231adac7d3a",
@@ -4452,18 +4467,18 @@
     "level": "9"
   },
   {
-    "id": "dce6670f-2c3b-42b9-bf3b-2e4c217d9f58",
-    "fullName": "Isaac B. Sindane",
-    "email": "SindaneIB@nkangaladm.gov.za",
-    "jobFunction": "Environmental Compliance, Monitoring & Enforcement Officer",
-    "department": "Planning and Economic Development",
+    "id": "eb7be605-2b78-44f7-a455-432275d89f40",
+    "fullName": "Ruth L. Singo",
+    "email": "SingoRL@nkangaladm.gov.za",
+    "jobFunction": "Environmental Health Practitioner",
+    "department": "Community Development Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Nompumelelo Simelane",
+    "manager": "Alfred S. Magampe",
     "directorate": "Community Services",
-    "reportTo": "Nompumelelo Simelane",
-    "level": "1"
+    "reportTo": "Alfred S. Magampe",
+    "level": "6"
   },
   {
     "id": "99479d89-7922-47d5-a0e3-11046f73b43f",
@@ -4472,7 +4487,7 @@
     "jobFunction": "Environmental Compliance Monitoring & Enforcement Officer",
     "department": "Community Development Services",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
     "manager": "Vusi Mahlangu",
     "directorate": "Community Services",
@@ -4948,7 +4963,7 @@
     "jobFunction": "Chief Audit Executive",
     "department": "Internal Audit",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
     "manager": "ML Mahlangu",
     "directorate": "Office of the Municipal Manager",
@@ -4980,20 +4995,6 @@
     "tenantId": "nkangala_auto",
     "manager": "",
     "directorate": "",
-    "reportTo": "",
-    "level": "1"
-  },
-  {
-    "id": "637128fd-d58a-4332-acb6-a489db998415",
-    "fullName": "Pinkie Sukazi",
-    "email": "sukazip@nkangaladm.gov.za",
-    "jobFunction": "Records Clerk",
-    "department": "Corporate Services",
-    "source": "azure_ad",
-    "role": "tenant_user",
-    "tenantId": "nkangala_auto",
-    "manager": "Siphesihle Nkosi",
-    "directorate": "Corporate",
     "reportTo": "",
     "level": "1"
   },
@@ -5152,6 +5153,20 @@
     "level": "1"
   },
   {
+    "id": "637128fd-d58a-4332-acb6-a489db998415",
+    "fullName": "Pinkie Sukazi",
+    "email": "sukazip@nkangaladm.gov.za",
+    "jobFunction": "Records Clerk",
+    "department": "Corporate Services",
+    "source": "azure_ad",
+    "role": "tenant_user",
+    "tenantId": "nkangala_auto",
+    "manager": "Siphesihle O. Nkosi",
+    "directorate": "Corporate",
+    "reportTo": "Siphesihle O. Nkosi",
+    "level": "9"
+  },
+  {
     "id": "08a429e3-6f93-41ce-a9d7-6ed9df47612a",
     "fullName": "Mochabi J. Thabang",
     "email": "ThabangMJ@nkangaladm.gov.za",
@@ -5160,10 +5175,10 @@
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Makitla Cedric",
+    "manager": "Cedrick Makitla",
     "directorate": "Finance",
-    "reportTo": "",
-    "level": "1"
+    "reportTo": "Cedrick Makitla",
+    "level": "9"
   },
   {
     "id": "aa73f82c-92ae-4402-9764-29c1f5650062",
@@ -5390,25 +5405,109 @@
     "level": "1"
   },
   {
-    "id": "934b1a60-7c48-4d2b-9720-efea07dfb4c2",
-    "fullName": "Anil Valla",
-    "email": "VallaA@nkangaladm.gov.za",
-    "jobFunction": "Control Room Operator",
-    "department": "Community Development Services",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "Sibusiso PL. Myeni",
-    "directorate": "Community Services",
-    "reportTo": "Sibusiso PL. Myeni",
-    "level": "1"
-  },
-  {
     "id": "7043284c-abc9-4bc9-8eb4-1b819214b4fb",
     "fullName": "Willem A. Van Dyk",
     "email": "VanDykWA@nkangaladm.gov.za",
     "jobFunction": "Councillor",
     "department": "Office of the Speaker",
+    "source": "azure_ad",
+    "role": "Standard User",
+    "tenantId": "nkangala_auto",
+    "manager": "",
+    "directorate": "",
+    "reportTo": "",
+    "level": "1"
+  },
+  {
+    "id": "4ceb6cd2-9bd7-42ae-8fb9-d96cee9d9470",
+    "fullName": "Veeam",
+    "email": "Veeam@nkangaladm.gov.za",
+    "jobFunction": "",
+    "department": "",
+    "source": "azure_ad",
+    "role": "Standard User",
+    "tenantId": "nkangala_auto",
+    "manager": "",
+    "directorate": "",
+    "reportTo": "",
+    "level": "1"
+  },
+  {
+    "id": "6d8e15af-4b2c-4467-8fd9-6f8e24ff5d96",
+    "fullName": "Trudie Van Niekerk",
+    "email": "vanniekerkt@nkangaladm.gov.za",
+    "jobFunction": "Divisioanl Manager: Budget & Expenditure",
+    "department": "Finance Services",
+    "source": "azure_ad",
+    "role": "tenant_user",
+    "tenantId": "nkangala_auto",
+    "manager": "Ali S. Msiza",
+    "directorate": "Finance",
+    "reportTo": "Ali S. Msiza",
+    "level": "3"
+  },
+  {
+    "id": "da7159f6-b076-4366-8865-55c86ff4f77f",
+    "fullName": "Sam Zandamela",
+    "email": "zandamelas@nkangaladm.gov.za",
+    "jobFunction": "",
+    "department": "Executive Mayor",
+    "source": "azure_ad",
+    "role": "Standard User",
+    "tenantId": "nkangala_auto",
+    "manager": "",
+    "directorate": "",
+    "reportTo": "",
+    "level": "1"
+  },
+  {
+    "id": "4b1e03de-c953-415d-a3f8-e6d88c9c34a9",
+    "fullName": "Sipokazi Wakeni",
+    "email": "wakenis@nkangaladm.gov.za",
+    "jobFunction": "Senior Technician",
+    "department": "Technical Services",
+    "source": "azure_ad",
+    "role": "tenant_user",
+    "tenantId": "nkangala_auto",
+    "manager": "Sanele Nkosi",
+    "directorate": "Technical",
+    "reportTo": "Sanele Nkosi",
+    "level": "4"
+  },
+  {
+    "id": "30331ce2-6b09-4521-a89a-bf5000174d72",
+    "fullName": "Dion N. Zimu",
+    "email": "ZimuDN@nkangaladm.gov.za",
+    "jobFunction": "Matupunuka ICT Technician",
+    "department": "Information and Communication Technology Division",
+    "source": "azure_ad",
+    "role": "Standard User",
+    "tenantId": "nkangala_auto",
+    "manager": "",
+    "directorate": "",
+    "reportTo": "",
+    "level": "1"
+  },
+  {
+    "id": "1ca22c6e-78c3-4d93-879e-701520ac092d",
+    "fullName": "Nonozi Xaba",
+    "email": "xabang@nkangaladm.gov.za",
+    "jobFunction": "Clerical Assistant",
+    "department": "Corporate Services",
+    "source": "azure_ad",
+    "role": "Standard User",
+    "tenantId": "nkangala_auto",
+    "manager": "Siphesihle O. Nkosi",
+    "directorate": "Corporate Services",
+    "reportTo": "Siphesihle O. Nkosi",
+    "level": "11"
+  },
+  {
+    "id": "1f083a2f-bb50-4ad1-a2f1-17086b5195b7",
+    "fullName": "Thokozile E. Zulu",
+    "email": "ZuluTE@nkangaladm.gov.za",
+    "jobFunction": "General Manager: Community Development Services",
+    "department": "Community Development Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
@@ -5429,119 +5528,7 @@
     "manager": "Virginia Mahlangu",
     "directorate": "Corporate Services",
     "reportTo": "Virginia Mahlangu",
-    "level": "1"
-  },
-  {
-    "id": "4ceb6cd2-9bd7-42ae-8fb9-d96cee9d9470",
-    "fullName": "Veeam",
-    "email": "Veeam@nkangaladm.gov.za",
-    "jobFunction": "",
-    "department": "",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "",
-    "directorate": "",
-    "reportTo": "",
-    "level": "1"
-  },
-  {
-    "id": "4b1e03de-c953-415d-a3f8-e6d88c9c34a9",
-    "fullName": "Sipokazi Wakeni",
-    "email": "wakenis@nkangaladm.gov.za",
-    "jobFunction": "Senior Technician",
-    "department": "Technical Services",
-    "source": "azure_ad",
-    "role": "tenant_user",
-    "tenantId": "nkangala_auto",
-    "manager": "Sanele Nkosi",
-    "directorate": "Technical",
-    "reportTo": "",
-    "level": "1"
-  },
-  {
-    "id": "da7159f6-b076-4366-8865-55c86ff4f77f",
-    "fullName": "Sam Zandamela",
-    "email": "zandamelas@nkangaladm.gov.za",
-    "jobFunction": "",
-    "department": "Executive Mayor",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "",
-    "directorate": "",
-    "reportTo": "",
-    "level": "1"
-  },
-  {
-    "id": "30331ce2-6b09-4521-a89a-bf5000174d72",
-    "fullName": "Dion N. Zimu",
-    "email": "ZimuDN@nkangaladm.gov.za",
-    "jobFunction": "Matupunuka ICT Technician",
-    "department": "Information and Communication Technology Division",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "",
-    "directorate": "",
-    "reportTo": "",
-    "level": "1"
-  },
-  {
-    "id": "1f083a2f-bb50-4ad1-a2f1-17086b5195b7",
-    "fullName": "Thokozile E. Zulu",
-    "email": "ZuluTE@nkangaladm.gov.za",
-    "jobFunction": "General Manager: Community Development Services",
-    "department": "Community Development Services",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "",
-    "directorate": "",
-    "reportTo": "",
-    "level": "1"
-  },
-  {
-    "id": "f60af742-7b20-4eae-93ff-6ae7877fce6a",
-    "fullName": "Noluthando Zulu",
-    "email": "zulune@nkangaladm.gov.za",
-    "jobFunction": "PMS Officer",
-    "department": "Performance Management Unit",
-    "source": "azure_ad",
-    "role": "tenant_user",
-    "tenantId": "nkangala_auto",
-    "manager": "Yena Khuboni",
-    "directorate": "Office of the Municipal Manager",
-    "reportTo": "Yena Khuboni",
-    "level": "4"
-  },
-  {
-    "id": "1ca22c6e-78c3-4d93-879e-701520ac092d",
-    "fullName": "Nonozi Xaba",
-    "email": "xabang@nkangaladm.gov.za",
-    "jobFunction": "Clerical Assistant",
-    "department": "Corporate Services",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "Siphesihle O. Nkosi",
-    "directorate": "Corporate Services",
-    "reportTo": "Siphesihle O. Nkosi",
-    "level": "1"
-  },
-  {
-    "id": "6d8e15af-4b2c-4467-8fd9-6f8e24ff5d96",
-    "fullName": "Trudie Van Niekerk",
-    "email": "vanniekerkt@nkangaladm.gov.za",
-    "jobFunction": "Divisioanl Manager: Budget & Expenditure",
-    "department": "Finance Services",
-    "source": "azure_ad",
-    "role": "tenant_user",
-    "tenantId": "nkangala_auto",
-    "manager": "AS Msiza",
-    "directorate": "Finance",
-    "reportTo": "",
-    "level": "3"
+    "level": "11"
   },
   {
     "id": "1dee439f-8bc2-4750-83fb-1f1d33a4fc69",
@@ -5552,10 +5539,38 @@
     "source": "azure_ad",
     "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "Beauty N Mtshali",
+    "manager": "Tlakale E. Mangwege",
     "directorate": "Corporate",
-    "reportTo": "",
-    "level": "1"
+    "reportTo": "Tlakale E. Mangwege",
+    "level": "8"
+  },
+  {
+    "id": "934b1a60-7c48-4d2b-9720-efea07dfb4c2",
+    "fullName": "Anil Valla",
+    "email": "VallaA@nkangaladm.gov.za",
+    "jobFunction": "Control Room Operator",
+    "department": "Community Development Services",
+    "source": "azure_ad",
+    "role": "Standard User",
+    "tenantId": "nkangala_auto",
+    "manager": "Sibusiso PL. Myeni",
+    "directorate": "Community Services",
+    "reportTo": "Sibusiso PL. Myeni",
+    "level": "10"
+  },
+  {
+    "id": "f60af742-7b20-4eae-93ff-6ae7877fce6a",
+    "fullName": "Noluthando Zulu",
+    "email": "zulune@nkangaladm.gov.za",
+    "jobFunction": "PMS Officer",
+    "department": "Performance Management Unit",
+    "source": "azure_ad",
+    "role": "tenant_user",
+    "tenantId": "nkangala_auto",
+    "manager": "Sibusiso M. Shabangu",
+    "directorate": "Office of the Municipal Manager",
+    "reportTo": "Sibusiso M. Shabangu",
+    "level": "4"
   },
   {
     "id": "5cb09328-f074-4cad-bc4f-08840d1e4a08",
@@ -5810,18 +5825,18 @@
     "level": "1"
   },
   {
-    "id": "8f7629e7-aeb1-406c-b2f8-47cd229a8c51",
-    "fullName": "Alvin Bvuma",
-    "email": "BvumaA@nkangaladm.gov.za",
-    "jobFunction": "Manager: PED",
-    "department": "Planning and Economic Development",
+    "id": "a2a0c546-52f9-4d9f-b3df-29baa47e7295",
+    "fullName": "Lerato Gambu",
+    "email": "gambulc@nkangaladm.gov.za",
+    "jobFunction": "Atmospheric Emission Licensing Administrator",
+    "department": "Community Development Services",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "JP Mangani",
-    "directorate": "PED",
-    "reportTo": "",
-    "level": "2"
+    "manager": "Edwin Mametja",
+    "directorate": "Community Services",
+    "reportTo": "Edwin Mametja",
+    "level": "4"
   },
   {
     "id": "73cef05f-c01d-40d8-8d44-bf1a40835d1c",
@@ -6034,18 +6049,18 @@
     "level": "1"
   },
   {
-    "id": "2e7bc2e2-7de5-476b-9d38-79d527f007e0",
-    "fullName": "Sihle S. Dlamini",
-    "email": "DlaminiSS@nkangaladm.gov.za",
+    "id": "ccc09810-7bc1-43c8-b6e2-089c1ea27618",
+    "fullName": "Malepaku F. Gakwa",
+    "email": "gakwamf@nkangaladm.gov.za",
     "jobFunction": "Environmental Health Practitioner",
     "department": "Community Development Services",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "Priscilla Fenyane",
+    "manager": "Johannes MT. Tlou",
     "directorate": "Community Services",
-    "reportTo": "Priscilla Fenyane",
-    "level": "1"
+    "reportTo": "Johannes MT. Tlou",
+    "level": "6"
   },
   {
     "id": "a91d2322-3126-4ce7-aa82-3748e22de9e9",
@@ -6112,24 +6127,10 @@
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Cedric Makitla",
+    "manager": "Sipho Masilela",
     "directorate": "Finance",
-    "reportTo": "",
-    "level": "1"
-  },
-  {
-    "id": "a2a0c546-52f9-4d9f-b3df-29baa47e7295",
-    "fullName": "Lerato Gambu",
-    "email": "gambulc@nkangaladm.gov.za",
-    "jobFunction": "Atmospheric Emission Licensing Administrator",
-    "department": "Community Development Services",
-    "source": "azure_ad",
-    "role": "tenant_user",
-    "tenantId": "nkangala_auto",
-    "manager": "Vusi Mahlangu",
-    "directorate": "Community Services",
-    "reportTo": "Vusi Mahlangu",
-    "level": "1"
+    "reportTo": "Cedrick Makitla",
+    "level": "8"
   },
   {
     "id": "5d01ac88-4f7f-4e88-8583-6e76b0b4c12a",
@@ -6143,21 +6144,7 @@
     "manager": "Solly Links",
     "directorate": "Community Services",
     "reportTo": "Solly Links",
-    "level": "1"
-  },
-  {
-    "id": "ccc09810-7bc1-43c8-b6e2-089c1ea27618",
-    "fullName": "Malepaku F. Gakwa",
-    "email": "gakwamf@nkangaladm.gov.za",
-    "jobFunction": "Environmental Health Practitioner",
-    "department": "Community Development Services",
-    "source": "azure_ad",
-    "role": "tenant_user",
-    "tenantId": "nkangala_auto",
-    "manager": "Johannes MT. Tlou",
-    "directorate": "Community Services",
-    "reportTo": "Johannes MT. Tlou",
-    "level": "1"
+    "level": "4"
   },
   {
     "id": "a9d2d0ce-495e-46f3-90a5-cfb9ff0245e3",
@@ -6170,8 +6157,36 @@
     "tenantId": "nkangala_auto",
     "manager": "Thandiwe Mazwi",
     "directorate": "Corporate",
-    "reportTo": "",
-    "level": "1"
+    "reportTo": "Thandiwe Mazwi",
+    "level": "10"
+  },
+  {
+    "id": "2e7bc2e2-7de5-476b-9d38-79d527f007e0",
+    "fullName": "Sihle S. Dlamini",
+    "email": "DlaminiSS@nkangaladm.gov.za",
+    "jobFunction": "Environmental Health Practitioner",
+    "department": "Community Development Services",
+    "source": "azure_ad",
+    "role": "Standard User",
+    "tenantId": "nkangala_auto",
+    "manager": "Priscilla Fenyane",
+    "directorate": "Community Services",
+    "reportTo": "Priscilla Fenyane",
+    "level": "6"
+  },
+  {
+    "id": "8f7629e7-aeb1-406c-b2f8-47cd229a8c51",
+    "fullName": "Alvin Bvuma",
+    "email": "BvumaA@nkangaladm.gov.za",
+    "jobFunction": "Manager: PED",
+    "department": "Planning and Economic Development",
+    "source": "azure_ad",
+    "role": "Standard User",
+    "tenantId": "nkangala_auto",
+    "manager": "JP Mangani",
+    "directorate": "PED",
+    "reportTo": "Mandla L. Mahlangu",
+    "level": "2"
   },
   {
     "id": "06a45c34-1f8c-4b07-8c29-a92c275cca2d",
@@ -8120,6 +8135,20 @@
     "level": "1"
   },
   {
+    "id": "e250484e-2d02-4666-8d63-3b05e255e889",
+    "fullName": "Zinhle Hlangwana",
+    "email": "HlangwanaZ@nkangaladm.gov.za",
+    "jobFunction": "SCM Clerk",
+    "department": "Finance Services",
+    "source": "azure_ad",
+    "role": "Standard User",
+    "tenantId": "nkangala_auto",
+    "manager": "Sipho Masilela",
+    "directorate": "Finance",
+    "reportTo": "Cedrick Makitla",
+    "level": "9"
+  },
+  {
     "id": "c045463c-3244-4c63-a338-cb61b5338461",
     "fullName": "Ayanda L. Hlatshwayo",
     "email": "HlatshwayoAL@nkangaladm.gov.za",
@@ -8144,20 +8173,6 @@
     "tenantId": "nkangala_auto",
     "manager": "",
     "directorate": "",
-    "reportTo": "",
-    "level": "1"
-  },
-  {
-    "id": "e250484e-2d02-4666-8d63-3b05e255e889",
-    "fullName": "Zinhle Hlangwana",
-    "email": "HlangwanaZ@nkangaladm.gov.za",
-    "jobFunction": "SCM Clerk",
-    "department": "Finance Services",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "Cedric Makitla",
-    "directorate": "Finance",
     "reportTo": "",
     "level": "1"
   },
@@ -8414,18 +8429,18 @@
     "level": "3"
   },
   {
-    "id": "232d6ecf-d41a-48f6-92a6-1bad642c9eb8",
-    "fullName": "Malifu Khanye",
-    "email": "khanyeem@nkangaladm.gov.za",
-    "jobFunction": "Sub Accountant: Project",
-    "department": "Finance Services",
+    "id": "e9d459da-896a-46c2-a153-1e4389e40818",
+    "fullName": "Gwyneth L. Kgwedi",
+    "email": "KgwediGL@nkangaladm.gov.za",
+    "jobFunction": "Committee Clerk",
+    "department": "Corporate Services",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "Trudie Van Niekerk",
-    "directorate": "Finance",
-    "reportTo": "",
-    "level": "1"
+    "manager": "Tlakale E. Mangwege",
+    "directorate": "Corporate",
+    "reportTo": "Tlakale E. Mangwege",
+    "level": "8"
   },
   {
     "id": "0967b1a5-e6df-4be0-b479-7e3f26b5994b",
@@ -8456,18 +8471,18 @@
     "level": "1"
   },
   {
-    "id": "0f8204cb-839a-4734-8690-dc0f35f7aa52",
-    "fullName": "Marianne Joubert",
-    "email": "joubertm@nkangaladm.gov.za",
-    "jobFunction": "Chief Environmental Health Practitioner",
+    "id": "befe7830-17a5-421f-959c-c513c27fc602",
+    "fullName": "John S. Lekhuleni",
+    "email": "LekhuleniJS@nkangaladm.gov.za",
+    "jobFunction": "Senior Environmental Health Practitioner",
     "department": "Community Development Services",
     "source": "azure_ad",
-    "role": "tenant_user",
+    "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Solly Links",
-    "directorate": "Community Services",
-    "reportTo": "Solly Links",
-    "level": "1"
+    "manager": "Yolanda Segami",
+    "directorate": "",
+    "reportTo": "Yolanda Segami",
+    "level": "6"
   },
   {
     "id": "f952dfb6-fb5a-4124-9cee-1d2106e8a8c0",
@@ -8504,54 +8519,40 @@
     "jobFunction": "Caretaker",
     "department": "Corporate Services",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
     "manager": "Thandiwe Mazwi",
     "directorate": "Corporate",
-    "reportTo": "",
-    "level": "1"
+    "reportTo": "Thandiwe Mazwi",
+    "level": "7"
   },
   {
-    "id": "3351bb90-539a-4283-8d60-93c769434a35",
-    "fullName": "Busisiwe Jele",
-    "email": "jeleb@nkangaladm.gov.za",
-    "jobFunction": "SCM Contract Administrator",
+    "id": "b99d53b4-c9f2-483c-9af5-397849cf1e73",
+    "fullName": "Tatswane C. Kwakwa",
+    "email": "kwakwatc@nkangaladm.gov.za",
+    "jobFunction": "Chief Clerk: Salaries",
     "department": "Finance Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "AM Motau",
+    "manager": "Rahab Mogodi",
     "directorate": "Finance",
-    "reportTo": "",
-    "level": "1"
+    "reportTo": "Rahab Mogodi",
+    "level": "7"
   },
   {
-    "id": "bc6b9d2d-d027-4b2d-bd69-39a95b604553",
-    "fullName": "Hlahla F. Khoza",
-    "email": "khozahf@nkangaladm.gov.za",
-    "jobFunction": "Environmental Health Practitioner",
-    "department": "Community Development Services",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "Priscilla Fenyane",
-    "directorate": "Community Services",
-    "reportTo": "Priscilla Fenyane",
-    "level": "1"
-  },
-  {
-    "id": "e9d459da-896a-46c2-a153-1e4389e40818",
-    "fullName": "Gwyneth L. Kgwedi",
-    "email": "KgwediGL@nkangaladm.gov.za",
+    "id": "a1dc53b3-0e4b-4b18-8066-714937ff081f",
+    "fullName": "Vusimuzi J. Jiyane",
+    "email": "jiyanevj@nkangaladm.gov.za",
     "jobFunction": "Committee Clerk",
     "department": "Corporate Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Beauty N Mtshali",
+    "manager": "Beauty Mtshali",
     "directorate": "Corporate",
-    "reportTo": "",
-    "level": "1"
+    "reportTo": "Beauty Mtshali",
+    "level": "8"
   },
   {
     "id": "b5664005-edb8-4ef7-899a-49a40f3ef963",
@@ -8568,18 +8569,18 @@
     "level": "1"
   },
   {
-    "id": "2e744550-cd61-4384-b3be-3a4a297ad729",
-    "fullName": "Mantombe D. Khumalo",
-    "email": "KhumaloMD@nkangaladm.gov.za",
-    "jobFunction": "Control Room Operator",
+    "id": "0f8204cb-839a-4734-8690-dc0f35f7aa52",
+    "fullName": "Marianne Joubert",
+    "email": "joubertm@nkangaladm.gov.za",
+    "jobFunction": "Chief Environmental Health Practitioner",
     "department": "Community Development Services",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "Sibusiso PL. Myeni",
+    "manager": "Solly Links",
     "directorate": "Community Services",
-    "reportTo": "Sibusiso PL. Myeni",
-    "level": "1"
+    "reportTo": "Solly Links",
+    "level": "4"
   },
   {
     "id": "bcad2db2-c997-42b9-8a62-6edaae27ef08",
@@ -8638,18 +8639,32 @@
     "level": "1"
   },
   {
-    "id": "b99d53b4-c9f2-483c-9af5-397849cf1e73",
-    "fullName": "Tatswane C. Kwakwa",
-    "email": "kwakwatc@nkangaladm.gov.za",
-    "jobFunction": "Chief Clerk: Salaries",
+    "id": "232d6ecf-d41a-48f6-92a6-1bad642c9eb8",
+    "fullName": "Malifu Khanye",
+    "email": "khanyeem@nkangaladm.gov.za",
+    "jobFunction": "Sub Accountant: Project",
     "department": "Finance Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "NR Mogodi",
+    "manager": "Trudie Van Niekerk",
     "directorate": "Finance",
-    "reportTo": "",
-    "level": "1"
+    "reportTo": "Trudie Van Niekerk",
+    "level": "5"
+  },
+  {
+    "id": "32640881-296d-4a3d-82c0-5be1e8d51305",
+    "fullName": "Yena Khuboni",
+    "email": "KhuboniY@nkangaladm.gov.za",
+    "jobFunction": "PMS Coordinator",
+    "department": "Performance Management Unit",
+    "source": "azure_ad",
+    "role": "tenant_user",
+    "tenantId": "nkangala_auto",
+    "manager": "Sibusiso M. Shabangu",
+    "directorate": "Office of the Municipal Manager",
+    "reportTo": "Sibusiso M. Shabangu",
+    "level": "4"
   },
   {
     "id": "16cc2a5b-fdc1-4bd9-89a3-852efe6d28f3",
@@ -8694,18 +8709,18 @@
     "level": "1"
   },
   {
-    "id": "a1dc53b3-0e4b-4b18-8066-714937ff081f",
-    "fullName": "Vusimuzi J. Jiyane",
-    "email": "jiyanevj@nkangaladm.gov.za",
-    "jobFunction": "Committee Clerk",
-    "department": "Corporate Services",
+    "id": "2e744550-cd61-4384-b3be-3a4a297ad729",
+    "fullName": "Mantombe D. Khumalo",
+    "email": "KhumaloMD@nkangaladm.gov.za",
+    "jobFunction": "Control Room Operator",
+    "department": "Community Development Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Nomadlozi Beauty Mtshali",
-    "directorate": "Corporate",
-    "reportTo": "",
-    "level": "1"
+    "manager": "Sibusiso PL. Myeni",
+    "directorate": "Community Services",
+    "reportTo": "Sibusiso PL. Myeni",
+    "level": "10"
   },
   {
     "id": "748c28ee-0e7e-46f1-8de5-50fe0709ce67",
@@ -8722,32 +8737,32 @@
     "level": "1"
   },
   {
-    "id": "befe7830-17a5-421f-959c-c513c27fc602",
-    "fullName": "John S. Lekhuleni",
-    "email": "LekhuleniJS@nkangaladm.gov.za",
-    "jobFunction": "Senior Environmental Health Practitioner",
+    "id": "bc6b9d2d-d027-4b2d-bd69-39a95b604553",
+    "fullName": "Hlahla F. Khoza",
+    "email": "khozahf@nkangaladm.gov.za",
+    "jobFunction": "Environmental Health Practitioner",
     "department": "Community Development Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "",
-    "directorate": "",
-    "reportTo": "",
-    "level": "1"
+    "manager": "Priscilla Fenyane",
+    "directorate": "Community Services",
+    "reportTo": "Priscilla Fenyane",
+    "level": "6"
   },
   {
-    "id": "32640881-296d-4a3d-82c0-5be1e8d51305",
-    "fullName": "Yena Khuboni",
-    "email": "KhuboniY@nkangaladm.gov.za",
-    "jobFunction": "PMS Coordinator",
-    "department": "Performance Management Unit",
+    "id": "3351bb90-539a-4283-8d60-93c769434a35",
+    "fullName": "Busisiwe Jele",
+    "email": "jeleb@nkangaladm.gov.za",
+    "jobFunction": "SCM Contract Administrator",
+    "department": "Finance Services",
     "source": "azure_ad",
-    "role": "tenant_user",
+    "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Sibusiso M. Shabangu",
-    "directorate": "Office of the Municipal Manager",
-    "reportTo": "Sibusiso M. Shabangu",
-    "level": "3"
+    "manager": "Asnath M. Motau",
+    "directorate": "Finance",
+    "reportTo": "Asnath M. Motau",
+    "level": "7"
   },
   {
     "id": "79e769cf-52e6-40bb-9d3d-d972bce62dfa",
@@ -8820,18 +8835,18 @@
     "level": "1"
   },
   {
-    "id": "4e703889-8e54-460f-bcf9-6cf7f7bdfc8a",
-    "fullName": "Youcollite L. Magagula",
-    "email": "MagagulaYL@nkangaladm.gov.za",
-    "jobFunction": "Development Control Planner",
-    "department": "Planning and Economic Development",
+    "id": "64d06435-3606-43ec-a5ab-9b8d41066799",
+    "fullName": "Colleen NN. Madlala",
+    "email": "MadlalaCNN@nkangaladm.gov.za",
+    "jobFunction": "Development Re-intergration Affairs Co-ordinator",
+    "department": "Community Development Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Vusumuzi Sibonela Kubheka",
-    "directorate": "PED",
-    "reportTo": "",
-    "level": "1"
+    "manager": "Headman Skosana",
+    "directorate": "Community Services",
+    "reportTo": "Headman Skosana",
+    "level": "4"
   },
   {
     "id": "3204408e-c0e0-4812-b913-43b9e7d57dd4",
@@ -8848,18 +8863,18 @@
     "level": "1"
   },
   {
-    "id": "63429938-966a-41cb-a562-391702c914d4",
-    "fullName": "Solly Links",
-    "email": "linkss@nkangaladm.gov.za",
-    "jobFunction": "Divisional Manager: Municipal Health Services",
-    "department": "Community Development Services",
+    "id": "c631627d-2f30-437b-a1e2-a19a5d1664ae",
+    "fullName": "Andries M. Mabena",
+    "email": "MabenaAM@nkangaladm.gov.za",
+    "jobFunction": "Protocol Officer",
+    "department": "Corporate Services",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "Vusi Mahlangu",
-    "directorate": "Community Services",
-    "reportTo": "Vusi Mahlangu",
-    "level": "3"
+    "manager": "Richard D. Hleza",
+    "directorate": "Corporate",
+    "reportTo": "Richard D. Hleza",
+    "level": "6"
   },
   {
     "id": "8499f563-3c33-42e5-8c80-1213b9e804e9",
@@ -8876,18 +8891,18 @@
     "level": "1"
   },
   {
-    "id": "3f04bca3-7c4b-4b43-a885-8ac6df1a78d6",
-    "fullName": "David E. Mahlangu",
-    "email": "mahlangude@nkangaladm.gov.za",
-    "jobFunction": "Senior Environmental Health Practitioner",
+    "id": "730b7bfc-e82b-4a92-8c47-46939beb67bb",
+    "fullName": "Mahlohlwane Mafodi",
+    "email": "mafodim@nkangaladm.gov.za",
+    "jobFunction": "Environmental Health Practitioner",
     "department": "Community Development Services",
     "source": "azure_ad",
     "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "Johannes MT. Tlou",
+    "manager": "Priscilla Fenyane",
     "directorate": "Community Services",
-    "reportTo": "Johannes MT. Tlou",
-    "level": "1"
+    "reportTo": "Priscilla Fenyane",
+    "level": "6"
   },
   {
     "id": "6d60c03d-aaa9-43ed-8bf4-a9ab38a52e4c",
@@ -8918,32 +8933,18 @@
     "level": "1"
   },
   {
-    "id": "8cadac11-4644-4a36-b049-1cb94d666ef7",
-    "fullName": "Pontsho C. Maditsi",
-    "email": "maditsipc@nkangaladm.gov.za",
-    "jobFunction": "Control Room Operator",
-    "department": "Community Development Services",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "Sibusiso PL. Myeni",
-    "directorate": "Community Services",
-    "reportTo": "Sibusiso PL. Myeni",
-    "level": "1"
-  },
-  {
-    "id": "730b7bfc-e82b-4a92-8c47-46939beb67bb",
-    "fullName": "Mahlohlwane Mafodi",
-    "email": "mafodim@nkangaladm.gov.za",
-    "jobFunction": "Environmental Health Practitioner",
+    "id": "63429938-966a-41cb-a562-391702c914d4",
+    "fullName": "Solly Links",
+    "email": "linkss@nkangaladm.gov.za",
+    "jobFunction": "Divisional Manager: Municipal Health Services",
     "department": "Community Development Services",
     "source": "azure_ad",
     "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "Priscilla Fenyane",
+    "manager": "Vusi Mahlangu",
     "directorate": "Community Services",
-    "reportTo": "Priscilla Fenyane",
-    "level": "1"
+    "reportTo": "Vusi Mahlangu",
+    "level": "3"
   },
   {
     "id": "c34aeeab-6bac-4339-b9a2-24e265e5e558",
@@ -8951,20 +8952,6 @@
     "email": "MaelaneL@nkangaladm.gov.za",
     "jobFunction": "Development Control Planner Intern",
     "department": "Planning and Economic Development",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "",
-    "directorate": "",
-    "reportTo": "",
-    "level": "1"
-  },
-  {
-    "id": "5cc6517f-4513-4460-b6e7-145310529e31",
-    "fullName": "Ephraim J. Magagula",
-    "email": "magagulaej@nkangaladm.gov.za",
-    "jobFunction": "Councillor",
-    "department": "Office of Executive Mayor",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
@@ -8982,10 +8969,38 @@
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
+    "manager": "Mxolisi Bembe",
+    "directorate": "",
+    "reportTo": "Mxolisi Bembe",
+    "level": "8"
+  },
+  {
+    "id": "5cc6517f-4513-4460-b6e7-145310529e31",
+    "fullName": "Ephraim J. Magagula",
+    "email": "magagulaej@nkangaladm.gov.za",
+    "jobFunction": "Councillor",
+    "department": "Office of Executive Mayor",
+    "source": "azure_ad",
+    "role": "Standard User",
+    "tenantId": "nkangala_auto",
     "manager": "",
     "directorate": "",
     "reportTo": "",
     "level": "1"
+  },
+  {
+    "id": "bb17faa1-b327-435e-b3a6-7a56cd675c8c",
+    "fullName": "Alfred S. Magampe",
+    "email": "magampeas@nkangaladm.gov.za",
+    "jobFunction": "Chief Environmental Health Practitioner",
+    "department": "Community Development Services",
+    "source": "azure_ad",
+    "role": "tenant_user",
+    "tenantId": "tenant-229",
+    "manager": "Solly Links",
+    "directorate": "Community Services",
+    "reportTo": "Solly Links",
+    "level": "4"
   },
   {
     "id": "8e6d9462-a11b-4244-80e1-5daa6a3aa208",
@@ -9002,32 +9017,32 @@
     "level": "1"
   },
   {
-    "id": "bb17faa1-b327-435e-b3a6-7a56cd675c8c",
-    "fullName": "Alfred S. Magampe",
-    "email": "magampeas@nkangaladm.gov.za",
+    "id": "3f04bca3-7c4b-4b43-a885-8ac6df1a78d6",
+    "fullName": "David E. Mahlangu",
+    "email": "mahlangude@nkangaladm.gov.za",
     "jobFunction": "Chief Environmental Health Practitioner",
     "department": "Community Development Services",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
     "manager": "Solly Links",
     "directorate": "Community Services",
     "reportTo": "Solly Links",
-    "level": "1"
+    "level": "4"
   },
   {
-    "id": "c631627d-2f30-437b-a1e2-a19a5d1664ae",
-    "fullName": "Andries M. Mabena",
-    "email": "MabenaAM@nkangaladm.gov.za",
-    "jobFunction": "Protocol Officer",
+    "id": "b8211647-bcdc-4bd6-969b-d8bf6ceb3718",
+    "fullName": "Leonard Mahlakwana",
+    "email": "MahlakwanaLM@nkangaladm.gov.za",
+    "jobFunction": "Labour Relations Officer",
     "department": "Corporate Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Dumisani Hleza",
+    "manager": "Jimmy Nhlapho",
     "directorate": "Corporate",
-    "reportTo": "",
-    "level": "1"
+    "reportTo": "Jimmy Nhlapho",
+    "level": "4"
   },
   {
     "id": "bd9d0201-2988-4f32-812d-93f0ca8018f8",
@@ -9050,26 +9065,26 @@
     "jobFunction": "Secretary: Office of The Executive Mayor",
     "department": "Corporate Services",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "Richard Dumisani Hleza",
+    "manager": "Richard D. Hleza",
     "directorate": "Corporate",
-    "reportTo": "",
-    "level": "1"
+    "reportTo": "Richard D. Hleza",
+    "level": "6"
   },
   {
-    "id": "5d5df586-dc68-4ad1-8f99-17c07aad1be6",
-    "fullName": "Annah D. Mahlangu",
-    "email": "MahlanguAD@nkangaladm.gov.za",
-    "jobFunction": "Secretary to the Speaker",
-    "department": "Office of the Speaker",
+    "id": "4e703889-8e54-460f-bcf9-6cf7f7bdfc8a",
+    "fullName": "Youcollite L. Magagula",
+    "email": "MagagulaYL@nkangaladm.gov.za",
+    "jobFunction": "Development Control Planner",
+    "department": "Planning and Economic Development",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "SM Dimpe",
-    "directorate": "Corporate",
-    "reportTo": "",
-    "level": "1"
+    "manager": "Vusumuzi S. Kubheka",
+    "directorate": "PED",
+    "reportTo": "Vusumuzi S. Kubheka",
+    "level": "4"
   },
   {
     "id": "bdc910b7-c532-47b3-b6fa-ffac6130d9fa",
@@ -9086,18 +9101,18 @@
     "level": "1"
   },
   {
-    "id": "64d06435-3606-43ec-a5ab-9b8d41066799",
-    "fullName": "Colleen NN. Madlala",
-    "email": "MadlalaCNN@nkangaladm.gov.za",
-    "jobFunction": "Development Re-intergration Affairs Co-ordinator",
+    "id": "8cadac11-4644-4a36-b049-1cb94d666ef7",
+    "fullName": "Pontsho C. Maditsi",
+    "email": "maditsipc@nkangaladm.gov.za",
+    "jobFunction": "Control Room Operator",
     "department": "Community Development Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Headman Skosana",
+    "manager": "Sibusiso PL. Myeni",
     "directorate": "Community Services",
-    "reportTo": "Headman Skosana",
-    "level": "1"
+    "reportTo": "Sibusiso PL. Myeni",
+    "level": "10"
   },
   {
     "id": "194019f4-258c-4b76-a390-ecc7caae7f8c",
@@ -9128,18 +9143,18 @@
     "level": "1"
   },
   {
-    "id": "b8211647-bcdc-4bd6-969b-d8bf6ceb3718",
-    "fullName": "Leonard Mahlakwana",
-    "email": "MahlakwanaLM@nkangaladm.gov.za",
-    "jobFunction": "Labour Relations Officer",
-    "department": "Corporate Services",
+    "id": "5d5df586-dc68-4ad1-8f99-17c07aad1be6",
+    "fullName": "Annah D. Mahlangu",
+    "email": "MahlanguAD@nkangaladm.gov.za",
+    "jobFunction": "Secretary to the Speaker",
+    "department": "Office of the Speaker",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "MJ Nhlapho",
+    "manager": "Meshack S. Dimpe",
     "directorate": "Corporate",
-    "reportTo": "",
-    "level": "1"
+    "reportTo": "Meshack S. Dimpe",
+    "level": "9"
   },
   {
     "id": "421dc6f0-026b-4d11-9033-c200a2acb6fb",
@@ -9338,18 +9353,18 @@
     "level": "1"
   },
   {
-    "id": "72b9ed93-a8d2-4d2c-90b8-e30a88f0000e",
-    "fullName": "Sbusiso S. Mahlangu",
-    "email": "mahlanguss@nkangaladm.gov.za",
+    "id": "b86118fa-39a0-49ca-91e1-4f1fc25112db",
+    "fullName": "Maggie N. Manana",
+    "email": "mananamn@nkangaladm.gov.za",
     "jobFunction": "Jet Patcher",
     "department": "Technical Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "",
+    "manager": "Mxolisi Bembe",
     "directorate": "",
-    "reportTo": "",
-    "level": "1"
+    "reportTo": "Mxolisi Bembe",
+    "level": "8"
   },
   {
     "id": "9d4f6cc1-1999-48b8-808e-28302c767d33",
@@ -9380,18 +9395,18 @@
     "level": "1"
   },
   {
-    "id": "45f776e9-df36-4cc5-8176-50231ffb7f09",
-    "fullName": "Virginia Mahlangu",
-    "email": "mahlanguv@nkangaladm.gov.za",
-    "jobFunction": "Senior Clerical Assistant",
+    "id": "c170eafa-32a1-4bb7-93ef-e0959618eca6",
+    "fullName": "Tlakale E. Mangwege",
+    "email": "mangwegete@nkangaladm.gov.za",
+    "jobFunction": "Admin Officer Secretariat",
     "department": "Corporate Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "SN Silinda",
+    "manager": "Thandiwe Mazwi",
     "directorate": "Corporate",
-    "reportTo": "",
-    "level": "1"
+    "reportTo": "Thandiwe Mazwi",
+    "level": "7"
   },
   {
     "id": "f58237f4-3b61-4239-b8d7-20390ab4fa90",
@@ -9436,18 +9451,18 @@
     "level": "1"
   },
   {
-    "id": "6efe1fd0-d4f3-422e-9c26-41eae6da263a",
-    "fullName": "Winnie Mahlangu",
-    "email": "MahlanguW@nkangaladm.gov.za",
-    "jobFunction": "MPAC Secretary",
-    "department": "Corporate Services",
+    "id": "d996230a-7188-4af3-820e-2df66033520f",
+    "fullName": "Edwin Mametja",
+    "email": "MametjaE@nkangaladm.gov.za",
+    "jobFunction": "Divisional Manager: Climate Change",
+    "department": "Community Development Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Hlabishi L. Phala",
-    "directorate": "Corporate Services",
-    "reportTo": "Hlabishi L. Phala",
-    "level": "1"
+    "manager": "Vusi Mahlangu",
+    "directorate": "Community Services",
+    "reportTo": "Vusi Mahlangu",
+    "level": "3"
   },
   {
     "id": "d1d9e13c-34ca-43ea-97ea-97f9d02010b7",
@@ -9520,18 +9535,18 @@
     "level": "1"
   },
   {
-    "id": "268d0c62-feb8-4650-a730-89281c87c5c9",
-    "fullName": "Peter B. Mahlangu",
-    "email": "mahlangupb@nkangaladm.gov.za",
-    "jobFunction": "LED Officer",
-    "department": "Planning and Economic Development",
+    "id": "5a29bc40-f0d7-4cf5-a527-f36b8e0a0866",
+    "fullName": "Cedrick Makitla",
+    "email": "MakitlaC@nkangaladm.gov.za",
+    "jobFunction": "Chief Supply Chain Officer",
+    "department": "Finance Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Maseko Fikile",
-    "directorate": "PED",
-    "reportTo": "",
-    "level": "1"
+    "manager": "Sipho Masilela",
+    "directorate": "Finance",
+    "reportTo": "Sipho Masilela",
+    "level": "4"
   },
   {
     "id": "86fc03d3-a5e9-4dad-baf9-9b3a43b77698",
@@ -9548,18 +9563,18 @@
     "level": "1"
   },
   {
-    "id": "9b6791be-0f3e-47e4-92be-f029b4a97eb7",
-    "fullName": "Mbulaheni R. Makulane",
-    "email": "makulanemr@nkangaladm.gov.za",
-    "jobFunction": "Occupational Health and Safety Officer",
+    "id": "6efe1fd0-d4f3-422e-9c26-41eae6da263a",
+    "fullName": "Winnie Mahlangu",
+    "email": "MahlanguW@nkangaladm.gov.za",
+    "jobFunction": "MPAC Secretary",
     "department": "Corporate Services",
     "source": "azure_ad",
-    "role": "tenant_user",
+    "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "ME Maseko",
-    "directorate": "Corporate",
-    "reportTo": "",
-    "level": "1"
+    "manager": "Hlabishi L. Phala",
+    "directorate": "Corporate Services",
+    "reportTo": "Hlabishi L. Phala",
+    "level": "9"
   },
   {
     "id": "7f77510d-1542-46d4-989d-1c4513048f3f",
@@ -9618,20 +9633,6 @@
     "level": "1"
   },
   {
-    "id": "d996230a-7188-4af3-820e-2df66033520f",
-    "fullName": "Edwin Mametja",
-    "email": "MametjaE@nkangaladm.gov.za",
-    "jobFunction": "Divisional Manager: Climate Change",
-    "department": "Community Development Services",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "Vusi Mahlangu",
-    "directorate": "Community Services",
-    "reportTo": "Vusi Mahlangu",
-    "level": "3"
-  },
-  {
     "id": "9cda2e14-badf-4840-bac1-d11fe1b3030f",
     "fullName": "Thabanga B. Mampana",
     "email": "MampanaTB@nkangaladm.gov.za",
@@ -9660,18 +9661,18 @@
     "level": "1"
   },
   {
-    "id": "b86118fa-39a0-49ca-91e1-4f1fc25112db",
-    "fullName": "Maggie N. Manana",
-    "email": "mananamn@nkangaladm.gov.za",
-    "jobFunction": "Jet Patcher",
-    "department": "Technical Services",
+    "id": "45f776e9-df36-4cc5-8176-50231ffb7f09",
+    "fullName": "Virginia Mahlangu",
+    "email": "mahlanguv@nkangaladm.gov.za",
+    "jobFunction": "Senior Clerical Assistant",
+    "department": "Corporate Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "",
-    "directorate": "",
-    "reportTo": "",
-    "level": "1"
+    "manager": "Susan Silinda",
+    "directorate": "Corporate",
+    "reportTo": "Susan Silinda",
+    "level": "9"
   },
   {
     "id": "5ad010f6-d43e-4976-b8f5-d8f4dde6b99f",
@@ -9702,6 +9703,62 @@
     "level": "1"
   },
   {
+    "id": "268d0c62-feb8-4650-a730-89281c87c5c9",
+    "fullName": "Peter B. Mahlangu",
+    "email": "mahlangupb@nkangaladm.gov.za",
+    "jobFunction": "LED Officer",
+    "department": "Planning and Economic Development",
+    "source": "azure_ad",
+    "role": "tenant_user",
+    "tenantId": "nkangala_auto",
+    "manager": "Fikile Maseko",
+    "directorate": "PED",
+    "reportTo": "Fikile Maseko",
+    "level": "5"
+  },
+  {
+    "id": "72b9ed93-a8d2-4d2c-90b8-e30a88f0000e",
+    "fullName": "Sbusiso S. Mahlangu",
+    "email": "mahlanguss@nkangaladm.gov.za",
+    "jobFunction": "Jet Patcher",
+    "department": "Technical Services",
+    "source": "azure_ad",
+    "role": "Standard User",
+    "tenantId": "nkangala_auto",
+    "manager": "Mxolisi Bembe",
+    "directorate": "",
+    "reportTo": "Mxolisi Bembe",
+    "level": "8"
+  },
+  {
+    "id": "6846729a-051d-485b-a4ac-aab082176b8c",
+    "fullName": "Lordwick M. Mapitsing",
+    "email": "mapitsinglm@nkangaladm.gov.za",
+    "jobFunction": "Secretary for Dr JS Moraka Fire Station",
+    "department": "Community Development Services",
+    "source": "azure_ad",
+    "role": "Standard User",
+    "tenantId": "nkangala_auto",
+    "manager": "Monantsi Mapitsing",
+    "directorate": "Community Services",
+    "reportTo": "Monantsi Mapitsing",
+    "level": "8"
+  },
+  {
+    "id": "cd32ae74-ffe5-4d4a-9c37-7e97f3f46c30",
+    "fullName": "Vinny L. Maphoto",
+    "email": "MaphotoVL@nkangaladm.gov.za",
+    "jobFunction": "Youth Development Coordinator",
+    "department": "Community Development Services",
+    "source": "azure_ad",
+    "role": "Standard User",
+    "tenantId": "nkangala_auto",
+    "manager": "Headman Skosana",
+    "directorate": "",
+    "reportTo": "Headman Skosana",
+    "level": "4"
+  },
+  {
     "id": "2146c9a6-1b8d-4767-b6ee-b6904a0cd098",
     "fullName": "Rebecca T. Mangena",
     "email": "MangenaRT@nkangaladm.gov.za",
@@ -9713,21 +9770,7 @@
     "manager": "Alfred S. Magampe",
     "directorate": "Community Services",
     "reportTo": "Alfred S. Magampe",
-    "level": "1"
-  },
-  {
-    "id": "5a29bc40-f0d7-4cf5-a527-f36b8e0a0866",
-    "fullName": "Cedrick Makitla",
-    "email": "MakitlaC@nkangaladm.gov.za",
-    "jobFunction": "Chief Supply Chain Officer",
-    "department": "Finance Services",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "Sipho Innocent Masilela",
-    "directorate": "Finance",
-    "reportTo": "",
-    "level": "1"
+    "level": "6"
   },
   {
     "id": "083bfe5c-5782-4d2e-a6a0-144fe20d8b29",
@@ -9738,38 +9781,10 @@
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Matome Ronald Ramohale",
+    "manager": "Monantsi Mapitsing",
     "directorate": "Community Services",
-    "reportTo": "Matome R. Ramohale",
+    "reportTo": "Monantsi Mapitsing",
     "level": "5"
-  },
-  {
-    "id": "cd32ae74-ffe5-4d4a-9c37-7e97f3f46c30",
-    "fullName": "Vinny L. Maphoto",
-    "email": "MaphotoVL@nkangaladm.gov.za",
-    "jobFunction": "Youth Development Coordinator",
-    "department": "Community Development Services",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "",
-    "directorate": "",
-    "reportTo": "",
-    "level": "1"
-  },
-  {
-    "id": "6846729a-051d-485b-a4ac-aab082176b8c",
-    "fullName": "Lordwick M. Mapitsing",
-    "email": "mapitsinglm@nkangaladm.gov.za",
-    "jobFunction": "Secretary for Dr JS Moraka Fire Station",
-    "department": "Community Development Services",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "Matome R. Ramohale",
-    "directorate": "Community Services",
-    "reportTo": "Matome R. Ramohale",
-    "level": "8"
   },
   {
     "id": "a27a6a4b-3e5b-408c-9bc7-aeb2b5bf123b",
@@ -9800,18 +9815,18 @@
     "level": "1"
   },
   {
-    "id": "c170eafa-32a1-4bb7-93ef-e0959618eca6",
-    "fullName": "Tlakale E. Mangwege",
-    "email": "mangwegete@nkangaladm.gov.za",
-    "jobFunction": "Admin Officer Secretariat",
+    "id": "9b6791be-0f3e-47e4-92be-f029b4a97eb7",
+    "fullName": "Mbulaheni R. Makulane",
+    "email": "makulanemr@nkangaladm.gov.za",
+    "jobFunction": "Occupational Health and Safety Officer",
     "department": "Corporate Services",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "TC Mazwi",
+    "manager": "Mark E. Maseko",
     "directorate": "Corporate",
-    "reportTo": "",
-    "level": "1"
+    "reportTo": "Mark E. Maseko",
+    "level": "5"
   },
   {
     "id": "8622b969-a2f3-4388-8421-fb45848cfbc2",
@@ -9842,18 +9857,18 @@
     "level": "7"
   },
   {
-    "id": "0352bcd3-4cc1-42c3-908d-b1f42e43b6fa",
-    "fullName": "Saya Masango",
-    "email": "MasangoSS@nkangaladm.gov.za",
-    "jobFunction": "Engineering Technician",
-    "department": "Technical Services",
+    "id": "e10bdb01-8d69-418d-b834-8bc84b189a5e",
+    "fullName": "Njabulo H. Mathebula",
+    "email": "MathebulaNH@nkangaladm.gov.za",
+    "jobFunction": "Secretary Technical Services",
+    "department": "Corporate Services",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "Siphokazi Wakeni",
+    "manager": "Walter M. Mtshweni",
     "directorate": "Technical",
-    "reportTo": "",
-    "level": "1"
+    "reportTo": "Walter M. Mtshweni",
+    "level": "8"
   },
   {
     "id": "2fc24119-3945-4956-91fa-39869f51a439",
@@ -9898,46 +9913,46 @@
     "level": "1"
   },
   {
-    "id": "76fe3208-6198-4b59-a258-dfab2396ab38",
-    "fullName": "Katlego Masemola",
-    "email": "masemolak@nkangaladm.gov.za",
-    "jobFunction": "Internal Auditor",
-    "department": "Internal Audit",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "Kgomotso Gwangwa",
-    "directorate": "Office of the MM",
-    "reportTo": "",
-    "level": "1"
-  },
-  {
-    "id": "ec493319-5168-46fa-b83b-71b77a30f9a2",
-    "fullName": "Sonia M. Mashile",
-    "email": "mashilesm@nkangaladm.gov.za",
-    "jobFunction": "Environmental Health Practitioner",
-    "department": "Community Development Services",
-    "source": "azure_ad",
-    "role": "tenant_user",
-    "tenantId": "nkangala_auto",
-    "manager": "Priscilla Fenyane",
-    "directorate": "Community Services",
-    "reportTo": "Priscilla Fenyane",
-    "level": "1"
-  },
-  {
     "id": "c71095d0-fe47-4149-b256-a8a9162084cd",
     "fullName": "Sipho Masilela",
     "email": "masilelasi@nkangaladm.gov.za",
     "jobFunction": "Supply Chain Manager",
     "department": "Finance Services",
     "source": "azure_ad",
+    "role": "tenant_user",
+    "tenantId": "nkangala_auto",
+    "manager": "Ali S. Msiza",
+    "directorate": "Finance",
+    "reportTo": "Ali S. Msiza",
+    "level": "3"
+  },
+  {
+    "id": "a3524308-fc00-4e5b-8dea-e1b2c851557f",
+    "fullName": "Bheki H. Mathenjwa",
+    "email": "MathenjwaBH@nkangaladm.gov.za",
+    "jobFunction": "Environmental Health Practitioner",
+    "department": "Community Development Services",
+    "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Ali Simon Msiza",
+    "manager": "Marianne Joubert",
+    "directorate": "Community Services",
+    "reportTo": "Marianne Joubert",
+    "level": "6"
+  },
+  {
+    "id": "47975525-6d26-4fab-b24e-e228a25b4149",
+    "fullName": "Linah Mashiane",
+    "email": "mashianelt@nkangaladm.gov.za",
+    "jobFunction": "Clerk Grade I: Projects",
+    "department": "Finance Services",
+    "source": "azure_ad",
+    "role": "Standard User",
+    "tenantId": "nkangala_auto",
+    "manager": "Malifu Khanye",
     "directorate": "Finance",
-    "reportTo": "",
-    "level": "3"
+    "reportTo": "Malifu Khanye",
+    "level": "9"
   },
   {
     "id": "6ef98045-87f1-4517-baeb-19a05dc220d2",
@@ -9954,18 +9969,18 @@
     "level": "1"
   },
   {
-    "id": "ac54fa94-00d8-4e44-9dc7-3d0bcae4d75a",
-    "fullName": "Martha Maseko",
-    "email": "MasekoM@nkangaladm.gov.za",
-    "jobFunction": "Secretary to Council Whip",
-    "department": "Corporate Services",
+    "id": "7e0d3458-5de4-44cb-bab0-7231a00d8fc2",
+    "fullName": "Dorcas T. Mashiloane",
+    "email": "mashiloanedt@nkangaladm.gov.za",
+    "jobFunction": "Control Room Operator",
+    "department": "Community Development Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "SM Dimpe",
-    "directorate": "Corporate",
-    "reportTo": "",
-    "level": "1"
+    "manager": "Sibusiso PL. Myeni",
+    "directorate": "Community Services",
+    "reportTo": "Sibusiso PL. Myeni",
+    "level": "10"
   },
   {
     "id": "2c3e3ee8-56d4-43d9-bc90-91d9d6d2ea38",
@@ -10024,18 +10039,18 @@
     "level": "1"
   },
   {
-    "id": "14071805-c511-458d-a144-84f37960d432",
-    "fullName": "Kanyane P. Mashamaite",
-    "email": "MashamaiteKP@nkangaladm.gov.za",
-    "jobFunction": "Repro Assistant",
+    "id": "fedd5571-cf35-42b4-b88c-7b5ca2fa1627",
+    "fullName": "Mark E. Maseko",
+    "email": "MasekoME@nkangaladm.gov.za",
+    "jobFunction": "HR Practitioner",
     "department": "Corporate Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "TC Mazwi",
+    "manager": "Jimmy Nhlapho",
     "directorate": "Corporate",
-    "reportTo": "",
-    "level": "1"
+    "reportTo": "Jimmy Nhlapho",
+    "level": "4"
   },
   {
     "id": "738317a2-8b39-4ff6-b37f-8079076df3e6",
@@ -10066,46 +10081,32 @@
     "level": "1"
   },
   {
-    "id": "a1c959e8-01e8-488f-a55f-e89a6d831f7c",
-    "fullName": "Manqoba T. Masilela",
-    "email": "MasilelaMT@nkangaladm.gov.za",
-    "jobFunction": "Multimedia Communication Officer",
+    "id": "d153248c-f694-40ce-9cad-73b795310255",
+    "fullName": "Thulisile S. Masimula",
+    "email": "masimulats@nkangaladm.gov.za",
+    "jobFunction": "Secretary to the MMCs",
     "department": "Corporate Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "",
-    "directorate": "",
-    "reportTo": "",
-    "level": "1"
+    "manager": "Thandiwe Mazwi",
+    "directorate": "Corporate Services",
+    "reportTo": "Thandiwe Mazwi",
+    "level": "9"
   },
   {
-    "id": "a3524308-fc00-4e5b-8dea-e1b2c851557f",
-    "fullName": "Bheki H. Mathenjwa",
-    "email": "MathenjwaBH@nkangaladm.gov.za",
+    "id": "ec493319-5168-46fa-b83b-71b77a30f9a2",
+    "fullName": "Sonia M. Mashile",
+    "email": "mashilesm@nkangaladm.gov.za",
     "jobFunction": "Environmental Health Practitioner",
     "department": "Community Development Services",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "Marianne Joubert",
+    "manager": "Priscilla Fenyane",
     "directorate": "Community Services",
-    "reportTo": "Marianne Joubert",
-    "level": "1"
-  },
-  {
-    "id": "7e0d3458-5de4-44cb-bab0-7231a00d8fc2",
-    "fullName": "Dorcas T. Mashiloane",
-    "email": "mashiloanedt@nkangaladm.gov.za",
-    "jobFunction": "Control Room Operator",
-    "department": "Community Development Services",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "Sibusiso PL. Myeni",
-    "directorate": "Community Services",
-    "reportTo": "Sibusiso PL. Myeni",
-    "level": "1"
+    "reportTo": "Priscilla Fenyane",
+    "level": "5"
   },
   {
     "id": "31477542-ac37-4734-a41f-5b329d5ac0d2",
@@ -10122,18 +10123,18 @@
     "level": "9"
   },
   {
-    "id": "fedd5571-cf35-42b4-b88c-7b5ca2fa1627",
-    "fullName": "Mark E. Maseko",
-    "email": "MasekoME@nkangaladm.gov.za",
-    "jobFunction": "HR Practitioner",
+    "id": "a1c959e8-01e8-488f-a55f-e89a6d831f7c",
+    "fullName": "Manqoba T. Masilela",
+    "email": "MasilelaMT@nkangaladm.gov.za",
+    "jobFunction": "Multimedia Communication Officer",
     "department": "Corporate Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "MJ Nhlapho",
-    "directorate": "Corporate",
-    "reportTo": "",
-    "level": "1"
+    "manager": "Phaswana K. Madihlaba",
+    "directorate": "",
+    "reportTo": "Phaswana K. Madihlaba",
+    "level": "9"
   },
   {
     "id": "96cd8344-64af-4a3b-ab03-2398291aff0f",
@@ -10164,18 +10165,18 @@
     "level": "9"
   },
   {
-    "id": "d153248c-f694-40ce-9cad-73b795310255",
-    "fullName": "Thulisile S. Masimula",
-    "email": "masimulats@nkangaladm.gov.za",
-    "jobFunction": "Secretary to the MMCs",
+    "id": "ac54fa94-00d8-4e44-9dc7-3d0bcae4d75a",
+    "fullName": "Martha Maseko",
+    "email": "MasekoM@nkangaladm.gov.za",
+    "jobFunction": "Secretary to Council Whip",
     "department": "Corporate Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Thandiwe Mazwi",
-    "directorate": "Corporate Services",
-    "reportTo": "Thandiwe Mazwi",
-    "level": "1"
+    "manager": "Meshack S. Dimpe",
+    "directorate": "Corporate",
+    "reportTo": "Meshack S. Dimpe",
+    "level": "9"
   },
   {
     "id": "e0422c2b-dbbc-40ca-9254-23bbaabc90d7",
@@ -10290,18 +10291,18 @@
     "level": "1"
   },
   {
-    "id": "47975525-6d26-4fab-b24e-e228a25b4149",
-    "fullName": "Linah Mashiane",
-    "email": "mashianelt@nkangaladm.gov.za",
-    "jobFunction": "Clerk Grade I: Projects",
-    "department": "Finance Services",
+    "id": "0352bcd3-4cc1-42c3-908d-b1f42e43b6fa",
+    "fullName": "Saya Masango",
+    "email": "MasangoSS@nkangaladm.gov.za",
+    "jobFunction": "Engineering Technician",
+    "department": "Technical Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "EM Khanye ",
-    "directorate": "Finance",
-    "reportTo": "",
-    "level": "1"
+    "manager": "Sipokazi Wakeni",
+    "directorate": "Technical",
+    "reportTo": "Sipokazi Wakeni",
+    "level": "5"
   },
   {
     "id": "5ba0e555-c8e1-445a-8ceb-47439fa7c63f",
@@ -10332,18 +10333,32 @@
     "level": "1"
   },
   {
-    "id": "e10bdb01-8d69-418d-b834-8bc84b189a5e",
-    "fullName": "Njabulo H. Mathebula",
-    "email": "MathebulaNH@nkangaladm.gov.za",
-    "jobFunction": "Secretary Technical Services",
+    "id": "76fe3208-6198-4b59-a258-dfab2396ab38",
+    "fullName": "Katlego Masemola",
+    "email": "masemolak@nkangaladm.gov.za",
+    "jobFunction": "Internal Auditor",
+    "department": "Internal Audit",
+    "source": "azure_ad",
+    "role": "Standard User",
+    "tenantId": "nkangala_auto",
+    "manager": "Jayvanti Morar",
+    "directorate": "Office of the MM",
+    "reportTo": "Jayvanti Morar",
+    "level": "5"
+  },
+  {
+    "id": "14071805-c511-458d-a144-84f37960d432",
+    "fullName": "Kanyane P. Mashamaite",
+    "email": "MashamaiteKP@nkangaladm.gov.za",
+    "jobFunction": "Repro Assistant",
     "department": "Corporate Services",
     "source": "azure_ad",
-    "role": "tenant_user",
+    "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "SM Tseka",
-    "directorate": "Technical",
-    "reportTo": "",
-    "level": "1"
+    "manager": "Thandiwe Mazwi",
+    "directorate": "Corporate",
+    "reportTo": "Thandiwe Mazwi",
+    "level": "9"
   },
   {
     "id": "79e67dd1-fa73-4900-b210-248d34d3cff4",
@@ -10360,18 +10375,18 @@
     "level": "1"
   },
   {
-    "id": "9d50d445-87ed-4028-bc53-3796d1afec04",
-    "fullName": "Tiisetso S. Mathere",
-    "email": "MathereTS@nkangaladm.gov.za",
-    "jobFunction": "Accounting Clerk Creditors",
-    "department": "Finance Services",
+    "id": "79e73c9e-d665-4daf-8731-02c0e54263ef",
+    "fullName": "Thandiwe Mazwi",
+    "email": "mazwitc@nkangaladm.gov.za",
+    "jobFunction": "Divisional Manager : Records",
+    "department": "Corporate Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Eloise Prinsloo",
-    "directorate": "Finance",
-    "reportTo": "",
-    "level": "1"
+    "manager": "Nkululeko Motshwene",
+    "directorate": "Corporate",
+    "reportTo": "Nkululeko Motshwene",
+    "level": "3"
   },
   {
     "id": "fb43c5b0-bc05-4017-ba04-09aa1bfc6aed",
@@ -10458,18 +10473,18 @@
     "level": "1"
   },
   {
-    "id": "201738b0-cd45-4300-b41d-767736d14868",
-    "fullName": "Maria E. Matladi",
-    "email": "MatladiME@nkangaladm.gov.za",
-    "jobFunction": "Development Control Planner",
-    "department": "Planning and Economic Development",
+    "id": "4c2ccf07-c11f-4d9c-b376-ed77533d50e0",
+    "fullName": "Noluthando Mbulawa",
+    "email": "mbulawan@nkangaladm.gov.za",
+    "jobFunction": "Environmental Health Practitioner",
+    "department": "Community Development Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Vusumuzi Sibonela Khubeka",
-    "directorate": "PED",
-    "reportTo": "",
-    "level": "1"
+    "manager": "Alfred S. Magampe",
+    "directorate": "Community Services",
+    "reportTo": "Alfred S. Magampe",
+    "level": "6"
   },
   {
     "id": "012f2f34-5461-4e07-b869-d030ce3cca03",
@@ -10486,18 +10501,18 @@
     "level": "1"
   },
   {
-    "id": "79e73c9e-d665-4daf-8731-02c0e54263ef",
-    "fullName": "Thandiwe Mazwi",
-    "email": "mazwitc@nkangaladm.gov.za",
-    "jobFunction": "Divisional Manager : Records",
-    "department": "Corporate Services",
+    "id": "201738b0-cd45-4300-b41d-767736d14868",
+    "fullName": "Maria E. Matladi",
+    "email": "MatladiME@nkangaladm.gov.za",
+    "jobFunction": "Development Control Planner",
+    "department": "Planning and Economic Development",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "NM Motshwene",
-    "directorate": "Corporate",
-    "reportTo": "",
-    "level": "3"
+    "manager": "Vusumuzi S. Kubheka",
+    "directorate": "PED",
+    "reportTo": "Vusumuzi S. Kubheka",
+    "level": "4"
   },
   {
     "id": "b79cd5f3-b7d2-44e4-a4c7-76d20763b3c8",
@@ -10550,10 +10565,10 @@
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "",
+    "manager": "Sipho Masilela",
     "directorate": "",
-    "reportTo": "",
-    "level": "1"
+    "reportTo": "Cedrick Makitla",
+    "level": "9"
   },
   {
     "id": "5a806881-2309-4420-985a-0c9e045e982b",
@@ -10612,9 +10627,9 @@
     "level": "1"
   },
   {
-    "id": "4c2ccf07-c11f-4d9c-b376-ed77533d50e0",
-    "fullName": "Noluthando Mbulawa",
-    "email": "mbulawan@nkangaladm.gov.za",
+    "id": "1a63467d-7803-4c0c-bf9d-d2ef1699699a",
+    "fullName": "Nokuthula C. Mkhabela",
+    "email": "mkhabelanc@nkangaladm.gov.za",
     "jobFunction": "Environmental Health Practitioner",
     "department": "Community Development Services",
     "source": "azure_ad",
@@ -10623,7 +10638,7 @@
     "manager": "Alfred S. Magampe",
     "directorate": "Community Services",
     "reportTo": "Alfred S. Magampe",
-    "level": "1"
+    "level": "6"
   },
   {
     "id": "8446eb03-2020-4378-b286-1c9dba6e51d8",
@@ -10666,6 +10681,20 @@
     "directorate": "",
     "reportTo": "",
     "level": "1"
+  },
+  {
+    "id": "b94242dc-cb97-4d5a-9c33-06791308087f",
+    "fullName": "Chantel Mnguni",
+    "email": "MnguniC@nkangaladm.gov.za",
+    "jobFunction": "Expenditure Salaries Clerk",
+    "department": "Finance Services",
+    "source": "azure_ad",
+    "role": "Standard User",
+    "tenantId": "nkangala_auto",
+    "manager": "Tatswane C. Kwakwa",
+    "directorate": "Finance",
+    "reportTo": "Tatswane C. Kwakwa",
+    "level": "7"
   },
   {
     "id": "e5a85638-90c0-4ea5-b9b0-c571cb08ab13",
@@ -10738,20 +10767,6 @@
     "level": "1"
   },
   {
-    "id": "1a63467d-7803-4c0c-bf9d-d2ef1699699a",
-    "fullName": "Nokuthula C. Mkhabela",
-    "email": "mkhabelanc@nkangaladm.gov.za",
-    "jobFunction": "Environmental Health Practitioner",
-    "department": "Community Development Services",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "Alfred S. Magampe",
-    "directorate": "Community Services",
-    "reportTo": "Alfred S. Magampe",
-    "level": "1"
-  },
-  {
     "id": "03db3103-5edd-4f20-adbc-86b4bce1ed10",
     "fullName": "Albertina Mkhari",
     "email": "MkhariA@nkangaladm.gov.za",
@@ -10794,18 +10809,18 @@
     "level": "9"
   },
   {
-    "id": "b94242dc-cb97-4d5a-9c33-06791308087f",
-    "fullName": "Chantel Mnguni",
-    "email": "MnguniC@nkangaladm.gov.za",
-    "jobFunction": "Expenditure Salaries Clerk",
+    "id": "cf4a66d7-e538-4701-bcdb-644dadc23eee",
+    "fullName": "Nolwazi MB. Mathibela",
+    "email": "MathibelaNMB@nkangaladm.gov.za",
+    "jobFunction": "Snr Accounting Clerk Assets",
     "department": "Finance Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Kwakwa TC",
+    "manager": "Nirupa Parbhoo",
     "directorate": "Finance",
-    "reportTo": "",
-    "level": "1"
+    "reportTo": "Nirupa Parbhoo",
+    "level": "6"
   },
   {
     "id": "a99f95d3-f5a3-470d-a0d2-fba734db7be6",
@@ -10878,18 +10893,18 @@
     "level": "1"
   },
   {
-    "id": "cf4a66d7-e538-4701-bcdb-644dadc23eee",
-    "fullName": "Nolwazi MB. Mathibela",
-    "email": "MathibelaNMB@nkangaladm.gov.za",
-    "jobFunction": "Snr Accounting Clerk Assets",
+    "id": "9d50d445-87ed-4028-bc53-3796d1afec04",
+    "fullName": "Tiisetso S. Mathere",
+    "email": "MathereTS@nkangaladm.gov.za",
+    "jobFunction": "Accounting Clerk Creditors",
     "department": "Finance Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "N Parbhoo",
+    "manager": "Eloise Prinsloo",
     "directorate": "Finance",
-    "reportTo": "",
-    "level": "1"
+    "reportTo": "Eloise Prinsloo",
+    "level": "9"
   },
   {
     "id": "813dcf82-bcce-410f-bb59-82e99368ef83",
@@ -10962,18 +10977,18 @@
     "level": "1"
   },
   {
-    "id": "ff8907b4-995c-4b0f-9532-1eeff30c360a",
-    "fullName": "Nkululeko Motshwene",
-    "email": "motshwenenm@nkangaladm.gov.za",
-    "jobFunction": "Manager: Corporate Services",
-    "department": "Corporate Services",
+    "id": "f1a282b9-490f-4a6b-9672-5664c634acbc",
+    "fullName": "Jayvanti Morar",
+    "email": "MorarJ@nkangaladm.gov.za",
+    "jobFunction": "Internal Auditor",
+    "department": "Internal Audit",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "ML Mahlangu",
-    "directorate": "Corporate",
-    "reportTo": "",
-    "level": "2"
+    "manager": "Amos D. Twala",
+    "directorate": "Office of the Municipal Manager",
+    "reportTo": "Amos D. Twala",
+    "level": "4"
   },
   {
     "id": "f6b02e2f-f6c3-42e8-a2f6-ae8c51bd7af5",
@@ -11004,18 +11019,18 @@
     "level": "9"
   },
   {
-    "id": "f1a282b9-490f-4a6b-9672-5664c634acbc",
-    "fullName": "Jayvanti Morar",
-    "email": "MorarJ@nkangaladm.gov.za",
-    "jobFunction": "Internal Auditor",
-    "department": "Internal Audit",
+    "id": "716dbd99-6781-424c-baf8-460116572fb3",
+    "fullName": "Reginah M. Mokwena",
+    "email": "MokwenaRM@nkangaladm.gov.za",
+    "jobFunction": "Information Security Officer",
+    "department": "Information and Communication Technology",
     "source": "azure_ad",
-    "role": "tenant_user",
+    "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Kgomotso Gwangwa",
-    "directorate": "Office of the MM",
-    "reportTo": "",
-    "level": "1"
+    "manager": "Bongani S. Khumalo",
+    "directorate": "Office of the Municipal Manager",
+    "reportTo": "Nokuthula D. Mthimunye",
+    "level": "5"
   },
   {
     "id": "001cfc74-701d-4b52-a3cb-11968edfd8bb",
@@ -11074,32 +11089,32 @@
     "level": "1"
   },
   {
-    "id": "2a1903f5-ed86-4c9a-9d8e-0dff7280b9d7",
-    "fullName": "Refilwe C. Motlhabane",
-    "email": "motlhabanerc@nkangaladm.gov.za",
-    "jobFunction": "Administrator:Technical Services",
-    "department": "Technical Services",
+    "id": "ff8907b4-995c-4b0f-9532-1eeff30c360a",
+    "fullName": "Nkululeko Motshwene",
+    "email": "motshwenenm@nkangaladm.gov.za",
+    "jobFunction": "Manager: Corporate Services",
+    "department": "Corporate Services",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "AJ Skosana",
-    "directorate": "Technical",
-    "reportTo": "",
-    "level": "1"
+    "manager": "Mmaphiri R. Rampedi",
+    "directorate": "Corporate",
+    "reportTo": "Mmaphiri R. Rampedi",
+    "level": "2"
   },
   {
-    "id": "504d6c7e-68dc-4e8a-94b9-68f7a3cc02f2",
-    "fullName": "Asnath M. Motau",
-    "email": "motauam@nkangaladm.gov.za",
-    "jobFunction": "Supply Chain Officer",
+    "id": "c63600bc-6aa9-4cdf-8c08-6f85e25d64e8",
+    "fullName": "Patience P. Motebu",
+    "email": "motebupp@nkangaladm.gov.za",
+    "jobFunction": "Clerical  Assistant: Asset Management",
     "department": "Finance Services",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "SI Masilela",
+    "manager": "Nirupa Parbhoo",
     "directorate": "Finance",
-    "reportTo": "",
-    "level": "1"
+    "reportTo": "Nirupa Parbhoo",
+    "level": "6"
   },
   {
     "id": "15acf15c-860e-4161-b0cb-bcdba5879135",
@@ -11200,18 +11215,18 @@
     "level": "1"
   },
   {
-    "id": "c2614abf-21d0-4d4d-bea0-8d85dc55a35d",
-    "fullName": "Mokgadi Mokgolomotho",
-    "email": "mokgolomothome@nkangaladm.gov.za",
-    "jobFunction": "Senior Engineering Techncian",
+    "id": "2a1903f5-ed86-4c9a-9d8e-0dff7280b9d7",
+    "fullName": "Refilwe C. Motlhabane",
+    "email": "motlhabanerc@nkangaladm.gov.za",
+    "jobFunction": "Administrator:Technical Services",
     "department": "Technical Services",
     "source": "azure_ad",
-    "role": "tenant_user",
+    "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Sanele Nkosi",
+    "manager": "Jackson Skosana",
     "directorate": "Technical",
-    "reportTo": "",
-    "level": "1"
+    "reportTo": "Jackson Skosana",
+    "level": "7"
   },
   {
     "id": "b00d0c9e-092d-4d3f-b811-993356a69e36",
@@ -11270,18 +11285,18 @@
     "level": "1"
   },
   {
-    "id": "716dbd99-6781-424c-baf8-460116572fb3",
-    "fullName": "Reginah M. Mokwena",
-    "email": "MokwenaRM@nkangaladm.gov.za",
-    "jobFunction": "Information Security Officer",
-    "department": "Information and Communication Technology",
+    "id": "504d6c7e-68dc-4e8a-94b9-68f7a3cc02f2",
+    "fullName": "Asnath M. Motau",
+    "email": "motauam@nkangaladm.gov.za",
+    "jobFunction": "Supply Chain Officer",
+    "department": "Finance Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Bongani S. Khumalo",
-    "directorate": "Office of the Municipal Manager",
-    "reportTo": "Nokuthula D. Mthimunye",
-    "level": "1"
+    "manager": "Sipho Masilela",
+    "directorate": "Finance",
+    "reportTo": "Sipho Masilela",
+    "level": "5"
   },
   {
     "id": "7876e9bf-35e2-4efa-978f-797dd1dab44a",
@@ -11332,7 +11347,7 @@
     "jobFunction": "Accountant Expenditure",
     "department": "Finance Services",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
     "manager": "Trudie Van Niekerk",
     "directorate": "Finance",
@@ -11354,18 +11369,18 @@
     "level": "1"
   },
   {
-    "id": "c63600bc-6aa9-4cdf-8c08-6f85e25d64e8",
-    "fullName": "Patience P. Motebu",
-    "email": "motebupp@nkangaladm.gov.za",
-    "jobFunction": "Clerical  Assistant: Asset Management",
-    "department": "Finance Services",
+    "id": "c2614abf-21d0-4d4d-bea0-8d85dc55a35d",
+    "fullName": "Mokgadi Mokgolomotho",
+    "email": "mokgolomothome@nkangaladm.gov.za",
+    "jobFunction": "Senior Engineering Techncian",
+    "department": "Technical Services",
     "source": "azure_ad",
     "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "Nirupa Parbhoo",
-    "directorate": "Finance",
-    "reportTo": "",
-    "level": "1"
+    "manager": "Sanele Nkosi",
+    "directorate": "Technical",
+    "reportTo": "Sanele Nkosi",
+    "level": "4"
   },
   {
     "id": "c0c3cb21-9f72-4294-adfb-faee8cad68ab",
@@ -11376,10 +11391,10 @@
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Nompumelelo Simelane",
+    "manager": "Isaac B. Sindane",
     "directorate": "Community Services",
-    "reportTo": "Nompumelelo Simelane",
-    "level": "3"
+    "reportTo": "Isaac B. Sindane",
+    "level": "5"
   },
   {
     "id": "683c4c0b-ae3c-4b09-bc4e-2562c756eb83",
@@ -11410,18 +11425,18 @@
     "level": "1"
   },
   {
-    "id": "8e752579-61e5-4c96-9be5-c8e31b695a2a",
-    "fullName": "Nokuthula D. Mthimunye",
-    "email": "MthimunyeDMN@nkangaladm.gov.za",
-    "jobFunction": "Senior IT Administrator",
-    "department": "Information and Communication Technology",
+    "id": "42b8ddf0-979d-4238-a088-53d583956b33",
+    "fullName": "Ali S. Msiza",
+    "email": "MsizaAS@nkangaladm.gov.za",
+    "jobFunction": "Manager Finance",
+    "department": "Finance Services",
     "source": "azure_ad",
-    "role": "tenant_user",
+    "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Bongani S. Khumalo",
-    "directorate": "Office of the Municipal Manager",
-    "reportTo": "Bongani S. Khumalo",
-    "level": "1"
+    "manager": "Alice Stander",
+    "directorate": "Finance",
+    "reportTo": "Alice L. Stander",
+    "level": "2"
   },
   {
     "id": "1e97bd54-64ab-4ed2-9fb2-22d0aaba8c2a",
@@ -11452,18 +11467,32 @@
     "level": "1"
   },
   {
-    "id": "fbb273a9-dec2-457c-8e4c-b3c843ac94d5",
-    "fullName": "Tebogo Mphela",
-    "email": "Mphelat@nkangaladm.gov.za",
-    "jobFunction": "Data Capturing Clerk II (Expenditure)",
-    "department": "Finance Services",
+    "id": "3bb27829-5916-4e5f-b17c-fc6b7371c235",
+    "fullName": "Sthembile C. Mpanza",
+    "email": "mpanzacs@nkangaladm.gov.za",
+    "jobFunction": "Internal Auditor",
+    "department": "Internal Audit",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Trudie Van Niekerk",
-    "directorate": "Finance",
-    "reportTo": "",
-    "level": "1"
+    "manager": "Amos D. Twala",
+    "directorate": "Office of the MM",
+    "reportTo": "Jayvanti Morar",
+    "level": "5"
+  },
+  {
+    "id": "3e4a9545-aa7a-44c4-8828-157a530684af",
+    "fullName": "Sibusiso PL. Myeni",
+    "email": "myenispl@nkangaladm.gov.za",
+    "jobFunction": "Disaster Management Officer",
+    "department": "Community Development Services",
+    "source": "azure_ad",
+    "role": "tenant_user",
+    "tenantId": "nkangala_auto",
+    "manager": "Elmon Nkosi",
+    "directorate": "Community Services",
+    "reportTo": "Elmon Nkosi",
+    "level": "5"
   },
   {
     "id": "694653b9-6bf0-4145-887c-5fd401c2b6c5",
@@ -11522,18 +11551,18 @@
     "level": "1"
   },
   {
-    "id": "dd4f423e-6943-406c-8c66-6a8fbc195e27",
-    "fullName": "Walter M. Mtshweni",
-    "email": "MtshweniWM@nkangaladm.gov.za",
-    "jobFunction": "General Manager: Technical Services",
-    "department": "Technical Services",
+    "id": "4139c101-e8fd-49ca-a882-ea14f0f1d823",
+    "fullName": "Tumisho Motshwene",
+    "email": "motshwenetp@nkangaladm.gov.za",
+    "jobFunction": "Digital edia and Marketing Officer",
+    "department": "Corporate Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "",
-    "directorate": "",
-    "reportTo": "",
-    "level": "1"
+    "manager": "Phaswana K. Madihlaba",
+    "directorate": "Corporate",
+    "reportTo": "Phaswana K. Madihlaba",
+    "level": "9"
   },
   {
     "id": "88c4c8d0-e179-443e-985c-3d56916c11d3",
@@ -11542,12 +11571,12 @@
     "jobFunction": "Disability, Gender & Elderly Coordinator",
     "department": "Community Development Services",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "Zwelakhe C. Kubheka",
+    "manager": "Headman Skosana",
     "directorate": "Community Services",
-    "reportTo": "Zwelakhe C. Kubheka",
-    "level": "1"
+    "reportTo": "Headman Skosana",
+    "level": "4"
   },
   {
     "id": "c07320c5-5098-4583-a7b2-475978d46d6a",
@@ -11564,17 +11593,17 @@
     "level": "1"
   },
   {
-    "id": "af16eeea-1eec-4117-a1ad-b1ce0b9ce9a6",
-    "fullName": "Herman D. Mpofu",
-    "email": "MpofuHD@nkangaladm.gov.za",
-    "jobFunction": "Control Room Operator",
+    "id": "c3ba0e90-bdc8-401a-b504-e1a6b3c28975",
+    "fullName": "Ntokozo M. Mthethwa",
+    "email": "MthethwaNM@nkangaladm.gov.za",
+    "jobFunction": "Environmental Health Practictioner: Emalahleni",
     "department": "Community Development Services",
     "source": "azure_ad",
-    "role": "tenant_user",
+    "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Sibusiso PL. Myeni",
+    "manager": "Priscilla Fenyane",
     "directorate": "Community Services",
-    "reportTo": "Sibusiso PL. Myeni",
+    "reportTo": "Priscilla Fenyane",
     "level": "1"
   },
   {
@@ -11620,32 +11649,32 @@
     "level": "1"
   },
   {
-    "id": "4139c101-e8fd-49ca-a882-ea14f0f1d823",
-    "fullName": "Tumisho Motshwene",
-    "email": "motshwenetp@nkangaladm.gov.za",
-    "jobFunction": "Digital edia and Marketing Officer",
+    "id": "7a0f2ef2-9d43-4f4f-814d-9a5f62810198",
+    "fullName": "Beauty Mtshali",
+    "email": "Mtshalinb@nkangaladm.gov.za",
+    "jobFunction": "Administrative Officer",
     "department": "Corporate Services",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "Phaswana Kgomotso Madihlaba",
-    "directorate": "Corporate",
-    "reportTo": "",
-    "level": "1"
+    "manager": "Thandiwe Mazwi",
+    "directorate": "",
+    "reportTo": "Thandiwe Mazwi",
+    "level": "7"
   },
   {
-    "id": "42b8ddf0-979d-4238-a088-53d583956b33",
-    "fullName": "Ali S. Msiza",
-    "email": "MsizaAS@nkangaladm.gov.za",
-    "jobFunction": "Manager Finance",
+    "id": "fbb273a9-dec2-457c-8e4c-b3c843ac94d5",
+    "fullName": "Tebogo Mphela",
+    "email": "Mphelat@nkangaladm.gov.za",
+    "jobFunction": "Data Capturing Clerk II (Expenditure)",
     "department": "Finance Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Alice Stander",
+    "manager": "Trudie Van Niekerk",
     "directorate": "Finance",
-    "reportTo": "",
-    "level": "2"
+    "reportTo": "Trudie Van Niekerk",
+    "level": "10"
   },
   {
     "id": "16613b79-6239-40f4-810b-0a9262074c54",
@@ -11662,45 +11691,59 @@
     "level": "1"
   },
   {
-    "id": "3e4a9545-aa7a-44c4-8828-157a530684af",
-    "fullName": "Sibusiso PL. Myeni",
-    "email": "myenispl@nkangaladm.gov.za",
-    "jobFunction": "Disaster Management Officer",
+    "id": "af16eeea-1eec-4117-a1ad-b1ce0b9ce9a6",
+    "fullName": "Herman D. Mpofu",
+    "email": "MpofuHD@nkangaladm.gov.za",
+    "jobFunction": "Control Room Operator",
     "department": "Community Development Services",
     "source": "azure_ad",
     "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "Elmon Nkosi",
+    "manager": "Sibusiso PL. Myeni",
     "directorate": "Community Services",
-    "reportTo": "Elmon Nkosi",
-    "level": "1"
+    "reportTo": "Sibusiso PL. Myeni",
+    "level": "10"
   },
   {
-    "id": "c3ba0e90-bdc8-401a-b504-e1a6b3c28975",
-    "fullName": "Ntokozo M. Mthethwa",
-    "email": "MthethwaNM@nkangaladm.gov.za",
-    "jobFunction": "Environmental Health Practictioner: Emalahleni",
+    "id": "f6906238-4cdd-474a-8829-b185ec03483d",
+    "fullName": "Nqobile S. Mtsweni",
+    "email": "MtsweniNS@nkangaladm.gov.za",
+    "jobFunction": "Web Administrator",
+    "department": "Information and Communication Technology",
+    "source": "azure_ad",
+    "role": "tenant_user",
+    "tenantId": "nkangala_auto",
+    "manager": "Bongani S. Khumalo",
+    "directorate": "Office of the Municipal Manager",
+    "reportTo": "Nokuthula D. Mthimunye",
+    "level": "6"
+  },
+  {
+    "id": "2c0f3b4e-f73e-435b-9f5c-946ce11b8f04",
+    "fullName": "Steven Mtsweni",
+    "email": "MtsweniS@nkangaladm.gov.za",
+    "jobFunction": "Senior Environmental Health Practioner",
     "department": "Community Development Services",
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Priscilla Fenyane",
-    "directorate": "Community Services",
-    "reportTo": "Priscilla Fenyane",
-    "level": "1"
+    "manager": "Alfred S. Magampe",
+    "directorate": "",
+    "reportTo": "Alfred S. Magampe",
+    "level": "5"
   },
   {
-    "id": "c443dc4a-2bb7-4b2a-81d5-975b0d0f55a2",
-    "fullName": "Johannes MT. Tlou",
-    "email": "Tloujmt@nkangaladm.gov.za",
-    "jobFunction": "Chief Environmental Health Practitioner",
-    "department": "Community Development Services",
+    "id": "dd4f423e-6943-406c-8c66-6a8fbc195e27",
+    "fullName": "Walter M. Mtshweni",
+    "email": "MtshweniWM@nkangaladm.gov.za",
+    "jobFunction": "General Manager: Technical Services",
+    "department": "Technical Services",
     "source": "azure_ad",
     "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "Solly Links",
-    "directorate": "Community Services",
-    "reportTo": "Solly Links",
+    "manager": "Mandla L. Mahlangu",
+    "directorate": "",
+    "reportTo": "Mandla L. Mahlangu",
     "level": "1"
   },
   {
@@ -11740,24 +11783,10 @@
     "source": "azure_ad",
     "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "Maphalala NP",
+    "manager": "Nomsa Maphalala",
     "directorate": "Finance",
-    "reportTo": "",
-    "level": "1"
-  },
-  {
-    "id": "85baaf58-8313-46ef-8f4f-3884efa5a31f",
-    "fullName": "Lucky Msoki",
-    "email": "msokilt@nkangaladm.gov.za",
-    "jobFunction": "Engineering Technician",
-    "department": "Technical Services",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "Mokgadi Elaine Mokgolomotho",
-    "directorate": "Technical",
-    "reportTo": "",
-    "level": "1"
+    "reportTo": "Nomsa Maphalala",
+    "level": "7"
   },
   {
     "id": "3e7763f6-99cd-4d55-82d4-8b897afbf908",
@@ -11774,46 +11803,46 @@
     "level": "1"
   },
   {
-    "id": "3bb27829-5916-4e5f-b17c-fc6b7371c235",
-    "fullName": "Sthembile C. Mpanza",
-    "email": "mpanzacs@nkangaladm.gov.za",
-    "jobFunction": "Internal Auditor",
-    "department": "Internal Audit",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "Kgomotso Gwangwa",
-    "directorate": "Office of the MM",
-    "reportTo": "",
-    "level": "1"
-  },
-  {
-    "id": "2c0f3b4e-f73e-435b-9f5c-946ce11b8f04",
-    "fullName": "Steven Mtsweni",
-    "email": "MtsweniS@nkangaladm.gov.za",
-    "jobFunction": "Senior Environmental Health Practioner",
-    "department": "Community Development Services",
-    "source": "azure_ad",
-    "role": "Standard User",
-    "tenantId": "nkangala_auto",
-    "manager": "",
-    "directorate": "",
-    "reportTo": "",
-    "level": "1"
-  },
-  {
-    "id": "7a0f2ef2-9d43-4f4f-814d-9a5f62810198",
-    "fullName": "Beauty Mtshali",
-    "email": "Mtshalinb@nkangaladm.gov.za",
-    "jobFunction": "Administrative Officer",
-    "department": "Corporate Services",
+    "id": "8e752579-61e5-4c96-9be5-c8e31b695a2a",
+    "fullName": "Nokuthula D. Mthimunye",
+    "email": "MthimunyeDMN@nkangaladm.gov.za",
+    "jobFunction": "Senior IT Administrator",
+    "department": "Information and Communication Technology",
     "source": "azure_ad",
     "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "",
-    "directorate": "",
-    "reportTo": "",
-    "level": "1"
+    "manager": "Bongani S. Khumalo",
+    "directorate": "Office of the Municipal Manager",
+    "reportTo": "Bongani S. Khumalo",
+    "level": "4"
+  },
+  {
+    "id": "85baaf58-8313-46ef-8f4f-3884efa5a31f",
+    "fullName": "Lucky Msoki",
+    "email": "msokilt@nkangaladm.gov.za",
+    "jobFunction": "Engineering Technician",
+    "department": "Technical Services",
+    "source": "azure_ad",
+    "role": "tenant_user",
+    "tenantId": "nkangala_auto",
+    "manager": "Mokgadi Mokgolomotho",
+    "directorate": "Technical",
+    "reportTo": "Mokgadi Mokgolomotho",
+    "level": "5"
+  },
+  {
+    "id": "bd5000f9-6f02-4656-9e45-489afbaafbcf",
+    "fullName": "Sbongile L. Mtsweni",
+    "email": "mtswenisl@nkangaladm.gov.za",
+    "jobFunction": "Administrative Officer",
+    "department": "Planning and Economic Development",
+    "source": "azure_ad",
+    "role": "Standard User",
+    "tenantId": "nkangala_auto",
+    "manager": "Fortress Shabangu",
+    "directorate": "PED",
+    "reportTo": "Fortress Shabangu",
+    "level": "5"
   },
   {
     "id": "66a63ba9-436c-443a-89d0-799f490ef598",
@@ -11858,20 +11887,6 @@
     "level": "1"
   },
   {
-    "id": "f6906238-4cdd-474a-8829-b185ec03483d",
-    "fullName": "Nqobile S. Mtsweni",
-    "email": "MtsweniNS@nkangaladm.gov.za",
-    "jobFunction": "Web Administrator",
-    "department": "Information and Communication Technology",
-    "source": "azure_ad",
-    "role": "tenant_user",
-    "tenantId": "nkangala_auto",
-    "manager": "Bongani S. Khumalo",
-    "directorate": "Office of the Municipal Manager",
-    "reportTo": "Nokuthula D. Mthimunye",
-    "level": "1"
-  },
-  {
     "id": "447f7a5e-f8d4-4b18-9f23-bde2a53405e8",
     "fullName": "Bridgette M. Motsoeneng",
     "email": "motsoenengbm@nkangaladm.gov.za",
@@ -11882,21 +11897,21 @@
     "tenantId": "nkangala_auto",
     "manager": "Tiro Mabunda",
     "directorate": "PED",
-    "reportTo": "",
-    "level": "1"
+    "reportTo": "Tiro Mabunda",
+    "level": "7"
   },
   {
-    "id": "bd5000f9-6f02-4656-9e45-489afbaafbcf",
-    "fullName": "Sbongile L. Mtsweni",
-    "email": "mtswenisl@nkangaladm.gov.za",
-    "jobFunction": "Administrative Officer",
-    "department": "Planning and Economic Development",
+    "id": "c443dc4a-2bb7-4b2a-81d5-975b0d0f55a2",
+    "fullName": "Johannes MT. Tlou",
+    "email": "Tloujmt@nkangaladm.gov.za",
+    "jobFunction": "Chief Environmental Health Practitioner",
+    "department": "Community Development Services",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "F Shabangu",
-    "directorate": "PED",
-    "reportTo": "",
-    "level": "1"
+    "manager": "Solly Links",
+    "directorate": "Community Services",
+    "reportTo": "Solly Links",
+    "level": "4"
   }
 ]

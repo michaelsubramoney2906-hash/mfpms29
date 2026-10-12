@@ -70,18 +70,13 @@ export const isTargetNA = (val: string | undefined | null): boolean => {
 let globalReportingAssignmentsUnlocked = false;
 
 /**
- * Determines whether Submitter & Approver are unlocked in the SDBIP Top Layer reporting table.
+ * Submitter & Approver cells in the SDBIP Top Layer reporting table are permanently locked so existing assignments cannot be changed.
  */
-export const isKpiUnlockedForSubmitterApprover = (row: { refNum?: string; id?: string; kpi?: string } | null | undefined): boolean => {
-  const cleanRef = String(row?.refNum || (row as any)?.Ref_Number || '').trim().toUpperCase();
-  if (['M_81', 'M_82', 'M_83', 'M_84', 'M81', 'M82', 'M83', 'M84'].includes(cleanRef)) return false;
-  return globalReportingAssignmentsUnlocked; 
+export const isKpiUnlockedForSubmitterApprover = (_row?: { refNum?: string; id?: string; kpi?: string } | null | undefined): boolean => {
+  return false; 
 };
 
-export const isSubmitterApproverLockedInReporting = (row: { refNum?: string; id?: string; kpi?: string; adminLocked?: boolean; workflowStatus?: string } | null | undefined): boolean => {
-  const cleanRef = String(row?.refNum || (row as any)?.Ref_Number || '').trim().toUpperCase();
-  if (['M_81', 'M_82', 'M_83', 'M_84', 'M81', 'M82', 'M83', 'M84'].includes(cleanRef)) return true;
-  if (globalReportingAssignmentsUnlocked) return false;
+export const isSubmitterApproverLockedInReporting = (_row?: { refNum?: string; id?: string; kpi?: string; adminLocked?: boolean; workflowStatus?: string } | null | undefined): boolean => {
   return true; 
 };
 
@@ -601,7 +596,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
   const [workflowComments, setWorkflowComments] = useState('');
   const [workflowCommentsMap, setWorkflowCommentsMap] = useState<{[key: string]: string}>({});
   const [activeWorkflowTab, setActiveWorkflowTab] = useState<'submissions' | 'approvals' | 'reviews' | 'audits'>('submissions');
-  const [submissionFilter, setSubmissionFilter] = useState<'submitted' | 'all'>('submitted');
+  const [submissionFilter, setSubmissionFilter] = useState<'submitted' | 'all'>('all');
   const [showAllKpisInDesk, setShowAllKpisInDesk] = useState(true);
   const [isTableExpanded, setIsTableExpanded] = useState(false);
 
@@ -684,16 +679,20 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     const myPendingAudits = rows;
 
     if (activeWorkflowTab === 'submissions') {
-      const submissionsToRender = submissionFilter === 'submitted'
-        ? mySubmissions.filter(r => r.workflows?.[workflowPhase]?.status && r.workflows[workflowPhase].status !== 'draft')
-        : mySubmissions;
-      
-      if (submissionsToRender.length > 0) {
-        if (!selectedWorkflowRow || !submissionsToRender.some(r => r.id === selectedWorkflowRow.id)) {
-          setSelectedWorkflowRow(submissionsToRender[0]);
-        }
+      // If a row is currently selected and still exists in rows, preserve it!
+      // NEVER forcefully redirect away from a chosen KPI or overwrite with submissionsToRender[0]!
+      if (selectedWorkflowRow && rows.some(r => r.id === selectedWorkflowRow.id)) {
+        // Selection remains active and stable!
       } else {
-        setSelectedWorkflowRow(null);
+        const submissionsToRender = submissionFilter === 'submitted'
+          ? mySubmissions.filter(r => r.workflows?.[workflowPhase]?.status && r.workflows[workflowPhase].status !== 'draft')
+          : mySubmissions;
+        
+        if (submissionsToRender.length > 0) {
+          setSelectedWorkflowRow(submissionsToRender[0]);
+        } else {
+          setSelectedWorkflowRow(null);
+        }
       }
     } else if (activeWorkflowTab === 'reviews') {
       if (myPendingReviews.length > 0) {
@@ -2094,8 +2093,8 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
       }
     }
 
-    if (activeTab === 'reporting' && (field === 'submitter' || field === 'approver') && !isReportingAssignmentsUnlocked && !isSuperAdminMike) {
-      setSuccessToast(`Field Locked: Submitter and Approver assignments are locked in the reporting view for KPI ${targetRow?.refNum || ''} to preserve responsible personnel assignments.`);
+    if (activeTab === 'reporting' && (field === 'submitter' || field === 'approver')) {
+      setSuccessToast(`Field Locked: Submitter and Approver assignments are locked in the SDBIP Top Layer reporting table only so that current submitters and approvers cannot be changed.`);
       setTimeout(() => setSuccessToast(null), 4000);
       return;
     }
@@ -4356,6 +4355,11 @@ Timestamp: ${new Date().toLocaleString()}
                                               `KPI ${row.refNum} (${activeWorkflowPhaseLabel}) submitted for your approval.`,
                                               row.approver
                                             );
+                                            // Smoothly transition to next unsubmitted / draft KPI if available
+                                            const nextDraft = rows.find(r => r.id !== row.id && (!r.workflows?.[workflowPhase]?.status || r.workflows[workflowPhase].status === 'draft'));
+                                            if (nextDraft) {
+                                              setSelectedWorkflowRow(nextDraft);
+                                            }
                                           }}
                                           title={!isQuarterActive(workflowPhase) ? getQuarterLockNotice(workflowPhase) : "Submit for Approval"}
                                           className={`w-full md:w-auto px-4 py-2 text-xs font-bold rounded-lg transition shadow-xs inline-flex items-center justify-center gap-1.5 ${!isQuarterActive(workflowPhase) ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed' : 'bg-amber-600 text-white hover:bg-amber-700 cursor-pointer'}`}
@@ -5838,19 +5842,13 @@ Timestamp: ${new Date().toLocaleString()}
                     <span>{isPulling ? 'Pulling Data...' : 'Pull SDBIP Top Layer Data'}</span>
                   </button>
                 )}
-                <button
-                  type="button"
-                  onClick={handleToggleAssignmentsLock}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-all border ${
-                    isReportingAssignmentsUnlocked 
-                      ? 'bg-amber-500 hover:bg-amber-600 text-black border-amber-400' 
-                      : 'bg-slate-800 hover:bg-slate-900 text-white border-slate-700'
-                  }`}
-                  title="Unlock/Lock Submitter and Approver column assignments"
+                <div
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 bg-slate-100 border border-slate-300 text-slate-700 shadow-2xs select-none"
+                  title="Submitter and Approver cells in the SDBIP Top Layer reporting table are locked so current submitter and approver assignments cannot be changed."
                 >
-                  {isReportingAssignmentsUnlocked ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
-                  <span>{isReportingAssignmentsUnlocked ? 'Lock Assignments' : 'Unlock Submitter/Approver'}</span>
-                </button>
+                  <Lock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                  <span>Submitter & Approver: Locked</span>
+                </div>
                 <button 
                   type="button"
                   onClick={() => setIsFitAllReportingCells(!isFitAllReportingCells)}
@@ -6073,19 +6071,13 @@ Timestamp: ${new Date().toLocaleString()}
                       <Unlock className="w-3.5 h-3.5" />
                       <span>Unlock All Approved</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={handleToggleAssignmentsLock}
-                      className={`px-3 py-1.5 text-xs font-bold rounded-lg flex items-center gap-1.5 transition shadow-sm cursor-pointer border ${
-                        isReportingAssignmentsUnlocked
-                          ? 'bg-amber-400 hover:bg-amber-300 text-black border-amber-300 font-black'
-                          : 'bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-400/40'
-                      }`}
-                      title="Unlock / Lock Submitter and Approver assignment columns across the entire reporting table"
+                    <div
+                      className="px-3 py-1.5 text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-sm border bg-slate-900 text-slate-300 border-amber-500/40 select-none"
+                      title="Submitter and Approver cells in the SDBIP Top Layer reporting table are locked so current submitter and approver assignments cannot be changed."
                     >
-                      {isReportingAssignmentsUnlocked ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
-                      <span>{isReportingAssignmentsUnlocked ? 'Submitter/Approver: Unlocked' : 'Unlock Submitter & Approver'}</span>
-                    </button>
+                      <Lock className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Reporting Submitter/Approver: Locked</span>
+                    </div>
                     <button
                       type="button"
                       onClick={handleMasterUndoAllSubmissions}
@@ -6306,12 +6298,8 @@ Timestamp: ${new Date().toLocaleString()}
                           <span>SUBMITTER</span>
                           <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" />
                         </div>
-                        <span className={`text-[8px] font-mono font-bold px-1.5 py-0.5 rounded border ${
-                          isReportingAssignmentsUnlocked
-                            ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                            : 'bg-amber-100 text-amber-800 border-amber-300'
-                        }`}>
-                          {isReportingAssignmentsUnlocked ? 'UNLOCKED' : 'LOCKED'}
+                        <span className="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded border bg-amber-100 text-amber-800 border-amber-300 flex items-center gap-1">
+                          <Lock className="w-2 h-2 text-amber-600" /> LOCKED
                         </span>
                       </div>
                     </th>
@@ -6321,12 +6309,8 @@ Timestamp: ${new Date().toLocaleString()}
                           <span>APPROVER</span>
                           <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" />
                         </div>
-                        <span className={`text-[8px] font-mono font-bold px-1.5 py-0.5 rounded border ${
-                          isReportingAssignmentsUnlocked
-                            ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                            : 'bg-amber-100 text-amber-800 border-amber-300'
-                        }`}>
-                          {isReportingAssignmentsUnlocked ? 'UNLOCKED' : 'LOCKED'}
+                        <span className="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded border bg-amber-100 text-amber-800 border-amber-300 flex items-center gap-1">
+                          <Lock className="w-2 h-2 text-amber-600" /> LOCKED
                         </span>
                       </div>
                     </th>
@@ -7760,7 +7744,7 @@ Timestamp: ${new Date().toLocaleString()}
                       </td>
 
                       {/* Submitter */}
-                      <td className={`p-1.5 border-r border-slate-100 ${!isReportingAssignmentsUnlocked && !isSuperAdminMike ? 'bg-slate-100/40' : 'bg-emerald-50/20'}`}>
+                      <td className="p-1.5 border-r border-slate-100 bg-slate-100/50">
                         <div className="flex flex-col gap-1">
                           {(() => {
                             const isRowM81to84 = isQuarter1UnlockedKpi(row);
@@ -7772,15 +7756,13 @@ Timestamp: ${new Date().toLocaleString()}
                                   roleType="submitter"
                                   activeTenantId={activeTenantId}
                                   isFitAll={isFitAllReportingCells}
-                                  disabled={isRowM81to84 ? !isSuperAdminMike : (!isReportingAssignmentsUnlocked && !isSuperAdminMike)}
+                                  disabled={true}
                                 />
-                                {isRowM81to84 && (
-                                  <div className="flex items-center gap-1 justify-center">
-                                    <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 rounded bg-slate-200 text-slate-800 border border-slate-300 flex items-center gap-0.5 shadow-2xs">
-                                      <Lock className="w-2 h-2 text-slate-600" /> LOCKED: ANNAH MSIZA
-                                    </span>
-                                  </div>
-                                )}
+                                <div className="flex items-center gap-1 justify-center">
+                                  <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 rounded bg-slate-200 text-slate-800 border border-slate-300 flex items-center gap-0.5 shadow-2xs">
+                                    <Lock className="w-2 h-2 text-slate-600" /> LOCKED
+                                  </span>
+                                </div>
                               </>
                             );
                           })()}
@@ -7819,18 +7801,12 @@ Timestamp: ${new Date().toLocaleString()}
                               </span>
                             </div>
                           )}
-                          {!isQuarter1UnlockedKpi(row) && (isReportingAssignmentsUnlocked || isSuperAdminMike) && (
-                            <div className="flex items-center gap-1 justify-center">
-                              <span className="text-[8px] font-bold font-mono px-1 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
-                                UNLOCKED
-                              </span>
-                            </div>
-                          )}
+                          
                         </div>
                       </td>
 
                       {/* Approver */}
-                      <td className={`p-1.5 border-r border-slate-100 ${!isReportingAssignmentsUnlocked && !isSuperAdminMike ? 'bg-slate-100/40' : 'bg-emerald-50/20'}`}>
+                      <td className="p-1.5 border-r border-slate-100 bg-slate-100/50">
                         <div className="flex flex-col gap-1">
                           {(() => {
                             const isRowM81to84 = isQuarter1UnlockedKpi(row);
@@ -7842,15 +7818,13 @@ Timestamp: ${new Date().toLocaleString()}
                                   roleType="approver"
                                   activeTenantId={activeTenantId}
                                   isFitAll={isFitAllReportingCells}
-                                  disabled={isRowM81to84 ? !isSuperAdminMike : (!isReportingAssignmentsUnlocked && !isSuperAdminMike)}
+                                  disabled={true}
                                 />
-                                {isRowM81to84 && (
-                                  <div className="flex items-center gap-1 justify-center">
-                                    <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 rounded bg-slate-200 text-slate-800 border border-slate-300 flex items-center gap-0.5 shadow-2xs">
-                                      <Lock className="w-2 h-2 text-slate-600" /> LOCKED: THANDIWE M. LENGWATE
-                                    </span>
-                                  </div>
-                                )}
+                                <div className="flex items-center gap-1 justify-center">
+                                  <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 rounded bg-slate-200 text-slate-800 border border-slate-300 flex items-center gap-0.5 shadow-2xs">
+                                    <Lock className="w-2 h-2 text-slate-600" /> LOCKED
+                                  </span>
+                                </div>
                               </>
                             );
                           })()}

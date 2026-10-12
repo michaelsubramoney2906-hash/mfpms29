@@ -268,14 +268,15 @@ export function Reports({ currentUser, activeTenantId }: ReportsProps) {
   // Get current selected user's metadata and list items
   const selectedPlanObj = teamPlans.find(tp => tp.userId?.toLowerCase().trim() === selectedUserId.toLowerCase().trim());
   
+  const isShabanguReport = (selectedPlanObj?.userId || currentUser.email || '').toLowerCase().includes('shabangusm');
   const planMetadata = selectedPlanObj?.plan?.metadata || {
-    name: currentUser.fullName || "Noluthando Zulu",
-    email: currentUser.email || "zulune@nkangaladm.gov.za",
-    position: currentUser.role || "PMS Officer",
-    level: "Section 56 Senior Manager (Level 1)",
-    department: currentUser.department || "Performance Management Unit",
-    manager: "YK Khuboni",
-    managerEmail: "KhuboniY@nkangaladm.gov.za",
+    name: currentUser.fullName || (isShabanguReport ? "Sibusiso M. Shabangu" : "Noluthando Zulu"),
+    email: currentUser.email || (isShabanguReport ? "shabangusm@nkangaladm.gov.za" : "zulune@nkangaladm.gov.za"),
+    position: currentUser.role || (isShabanguReport ? "Divisional Manager: OPME & PMDS" : "PMS Officer"),
+    level: isShabanguReport ? "Level 3" : "Section 56 Senior Manager (Level 1)",
+    department: currentUser.department || (isShabanguReport ? "PMS" : "Performance Management Unit"),
+    manager: isShabanguReport ? "Mandla L. Mahlangu" : "YK Khuboni",
+    managerEmail: isShabanguReport ? "mahlanguml@nkangaladm.gov.za" : "KhuboniY@nkangaladm.gov.za",
     period: "2025/2026 Financial Year"
   };
 

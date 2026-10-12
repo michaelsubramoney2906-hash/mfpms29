@@ -470,7 +470,11 @@ export function DepartmentModerationIPMS({ currentUser, activeTenantId }: Props)
         const mgrLog = payload.metadata.history.find((h: any) => h.role?.toLowerCase().includes('manager') || h.userEmail?.includes('khuboni'));
         if (mgrLog) managerEmail = mgrLog.userEmail;
       }
-      if (!managerEmail) managerEmail = 'khuboniy@nkangaladm.gov.za';
+      if (employeeEmail.toLowerCase().includes('shabangusm')) {
+        managerEmail = 'mahlanguml@nkangaladm.gov.za';
+      } else if (!managerEmail) {
+        managerEmail = 'khuboniy@nkangaladm.gov.za';
+      }
 
       const dpmcRecipients = [
         { email: employeeEmail, name: employeeName },
@@ -565,7 +569,11 @@ export function DepartmentModerationIPMS({ currentUser, activeTenantId }: Props)
         const mgrLog = updatedPPlan.metadata.history.find((h: any) => h.role?.toLowerCase().includes('manager') || h.userEmail?.includes('khuboni'));
         if (mgrLog) managerEmail = mgrLog.userEmail;
       }
-      if (!managerEmail) managerEmail = 'khuboniy@nkangaladm.gov.za';
+      if (employeeEmail.toLowerCase().includes('shabangusm')) {
+        managerEmail = 'mahlanguml@nkangaladm.gov.za';
+      } else if (!managerEmail) {
+        managerEmail = 'khuboniy@nkangaladm.gov.za';
+      }
 
       const dpmcRecipients = [
         { email: employeeEmail, name: employeeName },

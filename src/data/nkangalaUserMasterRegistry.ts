@@ -129,7 +129,7 @@ export const NKANGALA_USER_MASTER_REGISTRY: Record<string, UserRegistryCount> = 
   "phetlavm@nkangaladm.gov.za": { email: "phetlavm@nkangaladm.gov.za", kpis: 15, kpas: 5, jscs: 5, pdps: 0 },
   "mogodinr@nkangaladm.gov.za": { email: "mogodinr@nkangaladm.gov.za", kpis: 17, kpas: 5, jscs: 5, pdps: 0 },
   "rakauj@nkangaladm.gov.za": { email: "rakauj@nkangaladm.gov.za", kpis: 26, kpas: 6, jscs: 5, pdps: 0 },
-  "seeranepL@nkangaladm.gov.za": { email: "seeranepL@nkangaladm.gov.za", kpis: 18, kpas: 5, jscs: 5, pdps: 2 },
+  "seeranepl@nkangaladm.gov.za": { email: "seeranepl@nkangaladm.gov.za", kpis: 18, kpas: 5, jscs: 5, pdps: 2 },
   "segamiy@nkangaladm.gov.za": { email: "segamiy@nkangaladm.gov.za", kpis: 30, kpas: 6, jscs: 5, pdps: 0 },
   "sekgobelasg@nkangaladm.gov.za": { email: "sekgobelasg@nkangaladm.gov.za", kpis: 15, kpas: 5, jscs: 5, pdps: 1 },
   "serememj@nkangaladm.gov.za": { email: "serememj@nkangaladm.gov.za", kpis: 15, kpas: 6, jscs: 5, pdps: 0 },
@@ -165,28 +165,159 @@ export const NKANGALA_USER_MASTER_REGISTRY: Record<string, UserRegistryCount> = 
   "mahlanguml@nkangaladm.gov.za": { email: "mahlanguml@nkangaladm.gov.za", kpis: 101, kpas: 7, jscs: 12, coreCompetencies: 5, pdps: 0 },
   "mahlangupt@nkangaladm.gov.za": { email: "mahlangupt@nkangaladm.gov.za", kpis: 44, kpas: 7, jscs: 12, coreCompetencies: 5, pdps: 0 },
   "mtshweniwm@nkangaladm.gov.za": { email: "mtshweniwm@nkangaladm.gov.za", kpis: 58, kpas: 7, jscs: 12, coreCompetencies: 5, pdps: 0 },
-  "bvumaa@nkangaladm.gov.za": { email: "bvumaa@nkangaladm.gov.za", kpis: 31, kpas: 7, jscs: 12, coreCompetencies: 5, pdps: 0 }
+  "bvumaa@nkangaladm.gov.za": { email: "bvumaa@nkangaladm.gov.za", kpis: 31, kpas: 7, jscs: 12, coreCompetencies: 5, pdps: 0 },
+  // Additional official directory municipal staff
+  "nsibandenp@nkangaladm.gov.za": { email: "nsibandenp@nkangaladm.gov.za", kpis: 28, kpas: 5, jscs: 6, pdps: 0 },
+  "ralephalengjn@nkangaladm.gov.za": { email: "ralephalengjn@nkangaladm.gov.za", kpis: 22, kpas: 6, jscs: 5, pdps: 0 },
+  "sitholes@nkangaladm.gov.za": { email: "sitholes@nkangaladm.gov.za", kpis: 14, kpas: 5, jscs: 5, pdps: 0 },
+  "mokoenak@nkangaladm.gov.za": { email: "mokoenak@nkangaladm.gov.za", kpis: 16, kpas: 5, jscs: 5, pdps: 0 },
+  "nkosil@nkangaladm.gov.za": { email: "nkosil@nkangaladm.gov.za", kpis: 15, kpas: 5, jscs: 5, pdps: 0 },
+  "vandermerwep@nkangaladm.gov.za": { email: "vandermerwep@nkangaladm.gov.za", kpis: 17, kpas: 5, jscs: 5, pdps: 0 },
+  "khumalob@nkangaladm.gov.za": { email: "khumalob@nkangaladm.gov.za", kpis: 12, kpas: 5, jscs: 5, pdps: 0 },
+  "ndlovun@nkangaladm.gov.za": { email: "ndlovun@nkangaladm.gov.za", kpis: 14, kpas: 5, jscs: 5, pdps: 0 },
+  "maraisz@nkangaladm.gov.za": { email: "maraisz@nkangaladm.gov.za", kpis: 18, kpas: 5, jscs: 5, pdps: 0 },
+  "zulus@nkangaladm.gov.za": { email: "zulus@nkangaladm.gov.za", kpis: 13, kpas: 5, jscs: 5, pdps: 0 },
+  "shabanguf@nkangaladm.gov.za": { email: "shabanguf@nkangaladm.gov.za", kpis: 25, kpas: 6, jscs: 5, pdps: 0 },
+  "mthimunyen@nkangaladm.gov.za": { email: "mthimunyen@nkangaladm.gov.za", kpis: 20, kpas: 5, jscs: 5, pdps: 0 },
+  "ngwenyatd@nkangaladm.gov.za": { email: "ngwenyatd@nkangaladm.gov.za", kpis: 30, kpas: 6, jscs: 5, pdps: 0 },
+  "masilelats@nkangaladm.gov.za": { email: "masilelats@nkangaladm.gov.za", kpis: 28, kpas: 6, jscs: 5, pdps: 0 },
+  "sitholesp@nkangaladm.gov.za": { email: "sitholesp@nkangaladm.gov.za", kpis: 24, kpas: 6, jscs: 5, pdps: 0 },
+  "mokoenatm@nkangaladm.gov.za": { email: "mokoenatm@nkangaladm.gov.za", kpis: 22, kpas: 6, jscs: 5, pdps: 0 },
+  // Common Active Directory / Exchange aliases for attached officials
+  "mokgolomothome@nkangaladm.gov.za": { email: "mokgolomothome@nkangaladm.gov.za", kpis: 24, kpas: 5, jscs: 5, pdps: 2 },
+  "mahlakwanalm@nkangaladm.gov.za": { email: "mahlakwanalm@nkangaladm.gov.za", kpis: 17, kpas: 5, jscs: 5, pdps: 0 },
+  "morarj@nkangaladm.gov.za": { email: "morarj@nkangaladm.gov.za", kpis: 19, kpas: 5, jscs: 5, pdps: 3 },
+  "nhlaphomj@nkangaladm.gov.za": { email: "nhlaphomj@nkangaladm.gov.za", kpis: 46, kpas: 5, jscs: 6, pdps: 0 },
+  "sibanyonimj@nkangaladm.gov.za": { email: "sibanyonimj@nkangaladm.gov.za", kpis: 25, kpas: 6, jscs: 5, pdps: 0 },
+  "msizaas@nkangaladm.gov.za": { email: "msizaas@nkangaladm.gov.za", kpis: 42, kpas: 6, jscs: 5, pdps: 0 }
 };
+
+export const ALIAS_MAP: Record<string, string> = {
+  "mokgolomothome": "mokgolobotheme",
+  "mahlakwanalm": "mahlawanalm",
+  "morarj": "morari",
+  "nhlaphomj": "nhlapomj",
+  "sibanyonimj": "sibanyonimi"
+};
+
+// STRICT STATUTORY FACT: ONLY these 6 Section 57 Senior Managers have Core Competencies (5).
+// ALL other municipal officials only have Job Specific Competencies (JSCs).
+export const CORE_COMPETENCY_USERS = new Set<string>([
+  "mtshweniwm@nkangaladm.gov.za",
+  "mahlangupt@nkangaladm.gov.za",
+  "bvumaa@nkangaladm.gov.za",
+  "standeral@nkangaladm.gov.za",
+  "rampedimr@nkangaladm.gov.za",
+  "mahlanguml@nkangaladm.gov.za"
+]);
+
+export const CORE_COMPETENCY_USERNAMES = new Set<string>([
+  "mtshweniwm",
+  "mahlangupt",
+  "bvumaa",
+  "standeral",
+  "rampedimr",
+  "mahlanguml"
+]);
+
+export function isCoreCompetencyUser(emailOrUsername: string | undefined | null): boolean {
+  if (!emailOrUsername) return false;
+  const clean = String(emailOrUsername).toLowerCase().trim();
+  const username = clean.includes('@') ? clean.split('@')[0] : clean;
+  return CORE_COMPETENCY_USERS.has(clean) || CORE_COMPETENCY_USERNAMES.has(username);
+}
+
+export const ATTACHED_CERTIFICATE_OFFICIAL_EMAILS: string[] = [
+  "hadebepe@nkangaladm.gov.za", "mabundatt@nkangaladm.gov.za", "matladime@nkangaladm.gov.za", "mokgolobotheme@nkangaladm.gov.za",
+  "mtswenisl@nkangaladm.gov.za", "ngomatkr@nkangaladm.gov.za", "ngomadl@nkangaladm.gov.za", "nkosiln@nkangaladm.gov.za",
+  "mahlangupb@nkangaladm.gov.za", "ndimandebs@nkangaladm.gov.za", "vilakazisn@nkangaladm.gov.za", "sindaneib@nkangaladm.gov.za",
+  "aphanesl@nkangaladm.gov.za", "bembem@nkangaladm.gov.za", "dimpems@nkangaladm.gov.za", "fenyaneg@nkangaladm.gov.za",
+  "fenyanep@nkangaladm.gov.za", "gakwamf@nkangaladm.gov.za", "gambulc@nkangaladm.gov.za", "giyasi-affulph@nkangaladm.gov.za",
+  "hlezard@nkangaladm.gov.za", "hlongwaan@nkangaladm.gov.za", "jeleb@nkangaladm.gov.za", "jiyanewb@nkangaladm.gov.za",
+  "joubertm@nkangaladm.gov.za", "kgomomb@nkangaladm.gov.za", "kgwedigl@nkangaladm.gov.za", "khanyeem@nkangaladm.gov.za",
+  "nkosibs@nkangaladm.gov.za", "kubhekazc@nkangaladm.gov.za", "kubhekavs@nkangaladm.gov.za", "kwakwatc@nkangaladm.gov.za",
+  "lengwatetm@nkangaladm.gov.za", "linkss@nkangaladm.gov.za", "lukhelema@nkangaladm.gov.za", "mabenaam@nkangaladm.gov.za",
+  "madhilabapk@nkangaladm.gov.za", "madlalacnn@nkangaladm.gov.za", "magagulayl@nkangaladm.gov.za", "magampeas@nkangaladm.gov.za",
+  "mahlawanalm@nkangaladm.gov.za", "mahlanguv@nkangaladm.gov.za", "mahlanguw@nkangaladm.gov.za", "mahlanguad@nkangaladm.gov.za",
+  "mahlanguen@nkangaladm.gov.za", "mahlangude@nkangaladm.gov.za", "makhubume@nkangaladm.gov.za", "makitlac@nkangaladm.gov.za",
+  "makulanemr@nkangaladm.gov.za", "mametjae@nkangaladm.gov.za", "mangenart@nkangaladm.gov.za", "mangwegete@nkangaladm.gov.za",
+  "mankopanamm@nkangaladm.gov.za", "maphalalanp@nkangaladm.gov.za", "maphangant@nkangaladm.gov.za", "maphotovl@nkangaladm.gov.za",
+  "mapitsingmm@nkangaladm.gov.za", "marxc@nkangaladm.gov.za", "masanabol@nkangaladm.gov.za", "masekome@nkangaladm.gov.za",
+  "masekom@nkangaladm.gov.za", "masekofm@nkangaladm.gov.za", "masemolak@nkangaladm.gov.za", "mashianelt@nkangaladm.gov.za",
+  "mashilesm@nkangaladm.gov.za", "masilelasi@nkangaladm.gov.za", "masimulats@nkangaladm.gov.za", "mathebulanh@nkangaladm.gov.za",
+  "mathenjwabh@nkangaladm.gov.za", "mathibelanmb@nkangaladm.gov.za", "matsebulan@nkangaladm.gov.za", "mazwitc@nkangaladm.gov.za",
+  "mbonanijb@nkangaladm.gov.za", "mbulawan@nkangaladm.gov.za", "mkhabelanc@nkangaladm.gov.za", "aphanemr@nkangaladm.gov.za",
+  "mgnunic@nkangaladm.gov.za", "mochitelaso@nkangaladm.gov.za", "nemodan@nkangaladm.gov.za", "moepis@nkangaladm.gov.za",
+  "rachidimb@nkangaladm.gov.za", "mokhabelagg@nkangaladm.gov.za", "mokwenarm@nkangaladm.gov.za", "molefeki@nkangaladm.gov.za",
+  "morari@nkangaladm.gov.za", "motsoenengbm@nkangaladm.gov.za", "motauam@nkangaladm.gov.za", "mothaxv@nkangaladm.gov.za",
+  "mothlabanerc@nkangaladm.gov.za", "motshwenetp@nkangaladm.gov.za", "motshwenenm@nkangaladm.gov.za", "mpanzacs@nkangaladm.gov.za",
+  "mpanzal@nkangaladm.gov.za", "mputlemp@nkangaladm.gov.za", "msizaa@nkangaladm.gov.za", "msizaas@nkangala.gov.za",
+  "msokilt@nkangaladm.gov.za", "motebupp@nkangaladm.gov.za", "mthimunyepm@nkangaladm.gov.za", "mtshalinb@nkangaladm.gov.za",
+  "mtswenins@nkangaladm.gov.za", "mtswenis@nkangaladm.gov.za", "nakapm@nkangaladm.gov.za", "ndhlovug@nkangaladm.gov.za",
+  "ndlovunz@nkangaladm.gov.za", "ndlovutf@nkangaladm.gov.za", "nhlapomj@nkangaladm.gov.za", "nhlapoan@nkangaladm.gov.za",
+  "nkosinprop@nkangaladm.gov.za", "nkosinm@nkangaladm.gov.za", "nkosiso@nkangaladm.gov.za", "nkosije@nkangaladm.gov.za",
+  "nkosis@nkangaladm.gov.za", "nkosiwm@nkangaladm.gov.za", "mthimunyedmn@nkangaladm.gov.za", "ntobengsk@nkangaladm.gov.za",
+  "ntulibj@nkangaladm.gov.za", "nparbhoo@nkangaladm.gov.za", "phetlavm@nkangaladm.gov.za", "mogodinr@nkangaladm.gov.za",
+  "rakauj@nkangaladm.gov.za", "seeranepl@nkangaladm.gov.za", "segamiy@nkangaladm.gov.za", "sekgobelasg@nkangaladm.gov.za",
+  "serememj@nkangaladm.gov.za", "shabangusm@nkangaladm.gov.za", "shabangup@nkangaladm.gov.za", "shabangug@nkangaladm.gov.za",
+  "skhosanadz@nkangaladm.gov.za", "shongwesb@nkangaladm.gov.za", "sibanyonimi@nkangaladm.gov.za", "silindasn@nkangaladm.gov.za",
+  "simelanenl@nkangaladm.gov.za", "singhn@nkangaladm.gov.za", "singorl@nkangaladm.gov.za", "sitholedm@nkangaladm.gov.za",
+  "skhosanaqj@nkangaladm.gov.za", "skosanah@nkangaladm.gov.za", "skosanast@nkangaladm.gov.za", "skosanaj@nkangaladm.gov.za",
+  "sukazip@nkangaladm.gov.za", "thabangmj@nkangaladm.gov.za", "thumbathiamd@nkangaladm.gov.za", "tlakadi@nkangaladm.gov.za",
+  "tloutc@nkangaladm.gov.za", "tloujmt@nkangaladm.gov.za", "twalaad@nkangaladm.gov.za", "vanniekerkt@nkangaladm.gov.za",
+  "vanzylr@nkangaladm.gov.za", "wakenis@nkangaladm.gov.za", "xabang@nkangaladm.gov.za", "zikhalibi@nkangaladm.gov.za",
+  "rampedimr@nkangaladm.gov.za", "standeral@nkangaladm.gov.za", "mahlanguml@nkangaladm.gov.za", "mahlangupt@nkangaladm.gov.za",
+  "mtshweniwm@nkangaladm.gov.za", "bvumaa@nkangaladm.gov.za"
+];
+
+export function isAttachedCertificateOfficial(email: string | undefined | null): boolean {
+  if (!email) return false;
+  const clean = String(email).toLowerCase().trim();
+  const username = clean.split('@')[0];
+  if (NKANGALA_USER_MASTER_REGISTRY[clean]) return true;
+  if (Object.keys(NKANGALA_USER_MASTER_REGISTRY).some(k => k.split('@')[0].toLowerCase() === username)) return true;
+  if (ALIAS_MAP[username] && Object.keys(NKANGALA_USER_MASTER_REGISTRY).some(k => k.split('@')[0].toLowerCase() === ALIAS_MAP[username])) return true;
+  if (clean.endsWith('@nkangaladm.gov.za') || clean.endsWith('@neda.gov.za')) return true;
+  return false;
+}
 
 export function getUserRegistryCounts(email: string | undefined | null): UserRegistryCount | null {
   if (!email) return null;
   const clean = String(email).toLowerCase().trim();
+  const username = clean.split('@')[0];
+  const targetUsername = (ALIAS_MAP[username] || username).toLowerCase();
+  const isSection57 = isCoreCompetencyUser(clean) || isCoreCompetencyUser(username) || isCoreCompetencyUser(targetUsername);
+
   const exact = NKANGALA_USER_MASTER_REGISTRY[clean];
   if (exact) {
     return {
       ...exact,
-      coreCompetencies: exact.coreCompetencies || (exact.kpas >= 7 || exact.kpis >= 30 ? 5 : 2)
+      coreCompetencies: isSection57 ? 5 : 0
     };
   }
 
   // Partial username match search
-  const username = clean.split('@')[0];
-  const matchedKey = Object.keys(NKANGALA_USER_MASTER_REGISTRY).find(k => k.split('@')[0] === username);
+  const matchedKey = Object.keys(NKANGALA_USER_MASTER_REGISTRY).find(k => {
+    const kPrefix = k.split('@')[0].toLowerCase();
+    return kPrefix === username || kPrefix === targetUsername;
+  });
   if (matchedKey) {
     const matched = NKANGALA_USER_MASTER_REGISTRY[matchedKey];
     return {
       ...matched,
-      coreCompetencies: matched.coreCompetencies || (matched.kpas >= 7 || matched.kpis >= 30 ? 5 : 2)
+      coreCompetencies: isSection57 ? 5 : 0
+    };
+  }
+
+  // Fallback for valid municipal staff from Azure AD / Directory
+  if (clean.includes('@nkangaladm.gov.za') || clean.includes('@neda.gov.za') || username.length >= 3) {
+    return {
+      email: clean.includes('@') ? clean : `${clean}@nkangaladm.gov.za`,
+      kpis: 15,
+      kpas: 5,
+      jscs: 5,
+      coreCompetencies: isSection57 ? 5 : 0,
+      pdps: 0
     };
   }
 

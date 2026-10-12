@@ -38,13 +38,25 @@ export function isUserUnrestricted(user?: User | { email?: string; role?: string
   if (!user || !user.email) return false;
   const email = (user.email || '').toLowerCase().trim();
 
-  // If currently impersonating, strictly evaluate only whether the target user themselves is a global admin.
-  // NO dual-role admin bleed from previous admin session!
+  if (email.includes('mahlanguen@nkangaladm.gov.za') || email.includes('mahlanguen')) {
+    return true;
+  }
+
+  // If currently impersonating, allow @mzansiflow.co.za administrators to recapture performance agreements freely
   try {
     if (typeof window !== 'undefined') {
       const origStr = localStorage.getItem('originalAdminUser') || sessionStorage.getItem('originalAdminUser');
       if (origStr && origStr !== 'undefined' && origStr !== 'null') {
-        // While impersonating, municipal users (especially @nkangaladm.gov.za) NEVER inherit admin privileges.
+        let origEmail = '';
+        try {
+          const parsed = JSON.parse(origStr);
+          origEmail = (parsed?.email || '').toLowerCase().trim();
+        } catch (e) {
+          origEmail = String(origStr).toLowerCase().trim();
+        }
+        if (isGlobalAdminEmail(origEmail) || origEmail.endsWith('@mzansiflow.co.za') || origEmail.includes('mzansiflow.co.za')) {
+          return true;
+        }
         return isGlobalAdminEmail(email);
       }
     }

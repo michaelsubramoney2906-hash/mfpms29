@@ -1713,8 +1713,9 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
                                   updateKpiField(k.id, 'reviewApprovalStatus', 'Approved');
                                   showNotification(`KPI ${k.kpiNo} has been APPROVED by your Manager!`);
                                   
-                                  const managerEmail = currentUser?.manager || 'khuboniy@nkangaladm.gov.za';
-                                  const managerName = 'Manager';
+                                  const isShabanguUser = (currentUser?.email || '').toLowerCase().includes('shabangusm');
+                                  const managerEmail = isShabanguUser ? 'mahlanguml@nkangaladm.gov.za' : (currentUser?.managerEmail || currentUser?.manager || 'khuboniy@nkangaladm.gov.za');
+                                  const managerName = isShabanguUser ? 'Mandla L. Mahlangu' : 'Manager';
                                   const subordinateEmail = currentUser?.email || '';
                                   const subordinateName = currentUser?.fullName || subordinateEmail;
                                   
@@ -1751,8 +1752,9 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
                                   updateKpiField(k.id, 'reviewApprovalStatus', 'Rejected');
                                   showNotification(`KPI ${k.kpiNo} has been REJECTED by your Manager!`);
                                   
-                                  const managerEmail = currentUser?.manager || 'khuboniy@nkangaladm.gov.za';
-                                  const managerName = 'Manager';
+                                  const isShabanguUser = (currentUser?.email || '').toLowerCase().includes('shabangusm');
+                                  const managerEmail = isShabanguUser ? 'mahlanguml@nkangaladm.gov.za' : (currentUser?.managerEmail || currentUser?.manager || 'khuboniy@nkangaladm.gov.za');
+                                  const managerName = isShabanguUser ? 'Mandla L. Mahlangu' : 'Manager';
                                   const subordinateEmail = currentUser?.email || '';
                                   const subordinateName = currentUser?.fullName || subordinateEmail;
                                   

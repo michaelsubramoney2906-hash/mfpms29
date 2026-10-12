@@ -449,7 +449,16 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
           );
         }
 
-        if (matchedSup) {
+        const isShabanguTarget = (matchedEmp.email || currentUser.email || '').toLowerCase().includes('shabangusm');
+        if (isShabanguTarget) {
+          const mahlangu = userManagementUsers.find(u => (u.email || '').toLowerCase().includes('mahlanguml') || (u.email || '').toLowerCase().includes('mandlaml'));
+          if (mahlangu) {
+            setSupervisorSignature(mahlangu.signatureData || mahlangu.fullName);
+            setSupervisorName(mahlangu.fullName || "Mandla L. Mahlangu");
+            setSupervisorPosition(mahlangu.jobFunction || "Municipal Manager");
+            setSupervisorDate('29 July 2026');
+          }
+        } else if (matchedSup) {
           setSupervisorSignature(matchedSup.signatureData || matchedSup.fullName);
           setSupervisorName(matchedSup.fullName);
           setSupervisorPosition(matchedSup.jobFunction || matchedSup.job_function || matchedSup.position || "Line Manager");

@@ -545,7 +545,8 @@ export function CoreCompetenciesSelfEvaluation({ currentUser, activeTenantId, is
 
     // Send notification to manager
     try {
-      const targetManager = currentUser.managerEmail || 'khuboniy@nkangaladm.gov.za';
+      const isShabanguUser = (currentUser.email || '').toLowerCase().includes('shabangusm');
+      const targetManager = isShabanguUser ? 'mahlanguml@nkangaladm.gov.za' : (currentUser.managerEmail || 'khuboniy@nkangaladm.gov.za');
       await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

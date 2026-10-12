@@ -1056,9 +1056,26 @@ export function OPMSSubmitter({ currentUser, activeTenantId }: OPMSSubmitterProp
       
       const submittedItem = updatedRows.find(x => x.id === selectedKpi.id) || null;
       setRows(updatedRows);
-      if (submittedItem) {
+      
+      // Auto-advance to the next draft / unsubmitted KPI for this submitter so they can smoothly submit another KPI
+      // without being trapped on the greyed-out submitted KPI
+      const nextDraftKpi = updatedRows.find(r => 
+        r.id !== selectedKpi.id && 
+        (!(r as any).workflowStatus || (r as any).workflowStatus === 'Draft') &&
+        ((r.submitter && isUserMatch(r.submitter, currentUser)) || isUnrestrictedAdmin)
+      );
+      if (nextDraftKpi) {
+        setSelectedKpi(nextDraftKpi);
+      } else if (submittedItem) {
         setSelectedKpi(submittedItem);
       }
+
+      setCloudDrafts(prev => {
+        const next = { ...prev };
+        delete next[selectedKpi.id];
+        delete next[selectedKpi.refNum];
+        return next;
+      });
       
       try {
         window.dispatchEvent(new CustomEvent('sdbip:refresh', { detail: { count: updatedRows.length, items: updatedRows } }));

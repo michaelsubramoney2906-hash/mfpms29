@@ -403,22 +403,6 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
   const [selectedKpiIds, setSelectedKpiIds] = useState<string[]>([]);
   const [selectedKpiIdFilter, setSelectedKpiIdFilter] = useState<string | null>(null);
 
-  // Automatically default filter to a single submitted KPI if applicable for target profiles
-  useEffect(() => {
-    if (pplanData && pplanData.metadata && pplanData.items && pplanData.items.length > 0) {
-      const email = (currentUser?.email || '').toLowerCase().trim();
-      const isTargetDomain = email.endsWith('@nkangaladm.gov.za') || email.endsWith('@mzansiflow.co.za');
-      if (isTargetDomain && !selectedKpiIdFilter) {
-        const subIds = pplanData.metadata.submittedKpiIds;
-        if (Array.isArray(subIds) && subIds.length === 1) {
-          setSelectedKpiIdFilter(subIds[0]);
-        } else if (pplanData.metadata.lastSubmittedKpiId) {
-          setSelectedKpiIdFilter(pplanData.metadata.lastSubmittedKpiId);
-        }
-      }
-    }
-  }, [pplanData, currentUser]);
-
   const toggleSelectKpi = (id: string) => {
     setSelectedKpiIds(prev => 
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
@@ -491,6 +475,9 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
             if (uEmail.includes('khuboni')) {
               data.metadata.managerEmail = 'ShabanguSM@nkangaladm.gov.za';
               data.metadata.manager = 'Sibusiso M. Shabangu';
+            } else if (uEmail.includes('shabangusm') || uEmail.includes('shabangugm')) {
+              data.metadata.managerEmail = 'mahlanguml@nkangaladm.gov.za';
+              data.metadata.manager = 'Mandla L. Mahlangu';
             } else {
               data.metadata.managerEmail = 'KhuboniY@nkangaladm.gov.za';
               data.metadata.manager = 'Yena Khuboni';
@@ -517,12 +504,15 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
     setSaving(true);
     try {
       const isDemoUser = (currentUser.email || '').toLowerCase() === 'user@mzansiflow.co.za';
+      const isShabanguUser = (currentUser.email || '').toLowerCase().includes('shabangusm') || (pplanData.metadata?.email || '').toLowerCase().includes('shabangusm');
+      const defaultMgrName = isShabanguUser ? 'Mandla L. Mahlangu' : (isDemoUser ? 'Demo Line Manager' : 'Yena Khuboni');
+      const defaultMgrEmail = isShabanguUser ? 'mahlanguml@nkangaladm.gov.za' : (isDemoUser ? 'manager@mzansiflow.co.za' : 'KhuboniY@nkangaladm.gov.za');
       const metadata = { 
         ...pplanData.metadata,
         email: pplanData.metadata?.email || currentUser.email,
-        manager: pplanData.metadata?.manager || currentUser.manager || (isDemoUser ? 'Demo Line Manager' : 'Yena Khuboni'),
-        managerEmail: pplanData.metadata?.managerEmail || currentUser.managerEmail || (isDemoUser ? 'manager@mzansiflow.co.za' : 'KhuboniY@nkangaladm.gov.za'),
-        reportTo: pplanData.metadata?.reportTo || currentUser.reportTo || (isDemoUser ? 'Demo Line Manager' : '')
+        manager: isShabanguUser ? 'Mandla L. Mahlangu' : (pplanData.metadata?.manager || currentUser.manager || defaultMgrName),
+        managerEmail: isShabanguUser ? 'mahlanguml@nkangaladm.gov.za' : (pplanData.metadata?.managerEmail || currentUser.managerEmail || defaultMgrEmail),
+        reportTo: isShabanguUser ? 'Mandla L. Mahlangu' : (pplanData.metadata?.reportTo || currentUser.reportTo || (isDemoUser ? 'Demo Line Manager' : ''))
       };
       if (submitForReview) {
         const targetItem = pplanData.items.find(i => i.id === kpiId);
@@ -585,8 +575,8 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
       const updatedMetadata = {
         ...metadata,
         ...(submitForReview ? {
-          submittedKpiIds: [kpiId],
-          lastSubmittedKpiId: kpiId
+          submittedKpiIds: Array.from(new Set([...(metadata.submittedKpiIds || []), kpiId])),
+          lastSubmittedKpiId: undefined
         } : {})
       };
 
@@ -605,8 +595,9 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
       }
 
       if (submitForReview) {
-        const managerEmail = metadata.managerEmail || 'KhuboniY@nkangaladm.gov.za';
-        const managerName = metadata.manager || 'Yena Khuboni';
+        const isShabanguUser = (currentUser.email || '').toLowerCase().includes('shabangusm');
+        const managerEmail = isShabanguUser ? 'mahlanguml@nkangaladm.gov.za' : (metadata.managerEmail || 'KhuboniY@nkangaladm.gov.za');
+        const managerName = isShabanguUser ? 'Mandla L. Mahlangu' : (metadata.manager || 'Yena Khuboni');
         const submitterEmail = currentUser.email;
         const submitterName = currentUser.fullName || currentUser.full_name || (currentUser.email?.toLowerCase() === 'nsibandenp@nkangaladm.gov.za' ? 'Nompumelelo P. Nsibande' : 'Noluthando Zulu');
 
@@ -688,6 +679,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
       }
       
       setPplanData(payload);
+      setSelectedKpiIdFilter(null);
       window.dispatchEvent(new CustomEvent(isTeamEvaluation ? 'team-pplan-updated' : 'pplan-updated', { detail: { tenantId: activeTenantId, userId: currentUser.email } }));
       if (submitForReview) {
         alert(`KPI evaluation and uploaded PoE documents successfully submitted to manager (${metadata.manager || 'Yena Khuboni'})! Notification sent.`);
@@ -710,16 +702,19 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
     setSaving(true);
     try {
       const isDemoUser = (currentUser.email || '').toLowerCase() === 'user@mzansiflow.co.za';
+      const isShabanguUser = (currentUser.email || '').toLowerCase().includes('shabangusm') || (pplanData.metadata?.email || '').toLowerCase().includes('shabangusm');
+      const defaultMgrName = isShabanguUser ? 'Mandla L. Mahlangu' : (isDemoUser ? 'Demo Line Manager' : 'Yena Khuboni');
+      const defaultMgrEmail = isShabanguUser ? 'mahlanguml@nkangaladm.gov.za' : (isDemoUser ? 'manager@mzansiflow.co.za' : 'KhuboniY@nkangaladm.gov.za');
       const metadata = { 
         ...pplanData.metadata,
         email: pplanData.metadata?.email || currentUser.email,
-        manager: pplanData.metadata?.manager || currentUser.manager || (isDemoUser ? 'Demo Line Manager' : 'Yena Khuboni'),
-        managerEmail: pplanData.metadata?.managerEmail || currentUser.managerEmail || (isDemoUser ? 'manager@mzansiflow.co.za' : 'KhuboniY@nkangaladm.gov.za'),
-        reportTo: pplanData.metadata?.reportTo || currentUser.reportTo || (isDemoUser ? 'Demo Line Manager' : ''),
+        manager: isShabanguUser ? 'Mandla L. Mahlangu' : (pplanData.metadata?.manager || currentUser.manager || defaultMgrName),
+        managerEmail: isShabanguUser ? 'mahlanguml@nkangaladm.gov.za' : (pplanData.metadata?.managerEmail || currentUser.managerEmail || defaultMgrEmail),
+        reportTo: isShabanguUser ? 'Mandla L. Mahlangu' : (pplanData.metadata?.reportTo || currentUser.reportTo || (isDemoUser ? 'Demo Line Manager' : '')),
         reviewStatus: submitForReview ? 'Submitted for Approval' : (pplanData.metadata?.reviewStatus || 'Draft'),
         ...(submitForReview ? {
-          submittedKpiIds: targetIds,
-          lastSubmittedKpiId: targetIds.length === 1 ? targetIds[0] : undefined
+          submittedKpiIds: Array.from(new Set([...(pplanData.metadata?.submittedKpiIds || []), ...targetIds])),
+          lastSubmittedKpiId: undefined
         } : {})
       };
 
@@ -794,8 +789,9 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
 
       if (submitForReview) {
         try {
-          const managerEmail = metadata.managerEmail || 'KhuboniY@nkangaladm.gov.za';
-          const managerName = metadata.manager || 'Manager';
+          const isShabanguUser = (currentUser.email || '').toLowerCase().includes('shabangusm');
+          const managerEmail = isShabanguUser ? 'mahlanguml@nkangaladm.gov.za' : (metadata.managerEmail || 'KhuboniY@nkangaladm.gov.za');
+          const managerName = isShabanguUser ? 'Mandla L. Mahlangu' : (metadata.manager || 'Manager');
           const submitterEmail = currentUser.email;
           const submitterName = currentUser.fullName || currentUser.email.split('@')[0] || 'Employee';
 
@@ -997,12 +993,13 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
     }
     setSaving(true);
     try {
+      const isShabanguUser = (currentUser.email || '').toLowerCase().includes('shabangusm') || (pplanData.metadata?.email || '').toLowerCase().includes('shabangusm');
       const metadata = { 
         ...pplanData.metadata,
         email: pplanData.metadata?.email || currentUser.email,
-        manager: pplanData.metadata?.manager || currentUser.manager || currentUser.reportTo || 'Yena Khuboni',
-        managerEmail: pplanData.metadata?.managerEmail || 'KhuboniY@nkangaladm.gov.za',
-        reportTo: pplanData.metadata?.reportTo || currentUser.reportTo || currentUser.manager || ''
+        manager: isShabanguUser ? 'Mandla L. Mahlangu' : (pplanData.metadata?.manager || currentUser.manager || currentUser.reportTo || 'Yena Khuboni'),
+        managerEmail: isShabanguUser ? 'mahlanguml@nkangaladm.gov.za' : (pplanData.metadata?.managerEmail || 'KhuboniY@nkangaladm.gov.za'),
+        reportTo: isShabanguUser ? 'Mandla L. Mahlangu' : (pplanData.metadata?.reportTo || currentUser.reportTo || currentUser.manager || '')
       };
       if (submitForReview) {
         metadata.reviewStatus = 'Submitted for Approval';
@@ -1089,8 +1086,8 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
             notification: {
               senderEmail: currentUser.email,
               senderName: currentUser.fullName || currentUser.email.split('@')[0] || 'Employee',
-              recipientEmail: metadata.managerEmail || 'KhuboniY@nkangaladm.gov.za',
-              recipientName: metadata.manager || 'Manager',
+              recipientEmail: (currentUser.email || '').toLowerCase().includes('shabangusm') ? 'mahlanguml@nkangaladm.gov.za' : (metadata.managerEmail || 'KhuboniY@nkangaladm.gov.za'),
+              recipientName: (currentUser.email || '').toLowerCase().includes('shabangusm') ? 'Mandla L. Mahlangu' : (metadata.manager || 'Manager'),
               title: isTeamEvaluation ? `Complete Team Performance Plan Submitted for Review` : `Complete Performance Plan Submitted for Review`,
               message: isTeamEvaluation
                 ? `I have submitted the complete Team Performance Plan and associated Portfolios of Evidence for your review and approval.`

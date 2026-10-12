@@ -445,6 +445,17 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
 
         if (managerEmail.includes('khuboni')) {
           khuboniSubordinates.forEach(email => mySubordinateEmails.add(email));
+          mySubordinateEmails.delete('shabangusm@nkangaladm.gov.za');
+        }
+
+        // Explicit list for Mandla L. Mahlangu (mahlanguml@nkangaladm.gov.za)
+        const mahlanguSubordinates = [
+          'shabangusm@nkangaladm.gov.za',
+          'shabangugm@nkangaladm.gov.za'
+        ];
+
+        if (managerEmail.includes('mahlanguml') || managerEmail.includes('mandlaml') || normCurrent.includes('mandla') || normCurrent.includes('mahlangu')) {
+          mahlanguSubordinates.forEach(email => mySubordinateEmails.add(email));
         }
 
         // Explicit list for Elmon Nkosi (nkosije@nkangaladm.gov.za)
@@ -507,6 +518,14 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
           const pManager = normalize(p.plan?.metadata?.manager || p.plan?.metadata?.reportTo || '');
           const pManagerEmail = (p.plan?.metadata?.managerEmail || '').toLowerCase().trim();
           
+          // Rule: Shabangu reports to Mahlangu, NOT Khuboni
+          if (targetEmail.includes('shabangusm')) {
+            if (managerEmail.includes('khuboni')) return false;
+            if (managerEmail.includes('mahlanguml') || managerEmail.includes('mandlaml') || normCurrent.includes('mandla') || normCurrent.includes('mahlangu')) {
+              return true;
+            }
+          }
+
           const isDirectSubordinate = mySubordinateEmails.has(targetEmail) || Boolean(
             (pManager && normCurrent && (pManager.includes(normCurrent) || normCurrent.includes(pManager))) ||
             (pManager && managerEmail && pManager.includes(managerEmail)) ||

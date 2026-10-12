@@ -578,17 +578,21 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
 
       // Locate managerEmail
       let managerEmail = payload.metadata?.manager;
-      if (!managerEmail && Array.isArray(payload.metadata?.history)) {
-        const mgrLog = payload.metadata.history.find((h: any) => h.role?.toLowerCase().includes('manager') || h.userEmail?.includes('khuboni'));
-        if (mgrLog) {
-          managerEmail = mgrLog.userEmail;
+      if (employeeEmail.toLowerCase().includes('shabangusm')) {
+        managerEmail = 'mahlanguml@nkangaladm.gov.za';
+      } else {
+        if (!managerEmail && Array.isArray(payload.metadata?.history)) {
+          const mgrLog = payload.metadata.history.find((h: any) => h.role?.toLowerCase().includes('manager') || h.userEmail?.includes('khuboni'));
+          if (mgrLog) {
+            managerEmail = mgrLog.userEmail;
+          }
         }
-      }
-      if (!managerEmail && employeeEmail.toLowerCase().includes('zulune')) {
-        managerEmail = 'khuboniy@nkangaladm.gov.za';
-      }
-      if (!managerEmail) {
-        managerEmail = 'khuboniy@nkangaladm.gov.za';
+        if (!managerEmail && employeeEmail.toLowerCase().includes('zulune')) {
+          managerEmail = 'khuboniy@nkangaladm.gov.za';
+        }
+        if (!managerEmail) {
+          managerEmail = 'khuboniy@nkangaladm.gov.za';
+        }
       }
 
       const isApproved = status === 'Audited' || status === 'Approved';
@@ -814,7 +818,7 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
       window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: selectedPlan.userId } }));
 
       // Send notification to manager and employee
-      const managerEmail = payload.metadata?.manager || 'khuboniy@nkangaladm.gov.za';
+      const managerEmail = selectedPlan.userId?.toLowerCase().includes('shabangusm') ? 'mahlanguml@nkangaladm.gov.za' : (payload.metadata?.manager || 'khuboniy@nkangaladm.gov.za');
       const submitterEmail = selectedPlan.userId;
       const submitterName = payload.metadata?.name || submitterEmail;
       const auditorName = currentUser.fullName || currentUser.full_name || 'Internal Auditor';

@@ -246,7 +246,8 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId, isTeamJS
     await handleSaveToDatabase(updated);
 
     try {
-      const targetManager = currentUser.managerEmail || 'khuboniy@nkangaladm.gov.za';
+      const isShabanguUser = (currentUser.email || '').toLowerCase().includes('shabangusm');
+      const targetManager = isShabanguUser ? 'mahlanguml@nkangaladm.gov.za' : (currentUser.managerEmail || 'khuboniy@nkangaladm.gov.za');
       await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -303,7 +304,8 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId, isTeamJS
         return `${r.jscNo || 'JSC'}: Score ${score}/5`;
       }).join(' | ');
 
-      const targetManager = currentUser.managerEmail || 'khuboniy@nkangaladm.gov.za';
+      const isShabanguUser = (currentUser.email || '').toLowerCase().includes('shabangusm');
+      const targetManager = isShabanguUser ? 'mahlanguml@nkangaladm.gov.za' : (currentUser.managerEmail || 'khuboniy@nkangaladm.gov.za');
       await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1463,7 +1465,8 @@ export function JSCInternalAuditorReviewSection({ currentUser, activeTenantId, d
     }
 
     try {
-      const managerEmail = currentUser.managerEmail || 'khuboniy@nkangaladm.gov.za';
+      const isShabanguUser = (currentUser.email || '').toLowerCase().includes('shabangusm');
+      const managerEmail = isShabanguUser ? 'mahlanguml@nkangaladm.gov.za' : (currentUser.managerEmail || 'khuboniy@nkangaladm.gov.za');
       await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

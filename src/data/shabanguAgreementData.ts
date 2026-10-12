@@ -45,6 +45,9 @@ export const SHABANGUSM_METADATA = {
   level: "3",
   employerName: "Mahlangu Lucas Mandla",
   employerTitle: "Municipal Manager",
+  manager: "Mandla L. Mahlangu",
+  managerEmail: "mahlanguml@nkangaladm.gov.za",
+  reportTo: "Mandla L. Mahlangu",
   financialYear: "2026/2027",
   period: "01 July 2026 – 30 June 2027",
   municipality: "The Nkangala District Municipality"

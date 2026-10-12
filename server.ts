@@ -6033,8 +6033,9 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         fullName: internalProfile?.fullName || internalProfile?.full_name || (lowerEmail.includes('bongani') ? 'Bongani M.' : lowerEmail.split('@')[0]),
         jobFunction: isGlobalAdmin ? 'Global Administrator' : (internalProfile?.jobFunction || internalProfile?.job_function || 'Department Manager'),
         department: internalProfile?.department || (isGlobalAdmin ? 'Administration' : undefined),
-        manager: internalProfile?.manager,
-        reportTo: internalProfile?.reportTo,
+        manager: internalProfile?.manager || (lowerEmail.includes('shabangusm') ? 'Mandla L. Mahlangu' : undefined),
+        managerEmail: internalProfile?.managerEmail || (lowerEmail.includes('shabangusm') ? 'mahlanguml@nkangaladm.gov.za' : undefined),
+        reportTo: internalProfile?.reportTo || (lowerEmail.includes('shabangusm') ? 'Mandla L. Mahlangu' : undefined),
         level: internalProfile?.level || (isGlobalAdmin ? 'L1 Executive' : undefined),
         systemRole: isGlobalAdmin ? 'Global Administrator' : (internalProfile?.systemRole || internalProfile?.role || 'Standard User'),
         portalMode: portalMode || 'municipality'
@@ -7431,7 +7432,9 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
 
       let resolvedManagerEmail = (user.managerEmail || '').toLowerCase().trim();
       const managerName = (user.manager || user.reportTo || '').toLowerCase().trim();
-      if (!resolvedManagerEmail && managerName) {
+      if (userEmail.includes('shabangusm') || userEmail.includes('shabangugm')) {
+        resolvedManagerEmail = 'mahlanguml@nkangaladm.gov.za';
+      } else if (!resolvedManagerEmail && managerName) {
         if (managerName.includes('nkosi') || managerName.includes('elmon')) {
           resolvedManagerEmail = 'nkosije@nkangaladm.gov.za';
         } else if (managerName.includes('khuboni') || managerName.includes('yena')) {
@@ -7761,7 +7764,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
     }
     const deduplicatedData = Array.from(initialMap.values());
 
-    const formatted = deduplicatedData.map((u: any) => {
+    const formatted: any[] = deduplicatedData.map((u: any) => {
       let tId = u.tenant_id;
       if (tId === 'nkangala_auto' || u.email?.toLowerCase().includes('nkangaladm')) {
         tId = 'tenant-229';
@@ -7774,19 +7777,21 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       if (emailLower.includes('bongani') || emailLower.includes('delphine@mzansiflow.co.za')) {
         userRole = 'Global Administrator';
       }
+      const isShabangu = emailLower.includes('shabangusm') || emailLower.includes('shabangugm');
       return {
         id: u.id,
         fullName: u.full_name,
         email: u.email,
         jobFunction: (emailLower.includes('bongani') || emailLower.includes('delphine@mzansiflow.co.za')) ? 'Global Administrator' : u.job_function,
-        department: u.department,
+        department: isShabangu ? 'PMS' : u.department,
         source: u.source,
         role: userRole,
         tenantId: (emailLower.includes('bongani') || emailLower.includes('delphine@mzansiflow.co.za')) ? 'global' : tId,
-        manager: extraMap[u.id]?.manager || '',
-        directorate: extraMap[u.id]?.directorate || '',
-        reportTo: extraMap[u.id]?.reportTo || '',
-        level: extraMap[u.id]?.level || '1',
+        manager: isShabangu ? 'Mandla L. Mahlangu' : (extraMap[u.id]?.manager || ''),
+        directorate: isShabangu ? 'Office of the Municipal Manager' : (extraMap[u.id]?.directorate || ''),
+        reportTo: isShabangu ? 'Mandla L. Mahlangu' : (extraMap[u.id]?.reportTo || ''),
+        managerEmail: isShabangu ? 'mahlanguml@nkangaladm.gov.za' : (extraMap[u.id]?.managerEmail || ''),
+        level: isShabangu ? '3' : (extraMap[u.id]?.level || '1'),
         signatureType: extraMap[u.id]?.signatureType || 'draw',
         signatureData: extraMap[u.id]?.signatureData || ''
       };
@@ -7805,20 +7810,22 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           if (resolvedTenant === 'nkangala_auto' || emailKey.includes('nkangaladm')) {
             resolvedTenant = 'tenant-229';
           }
+          const isShabanguDisk = emailKey.includes('shabangusm') || emailKey.includes('shabangugm');
           if (emailKey && !existingEmails.has(emailKey)) {
             formatted.push({
               id: du.id || `disk-${Math.random().toString(36).substring(2)}`,
               fullName: du.fullName || du.email.split('@')[0],
               email: du.email,
               jobFunction: du.jobFunction || '',
-              department: du.department || '',
+              department: isShabanguDisk ? 'PMS' : (du.department || ''),
               source: 'azure_ad',
               role: du.role || 'tenant_user',
               tenantId: resolvedTenant,
-              manager: du.manager || extraMap[du.id]?.manager || '',
-              directorate: du.directorate || extraMap[du.id]?.directorate || '',
-              reportTo: du.reportTo || extraMap[du.id]?.reportTo || '',
-              level: du.level || extraMap[du.id]?.level || '1',
+              manager: isShabanguDisk ? 'Mandla L. Mahlangu' : (du.manager || extraMap[du.id]?.manager || ''),
+              directorate: isShabanguDisk ? 'Office of the Municipal Manager' : (du.directorate || extraMap[du.id]?.directorate || ''),
+              reportTo: isShabanguDisk ? 'Mandla L. Mahlangu' : (du.reportTo || extraMap[du.id]?.reportTo || ''),
+              managerEmail: isShabanguDisk ? 'mahlanguml@nkangaladm.gov.za' : (du.managerEmail || extraMap[du.id]?.managerEmail || ''),
+              level: isShabanguDisk ? '3' : (du.level || extraMap[du.id]?.level || '1'),
               signatureType: du.signatureType || 'draw',
               signatureData: du.signatureData || ''
             });
@@ -8142,6 +8149,15 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
     });
 
     formatted.forEach((u: any) => {
+      const emailLower = (u.email || '').toLowerCase().trim();
+      if (emailLower.includes('shabangusm') || emailLower.includes('shabangugm')) {
+        u.manager = 'Mandla L. Mahlangu';
+        u.reportTo = 'Mandla L. Mahlangu';
+        u.managerEmail = 'mahlanguml@nkangaladm.gov.za';
+        u.directorate = 'Office of the Municipal Manager';
+        u.department = 'PMS';
+        return;
+      }
       const mName = (u.manager || u.reportTo || '').toLowerCase().trim().replace(/['"\.,]/g, '').replace(/\s+/g, ' ');
       if (mName) {
         const mgrUser = nameToUserMap.get(mName);
@@ -11488,6 +11504,15 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       if (data && data.content) {
         try {
           const parsed = JSON.parse(data.content);
+          if (parsed && Array.isArray(parsed.nodes)) {
+            const mmNode = parsed.nodes.find((n: any) => n.level === 0 || n.email?.toLowerCase().includes('mahlanguml'));
+            parsed.nodes = parsed.nodes.map((n: any) => {
+              if (n.email?.toLowerCase().includes('shabangusm') && mmNode) {
+                return { ...n, parentId: mmNode.id, department: 'Office of the Municipal Manager' };
+              }
+              return n;
+            });
+          }
           return res.json(parsed);
         } catch (parseErr) {
           console.error("Error parsing organogram JSON:", parseErr);
@@ -17515,20 +17540,102 @@ User Request: ${prompt}`;
               map = JSON.parse(mData.content);
             }
           } catch (je) {}
-          const formatted = users.map((u: any) => ({
-            id: u.id,
-            fullName: u.full_name,
-            email: u.email,
-            jobFunction: u.job_function,
-            department: u.department,
-            source: u.source,
-            role: u.role,
-            tenantId: u.tenant_id,
-            manager: map[u.id]?.manager || '',
-            directorate: map[u.id]?.directorate || '',
-            reportTo: map[u.id]?.reportTo || '',
-            level: map[u.id]?.level || '1'
-          }));
+
+          // Ensure ShabanguSM explicitly reports to MahlanguML across Supabase
+          const shabanguUser = users.find((u: any) => (u.email || '').toLowerCase().includes('shabangusm'));
+          if (shabanguUser) {
+            map[shabanguUser.id] = {
+              ...(map[shabanguUser.id] || {}),
+              manager: 'Mandla L. Mahlangu',
+              reportTo: 'Mandla L. Mahlangu',
+              managerEmail: 'mahlanguml@nkangaladm.gov.za',
+              directorate: 'Office of the Municipal Manager',
+              level: '3'
+            };
+          }
+          map['shabangusm@nkangaladm.gov.za'] = {
+            ...(map['shabangusm@nkangaladm.gov.za'] || {}),
+            manager: 'Mandla L. Mahlangu',
+            reportTo: 'Mandla L. Mahlangu',
+            managerEmail: 'mahlanguml@nkangaladm.gov.za',
+            directorate: 'Office of the Municipal Manager',
+            level: '3'
+          };
+          map['0df28c52-7ad2-4fdd-9bd4-c5b8e194c68f'] = {
+            ...(map['0df28c52-7ad2-4fdd-9bd4-c5b8e194c68f'] || {}),
+            manager: 'Mandla L. Mahlangu',
+            reportTo: 'Mandla L. Mahlangu',
+            managerEmail: 'mahlanguml@nkangaladm.gov.za',
+            directorate: 'Office of the Municipal Manager',
+            level: '3'
+          };
+
+          try {
+            await supabase.from('messages').upsert({
+              id: 'users_extra_metadata',
+              tenant_id: 'global',
+              sender_id: 'system',
+              sender_email: 'system@local',
+              sender_name: 'User Directory Synchronizer',
+              content: JSON.stringify(map),
+              message_type: 'users_extra_metadata',
+              created_at: new Date().toISOString()
+            });
+          } catch (e) {}
+
+          // Also check and update PPLAN metadata for Shabangu in Supabase
+          try {
+            const pplanIds = [
+              'pplan_nkangala_auto_shabangusm@nkangaladm.gov.za',
+              'pplan_tenant-229_shabangusm@nkangaladm.gov.za',
+              'pplan_global_shabangusm@nkangaladm.gov.za'
+            ];
+            for (const pid of pplanIds) {
+              const { data: pMsg } = await supabase.from('messages').select('content, tenant_id').eq('id', pid).maybeSingle();
+              if (pMsg && pMsg.content) {
+                try {
+                  const pplanObj = JSON.parse(pMsg.content);
+                  if (pplanObj && pplanObj.metadata) {
+                    pplanObj.metadata.manager = 'Mandla L. Mahlangu';
+                    pplanObj.metadata.managerEmail = 'mahlanguml@nkangaladm.gov.za';
+                    pplanObj.metadata.reportTo = 'Mandla L. Mahlangu';
+                    pplanObj.metadata.employerName = 'Mahlangu Lucas Mandla';
+                    pplanObj.metadata.employerTitle = 'Municipal Manager';
+                    await supabase.from('messages').upsert({
+                      id: pid,
+                      tenant_id: pMsg.tenant_id || 'tenant-229',
+                      sender_id: 'system',
+                      sender_email: 'system@local',
+                      sender_name: 'Performance Plan Sync',
+                      content: JSON.stringify(pplanObj),
+                      message_type: 'pplan_list',
+                      created_at: new Date().toISOString()
+                    });
+                  }
+                } catch(e) {}
+              }
+            }
+          } catch(e) {}
+
+          const formatted = users.map((u: any) => {
+            const emailKey = (u.email || '').toLowerCase().trim();
+            const isShabangu = emailKey.includes('shabangusm') || emailKey.includes('shabangugm');
+            return {
+              id: u.id,
+              fullName: u.full_name,
+              email: u.email,
+              jobFunction: u.job_function,
+              department: isShabangu ? 'PMS' : u.department,
+              source: u.source,
+              role: u.role,
+              tenantId: u.tenant_id,
+              manager: isShabangu ? 'Mandla L. Mahlangu' : (map[u.id]?.manager || ''),
+              directorate: isShabangu ? 'Office of the Municipal Manager' : (map[u.id]?.directorate || ''),
+              reportTo: isShabangu ? 'Mandla L. Mahlangu' : (map[u.id]?.reportTo || ''),
+              managerEmail: isShabangu ? 'mahlanguml@nkangaladm.gov.za' : (map[u.id]?.managerEmail || ''),
+              level: isShabangu ? '3' : (map[u.id]?.level || '1')
+            };
+          });
           saveNkangalaToDisk(formatted);
           console.log("---- Synchronized Nkangala users on startup ----");
           
