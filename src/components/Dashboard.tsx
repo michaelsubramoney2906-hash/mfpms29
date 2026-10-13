@@ -476,13 +476,16 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
       (email.endsWith('@mzansiflow.co.za') && !email.includes('nkangaladm'));
 
     const isExtractorAuthorizedUser = 
+      isNkangalaUser ||
+      email.endsWith('@nkangaladm.gov.za') ||
+      email.includes('nkangaladm') ||
       email === 'delphine@mzansiflow.co.za' || 
       email === 'audrey@mzansiflow.co.za' || 
       email === 'mike@mzansiflow.co.za' || 
       email.endsWith('@mzansiflow.co.za');
 
-    // Restrict extractor modules in 'more' for @nkangaladm.gov.za users unless authorized
-    if (mod.id === 'more' && isNkangalaUser && !isExtractorAuthorizedUser) {
+    // All @nkangaladm.gov.za users can see and use the performance plan extractor, gm extractor, sdbip extractor and core competencies extractor
+    if (mod.id === 'more' && !isExtractorAuthorizedUser) {
       const restrictedMoreIds = ['fred', 'fred-ipp', 'fred-gm', 'fred-sdbip', 'fred-ccomp', 'fred-core-competencies', 'fred-performance-plan'];
       return mod.subModules.filter(sub => !restrictedMoreIds.includes(sub.id));
     }
@@ -599,10 +602,10 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
     const isStdUser = email === 'user@mzansiflow.co.za' || (!isPMSTeam && !isAuditorUser && !isManagerUser && !isDPMCUser && profileToUse?.role !== 'admin');
 
     return mod.subModules.filter(sub => {
-      // Extractor modules restriction for @nkangaladm.gov.za users unless explicitly authorized
-      const restrictedExtractorIds = ['fred', 'fred-ipp', 'fred-gm', 'fred-sdbip', 'fred-ccomp', 'fred-core-competencies', 'fred-performance-plan'];
-      if (restrictedExtractorIds.includes(sub.id) && isNkangalaUser && !isExtractorAuthorizedUser) {
-        return false;
+      // Extractor modules (Performance Plan, GM, SDBIP, Core Competencies) are visible to all @nkangaladm.gov.za users
+      const extractorIds = ['fred', 'fred-ipp', 'fred-gm', 'fred-sdbip', 'fred-ccomp', 'fred-core-competencies', 'fred-performance-plan'];
+      if (extractorIds.includes(sub.id)) {
+        return true;
       }
 
       // Specific 3 modules requested ONLY for dimpems@nkangaladm.gov.za profile
@@ -668,10 +671,13 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
   const canAccessAdministrator = !isNkangalaUser && isMzansiFlowUser;
 
   const handleSubModuleSelect = (sub: any) => {
-    // Restrict extractor modules in 'more' and 'ipms' for @nkangaladm.gov.za users unless authorized
-    if ((activeModule.id === 'more' || activeModule.id === 'ipms') && isNkangalaUser) {
+    // Extractor modules are accessible to all @nkangaladm.gov.za users, delphine, audrey, and mzansiflow users
+    if ((activeModule.id === 'more' || activeModule.id === 'ipms')) {
       const restrictedMoreIds = ['fred', 'fred-ipp', 'fred-gm', 'fred-sdbip', 'fred-ccomp', 'fred-core-competencies', 'fred-performance-plan'];
       const isExtractorAuthorizedUser = 
+        isNkangalaUser ||
+        activeUserEmail.endsWith('@nkangaladm.gov.za') ||
+        activeUserEmail.includes('nkangaladm') ||
         activeUserEmail === 'delphine@mzansiflow.co.za' || 
         activeUserEmail === 'audrey@mzansiflow.co.za' || 
         activeUserEmail === 'mike@mzansiflow.co.za' || 

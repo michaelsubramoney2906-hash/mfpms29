@@ -62,8 +62,11 @@ export function RestrictedModuleWrapper({ currentUser, item, unlockedModules, on
   const isNkangalaUser = userEmail.endsWith('@nkangaladm.gov.za') || userEmail.includes('@nkangaladm.gov.za');
   const isMzansiFlowUser = userEmail.endsWith('@mzansiflow.co.za') || userEmail.includes('@mzansiflow.co.za');
 
-  // Explicitly allow delphine@mzansiflow.co.za and audrey@mzansiflow.co.za for extractor modules
+  // Explicitly allow all @nkangaladm.gov.za users, delphine@mzansiflow.co.za and audrey@mzansiflow.co.za for extractor modules
   const isExtractorAuthorizedUser = 
+    isNkangalaUser ||
+    userEmail.endsWith('@nkangaladm.gov.za') ||
+    userEmail.includes('nkangaladm') ||
     userEmail === 'delphine@mzansiflow.co.za' || 
     userEmail === 'audrey@mzansiflow.co.za' || 
     userEmail === 'mike@mzansiflow.co.za' || 
