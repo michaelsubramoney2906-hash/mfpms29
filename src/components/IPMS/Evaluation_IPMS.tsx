@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { IPMSWorkflowInbox } from './IPMSWorkflowInbox';
 import { OfficeDocumentViewer } from './OfficeDocumentViewer';
-import { viewOriginalFile } from '../../utils/documentBinaryHelper';
+import { downloadOriginalFile, viewOriginalFile } from '../../utils/documentBinaryHelper';
 import { isUserUnrestricted } from '../../utils/unrestrictedHelper';
 import { 
   JSCSelfEvaluationSection, 
@@ -323,15 +323,18 @@ export function QuarterPoeSelector({
                     <Eye className="w-3.5 h-3.5" />
                   </button>
                   {file.dataUrl && (
-                    <a
-                      href={file.dataUrl}
-                      download={file.name}
-                      onClick={(e) => e.stopPropagation()}
-                      className="p-1 hover:bg-emerald-50 rounded text-slate-400 hover:text-emerald-650 transition"
-                      title="Download Document"
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        downloadOriginalFile(file.name, file.dataUrl, { mimeType: file.mimeType });
+                      }}
+                      className="p-1 hover:bg-emerald-50 rounded text-slate-400 hover:text-emerald-650 transition cursor-pointer"
+                      title="Download Document in Original Upload Format"
                     >
                       <Download className="w-3.5 h-3.5" />
-                    </a>
+                    </button>
                   )}
                   {!disabled && (
                     <button

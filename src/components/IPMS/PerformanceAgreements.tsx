@@ -16,6 +16,7 @@ import { PATemplates } from './PATemplates';
 import { NKANGALA_LOGO_BASE64 } from './nkangala_logo_base64';
 import { PoeDocument } from './Evaluation_IPMS';
 import { isUserUnrestricted } from '../../utils/unrestrictedHelper';
+import { downloadOriginalFile, viewOriginalFile } from '../../utils/documentBinaryHelper';
 
 
 const DUAL_LAYER_USERS = [
@@ -4071,51 +4072,66 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
                           </div>
 
                           {item.poeDocs && item.poeDocs.length > 0 ? (
-                            <div className="flex flex-col gap-1 max-h-[100px] overflow-y-auto w-full">
+                            <div className="flex flex-col gap-1 max-h-[120px] overflow-y-auto w-full">
                               {item.poeDocs.map((file) => (
-                                <div key={file.id} className="flex items-center justify-between gap-1 bg-white border border-slate-200 rounded p-1 text-[9px] w-full">
-                                  <a
-                                    href={file.dataUrl}
-                                    download={file.name}
-                                    className="font-semibold text-blue-600 hover:underline truncate max-w-[130px] flex items-center gap-1"
-                                    title={file.name}
-                                  >
-                                    <Paperclip className="w-3 h-3 shrink-0 text-slate-400" />
+                                <div key={file.id} className="flex items-center justify-between gap-1 bg-white border border-slate-200 rounded p-1 text-[9px] w-full shadow-xs">
+                                  <span className="font-semibold text-slate-800 truncate max-w-[100px] flex items-center gap-1" title={file.name}>
+                                    <Paperclip className="w-2.5 h-2.5 shrink-0 text-slate-400" />
                                     <span className="truncate">{file.name}</span>
-                                  </a>
-                                  <button
-                                    type="button"
-                                    onClick={() => handlePlanPoeRemove(item.id, file.id, item.poeDocs || [])}
-                                    className="text-red-500 hover:text-red-700 font-bold shrink-0 p-0.5"
-                                    title="Delete POE file"
-                                  >
-                                    <Trash2 className="w-3 h-3" />
-                                  </button>
+                                  </span>
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    <button
+                                      type="button"
+                                      onClick={() => viewOriginalFile(file.name, file.dataUrl, { kpiName: item.kpi, refNum: item.kpiNo })}
+                                      className="p-0.5 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded transition cursor-pointer"
+                                      title="View Document"
+                                    >
+                                      <Eye className="w-3 h-3" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => downloadOriginalFile(file.name, file.dataUrl, { kpiName: item.kpi, refNum: item.kpiNo, mimeType: file.mimeType })}
+                                      className="p-0.5 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded transition cursor-pointer"
+                                      title="Download Document in Original Format"
+                                    >
+                                      <Download className="w-3 h-3" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handlePlanPoeRemove(item.id, file.id, item.poeDocs || [])}
+                                      className="p-0.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded transition cursor-pointer"
+                                      title="Delete POE file"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  </div>
                                 </div>
                               ))}
                             </div>
                           ) : item.poeFileBase64 ? (
-                            <div className="flex items-center gap-1.5 justify-between w-full">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  try {
-                                    const link = document.createElement('a');
-                                    link.href = item.poeFileBase64!;
-                                    link.download = item.poeFileName || 'poe_evidence_document';
-                                    document.body.appendChild(link);
-                                    link.click();
-                                    document.body.removeChild(link);
-                                  } catch (err) {
-                                    console.error("Download failed:", err);
-                                  }
-                                }}
-                                className="flex items-center gap-1 font-mono text-[9px] font-bold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100/80 px-2 py-1 rounded border border-blue-200 cursor-pointer text-left truncate w-full"
-                                title={`Click to download: ${item.poeFileName || 'evidence file'}`}
-                              >
-                                <Paperclip className="w-2.5 h-2.5 shrink-0" />
+                            <div className="flex items-center gap-1 justify-between w-full bg-blue-50 border border-blue-200 rounded p-1">
+                              <span className="font-mono text-[9px] font-bold text-blue-900 truncate flex items-center gap-1">
+                                <Paperclip className="w-2.5 h-2.5 shrink-0 text-blue-600" />
                                 <span className="truncate">{item.poeFileName || 'POE File'}</span>
-                              </button>
+                              </span>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => viewOriginalFile(item.poeFileName || 'poe_file', item.poeFileBase64, { kpiName: item.kpi, refNum: item.kpiNo })}
+                                  className="p-0.5 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-100 rounded transition cursor-pointer"
+                                  title="View File"
+                                >
+                                  <Eye className="w-3 h-3" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => downloadOriginalFile(item.poeFileName || 'poe_evidence_document', item.poeFileBase64!)}
+                                  className="p-0.5 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-100 rounded transition cursor-pointer"
+                                  title="Download File"
+                                >
+                                  <Download className="w-3 h-3" />
+                                </button>
+                              </div>
                             </div>
                           ) : (
                             <span className="text-[10px] text-gray-400 italic w-full text-center">No evidence uploaded yet.</span>

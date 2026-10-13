@@ -22,6 +22,7 @@ import {
   Send
 } from 'lucide-react';
 import { OfficeDocumentViewer } from './OfficeDocumentViewer';
+import { downloadOriginalFile, viewOriginalFile } from '../../utils/documentBinaryHelper';
 import { JSCDpmcReviewSection } from './JSCModules';
 import { CoreCompetenciesDpmcReviewSection } from './CoreCompetenciesSelfEvaluation';
 
@@ -1062,14 +1063,26 @@ export function DepartmentModerationIPMS({ currentUser, activeTenantId }: Props)
                                           <p className="text-[8px] text-slate-400 font-mono m-0 font-bold">Uploaded by {doc.uploadedBy || 'Officer'}</p>
                                         </div>
                                       </div>
-                                      <button
-                                        type="button"
-                                        onClick={() => setPreviewDoc({ ...doc, quarter: activeQuarterTab, kpiName: activeKPI.kpi })}
-                                        className="p-1 px-2.5 hover:bg-indigo-600 hover:text-white border border-slate-200 hover:border-indigo-600 bg-white text-indigo-600 text-[8px] font-black uppercase rounded-lg transition-all flex items-center gap-1 cursor-pointer"
-                                      >
-                                        <Eye className="w-3 h-3" />
-                                        <span>Preview Proof</span>
-                                      </button>
+                                      <div className="flex items-center gap-1.5">
+                                        <button
+                                          type="button"
+                                          onClick={() => setPreviewDoc({ ...doc, quarter: activeQuarterTab, kpiName: activeKPI.kpi })}
+                                          className="p-1 px-2.5 hover:bg-indigo-600 hover:text-white border border-slate-200 hover:border-indigo-600 bg-white text-indigo-600 text-[8px] font-black uppercase rounded-lg transition-all flex items-center gap-1 cursor-pointer"
+                                          title="View Document in Interactive Viewer"
+                                        >
+                                          <Eye className="w-3 h-3" />
+                                          <span>Preview</span>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => downloadOriginalFile(doc.name, doc.dataUrl, { kpiName: activeKPI.kpi, quarter: activeQuarterTab, mimeType: doc.mimeType })}
+                                          className="p-1 px-2 hover:bg-emerald-600 hover:text-white border border-slate-200 hover:border-emerald-600 bg-white text-emerald-600 text-[8px] font-black uppercase rounded-lg transition-all flex items-center gap-1 cursor-pointer"
+                                          title="Download Original Uploaded File"
+                                        >
+                                          <Download className="w-3 h-3" />
+                                          <span>Download</span>
+                                        </button>
+                                      </div>
                                     </div>
                                   ))}
                                 </div>

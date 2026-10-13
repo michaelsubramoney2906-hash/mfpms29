@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import type { User } from '../../types';
 import { OfficeDocumentViewer } from './OfficeDocumentViewer';
+import { downloadOriginalFile, viewOriginalFile } from '../../utils/documentBinaryHelper';
 
 export const isCellNA = (val: any): boolean => {
   if (val === null || val === undefined) return false;
@@ -522,16 +523,7 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
 
   const downloadDoc = (doc: PoeDocument) => {
     if (!doc.dataUrl) return;
-    try {
-      const link = document.createElement('a');
-      link.href = doc.dataUrl;
-      link.download = doc.name;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch (err) {
-      console.error("Failed to download document:", err);
-    }
+    downloadOriginalFile(doc.name, doc.dataUrl, { mimeType: doc.mimeType });
   };
 
   const updateKpiField = async (id: string, field: string, value: any) => {
