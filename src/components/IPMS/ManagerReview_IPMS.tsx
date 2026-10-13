@@ -12,6 +12,7 @@ import { JSCManagerApprovalSection } from './JSCModules';
 import { CoreCompetenciesManagerApprovalSection } from './CoreCompetenciesSelfEvaluation';
 import { calculateVariance } from './Evaluation_IPMS';
 import { isUserUnrestricted } from '../../utils/unrestrictedHelper';
+import { downloadOriginalFile, viewOriginalFile } from '../../utils/documentBinaryHelper';
 
 interface Props {
   currentUser: any;
@@ -2619,20 +2620,14 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
                 Verify this documentation against compliance checklist and requested KPI metrics.
               </span>
               <div className="flex gap-2">
-                <a
-                  href={previewDoc.dataUrl || `#`}
-                  download={previewDoc.name}
-                  onClick={(e) => {
-                    if (!previewDoc.dataUrl) {
-                      e.preventDefault();
-                      alert("Simulating file download secure system export... Document archive fetched!");
-                    }
-                  }}
-                  className="bg-slate-900 text-white hover:bg-slate-800 text-[10px] uppercase font-bold px-4 py-2 rounded-xl flex items-center gap-2 transition cursor-pointer no-underline"
+                <button
+                  type="button"
+                  onClick={() => downloadOriginalFile(previewDoc.name, previewDoc.dataUrl || previewDoc.fileData, { kpiName: previewDoc.kpiName, quarter: previewDoc.quarter, mimeType: previewDoc.mimeType })}
+                  className="bg-slate-900 text-white hover:bg-slate-800 text-[10px] uppercase font-bold px-4 py-2 rounded-xl flex items-center gap-2 transition cursor-pointer border-0"
                 >
                   <Download className="w-3.5 h-3.5" />
                   <span>Download Secure Original</span>
-                </a>
+                </button>
                 <button
                   onClick={() => setPreviewDoc(null)}
                   className="bg-indigo-600 text-white hover:bg-indigo-500 text-[10px] uppercase font-bold px-4 py-2 rounded-xl transition border-0 cursor-pointer"

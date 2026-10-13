@@ -13986,28 +13986,6 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           }
           userId = userId.toLowerCase().trim();
 
-          const sanitizeHeavyPayload = (obj: any): any => {
-            if (!obj) return obj;
-            if (Array.isArray(obj)) {
-              return obj.map(item => sanitizeHeavyPayload(item));
-            }
-            if (typeof obj === 'object') {
-              const newObj: any = {};
-              for (const key of Object.keys(obj)) {
-                if (key === 'dataUrl' || key === 'base64') {
-                  continue; // completely strip base64 content
-                }
-                const val = obj[key];
-                if (typeof val === 'string' && (val.length > 5000 || val.startsWith('data:'))) {
-                  continue; // strip heavy string
-                }
-                newObj[key] = sanitizeHeavyPayload(val);
-              }
-              return newObj;
-            }
-            return obj;
-          };
-
           let planObj: any = { metadata: {}, items: [] };
           if (row.content) {
             try {
@@ -14018,7 +13996,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
                   items: []
                 };
               } else {
-                planObj = sanitizeHeavyPayload(rawObj);
+                planObj = rawObj;
                 if (planObj && Array.isArray(planObj.items)) {
                   planObj.items = planObj.items.map((it: any) => sanitizePplanItem(it, userId));
                 }

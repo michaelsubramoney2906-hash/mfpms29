@@ -132,24 +132,38 @@ export function CompactPoeUploader({
         <div className="flex flex-col gap-1 max-h-[60px] overflow-y-auto">
           {files.map((file) => (
             <div key={file.id} className="flex items-center justify-between gap-1 bg-slate-50 border border-slate-150 rounded px-1 py-0.5 text-[8px]">
-              <a
-                href={file.dataUrl}
-                download={file.name}
-                className="font-medium text-blue-600 hover:underline truncate max-w-[90px] flex items-center gap-0.5"
-                title={file.name}
-              >
-                <Paperclip className="w-2 h-2 shrink-0 text-slate-400" />
+              <span className="font-semibold text-slate-700 truncate max-w-[80px] flex items-center gap-0.5" title={file.name}>
+                <Paperclip className="w-2.5 h-2.5 shrink-0 text-slate-400" />
                 <span className="truncate">{file.name}</span>
-              </a>
-              {!disabled && (
+              </span>
+              <div className="flex items-center gap-1 shrink-0">
                 <button
                   type="button"
-                  onClick={() => onRemove(file.id)}
-                  className="text-red-500 hover:text-red-700 font-bold shrink-0"
+                  onClick={() => viewOriginalFile(file.name, file.dataUrl, { mimeType: file.mimeType })}
+                  className="p-0.5 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded transition cursor-pointer"
+                  title="View Document"
                 >
-                  <Trash2 className="w-2 h-2" />
+                  <Eye className="w-2.5 h-2.5" />
                 </button>
-              )}
+                <button
+                  type="button"
+                  onClick={() => downloadOriginalFile(file.name, file.dataUrl, { mimeType: file.mimeType })}
+                  className="p-0.5 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded transition cursor-pointer"
+                  title="Download Document in Original Format"
+                >
+                  <Download className="w-2.5 h-2.5" />
+                </button>
+                {!disabled && (
+                  <button
+                    type="button"
+                    onClick={() => onRemove(file.id)}
+                    className="p-0.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded transition cursor-pointer"
+                    title="Delete POE file"
+                  >
+                    <Trash2 className="w-2.5 h-2.5" />
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>
