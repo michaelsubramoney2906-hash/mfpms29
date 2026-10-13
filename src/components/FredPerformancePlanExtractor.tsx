@@ -181,41 +181,65 @@ export function FredPerformancePlanExtractor({
 
       // Map strictly and verbatim as per required field definitions:
       // kpi number -> kpi no
-      // key performance indicators -> kpi description
+      // kpi -> kpi description
       // weight -> wt
-      // kpa -> functional area kpa
-      // baseline 2025/26 -> baseline
+      // baseline -> baseline
       // annual target -> annual target
       // 1st quarter planned target -> 1st qtr target
       // 2nd quarter planned target -> 2nd qtr target
       // 3rd quarter planned target -> 3rd qtr target
       // 4th quarter planned target -> 4th qtr target
-      // poe -> poe
-      // total budget allocated R'000 -> budget
+      // poe -> 1st qtr poe, 2nd qtr poe, 3rd qtr poe, 4th qtr poe
+      // total budget allocated -> budget
       const planItems = selected.map((it, idx) => {
         const functionalKpa = it["functional kpa"] || it["kpa"] || 'Functional Performance Area';
         const poeVal = it["poe"] || it["portfolio of evidence"] || it["means of verification"] || '';
-        
+        const kpiNoVal = it["kpi no"] || `KPI-${idx + 1}`;
+        const kpiDescVal = it["kpi description"] || it["kpi"] || '';
+        const wtVal = it["wt"] || it["%wt"] || '0';
+        const baselineVal = it["baseline"] || '';
+        const annualTargetVal = it["annual target"] || '';
+        const q1Val = it["1st qtr target"] || '';
+        const q2Val = it["2nd qtr target"] || '';
+        const q3Val = it["3rd qtr target"] || '';
+        const q4Val = it["4th qtr target"] || '';
+        const budgetVal = it["budget"] || '';
+
         return {
           id: `ipp-kpi-${Date.now()}-${idx + 1}`,
-          kpiNo: it["kpi no"] || `KPI-${idx + 1}`,
-          kpi: it["kpi description"] || '',
-          weighting: it["%wt"] || '0',
-          baseline: it["baseline"] || '',
-          annualTarget: it["annual target"] || '',
-          q1Target: it["1st qtr target"] || '',
-          q2Target: it["2nd qtr target"] || '',
-          q3Target: it["3rd qtr target"] || '',
-          q4Target: it["4th qtr target"] || '',
+          kpiNo: kpiNoVal,
+          "kpi no": kpiNoVal,
+          kpi: kpiDescVal,
+          kpiDescription: kpiDescVal,
+          "kpi description": kpiDescVal,
+          weighting: wtVal,
+          wt: wtVal,
+          "%wt": wtVal,
+          baseline: baselineVal,
+          annualTarget: annualTargetVal,
+          "annual target": annualTargetVal,
+          q1Target: q1Val,
+          "1st qtr target": q1Val,
+          q2Target: q2Val,
+          "2nd qtr target": q2Val,
+          q3Target: q3Val,
+          "3rd qtr target": q3Val,
+          q4Target: q4Val,
+          "4th qtr target": q4Val,
           poe: poeVal,
+          "1st qtr poe": poeVal,
+          "2nd qtr poe": poeVal,
+          "3rd qtr poe": poeVal,
+          "4th qtr poe": poeVal,
           annualRequiredPoe: poeVal,
           q1Poe: poeVal,
           q2Poe: poeVal,
           midtermPoe: poeVal,
           q3Poe: poeVal,
           q4Poe: poeVal,
-          budget: it["budget"] || 'R0.00',
+          budget: budgetVal,
           kpa: functionalKpa,
+          functionalKpa: functionalKpa,
           mscoaCode: 'Operational',
           strategicGoal: 'To ensure sustainable service delivery and clean audit compliance',
           myScore: '3.0'

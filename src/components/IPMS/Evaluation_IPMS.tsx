@@ -483,6 +483,25 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
               data.metadata.manager = 'Yena Khuboni';
             }
           }
+          if (data && Array.isArray(data.items)) {
+            const uEmail = (currentUser?.email || '').toLowerCase().trim();
+            const metaEmail = (data.metadata?.email || '').toLowerCase().trim();
+            const isJoubert = uEmail.includes('joubert') || uEmail.includes('marianne') || metaEmail.includes('joubert') || metaEmail.includes('marianne');
+            if (isJoubert) {
+              data.items = data.items.map((it: any) => {
+                const kpiDesc = (it.kpi || it.description || it.kpiDescription || '').toLowerCase();
+                if (kpiDesc.includes('clean audit')) {
+                  return {
+                    ...it,
+                    q1Target: 'N/A',
+                    q1Locked: true,
+                    q3Target: (!it.q3Target || it.q3Target === 'N/A') ? '1 (Clean audit)' : it.q3Target
+                  };
+                }
+                return it;
+              });
+            }
+          }
         }
         setPplanData(data);
       }
@@ -1695,15 +1714,21 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
                   {/* ACTIVE TAB DISPLAY CARD */}
                   <div className="bg-slate-50/40 p-4 rounded-xl border border-slate-150/70">
                     {currentTab === 'q1' && (() => {
-                      const isQ1NA = isCellNA(kpi.q1Target);
-                      const isEffectiveQ1Locked = kpi.q1Locked || isQ1NA;
+                      const uEmail = (currentUser?.email || '').toLowerCase().trim();
+                      const metaEmail = (pplanData.metadata?.email || '').toLowerCase().trim();
+                      const isJoubertUser = uEmail.includes('joubert') || uEmail.includes('marianne') || metaEmail.includes('joubert') || metaEmail.includes('marianne');
+                      const isCleanAuditKpi = (kpi.kpi || kpi.kpiDescription || kpi.description || '').toLowerCase().includes('clean audit');
+                      const isJoubertCleanAuditLocked = isJoubertUser && isCleanAuditKpi;
+
+                      const isQ1NA = isCellNA(kpi.q1Target) || isJoubertCleanAuditLocked;
+                      const isEffectiveQ1Locked = kpi.q1Locked || isQ1NA || isJoubertCleanAuditLocked;
                       return (
                       <div className="space-y-4">
                         {renderTimeLockBanner(isQ1TimeLocked, q1ActivePeriod)}
                         {isEffectiveQ1Locked && (
                           <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-3 text-xs flex items-center gap-2 font-medium">
                             <span className="text-base">🔒</span>
-                            <span>{isQ1NA ? "This quarter is marked as N/A and is locked for reporting." : "This quarter is locked for reporting as it was not scheduled in the imported Performance Agreement."}</span>
+                            <span>{isJoubertCleanAuditLocked ? "Marianne Joubert's 'Attain clean audit' KPI is only applicable in Quarter 3 and is locked as N/A for Quarter 1." : (isQ1NA ? "This quarter is marked as N/A and is locked for reporting." : "This quarter is locked for reporting as it was not scheduled in the imported Performance Agreement.")}</span>
                           </div>
                         )}
                         <div className="flex items-start gap-2 text-[10px] text-slate-500 font-sans">

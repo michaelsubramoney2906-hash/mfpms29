@@ -602,6 +602,23 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
               }
               return true;
             });
+
+            // Enforce Marianne Joubert Clean Audit KPI rule (Q1 locked as N/A, applicable in Q3)
+            const isJoubertTarget = targetEmail.toLowerCase().includes('joubert') || targetEmail.toLowerCase().includes('marianne');
+            if (isJoubertTarget) {
+              currentItems = currentItems.map((item: any) => {
+                const kpiDesc = (item.kpi || item.description || item.kpiDescription || '').toLowerCase();
+                if (kpiDesc.includes('clean audit')) {
+                  return {
+                    ...item,
+                    q1Target: 'N/A',
+                    q1Locked: true,
+                    q3Target: (!item.q3Target || item.q3Target === 'N/A') ? '1 (Clean audit)' : item.q3Target
+                  };
+                }
+                return item;
+              });
+            }
           }
 
           const isCleared = data.metadata && data.metadata._isCleared === true;
