@@ -2147,18 +2147,36 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
                                     </div>
                                   </div>
                                   
-                                  <button
-                                    onClick={() => setPreviewDoc({ 
-                                      ...doc, 
-                                      fileData: doc.fileData || doc.url || createMockFileUrl(doc.name, doc.fileType || 'application/pdf', plan.metadata?.name || 'Employee'),
-                                      kpiName: kpi.kpi, 
-                                      quarter: currentQuarterTab 
-                                    })}
-                                    className="p-1 px-2 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-0 cursor-pointer flex items-center gap-1 text-[9px] font-bold tracking-tight uppercase shrink-0 transition"
-                                  >
-                                    <Eye className="w-3 h-3" />
-                                    <span>Review</span>
-                                  </button>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <button
+                                      type="button"
+                                      onClick={() => setPreviewDoc({ 
+                                        ...doc, 
+                                        dataUrl: doc.dataUrl || doc.fileData || doc.url,
+                                        fileData: doc.fileData || doc.dataUrl || doc.url || createMockFileUrl(doc.name, doc.fileType || 'application/pdf', plan.metadata?.name || 'Employee'),
+                                        kpiName: kpi.kpi, 
+                                        quarter: currentQuarterTab 
+                                      })}
+                                      className="p-1 px-2 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-0 cursor-pointer flex items-center gap-1 text-[9px] font-bold tracking-tight uppercase transition"
+                                      title="Review in Office Document Viewer"
+                                    >
+                                      <Eye className="w-3 h-3" />
+                                      <span>Review</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => downloadOriginalFile(doc.name, doc.dataUrl || doc.fileData, {
+                                        kpiName: kpi.kpi,
+                                        quarter: currentQuarterTab,
+                                        mimeType: doc.fileType || doc.mimeType
+                                      })}
+                                      className="p-1 px-2 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-0 cursor-pointer flex items-center gap-1 text-[9px] font-bold tracking-tight uppercase transition"
+                                      title="Download original file format"
+                                    >
+                                      <Download className="w-3 h-3 text-emerald-600" />
+                                      <span>Save</span>
+                                    </button>
+                                  </div>
                                 </div>
                               ))}
                             </div>

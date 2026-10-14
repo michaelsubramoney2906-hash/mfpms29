@@ -1250,7 +1250,90 @@ export function DepartmentModerationIPMS({ currentUser, activeTenantId }: Props)
                               {kpi.correctiveMeasure ? <div className="text-[9.5px] mt-1"><span className="font-extrabold text-[#065f46] uppercase text-[7.5px] block">Fix</span>{kpi.correctiveMeasure}</div> : null}
                               {!kpi.varianceReason && !kpi.correctiveMeasure && <span className="text-slate-300 italic">None logged</span>}
                             </td>
-                            <td className="p-3 border-r border-slate-150 align-top text-slate-550 break-words font-mono text-[9px] text-[#4f46e5] font-bold">{kpi.poe || '-'}</td>
+                            <td className="p-3 border-r border-slate-150 align-top text-slate-700 min-w-[200px]">
+                              {kpi.poe && (
+                                <p className="text-[9.5px] font-sans font-medium text-slate-650 m-0 mb-2 leading-tight">
+                                  {kpi.poe}
+                                </p>
+                              )}
+                              {(() => {
+                                const kpiDocs: any[] = [
+                                  ...(kpi.q1PoeDocs || []),
+                                  ...(kpi.q2PoeDocs || []),
+                                  ...(kpi.midtermPoeDocs || []),
+                                  ...(kpi.q3PoeDocs || []),
+                                  ...(kpi.q4PoeDocs || []),
+                                  ...(kpi.annualPoeDocs || []),
+                                  ...(kpi.poeDocs || [])
+                                ];
+                                if (kpi.poeFileName && !kpiDocs.some((d: any) => d.name === kpi.poeFileName)) {
+                                  kpiDocs.push({
+                                    id: `doc-${kpi.id}-file`,
+                                    name: kpi.poeFileName,
+                                    dataUrl: kpi.poeFileBase64 || '',
+                                    mimeType: 'application/pdf',
+                                    uploadedAt: new Date().toISOString(),
+                                    uploadedBy: plan?.metadata?.name || 'Employee'
+                                  });
+                                }
+
+                                if (kpiDocs.length === 0) {
+                                  return (
+                                    <span className="text-[8.5px] text-slate-400 font-sans italic block">
+                                      No document files attached
+                                    </span>
+                                  );
+                                }
+
+                                return (
+                                  <div className="space-y-1 mt-1 font-sans">
+                                    <span className="text-[8px] font-black uppercase tracking-wider text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100 block w-fit">
+                                      {kpiDocs.length} Verified Evidence File{kpiDocs.length !== 1 ? 's' : ''}
+                                    </span>
+                                    <div className="space-y-1 pt-1 max-h-32 overflow-y-auto pr-0.5">
+                                      {kpiDocs.map((doc: any, dIdx: number) => (
+                                        <div
+                                          key={doc.id || `doc-${dIdx}`}
+                                          className="bg-slate-50 hover:bg-indigo-50/50 border border-slate-200 rounded-lg p-1.5 flex items-center justify-between gap-1.5 transition text-[9px]"
+                                        >
+                                          <span className="font-bold text-slate-800 truncate max-w-[120px]" title={doc.name}>
+                                            {doc.name}
+                                          </span>
+                                          <div className="flex items-center gap-1 shrink-0">
+                                            <button
+                                              type="button"
+                                              onClick={() => setPreviewDoc({
+                                                ...doc,
+                                                kpiName: kpi.kpi,
+                                                quarter: doc.quarter || 'Annual'
+                                              })}
+                                              className="p-1 px-1.5 rounded bg-indigo-100 hover:bg-indigo-200 text-indigo-800 font-black flex items-center gap-0.5 cursor-pointer border-0 transition"
+                                              title="View original PoE in modal viewer"
+                                            >
+                                              <Eye className="w-2.5 h-2.5" />
+                                              <span>View</span>
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => downloadOriginalFile(doc.name, doc.dataUrl || doc.fileData, {
+                                                kpiName: kpi.kpi,
+                                                quarter: doc.quarter || 'Annual',
+                                                mimeType: doc.mimeType
+                                              })}
+                                              className="p-1 px-1.5 rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-black flex items-center gap-0.5 cursor-pointer border-0 transition"
+                                              title="Download original file format"
+                                            >
+                                              <Download className="w-2.5 h-2.5" />
+                                              <span>Save</span>
+                                            </button>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                            </td>
                             <td className="p-3 border-r border-slate-150 align-top text-center font-bold text-slate-800 bg-slate-50/20">{kpi.weighting || 0}%</td>
                             <td className="p-3 border-r border-slate-150 align-top text-center text-slate-700 font-bold">{kpi.myScore || '-'}</td>
                             <td className="p-3 border-r border-slate-150 align-top text-center text-indigo-700 bg-indigo-50/10 font-bold">{kpi.managerScore || '-'}</td>

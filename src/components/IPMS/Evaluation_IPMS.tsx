@@ -21,8 +21,13 @@ export interface PoeDocument {
   mimeType: string;
   size?: number;
   dataUrl?: string;
+  fileData?: string;
+  url?: string;
+  fileType?: string;
   uploadedAt: string;
   uploadedBy: string;
+  kpiName?: string;
+  quarter?: string;
 }
 
 import { 
@@ -54,6 +59,7 @@ interface QuarterPoeSelectorProps {
   disabled?: boolean;
   poeStatus?: string;
   poeFeedback?: string;
+  onAutoSave?: (docs: PoeDocument[]) => void;
 }
 
 export function QuarterPoeSelector({
@@ -68,7 +74,8 @@ export function QuarterPoeSelector({
   currentUser,
   disabled,
   poeStatus,
-  poeFeedback
+  poeFeedback,
+  onAutoSave
 }: QuarterPoeSelectorProps) {
   const [dragActive, setDragActive] = useState(false);
   const [previewDoc, setPreviewDoc] = useState<PoeDocument | null>(null);
@@ -145,8 +152,11 @@ export function QuarterPoeSelector({
     }
 
     if (newDocs.length > 0) {
-      setFiles([...files, ...newDocs]);
-      alert(`Success! ${newDocs.length} PoE document(s) uploaded.`);
+      const updatedFiles = [...files, ...newDocs];
+      setFiles(updatedFiles);
+      if (onAutoSave) {
+        onAutoSave(updatedFiles);
+      }
     }
   };
 
@@ -173,7 +183,11 @@ export function QuarterPoeSelector({
 
   const removeFile = (id: string) => {
     if (disabled) return;
-    setFiles(files.filter(f => f.id !== id));
+    const updatedFiles = files.filter(f => f.id !== id);
+    setFiles(updatedFiles);
+    if (onAutoSave) {
+      onAutoSave(updatedFiles);
+    }
   };
 
   const getFileIcon = (mimeType: string, name: string) => {
@@ -316,9 +330,17 @@ export function QuarterPoeSelector({
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
-                    onClick={(e) => { e.preventDefault(); viewOriginalFile(file.name, file.dataUrl); }}
-                    className="p-1 hover:bg-indigo-50 rounded text-slate-400 hover:text-indigo-650 transition"
-                    title="View Document in New Window"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setPreviewDoc({
+                        ...file,
+                        kpiName: requiredPoeDescription || label,
+                        quarter: quarterName
+                      });
+                    }}
+                    className="p-1 hover:bg-indigo-50 rounded text-slate-400 hover:text-indigo-650 transition cursor-pointer"
+                    title="View Document in High-Fidelity Office Viewer"
                   >
                     <Eye className="w-3.5 h-3.5" />
                   </button>
@@ -328,7 +350,11 @@ export function QuarterPoeSelector({
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        downloadOriginalFile(file.name, file.dataUrl, { mimeType: file.mimeType });
+                        downloadOriginalFile(file.name, file.dataUrl, {
+                          mimeType: file.mimeType,
+                          kpiName: requiredPoeDescription || label,
+                          quarter: quarterName
+                        });
                       }}
                       className="p-1 hover:bg-emerald-50 rounded text-slate-400 hover:text-emerald-650 transition cursor-pointer"
                       title="Download Document in Original Upload Format"
@@ -520,6 +546,42 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
       ...prev,
       items: prev.items.map(item => item.id === id ? { ...item, [field]: value } : item)
     }));
+  };
+
+  const handleAutoSavePoeDocs = (kpiId: string, quarterField: string, updatedDocs: PoeDocument[]) => {
+    setPplanData(prev => {
+      const updatedItems = (prev.items || []).map(item => {
+        if (item.id === kpiId) {
+          return {
+            ...item,
+            [quarterField]: updatedDocs
+          };
+        }
+        return item;
+      });
+
+      const updatedPayload = {
+        ...prev,
+        items: updatedItems
+      };
+
+      // Persistently save to server in background so no uploaded PoE is ever lost
+      fetch(`/api/tenant/${activeTenantId}/${saveApiEndpoint}?userId=${encodeURIComponent(currentUser.email)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedPayload)
+      }).then(res => {
+        if (res.ok) {
+          window.dispatchEvent(new CustomEvent(isTeamEvaluation ? 'team-pplan-updated' : 'pplan-updated', { 
+            detail: { tenantId: activeTenantId, userId: currentUser.email } 
+          }));
+        }
+      }).catch(err => {
+        console.error("Auto-save PoE error:", err);
+      });
+
+      return updatedPayload;
+    });
   };
 
   const handleSaveKpi = async (kpiId: string, submitForReview = false) => {
@@ -1875,6 +1937,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
                              disabled={isEffectiveQ1Locked}
                              poeStatus={kpi.q1PoeStatus}
                              poeFeedback={kpi.q1PoeFeedback}
+                             onAutoSave={(docs) => handleAutoSavePoeDocs(kpi.id, 'q1PoeDocs', docs)}
                           />
                         </div>
                       </div>
@@ -1985,6 +2048,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
                             disabled={kpiIsReadOnly || kpi.q2Locked || isQ2TimeLocked}
                             poeStatus={kpi.q2PoeStatus}
                             poeFeedback={kpi.q2PoeFeedback}
+                            onAutoSave={(docs) => handleAutoSavePoeDocs(kpi.id, 'q2PoeDocs', docs)}
                           />
                         </div>
                       </div>
@@ -2087,6 +2151,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
                             disabled={kpiIsReadOnly || isMidtermTimeLocked}
                             poeStatus={kpi.midtermPoeStatus}
                             poeFeedback={kpi.midtermPoeFeedback}
+                            onAutoSave={(docs) => handleAutoSavePoeDocs(kpi.id, 'midtermPoeDocs', docs)}
                           />
                         </div>
                       </div>
@@ -2195,6 +2260,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
                             disabled={kpiIsReadOnly || kpi.q3Locked || isQ3TimeLocked}
                             poeStatus={kpi.q3PoeStatus}
                             poeFeedback={kpi.q3PoeFeedback}
+                            onAutoSave={(docs) => handleAutoSavePoeDocs(kpi.id, 'q3PoeDocs', docs)}
                           />
                         </div>
                       </div>
@@ -2364,6 +2430,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
                             disabled={kpiIsReadOnly || kpi.q4Locked || isQ4TimeLocked}
                             poeStatus={kpi.q4PoeStatus}
                             poeFeedback={kpi.q4PoeFeedback}
+                            onAutoSave={(docs) => handleAutoSavePoeDocs(kpi.id, 'q4PoeDocs', docs)}
                           />
                         </div>
                       </div>

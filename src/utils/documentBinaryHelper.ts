@@ -702,13 +702,27 @@ export async function viewOriginalFile(
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(viewUrl), 2000);
     } else {
-      const newWindow = window.open(viewUrl, '_blank');
-      if (!newWindow) {
+      try {
+        const newWindow = window.open(viewUrl, '_blank', 'noopener,noreferrer');
+        if (!newWindow) {
+          const link = document.createElement('a');
+          link.href = viewUrl;
+          link.download = name;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          setTimeout(() => URL.revokeObjectURL(viewUrl), 2000);
+        }
+      } catch (e) {
         const link = document.createElement('a');
         link.href = viewUrl;
         link.download = name;
+        document.body.appendChild(link);
         link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(viewUrl), 2000);
       }
     }
   } catch (err) {
