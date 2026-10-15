@@ -5,10 +5,11 @@
   "jobFunction": "IDP Officer",
   "department": "Planning and Economic Development",
   "source": "azure_ad",
-  "role": "Standard User",
+  "role": "tenant_user",
   "tenantId": "nkangala_auto",
   "manager": "A Bvuma",
   "directorate": "PED",
-  "reportTo": "",
+  "reportTo": "Alvin Bvuma",
+  "managerEmail": "",
   "level": "3"
 }

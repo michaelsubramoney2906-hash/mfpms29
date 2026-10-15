@@ -5,10 +5,11 @@
   "jobFunction": "Disaster Management Officer",
   "department": "Community Development Services",
   "source": "azure_ad",
-  "role": "Standard User",
+  "role": "tenant_user",
   "tenantId": "nkangala_auto",
-  "manager": "Khulekani E. Ndabezitha",
+  "manager": "Elmon Nkosi",
   "directorate": "Community Services",
-  "reportTo": "Khulekani E. Ndabezitha",
-  "level": "1"
+  "reportTo": "Elmon Nkosi",
+  "managerEmail": "nkosije@nkangaladm.gov.za",
+  "level": "5"
 }

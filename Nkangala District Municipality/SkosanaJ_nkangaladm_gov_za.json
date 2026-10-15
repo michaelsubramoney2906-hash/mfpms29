@@ -5,10 +5,11 @@
   "jobFunction": "Manager: Technical Services",
   "department": "Technical Services",
   "source": "azure_ad",
-  "role": "Standard User",
+  "role": "tenant_user",
   "tenantId": "nkangala_auto",
-  "manager": "Xolisi Bembe",
+  "manager": "Walter M. Mtshweni",
   "directorate": "Technical",
-  "reportTo": "",
+  "reportTo": "Walter M. Mtshweni",
+  "managerEmail": "",
   "level": "2"
 }

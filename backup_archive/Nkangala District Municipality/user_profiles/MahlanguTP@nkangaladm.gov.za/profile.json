@@ -1,10 +1,10 @@
 {
-  "syncTimestamp": "2026-09-29T23:16:24.579Z",
+  "syncTimestamp": "2026-10-15T12:59:52.609Z",
   "fullName": "Thomas P. Mahlangu",
-  "email": "MahlanguTP@nkangaladm.gov.za",
+  "email": "mahlangutp@nkangaladm.gov.za",
   "jobTitle": "Legal Advisor",
-  "manager": "Maphanga Nomhle Thembisile",
-  "source": "azure_ad",
+  "manager": "Nomhle Maphanga",
+  "source": "manual",
   "tenantId": "nkangala_auto",
   "municipality": "Nkangala District Municipality"
 }

@@ -9,6 +9,7 @@
   "tenantId": "nkangala_auto",
   "manager": "Sanele Nkosi",
   "directorate": "Technical",
-  "reportTo": "",
-  "level": "1"
+  "reportTo": "Sanele Nkosi",
+  "managerEmail": "",
+  "level": "4"
 }

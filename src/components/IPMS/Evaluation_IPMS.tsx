@@ -473,6 +473,16 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
       }
     };
     checkManagerStatus();
+
+    const handlePplanRefresh = (e: any) => {
+      const myEmail = (currentUser?.email || '').toLowerCase().trim();
+      const updatedEmail = (e?.detail?.userId || '').toLowerCase().trim();
+      if (!updatedEmail || updatedEmail === myEmail) {
+        fetchMyPlan();
+      }
+    };
+    window.addEventListener('pplan-updated', handlePplanRefresh);
+    return () => window.removeEventListener('pplan-updated', handlePplanRefresh);
   }, [activeTenantId, currentUser]);
 
   const fetchNotifications = async () => {
@@ -498,7 +508,11 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
           const currMgrEmail = (currentUser?.managerEmail || '').toLowerCase().trim();
           const metaMgrEmail = (data.metadata.managerEmail || '').toLowerCase().trim();
           
-          if (currMgrEmail && currMgrEmail !== uEmail) {
+          if (uEmail === 'joubertm@nkangaladm.gov.za' || uEmail === 'tloujmt@nkangaladm.gov.za') {
+            data.metadata.managerEmail = 'linkss@nkangaladm.gov.za';
+            data.metadata.manager = 'Solly Links';
+            data.metadata.reportTo = 'Solly Links';
+          } else if (currMgrEmail && currMgrEmail !== uEmail) {
             data.metadata.managerEmail = currentUser.managerEmail;
           } else if (!metaMgrEmail || metaMgrEmail === uEmail) {
             if (uEmail.includes('khuboni')) {
@@ -606,6 +620,8 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
         resolvedMgr = { manager: 'Johannes MT. Tlou', managerEmail: 'tloujmt@nkangaladm.gov.za', reportTo: 'Johannes MT. Tlou' };
       } else if (['dlaminiss@nkangaladm.gov.za', 'khozahf@nkangaladm.gov.za', 'mafodim@nkangaladm.gov.za', 'mashilesm@nkangaladm.gov.za', 'moreroaml@nkangaladm.gov.za', 'thumbathiamd@nkangaladm.gov.za', 'mthethwanm@nkangaladm.gov.za'].includes(userEmailForMgr) || userEmailForMgr.includes('dlaminiss') || userEmailForMgr.includes('khozahf') || userEmailForMgr.includes('mafodim') || userEmailForMgr.includes('mashilesm') || userEmailForMgr.includes('moreroaml') || userEmailForMgr.includes('thumbathi') || userEmailForMgr.includes('mthethwa')) {
         resolvedMgr = { manager: 'Priscilla Fenyane', managerEmail: 'fenyanep@nkangaladm.gov.za', reportTo: 'Priscilla Fenyane' };
+      } else if (userEmailForMgr === 'joubertm@nkangaladm.gov.za' || userEmailForMgr === 'tloujmt@nkangaladm.gov.za') {
+        resolvedMgr = { manager: 'Solly Links', managerEmail: 'linkss@nkangaladm.gov.za', reportTo: 'Solly Links' };
       } else if (userEmailForMgr.includes('shabangusm') || userEmailForMgr.includes('shabangugm')) {
         resolvedMgr = { manager: 'Mandla L. Mahlangu', managerEmail: 'mahlanguml@nkangaladm.gov.za', reportTo: 'Mandla L. Mahlangu' };
       }
@@ -805,15 +821,17 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
     setSaving(true);
     try {
       const isDemoUser = (currentUser.email || '').toLowerCase() === 'user@mzansiflow.co.za';
-      const isShabanguUser = (currentUser.email || '').toLowerCase().includes('shabangusm') || (pplanData.metadata?.email || '').toLowerCase().includes('shabangusm');
-      const defaultMgrName = isShabanguUser ? 'Mandla L. Mahlangu' : (isDemoUser ? 'Demo Line Manager' : 'Yena Khuboni');
-      const defaultMgrEmail = isShabanguUser ? 'mahlanguml@nkangaladm.gov.za' : (isDemoUser ? 'manager@mzansiflow.co.za' : 'KhuboniY@nkangaladm.gov.za');
+      const userEmailForBatch = (pplanData.metadata?.email || currentUser.email || '').toLowerCase().trim();
+      const isShabanguUser = userEmailForBatch.includes('shabangusm');
+      const isLinksReportUser = userEmailForBatch === 'joubertm@nkangaladm.gov.za' || userEmailForBatch === 'tloujmt@nkangaladm.gov.za';
+      const defaultMgrName = isLinksReportUser ? 'Solly Links' : (isShabanguUser ? 'Mandla L. Mahlangu' : (isDemoUser ? 'Demo Line Manager' : 'Yena Khuboni'));
+      const defaultMgrEmail = isLinksReportUser ? 'linkss@nkangaladm.gov.za' : (isShabanguUser ? 'mahlanguml@nkangaladm.gov.za' : (isDemoUser ? 'manager@mzansiflow.co.za' : 'KhuboniY@nkangaladm.gov.za'));
       const metadata = { 
         ...pplanData.metadata,
         email: pplanData.metadata?.email || currentUser.email,
-        manager: isShabanguUser ? 'Mandla L. Mahlangu' : (pplanData.metadata?.manager || currentUser.manager || defaultMgrName),
-        managerEmail: isShabanguUser ? 'mahlanguml@nkangaladm.gov.za' : (pplanData.metadata?.managerEmail || currentUser.managerEmail || defaultMgrEmail),
-        reportTo: isShabanguUser ? 'Mandla L. Mahlangu' : (pplanData.metadata?.reportTo || currentUser.reportTo || (isDemoUser ? 'Demo Line Manager' : '')),
+        manager: isLinksReportUser ? 'Solly Links' : (isShabanguUser ? 'Mandla L. Mahlangu' : (pplanData.metadata?.manager || currentUser.manager || defaultMgrName)),
+        managerEmail: isLinksReportUser ? 'linkss@nkangaladm.gov.za' : (isShabanguUser ? 'mahlanguml@nkangaladm.gov.za' : (pplanData.metadata?.managerEmail || currentUser.managerEmail || defaultMgrEmail)),
+        reportTo: isLinksReportUser ? 'Solly Links' : (isShabanguUser ? 'Mandla L. Mahlangu' : (pplanData.metadata?.reportTo || currentUser.reportTo || (isDemoUser ? 'Demo Line Manager' : ''))),
         reviewStatus: submitForReview ? 'Submitted for Approval' : (pplanData.metadata?.reviewStatus || 'Draft'),
         ...(submitForReview ? {
           submittedKpiIds: Array.from(new Set([...(pplanData.metadata?.submittedKpiIds || []), ...targetIds])),

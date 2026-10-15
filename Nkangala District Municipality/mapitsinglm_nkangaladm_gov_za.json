@@ -7,8 +7,9 @@
   "source": "azure_ad",
   "role": "Standard User",
   "tenantId": "nkangala_auto",
-  "manager": "Matome R. Ramohale",
+  "manager": "Monantsi Mapitsing",
   "directorate": "Community Services",
-  "reportTo": "Matome R. Ramohale",
+  "reportTo": "Monantsi Mapitsing",
+  "managerEmail": "",
   "level": "8"
 }

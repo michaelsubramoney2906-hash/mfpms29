@@ -5,10 +5,11 @@
   "jobFunction": "Committee Clerk",
   "department": "Corporate Services",
   "source": "azure_ad",
-  "role": "Standard User",
+  "role": "tenant_user",
   "tenantId": "nkangala_auto",
-  "manager": "NB Mtshali",
+  "manager": "Beauty Mtshali",
   "directorate": "Corporate",
-  "reportTo": "",
-  "level": "1"
+  "reportTo": "Beauty Mtshali",
+  "managerEmail": "",
+  "level": "8"
 }

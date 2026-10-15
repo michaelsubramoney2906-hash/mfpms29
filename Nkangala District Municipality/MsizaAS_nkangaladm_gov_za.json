@@ -9,6 +9,7 @@
   "tenantId": "nkangala_auto",
   "manager": "Alice Stander",
   "directorate": "Finance",
-  "reportTo": "",
+  "reportTo": "Alice L. Stander",
+  "managerEmail": "",
   "level": "2"
 }

@@ -7,8 +7,9 @@
   "source": "azure_ad",
   "role": "Standard User",
   "tenantId": "nkangala_auto",
-  "manager": "Nomadlozi Beauty Mtshali",
+  "manager": "Beauty Mtshali",
   "directorate": "Corporate",
-  "reportTo": "",
-  "level": "1"
+  "reportTo": "Beauty Mtshali",
+  "managerEmail": "",
+  "level": "8"
 }

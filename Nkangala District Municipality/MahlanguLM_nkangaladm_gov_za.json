@@ -1,14 +1,15 @@
 {
-  "id": "db7fd86a-76ec-4815-a57a-ae910b83efbc",
-  "fullName": "Ludwig M. Mahlangu",
-  "email": "MahlanguLM@nkangaladm.gov.za",
-  "jobFunction": "Development Control Planner Intern",
-  "department": "Planning and Economic Development",
-  "source": "azure_ad",
+  "id": "usr_global_mahlangulm@nkangaladm.gov.za",
+  "fullName": "Mandla L. Mahlangu",
+  "email": "mahlangulm@nkangaladm.gov.za",
+  "jobFunction": "Municipal Manager",
+  "department": "Office of The MM",
+  "source": "manual",
   "role": "Standard User",
   "tenantId": "nkangala_auto",
   "manager": "",
   "directorate": "",
   "reportTo": "",
+  "managerEmail": "",
   "level": "1"
 }

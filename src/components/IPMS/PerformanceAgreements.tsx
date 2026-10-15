@@ -771,8 +771,8 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
             });
           }
 
-          // Automatic KPA-to-PerformancePlanner Synchronization
-          if (!isCleared && allCustomKpas.length > 0) {
+          // Automatic KPA-to-PerformancePlanner Synchronization (skip for Fred-extracted plans so extracted KPAs are preserved verbatim)
+          if (!isCleared && !isFredExtracted && allCustomKpas.length > 0) {
             const wasEmptyInitially = currentItems.length === 0;
             const getNationalKpaFlags = (natKpa: string) => {
               const normalized = (natKpa || '').toLowerCase();
@@ -897,6 +897,16 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
     };
 
     fetchPlanAndKpaData();
+
+    const handleExternalPplanUpdate = (e: any) => {
+      const targetEmail = (selectedUserEmail || currentUser?.email || '').toLowerCase().trim();
+      const updatedUser = (e?.detail?.userId || '').toLowerCase().trim();
+      if (!updatedUser || updatedUser === targetEmail) {
+        fetchPlanAndKpaData();
+      }
+    };
+    window.addEventListener('pplan-updated', handleExternalPplanUpdate);
+    return () => window.removeEventListener('pplan-updated', handleExternalPplanUpdate);
   }, [activeTenantId, currentUser?.email, selectedUserEmail, isTeamPlan, isTeamPlan2]);
 
   // Save to database
@@ -904,14 +914,19 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
     setIsSaving(true);
     try {
       const targetEmail = selectedUserEmail || currentUser.email;
-      const metaToSave = { ...customMetadata, _isCleared: customItems.length === 0 };
+      const metaToSave = {
+        ...customMetadata,
+        _isCleared: customItems.length === 0,
+        ...(customItems.length > 0 ? { _isFredExtracted: true } : {})
+      };
       const res = await fetch(`/api/tenant/${activeTenantId}/${apiEndpoint}?userId=${encodeURIComponent(targetEmail)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ metadata: metaToSave, Send, items: customItems })
+        body: JSON.stringify({ metadata: metaToSave, items: customItems, rows: customItems })
       });
       if (!res.ok) throw new Error("Failed to post payload to database");
       setHasSavedOnce(true);
+      window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: targetEmail } }));
       if (showFeedback) {
         alert(`${headingTitle} in its entirety has been successfully saved to DB!`);
       }

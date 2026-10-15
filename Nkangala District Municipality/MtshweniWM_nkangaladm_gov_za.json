@@ -5,10 +5,11 @@
   "jobFunction": "General Manager: Technical Services",
   "department": "Technical Services",
   "source": "azure_ad",
-  "role": "Standard User",
+  "role": "tenant_user",
   "tenantId": "nkangala_auto",
-  "manager": "",
+  "manager": "Mandla L. Mahlangu",
   "directorate": "",
-  "reportTo": "",
+  "reportTo": "Mandla L. Mahlangu",
+  "managerEmail": "",
   "level": "1"
 }

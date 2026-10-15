@@ -5,10 +5,11 @@
   "jobFunction": "Chief Audit Executive",
   "department": "Internal Audit",
   "source": "azure_ad",
-  "role": "Standard User",
+  "role": "tenant_user",
   "tenantId": "nkangala_auto",
   "manager": "ML Mahlangu",
   "directorate": "Office of the Municipal Manager",
   "reportTo": "Mandla L. Mahlangu",
+  "managerEmail": "",
   "level": "2"
 }

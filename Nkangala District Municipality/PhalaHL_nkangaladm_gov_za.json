@@ -5,10 +5,11 @@
   "jobFunction": "MPAC Researcher",
   "department": "Office of the Speaker",
   "source": "azure_ad",
-  "role": "Standard User",
+  "role": "tenant_user",
   "tenantId": "nkangala_auto",
-  "manager": "Mahlangu Mandla Lucas",
+  "manager": "Nkululeko Motshwene",
   "directorate": "Corporate",
-  "reportTo": "",
-  "level": "1"
+  "reportTo": "Nkululeko Motshwene",
+  "managerEmail": "",
+  "level": "4"
 }

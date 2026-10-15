@@ -5,10 +5,11 @@
   "jobFunction": "LED Officer",
   "department": "Planning and Economic Development",
   "source": "azure_ad",
-  "role": "Standard User",
+  "role": "tenant_user",
   "tenantId": "nkangala_auto",
-  "manager": "Maseko Fikile",
+  "manager": "Fikile Maseko",
   "directorate": "PED",
-  "reportTo": "",
-  "level": "1"
+  "reportTo": "Fikile Maseko",
+  "managerEmail": "",
+  "level": "5"
 }

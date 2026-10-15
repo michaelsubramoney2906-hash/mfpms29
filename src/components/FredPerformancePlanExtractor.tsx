@@ -246,12 +246,19 @@ export function FredPerformancePlanExtractor({
         };
       });
 
-      const planMetadata = {
+      const normTarget = targetEmail.toLowerCase().trim();
+      const isLinksReport = normTarget === 'joubertm@nkangaladm.gov.za' || normTarget === 'tloujmt@nkangaladm.gov.za';
+      const planMetadata: any = {
         name: currentUser.fullName || 'Employee Performance Plan',
         period: '2025/2026 Financial Year',
         department: currentUser.department || 'Administration',
         position: currentUser.jobFunction || 'Official',
         email: targetEmail,
+        ...(isLinksReport ? {
+          manager: 'Solly Links',
+          managerEmail: 'linkss@nkangaladm.gov.za',
+          reportTo: 'Solly Links'
+        } : {}),
         _isFredExtracted: true,
         _isCleared: false,
         _extractedFrom: sourceFileName || 'Performance Agreement',
@@ -273,7 +280,7 @@ export function FredPerformancePlanExtractor({
         throw new Error(`Server returned error status ${res.status}`);
       }
 
-      // Also strictly align the user's KPIs register to prevent any legacy 47-KPI phantom injections
+      // Also strictly align the user's KPIs and KPAs registers to prevent any legacy phantom injections
       try {
         await fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(targetEmail)}`, {
           method: 'POST',
@@ -282,6 +289,32 @@ export function FredPerformancePlanExtractor({
         });
       } catch (e) {
         console.warn("KPI register sync warning:", e);
+      }
+
+      try {
+        const uniqueKpaTitles = Array.from(new Set(
+          (extractedKpas.length > 0
+            ? extractedKpas.map((k: any) => k.kpa || k.functionalKpa || k.title || k.name || '')
+            : planItems.map(it => it.kpa)
+          ).map(s => String(s || '').trim()).filter(Boolean)
+        ));
+        if (uniqueKpaTitles.length > 0) {
+          const kpaPayload = uniqueKpaTitles.map((title, idx) => ({
+            id: `kpa-extracted-${idx + 1}`,
+            title,
+            nationalKpa: title,
+            parentObjective: 'To ensure sustainable service delivery and clean audit compliance',
+            mscoaCode: 'Operational',
+            weighting: ''
+          }));
+          await fetch(`/api/tenant/${activeTenantId}/kpas?userId=${encodeURIComponent(targetEmail)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ kpas: kpaPayload, customKpaTable: null })
+          });
+        }
+      } catch (e) {
+        console.warn("KPA register sync warning:", e);
       }
 
       window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: targetEmail } }));

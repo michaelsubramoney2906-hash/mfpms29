@@ -7,8 +7,9 @@
   "source": "azure_ad",
   "role": "tenant_user",
   "tenantId": "nkangala_auto",
-  "manager": "Maphalala NP",
+  "manager": "Nomsa Maphalala",
   "directorate": "Finance",
-  "reportTo": "",
-  "level": "1"
+  "reportTo": "Nomsa Maphalala",
+  "managerEmail": "",
+  "level": "7"
 }

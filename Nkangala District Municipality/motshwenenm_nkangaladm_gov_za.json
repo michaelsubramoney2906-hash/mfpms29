@@ -5,10 +5,11 @@
   "jobFunction": "Manager: Corporate Services",
   "department": "Corporate Services",
   "source": "azure_ad",
-  "role": "Standard User",
+  "role": "tenant_user",
   "tenantId": "nkangala_auto",
-  "manager": "ML Mahlangu",
+  "manager": "Mmaphiri R. Rampedi",
   "directorate": "Corporate",
-  "reportTo": "",
+  "reportTo": "Mmaphiri R. Rampedi",
+  "managerEmail": "",
   "level": "2"
 }

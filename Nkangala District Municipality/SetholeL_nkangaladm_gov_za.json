@@ -7,8 +7,9 @@
   "source": "azure_ad",
   "role": "Standard User",
   "tenantId": "nkangala_auto",
-  "manager": "TC Mazwi",
+  "manager": "Vusi M. Phetla",
   "directorate": "",
-  "reportTo": "",
-  "level": "1"
+  "reportTo": "Vusi M. Phetla",
+  "managerEmail": "",
+  "level": "11"
 }

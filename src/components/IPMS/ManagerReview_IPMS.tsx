@@ -483,6 +483,15 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
         mySubordinateEmails.add('user@mzansiflow.co.za');
       }
 
+      // Explicit list for Solly Links (linkss@nkangaladm.gov.za)
+      const linksSubordinates = [
+        'joubertm@nkangaladm.gov.za',
+        'tloujmt@nkangaladm.gov.za'
+      ];
+      if (managerEmail.includes('linkss') || normCurrent.includes('solly') || normCurrent.includes('links')) {
+        linksSubordinates.forEach(email => mySubordinateEmails.add(email));
+      }
+
       // Explicit list for Marianne Joubert (joubertm@nkangaladm.gov.za)
       const joubertSubordinates = [
         'matsebulan@nkangaladm.gov.za',
@@ -569,6 +578,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
               (uManager && normCurrent && (uManager === normCurrent || uManager.includes(normCurrent) || normCurrent.includes(uManager))) ||
               (uManager && managerEmail && uManager.includes(managerEmail)) ||
               (uManagerEmail && managerEmail && (uManagerEmail === managerEmail || uManagerEmail.includes(managerEmail) || managerEmail.includes(uManagerEmail))) ||
+              ((managerEmail.includes('linkss') || normCurrent.includes('links')) && (linksSubordinates.includes(uEmail) || uManager.includes('links'))) ||
               ((managerEmail.includes('singhn') || normCurrent.includes('singh')) && (singhSubordinates.includes(uEmail) || uManager.includes('singh'))) ||
               ((managerEmail.includes('joubertm') || normCurrent.includes('joubert')) && (joubertSubordinates.includes(uEmail) || uManager.includes('joubert'))) ||
               ((managerEmail.includes('magampeas') || normCurrent.includes('magampe')) && (magampeSubordinates.includes(uEmail) || uManager.includes('magampe'))) ||
@@ -634,6 +644,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
           (pManager && normCurrent && (pManager.includes(normCurrent) || normCurrent.includes(pManager))) ||
           (pManager && managerEmail && pManager.includes(managerEmail)) ||
           (pManagerEmail && managerEmail && (pManagerEmail === managerEmail || pManagerEmail.includes(managerEmail) || managerEmail.includes(pManagerEmail))) ||
+          ((managerEmail.includes('linkss') || normCurrent.includes('links')) && (linksSubordinates.includes(targetEmail) || pManager.includes('links'))) ||
           ((managerEmail.includes('singhn') || normCurrent.includes('singh')) && (singhSubordinates.includes(targetEmail) || pManager.includes('singh'))) ||
           ((managerEmail.includes('joubertm') || normCurrent.includes('joubert')) && (joubertSubordinates.includes(targetEmail) || pManager.includes('joubert'))) ||
           ((managerEmail.includes('magampeas') || normCurrent.includes('magampe')) && (magampeSubordinates.includes(targetEmail) || pManager.includes('magampe'))) ||

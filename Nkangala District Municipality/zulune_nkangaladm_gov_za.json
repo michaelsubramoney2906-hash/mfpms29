@@ -7,8 +7,9 @@
   "source": "azure_ad",
   "role": "tenant_user",
   "tenantId": "nkangala_auto",
-  "manager": "Yena Khuboni",
+  "manager": "Sibusiso M. Shabangu",
   "directorate": "Office of the Municipal Manager",
-  "reportTo": "Yena Khuboni",
+  "reportTo": "Sibusiso M. Shabangu",
+  "managerEmail": "",
   "level": "4"
 }

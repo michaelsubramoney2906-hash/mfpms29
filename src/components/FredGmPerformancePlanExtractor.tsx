@@ -272,6 +272,8 @@ export function FredGmPerformancePlanExtractor({
         throw new Error(errData.error || 'Failed to push GM performance plan data.');
       }
 
+      window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: targetEmail } }));
+
       setStatusMessage({
         type: 'success',
         text: `Successfully mapped and pushed ${planItems.length} verbatim GM KPIs into the Performance Plan for ${targetEmail}.`

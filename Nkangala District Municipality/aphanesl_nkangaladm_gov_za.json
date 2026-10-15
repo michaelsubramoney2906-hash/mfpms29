@@ -7,8 +7,9 @@
   "source": "azure_ad",
   "role": "Standard User",
   "tenantId": "nkangala_auto",
-  "manager": "Motau AM",
+  "manager": "Asnath M. Motau",
   "directorate": "Finance",
-  "reportTo": "",
-  "level": "1"
+  "reportTo": "Asnath M. Motau",
+  "managerEmail": "",
+  "level": "7"
 }

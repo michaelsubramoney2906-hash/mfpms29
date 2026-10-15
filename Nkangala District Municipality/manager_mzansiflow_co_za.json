@@ -1,0 +1,15 @@
+{
+  "id": "seed_85x89eh0jwe",
+  "fullName": "Demo Line Manager",
+  "email": "manager@mzansiflow.co.za",
+  "jobFunction": null,
+  "department": null,
+  "source": "manual",
+  "role": "Manager",
+  "tenantId": "global",
+  "manager": "",
+  "directorate": "",
+  "reportTo": "",
+  "managerEmail": "",
+  "level": "1"
+}

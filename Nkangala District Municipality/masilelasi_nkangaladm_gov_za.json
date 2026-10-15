@@ -5,10 +5,11 @@
   "jobFunction": "Supply Chain Manager",
   "department": "Finance Services",
   "source": "azure_ad",
-  "role": "Standard User",
+  "role": "tenant_user",
   "tenantId": "nkangala_auto",
-  "manager": "Ali Simon Msiza",
+  "manager": "Ali S. Msiza",
   "directorate": "Finance",
-  "reportTo": "",
+  "reportTo": "Ali S. Msiza",
+  "managerEmail": "",
   "level": "3"
 }

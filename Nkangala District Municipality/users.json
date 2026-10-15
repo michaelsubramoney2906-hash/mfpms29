@@ -306,7 +306,7 @@
     "jobFunction": "Senior Environmental Health Practitioner",
     "department": "Community Development Services",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
     "manager": "Marianne Joubert",
     "directorate": "Community Services",
@@ -4058,10 +4058,10 @@
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Johannes MT. Tlou",
+    "manager": "Solly Links",
     "directorate": "Community Services",
-    "reportTo": "Johannes MT. Tlou",
-    "managerEmail": "tloujmt@nkangaladm.gov.za",
+    "reportTo": "Solly Links",
+    "managerEmail": "",
     "level": "4"
   },
   {
@@ -6491,7 +6491,7 @@
     "manager": "Johannes MT. Tlou",
     "directorate": "Community Services",
     "reportTo": "Johannes MT. Tlou",
-    "managerEmail": "tloujmt@nkangaladm.gov.za",
+    "managerEmail": "",
     "level": "6"
   },
   {
@@ -6611,7 +6611,7 @@
     "manager": "Priscilla Fenyane",
     "directorate": "Community Services",
     "reportTo": "Priscilla Fenyane",
-    "managerEmail": "fenyanep@nkangaladm.gov.za",
+    "managerEmail": "",
     "level": "6"
   },
   {
@@ -9371,7 +9371,7 @@
     "manager": "Priscilla Fenyane",
     "directorate": "Community Services",
     "reportTo": "Priscilla Fenyane",
-    "managerEmail": "fenyanep@nkangaladm.gov.za",
+    "managerEmail": "",
     "level": "6"
   },
   {
@@ -9536,7 +9536,7 @@
     "manager": "Priscilla Fenyane",
     "directorate": "Community Services",
     "reportTo": "Priscilla Fenyane",
-    "managerEmail": "fenyanep@nkangaladm.gov.za",
+    "managerEmail": "",
     "level": "6"
   },
   {
@@ -9668,10 +9668,10 @@
     "source": "azure_ad",
     "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "Johannes MT. Tlou",
+    "manager": "Solly Links",
     "directorate": "Community Services",
-    "reportTo": "Johannes MT. Tlou",
-    "managerEmail": "tloujmt@nkangaladm.gov.za",
+    "reportTo": "Solly Links",
+    "managerEmail": "",
     "level": "4"
   },
   {
@@ -10101,12 +10101,12 @@
     "jobFunction": "EHP",
     "department": "Community Development Services",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
     "manager": "Johannes MT. Tlou",
     "directorate": "Community Services",
     "reportTo": "Johannes MT. Tlou",
-    "managerEmail": "tloujmt@nkangaladm.gov.za",
+    "managerEmail": "",
     "level": "1"
   },
   {
@@ -10826,7 +10826,7 @@
     "manager": "Priscilla Fenyane",
     "directorate": "Community Services",
     "reportTo": "Priscilla Fenyane",
-    "managerEmail": "fenyanep@nkangaladm.gov.za",
+    "managerEmail": "",
     "level": "5"
   },
   {
@@ -11816,7 +11816,7 @@
     "manager": "Johannes MT. Tlou",
     "directorate": "Community Services",
     "reportTo": "Johannes MT. Tlou",
-    "managerEmail": "tloujmt@nkangaladm.gov.za",
+    "managerEmail": "",
     "level": "1"
   },
   {
@@ -12176,7 +12176,7 @@
     "manager": "Johannes MT. Tlou",
     "directorate": "Community Services",
     "reportTo": "Johannes MT. Tlou",
-    "managerEmail": "tloujmt@nkangaladm.gov.za",
+    "managerEmail": "",
     "level": "1"
   },
   {
@@ -12236,7 +12236,7 @@
     "manager": "Priscilla Fenyane",
     "directorate": "Community Services",
     "reportTo": "Priscilla Fenyane",
-    "managerEmail": "fenyanep@nkangaladm.gov.za",
+    "managerEmail": "",
     "level": "1"
   },
   {
@@ -12266,7 +12266,7 @@
     "manager": "Priscilla Fenyane",
     "directorate": "Community Services",
     "reportTo": "Priscilla Fenyane",
-    "managerEmail": "fenyanep@nkangaladm.gov.za",
+    "managerEmail": "",
     "level": "1"
   },
   {
@@ -12431,7 +12431,7 @@
     "manager": "Priscilla Fenyane",
     "directorate": "Community Services",
     "reportTo": "Priscilla Fenyane",
-    "managerEmail": "fenyanep@nkangaladm.gov.za",
+    "managerEmail": "",
     "level": "1"
   },
   {
@@ -12761,7 +12761,7 @@
     "manager": "Johannes MT. Tlou",
     "directorate": "Community Services",
     "reportTo": "Johannes MT. Tlou",
-    "managerEmail": "tloujmt@nkangaladm.gov.za",
+    "managerEmail": "",
     "level": "6"
   }
 ]

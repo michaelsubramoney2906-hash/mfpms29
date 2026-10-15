@@ -7,8 +7,9 @@
   "source": "azure_ad",
   "role": "Standard User",
   "tenantId": "nkangala_auto",
-  "manager": "Kgomotso Gwangwa",
+  "manager": "Jayvanti Morar",
   "directorate": "Office of the MM",
-  "reportTo": "",
-  "level": "1"
+  "reportTo": "Jayvanti Morar",
+  "managerEmail": "",
+  "level": "5"
 }

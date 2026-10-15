@@ -5,10 +5,11 @@
   "jobFunction": "Records Clerk",
   "department": "Corporate Services",
   "source": "azure_ad",
-  "role": "Standard User",
+  "role": "tenant_user",
   "tenantId": "nkangala_auto",
-  "manager": "Siphesihle Nkosi",
+  "manager": "Siphesihle O. Nkosi",
   "directorate": "Corporate",
-  "reportTo": "",
-  "level": "1"
+  "reportTo": "Siphesihle O. Nkosi",
+  "managerEmail": "",
+  "level": "9"
 }

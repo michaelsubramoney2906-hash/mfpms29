@@ -7,8 +7,9 @@
   "source": "azure_ad",
   "role": "tenant_user",
   "tenantId": "nkangala_auto",
-  "manager": "Samuel Bongani Nkosi",
-  "directorate": "",
-  "reportTo": "",
-  "level": "1"
+  "manager": "Bongani S. Khumalo",
+  "directorate": "Office of the Municipal Manager",
+  "reportTo": "Bongani S. Khumalo",
+  "managerEmail": "",
+  "level": "4"
 }

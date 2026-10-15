@@ -7,8 +7,9 @@
   "source": "azure_ad",
   "role": "Standard User",
   "tenantId": "nkangala_auto",
-  "manager": "Bongani S Nkosi",
-  "directorate": "Office of the MM",
-  "reportTo": "",
-  "level": "1"
+  "manager": "Nokuthula D. Mthimunye",
+  "directorate": "Office of the Municipal Manager",
+  "reportTo": "Nokuthula D. Mthimunye",
+  "managerEmail": "",
+  "level": "5"
 }

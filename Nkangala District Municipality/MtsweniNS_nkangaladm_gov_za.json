@@ -2,13 +2,14 @@
   "id": "f6906238-4cdd-474a-8829-b185ec03483d",
   "fullName": "Nqobile S. Mtsweni",
   "email": "MtsweniNS@nkangaladm.gov.za",
-  "jobFunction": "ICT Intern",
+  "jobFunction": "Web Administrator",
   "department": "Information and Communication Technology",
   "source": "azure_ad",
-  "role": "Standard User",
+  "role": "tenant_user",
   "tenantId": "nkangala_auto",
-  "manager": "",
-  "directorate": "",
-  "reportTo": "",
-  "level": "1"
+  "manager": "Nokuthula D. Mthimunye",
+  "directorate": "Office of the Municipal Manager",
+  "reportTo": "Nokuthula D. Mthimunye",
+  "managerEmail": "",
+  "level": "6"
 }

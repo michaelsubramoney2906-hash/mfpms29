@@ -7,8 +7,9 @@
   "source": "azure_ad",
   "role": "Standard User",
   "tenantId": "nkangala_auto",
-  "manager": "EM Khanye ",
+  "manager": "Malifu Khanye",
   "directorate": "Finance",
-  "reportTo": "",
-  "level": "1"
+  "reportTo": "Malifu Khanye",
+  "managerEmail": "",
+  "level": "9"
 }

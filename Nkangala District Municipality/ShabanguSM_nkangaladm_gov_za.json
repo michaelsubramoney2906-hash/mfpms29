@@ -7,8 +7,9 @@
   "source": "azure_ad",
   "role": "tenant_user",
   "tenantId": "nkangala_auto",
-  "manager": "ML Mahlangu",
+  "manager": "Mandla L. Mahlangu",
   "directorate": "Office of the Municipal Manager",
   "reportTo": "Mandla L. Mahlangu",
+  "managerEmail": "mahlanguml@nkangaladm.gov.za",
   "level": "3"
 }

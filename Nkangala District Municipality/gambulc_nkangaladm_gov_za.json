@@ -5,10 +5,11 @@
   "jobFunction": "Atmospheric Emission Licensing Administrator",
   "department": "Community Development Services",
   "source": "azure_ad",
-  "role": "Standard User",
+  "role": "tenant_user",
   "tenantId": "nkangala_auto",
-  "manager": "Vusi Mahlangu",
+  "manager": "Edwin Mametja",
   "directorate": "Community Services",
-  "reportTo": "Vusi Mahlangu",
-  "level": "1"
+  "reportTo": "Edwin Mametja",
+  "managerEmail": "",
+  "level": "4"
 }

@@ -5,10 +5,11 @@
   "jobFunction": "Secretary: Social Services",
   "department": "Community Development Services",
   "source": "azure_ad",
-  "role": "Standard User",
+  "role": "tenant_user",
   "tenantId": "nkangala_auto",
-  "manager": "Thokozile E. Zulu",
+  "manager": "Thandiwe M. Lengwate",
   "directorate": "Community Services",
-  "reportTo": "Thokozile E. Zulu",
-  "level": "1"
+  "reportTo": "Thandiwe M. Lengwate",
+  "managerEmail": "ZuluTE@nkangaladm.gov.za",
+  "level": "8"
 }

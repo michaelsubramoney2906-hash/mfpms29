@@ -9,6 +9,7 @@
   "tenantId": "nkangala_auto",
   "manager": "Andile N Hlongwa",
   "directorate": "Finance",
-  "reportTo": "",
-  "level": "1"
+  "reportTo": "Andile N. Hlongwa",
+  "managerEmail": "",
+  "level": "5"
 }

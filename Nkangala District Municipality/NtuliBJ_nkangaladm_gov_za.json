@@ -7,8 +7,9 @@
   "source": "azure_ad",
   "role": "Standard User",
   "tenantId": "nkangala_auto",
-  "manager": " Madihlaba Phaswana Kgomotso",
+  "manager": "Phaswana K. Madihlaba",
   "directorate": "Corporate",
-  "reportTo": "",
-  "level": "1"
+  "reportTo": "Phaswana K. Madihlaba",
+  "managerEmail": "",
+  "level": "5"
 }

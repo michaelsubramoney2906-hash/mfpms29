@@ -7,8 +7,9 @@
   "source": "azure_ad",
   "role": "Standard User",
   "tenantId": "nkangala_auto",
-  "manager": "",
+  "manager": "Sipho Masilela",
   "directorate": "",
-  "reportTo": "",
-  "level": "1"
+  "reportTo": "Cedrick Makitla",
+  "managerEmail": "",
+  "level": "9"
 }

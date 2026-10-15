@@ -9,6 +9,7 @@
   "tenantId": "nkangala_auto",
   "manager": "Trudie Van Niekerk",
   "directorate": "Finance",
-  "reportTo": "",
-  "level": "1"
+  "reportTo": "Trudie Van Niekerk",
+  "managerEmail": "",
+  "level": "10"
 }

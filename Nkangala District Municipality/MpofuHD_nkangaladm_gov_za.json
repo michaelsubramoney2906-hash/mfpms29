@@ -5,10 +5,11 @@
   "jobFunction": "Control Room Operator",
   "department": "Community Development Services",
   "source": "azure_ad",
-  "role": "Standard User",
+  "role": "tenant_user",
   "tenantId": "nkangala_auto",
   "manager": "Sibusiso PL. Myeni",
   "directorate": "Community Services",
   "reportTo": "Sibusiso PL. Myeni",
-  "level": "1"
+  "managerEmail": "",
+  "level": "10"
 }

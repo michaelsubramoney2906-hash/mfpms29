@@ -7,8 +7,9 @@
   "source": "azure_ad",
   "role": "Standard User",
   "tenantId": "nkangala_auto",
-  "manager": "SN Silinda",
+  "manager": "Susan Silinda",
   "directorate": "Corporate",
-  "reportTo": "",
-  "level": "1"
+  "reportTo": "Susan Silinda",
+  "managerEmail": "",
+  "level": "9"
 }

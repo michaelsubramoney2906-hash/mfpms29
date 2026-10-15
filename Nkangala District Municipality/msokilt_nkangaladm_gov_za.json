@@ -5,10 +5,11 @@
   "jobFunction": "Engineering Technician",
   "department": "Technical Services",
   "source": "azure_ad",
-  "role": "Standard User",
+  "role": "tenant_user",
   "tenantId": "nkangala_auto",
-  "manager": "Mokgadi Elaine Mokgolomotho",
+  "manager": "Mokgadi Mokgolomotho",
   "directorate": "Technical",
-  "reportTo": "",
-  "level": "1"
+  "reportTo": "Mokgadi Mokgolomotho",
+  "managerEmail": "",
+  "level": "5"
 }

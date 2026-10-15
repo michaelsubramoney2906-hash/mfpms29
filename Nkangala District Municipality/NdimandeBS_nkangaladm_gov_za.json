@@ -5,10 +5,11 @@
   "jobFunction": "Committee Clerk Secretariat",
   "department": "Corporate Services",
   "source": "azure_ad",
-  "role": "Standard User",
+  "role": "tenant_user",
   "tenantId": "nkangala_auto",
   "manager": "",
   "directorate": "",
   "reportTo": "",
+  "managerEmail": "",
   "level": "1"
 }

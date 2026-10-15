@@ -5,10 +5,11 @@
   "jobFunction": "Security and Fleet Management Officer",
   "department": "Planning and Economic Development",
   "source": "azure_ad",
-  "role": "Standard User",
+  "role": "tenant_user",
   "tenantId": "nkangala_auto",
-  "manager": "TC Mazwi",
+  "manager": "Thandiwe Mazwi",
   "directorate": "Corporate",
-  "reportTo": "",
-  "level": "1"
+  "reportTo": "Thandiwe Mazwi",
+  "managerEmail": "",
+  "level": "5"
 }

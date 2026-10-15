@@ -7,8 +7,9 @@
   "source": "azure_ad",
   "role": "Standard User",
   "tenantId": "nkangala_auto",
-  "manager": "Ali Msiza",
+  "manager": "Ali S. Msiza",
   "directorate": "Finance",
-  "reportTo": "",
+  "reportTo": "Ali S. Msiza",
+  "managerEmail": "",
   "level": "3"
 }

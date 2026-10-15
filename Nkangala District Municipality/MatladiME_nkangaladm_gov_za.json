@@ -7,8 +7,9 @@
   "source": "azure_ad",
   "role": "Standard User",
   "tenantId": "nkangala_auto",
-  "manager": "Vusumuzi Sibonela Khubeka",
+  "manager": "Vusumuzi S. Kubheka",
   "directorate": "PED",
-  "reportTo": "",
-  "level": "1"
+  "reportTo": "Vusumuzi S. Kubheka",
+  "managerEmail": "",
+  "level": "4"
 }

@@ -7,8 +7,9 @@
   "source": "azure_ad",
   "role": "Standard User",
   "tenantId": "nkangala_auto",
-  "manager": "Siphokazi Wakeni",
+  "manager": "Sipokazi Wakeni",
   "directorate": "Technical",
-  "reportTo": "",
-  "level": "1"
+  "reportTo": "Sipokazi Wakeni",
+  "managerEmail": "",
+  "level": "5"
 }

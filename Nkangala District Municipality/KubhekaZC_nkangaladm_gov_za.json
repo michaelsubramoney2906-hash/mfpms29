@@ -7,8 +7,9 @@
   "source": "azure_ad",
   "role": "Standard User",
   "tenantId": "nkangala_auto",
-  "manager": "Nompumelelo P. Nsibande",
+  "manager": "Isaac B. Sindane",
   "directorate": "Community Services",
-  "reportTo": "Nompumelelo Simelane",
-  "level": "1"
+  "reportTo": "Isaac B. Sindane",
+  "managerEmail": "",
+  "level": "5"
 }

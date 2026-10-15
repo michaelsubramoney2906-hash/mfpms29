@@ -5,10 +5,11 @@
   "jobFunction": "Executive Secretary to the Municipal Manager",
   "department": "Office of the Municipal Manager",
   "source": "azure_ad",
-  "role": "Standard User",
+  "role": "tenant_user",
   "tenantId": "nkangala_auto",
   "manager": "Mandla L Mahlangu",
   "directorate": "Office of the MM",
-  "reportTo": "",
+  "reportTo": "Mmaphiri R. Rampedi",
+  "managerEmail": "",
   "level": "1"
 }

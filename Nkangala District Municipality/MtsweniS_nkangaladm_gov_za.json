@@ -7,8 +7,9 @@
   "source": "azure_ad",
   "role": "Standard User",
   "tenantId": "nkangala_auto",
-  "manager": "",
+  "manager": "Alfred S. Magampe",
   "directorate": "",
-  "reportTo": "",
-  "level": "1"
+  "reportTo": "Alfred S. Magampe",
+  "managerEmail": "",
+  "level": "5"
 }

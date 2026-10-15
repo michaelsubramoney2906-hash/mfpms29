@@ -7,8 +7,9 @@
   "source": "azure_ad",
   "role": "Standard User",
   "tenantId": "nkangala_auto",
-  "manager": "",
+  "manager": "Mandla L. Mahlangu",
   "directorate": "",
-  "reportTo": "",
+  "reportTo": "Mandla L. Mahlangu",
+  "managerEmail": "",
   "level": "3"
 }

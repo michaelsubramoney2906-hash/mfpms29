@@ -28,15 +28,12 @@ import {
 import { NKANGALA_USER_MASTER_REGISTRY, getUserRegistryCounts } from "./src/data/nkangalaUserMasterRegistry";
 import { NKANGALA_LOGO_BASE64 } from "./src/components/IPMS/nkangala_logo_base64";
 
-const SUPABASE_TIMEOUT_MS = 6000;
+const SUPABASE_TIMEOUT_MS = 30000;
 
 let consecutiveSupabaseFailures = 0;
 let circuitBreakerCooloffUntil = 0;
 
 export function isCircuitBreakerOpen(): boolean {
-  if (Date.now() < circuitBreakerCooloffUntil) {
-    return true;
-  }
   return false;
 }
 
@@ -46,9 +43,6 @@ export function recordSupabaseSuccess(): void {
 
 export function recordSupabaseFailure(): void {
   consecutiveSupabaseFailures++;
-  if (consecutiveSupabaseFailures >= 3) {
-    circuitBreakerCooloffUntil = Date.now() + 15000; // 15-second cooloff to prevent Socket/Cloudflare exhaustion
-  }
 }
 
 // High-Concurrency In-Memory Micro-Cache and Single-Flight Request Coalescer
@@ -1999,13 +1993,25 @@ CRITICAL MAPPING & EXTRACTION RULES:
           console.warn("[GM Push Plan] ipms_gm_performance_plans upsert error:", dbErr);
         }
 
-        // 2. ALSO save to the primary pplan and kpis documents in messages table for performance plan display
+        // 2. ALSO save to the primary pplan, kpis, and kpas documents in messages table for performance plan display
+        const nowIso = new Date().toISOString();
+        const planMeta: any = {
+          title: `GM Performance Plan - ${sourceFileName || 'Annexure A'}`,
+          email: userId,
+          updatedAt: nowIso,
+          sourceFileName: sourceFileName || 'GM_Performance_Agreement.pdf',
+          _isFredExtracted: true,
+          _isCleared: false,
+          _extractedFrom: sourceFileName || 'GM_Performance_Agreement.pdf',
+          _pushedAt: nowIso
+        };
+        if (userId === 'joubertm@nkangaladm.gov.za' || userId === 'tloujmt@nkangaladm.gov.za') {
+          planMeta.manager = 'Solly Links';
+          planMeta.managerEmail = 'linkss@nkangaladm.gov.za';
+          planMeta.reportTo = 'Solly Links';
+        }
         const pplanPayload = JSON.stringify({
-          metadata: {
-            title: `GM Performance Plan - ${sourceFileName || 'Annexure A'}`,
-            updatedAt: new Date().toISOString(),
-            sourceFileName: sourceFileName || 'GM_Performance_Agreement.pdf'
-          },
+          metadata: planMeta,
           items: formattedItems,
           rows: formattedItems,
           kpas: kpas || []
@@ -2031,21 +2037,60 @@ CRITICAL MAPPING & EXTRACTION RULES:
           );
         }
 
+        for (const docId of targetDocIds) {
+          if (docId.startsWith('pplan_')) {
+            pplanCache.set(docId, { raw: pplanPayload, timestamp: Date.now() });
+          }
+        }
+
         try {
           await Promise.all(
             Array.from(new Set(targetDocIds)).map(docId =>
               supabase.from('messages').upsert({
                 id: docId,
-                tenant_id: docId.includes('tenant-229') ? 'tenant-229' : tenantId,
+                tenant_id: docId.includes('tenant-229') ? 'tenant-229' : (docId.includes('nkangala_auto') ? 'nkangala_auto' : (docId.includes('global') ? 'global' : tenantId)),
                 sender_id: 'fred_gm_extractor',
                 sender_email: userEmail,
                 sender_name: 'FRED GM Extractor',
-                content: pplanPayload,
-                message_type: docId.startsWith('kpis_') ? 'kpi_list' : 'pplan_list',
-                created_at: new Date().toISOString()
-              })
+                content: docId.startsWith('kpis_') ? JSON.stringify({ kpis: formattedItems }) : pplanPayload,
+                message_type: docId.startsWith('kpis_') ? 'kpis_list' : 'pplan_list',
+                created_at: nowIso
+              }, { onConflict: 'id' })
             )
           );
+
+          const uniqueKpaTitles = Array.from(new Set(
+            (Array.isArray(kpas) && kpas.length > 0
+              ? kpas.map((k: any) => typeof k === 'string' ? k : (k.kpa || k.title || k.nationalKpa || ''))
+              : formattedItems.map((it: any) => it.kpa || it.functionalKpa || it['functional kpa'] || '')
+            ).map((s: string) => String(s || '').trim()).filter(Boolean)
+          ));
+          if (uniqueKpaTitles.length > 0) {
+            const kpaObjs = uniqueKpaTitles.map((title, idx) => ({
+              id: `kpa-extracted-${idx + 1}`,
+              title,
+              nationalKpa: title,
+              parentObjective: 'To ensure sustainable service delivery and clean audit compliance',
+              mscoaCode: 'Operational',
+              weighting: ''
+            }));
+            const kpaTenants = Array.from(new Set([tenantId, 'tenant-229', 'nkangala_auto', 'global']));
+            for (const tKey of kpaTenants) {
+              await supabase.from('messages').upsert({
+                id: `kpas_${tKey}_${userId}`,
+                tenant_id: tKey,
+                sender_id: 'kpa_capturing_tool',
+                sender_email: 'kpa@system.local',
+                sender_name: 'KPA Manager',
+                content: JSON.stringify({ kpas: kpaObjs, customKpaTable: null }),
+                message_type: 'kpas_list',
+                created_at: nowIso
+              }, { onConflict: 'id' });
+            }
+          }
+          for (const k of memoryCache.keys()) {
+            if (k.startsWith('team_pplans_')) memoryCache.delete(k);
+          }
         } catch (msgErr) {
           console.warn("[GM Push Plan] messages upsert error:", msgErr);
         }
@@ -8602,7 +8647,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
   app.get("/api/tenant/:tenantId/kpas", async (req, res) => {
     const { tenantId } = req.params;
     const rawUserId = req.query.userId ? String(req.query.userId).trim() : 'default';
-    const userId = rawUserId.toLowerCase();
+    const lowerUserId = rawUserId.toLowerCase();
+    const userId = (lowerUserId !== 'default' ? normalizeNkangalaEmail(lowerUserId) : lowerUserId) || lowerUserId;
     try {
       const supabase = getSupabase();
 
@@ -8633,6 +8679,51 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
                   kpas: uParsed.kpas || [],
                   customKpaTable: uParsed.customKpaTable || null
                 });
+              }
+            } catch (e) {}
+          }
+        }
+
+        // Check user's own pplan document for KPAs before falling back to draft_doc or tenant defaults
+        const pplanDocIds = [
+          `pplan_${tenantId}_${userId}`,
+          `pplan_tenant-229_${userId}`,
+          `pplan_nkangala_auto_${userId}`
+        ];
+        for (const pDocId of pplanDocIds) {
+          const cachedPplan = pplanCache.get(pDocId);
+          let pContent = cachedPplan ? cachedPplan.raw : null;
+          if (!pContent) {
+            const { data: pData } = await supabase.from('messages').select('content').eq('id', pDocId).maybeSingle();
+            pContent = pData?.content || null;
+          }
+          if (pContent) {
+            try {
+              const pParsed = JSON.parse(pContent);
+              const pItems = pParsed?.items || pParsed?.rows || [];
+              if (Array.isArray(pItems) && pItems.length > 0) {
+                const uniqueKpas: any[] = [];
+                const seenTitles = new Set<string>();
+                pItems.forEach((it: any, idx: number) => {
+                  const title = String(it.kpa || it.functionalKpa || it['functional kpa'] || '').trim();
+                  if (title && !seenTitles.has(title.toLowerCase())) {
+                    seenTitles.add(title.toLowerCase());
+                    uniqueKpas.push({
+                      id: `kpa-pplan-${idx + 1}`,
+                      title,
+                      nationalKpa: title,
+                      parentObjective: it.strategicGoal || 'To ensure sustainable service delivery and clean audit compliance',
+                      mscoaCode: it.mscoaCode || 'Operational',
+                      weighting: ''
+                    });
+                  }
+                });
+                if (uniqueKpas.length > 0) {
+                  return res.json({
+                    kpas: uniqueKpas,
+                    customKpaTable: null
+                  });
+                }
               }
             } catch (e) {}
           }
@@ -8731,29 +8822,34 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
   // 13. Save KPAs list for a tenant
   app.post("/api/tenant/:tenantId/kpas", async (req, res) => {
     const { tenantId } = req.params;
-    const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
+    const rawUserId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
+    const userId = (rawUserId !== 'default' ? normalizeNkangalaEmail(rawUserId) : rawUserId) || rawUserId;
     const { kpas, customKpaTable } = req.body;
     try {
       const supabase = getSupabase();
-      const documentId = `kpas_${tenantId}_${userId}`;
       const payload = {
         kpas: kpas || [],
         customKpaTable: customKpaTable || null
       };
-      const { error } = await supabase
-        .from('messages')
-        .upsert({ 
-          id: documentId,
-          tenant_id: tenantId,
-          sender_id: 'kpa_capturing_tool',
-          sender_email: 'kpa@system.local',
-          sender_name: 'KPA Manager',
-          content: JSON.stringify(payload),
-          message_type: 'kpas_list',
-          created_at: new Date().toISOString()
-        });
-      
-      if (error) throw error;
+      const targetTenants = Array.from(new Set([tenantId, 'tenant-229', 'nkangala_auto', 'global']));
+      const nowIso = new Date().toISOString();
+
+      for (const tKey of targetTenants) {
+        const documentId = `kpas_${tKey}_${userId}`;
+        const { error } = await supabase
+          .from('messages')
+          .upsert({ 
+            id: documentId,
+            tenant_id: tKey,
+            sender_id: 'kpa_capturing_tool',
+            sender_email: 'kpa@system.local',
+            sender_name: 'KPA Manager',
+            content: JSON.stringify(payload),
+            message_type: 'kpas_list',
+            created_at: nowIso
+          }, { onConflict: 'id' });
+        if (error) throw error;
+      }
       invalidateCommandCenterCache();
       res.json({ success: true });
     } catch (err: any) {
@@ -13681,28 +13777,50 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       const tenantId = await resolveTenantId(routeTenantId, userId);
       const documentId = `pplan_${tenantId}_${userId}`;
 
-      let { data, error } = await supabase
-        .from('messages')
-        .select('content')
-        .eq('id', documentId)
-        .maybeSingle();
+      // 0. Check in-memory pplanCache first so newly saved/extracted plans are returned immediately without waiting on large DB payloads
+      let data: any = null;
+      let error: any = null;
+      let hadQueryError = false;
 
-      // Universal fallback: if current document is missing or has 0 items, check alternative tenant documents and Fred extraction
+      const primaryCacheKeys = Array.from(new Set([
+        documentId,
+        `pplan_tenant-229_${userId}`,
+        `pplan_nkangala_auto_${userId}`
+      ]));
+      for (const cKey of primaryCacheKeys) {
+        const cached = pplanCache.get(cKey);
+        if (cached && cached.raw) {
+          data = { content: cached.raw };
+          break;
+        }
+      }
+
+      if (!data) {
+        const primaryRes = await supabase
+          .from('messages')
+          .select('content')
+          .eq('id', documentId)
+          .maybeSingle();
+        data = primaryRes.data;
+        error = primaryRes.error;
+        if (error) hadQueryError = true;
+      }
+
+      // Universal fallback: if current document is missing or has 0 items, check alternative tenant documents in priority order
       let parsed = (data && data.content) ? (() => { try { return JSON.parse(data.content); } catch (e) { return null; } })() : null;
       let rawList = parsed ? (parsed.items || parsed.rows || parsed.kpis || []) : [];
-      if (!parsed || !Array.isArray(rawList) || rawList.length === 0) {
-        const fallbackKeys = [
+      const isExplicitlyCleared = parsed && parsed.metadata && parsed.metadata._isCleared === true;
+
+      if (!isExplicitlyCleared && (!parsed || !Array.isArray(rawList) || rawList.length === 0)) {
+        // Check canonical pplan documents in strict priority order (never pick an older fallback just because it has more items!)
+        const pplanFallbackKeys = [
           `pplan_tenant-229_${userId}`,
           `pplan_nkangala_auto_${userId}`,
-          `pplan_global_${userId}`,
-          `kpis_tenant-229_${userId}`,
-          `kpis_nkangala_auto_${userId}`,
-          `kpis_global_${userId}`
+          `pplan_global_${userId}`
         ];
 
-        // Specific alias fallbacks
         if (userId.includes('mahlanguml') || userId.includes('mahlangulm') || userId.includes('mandlaml')) {
-          fallbackKeys.push(
+          pplanFallbackKeys.push(
             `pplan_tenant-229_mahlanguml@nkangaladm.gov.za`,
             `pplan_tenant-229_mahlangulm@nkangaladm.gov.za`,
             `pplan_nkangala_auto_mahlanguml@nkangaladm.gov.za`,
@@ -13713,46 +13831,59 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         }
 
         let bestFallbackParsed: any = null;
-        let maxItems = 0;
 
-        for (const fKey of fallbackKeys) {
-          if (fKey === documentId) continue;
+        for (const fKey of pplanFallbackKeys) {
+          if (fKey === documentId && !hadQueryError) continue;
+          const cachedFb = pplanCache.get(fKey);
+          if (cachedFb && cachedFb.raw) {
+            try {
+              const fbParsed = JSON.parse(cachedFb.raw);
+              const fbList = Array.isArray(fbParsed) ? fbParsed : (fbParsed.items || fbParsed.rows || fbParsed.kpis || []);
+              if (Array.isArray(fbList) && fbList.length > 0) {
+                bestFallbackParsed = { metadata: fbParsed.metadata || {}, items: fbList, rows: fbList };
+                break;
+              }
+            } catch (e) {}
+          }
           const fbRes = await supabase.from('messages').select('content').eq('id', fKey).maybeSingle();
-          if (fbRes.data && fbRes.data.content) {
+          if (fbRes.error) {
+            hadQueryError = true;
+          } else if (fbRes.data && fbRes.data.content) {
             try {
               const fbParsed = JSON.parse(fbRes.data.content);
               const fbList = Array.isArray(fbParsed) ? fbParsed : (fbParsed.items || fbParsed.rows || fbParsed.kpis || []);
-              if (Array.isArray(fbList) && fbList.length > maxItems) {
+              if (Array.isArray(fbList) && fbList.length > 0) {
                 bestFallbackParsed = { metadata: fbParsed.metadata || {}, items: fbList, rows: fbList };
-                maxItems = fbList.length;
+                break;
               }
             } catch (e) {}
           }
         }
 
-        // Also search by user email pattern if still not found
-        if (!bestFallbackParsed && userId.includes('@')) {
-          const { data: searchRows } = await supabase
-            .from('messages')
-            .select('content')
-            .like('id', `%pplan_%${userId}%`);
-
-          if (searchRows) {
-            for (const row of searchRows) {
+        // Only check kpis_ documents if NO pplan document exists and NO database query error/timeout occurred
+        if (!bestFallbackParsed && !hadQueryError) {
+          const kpiFallbackKeys = [
+            `kpis_tenant-229_${userId}`,
+            `kpis_nkangala_auto_${userId}`,
+            `kpis_global_${userId}`
+          ];
+          for (const kKey of kpiFallbackKeys) {
+            const fbRes = await supabase.from('messages').select('content').eq('id', kKey).maybeSingle();
+            if (fbRes.data && fbRes.data.content) {
               try {
-                const sParsed = JSON.parse(row.content);
-                const sList = Array.isArray(sParsed) ? sParsed : (sParsed.items || sParsed.rows || sParsed.kpis || []);
-                if (Array.isArray(sList) && sList.length > maxItems) {
-                  bestFallbackParsed = { metadata: sParsed.metadata || {}, items: sList, rows: sList };
-                  maxItems = sList.length;
+                const fbParsed = JSON.parse(fbRes.data.content);
+                const fbList = Array.isArray(fbParsed) ? fbParsed : (fbParsed.items || fbParsed.rows || fbParsed.kpis || []);
+                if (Array.isArray(fbList) && fbList.length > 0) {
+                  bestFallbackParsed = { metadata: fbParsed.metadata || {}, items: fbList, rows: fbList };
+                  break;
                 }
               } catch (e) {}
             }
           }
         }
 
-        // Fallback: Check ipms_gm_performance_plans table if still no items found
-        if ((!bestFallbackParsed || maxItems === 0) && userId) {
+        // Fallback: Check ipms_gm_performance_plans table if still no items found and no DB timeout occurred
+        if (!bestFallbackParsed && !hadQueryError && userId) {
           try {
             const { data: gmPlan } = await supabase
               .from('ipms_gm_performance_plans')
@@ -13762,32 +13893,29 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
 
             if (gmPlan && Array.isArray(gmPlan.items_payload) && gmPlan.items_payload.length > 0) {
               bestFallbackParsed = {
-                metadata: { sourceFileName: gmPlan.source_file_name || 'GM_Performance_Agreement.pdf' },
+                metadata: {
+                  sourceFileName: gmPlan.source_file_name || 'GM_Performance_Agreement.pdf',
+                  _isFredExtracted: true
+                },
                 items: gmPlan.items_payload,
                 rows: gmPlan.items_payload,
                 kpas: gmPlan.kpas_payload || []
               };
-              maxItems = gmPlan.items_payload.length;
             }
           } catch (gmErr) {
             console.warn("[PPLAN GM Fallback] Error reading GM plan:", gmErr);
           }
         }
 
-        if (bestFallbackParsed && maxItems > 0) {
+        if (bestFallbackParsed) {
           parsed = bestFallbackParsed;
-          // Auto-heal the current document asynchronously
-          supabase.from('messages').upsert({
-            id: documentId,
-            tenant_id: tenantId,
-            sender_id: 'pplan_editor_tool',
-            sender_email: 'pplan@system.local',
-            sender_name: 'PPLAN Editor',
-            content: JSON.stringify(parsed),
-            message_type: 'pplan_list',
-            created_at: new Date().toISOString()
-          }).then(() => {}).catch(() => {});
+          // Do NOT overwrite pplan_${tenantId}_${userId} in Supabase during a GET fallback!
         }
+      }
+
+      // If a database timeout/error occurred and we have no cached data, return 503 instead of generating 4 dummy KPIs that could overwrite the user's plan
+      if (!parsed && hadQueryError) {
+        return res.status(503).json({ error: "Database temporarily busy, please retry." });
       }
 
       // If user is Shabangu and parsed has fewer than 31 items, ensure all 31 official KPIs are merged
@@ -13833,10 +13961,9 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         }
       }
 
-      // Fallback: If no parsed document from database or Supabase offline, return guaranteed user performance plan
-      if (!parsed || !Array.isArray(parsed.items) || parsed.items.length === 0) {
+      // Fallback: If no parsed document from database and no error occurred, return guaranteed user performance plan
+      if (!isExplicitlyCleared && (!parsed || !Array.isArray(parsed.items) || parsed.items.length === 0)) {
         if (!userId.includes('shabangusm')) {
-          // General user fallback: build clean 4-pillar Performance Plan for user
           const uProfile = (await getConsolidatedUsersList(tenantId)).find((u: any) => (u.email || '').toLowerCase().trim() === userId.toLowerCase().trim());
           const name = uProfile?.fullName || uProfile?.name || userId.split('@')[0];
           const dept = uProfile?.department || 'Municipal Administration';
@@ -13863,6 +13990,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
 
       if (parsed) {
+        pplanCache.set(documentId, { raw: JSON.stringify(parsed), timestamp: Date.now() });
         // Automatically sync live profile details from User Management directory into metadata
         try {
           const consolidated = await getConsolidatedUsersList(tenantId);
@@ -13894,8 +14022,26 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           }
         } catch (profErr) {}
 
+        if (!parsed.metadata) parsed.metadata = {};
+        if (userId === 'joubertm@nkangaladm.gov.za' || userId === 'tloujmt@nkangaladm.gov.za') {
+          parsed.metadata.manager = 'Solly Links';
+          parsed.metadata.managerEmail = 'linkss@nkangaladm.gov.za';
+          parsed.metadata.reportTo = 'Solly Links';
+        }
+
         const rawItems = Array.isArray(parsed) ? parsed : (parsed.items || parsed.rows || parsed.kpis || []);
-        let sanitizedItems = padPplanItemsForUser(userId, rawItems.map((it: any) => sanitizePplanItem(it, userId)));
+        const isFredExtracted = Boolean(
+          parsed.metadata && (
+            parsed.metadata._isFredExtracted === true ||
+            parsed.metadata._extractedFrom ||
+            parsed.metadata.extractedFrom
+          )
+        );
+        let sanitizedItems = isExplicitlyCleared
+          ? []
+          : (isFredExtracted
+              ? rawItems.map((it: any) => sanitizePplanItem(it, userId))
+              : padPplanItemsForUser(userId, rawItems.map((it: any) => sanitizePplanItem(it, userId))));
 
         // Sindiso Moepi (moepis@nkangaladm.gov.za): KPI 25 and 26 are removed from performance plan
         if (userId.toLowerCase().includes('moepis')) {
@@ -14083,6 +14229,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           const normMgr = managerEmailParam.toLowerCase().trim();
           
           const KNOWN_MGR_MAP: Record<string, string[]> = {
+            'linkss': ['joubertm@nkangaladm.gov.za', 'tloujmt@nkangaladm.gov.za'],
             'singhn': ['marxc@nkangaladm.gov.za', 'nakapm@nkangaladm.gov.za', 'rachidimb@nkangaladm.gov.za', 'mokhabelagg@nkangaladm.gov.za'],
             'joubertm': ['matsebulan@nkangaladm.gov.za', 'mathenjwabh@nkangaladm.gov.za'],
             'magampeas': [
@@ -14122,6 +14269,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
               const mClean = m.replace(/[^a-z]/g, '');
               return m.includes(normMgr) || normMgr.includes(m) ||
                 (mgrPrefix.length >= 4 && mClean.includes(mgrPrefix)) ||
+                (normMgr.includes('links') && m.includes('links')) ||
                 (normMgr.includes('singh') && m.includes('singh')) ||
                 (normMgr.includes('joubert') && m.includes('joubert')) ||
                 (normMgr.includes('magampe') && m.includes('magampe')) ||
@@ -14161,7 +14309,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
 
       let query = supabase
         .from('messages')
-        .select('id, tenant_id, sender_email, content')
+        .select('id, tenant_id, sender_email, content, created_at')
         .eq('message_type', 'pplan_list');
 
       if (filterIds && filterIds.length > 0) {
@@ -14232,11 +14380,13 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
 
           return {
             userId,
+            tenantId: row.tenant_id,
+            createdAt: row.created_at,
             plan: planObj
           };
         });
 
-      // Priority calculation: Documents with "Submitted for Approval" status ALWAYS take priority over unsubmitted "In Progress" copies
+      // Priority calculation: Canonical tenant-229 / Fred-extracted / newest documents take priority over stale global copies
       const getPlanSubmissionPriority = (tp: any): number => {
         if (!tp || !tp.plan) return 0;
         const metaStatus = String(tp.plan.metadata?.reviewStatus || '').toLowerCase().trim();
@@ -14251,6 +14401,13 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         ).length;
 
         let score = 0;
+        // Prefer canonical tenant-229 over nkangala_auto and global
+        if (tp.tenantId === 'tenant-229') score += 50000;
+        else if (tp.tenantId === 'nkangala_auto') score += 25000;
+
+        // Prioritize Fred-extracted plans
+        if (tp.plan.metadata?._isFredExtracted) score += 20000;
+
         // Prioritize Submitted for Approval, Reviewed, or Approved status
         if (metaStatus === 'submitted for approval' || metaStatus === 'submitted for review' || metaStatus === 'submitted') {
           score += 10000;
@@ -14271,7 +14428,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         return score;
       };
 
-      // Deduplicate by userId ensuring Submitted for Approval takes priority
+      // Deduplicate by userId ensuring canonical tenant-229 and latest updates take priority
       const dedupedMap = new Map<string, any>();
       for (const tp of teamPlans) {
         if (!tp.userId) continue;
@@ -14287,9 +14444,9 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         if (tpScore > existingScore) {
           dedupedMap.set(tp.userId, tp);
         } else if (tpScore === existingScore) {
-          const tpItemsLen = Array.isArray(tp.plan?.items) ? tp.plan.items.length : 0;
-          const exItemsLen = Array.isArray(existing.plan?.items) ? existing.plan.items.length : 0;
-          if (tpItemsLen > exItemsLen) {
+          const tpTime = new Date(tp.plan?.metadata?._pushedAt || tp.plan?.metadata?.updatedAt || tp.createdAt || 0).getTime();
+          const exTime = new Date(existing.plan?.metadata?._pushedAt || existing.plan?.metadata?.updatedAt || existing.createdAt || 0).getTime();
+          if (tpTime >= exTime) {
             dedupedMap.set(tp.userId, tp);
           }
         }
@@ -14480,8 +14637,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
 
       const syncTenants = (tenantId === 'tenant-229' || tenantId === 'nkangala_auto' || userId.includes('@nkangaladm.gov.za'))
-        ? ['tenant-229', 'nkangala_auto']
-        : [tenantId];
+        ? ['tenant-229', 'nkangala_auto', 'global']
+        : [tenantId, 'global'];
 
       let sanitizedItems = Array.isArray(items) ? items.map((it: any) => sanitizePplanItem(it, userId)) : [];
       if (userId.toLowerCase().includes('moepis')) {
@@ -14506,7 +14663,24 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           return true;
         });
       }
-      const payloadStr = JSON.stringify({ metadata, items: sanitizedItems });
+
+      const nowIso = new Date().toISOString();
+      const updatedMeta: any = {
+        ...(metadata || {}),
+        email: (metadata && metadata.email) || userId,
+        updatedAt: nowIso
+      };
+      if (sanitizedItems.length > 0) {
+        updatedMeta._isFredExtracted = true;
+        updatedMeta._isCleared = false;
+      }
+      if (userId === 'joubertm@nkangaladm.gov.za' || userId === 'tloujmt@nkangaladm.gov.za') {
+        updatedMeta.manager = 'Solly Links';
+        updatedMeta.managerEmail = 'linkss@nkangaladm.gov.za';
+        updatedMeta.reportTo = 'Solly Links';
+      }
+
+      const payloadStr = JSON.stringify({ metadata: updatedMeta, items: sanitizedItems, rows: sanitizedItems });
 
       // Always populate local in-memory cache for immediate UI persistence
       for (const u of targetUsers) {
@@ -14516,7 +14690,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         }
       }
 
-      if (supabase && !isCircuitBreakerOpen()) {
+      if (supabase) {
         for (const u of targetUsers) {
           for (const tId of syncTenants) {
             const uDocId = `pplan_${tId}_${u}`;
@@ -14531,8 +14705,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
                   sender_name: 'PPLAN Editor',
                   content: payloadStr,
                   message_type: 'pplan_list',
-                  created_at: new Date().toISOString()
-                });
+                  created_at: nowIso
+                }, { onConflict: 'id' });
               if (error) {
                 console.warn(`[pplan save warning] Supabase upsert notice for ${uDocId}:`, error.message || error);
               }
@@ -14541,7 +14715,66 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             }
           }
         }
+
+        // Also synchronize kpis_ and kpas_ across all syncTenants so stale KPIs/KPAs can never overwrite pplan
+        if (sanitizedItems.length > 0) {
+          const cleanKpiItems = sanitizedItems.map((it: any) => {
+            const { poeFileBase64, q1PoeDocs, q2PoeDocs, q3PoeDocs, q4PoeDocs, annualPoeDocs, midtermPoeDocs, ...rest } = it;
+            return rest;
+          });
+          const uniqueKpas: any[] = [];
+          const seenKpaTitles = new Set<string>();
+          sanitizedItems.forEach((it: any, idx: number) => {
+            const title = String(it.kpa || it.functionalKpa || it['functional kpa'] || '').trim();
+            if (title && !seenKpaTitles.has(title.toLowerCase())) {
+              seenKpaTitles.add(title.toLowerCase());
+              uniqueKpas.push({
+                id: `kpa-sync-${idx + 1}`,
+                title,
+                nationalKpa: title,
+                parentObjective: it.strategicGoal || 'To ensure sustainable service delivery and clean audit compliance',
+                mscoaCode: it.mscoaCode || 'Operational',
+                weighting: ''
+              });
+            }
+          });
+
+          for (const u of targetUsers) {
+            for (const tId of syncTenants) {
+              try {
+                await supabase.from('messages').upsert({
+                  id: `kpis_${tId}_${u}`,
+                  tenant_id: tId,
+                  sender_id: 'kpi_manager_tool',
+                  sender_email: 'kpi@system.local',
+                  sender_name: 'KPI Manager',
+                  content: JSON.stringify({ kpis: cleanKpiItems }),
+                  message_type: 'kpis_list',
+                  created_at: nowIso
+                }, { onConflict: 'id' });
+
+                if (uniqueKpas.length > 0) {
+                  await supabase.from('messages').upsert({
+                    id: `kpas_${tId}_${u}`,
+                    tenant_id: tId,
+                    sender_id: 'kpa_capturing_tool',
+                    sender_email: 'kpa@system.local',
+                    sender_name: 'KPA Manager',
+                    content: JSON.stringify({ kpas: uniqueKpas, customKpaTable: null }),
+                    message_type: 'kpas_list',
+                    created_at: nowIso
+                  }, { onConflict: 'id' });
+                }
+              } catch (syncErr) {}
+            }
+          }
+        }
       }
+
+      for (const k of memoryCache.keys()) {
+        if (k.startsWith('team_pplans_')) memoryCache.delete(k);
+      }
+      invalidateCommandCenterCache();
 
       // Individual Performance Plan saves strictly and exclusively to the user's pplan document.
       res.json({ success: true, count: sanitizedItems.length });
@@ -16020,45 +16253,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             stateObj = html;
           }
 
-          // 1) Overwrite Performance Plan (PPLAN) Module
-          const planItems = stateObj.pulledPplanItems || stateObj.pulledFilteredPplanItems;
-          if (planItems && Array.isArray(planItems) && planItems.length > 0) {
-            const pplanDocId = `pplan_${tenantId}_${u}`;
-            
-            const { data: existingPplan } = await supabase
-              .from('messages')
-              .select('content')
-              .eq('id', pplanDocId)
-              .maybeSingle();
-            
-            let existingMetadata = {};
-            if (existingPplan && existingPplan.content) {
-              try {
-                const parsed = JSON.parse(existingPplan.content);
-                existingMetadata = parsed.metadata || {};
-              } catch (e) {}
-            }
-
-            await supabase
-              .from('messages')
-              .upsert({
-                id: pplanDocId,
-                tenant_id: tenantId,
-                sender_id: 'pplan_editor_tool',
-                sender_email: 'pplan@system.local',
-                sender_name: 'PPLAN Editor',
-                content: JSON.stringify({ 
-                  metadata: {
-                    ...existingMetadata,
-                    lastPushedFromTemplate: new Date().toISOString(),
-                    pushedBy: stateObj.pushedBy || 'System'
-                  }, 
-                  items: planItems 
-                }),
-                message_type: 'pplan_list',
-                created_at: new Date().toISOString()
-              });
-          }
+          // 1) Do NOT overwrite Performance Plan (PPLAN) Module from pa-drafting-doc!
+          // The Performance Plan (pplan) is the authoritative source of truth that feeds PADraftingSuite, never the reverse.
 
           // 2) Overwrite Core Competencies (job-competencies) Module
           const competencyRows = stateObj.pulledCompetencyRows;

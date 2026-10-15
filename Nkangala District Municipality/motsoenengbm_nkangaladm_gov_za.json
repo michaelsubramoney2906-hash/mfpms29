@@ -9,6 +9,7 @@
   "tenantId": "nkangala_auto",
   "manager": "Tiro Mabunda",
   "directorate": "PED",
-  "reportTo": "",
-  "level": "1"
+  "reportTo": "Tiro Mabunda",
+  "managerEmail": "",
+  "level": "7"
 }

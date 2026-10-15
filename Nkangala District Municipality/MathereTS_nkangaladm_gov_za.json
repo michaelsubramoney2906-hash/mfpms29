@@ -9,6 +9,7 @@
   "tenantId": "nkangala_auto",
   "manager": "Eloise Prinsloo",
   "directorate": "Finance",
-  "reportTo": "",
-  "level": "1"
+  "reportTo": "Eloise Prinsloo",
+  "managerEmail": "",
+  "level": "9"
 }

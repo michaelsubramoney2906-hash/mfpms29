@@ -5,10 +5,11 @@
   "jobFunction": "Chief Environmental Health Practictioner",
   "department": "Community Development Services",
   "source": "azure_ad",
-  "role": "Standard User",
+  "role": "tenant_user",
   "tenantId": "nkangala_auto",
   "manager": "Solly Links",
   "directorate": "Community Services",
   "reportTo": "Solly Links",
-  "level": "1"
+  "managerEmail": "",
+  "level": "4"
 }

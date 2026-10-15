@@ -1,0 +1,15 @@
+{
+  "id": "seed_bkdyjcf60u6",
+  "fullName": "Demo Internal Auditor",
+  "email": "audit@mzansiflow.co.za",
+  "jobFunction": null,
+  "department": null,
+  "source": "manual",
+  "role": "Auditor",
+  "tenantId": "global",
+  "manager": "",
+  "directorate": "",
+  "reportTo": "",
+  "managerEmail": "",
+  "level": "1"
+}

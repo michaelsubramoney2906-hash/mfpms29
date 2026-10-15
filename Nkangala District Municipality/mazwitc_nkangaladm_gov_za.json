@@ -7,8 +7,9 @@
   "source": "azure_ad",
   "role": "Standard User",
   "tenantId": "nkangala_auto",
-  "manager": "NM Motshwene",
+  "manager": "Nkululeko Motshwene",
   "directorate": "Corporate",
-  "reportTo": "",
+  "reportTo": "Nkululeko Motshwene",
+  "managerEmail": "",
   "level": "3"
 }

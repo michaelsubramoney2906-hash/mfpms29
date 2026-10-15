@@ -5,10 +5,11 @@
   "jobFunction": "Environmental Health Practitioner: Dr JS Moroka",
   "department": "Community Development Services",
   "source": "azure_ad",
-  "role": "Standard User",
+  "role": "tenant_user",
   "tenantId": "nkangala_auto",
   "manager": "Johannes MT. Tlou",
   "directorate": "Community Services",
   "reportTo": "Johannes MT. Tlou",
-  "level": "1"
+  "managerEmail": "",
+  "level": "6"
 }

@@ -7,8 +7,9 @@
   "source": "azure_ad",
   "role": "Standard User",
   "tenantId": "nkangala_auto",
-  "manager": "Zwelakhe C. Kubheka",
+  "manager": "Headman Skosana",
   "directorate": "Community Services",
-  "reportTo": "Zwelakhe C. Kubheka",
-  "level": "1"
+  "reportTo": "Headman Skosana",
+  "managerEmail": "",
+  "level": "4"
 }

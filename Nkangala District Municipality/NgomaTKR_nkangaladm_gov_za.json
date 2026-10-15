@@ -7,8 +7,9 @@
   "source": "azure_ad",
   "role": "Standard User",
   "tenantId": "nkangala_auto",
-  "manager": "N Parbhoo",
+  "manager": "Nirupa Parbhoo",
   "directorate": "Finance",
-  "reportTo": "",
-  "level": "1"
+  "reportTo": "Nirupa Parbhoo",
+  "managerEmail": "",
+  "level": "9"
 }

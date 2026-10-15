@@ -7,8 +7,9 @@
   "source": "azure_ad",
   "role": "Standard User",
   "tenantId": "nkangala_auto",
-  "manager": "Mark Ephraim Maseko",
+  "manager": "Mark E. Maseko",
   "directorate": "Corporate",
-  "reportTo": "",
-  "level": "1"
+  "reportTo": "Mark E. Maseko",
+  "managerEmail": "",
+  "level": "7"
 }

@@ -7,8 +7,9 @@
   "source": "azure_ad",
   "role": "Standard User",
   "tenantId": "nkangala_auto",
-  "manager": "Bongani S. Khumalo",
-  "directorate": "Office of the MM",
+  "manager": "Nokuthula D. Mthimunye",
+  "directorate": "Office of the Municipal Manager",
   "reportTo": "Nokuthula D. Mthimunye",
-  "level": "1"
+  "managerEmail": "",
+  "level": "5"
 }

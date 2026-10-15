@@ -7,8 +7,9 @@
   "source": "azure_ad",
   "role": "Standard User",
   "tenantId": "nkangala_auto",
-  "manager": "Mandla L Mahlangu",
+  "manager": "Alice L. Stander",
   "directorate": "Finance",
-  "reportTo": "",
+  "reportTo": "Alice L. Stander",
+  "managerEmail": "",
   "level": "2"
 }

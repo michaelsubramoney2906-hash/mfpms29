@@ -5,10 +5,11 @@
   "jobFunction": "Clerical  Assistant: Asset Management",
   "department": "Finance Services",
   "source": "azure_ad",
-  "role": "Standard User",
+  "role": "tenant_user",
   "tenantId": "nkangala_auto",
   "manager": "Nirupa Parbhoo",
   "directorate": "Finance",
-  "reportTo": "",
-  "level": "1"
+  "reportTo": "Nirupa Parbhoo",
+  "managerEmail": "",
+  "level": "6"
 }

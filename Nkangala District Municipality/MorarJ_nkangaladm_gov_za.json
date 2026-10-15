@@ -7,8 +7,9 @@
   "source": "azure_ad",
   "role": "tenant_user",
   "tenantId": "nkangala_auto",
-  "manager": "Kgomotso Gwangwa",
-  "directorate": "Office of the MM",
-  "reportTo": "",
-  "level": "1"
+  "manager": "Amos D. Twala",
+  "directorate": "Office of the Municipal Manager",
+  "reportTo": "Amos D. Twala",
+  "managerEmail": "",
+  "level": "4"
 }

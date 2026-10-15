@@ -7,8 +7,9 @@
   "source": "azure_ad",
   "role": "Standard User",
   "tenantId": "nkangala_auto",
-  "manager": "Sipho Innocent Masilela",
+  "manager": "Sipho Masilela",
   "directorate": "Finance",
-  "reportTo": "",
-  "level": "1"
+  "reportTo": "Sipho Masilela",
+  "managerEmail": "",
+  "level": "4"
 }
