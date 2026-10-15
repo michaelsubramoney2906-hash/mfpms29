@@ -9,6 +9,7 @@
   "tenantId": "nkangala_auto",
   "manager": "Thandiwe Mazwi",
   "directorate": "Corporate",
-  "reportTo": "",
-  "level": "1"
+  "reportTo": "Thandiwe Mazwi",
+  "managerEmail": "",
+  "level": "10"
 }

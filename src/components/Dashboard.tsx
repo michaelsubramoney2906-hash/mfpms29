@@ -302,6 +302,9 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                             email === 'mike@mzansiflow.co.za' ||
                             email.endsWith('@mzansiflow.co.za');
 
+      const isTargetManagerEmail = ['joubertm@nkangaladm.gov.za', 'magampeas@nkangaladm.gov.za', 'segamiy@nkangaladm.gov.za', 'singhn@nkangaladm.gov.za'].includes(email) || 
+                                    email.includes('singhn') || email.includes('joubertm') || email.includes('magampeas') || email.includes('segamiy');
+
       const isManagerUser = role === 'manager' || 
                             role === 'approver' || 
                             role === 'admin' || 
@@ -311,7 +314,8 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                             jobFunction.includes('director') ||
                             jobFunction.includes('head of') ||
                             jobFunction.includes('divisional manager') ||
-                            email.includes('khuboni');
+                            email.includes('khuboni') ||
+                            isTargetManagerEmail;
 
       const isStdUser = !isAuditorUser && !isManagerUser && profileToUse.role !== 'admin';
 
@@ -379,6 +383,9 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                           email === 'mike@mzansiflow.co.za' ||
                           email.endsWith('@mzansiflow.co.za');
 
+    const isTargetManagerEmail = ['joubertm@nkangaladm.gov.za', 'magampeas@nkangaladm.gov.za', 'segamiy@nkangaladm.gov.za', 'singhn@nkangaladm.gov.za'].includes(email) || 
+                                  email.includes('singhn') || email.includes('joubertm') || email.includes('magampeas') || email.includes('segamiy');
+
     const isManagerUser = role === 'manager' || 
                           role === 'approver' || 
                           role === 'admin' || 
@@ -387,7 +394,11 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                           jobFunction.includes('manager') ||
                           jobFunction.includes('director') ||
                           jobFunction.includes('head of') ||
-                          jobFunction.includes('divisional manager') || email.includes('khuboni');
+                          jobFunction.includes('supervisor') ||
+                          jobFunction.includes('lead') ||
+                          jobFunction.includes('divisional manager') || 
+                          email.includes('khuboni') ||
+                          isTargetManagerEmail;
 
     const isPMSTeam = email === 'zulune@nkangaladm.gov.za' || 
                       email === 'nsibandenp@nkangaladm.gov.za' || 
@@ -577,6 +588,9 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                           email !== 'manager@mzansiflow.co.za' && 
                           email !== 'dpmc@mzansiflow.co.za';
 
+    const isTargetManagerEmail = ['joubertm@nkangaladm.gov.za', 'magampeas@nkangaladm.gov.za', 'segamiy@nkangaladm.gov.za', 'singhn@nkangaladm.gov.za'].includes(email) || 
+                                  email.includes('singhn') || email.includes('joubertm') || email.includes('magampeas') || email.includes('segamiy');
+
     const isManagerUser = (email === 'manager@mzansiflow.co.za' || email === 'test.manager@local' ||
                           role === 'manager' || 
                           role === 'approver' || 
@@ -588,7 +602,9 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                           jobFunction.includes('head of') ||
                           jobFunction.includes('supervisor') ||
                           jobFunction.includes('lead') ||
-                          jobFunction.includes('divisional manager') || email.includes('khuboni')) &&
+                          jobFunction.includes('divisional manager') || 
+                          email.includes('khuboni') ||
+                          isTargetManagerEmail) &&
                           email !== 'user@mzansiflow.co.za' && 
                           email !== 'audit@mzansiflow.co.za' && 
                           email !== 'dpmc@mzansiflow.co.za';
@@ -705,6 +721,8 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                         email === 'sakisd@nkangaladm.gov.za' || 
                         email === 'lukhelema@nkangaladm.gov.za' ||
                         jobFunction.includes('pms');
+      const isTargetManagerEmail = ['joubertm@nkangaladm.gov.za', 'magampeas@nkangaladm.gov.za', 'segamiy@nkangaladm.gov.za', 'singhn@nkangaladm.gov.za'].includes(email) || 
+                                    email.includes('singhn') || email.includes('joubertm') || email.includes('magampeas') || email.includes('segamiy');
       const isManagerUser = role === 'manager' || 
                             role === 'approver' || 
                             role === 'admin' || 
@@ -713,8 +731,11 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                             jobFunction.includes('manager') ||
                             jobFunction.includes('director') ||
                             jobFunction.includes('head of') ||
+                            jobFunction.includes('supervisor') ||
+                            jobFunction.includes('lead') ||
                             jobFunction.includes('divisional manager') || 
                             email.includes('khuboni') ||
+                            isTargetManagerEmail ||
                             email.includes('mike@massivedynamixdistributors.com');
 
       const isDirectAccess = sub.id === 'ipms-demo' || sub.id === 'ipms-evaluation' || sub.id === 'pplan' || sub.id === 'team-pplan' || sub.id === 'team-pplan-2' || sub.id === 'pdp' || sub.id === 'team-pdp' || sub.id === 'team-pdp-2' || sub.id === 'pa' || sub.id === 'pa-cds-team' || sub.id === 'pa-technical-services' || sub.id === 'pa-corporate-services' || sub.id === 'pa-pms-team' || sub.id === 'pa-templates' || sub.id === 'jsc' || sub.id === 'team-jsc' || sub.id === 'team-jsc-2' || sub.id === 'ccomp' || sub.id === 'fred-ccomp' || sub.id === 'fred-core-competencies' || sub.id === 'fred' || sub.id === 'fred-ipp' || sub.id === 'fred-gm' || sub.id === 'fred-sdbip' || sub.id === 'ipms-kpi' || sub.id === 'ipms-kpa' || sub.id === 'organogram' || sub.id === 'ipms-inbox' || sub.id === 'review-timetable' || sub.id === 'performance-assessment';

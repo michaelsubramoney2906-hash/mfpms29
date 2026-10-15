@@ -125,7 +125,7 @@
     "reportTo": "Nirisha Singh",
     "level": "1",
     "signatureType": "draw",
-    "managerEmail": "Singhn@nkangaladm.gov.za"
+    "managerEmail": "singhn@nkangaladm.gov.za"
   },
   {
     "id": "79068b61-9cb7-4442-b24a-29ae613d3d7d",
@@ -1454,7 +1454,7 @@
     "reportTo": "Nirisha Singh",
     "level": "1",
     "signatureType": "draw",
-    "managerEmail": "Singhn@nkangaladm.gov.za"
+    "managerEmail": "singhn@nkangaladm.gov.za"
   },
   {
     "id": "8b372fef-e7d3-4866-9a36-9574c7f9de3c",
@@ -3150,7 +3150,7 @@
     "reportTo": "Nirisha Singh",
     "level": "1",
     "signatureType": "draw",
-    "managerEmail": "Singhn@nkangaladm.gov.za"
+    "managerEmail": "singhn@nkangaladm.gov.za"
   },
   {
     "id": "99c67c34-d866-4bd8-95a7-4f7c3905a8aa",
@@ -3351,14 +3351,15 @@
     "jobFunction": "Chief Environmental Health Practioner",
     "department": "Community Development Services",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "Manager",
     "tenantId": "tenant-229",
     "manager": "Solly Links",
     "directorate": "Community Services",
     "reportTo": "Solly Links",
     "level": "1",
     "signatureType": "draw",
-    "managerEmail": "linkss@nkangaladm.gov.za"
+    "managerEmail": "linkss@nkangaladm.gov.za",
+    "systemRole": "Manager"
   },
   {
     "id": "129ef252-bab6-46a5-8da4-04e4f63affd3",
@@ -3927,14 +3928,15 @@
     "jobFunction": "Chief Environmental Health Practictioner",
     "department": "Community Development Services",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "Manager",
     "tenantId": "tenant-229",
     "manager": "Solly Links",
     "directorate": "Community Services",
     "reportTo": "Solly Links",
     "level": "1",
     "signatureType": "draw",
-    "managerEmail": "linkss@nkangaladm.gov.za"
+    "managerEmail": "linkss@nkangaladm.gov.za",
+    "systemRole": "Manager"
   },
   {
     "id": "eb7be605-2b78-44f7-a455-432275d89f40",
@@ -8727,14 +8729,15 @@
     "jobFunction": "Chief Environmental Health Practitioner",
     "department": "Community Development Services",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "Manager",
     "tenantId": "tenant-229",
     "manager": "Solly Links",
     "directorate": "Community Services",
     "reportTo": "Solly Links",
     "level": "1",
     "signatureType": "draw",
-    "managerEmail": "linkss@nkangaladm.gov.za"
+    "managerEmail": "linkss@nkangaladm.gov.za",
+    "systemRole": "Manager"
   },
   {
     "id": "f952dfb6-fb5a-4124-9cee-1d2106e8a8c0",
@@ -9367,14 +9370,15 @@
     "jobFunction": "Chief Environmental Health Practitioner",
     "department": "Community Development Services",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "Manager",
     "tenantId": "tenant-229",
     "manager": "Solly Links",
     "directorate": "Community Services",
     "reportTo": "Solly Links",
     "level": "1",
     "signatureType": "draw",
-    "managerEmail": "linkss@nkangaladm.gov.za"
+    "managerEmail": "linkss@nkangaladm.gov.za",
+    "systemRole": "Manager"
   },
   {
     "id": "b8211647-bcdc-4bd6-969b-d8bf6ceb3718",
@@ -11758,7 +11762,7 @@
     "reportTo": "Nirisha Singh",
     "level": "1",
     "signatureType": "draw",
-    "managerEmail": "Singhn@nkangaladm.gov.za"
+    "managerEmail": "singhn@nkangaladm.gov.za"
   },
   {
     "id": "15acf15c-860e-4161-b0cb-bcdba5879135",

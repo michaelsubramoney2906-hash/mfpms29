@@ -128,6 +128,9 @@ export const GuidedIPMSWorkflow: React.FC<GuidedIPMSWorkflowProps> = ({
                           email === 'mike@mzansiflow.co.za' ||
                           email.endsWith('@mzansiflow.co.za');
 
+    const isTargetManagerEmail = ['joubertm@nkangaladm.gov.za', 'magampeas@nkangaladm.gov.za', 'segamiy@nkangaladm.gov.za', 'singhn@nkangaladm.gov.za'].includes(email) || 
+                                  email.includes('singhn') || email.includes('joubertm') || email.includes('magampeas') || email.includes('segamiy');
+
     const isManagerUser = role === 'manager' || 
                           role === 'approver' || 
                           role === 'admin' || 
@@ -136,7 +139,11 @@ export const GuidedIPMSWorkflow: React.FC<GuidedIPMSWorkflowProps> = ({
                           jobFunction.includes('manager') ||
                           jobFunction.includes('director') ||
                           jobFunction.includes('head of') ||
-                          jobFunction.includes('divisional manager');
+                          jobFunction.includes('supervisor') ||
+                          jobFunction.includes('lead') ||
+                          jobFunction.includes('divisional manager') ||
+                          email.includes('khuboni') ||
+                          isTargetManagerEmail;
 
     const isPMSTeam = email === 'zulune@nkangaladm.gov.za' || 
                       email === 'nsibandenp@nkangaladm.gov.za' || 
@@ -205,6 +212,8 @@ export const GuidedIPMSWorkflow: React.FC<GuidedIPMSWorkflowProps> = ({
                       email === 'sakisd@nkangaladm.gov.za' || 
                       email === 'lukhelema@nkangaladm.gov.za' ||
                       jobFunction.includes('pms');
+    const isTargetManagerEmail = ['joubertm@nkangaladm.gov.za', 'magampeas@nkangaladm.gov.za', 'segamiy@nkangaladm.gov.za', 'singhn@nkangaladm.gov.za'].includes(email) || 
+                                  email.includes('singhn') || email.includes('joubertm') || email.includes('magampeas') || email.includes('segamiy');
     const isManagerUser = role === 'manager' || 
                           role === 'approver' || 
                           role === 'admin' || 
@@ -213,8 +222,11 @@ export const GuidedIPMSWorkflow: React.FC<GuidedIPMSWorkflowProps> = ({
                           jobFunction.includes('manager') ||
                           jobFunction.includes('director') ||
                           jobFunction.includes('head of') ||
+                          jobFunction.includes('supervisor') ||
+                          jobFunction.includes('lead') ||
                           jobFunction.includes('divisional manager') ||
                           email.includes('khuboni') ||
+                          isTargetManagerEmail ||
                           email.includes('mike@massivedynamixdistributors.com');
                       
     const isDirectAccessStep = ['ipms-evaluation', 'pplan', 'pdp', 'pa', 'pa-cds-team', 'pa-technical-services', 'pa-corporate-services', 'pa-pms-team', 'pa-templates', 'jsc', 'ccomp', 'ipms-kpi', 'ipms-kpa', 'organogram', 'ipms-inbox', 'review-timetable', 'performance-assessment'].includes(stepsToShow[index]?.id);

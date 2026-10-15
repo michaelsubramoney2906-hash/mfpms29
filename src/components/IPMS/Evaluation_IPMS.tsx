@@ -588,15 +588,30 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
     setSaving(true);
     try {
       const isDemoUser = (currentUser.email || '').toLowerCase() === 'user@mzansiflow.co.za';
-      const isShabanguUser = (currentUser.email || '').toLowerCase().includes('shabangusm') || (pplanData.metadata?.email || '').toLowerCase().includes('shabangusm');
-      const defaultMgrName = isShabanguUser ? 'Mandla L. Mahlangu' : (isDemoUser ? 'Demo Line Manager' : 'Yena Khuboni');
-      const defaultMgrEmail = isShabanguUser ? 'mahlanguml@nkangaladm.gov.za' : (isDemoUser ? 'manager@mzansiflow.co.za' : 'KhuboniY@nkangaladm.gov.za');
+      const userEmailForMgr = (pplanData.metadata?.email || currentUser.email || '').toLowerCase().trim();
+      let resolvedMgr = {
+        manager: pplanData.metadata?.manager || currentUser.manager || (isDemoUser ? 'Demo Line Manager' : 'Yena Khuboni'),
+        managerEmail: pplanData.metadata?.managerEmail || currentUser.managerEmail || (isDemoUser ? 'manager@mzansiflow.co.za' : 'KhuboniY@nkangaladm.gov.za'),
+        reportTo: pplanData.metadata?.reportTo || currentUser.reportTo || (isDemoUser ? 'Demo Line Manager' : '')
+      };
+      if (['marxc@nkangaladm.gov.za', 'nakapm@nkangaladm.gov.za', 'rachidimb@nkangaladm.gov.za', 'mokhabelagg@nkangaladm.gov.za'].includes(userEmailForMgr) || userEmailForMgr.includes('marxc') || userEmailForMgr.includes('nakapm') || userEmailForMgr.includes('rachidimb') || userEmailForMgr.includes('mokhabelagg')) {
+        resolvedMgr = { manager: 'Nirisha Singh', managerEmail: 'singhn@nkangaladm.gov.za', reportTo: 'Nirisha Singh' };
+      } else if (['matsebulan@nkangaladm.gov.za', 'mathenjwabh@nkangaladm.gov.za'].includes(userEmailForMgr) || userEmailForMgr.includes('matsebulan') || userEmailForMgr.includes('mathenjwabh')) {
+        resolvedMgr = { manager: 'Marianne Joubert', managerEmail: 'joubertm@nkangaladm.gov.za', reportTo: 'Marianne Joubert' };
+      } else if (['giyasi-affulph@nkangaladm.gov.za', 'sibanyonimj@nkangaladm.gov.za', 'singorl@nkangaladm.gov.za', 'mangenart@nkangaladm.gov.za', 'mbulawan@nkangaladm.gov.za', 'mkhabelanc@nkangaladm.gov.za', 'mpanzal@nkangaladm.gov.za', 'mtswenism@nkangaladm.gov.za'].includes(userEmailForMgr)) {
+        resolvedMgr = { manager: 'Alfred S. Magampe', managerEmail: 'magampeas@nkangaladm.gov.za', reportTo: 'Alfred S. Magampe' };
+      } else if (['nkosiwm@nkangaladm.gov.za', 'mochitelaso@nkangaladm.gov.za'].includes(userEmailForMgr) || userEmailForMgr.includes('nkosiwm') || userEmailForMgr.includes('mochitelaso')) {
+        resolvedMgr = { manager: 'Yolanda Segami', managerEmail: 'segamiy@nkangaladm.gov.za', reportTo: 'Yolanda Segami' };
+      } else if (userEmailForMgr.includes('shabangusm') || userEmailForMgr.includes('shabangugm')) {
+        resolvedMgr = { manager: 'Mandla L. Mahlangu', managerEmail: 'mahlanguml@nkangaladm.gov.za', reportTo: 'Mandla L. Mahlangu' };
+      }
+
       const metadata = { 
         ...pplanData.metadata,
         email: pplanData.metadata?.email || currentUser.email,
-        manager: isShabanguUser ? 'Mandla L. Mahlangu' : (pplanData.metadata?.manager || currentUser.manager || defaultMgrName),
-        managerEmail: isShabanguUser ? 'mahlanguml@nkangaladm.gov.za' : (pplanData.metadata?.managerEmail || currentUser.managerEmail || defaultMgrEmail),
-        reportTo: isShabanguUser ? 'Mandla L. Mahlangu' : (pplanData.metadata?.reportTo || currentUser.reportTo || (isDemoUser ? 'Demo Line Manager' : ''))
+        manager: resolvedMgr.manager,
+        managerEmail: resolvedMgr.managerEmail,
+        reportTo: resolvedMgr.reportTo
       };
       if (submitForReview) {
         const targetItem = pplanData.items.find(i => i.id === kpiId);
@@ -1077,13 +1092,31 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
     }
     setSaving(true);
     try {
-      const isShabanguUser = (currentUser.email || '').toLowerCase().includes('shabangusm') || (pplanData.metadata?.email || '').toLowerCase().includes('shabangusm');
+      const isDemoUser = (currentUser.email || '').toLowerCase() === 'user@mzansiflow.co.za';
+      const userEmailForMgr = (pplanData.metadata?.email || currentUser.email || '').toLowerCase().trim();
+      let resolvedMgr = {
+        manager: pplanData.metadata?.manager || currentUser.manager || currentUser.reportTo || (isDemoUser ? 'Demo Line Manager' : 'Yena Khuboni'),
+        managerEmail: pplanData.metadata?.managerEmail || currentUser.managerEmail || (isDemoUser ? 'manager@mzansiflow.co.za' : 'KhuboniY@nkangaladm.gov.za'),
+        reportTo: pplanData.metadata?.reportTo || currentUser.reportTo || currentUser.manager || (isDemoUser ? 'Demo Line Manager' : '')
+      };
+      if (['marxc@nkangaladm.gov.za', 'nakapm@nkangaladm.gov.za', 'rachidimb@nkangaladm.gov.za', 'mokhabelagg@nkangaladm.gov.za'].includes(userEmailForMgr) || userEmailForMgr.includes('marxc') || userEmailForMgr.includes('nakapm') || userEmailForMgr.includes('rachidimb') || userEmailForMgr.includes('mokhabelagg')) {
+        resolvedMgr = { manager: 'Nirisha Singh', managerEmail: 'singhn@nkangaladm.gov.za', reportTo: 'Nirisha Singh' };
+      } else if (['matsebulan@nkangaladm.gov.za', 'mathenjwabh@nkangaladm.gov.za'].includes(userEmailForMgr) || userEmailForMgr.includes('matsebulan') || userEmailForMgr.includes('mathenjwabh')) {
+        resolvedMgr = { manager: 'Marianne Joubert', managerEmail: 'joubertm@nkangaladm.gov.za', reportTo: 'Marianne Joubert' };
+      } else if (['giyasi-affulph@nkangaladm.gov.za', 'sibanyonimj@nkangaladm.gov.za', 'singorl@nkangaladm.gov.za', 'mangenart@nkangaladm.gov.za', 'mbulawan@nkangaladm.gov.za', 'mkhabelanc@nkangaladm.gov.za', 'mpanzal@nkangaladm.gov.za', 'mtswenism@nkangaladm.gov.za'].includes(userEmailForMgr)) {
+        resolvedMgr = { manager: 'Alfred S. Magampe', managerEmail: 'magampeas@nkangaladm.gov.za', reportTo: 'Alfred S. Magampe' };
+      } else if (['nkosiwm@nkangaladm.gov.za', 'mochitelaso@nkangaladm.gov.za'].includes(userEmailForMgr) || userEmailForMgr.includes('nkosiwm') || userEmailForMgr.includes('mochitelaso')) {
+        resolvedMgr = { manager: 'Yolanda Segami', managerEmail: 'segamiy@nkangaladm.gov.za', reportTo: 'Yolanda Segami' };
+      } else if (userEmailForMgr.includes('shabangusm') || userEmailForMgr.includes('shabangugm')) {
+        resolvedMgr = { manager: 'Mandla L. Mahlangu', managerEmail: 'mahlanguml@nkangaladm.gov.za', reportTo: 'Mandla L. Mahlangu' };
+      }
+
       const metadata = { 
         ...pplanData.metadata,
         email: pplanData.metadata?.email || currentUser.email,
-        manager: isShabanguUser ? 'Mandla L. Mahlangu' : (pplanData.metadata?.manager || currentUser.manager || currentUser.reportTo || 'Yena Khuboni'),
-        managerEmail: isShabanguUser ? 'mahlanguml@nkangaladm.gov.za' : (pplanData.metadata?.managerEmail || 'KhuboniY@nkangaladm.gov.za'),
-        reportTo: isShabanguUser ? 'Mandla L. Mahlangu' : (pplanData.metadata?.reportTo || currentUser.reportTo || currentUser.manager || '')
+        manager: resolvedMgr.manager,
+        managerEmail: resolvedMgr.managerEmail,
+        reportTo: resolvedMgr.reportTo
       };
       if (submitForReview) {
         metadata.reviewStatus = 'Submitted for Approval';

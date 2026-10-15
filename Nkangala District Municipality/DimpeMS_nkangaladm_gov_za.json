@@ -5,10 +5,11 @@
   "jobFunction": "Divisional Manager Public Participation",
   "department": "Corporate Services",
   "source": "azure_ad",
-  "role": "Standard User",
+  "role": "tenant_user",
   "tenantId": "nkangala_auto",
-  "manager": "N Motshwene",
+  "manager": "Nkululeko Motshwene",
   "directorate": "Corporate",
-  "reportTo": "",
+  "reportTo": "Nkululeko Motshwene",
+  "managerEmail": "",
   "level": "3"
 }

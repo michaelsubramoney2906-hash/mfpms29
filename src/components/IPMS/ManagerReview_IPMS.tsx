@@ -93,11 +93,14 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
       if (filtered.length > 0) return filtered;
     }
 
-    // 3. Items currently in Submitted for Approval/Review state (and not already Approved or Dispatched)
+    // 3. Items currently in Submitted for Approval/Review state (or Approved/Reviewed/Dispatched)
     const submittedItems = plan.items.filter((it: any) => 
       it.reviewStatus === 'Submitted for Approval' || 
       it.reviewStatus === 'Submitted for Review' || 
-      it.reviewStatus === 'Submitted'
+      it.reviewStatus === 'Submitted' ||
+      it.reviewStatus === 'Approved' ||
+      it.reviewStatus === 'Reviewed' ||
+      it.reviewStatus === 'Dispatched to Internal Audit'
     );
     if (submittedItems.length > 0) {
       return submittedItems;
@@ -109,7 +112,9 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
       if (targeted.length > 0) return targeted;
     }
 
-    return plan.items;
+    // Manager View Gating: If an employee has not submitted any KPIs, do NOT fall back to showing all draft items.
+    // Return empty list so the manager sees "Awaiting KPI submission from employee"
+    return [];
   }, [selectedPlan, filterSubmittedKpiIds, showAllKpis, selectedKpiIdsForReview]);
 
   const toggleSelectKpiForReview = (id: string) => {
@@ -413,139 +418,236 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
   const fetchTeamPlans = async () => {
     setLoading(true);
     try {
-      // 1. Fetch all users to determine relationships
-      const usersRes = await fetch(`/api/tenant/${activeTenantId}/users`);
-      let allUsers: any[] = [];
-      if (usersRes.ok) {
-        allUsers = await safeJson(usersRes) || {};
+      let managerName = currentUser.fullName || currentUser.full_name || '';
+      let managerEmail = (currentUser.email || '').toLowerCase().trim();
+      const normalize = (s: string) => s.toLowerCase().trim().replace(/['"\.,]/g, '').replace(/\s+/g, ' ');
+      const normCurrent = normalize(managerName);
+
+      // Subordinate detection logic based on User Directory
+      const mySubordinateEmails = new Set<string>();
+
+      // Explicit list for Nirisha Singh (singhn@nkangaladm.gov.za)
+      const singhSubordinates = [
+        'marxc@nkangaladm.gov.za',
+        'nakapm@nkangaladm.gov.za',
+        'rachidimb@nkangaladm.gov.za',
+        'mokhabelagg@nkangaladm.gov.za'
+      ];
+
+      if (managerEmail.includes('singhn') || normCurrent.includes('nirisha') || normCurrent.includes('singh')) {
+        singhSubordinates.forEach(email => mySubordinateEmails.add(email));
       }
 
-      // 2. Fetch all team plans
-      const res = await fetch(`/api/tenant/${activeTenantId}/team-pplans?t=${Date.now()}`);
-      if (res.ok) {
-        const data = await safeJson(res) || {};
-        const plans = data.teamPlans || [];
-        
-        let managerName = currentUser.fullName || currentUser.full_name || '';
-        let managerEmail = (currentUser.email || '').toLowerCase().trim();
-        const normalize = (s: string) => s.toLowerCase().trim().replace(/['"\.,]/g, '').replace(/\s+/g, ' ');
-        const normCurrent = normalize(managerName);
+      // Explicit list for KhuboniY@nkangaladm.gov.za
+      const khuboniSubordinates = [
+        'zulune@nkangaladm.gov.za',
+        'nsibandenp@nkangaladm.gov.za',
+        'nsibandenp@nkangaldm.gov.za',
+        'lukhelema@nkangaladm.gov.za',
+        'lukhelema@nkangaladmgov.za',
+        'sakisd@nkangaladm.gov.za'
+      ];
 
-        // Subordinate detection logic based on User Directory
-        const mySubordinateEmails = new Set<string>();
+      if (managerEmail.includes('khuboni')) {
+        khuboniSubordinates.forEach(email => mySubordinateEmails.add(email));
+        mySubordinateEmails.delete('shabangusm@nkangaladm.gov.za');
+      }
 
-        // Explicit list for KhuboniY@nkangaladm.gov.za
-        const khuboniSubordinates = [
-          'zulune@nkangaladm.gov.za',
-          'nsibandenp@nkangaladm.gov.za',
-          'nsibandenp@nkangaldm.gov.za',
-          'lukhelema@nkangaladm.gov.za',
-          'lukhelema@nkangaladmgov.za',
-          'sakisd@nkangaladm.gov.za'
-        ];
+      // Explicit list for Mandla L. Mahlangu (mahlanguml@nkangaladm.gov.za)
+      const mahlanguSubordinates = [
+        'shabangusm@nkangaladm.gov.za',
+        'shabangugm@nkangaladm.gov.za'
+      ];
 
-        if (managerEmail.includes('khuboni')) {
-          khuboniSubordinates.forEach(email => mySubordinateEmails.add(email));
-          mySubordinateEmails.delete('shabangusm@nkangaladm.gov.za');
-        }
+      if (managerEmail.includes('mahlanguml') || managerEmail.includes('mandlaml') || normCurrent.includes('mandla') || normCurrent.includes('mahlangu')) {
+        mahlanguSubordinates.forEach(email => mySubordinateEmails.add(email));
+      }
 
-        // Explicit list for Mandla L. Mahlangu (mahlanguml@nkangaladm.gov.za)
-        const mahlanguSubordinates = [
-          'shabangusm@nkangaladm.gov.za',
-          'shabangugm@nkangaladm.gov.za'
-        ];
+      // Explicit list for Elmon Nkosi (nkosije@nkangaladm.gov.za)
+      const nkosiSubordinates = [
+        'myenispl@nkangaladm.gov.za',
+        'myenispl@nkangaldm.gov.za'
+      ];
 
-        if (managerEmail.includes('mahlanguml') || managerEmail.includes('mandlaml') || normCurrent.includes('mandla') || normCurrent.includes('mahlangu')) {
-          mahlanguSubordinates.forEach(email => mySubordinateEmails.add(email));
-        }
+      if (managerEmail.includes('nkosije') || normCurrent.includes('elmon') || normCurrent.includes('nkosi')) {
+        nkosiSubordinates.forEach(email => mySubordinateEmails.add(email));
+      }
 
-        // Explicit list for Elmon Nkosi (nkosije@nkangaladm.gov.za)
-        const nkosiSubordinates = [
-          'myenispl@nkangaladm.gov.za',
-          'myenispl@nkangaldm.gov.za'
-        ];
+      // Explicit list for Demo Line Manager (manager@mzansiflow.co.za)
+      if (managerEmail === 'manager@mzansiflow.co.za' || managerEmail.includes('manager@mzansiflow')) {
+        mySubordinateEmails.add('user@mzansiflow.co.za');
+      }
 
-        if (managerEmail.includes('nkosije') || normCurrent.includes('elmon') || normCurrent.includes('nkosi')) {
-          nkosiSubordinates.forEach(email => mySubordinateEmails.add(email));
-        }
+      // Explicit list for Marianne Joubert (joubertm@nkangaladm.gov.za)
+      const joubertSubordinates = [
+        'matsebulan@nkangaladm.gov.za',
+        'mathenjwabh@nkangaladm.gov.za'
+      ];
+      if (managerEmail.includes('joubertm') || normCurrent.includes('joubert') || normCurrent.includes('marianne')) {
+        joubertSubordinates.forEach(email => mySubordinateEmails.add(email));
+      }
 
-        // Explicit list for Demo Line Manager (manager@mzansiflow.co.za)
-        if (managerEmail === 'manager@mzansiflow.co.za' || managerEmail.includes('manager@mzansiflow')) {
-          mySubordinateEmails.add('user@mzansiflow.co.za');
-        }
+      // Explicit list for Alfred S. Magampe (magampeas@nkangaladm.gov.za)
+      const magampeSubordinates = [
+        'giyasi-affulph@nkangaladm.gov.za',
+        'sibanyonimj@nkangaladm.gov.za',
+        'singorl@nkangaladm.gov.za',
+        'mangenart@nkangaladm.gov.za',
+        'mbulawan@nkangaladm.gov.za',
+        'mkhabelanc@nkangaladm.gov.za',
+        'mpanzal@nkangaladm.gov.za',
+        'mtswenism@nkangaladm.gov.za'
+      ];
+      if (managerEmail.includes('magampeas') || normCurrent.includes('magampe') || normCurrent.includes('alfred')) {
+        magampeSubordinates.forEach(email => mySubordinateEmails.add(email));
+      }
 
-        const isExcludedDeveloper = (email: string) => 
-          ['mike@mzansiflow.co.za', 'mike@massivedynamixdistributors.com', 'audrey@mzansiflow.co.za', 'delphine@mzansiflow.co.za', 'ryanw@mzansiflow.co.za', 'bongani@mzansiflow.co.za', 'bonganim@mzansiflow.co.za'].includes(email);
+      // Explicit list for Yolanda Segami (segamiy@nkangaladm.gov.za)
+      const segamiSubordinates = [
+        'nkosiwm@nkangaladm.gov.za',
+        'mochitelaso@nkangaladm.gov.za'
+      ];
+      if (managerEmail.includes('segamiy') || normCurrent.includes('segami') || normCurrent.includes('yolanda')) {
+        segamiSubordinates.forEach(email => mySubordinateEmails.add(email));
+      }
 
-        // Build list of subordinate emails from User Directory
-        allUsers.forEach(u => {
-          const uEmail = (u.email || '').toLowerCase().trim();
-          if (!uEmail || uEmail === managerEmail) return;
-
-          // Exclude internal dev accounts from appearing as municipal subordinates, but keep demo users
-          if (isExcludedDeveloper(uEmail)) {
-            return;
-          }
-
-          const uManager = normalize(u.manager || u.reportTo || '');
-          const uManagerEmail = (u.managerEmail || '').toLowerCase().trim();
-          const isSub = Boolean(
-            (uManager && normCurrent && (uManager === normCurrent || uManager.includes(normCurrent) || normCurrent.includes(uManager))) ||
-            (uManager && managerEmail && uManager.includes(managerEmail)) ||
-            (uManagerEmail && managerEmail && (uManagerEmail === managerEmail || uManagerEmail.includes(managerEmail) || managerEmail.includes(uManagerEmail))) ||
-            (managerEmail.includes('khuboni') && (uManager.includes('khuboni') || khuboniSubordinates.includes(uEmail))) ||
-            ((managerEmail.includes('nkosije') || normCurrent.includes('elmon') || normCurrent.includes('nkosi')) && (uEmail.includes('myeni') || uManager.includes('nkosi') || uManager.includes('elmon') || nkosiSubordinates.includes(uEmail))) ||
-            ((managerEmail === 'manager@mzansiflow.co.za' || managerEmail.includes('manager@mzansiflow')) && (uEmail === 'user@mzansiflow.co.za' || uManager.includes('demo line manager')))
-          );
-
-          if (isSub) {
-            mySubordinateEmails.add(uEmail);
-          }
-        });
-
-        // Developer override for unrestricted users (Delphine, Mike, and all admins / when impersonating)
-        const isSystemDeveloper = isUserUnrestricted(currentUser) || ['mike@mzansiflow.co.za', 'mike@massivedynamixdistributors.com', 'audrey@mzansiflow.co.za', 'delphine@mzansiflow.co.za', 'ryanw@mzansiflow.co.za', 'bongani@mzansiflow.co.za', 'bonganim@mzansiflow.co.za'].includes(managerEmail);
-
-        // Filter team plans strictly to this manager's subordinates (unrestricted users see all)
-        let myTeamPlans = plans.filter((p: any) => {
-          const targetEmail = (p.userId || '').toLowerCase().trim();
-          if (targetEmail === managerEmail && !isSystemDeveloper) return false; // Never review oneself unless unrestricted
-
-          // Exclude internal dev accounts unless testing or unrestricted
-          if (isExcludedDeveloper(targetEmail) && !isSystemDeveloper) {
-            return false;
-          }
-
-          const pManager = normalize(p.plan?.metadata?.manager || p.plan?.metadata?.reportTo || '');
-          const pManagerEmail = (p.plan?.metadata?.managerEmail || '').toLowerCase().trim();
+      // 1. Fetch all users to determine dynamic relationships
+      try {
+        const usersRes = await fetch(`/api/tenant/${activeTenantId}/users`);
+        if (usersRes.ok) {
+          const allUsersData = await safeJson(usersRes);
+          const allUsers = Array.isArray(allUsersData) ? allUsersData : (allUsersData?.users || []);
           
-          // Rule: Shabangu reports to Mahlangu, NOT Khuboni
-          if (targetEmail.includes('shabangusm')) {
-            if (managerEmail.includes('khuboni')) return false;
-            if (managerEmail.includes('mahlanguml') || managerEmail.includes('mandlaml') || normCurrent.includes('mandla') || normCurrent.includes('mahlangu')) {
-              return true;
+          const isExcludedDeveloper = (email: string) => 
+            ['mike@mzansiflow.co.za', 'mike@massivedynamixdistributors.com', 'audrey@mzansiflow.co.za', 'delphine@mzansiflow.co.za', 'ryanw@mzansiflow.co.za', 'bongani@mzansiflow.co.za', 'bonganim@mzansiflow.co.za'].includes(email);
+
+          // Build list of subordinate emails from User Directory
+          allUsers.forEach((u: any) => {
+            const uEmail = (u.email || '').toLowerCase().trim();
+            if (!uEmail || uEmail === managerEmail) return;
+
+            if (isExcludedDeveloper(uEmail)) {
+              return;
             }
-          }
 
-          const isDirectSubordinate = mySubordinateEmails.has(targetEmail) || Boolean(
-            (pManager && normCurrent && (pManager.includes(normCurrent) || normCurrent.includes(pManager))) ||
-            (pManager && managerEmail && pManager.includes(managerEmail)) ||
-            (pManagerEmail && managerEmail && (pManagerEmail === managerEmail || pManagerEmail.includes(managerEmail) || managerEmail.includes(pManagerEmail))) ||
-            (managerEmail.includes('khuboni') && khuboniSubordinates.includes(targetEmail)) ||
-            ((managerEmail.includes('nkosije') || normCurrent.includes('elmon') || normCurrent.includes('nkosi')) && (targetEmail.includes('myeni') || pManager.includes('nkosi') || pManager.includes('elmon') || nkosiSubordinates.includes(targetEmail))) ||
-            ((managerEmail === 'manager@mzansiflow.co.za' || managerEmail.includes('manager@mzansiflow')) && (targetEmail === 'user@mzansiflow.co.za' || pManager.includes('demo line manager')))
-          );
+            const uManager = normalize(u.manager || u.reportTo || '');
+            const uManagerEmail = (u.managerEmail || '').toLowerCase().trim();
+            const isSub = Boolean(
+              (uManager && normCurrent && (uManager === normCurrent || uManager.includes(normCurrent) || normCurrent.includes(uManager))) ||
+              (uManager && managerEmail && uManager.includes(managerEmail)) ||
+              (uManagerEmail && managerEmail && (uManagerEmail === managerEmail || uManagerEmail.includes(managerEmail) || managerEmail.includes(uManagerEmail))) ||
+              ((managerEmail.includes('singhn') || normCurrent.includes('singh')) && (singhSubordinates.includes(uEmail) || uManager.includes('singh'))) ||
+              ((managerEmail.includes('joubertm') || normCurrent.includes('joubert')) && (joubertSubordinates.includes(uEmail) || uManager.includes('joubert'))) ||
+              ((managerEmail.includes('magampeas') || normCurrent.includes('magampe')) && (magampeSubordinates.includes(uEmail) || uManager.includes('magampe'))) ||
+              ((managerEmail.includes('segamiy') || normCurrent.includes('segami')) && (segamiSubordinates.includes(uEmail) || uManager.includes('segami'))) ||
+              (managerEmail.includes('khuboni') && (uManager.includes('khuboni') || khuboniSubordinates.includes(uEmail))) ||
+              ((managerEmail.includes('nkosije') || normCurrent.includes('elmon') || normCurrent.includes('nkosi')) && (uEmail.includes('myeni') || uManager.includes('nkosi') || uManager.includes('elmon') || nkosiSubordinates.includes(uEmail))) ||
+              ((managerEmail === 'manager@mzansiflow.co.za' || managerEmail.includes('manager@mzansiflow')) && (uEmail === 'user@mzansiflow.co.za' || uManager.includes('demo line manager')))
+            );
 
-          // Rule: Managers must ONLY see their subordinates. Unrestricted sees all.
-          if (!isDirectSubordinate && !isSystemDeveloper) {
-            return false;
-          }
-
-          return true;
-        });
-
-        setTeamPlans(myTeamPlans);
+            if (isSub) {
+              mySubordinateEmails.add(uEmail);
+            }
+          });
+        }
+      } catch (userErr) {
+        console.warn("Could not fetch user directory for subordinate mapping:", userErr);
       }
+
+      // 2. Fetch team plans with targeted query optimization
+      let plans: any[] = [];
+      try {
+        const subParams = mySubordinateEmails.size > 0 
+          ? `&subordinateEmails=${encodeURIComponent(Array.from(mySubordinateEmails).join(','))}` 
+          : '';
+        const res = await fetch(`/api/tenant/${activeTenantId}/team-pplans?managerEmail=${encodeURIComponent(managerEmail)}${subParams}&t=${Date.now()}`);
+        if (res.ok) {
+          const data = await safeJson(res) || {};
+          plans = data.teamPlans || [];
+        }
+      } catch (err) {
+        console.warn("Bulk team-pplans fetch error, proceeding to direct subordinate load:", err);
+      }
+
+      const isExcludedDev = (email: string) => 
+        ['mike@mzansiflow.co.za', 'mike@massivedynamixdistributors.com', 'audrey@mzansiflow.co.za', 'delphine@mzansiflow.co.za', 'ryanw@mzansiflow.co.za', 'bongani@mzansiflow.co.za', 'bonganim@mzansiflow.co.za'].includes(email);
+
+      // Developer override for unrestricted users (Delphine, Mike, and all admins / when impersonating)
+      const isSystemDeveloper = isUserUnrestricted(currentUser) || ['mike@mzansiflow.co.za', 'mike@massivedynamixdistributors.com', 'audrey@mzansiflow.co.za', 'delphine@mzansiflow.co.za', 'ryanw@mzansiflow.co.za', 'bongani@mzansiflow.co.za', 'bonganim@mzansiflow.co.za'].includes(managerEmail);
+
+      // Filter team plans strictly to this manager's subordinates (unrestricted users see all)
+      let myTeamPlans = plans.filter((p: any) => {
+        const targetEmail = (p.userId || '').toLowerCase().trim();
+        if (targetEmail === managerEmail && !isSystemDeveloper) return false;
+
+        if (isExcludedDev(targetEmail) && !isSystemDeveloper) {
+          return false;
+        }
+
+        const pManager = normalize(p.plan?.metadata?.manager || p.plan?.metadata?.reportTo || '');
+        const pManagerEmail = (p.plan?.metadata?.managerEmail || '').toLowerCase().trim();
+        
+        // Rule: Shabangu reports to Mahlangu, NOT Khuboni
+        if (targetEmail.includes('shabangusm')) {
+          if (managerEmail.includes('khuboni')) return false;
+          if (managerEmail.includes('mahlanguml') || managerEmail.includes('mandlaml') || normCurrent.includes('mandla') || normCurrent.includes('mahlangu')) {
+            return true;
+          }
+        }
+
+        const isDirectSubordinate = mySubordinateEmails.has(targetEmail) || Boolean(
+          (pManager && normCurrent && (pManager.includes(normCurrent) || normCurrent.includes(pManager))) ||
+          (pManager && managerEmail && pManager.includes(managerEmail)) ||
+          (pManagerEmail && managerEmail && (pManagerEmail === managerEmail || pManagerEmail.includes(managerEmail) || managerEmail.includes(pManagerEmail))) ||
+          ((managerEmail.includes('singhn') || normCurrent.includes('singh')) && (singhSubordinates.includes(targetEmail) || pManager.includes('singh'))) ||
+          ((managerEmail.includes('joubertm') || normCurrent.includes('joubert')) && (joubertSubordinates.includes(targetEmail) || pManager.includes('joubert'))) ||
+          ((managerEmail.includes('magampeas') || normCurrent.includes('magampe')) && (magampeSubordinates.includes(targetEmail) || pManager.includes('magampe'))) ||
+          ((managerEmail.includes('segamiy') || normCurrent.includes('segami')) && (segamiSubordinates.includes(targetEmail) || pManager.includes('segami'))) ||
+          (managerEmail.includes('khuboni') && khuboniSubordinates.includes(targetEmail)) ||
+          ((managerEmail.includes('nkosije') || normCurrent.includes('elmon') || normCurrent.includes('nkosi')) && (targetEmail.includes('myeni') || pManager.includes('nkosi') || pManager.includes('elmon') || nkosiSubordinates.includes(targetEmail))) ||
+          ((managerEmail === 'manager@mzansiflow.co.za' || managerEmail.includes('manager@mzansiflow')) && (targetEmail === 'user@mzansiflow.co.za' || pManager.includes('demo line manager')))
+        );
+
+        if (!isDirectSubordinate && !isSystemDeveloper) {
+          return false;
+        }
+
+        return true;
+      });
+
+      // 3. Fallback: If any subordinate plans are missing from the bulk response, fetch them directly in parallel
+      if (mySubordinateEmails.size > 0) {
+        const existingUserIds = new Set(myTeamPlans.map(p => (p.userId || '').toLowerCase().trim()));
+        const missingSubEmails = Array.from(mySubordinateEmails).filter(email => !existingUserIds.has(email));
+        if (missingSubEmails.length > 0) {
+          const directFetches = await Promise.all(
+            missingSubEmails.map(async (subEmail) => {
+              try {
+                const subRes = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(subEmail)}&t=${Date.now()}`);
+                if (subRes.ok) {
+                  const subPlan = await safeJson(subRes);
+                  if (subPlan && (Array.isArray(subPlan.items) || subPlan.metadata)) {
+                    return {
+                      userId: subEmail,
+                      plan: subPlan
+                    };
+                  }
+                }
+              } catch (err) {
+                console.error(`Failed to direct fetch plan for ${subEmail}:`, err);
+              }
+              return null;
+            })
+          );
+          directFetches.forEach(item => {
+            if (item) {
+              myTeamPlans.push(item);
+            }
+          });
+        }
+      }
+
+      setTeamPlans(myTeamPlans);
     } catch (e) {
       console.error(e);
     } finally {
@@ -1581,8 +1683,10 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
                           <td className="py-3 px-3 text-center font-bold text-slate-600 uppercase text-[9.5px]">
                             {submittedKpisCount > 0 ? (
                               <span className="text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">⚡ {submittedKpisCount} KPI(s) Submitted</span>
+                            ) : isApproved ? (
+                              <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">✅ Approved</span>
                             ) : (
-                              tp.plan.metadata?.reviewStatus || 'Draft'
+                              <span className="text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">⏳ Awaiting Submission</span>
                             )}
                           </td>
                           <td className="py-3 px-3 text-center">
@@ -1599,7 +1703,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
                             ) : (
                               <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-slate-50 text-slate-500 border border-slate-200 animate-none">
                                 <Clock className="w-2.5 h-2.5 animate-none" />
-                                Outstanding ❌
+                                Awaiting Submission
                               </span>
                             )}
                           </td>
@@ -1609,7 +1713,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
                               className={`${submittedKpisCount > 0 ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-200' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300'} font-extrabold px-3 py-1 rounded-lg text-[9px] uppercase tracking-wider inline-flex items-center gap-1 cursor-pointer transition`}
                             >
                               <Eye className="w-2.5 h-2.5" />
-                              <span>Review Plan</span>
+                              <span>{submittedKpisCount > 0 ? 'Review Plan' : 'View Status'}</span>
                             </button>
                           </td>
                         </tr>
@@ -1757,15 +1861,23 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
 
         {activeDetailTab === 'kpis' ? (
           (!visibleManagerItems || visibleManagerItems.length === 0) ? (
-            <div className="bg-white p-8 rounded-2xl border border-gray-200 text-center">
-              <p className="text-slate-500 text-sm font-bold uppercase">No KPIs currently pending manager approval in this plan</p>
-              {plan?.items && plan.items.length > 0 && (
+            <div className="bg-white p-10 rounded-2xl border border-gray-200 text-center shadow-xs flex flex-col items-center justify-center animate-fade-in my-2">
+              <div className="w-14 h-14 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center mb-4 text-amber-500 shadow-inner">
+                <Clock className="w-7 h-7" />
+              </div>
+              <h3 className="text-slate-800 text-sm md:text-base font-extrabold tracking-wide uppercase">
+                Awaiting KPI submission from employee
+              </h3>
+              <p className="text-slate-500 text-xs mt-2 max-w-md font-medium leading-relaxed">
+                This subordinate has not yet submitted their Key Performance Indicators (KPIs) for manager approval. Manager review is gated until the employee submits their performance scorecard.
+              </p>
+              {isSystemDeveloper && plan?.items && plan.items.length > 0 && (
                 <button
                   type="button"
                   onClick={() => setShowAllKpis(true)}
-                  className="mt-3 text-xs font-bold text-indigo-600 hover:text-indigo-800 underline cursor-pointer"
+                  className="mt-4 text-xs font-bold text-indigo-600 hover:text-indigo-800 underline cursor-pointer"
                 >
-                  View all {plan.items.length} plan KPIs
+                  Developer Override: View draft KPIs ({plan.items.length} items)
                 </button>
               )}
             </div>

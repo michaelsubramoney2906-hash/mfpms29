@@ -252,6 +252,8 @@ export function RestrictedModuleWrapper({ currentUser, item, unlockedModules, on
   const isManagerOrAuditorOrOfficial = 
     isAuthorizedAdmin ||
     isGlobalAdmin ||
+    ['joubertm@nkangaladm.gov.za', 'magampeas@nkangaladm.gov.za', 'segamiy@nkangaladm.gov.za', 'singhn@nkangaladm.gov.za'].includes(userEmail) ||
+    userEmail.includes('singhn') || userEmail.includes('joubertm') || userEmail.includes('magampeas') || userEmail.includes('segamiy') ||
     userRoleLower.includes('admin') ||
     userRoleLower.includes('manager') ||
     userRoleLower.includes('tenant') ||

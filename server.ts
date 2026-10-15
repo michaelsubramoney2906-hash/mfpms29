@@ -7770,7 +7770,12 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         tId = 'tenant-229';
       }
       let userRole = u.role;
-      const emailLower = (u.email || '').toLowerCase();
+      const emailLower = (u.email || '').toLowerCase().trim();
+      const isTargetManager = ['joubertm@nkangaladm.gov.za', 'magampeas@nkangaladm.gov.za', 'segamiy@nkangaladm.gov.za', 'singhn@nkangaladm.gov.za'].includes(emailLower) ||
+                              emailLower.includes('singhn') || emailLower.includes('joubertm') || emailLower.includes('magampeas') || emailLower.includes('segamiy');
+      if (isTargetManager) {
+        userRole = 'Manager';
+      }
       if (emailLower.includes('shabangusm') || emailLower.includes('shabangugm')) {
         userRole = 'Approver';
       }
@@ -7778,19 +7783,46 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         userRole = 'Global Administrator';
       }
       const isShabangu = emailLower.includes('shabangusm') || emailLower.includes('shabangugm');
+
+      let dynamicManager = extraMap[u.id]?.manager || '';
+      let dynamicReportTo = extraMap[u.id]?.reportTo || '';
+      let dynamicManagerEmail = extraMap[u.id]?.managerEmail || '';
+
+      if (isShabangu) {
+        dynamicManager = 'Mandla L. Mahlangu';
+        dynamicReportTo = 'Mandla L. Mahlangu';
+        dynamicManagerEmail = 'mahlanguml@nkangaladm.gov.za';
+      } else if (emailLower.includes('marxc') || emailLower.includes('nakapm') || emailLower.includes('rachidimb') || emailLower.includes('mokhabelagg')) {
+        dynamicManager = 'Nirisha Singh';
+        dynamicReportTo = 'Nirisha Singh';
+        dynamicManagerEmail = 'singhn@nkangaladm.gov.za';
+      } else if (emailLower.includes('matsebulan') || emailLower.includes('mathenjwabh')) {
+        dynamicManager = 'Marianne Joubert';
+        dynamicReportTo = 'Marianne Joubert';
+        dynamicManagerEmail = 'joubertm@nkangaladm.gov.za';
+      } else if (emailLower.includes('giyasi-affulph') || emailLower.includes('sibanyonimj') || emailLower.includes('singorl') || emailLower.includes('mangenart') || emailLower.includes('mbulawan') || emailLower.includes('mkhabelanc') || emailLower.includes('mpanzal') || emailLower.includes('mtswenism')) {
+        dynamicManager = 'Alfred S. Magampe';
+        dynamicReportTo = 'Alfred S. Magampe';
+        dynamicManagerEmail = 'magampeas@nkangaladm.gov.za';
+      } else if (emailLower.includes('nkosiwm') || emailLower.includes('mochitelaso')) {
+        dynamicManager = 'Yolanda Segami';
+        dynamicReportTo = 'Yolanda Segami';
+        dynamicManagerEmail = 'segamiy@nkangaladm.gov.za';
+      }
+
       return {
         id: u.id,
-        fullName: u.full_name,
+        fullName: u.full_name || u.fullName,
         email: u.email,
         jobFunction: (emailLower.includes('bongani') || emailLower.includes('delphine@mzansiflow.co.za')) ? 'Global Administrator' : u.job_function,
         department: isShabangu ? 'PMS' : u.department,
         source: u.source,
         role: userRole,
         tenantId: (emailLower.includes('bongani') || emailLower.includes('delphine@mzansiflow.co.za')) ? 'global' : tId,
-        manager: isShabangu ? 'Mandla L. Mahlangu' : (extraMap[u.id]?.manager || ''),
+        manager: dynamicManager,
         directorate: isShabangu ? 'Office of the Municipal Manager' : (extraMap[u.id]?.directorate || ''),
-        reportTo: isShabangu ? 'Mandla L. Mahlangu' : (extraMap[u.id]?.reportTo || ''),
-        managerEmail: isShabangu ? 'mahlanguml@nkangaladm.gov.za' : (extraMap[u.id]?.managerEmail || ''),
+        reportTo: dynamicReportTo,
+        managerEmail: dynamicManagerEmail,
         level: isShabangu ? '3' : (extraMap[u.id]?.level || '1'),
         signatureType: extraMap[u.id]?.signatureType || 'draw',
         signatureData: extraMap[u.id]?.signatureData || ''
@@ -13952,6 +13984,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
   app.get(["/api/tenant/:tenantId/team-pplans", "/api/tenant/:tenantId/team-plans"], async (req, res) => {
     const { tenantId: routeTenantId } = req.params;
     const isMetadataOnly = req.query.metadata_only === 'true' || req.query.summary === 'true';
+    const subordinateEmailsParam = (req.query.subordinateEmails as string || req.query.userEmails as string || '').toLowerCase().trim();
+    const managerEmailParam = (req.query.managerEmail as string || '').toLowerCase().trim();
     try {
       const supabase = getSupabase();
       
@@ -13961,12 +13995,94 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         tenantIds = ['nkangala_auto', 'tenant-229'];
       }
 
-      // Optimization: Select only the required columns and filter by tenantIds to prevent massive loads
-      const { data, error } = await supabase
+      // 1. Build targeted ID filter if subordinate emails or manager email are specified
+      let filterIds: string[] | null = null;
+      let targetSubs: string[] = [];
+
+      if (subordinateEmailsParam) {
+        targetSubs = subordinateEmailsParam.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+      } else if (managerEmailParam) {
+        try {
+          const usersList = await getConsolidatedUsersList(tenantId);
+          const normMgr = managerEmailParam.toLowerCase().trim();
+          
+          const KNOWN_MGR_MAP: Record<string, string[]> = {
+            'singhn': ['marxc@nkangaladm.gov.za', 'nakapm@nkangaladm.gov.za', 'rachidimb@nkangaladm.gov.za', 'mokhabelagg@nkangaladm.gov.za'],
+            'joubertm': ['matsebulan@nkangaladm.gov.za', 'mathenjwabh@nkangaladm.gov.za'],
+            'magampeas': [
+              'giyasi-affulph@nkangaladm.gov.za', 'sibanyonimj@nkangaladm.gov.za', 'singorl@nkangaladm.gov.za',
+              'mangenart@nkangaladm.gov.za', 'mbulawan@nkangaladm.gov.za', 'mkhabelanc@nkangaladm.gov.za',
+              'mpanzal@nkangaladm.gov.za', 'mtswenism@nkangaladm.gov.za'
+            ],
+            'segamiy': ['nkosiwm@nkangaladm.gov.za', 'mochitelaso@nkangaladm.gov.za'],
+            'khuboni': ['zulune@nkangaladm.gov.za', 'nsibandenp@nkangaladm.gov.za', 'lukhelema@nkangaladm.gov.za', 'sakisd@nkangaladm.gov.za'],
+            'nkosije': ['myenispl@nkangaladm.gov.za'],
+            'mahlanguml': ['shabangusm@nkangaladm.gov.za', 'shabangugm@nkangaladm.gov.za']
+          };
+
+          for (const [key, subs] of Object.entries(KNOWN_MGR_MAP)) {
+            if (normMgr.includes(key)) {
+              subs.forEach(s => {
+                if (!targetSubs.includes(s)) targetSubs.push(s);
+              });
+            }
+          }
+
+          const dynamicSubs = usersList
+            .filter((u: any) => {
+              const m = (u.managerEmail || u.manager || u.reportTo || '').toLowerCase().trim();
+              if (!m) return false;
+              const mgrPrefix = normMgr.split('@')[0].replace(/[^a-z]/g, '');
+              const mClean = m.replace(/[^a-z]/g, '');
+              return m.includes(normMgr) || normMgr.includes(m) ||
+                (mgrPrefix.length >= 4 && mClean.includes(mgrPrefix)) ||
+                (normMgr.includes('singh') && m.includes('singh')) ||
+                (normMgr.includes('joubert') && m.includes('joubert')) ||
+                (normMgr.includes('magampe') && m.includes('magampe')) ||
+                (normMgr.includes('segami') && m.includes('segami'));
+            })
+            .map((u: any) => (u.email || '').toLowerCase().trim())
+            .filter(Boolean);
+
+          dynamicSubs.forEach((s: string) => {
+            if (!targetSubs.includes(s)) targetSubs.push(s);
+          });
+        } catch (e) {
+          console.warn("Could not lookup subordinates by managerEmail:", e);
+        }
+      }
+
+      if (targetSubs.length > 0) {
+        filterIds = [];
+        for (const sub of targetSubs) {
+          for (const tId of tenantIds) {
+            filterIds.push(`pplan_${tId}_${sub}`);
+          }
+          filterIds.push(`pplan_global_${sub}`);
+        }
+      }
+
+      // Check micro-cache if querying (bypass if cache-buster 't' is present)
+      const cacheKey = `team_pplans_${tenantId}_${isMetadataOnly}_${targetSubs.join('_') || 'all'}`;
+      if (!req.query.t) {
+        const cached = getCached<any>(cacheKey, 5000);
+        if (cached) {
+          return res.json(cached);
+        }
+      }
+
+      let query = supabase
         .from('messages')
         .select('id, tenant_id, sender_email, content')
-        .eq('message_type', 'pplan_list')
-        .in('tenant_id', tenantIds);
+        .eq('message_type', 'pplan_list');
+
+      if (filterIds && filterIds.length > 0) {
+        query = query.in('id', filterIds);
+      } else {
+        query = query.in('tenant_id', tenantIds);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         logSupabaseError("team-pplans", error);
@@ -14010,7 +14126,69 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           };
         });
 
-      return res.json({ teamPlans });
+      // Priority calculation: Documents with "Submitted for Approval" status ALWAYS take priority over unsubmitted "In Progress" copies
+      const getPlanSubmissionPriority = (tp: any): number => {
+        if (!tp || !tp.plan) return 0;
+        const metaStatus = String(tp.plan.metadata?.reviewStatus || '').toLowerCase().trim();
+        const items = Array.isArray(tp.plan.items) ? tp.plan.items : [];
+        const submittedItemsCount = items.filter((it: any) => 
+          it.reviewStatus === 'Submitted for Approval' || 
+          it.reviewStatus === 'Submitted for Review' || 
+          it.reviewStatus === 'Submitted' ||
+          it.reviewStatus === 'Approved' ||
+          it.reviewStatus === 'Reviewed' ||
+          it.reviewStatus === 'Dispatched to Internal Audit'
+        ).length;
+
+        let score = 0;
+        // Prioritize Submitted for Approval, Reviewed, or Approved status
+        if (metaStatus === 'submitted for approval' || metaStatus === 'submitted for review' || metaStatus === 'submitted') {
+          score += 10000;
+        } else if (metaStatus === 'reviewed' || metaStatus === 'approved') {
+          score += 10000;
+        } else if (metaStatus === 'in progress' || metaStatus === 'draft') {
+          score += 100;
+        }
+
+        // Add weight for submitted items
+        if (submittedItemsCount > 0) {
+          score += 5000 + (submittedItemsCount * 20);
+        }
+
+        // Add item count bonus
+        score += Math.min(items.length, 500);
+
+        return score;
+      };
+
+      // Deduplicate by userId ensuring Submitted for Approval takes priority
+      const dedupedMap = new Map<string, any>();
+      for (const tp of teamPlans) {
+        if (!tp.userId) continue;
+        const existing = dedupedMap.get(tp.userId);
+        if (!existing) {
+          dedupedMap.set(tp.userId, tp);
+          continue;
+        }
+
+        const tpScore = getPlanSubmissionPriority(tp);
+        const existingScore = getPlanSubmissionPriority(existing);
+
+        if (tpScore > existingScore) {
+          dedupedMap.set(tp.userId, tp);
+        } else if (tpScore === existingScore) {
+          const tpItemsLen = Array.isArray(tp.plan?.items) ? tp.plan.items.length : 0;
+          const exItemsLen = Array.isArray(existing.plan?.items) ? existing.plan.items.length : 0;
+          if (tpItemsLen > exItemsLen) {
+            dedupedMap.set(tp.userId, tp);
+          }
+        }
+      }
+      const finalTeamPlans = Array.from(dedupedMap.values());
+
+      const result = { teamPlans: finalTeamPlans };
+      setCached(cacheKey, result);
+      return res.json(result);
     } catch (err: any) {
       console.error("team-pplans load exception:", err);
       res.status(500).json({ error: err.message });

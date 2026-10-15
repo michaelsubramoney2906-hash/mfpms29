@@ -5,10 +5,11 @@
   "jobFunction": "Municipal Engineer",
   "department": "Office of the Municipal Manager",
   "source": "azure_ad",
-  "role": "Standard User",
+  "role": "tenant_user",
   "tenantId": "nkangala_auto",
-  "manager": "Mandla L Mahlangu",
+  "manager": "Walter M. Mtshweni",
   "directorate": "Technical",
-  "reportTo": "",
+  "reportTo": "Walter M. Mtshweni",
+  "managerEmail": "",
   "level": "2"
 }
