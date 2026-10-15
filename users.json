@@ -3198,7 +3198,7 @@
     "reportTo": "Johannes MT. Tlou",
     "level": "1",
     "signatureType": "draw",
-    "managerEmail": "Tloujmt@nkangaladm.gov.za"
+    "managerEmail": "tloujmt@nkangaladm.gov.za"
   },
   {
     "id": "77235846-f5b5-4225-bffe-9ad074870178",
@@ -6073,7 +6073,7 @@
     "jobFunction": "Chief Environmental Health Practitioner",
     "department": "Community Development Services",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "Manager",
     "tenantId": "tenant-229",
     "manager": "Solly Links",
     "directorate": "Community Services",
@@ -6096,7 +6096,7 @@
     "reportTo": "Johannes MT. Tlou",
     "level": "1",
     "signatureType": "draw",
-    "managerEmail": "Tloujmt@nkangaladm.gov.za"
+    "managerEmail": "tloujmt@nkangaladm.gov.za"
   },
   {
     "id": "a2a0c546-52f9-4d9f-b3df-29baa47e7295",
@@ -9474,7 +9474,7 @@
     "reportTo": "Johannes MT. Tlou",
     "level": "1",
     "signatureType": "draw",
-    "managerEmail": "Tloujmt@nkangaladm.gov.za"
+    "managerEmail": "tloujmt@nkangaladm.gov.za"
   },
   {
     "id": "194019f4-258c-4b76-a390-ecc7caae7f8c",
@@ -10210,7 +10210,7 @@
     "reportTo": "Johannes MT. Tlou",
     "level": "1",
     "signatureType": "draw",
-    "managerEmail": "Tloujmt@nkangaladm.gov.za"
+    "managerEmail": "tloujmt@nkangaladm.gov.za"
   },
   {
     "id": "083bfe5c-5782-4d2e-a6a0-144fe20d8b29",
@@ -11618,7 +11618,7 @@
     "reportTo": "Johannes MT. Tlou",
     "level": "1",
     "signatureType": "draw",
-    "managerEmail": "Tloujmt@nkangaladm.gov.za"
+    "managerEmail": "tloujmt@nkangaladm.gov.za"
   },
   {
     "id": "f6b02e2f-f6c3-42e8-a2f6-ae8c51bd7af5",
@@ -11906,7 +11906,7 @@
     "reportTo": "Johannes MT. Tlou",
     "level": "1",
     "signatureType": "draw",
-    "managerEmail": "Tloujmt@nkangaladm.gov.za"
+    "managerEmail": "tloujmt@nkangaladm.gov.za"
   },
   {
     "id": "24a7d64b-eb06-4581-a4fe-61990fdf2ea8",
@@ -12482,7 +12482,7 @@
     "reportTo": "Johannes MT. Tlou",
     "level": "1",
     "signatureType": "draw",
-    "managerEmail": "Tloujmt@nkangaladm.gov.za"
+    "managerEmail": "tloujmt@nkangaladm.gov.za"
   },
   {
     "id": "c02ba12f-64f2-4600-a317-de3001290457",
@@ -12683,7 +12683,7 @@
     "jobFunction": "Chief Environmental Health Practitioner",
     "department": "Community Development Services",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "Manager",
     "tenantId": "tenant-229",
     "manager": "Solly Links",
     "directorate": "Community Services",

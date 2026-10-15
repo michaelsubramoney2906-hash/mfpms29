@@ -250,11 +250,19 @@ export const OFFICIAL_COMPLIANCE_DIRECTORY: VerifiedOfficial[] = [
     status: "mSCOA Linked"
   },
   {
-    fullName: "P. Fenyanep",
-    jobFunction: "Technical Projects Coordinator",
-    department: "Infrastructure Development & Technical Services",
+    fullName: "Priscilla Fenyane",
+    jobFunction: "Chief Environmental Health Practitioner",
+    department: "Community Development Services",
     email: "fenyanep@nkangaladm.gov.za",
     refCode: "SEC57-NDM-0311",
+    status: "PA Concluded"
+  },
+  {
+    fullName: "Johannes MT. Tlou",
+    jobFunction: "Chief Environmental Health Practitioner",
+    department: "Community Development Services",
+    email: "tloujmt@nkangaladm.gov.za",
+    refCode: "SEC57-NDM-0311B",
     status: "PA Concluded"
   },
   {

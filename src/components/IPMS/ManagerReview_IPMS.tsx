@@ -55,6 +55,11 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
   const [filterSubmittedKpiIds, setFilterSubmittedKpiIds] = useState<string[] | null>(null);
   const [showAllKpis, setShowAllKpis] = useState(false);
 
+  const isSystemDeveloper = useMemo(() => {
+    const curEmail = (currentUser?.email || '').toLowerCase().trim();
+    return isUserUnrestricted(currentUser) || ['mike@mzansiflow.co.za', 'mike@massivedynamixdistributors.com', 'audrey@mzansiflow.co.za', 'delphine@mzansiflow.co.za', 'ryanw@mzansiflow.co.za', 'bongani@mzansiflow.co.za', 'bonganim@mzansiflow.co.za'].includes(curEmail);
+  }, [currentUser]);
+
   const matchesKpiIdentifier = (item: any, targetIdOrNo: string) => {
     if (!targetIdOrNo || !item) return false;
     const cleanTarget = String(targetIdOrNo).replace(/^#/, '').trim().toLowerCase();
@@ -511,6 +516,34 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
         segamiSubordinates.forEach(email => mySubordinateEmails.add(email));
       }
 
+      // Explicit list for Johannes MT. Tlou (tloujmt@nkangaladm.gov.za)
+      const tlouSubordinates = [
+        'rakauj@nkangaladm.gov.za',
+        'gakwamf@nkangaladm.gov.za',
+        'mahlangude@nkangaladm.gov.za',
+        'mankopanamm@nkangaladm.gov.za',
+        'moepis@nkangaladm.gov.za',
+        'molefeki@nkangaladm.gov.za',
+        'mthimunyepm@nkangaladm.gov.za'
+      ];
+      if (managerEmail.includes('tloujmt') || normCurrent.includes('tlou') || normCurrent.includes('johannes')) {
+        tlouSubordinates.forEach(email => mySubordinateEmails.add(email));
+      }
+
+      // Explicit list for Priscilla Fenyane (fenyanep@nkangaladm.gov.za)
+      const fenyaneSubordinates = [
+        'dlaminiss@nkangaladm.gov.za',
+        'khozahf@nkangaladm.gov.za',
+        'mafodim@nkangaladm.gov.za',
+        'mashilesm@nkangaladm.gov.za',
+        'moreroaml@nkangaladm.gov.za',
+        'thumbathiamd@nkangaladm.gov.za',
+        'mthethwanm@nkangaladm.gov.za'
+      ];
+      if (managerEmail.includes('fenyanep') || normCurrent.includes('fenyane') || normCurrent.includes('priscilla')) {
+        fenyaneSubordinates.forEach(email => mySubordinateEmails.add(email));
+      }
+
       // 1. Fetch all users to determine dynamic relationships
       try {
         const usersRes = await fetch(`/api/tenant/${activeTenantId}/users`);
@@ -540,6 +573,8 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
               ((managerEmail.includes('joubertm') || normCurrent.includes('joubert')) && (joubertSubordinates.includes(uEmail) || uManager.includes('joubert'))) ||
               ((managerEmail.includes('magampeas') || normCurrent.includes('magampe')) && (magampeSubordinates.includes(uEmail) || uManager.includes('magampe'))) ||
               ((managerEmail.includes('segamiy') || normCurrent.includes('segami')) && (segamiSubordinates.includes(uEmail) || uManager.includes('segami'))) ||
+              ((managerEmail.includes('tloujmt') || normCurrent.includes('tlou')) && (tlouSubordinates.includes(uEmail) || uManager.includes('tlou'))) ||
+              ((managerEmail.includes('fenyanep') || normCurrent.includes('fenyane')) && (fenyaneSubordinates.includes(uEmail) || uManager.includes('fenyane'))) ||
               (managerEmail.includes('khuboni') && (uManager.includes('khuboni') || khuboniSubordinates.includes(uEmail))) ||
               ((managerEmail.includes('nkosije') || normCurrent.includes('elmon') || normCurrent.includes('nkosi')) && (uEmail.includes('myeni') || uManager.includes('nkosi') || uManager.includes('elmon') || nkosiSubordinates.includes(uEmail))) ||
               ((managerEmail === 'manager@mzansiflow.co.za' || managerEmail.includes('manager@mzansiflow')) && (uEmail === 'user@mzansiflow.co.za' || uManager.includes('demo line manager')))
@@ -603,6 +638,8 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
           ((managerEmail.includes('joubertm') || normCurrent.includes('joubert')) && (joubertSubordinates.includes(targetEmail) || pManager.includes('joubert'))) ||
           ((managerEmail.includes('magampeas') || normCurrent.includes('magampe')) && (magampeSubordinates.includes(targetEmail) || pManager.includes('magampe'))) ||
           ((managerEmail.includes('segamiy') || normCurrent.includes('segami')) && (segamiSubordinates.includes(targetEmail) || pManager.includes('segami'))) ||
+          ((managerEmail.includes('tloujmt') || normCurrent.includes('tlou')) && (tlouSubordinates.includes(targetEmail) || pManager.includes('tlou'))) ||
+          ((managerEmail.includes('fenyanep') || normCurrent.includes('fenyane')) && (fenyaneSubordinates.includes(targetEmail) || pManager.includes('fenyane'))) ||
           (managerEmail.includes('khuboni') && khuboniSubordinates.includes(targetEmail)) ||
           ((managerEmail.includes('nkosije') || normCurrent.includes('elmon') || normCurrent.includes('nkosi')) && (targetEmail.includes('myeni') || pManager.includes('nkosi') || pManager.includes('elmon') || nkosiSubordinates.includes(targetEmail))) ||
           ((managerEmail === 'manager@mzansiflow.co.za' || managerEmail.includes('manager@mzansiflow')) && (targetEmail === 'user@mzansiflow.co.za' || pManager.includes('demo line manager')))

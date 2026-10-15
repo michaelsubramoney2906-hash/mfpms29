@@ -602,6 +602,10 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
         resolvedMgr = { manager: 'Alfred S. Magampe', managerEmail: 'magampeas@nkangaladm.gov.za', reportTo: 'Alfred S. Magampe' };
       } else if (['nkosiwm@nkangaladm.gov.za', 'mochitelaso@nkangaladm.gov.za'].includes(userEmailForMgr) || userEmailForMgr.includes('nkosiwm') || userEmailForMgr.includes('mochitelaso')) {
         resolvedMgr = { manager: 'Yolanda Segami', managerEmail: 'segamiy@nkangaladm.gov.za', reportTo: 'Yolanda Segami' };
+      } else if (['rakauj@nkangaladm.gov.za', 'gakwamf@nkangaladm.gov.za', 'mahlangude@nkangaladm.gov.za', 'mankopanamm@nkangaladm.gov.za', 'moepis@nkangaladm.gov.za', 'molefeki@nkangaladm.gov.za', 'mthimunyepm@nkangaladm.gov.za'].includes(userEmailForMgr) || userEmailForMgr.includes('rakauj') || userEmailForMgr.includes('gakwamf') || userEmailForMgr.includes('mahlangude') || userEmailForMgr.includes('mankopanamm') || userEmailForMgr.includes('moepis') || userEmailForMgr.includes('molefeki') || userEmailForMgr.includes('mthimunye')) {
+        resolvedMgr = { manager: 'Johannes MT. Tlou', managerEmail: 'tloujmt@nkangaladm.gov.za', reportTo: 'Johannes MT. Tlou' };
+      } else if (['dlaminiss@nkangaladm.gov.za', 'khozahf@nkangaladm.gov.za', 'mafodim@nkangaladm.gov.za', 'mashilesm@nkangaladm.gov.za', 'moreroaml@nkangaladm.gov.za', 'thumbathiamd@nkangaladm.gov.za', 'mthethwanm@nkangaladm.gov.za'].includes(userEmailForMgr) || userEmailForMgr.includes('dlaminiss') || userEmailForMgr.includes('khozahf') || userEmailForMgr.includes('mafodim') || userEmailForMgr.includes('mashilesm') || userEmailForMgr.includes('moreroaml') || userEmailForMgr.includes('thumbathi') || userEmailForMgr.includes('mthethwa')) {
+        resolvedMgr = { manager: 'Priscilla Fenyane', managerEmail: 'fenyanep@nkangaladm.gov.za', reportTo: 'Priscilla Fenyane' };
       } else if (userEmailForMgr.includes('shabangusm') || userEmailForMgr.includes('shabangugm')) {
         resolvedMgr = { manager: 'Mandla L. Mahlangu', managerEmail: 'mahlanguml@nkangaladm.gov.za', reportTo: 'Mandla L. Mahlangu' };
       }
@@ -1107,6 +1111,10 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
         resolvedMgr = { manager: 'Alfred S. Magampe', managerEmail: 'magampeas@nkangaladm.gov.za', reportTo: 'Alfred S. Magampe' };
       } else if (['nkosiwm@nkangaladm.gov.za', 'mochitelaso@nkangaladm.gov.za'].includes(userEmailForMgr) || userEmailForMgr.includes('nkosiwm') || userEmailForMgr.includes('mochitelaso')) {
         resolvedMgr = { manager: 'Yolanda Segami', managerEmail: 'segamiy@nkangaladm.gov.za', reportTo: 'Yolanda Segami' };
+      } else if (['rakauj@nkangaladm.gov.za', 'gakwamf@nkangaladm.gov.za', 'mahlangude@nkangaladm.gov.za', 'mankopanamm@nkangaladm.gov.za', 'moepis@nkangaladm.gov.za', 'molefeki@nkangaladm.gov.za', 'mthimunyepm@nkangaladm.gov.za'].includes(userEmailForMgr) || userEmailForMgr.includes('rakauj') || userEmailForMgr.includes('gakwamf') || userEmailForMgr.includes('mahlangude') || userEmailForMgr.includes('mankopanamm') || userEmailForMgr.includes('moepis') || userEmailForMgr.includes('molefeki') || userEmailForMgr.includes('mthimunye')) {
+        resolvedMgr = { manager: 'Johannes MT. Tlou', managerEmail: 'tloujmt@nkangaladm.gov.za', reportTo: 'Johannes MT. Tlou' };
+      } else if (['dlaminiss@nkangaladm.gov.za', 'khozahf@nkangaladm.gov.za', 'mafodim@nkangaladm.gov.za', 'mashilesm@nkangaladm.gov.za', 'moreroaml@nkangaladm.gov.za', 'thumbathiamd@nkangaladm.gov.za', 'mthethwanm@nkangaladm.gov.za'].includes(userEmailForMgr) || userEmailForMgr.includes('dlaminiss') || userEmailForMgr.includes('khozahf') || userEmailForMgr.includes('mafodim') || userEmailForMgr.includes('mashilesm') || userEmailForMgr.includes('moreroaml') || userEmailForMgr.includes('thumbathi') || userEmailForMgr.includes('mthethwa')) {
+        resolvedMgr = { manager: 'Priscilla Fenyane', managerEmail: 'fenyanep@nkangaladm.gov.za', reportTo: 'Priscilla Fenyane' };
       } else if (userEmailForMgr.includes('shabangusm') || userEmailForMgr.includes('shabangugm')) {
         resolvedMgr = { manager: 'Mandla L. Mahlangu', managerEmail: 'mahlanguml@nkangaladm.gov.za', reportTo: 'Mandla L. Mahlangu' };
       }

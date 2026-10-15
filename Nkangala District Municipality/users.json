@@ -311,7 +311,7 @@
     "manager": "Marianne Joubert",
     "directorate": "Community Services",
     "reportTo": "Marianne Joubert",
-    "managerEmail": "joubertm@nkangaladm.gov.za",
+    "managerEmail": "",
     "level": "5"
   },
   {
@@ -326,7 +326,7 @@
     "manager": "Yolanda Segami",
     "directorate": "Community Services",
     "reportTo": "Yolanda Segami",
-    "managerEmail": "segamiy@nkangaladm.gov.za",
+    "managerEmail": "",
     "level": "5"
   },
   {
@@ -341,7 +341,7 @@
     "manager": "Nirisha Singh",
     "directorate": "Community Services",
     "reportTo": "Nirisha Singh",
-    "managerEmail": "singhn@nkangaladm.gov.za",
+    "managerEmail": "",
     "level": "6"
   },
   {
@@ -461,7 +461,7 @@
     "manager": "Alfred S. Magampe",
     "directorate": "Community Services",
     "reportTo": "Alfred S. Magampe",
-    "managerEmail": "magampeas@nkangaladm.gov.za",
+    "managerEmail": "",
     "level": "6"
   },
   {
@@ -476,7 +476,7 @@
     "manager": "Nirisha Singh",
     "directorate": "Community Services",
     "reportTo": "Nirisha Singh",
-    "managerEmail": "singhn@nkangaladm.gov.za",
+    "managerEmail": "",
     "level": "5"
   },
   {
@@ -2276,7 +2276,7 @@
     "manager": "Nirisha Singh",
     "directorate": "Community Services",
     "reportTo": "Nirisha Singh",
-    "managerEmail": "singhn@nkangaladm.gov.za",
+    "managerEmail": "",
     "level": "6"
   },
   {
@@ -3831,14 +3831,13 @@
     "jobFunction": "Chief Environmental Health Practioner",
     "department": "Community Development Services",
     "source": "azure_ad",
-    "role": "Manager",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
     "manager": "Solly Links",
     "directorate": "Community Services",
     "reportTo": "Solly Links",
     "managerEmail": "",
-    "level": "4",
-    "systemRole": "Manager"
+    "level": "4"
   },
   {
     "id": "0ff4df6d-9a46-4046-8149-76cbf8a499de",
@@ -4059,10 +4058,10 @@
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Solly Links",
+    "manager": "Johannes MT. Tlou",
     "directorate": "Community Services",
-    "reportTo": "Solly Links",
-    "managerEmail": "",
+    "reportTo": "Johannes MT. Tlou",
+    "managerEmail": "tloujmt@nkangaladm.gov.za",
     "level": "4"
   },
   {
@@ -4107,7 +4106,7 @@
     "manager": "Nirisha Singh",
     "directorate": "Community Services",
     "reportTo": "Nirisha Singh",
-    "managerEmail": "singhn@nkangaladm.gov.za",
+    "managerEmail": "",
     "level": "6"
   },
   {
@@ -4422,7 +4421,7 @@
     "manager": "Alfred S. Magampe",
     "directorate": "Community Services",
     "reportTo": "Alfred S. Magampe",
-    "managerEmail": "magampeas@nkangaladm.gov.za",
+    "managerEmail": "",
     "level": "1"
   },
   {
@@ -4627,14 +4626,13 @@
     "jobFunction": "Chief Environmental Health Practictioner",
     "department": "Community Development Services",
     "source": "azure_ad",
-    "role": "Manager",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
     "manager": "Solly Links",
     "directorate": "Community Services",
     "reportTo": "Solly Links",
     "managerEmail": "",
-    "level": "4",
-    "systemRole": "Manager"
+    "level": "4"
   },
   {
     "id": "0375a59f-597c-4cf3-9a60-729fbc54c228",
@@ -4798,7 +4796,7 @@
     "manager": "Alfred S. Magampe",
     "directorate": "Community Services",
     "reportTo": "Alfred S. Magampe",
-    "managerEmail": "magampeas@nkangaladm.gov.za",
+    "managerEmail": "",
     "level": "6"
   },
   {
@@ -6493,7 +6491,7 @@
     "manager": "Johannes MT. Tlou",
     "directorate": "Community Services",
     "reportTo": "Johannes MT. Tlou",
-    "managerEmail": "",
+    "managerEmail": "tloujmt@nkangaladm.gov.za",
     "level": "6"
   },
   {
@@ -6613,7 +6611,7 @@
     "manager": "Priscilla Fenyane",
     "directorate": "Community Services",
     "reportTo": "Priscilla Fenyane",
-    "managerEmail": "",
+    "managerEmail": "fenyanep@nkangaladm.gov.za",
     "level": "6"
   },
   {
@@ -9188,14 +9186,13 @@
     "jobFunction": "Chief Environmental Health Practitioner",
     "department": "Community Development Services",
     "source": "azure_ad",
-    "role": "Manager",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
     "manager": "Solly Links",
     "directorate": "Community Services",
     "reportTo": "Solly Links",
     "managerEmail": "",
-    "level": "4",
-    "systemRole": "Manager"
+    "level": "4"
   },
   {
     "id": "bcad2db2-c997-42b9-8a62-6edaae27ef08",
@@ -9374,7 +9371,7 @@
     "manager": "Priscilla Fenyane",
     "directorate": "Community Services",
     "reportTo": "Priscilla Fenyane",
-    "managerEmail": "",
+    "managerEmail": "fenyanep@nkangaladm.gov.za",
     "level": "6"
   },
   {
@@ -9474,14 +9471,13 @@
     "jobFunction": "Chief Environmental Health Practitioner",
     "department": "Community Development Services",
     "source": "azure_ad",
-    "role": "Manager",
+    "role": "tenant_user",
     "tenantId": "nkangala_auto",
     "manager": "Solly Links",
     "directorate": "Community Services",
     "reportTo": "Solly Links",
     "managerEmail": "",
-    "level": "4",
-    "systemRole": "Manager"
+    "level": "4"
   },
   {
     "id": "3204408e-c0e0-4812-b913-43b9e7d57dd4",
@@ -9540,7 +9536,7 @@
     "manager": "Priscilla Fenyane",
     "directorate": "Community Services",
     "reportTo": "Priscilla Fenyane",
-    "managerEmail": "",
+    "managerEmail": "fenyanep@nkangaladm.gov.za",
     "level": "6"
   },
   {
@@ -9672,10 +9668,10 @@
     "source": "azure_ad",
     "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "Solly Links",
+    "manager": "Johannes MT. Tlou",
     "directorate": "Community Services",
-    "reportTo": "Solly Links",
-    "managerEmail": "",
+    "reportTo": "Johannes MT. Tlou",
+    "managerEmail": "tloujmt@nkangaladm.gov.za",
     "level": "4"
   },
   {
@@ -10110,7 +10106,7 @@
     "manager": "Johannes MT. Tlou",
     "directorate": "Community Services",
     "reportTo": "Johannes MT. Tlou",
-    "managerEmail": "",
+    "managerEmail": "tloujmt@nkangaladm.gov.za",
     "level": "1"
   },
   {
@@ -10470,7 +10466,7 @@
     "manager": "Alfred S. Magampe",
     "directorate": "Community Services",
     "reportTo": "Alfred S. Magampe",
-    "managerEmail": "magampeas@nkangaladm.gov.za",
+    "managerEmail": "",
     "level": "6"
   },
   {
@@ -10650,7 +10646,7 @@
     "manager": "Marianne Joubert",
     "directorate": "Community Services",
     "reportTo": "Marianne Joubert",
-    "managerEmail": "joubertm@nkangaladm.gov.za",
+    "managerEmail": "",
     "level": "6"
   },
   {
@@ -10830,7 +10826,7 @@
     "manager": "Priscilla Fenyane",
     "directorate": "Community Services",
     "reportTo": "Priscilla Fenyane",
-    "managerEmail": "",
+    "managerEmail": "fenyanep@nkangaladm.gov.za",
     "level": "5"
   },
   {
@@ -11235,7 +11231,7 @@
     "manager": "Alfred S. Magampe",
     "directorate": "Community Services",
     "reportTo": "Alfred S. Magampe",
-    "managerEmail": "magampeas@nkangaladm.gov.za",
+    "managerEmail": "",
     "level": "6"
   },
   {
@@ -11400,7 +11396,7 @@
     "manager": "Alfred S. Magampe",
     "directorate": "Community Services",
     "reportTo": "Alfred S. Magampe",
-    "managerEmail": "magampeas@nkangaladm.gov.za",
+    "managerEmail": "",
     "level": "6"
   },
   {
@@ -11730,7 +11726,7 @@
     "manager": "Yolanda Segami",
     "directorate": "Community Services",
     "reportTo": "Yolanda Segami",
-    "managerEmail": "segamiy@nkangaladm.gov.za",
+    "managerEmail": "",
     "level": "1"
   },
   {
@@ -11820,7 +11816,7 @@
     "manager": "Johannes MT. Tlou",
     "directorate": "Community Services",
     "reportTo": "Johannes MT. Tlou",
-    "managerEmail": "",
+    "managerEmail": "tloujmt@nkangaladm.gov.za",
     "level": "1"
   },
   {
@@ -12180,7 +12176,7 @@
     "manager": "Johannes MT. Tlou",
     "directorate": "Community Services",
     "reportTo": "Johannes MT. Tlou",
-    "managerEmail": "",
+    "managerEmail": "tloujmt@nkangaladm.gov.za",
     "level": "1"
   },
   {
@@ -12240,7 +12236,7 @@
     "manager": "Priscilla Fenyane",
     "directorate": "Community Services",
     "reportTo": "Priscilla Fenyane",
-    "managerEmail": "",
+    "managerEmail": "fenyanep@nkangaladm.gov.za",
     "level": "1"
   },
   {
@@ -12270,7 +12266,7 @@
     "manager": "Priscilla Fenyane",
     "directorate": "Community Services",
     "reportTo": "Priscilla Fenyane",
-    "managerEmail": "",
+    "managerEmail": "fenyanep@nkangaladm.gov.za",
     "level": "1"
   },
   {
@@ -12420,7 +12416,7 @@
     "manager": "Alfred S. Magampe",
     "directorate": "Community Services",
     "reportTo": "Alfred S. Magampe",
-    "managerEmail": "magampeas@nkangaladm.gov.za",
+    "managerEmail": "",
     "level": "1"
   },
   {
@@ -12435,7 +12431,7 @@
     "manager": "Priscilla Fenyane",
     "directorate": "Community Services",
     "reportTo": "Priscilla Fenyane",
-    "managerEmail": "",
+    "managerEmail": "fenyanep@nkangaladm.gov.za",
     "level": "1"
   },
   {
@@ -12690,7 +12686,7 @@
     "manager": "Alfred S. Magampe",
     "directorate": "Community Services",
     "reportTo": "Alfred S. Magampe",
-    "managerEmail": "magampeas@nkangaladm.gov.za",
+    "managerEmail": "",
     "level": "1"
   },
   {
@@ -12765,7 +12761,7 @@
     "manager": "Johannes MT. Tlou",
     "directorate": "Community Services",
     "reportTo": "Johannes MT. Tlou",
-    "managerEmail": "",
+    "managerEmail": "tloujmt@nkangaladm.gov.za",
     "level": "6"
   }
 ]

@@ -7771,8 +7771,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
       let userRole = u.role;
       const emailLower = (u.email || '').toLowerCase().trim();
-      const isTargetManager = ['joubertm@nkangaladm.gov.za', 'magampeas@nkangaladm.gov.za', 'segamiy@nkangaladm.gov.za', 'singhn@nkangaladm.gov.za'].includes(emailLower) ||
-                              emailLower.includes('singhn') || emailLower.includes('joubertm') || emailLower.includes('magampeas') || emailLower.includes('segamiy');
+      const isTargetManager = ['joubertm@nkangaladm.gov.za', 'magampeas@nkangaladm.gov.za', 'segamiy@nkangaladm.gov.za', 'singhn@nkangaladm.gov.za', 'tloujmt@nkangaladm.gov.za', 'fenyanep@nkangaladm.gov.za'].includes(emailLower) ||
+                              emailLower.includes('singhn') || emailLower.includes('joubertm') || emailLower.includes('magampeas') || emailLower.includes('segamiy') || emailLower.includes('tloujmt') || emailLower.includes('fenyanep');
       if (isTargetManager) {
         userRole = 'Manager';
       }
@@ -7808,6 +7808,14 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         dynamicManager = 'Yolanda Segami';
         dynamicReportTo = 'Yolanda Segami';
         dynamicManagerEmail = 'segamiy@nkangaladm.gov.za';
+      } else if (emailLower.includes('rakauj') || emailLower.includes('gakwamf') || emailLower.includes('mahlangude') || emailLower.includes('mankopanamm') || emailLower.includes('moepis') || emailLower.includes('molefeki') || emailLower.includes('mthimunye')) {
+        dynamicManager = 'Johannes MT. Tlou';
+        dynamicReportTo = 'Johannes MT. Tlou';
+        dynamicManagerEmail = 'tloujmt@nkangaladm.gov.za';
+      } else if (emailLower.includes('dlaminiss') || emailLower.includes('khozahf') || emailLower.includes('mafodim') || emailLower.includes('mashilesm') || emailLower.includes('moreroaml') || emailLower.includes('thumbathi') || emailLower.includes('mthethwa')) {
+        dynamicManager = 'Priscilla Fenyane';
+        dynamicReportTo = 'Priscilla Fenyane';
+        dynamicManagerEmail = 'fenyanep@nkangaladm.gov.za';
       }
 
       return {
@@ -13889,6 +13897,74 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         const rawItems = Array.isArray(parsed) ? parsed : (parsed.items || parsed.rows || parsed.kpis || []);
         let sanitizedItems = padPplanItemsForUser(userId, rawItems.map((it: any) => sanitizePplanItem(it, userId)));
 
+        // Sindiso Moepi (moepis@nkangaladm.gov.za): KPI 25 and 26 are removed from performance plan
+        if (userId.toLowerCase().includes('moepis')) {
+          sanitizedItems = sanitizedItems.filter((it: any) => {
+            const no = String(it.kpiNo || '').replace(/[^0-9]/g, '');
+            const id = String(it.id || '').toLowerCase();
+            const desc = (it.kpi || it.description || it.desc || '').toLowerCase();
+            if (no === '25' || no === '26') return false;
+            if (id.endsWith('-25') || id.endsWith('-26')) return false;
+            if (desc.includes('percentage of staff vacancy') || desc.includes('vacant posts filled')) return false;
+            return true;
+          });
+
+          if (rawItems.length > sanitizedItems.length) {
+            try {
+              const updatePayload = JSON.stringify({ ...parsed, items: sanitizedItems, rows: sanitizedItems });
+              const syncTenants = ['tenant-229', 'nkangala_auto', 'global'];
+              for (const tId of syncTenants) {
+                const uDocId = `pplan_${tId}_${userId}`;
+                pplanCache.set(uDocId, { raw: updatePayload, timestamp: Date.now() });
+                supabase.from('messages').upsert({
+                  id: uDocId,
+                  tenant_id: tId,
+                  sender_id: 'pplan_editor_tool',
+                  sender_email: 'pplan@system.local',
+                  sender_name: 'PPLAN Editor',
+                  content: updatePayload,
+                  message_type: 'pplan_list',
+                  created_at: new Date().toISOString()
+                }).then(() => {}).catch(() => {});
+              }
+            } catch(e) {}
+          }
+        }
+
+        // Tiisetso S. Mathere (matherets@nkangaladm.gov.za): KPI 13, 14 and 15 are removed permanently from performance plan
+        if (userId.toLowerCase().includes('matherets')) {
+          sanitizedItems = sanitizedItems.filter((it: any) => {
+            const no = String(it.kpiNo || it['kpi no'] || '').replace(/[^0-9]/g, '');
+            const id = String(it.id || '').toLowerCase();
+            const desc = (it.kpi || it.description || it.desc || it['kpi description'] || '').toLowerCase();
+            if (no === '13' || no === '14' || no === '15') return false;
+            if (id.endsWith('-13') || id.endsWith('-14') || id.endsWith('-15')) return false;
+            if (desc.includes('achieve target deliverable kpi-13') || desc.includes('achieve target deliverable kpi-14') || desc.includes('achieve target deliverable kpi-15')) return false;
+            return true;
+          });
+
+          if (rawItems.length > sanitizedItems.length) {
+            try {
+              const updatePayload = JSON.stringify({ ...parsed, items: sanitizedItems, rows: sanitizedItems });
+              const syncTenants = ['tenant-229', 'nkangala_auto', 'global'];
+              for (const tId of syncTenants) {
+                const uDocId = `pplan_${tId}_${userId}`;
+                pplanCache.set(uDocId, { raw: updatePayload, timestamp: Date.now() });
+                supabase.from('messages').upsert({
+                  id: uDocId,
+                  tenant_id: tId,
+                  sender_id: 'pplan_editor_tool',
+                  sender_email: 'pplan@system.local',
+                  sender_name: 'PPLAN Editor',
+                  content: updatePayload,
+                  message_type: 'pplan_list',
+                  created_at: new Date().toISOString()
+                }).then(() => {}).catch(() => {});
+              }
+            } catch(e) {}
+          }
+        }
+
         // Filter items dynamically to prevent transferring unnecessary historical data structure
         if (req.query.kpiId) {
           const targetKpiId = String(req.query.kpiId).trim().toLowerCase();
@@ -14015,6 +14091,16 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
               'mpanzal@nkangaladm.gov.za', 'mtswenism@nkangaladm.gov.za'
             ],
             'segamiy': ['nkosiwm@nkangaladm.gov.za', 'mochitelaso@nkangaladm.gov.za'],
+            'tloujmt': [
+              'rakauj@nkangaladm.gov.za', 'gakwamf@nkangaladm.gov.za', 'mahlangude@nkangaladm.gov.za',
+              'mankopanamm@nkangaladm.gov.za', 'moepis@nkangaladm.gov.za', 'molefeki@nkangaladm.gov.za',
+              'mthimunyepm@nkangaladm.gov.za'
+            ],
+            'fenyanep': [
+              'dlaminiss@nkangaladm.gov.za', 'khozahf@nkangaladm.gov.za', 'mafodim@nkangaladm.gov.za',
+              'mashilesm@nkangaladm.gov.za', 'moreroaml@nkangaladm.gov.za', 'thumbathiamd@nkangaladm.gov.za',
+              'mthethwanm@nkangaladm.gov.za'
+            ],
             'khuboni': ['zulune@nkangaladm.gov.za', 'nsibandenp@nkangaladm.gov.za', 'lukhelema@nkangaladm.gov.za', 'sakisd@nkangaladm.gov.za'],
             'nkosije': ['myenispl@nkangaladm.gov.za'],
             'mahlanguml': ['shabangusm@nkangaladm.gov.za', 'shabangugm@nkangaladm.gov.za']
@@ -14039,7 +14125,9 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
                 (normMgr.includes('singh') && m.includes('singh')) ||
                 (normMgr.includes('joubert') && m.includes('joubert')) ||
                 (normMgr.includes('magampe') && m.includes('magampe')) ||
-                (normMgr.includes('segami') && m.includes('segami'));
+                (normMgr.includes('segami') && m.includes('segami')) ||
+                (normMgr.includes('tlou') && m.includes('tlou')) ||
+                (normMgr.includes('fenyane') && m.includes('fenyane'));
             })
             .map((u: any) => (u.email || '').toLowerCase().trim())
             .filter(Boolean);
@@ -14115,6 +14203,28 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
                 planObj = rawObj;
                 if (planObj && Array.isArray(planObj.items)) {
                   planObj.items = planObj.items.map((it: any) => sanitizePplanItem(it, userId));
+                  if (userId.toLowerCase().includes('moepis')) {
+                    planObj.items = planObj.items.filter((it: any) => {
+                      const no = String(it.kpiNo || '').replace(/[^0-9]/g, '');
+                      const id = String(it.id || '').toLowerCase();
+                      const desc = (it.kpi || it.description || it.desc || '').toLowerCase();
+                      if (no === '25' || no === '26') return false;
+                      if (id.endsWith('-25') || id.endsWith('-26')) return false;
+                      if (desc.includes('percentage of staff vacancy') || desc.includes('vacant posts filled')) return false;
+                      return true;
+                    });
+                  }
+                  if (userId.toLowerCase().includes('matherets')) {
+                    planObj.items = planObj.items.filter((it: any) => {
+                      const no = String(it.kpiNo || it['kpi no'] || '').replace(/[^0-9]/g, '');
+                      const id = String(it.id || '').toLowerCase();
+                      const desc = (it.kpi || it.description || it.desc || it['kpi description'] || '').toLowerCase();
+                      if (no === '13' || no === '14' || no === '15') return false;
+                      if (id.endsWith('-13') || id.endsWith('-14') || id.endsWith('-15')) return false;
+                      if (desc.includes('achieve target deliverable kpi-13') || desc.includes('achieve target deliverable kpi-14') || desc.includes('achieve target deliverable kpi-15')) return false;
+                      return true;
+                    });
+                  }
                 }
               }
             } catch (e) {}
@@ -14373,7 +14483,29 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         ? ['tenant-229', 'nkangala_auto']
         : [tenantId];
 
-      const sanitizedItems = Array.isArray(items) ? items.map((it: any) => sanitizePplanItem(it, userId)) : [];
+      let sanitizedItems = Array.isArray(items) ? items.map((it: any) => sanitizePplanItem(it, userId)) : [];
+      if (userId.toLowerCase().includes('moepis')) {
+        sanitizedItems = sanitizedItems.filter((it: any) => {
+          const no = String(it.kpiNo || '').replace(/[^0-9]/g, '');
+          const id = String(it.id || '').toLowerCase();
+          const desc = (it.kpi || it.description || it.desc || '').toLowerCase();
+          if (no === '25' || no === '26') return false;
+          if (id.endsWith('-25') || id.endsWith('-26')) return false;
+          if (desc.includes('percentage of staff vacancy') || desc.includes('vacant posts filled')) return false;
+          return true;
+        });
+      }
+      if (userId.toLowerCase().includes('matherets')) {
+        sanitizedItems = sanitizedItems.filter((it: any) => {
+          const no = String(it.kpiNo || it['kpi no'] || '').replace(/[^0-9]/g, '');
+          const id = String(it.id || '').toLowerCase();
+          const desc = (it.kpi || it.description || it.desc || it['kpi description'] || '').toLowerCase();
+          if (no === '13' || no === '14' || no === '15') return false;
+          if (id.endsWith('-13') || id.endsWith('-14') || id.endsWith('-15')) return false;
+          if (desc.includes('achieve target deliverable kpi-13') || desc.includes('achieve target deliverable kpi-14') || desc.includes('achieve target deliverable kpi-15')) return false;
+          return true;
+        });
+      }
       const payloadStr = JSON.stringify({ metadata, items: sanitizedItems });
 
       // Always populate local in-memory cache for immediate UI persistence
@@ -16929,7 +17061,29 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         if (data && data.content) {
           try {
             const parsed = JSON.parse(data.content);
-            const kpiList = Array.isArray(parsed) ? parsed : (parsed.kpis || parsed.items || parsed.rows || []);
+            let kpiList = Array.isArray(parsed) ? parsed : (parsed.kpis || parsed.items || parsed.rows || []);
+            if (userId.toLowerCase().includes('moepis')) {
+              kpiList = kpiList.filter((it: any) => {
+                const no = String(it.kpiNo || '').replace(/[^0-9]/g, '');
+                const id = String(it.id || '').toLowerCase();
+                const desc = (it.kpi || it.description || it.desc || '').toLowerCase();
+                if (no === '25' || no === '26') return false;
+                if (id.endsWith('-25') || id.endsWith('-26')) return false;
+                if (desc.includes('percentage of staff vacancy') || desc.includes('vacant posts filled')) return false;
+                return true;
+              });
+            }
+            if (userId.toLowerCase().includes('matherets')) {
+              kpiList = kpiList.filter((it: any) => {
+                const no = String(it.kpiNo || it['kpi no'] || '').replace(/[^0-9]/g, '');
+                const id = String(it.id || '').toLowerCase();
+                const desc = (it.kpi || it.description || it.desc || it['kpi description'] || '').toLowerCase();
+                if (no === '13' || no === '14' || no === '15') return false;
+                if (id.endsWith('-13') || id.endsWith('-14') || id.endsWith('-15')) return false;
+                if (desc.includes('achieve target deliverable kpi-13') || desc.includes('achieve target deliverable kpi-14') || desc.includes('achieve target deliverable kpi-15')) return false;
+                return true;
+              });
+            }
             if (kpiList.length > 0) {
               return res.json({ kpis: kpiList });
             }
@@ -16945,7 +17099,29 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       if (pData && pData.content) {
         try {
           const pp = JSON.parse(pData.content);
-          const pList = pp.rows || pp.items || pp.kpis || [];
+          let pList = pp.rows || pp.items || pp.kpis || [];
+          if (userId.toLowerCase().includes('moepis')) {
+            pList = pList.filter((it: any) => {
+              const no = String(it.kpiNo || '').replace(/[^0-9]/g, '');
+              const id = String(it.id || '').toLowerCase();
+              const desc = (it.kpi || it.description || it.desc || '').toLowerCase();
+              if (no === '25' || no === '26') return false;
+              if (id.endsWith('-25') || id.endsWith('-26')) return false;
+              if (desc.includes('percentage of staff vacancy') || desc.includes('vacant posts filled')) return false;
+              return true;
+            });
+          }
+          if (userId.toLowerCase().includes('matherets')) {
+            pList = pList.filter((it: any) => {
+              const no = String(it.kpiNo || it['kpi no'] || '').replace(/[^0-9]/g, '');
+              const id = String(it.id || '').toLowerCase();
+              const desc = (it.kpi || it.description || it.desc || it['kpi description'] || '').toLowerCase();
+              if (no === '13' || no === '14' || no === '15') return false;
+              if (id.endsWith('-13') || id.endsWith('-14') || id.endsWith('-15')) return false;
+              if (desc.includes('achieve target deliverable kpi-13') || desc.includes('achieve target deliverable kpi-14') || desc.includes('achieve target deliverable kpi-15')) return false;
+              return true;
+            });
+          }
           if (pList.length > 0) {
             return res.json({ kpis: pList });
           }
@@ -16989,7 +17165,30 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
     const { kpis } = req.body;
     try {
       const supabase = getSupabase();
-      const payload = { kpis: Array.isArray(kpis) ? kpis : [] };
+      let cleanKpis = Array.isArray(kpis) ? kpis : [];
+      if (userId.toLowerCase().includes('moepis')) {
+        cleanKpis = cleanKpis.filter((it: any) => {
+          const no = String(it.kpiNo || '').replace(/[^0-9]/g, '');
+          const id = String(it.id || '').toLowerCase();
+          const desc = (it.kpi || it.description || it.desc || '').toLowerCase();
+          if (no === '25' || no === '26') return false;
+          if (id.endsWith('-25') || id.endsWith('-26')) return false;
+          if (desc.includes('percentage of staff vacancy') || desc.includes('vacant posts filled')) return false;
+          return true;
+        });
+      }
+      if (userId.toLowerCase().includes('matherets')) {
+        cleanKpis = cleanKpis.filter((it: any) => {
+          const no = String(it.kpiNo || it['kpi no'] || '').replace(/[^0-9]/g, '');
+          const id = String(it.id || '').toLowerCase();
+          const desc = (it.kpi || it.description || it.desc || it['kpi description'] || '').toLowerCase();
+          if (no === '13' || no === '14' || no === '15') return false;
+          if (id.endsWith('-13') || id.endsWith('-14') || id.endsWith('-15')) return false;
+          if (desc.includes('achieve target deliverable kpi-13') || desc.includes('achieve target deliverable kpi-14') || desc.includes('achieve target deliverable kpi-15')) return false;
+          return true;
+        });
+      }
+      const payload = { kpis: cleanKpis };
       const targets = [
         { id: `kpis_${tenantId}_${userId}`, tenant_id: tenantId },
         { id: `kpis_tenant-229_${userId}`, tenant_id: 'tenant-229' },
