@@ -10,6 +10,7 @@ import { Dashboard } from './components/Dashboard';
 import { NEDAPortal } from './components/NEDAPortal';
 import { SecurityShield } from './components/SecurityShield';
 import { DataLossPreventionWrapper } from './components/DataLossPreventionWrapper';
+import { SystemUpdateNotification } from './components/SystemUpdateNotification';
 import { FinancialYearProvider } from './context/FinancialYearContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { performanceLogger } from './utils/performanceLogger';
@@ -17,7 +18,6 @@ import type { User } from './types';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
-  const [newVersionAvailable, setNewVersionAvailable] = useState<string | null>(null);
 
   // 1. Multi-Tier Persistent Storage Initialization (localStorage primary, sessionStorage fallback) + Cross-Tab Sync
   useEffect(() => {
@@ -86,53 +86,7 @@ export default function App() {
     setUser(u);
   };
 
-  // 2. Graceful Background Version Checker: Informs user non-disruptively instead of hard-reloading
-  useEffect(() => {
-    let activeVersion: string | null = null;
-    let isChecking = false;
-
-    const runCheck = async () => {
-      if (isChecking) return;
-      isChecking = true;
-      try {
-        const res = await fetch('/api/version');
-        if (res.ok) {
-          const data = await res.json();
-          if (data && data.version) {
-            if (!activeVersion) {
-              activeVersion = data.version;
-            } else if (activeVersion !== data.version) {
-              console.log("[Graceful Auto-Updater]: New deployment available:", data.version);
-              setNewVersionAvailable(data.version);
-            }
-          }
-        }
-      } catch (err) {
-        // Silently capture failures (e.g. offline) to prevent breaking active workspace sessions
-      } finally {
-        isChecking = false;
-      }
-    };
-
-    runCheck();
-    const checkerInterval = setInterval(runCheck, 60000);
-
-    const handleFocusCheck = () => {
-      if (!document.hidden && navigator.onLine) {
-        runCheck();
-      }
-    };
-    window.addEventListener('visibilitychange', handleFocusCheck);
-    window.addEventListener('focus', handleFocusCheck);
-
-    return () => {
-      clearInterval(checkerInterval);
-      window.removeEventListener('visibilitychange', handleFocusCheck);
-      window.removeEventListener('focus', handleFocusCheck);
-    };
-  }, []);
-
-  // 3. High-Concurrency Zero-Kickout Session Keep-Alive Heartbeat
+  // 2. High-Concurrency Zero-Kickout Session Keep-Alive Heartbeat
   useEffect(() => {
     if (!user) return;
 
@@ -388,48 +342,14 @@ export default function App() {
 
   return (
     <ThemeProvider>
+      {/* Real-time zero-data-loss System Update Notification */}
+      <SystemUpdateNotification />
       {!user ? (
         <LandingPage onLogin={handleSetUser} />
       ) : (
         <FinancialYearProvider>
           <DataLossPreventionWrapper user={user}>
             <div className="flex flex-col min-h-screen">
-              {/* Non-intrusive Live System Update Notification */}
-              {newVersionAvailable && (
-                <div className="fixed bottom-4 right-4 z-[999999] bg-slate-900/95 border-2 border-indigo-500/70 text-white px-4 py-3 rounded-2xl shadow-2xl backdrop-blur-md flex items-center gap-3 animate-fade-in font-sans">
-                  <div className="p-2 bg-indigo-600/30 text-indigo-400 rounded-xl shrink-0">
-                    <RefreshCw className="w-4 h-4 animate-spin text-indigo-400" />
-                  </div>
-                  <div className="pr-2">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-black text-white uppercase tracking-wider">System Update Ready</span>
-                      <span className="text-[10px] bg-indigo-950 text-indigo-300 border border-indigo-700/60 px-1.5 py-0.2 rounded font-mono font-bold">
-                        {newVersionAvailable}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-300 mt-0.5">
-                      A fresh system update is deployed. Refresh when ready without interrupting active drafts.
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => window.location.reload()}
-                      className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
-                    >
-                      Refresh Now
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setNewVersionAvailable(null)}
-                      className="p-1.5 text-slate-400 hover:text-white rounded-lg transition cursor-pointer"
-                      title="Dismiss notice"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              )}
 
               {isImpersonating && (
                 <div className="bg-amber-500 text-black px-8 py-2.5 flex items-center justify-between text-xs font-bold uppercase tracking-wider z-[999] shadow-md border-b border-amber-600 shrink-0">

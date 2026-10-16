@@ -5325,26 +5325,75 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
   });
 
   // App version endpoint for real-time cache-free deployment detection
-  let APP_DEPLOY_TIMESTAMP = process.env.APP_VERSION || 'development';
-  try {
-    const fs = require('fs');
-    const path = require('path');
-    const versionFile = path.join(__dirname, 'dist', 'version.txt');
-    if (fs.existsSync(versionFile)) {
-      APP_DEPLOY_TIMESTAMP = fs.readFileSync(versionFile, 'utf8').trim();
-    }
-  } catch (err: any) {
-    console.warn("[Version Tracker]: Could not read build version file:", err.message);
-  }
+  const resolveCurrentAppVersion = (): { version: string; buildTime: string; env: string } => {
+    let appDir = process.cwd();
+    try {
+      if (typeof import.meta !== 'undefined' && import.meta.url) {
+        const { fileURLToPath } = require('url');
+        appDir = path.dirname(fileURLToPath(import.meta.url));
+      }
+    } catch (e) {}
 
-  app.get("/api/version", (req: any, res: any) => {
+    const candidates = [
+      path.join(process.cwd(), 'dist', 'version.json'),
+      path.join(process.cwd(), 'public', 'version.json'),
+      path.join(process.cwd(), 'version.json'),
+      path.join(process.cwd(), 'dist', 'version.txt'),
+      path.join(appDir, 'version.json'),
+      path.join(appDir, 'dist', 'version.json'),
+      path.join(appDir, 'public', 'version.json'),
+      path.join(appDir, 'version.txt'),
+      path.join(appDir, 'dist', 'version.txt')
+    ];
+
+    for (const c of candidates) {
+      try {
+        if (fs.existsSync(c)) {
+          if (c.endsWith('.json')) {
+            const raw = fs.readFileSync(c, 'utf8');
+            const data = JSON.parse(raw);
+            if (data && data.version) {
+              return {
+                version: data.version,
+                buildTime: data.buildTime || new Date().toISOString(),
+                env: process.env.NODE_ENV || 'production'
+              };
+            }
+          } else {
+            const text = fs.readFileSync(c, 'utf8').trim();
+            if (text) {
+              return {
+                version: text,
+                buildTime: new Date().toISOString(),
+                env: process.env.NODE_ENV || 'production'
+              };
+            }
+          }
+        }
+      } catch (err: any) {
+        // Continue checking candidates
+      }
+    }
+
+    return {
+      version: process.env.APP_VERSION || 'v2026.10.15-live',
+      buildTime: new Date().toISOString(),
+      env: process.env.NODE_ENV || 'development'
+    };
+  };
+
+  app.get(["/api/version", "/version.json"], (req: any, res: any) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
+    
+    const verInfo = resolveCurrentAppVersion();
     res.json({
-      version: APP_DEPLOY_TIMESTAMP,
-      env: process.env.NODE_ENV || 'development',
-      time: new Date().toISOString()
+      version: verInfo.version,
+      buildTime: verInfo.buildTime,
+      env: verInfo.env,
+      serverTime: new Date().toISOString()
     });
   });
 

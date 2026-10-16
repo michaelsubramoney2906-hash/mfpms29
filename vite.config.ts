@@ -1,11 +1,28 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import fs from 'fs';
 import {defineConfig} from 'vite';
+
+let appBuildId = process.env.VITE_APP_BUILD_ID || '';
+try {
+  const versionFile = path.resolve(__dirname, 'public', 'version.json');
+  if (fs.existsSync(versionFile)) {
+    const vData = JSON.parse(fs.readFileSync(versionFile, 'utf8'));
+    if (vData && vData.version) {
+      appBuildId = vData.version;
+    }
+  }
+} catch (e) {}
+if (!appBuildId) {
+  appBuildId = `v${Date.now()}`;
+}
 
 export default defineConfig(() => {
   return {
     define: {
+      '__APP_BUILD_ID__': JSON.stringify(appBuildId),
+      'process.env.VITE_APP_BUILD_ID': JSON.stringify(appBuildId),
       'process.env': {},
       global: 'window',
     },

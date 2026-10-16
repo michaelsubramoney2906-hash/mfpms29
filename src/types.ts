@@ -1,5 +1,9 @@
 import { LucideIcon } from 'lucide-react';
 
+declare global {
+  const __APP_BUILD_ID__: string;
+}
+
 export interface SubModule {
   id: string;
   name: string;
