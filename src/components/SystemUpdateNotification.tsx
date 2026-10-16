@@ -14,31 +14,35 @@ export function SystemUpdateNotification() {
   const [serverBuildTime, setServerBuildTime] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
   const [snoozedUntil, setSnoozedUntil] = useState<number>(0);
+  const initializedBaselineRef = React.useRef<boolean>(false);
 
-  // Initialize client build id from Vite define or runtime fallback
+  // Initialize client build id, prioritizing any version already accepted by the user
   useEffect(() => {
     let clientVer = '';
     try {
-      if (typeof __APP_BUILD_ID__ !== 'undefined' && __APP_BUILD_ID__) {
-        clientVer = __APP_BUILD_ID__;
+      const accepted = localStorage.getItem('app_accepted_server_version') || sessionStorage.getItem('app_loaded_client_version');
+      if (accepted) {
+        clientVer = accepted;
       }
     } catch (e) {}
+
+    if (!clientVer) {
+      try {
+        if (typeof __APP_BUILD_ID__ !== 'undefined' && __APP_BUILD_ID__) {
+          clientVer = __APP_BUILD_ID__;
+        }
+      } catch (e) {}
+    }
 
     if (!clientVer && typeof window !== 'undefined' && (window as any).__APP_BUILD_ID__) {
       clientVer = (window as any).__APP_BUILD_ID__;
     }
 
-    if (!clientVer) {
-      // Look in sessionStorage for initial loaded version to ensure stable baseline
-      const stored = sessionStorage.getItem('app_loaded_client_version');
-      if (stored) {
-        clientVer = stored;
-      }
-    }
-
     if (clientVer) {
       setCurrentClientVersion(clientVer);
-      sessionStorage.setItem('app_loaded_client_version', clientVer);
+      try {
+        sessionStorage.setItem('app_loaded_client_version', clientVer);
+      } catch (e) {}
     }
   }, []);
 
@@ -63,16 +67,48 @@ export function SystemUpdateNotification() {
       const data: VersionResponse = await response.json();
       if (!data || !data.version) return;
 
-      // If client version is not set yet, store first received version as baseline
+      const acceptedVer = (() => {
+        try {
+          return localStorage.getItem('app_accepted_server_version') || '';
+        } catch (e) {
+          return '';
+        }
+      })();
+
+      // If this server version was already accepted by the user, ensure baseline matches and never re-prompt
+      if (acceptedVer && data.version === acceptedVer) {
+        initializedBaselineRef.current = true;
+        setCurrentClientVersion(data.version);
+        setServerVersion(null);
+        return;
+      }
+
+      // On the very first check after page load/reload, lock onto the current server version as baseline
+      // so we only notify if a new deployment occurs AFTER the user opened the page
+      if (!initializedBaselineRef.current) {
+        initializedBaselineRef.current = true;
+        try {
+          sessionStorage.setItem('app_loaded_client_version', data.version);
+          localStorage.setItem('app_accepted_server_version', data.version);
+        } catch (e) {}
+        setCurrentClientVersion(data.version);
+        setServerVersion(null);
+        return;
+      }
+
       setCurrentClientVersion((prev) => {
         if (!prev) {
-          sessionStorage.setItem('app_loaded_client_version', data.version);
+          try {
+            sessionStorage.setItem('app_loaded_client_version', data.version);
+            localStorage.setItem('app_accepted_server_version', data.version);
+          } catch (e) {}
           return data.version;
         }
         
         // If versions differ and neither is generic dev, prompt update
         if (
           data.version !== prev &&
+          data.version !== acceptedVer &&
           data.version !== 'development' &&
           prev !== 'development'
         ) {
@@ -119,7 +155,16 @@ export function SystemUpdateNotification() {
     setIsUpdating(true);
 
     try {
-      // 1. Unregister any service workers that might intercept network requests
+      // 1. Persist accepted version immediately in both localStorage and sessionStorage so reload never prompts again
+      if (serverVersion) {
+        try {
+          localStorage.setItem('app_accepted_server_version', serverVersion);
+          sessionStorage.setItem('app_loaded_client_version', serverVersion);
+        } catch (e) {}
+        setCurrentClientVersion(serverVersion);
+      }
+
+      // 2. Unregister any service workers that might intercept network requests
       if ('serviceWorker' in navigator) {
         const registrations = await navigator.serviceWorker.getRegistrations();
         for (const registration of registrations) {
@@ -127,7 +172,7 @@ export function SystemUpdateNotification() {
         }
       }
 
-      // 2. Clear browser cache storage if available
+      // 3. Clear browser cache storage if available
       if ('caches' in window) {
         try {
           const cacheNames = await caches.keys();
@@ -135,11 +180,6 @@ export function SystemUpdateNotification() {
             await caches.delete(name);
           }
         } catch (e) {}
-      }
-
-      // 3. Update session storage to reflect new version
-      if (serverVersion) {
-        sessionStorage.setItem('app_loaded_client_version', serverVersion);
       }
     } catch (e) {
       console.warn("Pre-update cleanup completed with notices:", e);
@@ -150,12 +190,18 @@ export function SystemUpdateNotification() {
       const url = new URL(window.location.href);
       url.searchParams.set('_upd', String(Date.now()));
       window.location.replace(url.toString());
-    }, 400);
+    }, 300);
   };
 
   const handleSnooze = () => {
-    // Snooze for 15 minutes (900,000 ms)
-    setSnoozedUntil(Date.now() + 15 * 60 * 1000);
+    // Snooze for 30 minutes and also mark current serverVersion as acknowledged for this session
+    if (serverVersion) {
+      try {
+        sessionStorage.setItem('app_loaded_client_version', serverVersion);
+      } catch (e) {}
+      setCurrentClientVersion(serverVersion);
+    }
+    setSnoozedUntil(Date.now() + 30 * 60 * 1000);
     setServerVersion(null);
   };
 
