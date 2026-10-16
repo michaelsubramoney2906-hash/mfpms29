@@ -157,6 +157,10 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
   const [reportToSearchResults, setReportToSearchResults] = useState<any[]>([]);
 
   useEffect(() => {
+    if (!jobSearchQuery.trim()) {
+      setJobSearchResults([]);
+      return;
+    }
     const fetchJobSearch = async () => {
       try {
         const res = await fetch(`/api/azure-search?q=${encodeURIComponent(jobSearchQuery)}`);
@@ -172,6 +176,10 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
   }, [jobSearchQuery]);
 
   useEffect(() => {
+    if (!managerSearchQuery.trim()) {
+      setManagerSearchResults([]);
+      return;
+    }
     const fetchManagerSearch = async () => {
       try {
         const res = await fetch(`/api/azure-search?q=${encodeURIComponent(managerSearchQuery)}`);
@@ -187,6 +195,10 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
   }, [managerSearchQuery]);
 
   useEffect(() => {
+    if (!reportToSearchQuery.trim()) {
+      setReportToSearchResults([]);
+      return;
+    }
     const fetchReportToSearch = async () => {
       try {
         const res = await fetch(`/api/azure-search?q=${encodeURIComponent(reportToSearchQuery)}`);
@@ -1206,18 +1218,20 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                                   const resolvedTenant = (u.tenantId === 'nkangala_auto' || u.email?.toLowerCase().includes('nkangala')) ? 'tenant-229' : (u.tenantId || municipalities[0]?.id || '');
                                   const isTargetGlobal = isGlobalAdminEmail(u.email);
                                   onImpersonate({
+                                    ...u,
                                     email: u.email,
                                     fullName: u.fullName || (u as any).full_name || (u as any).name || '',
-                                    role: isTargetGlobal ? 'admin' : 'tenant_user',
+                                    role: isTargetGlobal ? 'admin' : (u.role || 'tenant_user'),
                                     tenantId: resolvedTenant,
                                     id: u.id,
                                     jobFunction: u.jobFunction || (u as any).job_function || '',
                                     department: u.department || (u as any).department || '',
                                     directorate: u.directorate || '',
                                     manager: u.manager || '',
+                                    managerEmail: u.managerEmail || '',
                                     reportTo: u.reportTo || '',
                                     level: u.level || '1',
-                                    systemRole: isTargetGlobal ? 'Global Administrator' : 'Standard User',
+                                    systemRole: isTargetGlobal ? 'Global Administrator' : (u.systemRole || u.role || 'Standard User'),
                                     signatureType: u.signatureType || 'draw',
                                     signatureData: u.signatureData || ''
                                   });

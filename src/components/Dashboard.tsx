@@ -224,20 +224,22 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
   }, [activeTenantId, activeModule.id, user.email]);
 
   useEffect(() => {
-    // Attempt to fetch full user profile to retrieve signature details and other metadata
+    // Fetch only the current user's profile rather than downloading the entire user directory
     const fetchProfile = async () => {
+      if (!user?.email) return;
       try {
-        const res = await fetchWithRetry(`/api/tenant/${activeTenantId === 'global' ? tenants[0].id : activeTenantId}/users`);
+        const targetTenant = activeTenantId === 'global' ? tenants[0].id : activeTenantId;
+        const res = await fetchWithRetry(`/api/tenant/${targetTenant}/users?q=${encodeURIComponent(user.email)}`);
         if (res.ok) {
           const contentType = res.headers.get("content-type");
           if (contentType && contentType.includes("application/json")) {
             const usersList: User[] = await res.json();
-            const match = usersList.find(u => u.email.toLowerCase() === user.email.toLowerCase());
+            const match = Array.isArray(usersList)
+              ? usersList.find(u => (u.email || '').toLowerCase().trim() === user.email.toLowerCase().trim())
+              : null;
             if (match) {
-              setFullUserProfile({ ...user, ...match });
+              setFullUserProfile(prev => ({ ...prev, ...match }));
             }
-          } else {
-            console.warn("Expected JSON response for user profile but received:", contentType);
           }
         }
       } catch (e) {
@@ -329,7 +331,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
           const tenantToUse = (activeTenantId && activeTenantId !== 'undefined' && activeTenantId !== 'null')
             ? activeTenantId
             : resolvedUserTenant;
-          const res = await fetchWithRetry(`/api/tenant/${tenantToUse}/reports-unlock-status?userId=${encodeURIComponent(email)}&t=${Date.now()}`);
+          const res = await fetchWithRetry(`/api/tenant/${tenantToUse}/reports-unlock-status?userId=${encodeURIComponent(email)}`);
           if (res.ok) {
             const data = await res.json();
             setReportsUnlocked(!!data?.unlocked);
@@ -344,7 +346,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
           const tenantToUse = (activeTenantId && activeTenantId !== 'undefined' && activeTenantId !== 'null')
             ? activeTenantId
             : resolvedUserTenant;
-          const res = await fetchWithRetry(`/api/tenant/${tenantToUse}/reports-unlock-status?isManager=true&t=${Date.now()}`);
+          const res = await fetchWithRetry(`/api/tenant/${tenantToUse}/reports-unlock-status?isManager=true`);
           if (res.ok) {
             const data = await res.json();
             setReportsUnlocked(!!data?.unlocked);
@@ -358,10 +360,10 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
     };
 
     checkReportsUnlock();
-    // Re-check periodically or when activeTenantId/activeModule/user changes
-    const interval = setInterval(checkReportsUnlock, 10000);
+    // Re-check periodically every 60s or when activeTenantId/activeModule/user changes
+    const interval = setInterval(checkReportsUnlock, 60000);
     return () => clearInterval(interval);
-  }, [activeTenantId, activeModule.id, fullUserProfile, user, completedIPMSSteps]);
+  }, [activeTenantId, activeModule.id, activeUserEmail, fullUserProfile?.role, completedIPMSSteps.length]);
 
   const getFilteredSteps = () => {
     const profileToUse = fullUserProfile || user;
@@ -440,7 +442,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
     const fetchSdbipAssignments = async () => {
       try {
         const tenantToUse = activeTenantId || 'tenant-229';
-        const res = await fetch(`/api/tenant/${tenantToUse}/sdbip?t=${Date.now()}`);
+        const res = await fetch(`/api/tenant/${tenantToUse}/sdbip`);
         if (!res.ok) return;
         const data = await res.json();
         const rows = Array.isArray(data) ? data : data.items || [];
@@ -592,6 +594,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                                   email.includes('singhn') || email.includes('joubertm') || email.includes('magampeas') || email.includes('segamiy') || email.includes('tloujmt') || email.includes('fenyanep');
 
     const isManagerUser = (email === 'manager@mzansiflow.co.za' || email === 'test.manager@local' ||
+                          Boolean((profileToUse as any)?.hasSubordinates) ||
                           role === 'manager' || 
                           role === 'approver' || 
                           role === 'admin' || 

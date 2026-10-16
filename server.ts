@@ -7747,59 +7747,61 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         managerEmail
       });
 
-      // 4. Re-fetch all users to sync updated status to local files
-      const { data: fetchedUsers } = await supabase.from('users').select('*');
-      if (fetchedUsers) {
-        let extraMap: Record<string, any> = {};
-        try {
-          const { data: currentMsg } = await supabase
-            .from('messages')
-            .select('content')
-            .eq('id', 'users_extra_metadata')
-            .maybeSingle();
+      invalidateUsersCache();
+      res.json({ success: true });
 
-          if (currentMsg && currentMsg.content) {
-            extraMap = JSON.parse(currentMsg.content);
+      // 4. Asynchronously sync updated status to local backup files without blocking HTTP response
+      setImmediate(async () => {
+        try {
+          const { data: fetchedUsers } = await supabase.from('users').select('*');
+          if (fetchedUsers) {
+            let extraMap: Record<string, any> = {};
+            try {
+              const { data: currentMsg } = await supabase
+                .from('messages')
+                .select('content')
+                .eq('id', 'users_extra_metadata')
+                .maybeSingle();
+
+              if (currentMsg && currentMsg.content) {
+                extraMap = JSON.parse(currentMsg.content);
+              }
+            } catch (e) {}
+
+            const formatted = fetchedUsers.map((u: any) => ({
+              id: u.id,
+              fullName: u.full_name,
+              email: u.email,
+              jobFunction: u.job_function,
+              department: u.department,
+              source: u.source,
+              role: u.role,
+              tenantId: u.tenant_id,
+              manager: extraMap[u.id]?.manager || extraMap[u.email?.toLowerCase().trim()]?.manager || '',
+              directorate: extraMap[u.id]?.directorate || extraMap[u.email?.toLowerCase().trim()]?.directorate || '',
+              reportTo: extraMap[u.id]?.reportTo || extraMap[u.email?.toLowerCase().trim()]?.reportTo || '',
+              level: extraMap[u.id]?.level || extraMap[u.email?.toLowerCase().trim()]?.level || '1',
+              signatureType: extraMap[u.id]?.signatureType || extraMap[u.email?.toLowerCase().trim()]?.signatureType || 'draw',
+              signatureData: extraMap[u.id]?.signatureData || extraMap[u.email?.toLowerCase().trim()]?.signatureData || '',
+              managerEmail: extraMap[u.id]?.managerEmail || extraMap[u.email?.toLowerCase().trim()]?.managerEmail || ''
+            }));
+            cachedDiskUsersList = formatted;
+            saveNkangalaToDisk(formatted);
+            await syncAzureUserProfileBackupFolders();
           }
-        } catch (e) {}
-
-        const formatted = fetchedUsers.map((u: any) => ({
-          id: u.id,
-          fullName: u.full_name,
-          email: u.email,
-          jobFunction: u.job_function,
-          department: u.department,
-          source: u.source,
-          role: u.role,
-          tenantId: u.tenant_id,
-          manager: extraMap[u.id]?.manager || extraMap[u.email?.toLowerCase().trim()]?.manager || '',
-          directorate: extraMap[u.id]?.directorate || extraMap[u.email?.toLowerCase().trim()]?.directorate || '',
-          reportTo: extraMap[u.id]?.reportTo || extraMap[u.email?.toLowerCase().trim()]?.reportTo || '',
-          level: extraMap[u.id]?.level || extraMap[u.email?.toLowerCase().trim()]?.level || '1',
-          signatureType: extraMap[u.id]?.signatureType || extraMap[u.email?.toLowerCase().trim()]?.signatureType || 'draw',
-          signatureData: extraMap[u.id]?.signatureData || extraMap[u.email?.toLowerCase().trim()]?.signatureData || '',
-          managerEmail: extraMap[u.id]?.managerEmail || extraMap[u.email?.toLowerCase().trim()]?.managerEmail || ''
-        }));
-        saveNkangalaToDisk(formatted);
-        
-        // Sync User profile backup archives for verified Azure AD users
-        try {
-          await syncAzureUserProfileBackupFolders();
         } catch (syncErr) {
           console.error("Async user folders sync on PUT failed:", syncErr);
         }
-      }
-
-      invalidateUsersCache();
-      res.json({ success: true });
+      });
     } catch (err: any) {
       console.error("Error updating user:", err);
       res.status(500).json({ error: err.message });
     }
   });
 
-  // Global in-memory cache for consolidated users
-  const USERS_CACHE_TTL_MS = 30000; // 30 seconds cache TTL
+  // Global in-memory cache for consolidated users (5-minute TTL, invalidated immediately on any user write)
+  const USERS_CACHE_TTL_MS = 300000;
+  let cachedDiskUsersList: any[] | null = null;
 
   function invalidateUsersCache() {
     invalidateCachePrefix('consolidated_users_');
@@ -7807,9 +7809,12 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
 
   // Consolidated Helper to get all users across the entire organization (combines Supabase & Disk)
   async function getConsolidatedUsersList(tenantId: string = 'nkangala_auto', forceRefresh = false): Promise<any[]> {
-    const cacheKey = `consolidated_users_${tenantId || 'nkangala_auto'}`;
+    const normTenant = (!tenantId || tenantId === 'global' || tenantId === 'nkangala_auto' || tenantId === 'tenant-229' || tenantId === 'default' || tenantId === 'nkangala')
+      ? 'nkangala_master'
+      : tenantId;
+    const cacheKey = `consolidated_users_${normTenant}`;
     if (forceRefresh) {
-      invalidateCacheKey(cacheKey);
+      invalidateUsersCache();
     }
 
     return fetchWithCoalescing(cacheKey, USERS_CACHE_TTL_MS, async () => {
@@ -7817,29 +7822,27 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       if (!supabase) return [];
 
       let data: any[] | null = null;
+      let extraMap: Record<string, any> = {};
+      let officialsMsgs: any[] | null = null;
+
       if (!isCircuitBreakerOpen() && supabase) {
-        try {
-          const res = await supabase
-            .from('users')
-            .select('*')
-            .range(0, 5000);
-          data = res.data;
-        } catch (e) {
-          console.warn("[getConsolidatedUsersList] Supabase load notice (using disk fallback):", (e as any)?.message || e);
+        const [usersRes, extraRes, officialsRes] = await Promise.all([
+          Promise.resolve(supabase.from('users').select('*').range(0, 5000)).catch((e: any) => {
+            console.warn("[getConsolidatedUsersList] Supabase load notice (using disk fallback):", e?.message || e);
+            return { data: null };
+          }),
+          Promise.resolve(supabase.from('messages').select('content').eq('id', 'users_extra_metadata').maybeSingle()).catch(() => ({ data: null })),
+          Promise.resolve(supabase.from('messages').select('content').like('id', 'sdbip_officials_%')).catch(() => ({ data: null }))
+        ]);
+
+        data = usersRes?.data || null;
+        if (extraRes?.data?.content) {
+          try {
+            extraMap = JSON.parse(extraRes.data.content);
+          } catch (e) {}
         }
+        officialsMsgs = officialsRes?.data || null;
       }
-    
-    let extraMap: Record<string, any> = {};
-    try {
-      const { data: currentMsg } = await supabase
-        .from('messages')
-        .select('content')
-        .eq('id', 'users_extra_metadata')
-        .maybeSingle();
-      if (currentMsg && currentMsg.content) {
-        extraMap = JSON.parse(currentMsg.content);
-      }
-    } catch (e) {}
 
     // Deduplicate any duplicate user records from Supabase by lowercase email
     const initialMap = new Map<string, any>();
@@ -7933,10 +7936,17 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
 
     // Merge disk backup users from Nkangala District Municipality directory if any are missing
     try {
-      const folderPath = path.join(process.cwd(), "Nkangala District Municipality");
-      const usersJsonPath = path.join(folderPath, "users.json");
-      if (fs.existsSync(usersJsonPath)) {
-        const diskUsers = JSON.parse(fs.readFileSync(usersJsonPath, 'utf8'));
+      if (!cachedDiskUsersList) {
+        const folderPath = path.join(process.cwd(), "Nkangala District Municipality");
+        const usersJsonPath = path.join(folderPath, "users.json");
+        if (fs.existsSync(usersJsonPath)) {
+          cachedDiskUsersList = JSON.parse(fs.readFileSync(usersJsonPath, 'utf8'));
+        } else {
+          cachedDiskUsersList = [];
+        }
+      }
+      const diskUsers = cachedDiskUsersList || [];
+      if (diskUsers.length > 0) {
         const existingEmails = new Set(formatted.map(u => (u.email || '').toLowerCase().trim()));
         for (const du of diskUsers) {
           const emailKey = (du.email || '').toLowerCase().trim();
@@ -8158,11 +8168,6 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         'Lerato Mokwena'
       ];
 
-      const { data: officialsMsgs } = await supabase
-        .from('messages')
-        .select('content')
-        .like('id', 'sdbip_officials_%');
-
       if (officialsMsgs && officialsMsgs.length > 0) {
         officialsMsgs.forEach(msg => {
           if (msg.content) {
@@ -8273,14 +8278,104 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       console.error("Error merging SDBIP officials into users:", offErr);
     }
 
-    // Resolve managerEmail dynamically based on manager name to ensure correct submission targets
+    // Resolve managerEmail dynamically based on manager name to ensure correct submission targets for ALL managers
+    const normalizePersonName = (s: string) =>
+      (s || '').toLowerCase().trim().replace(/['"\.,]/g, ' ').replace(/\s+/g, ' ').trim();
+
     const nameToUserMap = new Map<string, any>();
+    const emailToUserMap = new Map<string, any>();
     formatted.forEach((u: any) => {
-      const cleanName = (u.fullName || '').toLowerCase().trim().replace(/['"\.,]/g, '').replace(/\s+/g, ' ');
-      if (cleanName && u.email) {
+      const cleanName = normalizePersonName(u.fullName || '');
+      const cleanEmail = (u.email || '').toLowerCase().trim();
+      if (cleanName && cleanEmail) {
         nameToUserMap.set(cleanName, u);
       }
+      if (cleanEmail) {
+        emailToUserMap.set(cleanEmail, u);
+      }
     });
+
+    const KNOWN_MANAGER_ALIASES: Record<string, string> = {
+      'mandla l mahlangu': 'mahlanguml@nkangaladm.gov.za',
+      'ml mahlangu': 'mahlanguml@nkangaladm.gov.za',
+      'solly links': 'linkss@nkangaladm.gov.za',
+      'solly simon links': 'linkss@nkangaladm.gov.za',
+      'nirisha singh': 'singhn@nkangaladm.gov.za',
+      'marianne joubert': 'joubertm@nkangaladm.gov.za',
+      'alfred s magampe': 'magampeas@nkangaladm.gov.za',
+      'yolanda segami': 'segamiy@nkangaladm.gov.za',
+      'johannes mt tlou': 'tloujmt@nkangaladm.gov.za',
+      'priscilla fenyane': 'fenyanep@nkangaladm.gov.za',
+      'yena khuboni': 'khuboniy@nkangaladm.gov.za',
+      'elmon nkosi': 'nkosije@nkangaladm.gov.za',
+      'alice stander': 'standeral@nkangaladm.gov.za',
+      'alice l stander': 'standeral@nkangaladm.gov.za',
+      'a bvuma': 'bvumaa@nkangaladm.gov.za',
+      'alvin bvuma': 'bvumaa@nkangaladm.gov.za',
+      'nirupa parbhoo': 'parbhoon@nkangaladm.gov.za',
+      'nirupha parbhoo': 'parbhoon@nkangaladm.gov.za',
+      'ts mazwi': 'mazwits@nkangaladm.gov.za',
+      'tc mazwi': 'mazwits@nkangaladm.gov.za',
+      'thandiwe mazwi': 'mazwits@nkangaladm.gov.za',
+      'maphanga nomhle thembisile': 'maphangan@nkangaladm.gov.za',
+      'nomhle maphanga': 'maphangan@nkangaladm.gov.za'
+    };
+
+    const resolveManagerUser = (rawManager: string, existingMgrEmail?: string): { email: string; fullName?: string } | null => {
+      const existingClean = (existingMgrEmail || '').toLowerCase().trim();
+      if (existingClean && existingClean.includes('@')) {
+        const byEmail = emailToUserMap.get(existingClean);
+        return { email: existingClean, fullName: byEmail?.fullName };
+      }
+      const rawClean = (rawManager || '').toLowerCase().trim();
+      if (!rawClean) return null;
+      if (rawClean.includes('@')) {
+        const byEmail = emailToUserMap.get(rawClean);
+        return { email: rawClean, fullName: byEmail?.fullName };
+      }
+      const mName = normalizePersonName(rawManager);
+      if (!mName) return null;
+
+      if (KNOWN_MANAGER_ALIASES[mName]) {
+        const aliasEmail = KNOWN_MANAGER_ALIASES[mName];
+        const byAlias = emailToUserMap.get(aliasEmail);
+        if (byAlias) return { email: byAlias.email.toLowerCase().trim(), fullName: byAlias.fullName };
+        return { email: aliasEmail };
+      }
+
+      const exact = nameToUserMap.get(mName);
+      if (exact) return { email: exact.email.toLowerCase().trim(), fullName: exact.fullName };
+
+      for (const [name, mu] of nameToUserMap.entries()) {
+        if (name.includes(mName) || mName.includes(name)) {
+          return { email: mu.email.toLowerCase().trim(), fullName: mu.fullName };
+        }
+      }
+
+      // Token-based matching (handles middle initials like "Alice Stander" <-> "Alice L Stander", reversed order, or initial + surname)
+      const mTokens = mName.split(' ').filter(Boolean);
+      if (mTokens.length >= 2) {
+        const mFirst = mTokens[0];
+        const mLast = mTokens[mTokens.length - 1];
+        for (const [name, mu] of nameToUserMap.entries()) {
+          const nTokens = name.split(' ').filter(Boolean);
+          if (nTokens.length >= 2) {
+            const nFirst = nTokens[0];
+            const nLast = nTokens[nTokens.length - 1];
+            if (mFirst === nFirst && mLast === nLast) {
+              return { email: mu.email.toLowerCase().trim(), fullName: mu.fullName };
+            }
+            if (mTokens.includes(nFirst) && mTokens.includes(nLast)) {
+              return { email: mu.email.toLowerCase().trim(), fullName: mu.fullName };
+            }
+            if (mFirst.length <= 2 && nFirst.startsWith(mFirst[0]) && mLast === nLast) {
+              return { email: mu.email.toLowerCase().trim(), fullName: mu.fullName };
+            }
+          }
+        }
+      }
+      return null;
+    };
 
     formatted.forEach((u: any) => {
       const emailLower = (u.email || '').toLowerCase().trim();
@@ -8292,25 +8387,10 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         u.department = 'PMS';
         return;
       }
-      const mName = (u.manager || u.reportTo || '').toLowerCase().trim().replace(/['"\.,]/g, '').replace(/\s+/g, ' ');
-      if (mName) {
-        const mgrUser = nameToUserMap.get(mName);
-        if (mgrUser) {
-          u.managerEmail = mgrUser.email;
-        } else {
-          let found = false;
-          for (const [name, mu] of nameToUserMap.entries()) {
-            if (name.includes(mName) || mName.includes(name)) {
-              u.managerEmail = mu.email;
-              found = true;
-              break;
-            }
-          }
-          if (!found) {
-            u.managerEmail = '';
-          }
-        }
-      } else {
+      const resolved = resolveManagerUser(u.manager || u.reportTo || '', u.managerEmail);
+      if (resolved && resolved.email) {
+        u.managerEmail = resolved.email;
+      } else if (!u.managerEmail) {
         u.managerEmail = '';
       }
     });
@@ -8336,11 +8416,51 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           id: existing.id || u.id,
           role: isBetterRole ? u.role : (existing.role || u.role),
           jobFunction: existing.jobFunction || u.jobFunction,
-          department: existing.department || u.department
+          department: existing.department || u.department,
+          manager: existing.manager || u.manager,
+          reportTo: existing.reportTo || u.reportTo,
+          managerEmail: existing.managerEmail || u.managerEmail
         });
       }
     }
     const sanitizedFormatted = [...uniqueMap.values(), ...withoutEmail];
+
+    // Universal Subordinate Detection: map every manager to their direct subordinates and promote any user with subordinates to Manager access
+    const managerToSubsMap = new Map<string, Set<string>>();
+    const addSubordinateToMgr = (mgrEmail: string, subEmail: string) => {
+      const m = (mgrEmail || '').toLowerCase().trim();
+      const s = (subEmail || '').toLowerCase().trim();
+      if (!m || !s || m === s) return;
+      if (!managerToSubsMap.has(m)) managerToSubsMap.set(m, new Set<string>());
+      managerToSubsMap.get(m)!.add(s);
+    };
+
+    sanitizedFormatted.forEach((u: any) => {
+      const subEmail = (u.email || '').toLowerCase().trim();
+      const mgrEmail = (u.managerEmail || '').toLowerCase().trim();
+      if (subEmail && mgrEmail) {
+        addSubordinateToMgr(mgrEmail, subEmail);
+      }
+    });
+
+    sanitizedFormatted.forEach((u: any) => {
+      const uEmail = (u.email || '').toLowerCase().trim();
+      const subs = uEmail ? managerToSubsMap.get(uEmail) : undefined;
+      if (subs && subs.size > 0) {
+        u.hasSubordinates = true;
+        u.subordinateCount = subs.size;
+        u.subordinateEmails = Array.from(subs);
+        const curRole = String(u.role || '').toLowerCase().trim();
+        if (!curRole || curRole === 'tenant_user' || curRole === 'standard user' || curRole === 'user') {
+          u.role = 'Manager';
+        }
+      } else {
+        u.hasSubordinates = false;
+        u.subordinateCount = 0;
+        u.subordinateEmails = [];
+      }
+    });
+
     return sanitizedFormatted;
   });
 }
@@ -8410,12 +8530,10 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         department: u.department,
         source: u.source,
         role: u.role,
-        tenantId: u.tenantId,
-        signatureType: u.signatureType,
-        signatureData: u.signatureData
+        tenantId: u.tenantId
       }));
 
-      res.json(filtered.slice(0, 100)); // Return top 100 matches for performance and thoroughness
+      res.json(filtered.slice(0, 100)); // Return top 100 matches without heavy base64 signatureData
     } catch (err: any) {
       console.error("Error searching azure directory from users base:", err);
       res.status(500).json({ error: err.message });
@@ -9052,9 +9170,9 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       const tenantId = (!rawTenantId || rawTenantId === 'global' || rawTenantId === 'undefined' || rawTenantId === 'null') ? 'tenant-229' : rawTenantId;
       const forceRefresh = req.query.force === 'true';
 
-      // Check cache if not forcing refresh (6s real-time streaming TTL)
+      // Check cache if not forcing refresh (60s TTL for ultra-fast Command Center rendering)
       if (!forceRefresh && commandCenterMatrixCache && commandCenterMatrixCache.tenantId === tenantId) {
-        if (Date.now() - commandCenterMatrixCache.timestamp < 6000) {
+        if (Date.now() - commandCenterMatrixCache.timestamp < 60000) {
           return res.json(commandCenterMatrixCache.data);
         }
       }
@@ -9069,12 +9187,12 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         tenantIds = ['mzansiflow', 'mzansiflow_auto', 'default'];
       }
       
-      // 2. Query messages from Supabase using resilient, safe-sized chunking to inspect real compliance documents for all users
+      // 2. Query messages from Supabase using larger batch chunking (500 rows) to minimize round-trips
       let messageDocs: any[] = [];
       if (supabase) {
         let page = 0;
-        const pageSize = 100; // Safe batch size to prevent network buffer overflow / terminated errors
-        while (page < 30) {
+        const pageSize = 500;
+        while (page < 10) {
           try {
             const { data, error } = await supabase
               .from('messages')
@@ -13835,6 +13953,27 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
     const syncedReviewStatus = item.reviewStatus || (item.reviewApprovalStatus === 'Approved' ? 'Approved' : (item.reviewApprovalStatus === 'Rejected' ? 'Revision Required' : undefined));
     const syncedReviewApprovalStatus = item.reviewApprovalStatus || (item.reviewStatus === 'Approved' ? 'Approved' : (item.reviewStatus === 'Revision Required' || item.reviewStatus === 'Rejected' ? 'Rejected' : undefined));
 
+    // Ensure legacy single-file POE attachments (poeFileBase64 / poeFileName) are surfaced in q1PoeDocs if quarter doc arrays are empty
+    let q1Docs = Array.isArray(item.q1PoeDocs) ? item.q1PoeDocs : [];
+    const q2Docs = Array.isArray(item.q2PoeDocs) ? item.q2PoeDocs : [];
+    const q3Docs = Array.isArray(item.q3PoeDocs) ? item.q3PoeDocs : [];
+    const q4Docs = Array.isArray(item.q4PoeDocs) ? item.q4PoeDocs : [];
+    const annualDocs = Array.isArray(item.annualPoeDocs) ? item.annualPoeDocs : [];
+    const midtermDocs = Array.isArray(item.midtermPoeDocs) ? item.midtermPoeDocs : [];
+
+    const totalDocsCount = q1Docs.length + q2Docs.length + q3Docs.length + q4Docs.length + annualDocs.length + midtermDocs.length;
+    if (totalDocsCount === 0 && (item.poeFileBase64 || item.poeFileName)) {
+      q1Docs = [{
+        id: `legacy-poe-${item.id || item.kpiNo || '1'}`,
+        name: item.poeFileName || 'Submitted_Portfolio_of_Evidence.pdf',
+        dataUrl: item.poeFileBase64 || '',
+        fileData: item.poeFileBase64 || '',
+        mimeType: 'application/pdf',
+        uploadedAt: item.updatedAt || item.createdAt || new Date().toISOString(),
+        uploadedBy: userEmail || item.evaluationUsername || 'Employee'
+      }];
+    }
+
     return {
       ...item,
       ...(syncedReviewStatus ? { reviewStatus: syncedReviewStatus } : {}),
@@ -13848,8 +13987,122 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       q2Poe: finalQ2,
       midtermPoe: finalMidterm,
       q3Poe: finalQ3,
-      q4Poe: finalQ4
+      q4Poe: finalQ4,
+      q1PoeDocs: q1Docs,
+      q2PoeDocs: q2Docs,
+      q3PoeDocs: q3Docs,
+      q4PoeDocs: q4Docs,
+      annualPoeDocs: annualDocs,
+      midtermPoeDocs: midtermDocs
     };
+  };
+
+  // Helper to merge POE documents, actuals, scores, and custom KPIs from secondary pplan_ or kpis_ rows into a primary plan's items
+  const mergePlanItemsWithSecondary = (primaryItems: any[], secondaryItemLists: any[][]): any[] => {
+    const result = Array.isArray(primaryItems) ? primaryItems.map(it => ({ ...it })) : [];
+    if (!secondaryItemLists || secondaryItemLists.length === 0) return result;
+
+    const mergeDocArrays = (a?: any[], b?: any[]) => {
+      const listA = Array.isArray(a) ? a : [];
+      const listB = Array.isArray(b) ? b : [];
+      if (listB.length === 0) return listA;
+      if (listA.length === 0) return listB;
+      const seen = new Map<string, any>();
+      for (const doc of [...listA, ...listB]) {
+        if (!doc) continue;
+        const key = String(doc.id || doc.name || Math.random()).toLowerCase().trim();
+        const existing = seen.get(key);
+        if (!existing || (!existing.dataUrl && doc.dataUrl)) {
+          seen.set(key, doc);
+        }
+      }
+      return Array.from(seen.values());
+    };
+
+    const isActionedStatus = (st?: string) =>
+      st === 'Approved' || st === 'Revision Required' || st === 'Rejected' || st === 'Reviewed' || st === 'Dispatched to Audit' || st === 'Dispatched to Internal Audit';
+    const isSubmittedStatus = (st?: string) =>
+      st === 'Submitted for Approval' || st === 'Submitted for Review' || st === 'Submitted';
+
+    for (const secList of secondaryItemLists) {
+      if (!Array.isArray(secList)) continue;
+      for (const secItem of secList) {
+        if (!secItem) continue;
+        const secId = String(secItem.id || '').toLowerCase().trim();
+        const secNo = String(secItem.kpiNo || secItem['kpi no'] || '').toLowerCase().trim();
+        const secDesc = String(secItem.kpi || secItem.description || '').toLowerCase().trim();
+
+        const matchIdx = result.findIndex(baseItem => {
+          const bId = String(baseItem.id || '').toLowerCase().trim();
+          const bNo = String(baseItem.kpiNo || baseItem['kpi no'] || '').toLowerCase().trim();
+          const bDesc = String(baseItem.kpi || baseItem.description || '').toLowerCase().trim();
+          return (secId && bId && secId === bId) ||
+                 (secNo && bNo && secNo === bNo) ||
+                 (secDesc && bDesc && secDesc.length > 8 && secDesc === bDesc);
+        });
+
+        if (matchIdx >= 0) {
+          const base = result[matchIdx];
+          const baseSt = base.reviewStatus || base.reviewApprovalStatus;
+          const secSt = secItem.reviewStatus || secItem.reviewApprovalStatus;
+
+          let resolvedReviewStatus = base.reviewStatus;
+          let resolvedApprovalStatus = base.reviewApprovalStatus;
+          if (!isActionedStatus(baseSt)) {
+            if (isActionedStatus(secSt)) {
+              resolvedReviewStatus = secItem.reviewStatus || (secItem.reviewApprovalStatus === 'Approved' ? 'Approved' : 'Revision Required');
+              resolvedApprovalStatus = secItem.reviewApprovalStatus || (secItem.reviewStatus === 'Approved' ? 'Approved' : 'Rejected');
+            } else if (!isSubmittedStatus(baseSt) && isSubmittedStatus(secSt)) {
+              resolvedReviewStatus = secItem.reviewStatus;
+            }
+          }
+
+          result[matchIdx] = {
+            ...base,
+            ...(resolvedReviewStatus ? { reviewStatus: resolvedReviewStatus } : {}),
+            ...(resolvedApprovalStatus ? { reviewApprovalStatus: resolvedApprovalStatus } : {}),
+            managerScore: base.managerScore || secItem.managerScore,
+            review: base.review || secItem.review,
+            reviewComment: base.reviewComment || secItem.reviewComment,
+            myScore: (base.myScore && base.myScore !== 'N/A') ? base.myScore : (secItem.myScore || base.myScore),
+            evaluation: base.evaluation || secItem.evaluation,
+            evaluationComment: base.evaluationComment || secItem.evaluationComment,
+            q1Actual: base.q1Actual || secItem.q1Actual,
+            q2Actual: base.q2Actual || secItem.q2Actual,
+            q3Actual: base.q3Actual || secItem.q3Actual,
+            q4Actual: base.q4Actual || secItem.q4Actual,
+            midtermActual: base.midtermActual || secItem.midtermActual,
+            q1Comment: base.q1Comment || secItem.q1Comment,
+            q2Comment: base.q2Comment || secItem.q2Comment,
+            q3Comment: base.q3Comment || secItem.q3Comment,
+            q4Comment: base.q4Comment || secItem.q4Comment,
+            q1Poe: base.q1Poe || secItem.q1Poe,
+            q2Poe: base.q2Poe || secItem.q2Poe,
+            q3Poe: base.q3Poe || secItem.q3Poe,
+            q4Poe: base.q4Poe || secItem.q4Poe,
+            q1PoeStatus: (base.q1PoeStatus && base.q1PoeStatus !== 'Pending Verification') ? base.q1PoeStatus : (secItem.q1PoeStatus || base.q1PoeStatus),
+            q2PoeStatus: (base.q2PoeStatus && base.q2PoeStatus !== 'Pending Verification') ? base.q2PoeStatus : (secItem.q2PoeStatus || base.q2PoeStatus),
+            q3PoeStatus: (base.q3PoeStatus && base.q3PoeStatus !== 'Pending Verification') ? base.q3PoeStatus : (secItem.q3PoeStatus || base.q3PoeStatus),
+            q4PoeStatus: (base.q4PoeStatus && base.q4PoeStatus !== 'Pending Verification') ? base.q4PoeStatus : (secItem.q4PoeStatus || base.q4PoeStatus),
+            q1PoeFeedback: base.q1PoeFeedback || secItem.q1PoeFeedback,
+            q2PoeFeedback: base.q2PoeFeedback || secItem.q2PoeFeedback,
+            q3PoeFeedback: base.q3PoeFeedback || secItem.q3PoeFeedback,
+            q4PoeFeedback: base.q4PoeFeedback || secItem.q4PoeFeedback,
+            poeFileBase64: base.poeFileBase64 || secItem.poeFileBase64,
+            poeFileName: base.poeFileName || secItem.poeFileName,
+            q1PoeDocs: mergeDocArrays(base.q1PoeDocs, secItem.q1PoeDocs),
+            q2PoeDocs: mergeDocArrays(base.q2PoeDocs, secItem.q2PoeDocs),
+            q3PoeDocs: mergeDocArrays(base.q3PoeDocs, secItem.q3PoeDocs),
+            q4PoeDocs: mergeDocArrays(base.q4PoeDocs, secItem.q4PoeDocs),
+            annualPoeDocs: mergeDocArrays(base.annualPoeDocs, secItem.annualPoeDocs),
+            midtermPoeDocs: mergeDocArrays(base.midtermPoeDocs, secItem.midtermPoeDocs)
+          };
+        } else if (secItem.kpi || secItem.description || secItem.kpiNo) {
+          result.push({ ...secItem });
+        }
+      }
+    }
+    return result;
   };
 
   // Performance Plan (PPLAN) Routes
@@ -13898,16 +14151,25 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
 
       if (!data) {
-        // Query all candidate pplan keys in one batch so we always pick the most recently updated / highest priority plan across tenant-229 and nkangala_auto
+        const kpiCandidateKeys = Array.from(new Set([
+          `kpis_${tenantId}_${userId}`,
+          `kpis_tenant-229_${userId}`,
+          `kpis_nkangala_auto_${userId}`,
+          `kpis_global_${userId}`
+        ]));
+        // Query all candidate pplan and kpis keys in one batch so we always pick the most recently updated plan and merge any KPIs/POEs captured in the KPI module
         const batchRes = await supabase
           .from('messages')
           .select('id, content, created_at')
-          .in('id', primaryCacheKeys);
+          .in('id', [...primaryCacheKeys, ...kpiCandidateKeys]);
 
         if (batchRes.error) {
           error = batchRes.error;
           hadQueryError = true;
         } else if (Array.isArray(batchRes.data) && batchRes.data.length > 0) {
+          const pplanRows = batchRes.data.filter((r: any) => String(r.id || '').startsWith('pplan_'));
+          const kpiRows = batchRes.data.filter((r: any) => String(r.id || '').startsWith('kpis_'));
+
           const scorePlanCandidate = (row: any) => {
             try {
               const p = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
@@ -13925,6 +14187,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
                   } else if (st === 'Submitted for Approval' || st === 'Submitted for Review' || st === 'Submitted') {
                     reviewCount += 1;
                   }
+                  const docsLen = (it.q1PoeDocs?.length || 0) + (it.q2PoeDocs?.length || 0) + (it.q3PoeDocs?.length || 0) + (it.q4PoeDocs?.length || 0) + (it.annualPoeDocs?.length || 0) + (it.midtermPoeDocs?.length || 0);
+                  if (docsLen > 0) reviewCount += 1;
                 });
               }
               return {
@@ -13932,7 +14196,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
                 ts,
                 reviewCount,
                 itemCount: Array.isArray(list) ? list.length : 0,
-                parsed: p,
+                parsed: Array.isArray(p) ? { metadata: {}, items: p, rows: p } : p,
                 raw: typeof row.content === 'string' ? row.content : JSON.stringify(row.content)
               };
             } catch (e) {
@@ -13940,7 +14204,10 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             }
           };
 
-          const candidates = batchRes.data.map(scorePlanCandidate).filter(c => c.valid);
+          const pplanCandidates = pplanRows.map(scorePlanCandidate).filter(c => c.valid);
+          const kpiCandidates = kpiRows.map(scorePlanCandidate).filter(c => c.valid);
+          const candidates = pplanCandidates.length > 0 ? pplanCandidates : kpiCandidates;
+
           if (candidates.length > 0) {
             // Sort by newest timestamp first; if timestamps are equal, prefer higher reviewCount
             candidates.sort((a, b) => {
@@ -13949,50 +14216,23 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             });
 
             const best = candidates[0];
-            // Also merge any item-level Approved/Revision Required statuses from other candidate rows if an item in `best` is still pending/submitted
-            if (candidates.length > 1 && best.parsed && Array.isArray(best.parsed.items)) {
-              const otherItemsMap = new Map<string, any>();
-              for (let i = 1; i < candidates.length; i++) {
-                const cItems = candidates[i].parsed?.items || candidates[i].parsed?.rows || [];
-                if (Array.isArray(cItems)) {
-                  cItems.forEach((it: any) => {
-                    const st = it.reviewStatus || it.reviewApprovalStatus;
-                    if (st === 'Approved' || st === 'Revision Required' || st === 'Rejected' || st === 'Dispatched to Audit') {
-                      const keyId = String(it.id || '').toLowerCase().trim();
-                      const keyNo = String(it.kpiNo || '').toLowerCase().trim();
-                      if (keyId && !otherItemsMap.has(`id:${keyId}`)) otherItemsMap.set(`id:${keyId}`, it);
-                      if (keyNo && !otherItemsMap.has(`no:${keyNo}`)) otherItemsMap.set(`no:${keyNo}`, it);
-                    }
-                  });
-                }
+            const baseItems = best.parsed?.items || best.parsed?.rows || best.parsed?.kpis || [];
+            const secondaryLists: any[][] = [];
+            for (let i = 1; i < candidates.length; i++) {
+              const cItems = candidates[i].parsed?.items || candidates[i].parsed?.rows || candidates[i].parsed?.kpis || [];
+              if (Array.isArray(cItems) && cItems.length > 0) secondaryLists.push(cItems);
+            }
+            if (pplanCandidates.length > 0 && kpiCandidates.length > 0) {
+              for (const kc of kpiCandidates) {
+                const kItems = kc.parsed?.items || kc.parsed?.rows || kc.parsed?.kpis || [];
+                if (Array.isArray(kItems) && kItems.length > 0) secondaryLists.push(kItems);
               }
-              if (otherItemsMap.size > 0) {
-                best.parsed.items = best.parsed.items.map((it: any) => {
-                  const curSt = it.reviewStatus || it.reviewApprovalStatus;
-                  if (curSt === 'Approved' || curSt === 'Revision Required' || curSt === 'Rejected' || curSt === 'Dispatched to Audit') {
-                    return it;
-                  }
-                  const keyId = String(it.id || '').toLowerCase().trim();
-                  const keyNo = String(it.kpiNo || '').toLowerCase().trim();
-                  const matched = (keyId && otherItemsMap.get(`id:${keyId}`)) || (keyNo && otherItemsMap.get(`no:${keyNo}`));
-                  if (matched) {
-                    return {
-                      ...it,
-                      reviewStatus: matched.reviewStatus || it.reviewStatus,
-                      reviewApprovalStatus: matched.reviewApprovalStatus || (matched.reviewStatus === 'Approved' ? 'Approved' : matched.reviewStatus === 'Revision Required' ? 'Rejected' : it.reviewApprovalStatus),
-                      managerScore: matched.managerScore || it.managerScore,
-                      review: matched.review || it.review,
-                      reviewComment: matched.reviewComment || it.reviewComment,
-                      q1PoeStatus: matched.q1PoeStatus || it.q1PoeStatus,
-                      q2PoeStatus: matched.q2PoeStatus || it.q2PoeStatus,
-                      q3PoeStatus: matched.q3PoeStatus || it.q3PoeStatus,
-                      q4PoeStatus: matched.q4PoeStatus || it.q4PoeStatus
-                    };
-                  }
-                  return it;
-                });
-                best.parsed.rows = best.parsed.items;
-              }
+            }
+
+            if (secondaryLists.length > 0 && best.parsed && !(best.parsed.metadata && best.parsed.metadata._isCleared)) {
+              const merged = mergePlanItemsWithSecondary(baseItems, secondaryLists);
+              best.parsed.items = merged;
+              best.parsed.rows = merged;
             }
 
             const finalRaw = JSON.stringify(best.parsed);
@@ -14303,53 +14543,86 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         tenantIds = ['nkangala_auto', 'tenant-229'];
       }
 
-      if (String(isManager) === 'true') {
-        const { data, error } = await supabase
-          .from('messages')
-          .select('id, content')
-          .eq('message_type', 'pplan_list')
-          .in('tenant_id', tenantIds);
+      const normUser = (typeof userId === 'string' ? userId : '').toLowerCase().trim();
+      const cacheKey = `reports_unlock_${tenantIds[0]}_${String(isManager) === 'true' ? 'mgr' : normUser}`;
 
-        if (error || !data) {
-          return res.json({ unlocked: false });
-        }
-
-        const anyAudited = data.some((row: any) => {
-          try {
-            const raw = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
-            const auditStatus = raw?.metadata?.internalAuditStatus;
-            return auditStatus === 'Audited' || auditStatus === 'Pushed to DPMC' || auditStatus === 'Pushed to Moderation';
-          } catch {
-            return false;
+      const result = await fetchWithCoalescing(cacheKey, 60000, async () => {
+        if (String(isManager) === 'true') {
+          // 1. Check in-memory pplanCache first to avoid full-table scan if already cached
+          for (const [, cached] of pplanCache.entries()) {
+            try {
+              const raw = JSON.parse(cached.raw);
+              const auditStatus = raw?.metadata?.internalAuditStatus;
+              if (auditStatus === 'Audited' || auditStatus === 'Pushed to DPMC' || auditStatus === 'Pushed to Moderation') {
+                return { unlocked: true };
+              }
+            } catch {}
           }
-        });
 
-        return res.json({ unlocked: anyAudited });
-      } else {
-        const normUser = (typeof userId === 'string' ? userId : '').toLowerCase().trim();
-        const docId = `pplan_${tenantId}_${normUser}`;
-        const { data, error } = await supabase
-          .from('messages')
-          .select('content')
-          .eq('id', docId)
-          .eq('message_type', 'pplan_list')
-          .maybeSingle();
+          const { data, error } = await supabase
+            .from('messages')
+            .select('id, content')
+            .eq('message_type', 'pplan_list')
+            .in('tenant_id', tenantIds)
+            .limit(100);
 
-        if (error || !data || !data.content) {
-          return res.json({ unlocked: false });
+          if (error || !data) {
+            return { unlocked: false };
+          }
+
+          const anyAudited = data.some((row: any) => {
+            try {
+              const raw = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
+              const auditStatus = raw?.metadata?.internalAuditStatus;
+              return auditStatus === 'Audited' || auditStatus === 'Pushed to DPMC' || auditStatus === 'Pushed to Moderation';
+            } catch {
+              return false;
+            }
+          });
+
+          return { unlocked: anyAudited };
+        } else {
+          // Check pplanCache first
+          for (const tId of tenantIds) {
+            const cached = pplanCache.get(`pplan_${tId}_${normUser}`);
+            if (cached && cached.raw) {
+              try {
+                const raw = JSON.parse(cached.raw);
+                const revStatus = raw?.metadata?.reviewStatus;
+                const auditStatus = raw?.metadata?.internalAuditStatus;
+                const managerDone = revStatus === 'Reviewed' || revStatus === 'Approved';
+                const auditDone = auditStatus === 'Audited' || auditStatus === 'Pushed to DPMC' || auditStatus === 'Pushed to Moderation';
+                return { unlocked: !!(managerDone && auditDone) };
+              } catch {}
+            }
+          }
+
+          const docId = `pplan_${tenantId}_${normUser}`;
+          const { data, error } = await supabase
+            .from('messages')
+            .select('content')
+            .eq('id', docId)
+            .eq('message_type', 'pplan_list')
+            .maybeSingle();
+
+          if (error || !data || !data.content) {
+            return { unlocked: false };
+          }
+
+          try {
+            const raw = typeof data.content === 'string' ? JSON.parse(data.content) : data.content;
+            const revStatus = raw?.metadata?.reviewStatus;
+            const auditStatus = raw?.metadata?.internalAuditStatus;
+            const managerDone = revStatus === 'Reviewed' || revStatus === 'Approved';
+            const auditDone = auditStatus === 'Audited' || auditStatus === 'Pushed to DPMC' || auditStatus === 'Pushed to Moderation';
+            return { unlocked: !!(managerDone && auditDone) };
+          } catch {
+            return { unlocked: false };
+          }
         }
+      });
 
-        try {
-          const raw = typeof data.content === 'string' ? JSON.parse(data.content) : data.content;
-          const revStatus = raw?.metadata?.reviewStatus;
-          const auditStatus = raw?.metadata?.internalAuditStatus;
-          const managerDone = revStatus === 'Reviewed' || revStatus === 'Approved';
-          const auditDone = auditStatus === 'Audited' || auditStatus === 'Pushed to DPMC' || auditStatus === 'Pushed to Moderation';
-          return res.json({ unlocked: !!(managerDone && auditDone) });
-        } catch {
-          return res.json({ unlocked: false });
-        }
-      }
+      return res.json(result);
     } catch (e: any) {
       return res.json({ unlocked: false });
     }
@@ -14372,16 +14645,17 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       // 1. Build targeted ID filter if subordinate emails or manager email are specified
       let filterIds: string[] | null = null;
       let targetSubs: string[] = [];
+      const usersList = await getConsolidatedUsersList(tenantId);
 
       if (subordinateEmailsParam) {
         targetSubs = subordinateEmailsParam.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
-      } else if (managerEmailParam) {
+      }
+      if (managerEmailParam) {
         try {
-          const usersList = await getConsolidatedUsersList(tenantId);
           const normMgr = managerEmailParam.toLowerCase().trim();
           
           const KNOWN_MGR_MAP: Record<string, string[]> = {
-            'linkss': ['joubertm@nkangaladm.gov.za', 'tloujmt@nkangaladm.gov.za'],
+            'linkss': ['joubertm@nkangaladm.gov.za', 'tloujmt@nkangaladm.gov.za', 'singhn@nkangaladm.gov.za'],
             'singhn': ['marxc@nkangaladm.gov.za', 'nakapm@nkangaladm.gov.za', 'rachidimb@nkangaladm.gov.za', 'mokhabelagg@nkangaladm.gov.za'],
             'joubertm': ['matsebulan@nkangaladm.gov.za', 'mathenjwabh@nkangaladm.gov.za'],
             'magampeas': [
@@ -14413,21 +14687,47 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             }
           }
 
+          // Include universal subordinateEmails computed on the manager's consolidated user record
+          const mgrProfile = usersList.find((u: any) => (u.email || '').toLowerCase().trim() === normMgr);
+          if (mgrProfile && Array.isArray(mgrProfile.subordinateEmails)) {
+            mgrProfile.subordinateEmails.forEach((s: string) => {
+              const cleanS = (s || '').toLowerCase().trim();
+              if (cleanS && !targetSubs.includes(cleanS)) targetSubs.push(cleanS);
+            });
+          }
+
+          const mgrFullName = (mgrProfile?.fullName || '').toLowerCase().trim().replace(/['"\.,]/g, ' ').replace(/\s+/g, ' ').trim();
+          const mgrTokens = mgrFullName.split(' ').filter(Boolean);
+
           const dynamicSubs = usersList
             .filter((u: any) => {
-              const m = (u.managerEmail || u.manager || u.reportTo || '').toLowerCase().trim();
-              if (!m) return false;
+              const uEmail = (u.email || '').toLowerCase().trim();
+              if (!uEmail || uEmail === normMgr) return false;
+              const mEmail = (u.managerEmail || '').toLowerCase().trim();
+              if (mEmail && (mEmail === normMgr || mEmail.includes(normMgr) || normMgr.includes(mEmail))) {
+                return true;
+              }
+              const mName = (u.manager || u.reportTo || '').toLowerCase().trim().replace(/['"\.,]/g, ' ').replace(/\s+/g, ' ').trim();
+              if (!mName) return false;
+              if (mgrFullName && (mName === mgrFullName || mName.includes(mgrFullName) || mgrFullName.includes(mName))) {
+                return true;
+              }
+              if (mgrTokens.length >= 2) {
+                const mTokens = mName.split(' ').filter(Boolean);
+                if (mTokens.length >= 2 && mTokens[0] === mgrTokens[0] && mTokens[mTokens.length - 1] === mgrTokens[mgrTokens.length - 1]) {
+                  return true;
+                }
+              }
               const mgrPrefix = normMgr.split('@')[0].replace(/[^a-z]/g, '');
-              const mClean = m.replace(/[^a-z]/g, '');
-              return m.includes(normMgr) || normMgr.includes(m) ||
-                (mgrPrefix.length >= 4 && mClean.includes(mgrPrefix)) ||
-                (normMgr.includes('links') && m.includes('links')) ||
-                (normMgr.includes('singh') && m.includes('singh')) ||
-                (normMgr.includes('joubert') && m.includes('joubert')) ||
-                (normMgr.includes('magampe') && m.includes('magampe')) ||
-                (normMgr.includes('segami') && m.includes('segami')) ||
-                (normMgr.includes('tlou') && m.includes('tlou')) ||
-                (normMgr.includes('fenyane') && m.includes('fenyane'));
+              const mClean = mName.replace(/[^a-z]/g, '');
+              return (mgrPrefix.length >= 4 && mClean.includes(mgrPrefix)) ||
+                (normMgr.includes('links') && mName.includes('links')) ||
+                (normMgr.includes('singh') && mName.includes('singh')) ||
+                (normMgr.includes('joubert') && mName.includes('joubert')) ||
+                (normMgr.includes('magampe') && mName.includes('magampe')) ||
+                (normMgr.includes('segami') && mName.includes('segami')) ||
+                (normMgr.includes('tlou') && mName.includes('tlou')) ||
+                (normMgr.includes('fenyane') && mName.includes('fenyane'));
             })
             .map((u: any) => (u.email || '').toLowerCase().trim())
             .filter(Boolean);
@@ -14441,19 +14741,26 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
 
       if (targetSubs.length > 0) {
-        filterIds = [];
+        const idSet = new Set<string>();
         for (const sub of targetSubs) {
-          for (const tId of tenantIds) {
-            filterIds.push(`pplan_${tId}_${sub}`);
+          const origCaseUser = usersList.find((u: any) => (u.email || '').toLowerCase().trim() === sub);
+          const candidateEmails = Array.from(new Set([sub, origCaseUser?.email?.trim()].filter(Boolean)));
+          for (const cEmail of candidateEmails) {
+            for (const tId of tenantIds) {
+              idSet.add(`pplan_${tId}_${cEmail}`);
+              idSet.add(`kpis_${tId}_${cEmail}`);
+            }
+            idSet.add(`pplan_global_${cEmail}`);
+            idSet.add(`kpis_global_${cEmail}`);
           }
-          filterIds.push(`pplan_global_${sub}`);
         }
+        filterIds = Array.from(idSet);
       }
 
-      // Check micro-cache if querying (bypass if cache-buster 't' is present)
+      // Check micro-cache if querying (invalidated automatically whenever any pplan or kpi is saved)
       const cacheKey = `team_pplans_${tenantId}_${isMetadataOnly}_${targetSubs.join('_') || 'all'}`;
-      if (!req.query.t) {
-        const cached = getCached<any>(cacheKey, 5000);
+      if (req.query.force !== 'true') {
+        const cached = getCached<any>(cacheKey, 20000);
         if (cached) {
           return res.json(cached);
         }
@@ -14461,13 +14768,12 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
 
       let query = supabase
         .from('messages')
-        .select('id, tenant_id, sender_email, content, created_at')
-        .eq('message_type', 'pplan_list');
+        .select('id, tenant_id, sender_email, content, created_at, message_type');
 
       if (filterIds && filterIds.length > 0) {
         query = query.in('id', filterIds);
       } else {
-        query = query.in('tenant_id', tenantIds);
+        query = query.eq('message_type', 'pplan_list').in('tenant_id', tenantIds);
       }
 
       const { data, error } = await query;
@@ -14477,18 +14783,43 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         return res.json({ teamPlans: [] });
       }
 
-      const teamPlans = (data || [])
-        .map((row: any) => {
-          // Extract userId/email from the message ID and normalize to lowercase
-          let userId = '';
-          const foundTenantId = tenantIds.find(tId => row.id.startsWith(`pplan_${tId}_`));
-          if (foundTenantId) {
-            userId = row.id.substring(`pplan_${foundTenantId}_`.length);
-          } else {
-            const parts = row.id.split('_');
-            userId = parts[parts.length - 1] || row.sender_email || '';
+      const allTenantPrefixes = [...tenantIds, 'global'];
+      const kpisBySub = new Map<string, any[][]>();
+      const pplanRows: any[] = [];
+
+      for (const row of (data || [])) {
+        const rowId = String(row.id || '');
+        const isKpiRow = rowId.startsWith('kpis_') || row.message_type === 'kpis_list' || row.message_type === 'kpi_list';
+        let userId = '';
+        const prefixType = isKpiRow ? 'kpis_' : 'pplan_';
+        const foundTenantId = allTenantPrefixes.find(tId => rowId.startsWith(`${prefixType}${tId}_`));
+        if (foundTenantId) {
+          userId = rowId.substring(`${prefixType}${foundTenantId}_`.length);
+        } else {
+          const parts = rowId.split('_');
+          userId = parts[parts.length - 1] || row.sender_email || '';
+        }
+        userId = (normalizeNkangalaEmail(userId.toLowerCase().trim()) || userId.toLowerCase().trim());
+
+        if (isKpiRow) {
+          if (row.content && userId) {
+            try {
+              const rawKpi = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
+              const kList = Array.isArray(rawKpi) ? rawKpi : (rawKpi?.kpis || rawKpi?.items || rawKpi?.rows || []);
+              if (Array.isArray(kList) && kList.length > 0) {
+                if (!kpisBySub.has(userId)) kpisBySub.set(userId, []);
+                kpisBySub.get(userId)!.push(kList);
+              }
+            } catch (e) {}
           }
-          userId = userId.toLowerCase().trim();
+        } else {
+          pplanRows.push({ ...row, _resolvedUserId: userId });
+        }
+      }
+
+      const teamPlans = pplanRows
+        .map((row: any) => {
+          const userId = row._resolvedUserId;
 
           let planObj: any = { metadata: {}, items: [] };
           if (row.content) {
@@ -14500,7 +14831,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
                   items: []
                 };
               } else {
-                planObj = rawObj;
+                planObj = Array.isArray(rawObj) ? { metadata: {}, items: rawObj } : rawObj;
                 if (planObj && Array.isArray(planObj.items)) {
                   planObj.items = planObj.items.map((it: any) => sanitizePplanItem(it, userId));
                   if (userId.toLowerCase().includes('moepis')) {
@@ -14549,18 +14880,17 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           it.reviewStatus === 'Submitted' ||
           it.reviewStatus === 'Approved' ||
           it.reviewStatus === 'Reviewed' ||
-          it.reviewStatus === 'Dispatched to Internal Audit'
+          it.reviewStatus === 'Revision Required' ||
+          it.reviewStatus === 'Dispatched to Internal Audit' ||
+          it.reviewStatus === 'Dispatched to Audit'
         ).length;
 
         let score = 0;
-        // Prefer canonical tenant-229 over nkangala_auto and global
         if (tp.tenantId === 'tenant-229') score += 50000;
         else if (tp.tenantId === 'nkangala_auto') score += 25000;
 
-        // Prioritize Fred-extracted plans
         if (tp.plan.metadata?._isFredExtracted) score += 20000;
 
-        // Prioritize Submitted for Approval, Reviewed, or Approved status
         if (metaStatus === 'submitted for approval' || metaStatus === 'submitted for review' || metaStatus === 'submitted') {
           score += 10000;
         } else if (metaStatus === 'reviewed' || metaStatus === 'approved') {
@@ -14569,40 +14899,114 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           score += 100;
         }
 
-        // Add weight for submitted items
         if (submittedItemsCount > 0) {
           score += 5000 + (submittedItemsCount * 20);
         }
 
-        // Add item count bonus
         score += Math.min(items.length, 500);
 
         return score;
       };
 
-      // Deduplicate by userId ensuring canonical tenant-229 and latest updates take priority
-      const dedupedMap = new Map<string, any>();
+      // Group by userId, pick highest-priority plan, and merge items/POEs across all pplan_ and kpis_ rows for that subordinate
+      const groupedBySub = new Map<string, any[]>();
       for (const tp of teamPlans) {
         if (!tp.userId) continue;
-        const existing = dedupedMap.get(tp.userId);
-        if (!existing) {
-          dedupedMap.set(tp.userId, tp);
-          continue;
+        if (!groupedBySub.has(tp.userId)) groupedBySub.set(tp.userId, []);
+        groupedBySub.get(tp.userId)!.push(tp);
+      }
+
+      const dedupedMap = new Map<string, any>();
+      for (const [subId, candidates] of groupedBySub.entries()) {
+        candidates.sort((a, b) => {
+          const sA = getPlanSubmissionPriority(a);
+          const sB = getPlanSubmissionPriority(b);
+          if (sB !== sA) return sB - sA;
+          const tA = new Date(a.plan?.metadata?._pushedAt || a.plan?.metadata?.updatedAt || a.createdAt || 0).getTime();
+          const tB = new Date(b.plan?.metadata?._pushedAt || b.plan?.metadata?.updatedAt || b.createdAt || 0).getTime();
+          return tB - tA;
+        });
+
+        const best = candidates[0];
+        if (!isMetadataOnly && best.plan) {
+          const secondaryLists: any[][] = [];
+          for (let i = 1; i < candidates.length; i++) {
+            if (Array.isArray(candidates[i].plan?.items) && candidates[i].plan.items.length > 0) {
+              secondaryLists.push(candidates[i].plan.items);
+            }
+          }
+          const subKpiLists = kpisBySub.get(subId);
+          if (subKpiLists && subKpiLists.length > 0) {
+            secondaryLists.push(...subKpiLists);
+          }
+          if (secondaryLists.length > 0 && !(best.plan.metadata && best.plan.metadata._isCleared)) {
+            best.plan.items = mergePlanItemsWithSecondary(best.plan.items || [], secondaryLists).map((it: any) => sanitizePplanItem(it, subId));
+          }
         }
+        dedupedMap.set(subId, best);
+      }
 
-        const tpScore = getPlanSubmissionPriority(tp);
-        const existingScore = getPlanSubmissionPriority(existing);
+      // Ensure every subordinate in targetSubs (or with kpis_ rows) has a complete plan entry with live profile metadata and KPIs/POEs
+      const allTargetSubIds = Array.from(new Set([...targetSubs, ...Array.from(kpisBySub.keys())]));
+      for (const subId of allTargetSubIds) {
+        const uProfile = usersList.find((u: any) => (u.email || '').toLowerCase().trim() === subId);
+        let entry = dedupedMap.get(subId);
 
-        if (tpScore > existingScore) {
-          dedupedMap.set(tp.userId, tp);
-        } else if (tpScore === existingScore) {
-          const tpTime = new Date(tp.plan?.metadata?._pushedAt || tp.plan?.metadata?.updatedAt || tp.createdAt || 0).getTime();
-          const exTime = new Date(existing.plan?.metadata?._pushedAt || existing.plan?.metadata?.updatedAt || existing.createdAt || 0).getTime();
-          if (tpTime >= exTime) {
-            dedupedMap.set(tp.userId, tp);
+        if (!entry || !entry.plan || (!isMetadataOnly && (!Array.isArray(entry.plan.items) || entry.plan.items.length === 0))) {
+          const subKpiLists = kpisBySub.get(subId) || [];
+          let initialItems: any[] = [];
+          if (subKpiLists.length > 0) {
+            initialItems = mergePlanItemsWithSecondary(subKpiLists[0], subKpiLists.slice(1)).map((it: any) => sanitizePplanItem(it, subId));
+          }
+          if (initialItems.length === 0 && !isMetadataOnly) {
+            const job = uProfile?.jobFunction || 'Municipal Official';
+            const dept = uProfile?.department || 'Municipal Administration';
+            initialItems = [
+              { id: `pplan-${subId}-1`, kpiNo: 'KPI-01', strategicGoal: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', kpi: `Achieve 100% statutory compliance and operational targets for ${job}`, baseline: '100%', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', budget: 'OPEX', weighting: '25', poe: 'Quarterly performance verification portfolio and compliance report' },
+              { id: `pplan-${subId}-2`, kpiNo: 'KPI-02', strategicGoal: 'KPA 2: MUNICIPAL FINANCIAL VIABILITY AND MANAGEMENT', kpi: `Ensure 100% adherence to departmental budget control and MFMA expenditure guidelines in ${dept}`, baseline: '100%', annualTarget: '100%', q1Target: '25%', q2Target: '50%', q3Target: '75%', q4Target: '100%', budget: 'OPEX', weighting: '25', poe: 'Monthly financial expenditure reports and variance analysis' },
+              { id: `pplan-${subId}-3`, kpiNo: 'KPI-03', strategicGoal: 'KPA 3: BASIC SERVICE DELIVERY AND INFRASTRUCTURE DEVELOPMENT', kpi: `Maintain 100% resolution of public service queries and operational requests within prescribed SLAs`, baseline: '100%', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', budget: 'OPEX', weighting: '25', poe: 'Quarterly customer service delivery register and SLA report' },
+              { id: `pplan-${subId}-4`, kpiNo: 'KPI-04', strategicGoal: 'KPA 4: MUNICIPAL INSTITUTIONAL DEVELOPMENT AND TRANSFORMATION', kpi: `Complete all mandatory individual performance reviews and Personal Development Plan (PDP) targets for 2026/2027`, baseline: '100%', annualTarget: '100%', q1Target: '25%', q2Target: '50%', q3Target: '75%', q4Target: '100%', budget: 'OPEX', weighting: '25', poe: 'Signed individual performance appraisal forms and PDP completion certificates' }
+            ].map((it: any) => sanitizePplanItem(it, subId));
+          }
+          entry = {
+            userId: subId,
+            tenantId: 'tenant-229',
+            createdAt: new Date().toISOString(),
+            plan: {
+              metadata: {
+                ...(entry?.plan?.metadata || {}),
+                name: uProfile?.fullName || entry?.plan?.metadata?.name || subId.split('@')[0],
+                position: uProfile?.jobFunction || entry?.plan?.metadata?.position || 'Municipal Official',
+                department: uProfile?.department || entry?.plan?.metadata?.department || 'Municipal Administration',
+                manager: uProfile?.manager || entry?.plan?.metadata?.manager || '',
+                managerEmail: uProfile?.managerEmail || entry?.plan?.metadata?.managerEmail || '',
+                reportTo: uProfile?.reportTo || uProfile?.manager || entry?.plan?.metadata?.reportTo || '',
+                financialYear: '2026/2027'
+              },
+              items: initialItems
+            }
+          };
+          dedupedMap.set(subId, entry);
+        } else if (uProfile && entry.plan) {
+          if (!entry.plan.metadata) entry.plan.metadata = {};
+          if (uProfile.fullName && (!entry.plan.metadata.name || entry.plan.metadata.name.includes('Placeholder'))) {
+            entry.plan.metadata.name = uProfile.fullName;
+          }
+          if (uProfile.jobFunction && !entry.plan.metadata.position) {
+            entry.plan.metadata.position = uProfile.jobFunction;
+          }
+          if (uProfile.department && !entry.plan.metadata.department) {
+            entry.plan.metadata.department = uProfile.department;
+          }
+          if (uProfile.manager && !entry.plan.metadata.manager) {
+            entry.plan.metadata.manager = uProfile.manager;
+          }
+          if (uProfile.managerEmail && !entry.plan.metadata.managerEmail) {
+            entry.plan.metadata.managerEmail = uProfile.managerEmail;
           }
         }
       }
+
       const finalTeamPlans = Array.from(dedupedMap.values());
 
       const result = { teamPlans: finalTeamPlans };
@@ -14936,7 +15340,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
 
       for (const k of memoryCache.keys()) {
-        if (k.startsWith('team_pplans_')) memoryCache.delete(k);
+        if (k.startsWith('team_pplans_') || k.startsWith('reports_unlock_')) memoryCache.delete(k);
       }
       invalidateCommandCenterCache();
 

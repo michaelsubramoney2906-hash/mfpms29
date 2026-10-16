@@ -131,7 +131,8 @@ export const GuidedIPMSWorkflow: React.FC<GuidedIPMSWorkflowProps> = ({
     const isTargetManagerEmail = ['joubertm@nkangaladm.gov.za', 'magampeas@nkangaladm.gov.za', 'segamiy@nkangaladm.gov.za', 'singhn@nkangaladm.gov.za', 'tloujmt@nkangaladm.gov.za', 'fenyanep@nkangaladm.gov.za'].includes(email) || 
                                   email.includes('singhn') || email.includes('joubertm') || email.includes('magampeas') || email.includes('segamiy') || email.includes('tloujmt') || email.includes('fenyanep');
 
-    const isManagerUser = role === 'manager' || 
+    const isManagerUser = Boolean((currentUser as any)?.hasSubordinates) ||
+                          role === 'manager' || 
                           role === 'approver' || 
                           role === 'admin' || 
                           systemRole.includes('manager') || 
@@ -214,7 +215,8 @@ export const GuidedIPMSWorkflow: React.FC<GuidedIPMSWorkflowProps> = ({
                       jobFunction.includes('pms');
     const isTargetManagerEmail = ['joubertm@nkangaladm.gov.za', 'magampeas@nkangaladm.gov.za', 'segamiy@nkangaladm.gov.za', 'singhn@nkangaladm.gov.za', 'tloujmt@nkangaladm.gov.za', 'fenyanep@nkangaladm.gov.za'].includes(email) || 
                                   email.includes('singhn') || email.includes('joubertm') || email.includes('magampeas') || email.includes('segamiy') || email.includes('tloujmt') || email.includes('fenyanep');
-    const isManagerUser = role === 'manager' || 
+    const isManagerUser = Boolean((currentUser as any)?.hasSubordinates) ||
+                          role === 'manager' || 
                           role === 'approver' || 
                           role === 'admin' || 
                           systemRole.includes('manager') || 

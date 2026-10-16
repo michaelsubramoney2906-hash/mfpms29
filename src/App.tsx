@@ -140,6 +140,8 @@ export default function App() {
     let isRefreshing = false;
     const refreshSession = async () => {
       if (isRefreshing) return;
+      const isImpersonatingNow = !!(localStorage.getItem('originalAdminUser') || sessionStorage.getItem('originalAdminUser'));
+      if (isImpersonatingNow) return;
       const savedToken = localStorage.getItem('azure_ad_token') || sessionStorage.getItem('azure_ad_token');
       if (!savedToken) return;
 
@@ -157,10 +159,6 @@ export default function App() {
           const data = await res.json();
           if (data && data.user) {
             console.log("[Silent Handshake]: Token successfully verified & refreshed.");
-            handleSetUser({
-              ...user,
-              loginTime: new Date().toISOString()
-            });
           }
         }
       } catch (err) {

@@ -98,14 +98,18 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
       if (filtered.length > 0) return filtered;
     }
 
-    // 3. Items currently in Submitted for Approval/Review state (or Approved/Reviewed/Dispatched)
+    // 3. Items currently in Submitted for Approval/Review state (or Approved/Reviewed/Revision Required/Dispatched)
     const submittedItems = plan.items.filter((it: any) => 
       it.reviewStatus === 'Submitted for Approval' || 
       it.reviewStatus === 'Submitted for Review' || 
       it.reviewStatus === 'Submitted' ||
       it.reviewStatus === 'Approved' ||
       it.reviewStatus === 'Reviewed' ||
-      it.reviewStatus === 'Dispatched to Internal Audit'
+      it.reviewStatus === 'Revision Required' ||
+      it.reviewStatus === 'Dispatched to Internal Audit' ||
+      it.reviewStatus === 'Dispatched to Audit' ||
+      it.reviewApprovalStatus === 'Approved' ||
+      it.reviewApprovalStatus === 'Rejected'
     );
     if (submittedItems.length > 0) {
       return submittedItems;
@@ -117,9 +121,8 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
       if (targeted.length > 0) return targeted;
     }
 
-    // Manager View Gating: If an employee has not submitted any KPIs, do NOT fall back to showing all draft items.
-    // Return empty list so the manager sees "Awaiting KPI submission from employee"
-    return [];
+    // 5. Universal Manager Visibility: Always allow managers to view all of their subordinate's KPIs and POEs
+    return plan.items;
   }, [selectedPlan, filterSubmittedKpiIds, showAllKpis, selectedKpiIdsForReview]);
 
   const toggleSelectKpiForReview = (id: string) => {
@@ -553,15 +556,61 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
         fenyaneSubordinates.forEach(email => mySubordinateEmails.add(email));
       }
 
-      // 1. Fetch all users to determine dynamic relationships
+      // 1. Fetch all users to determine dynamic relationships for ALL managers who have subordinates
+      if (Array.isArray((currentUser as any)?.subordinateEmails)) {
+        (currentUser as any).subordinateEmails.forEach((sEmail: string) => {
+          const clean = (sEmail || '').toLowerCase().trim();
+          if (clean && clean !== managerEmail) mySubordinateEmails.add(clean);
+        });
+      }
+
+      const doesManagerMatchCurrentUser = (uManagerRaw: string, uManagerEmailRaw: string) => {
+        const uManager = normalize(uManagerRaw || '');
+        const uManagerEmail = (uManagerEmailRaw || '').toLowerCase().trim();
+        if (uManagerEmail && managerEmail && (uManagerEmail === managerEmail || uManagerEmail.includes(managerEmail) || managerEmail.includes(uManagerEmail))) {
+          return true;
+        }
+        if (uManager && managerEmail && uManager.includes(managerEmail)) {
+          return true;
+        }
+        if (uManager && normCurrent) {
+          if (uManager === normCurrent || uManager.includes(normCurrent) || normCurrent.includes(uManager)) {
+            return true;
+          }
+          const curTokens = normCurrent.split(' ').filter(Boolean);
+          const mTokens = uManager.split(' ').filter(Boolean);
+          if (curTokens.length >= 2 && mTokens.length >= 2) {
+            const cFirst = curTokens[0];
+            const cLast = curTokens[curTokens.length - 1];
+            const mFirst = mTokens[0];
+            const mLast = mTokens[mTokens.length - 1];
+            if (cFirst === mFirst && cLast === mLast) return true;
+            if (mTokens.includes(cFirst) && mTokens.includes(cLast)) return true;
+            if (mFirst.length <= 2 && cFirst.startsWith(mFirst[0]) && mLast === cLast) return true;
+          }
+        }
+        return false;
+      };
+
       try {
-        const usersRes = await fetch(`/api/tenant/${activeTenantId}/users`);
+        const usersRes = await fetch(`/api/tenant/${activeTenantId}/users?minimal=true`);
         if (usersRes.ok) {
           const allUsersData = await safeJson(usersRes);
           const allUsers = Array.isArray(allUsersData) ? allUsersData : (allUsersData?.users || []);
           
           const isExcludedDeveloper = (email: string) => 
             ['mike@mzansiflow.co.za', 'mike@massivedynamixdistributors.com', 'audrey@mzansiflow.co.za', 'delphine@mzansiflow.co.za', 'ryanw@mzansiflow.co.za', 'bongani@mzansiflow.co.za', 'bonganim@mzansiflow.co.za'].includes(email);
+
+          // Also check if currentUser's record in allUsers already has subordinateEmails populated by the server
+          const myDirectoryRecord = allUsers.find((u: any) => (u.email || '').toLowerCase().trim() === managerEmail);
+          if (myDirectoryRecord && Array.isArray(myDirectoryRecord.subordinateEmails)) {
+            myDirectoryRecord.subordinateEmails.forEach((sEmail: string) => {
+              const clean = (sEmail || '').toLowerCase().trim();
+              if (clean && clean !== managerEmail && !isExcludedDeveloper(clean)) {
+                mySubordinateEmails.add(clean);
+              }
+            });
+          }
 
           // Build list of subordinate emails from User Directory
           allUsers.forEach((u: any) => {
@@ -575,9 +624,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
             const uManager = normalize(u.manager || u.reportTo || '');
             const uManagerEmail = (u.managerEmail || '').toLowerCase().trim();
             const isSub = Boolean(
-              (uManager && normCurrent && (uManager === normCurrent || uManager.includes(normCurrent) || normCurrent.includes(uManager))) ||
-              (uManager && managerEmail && uManager.includes(managerEmail)) ||
-              (uManagerEmail && managerEmail && (uManagerEmail === managerEmail || uManagerEmail.includes(managerEmail) || managerEmail.includes(uManagerEmail))) ||
+              doesManagerMatchCurrentUser(u.manager || u.reportTo || '', uManagerEmail) ||
               ((managerEmail.includes('linkss') || normCurrent.includes('links')) && (linksSubordinates.includes(uEmail) || uManager.includes('links'))) ||
               ((managerEmail.includes('singhn') || normCurrent.includes('singh')) && (singhSubordinates.includes(uEmail) || uManager.includes('singh'))) ||
               ((managerEmail.includes('joubertm') || normCurrent.includes('joubert')) && (joubertSubordinates.includes(uEmail) || uManager.includes('joubert'))) ||
@@ -641,9 +688,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
         }
 
         const isDirectSubordinate = mySubordinateEmails.has(targetEmail) || Boolean(
-          (pManager && normCurrent && (pManager.includes(normCurrent) || normCurrent.includes(pManager))) ||
-          (pManager && managerEmail && pManager.includes(managerEmail)) ||
-          (pManagerEmail && managerEmail && (pManagerEmail === managerEmail || pManagerEmail.includes(managerEmail) || managerEmail.includes(pManagerEmail))) ||
+          doesManagerMatchCurrentUser(p.plan?.metadata?.manager || p.plan?.metadata?.reportTo || '', pManagerEmail) ||
           ((managerEmail.includes('linkss') || normCurrent.includes('links')) && (linksSubordinates.includes(targetEmail) || pManager.includes('links'))) ||
           ((managerEmail.includes('singhn') || normCurrent.includes('singh')) && (singhSubordinates.includes(targetEmail) || pManager.includes('singh'))) ||
           ((managerEmail.includes('joubertm') || normCurrent.includes('joubert')) && (joubertSubordinates.includes(targetEmail) || pManager.includes('joubert'))) ||
@@ -2120,13 +2165,13 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
               <p className="text-slate-500 text-xs mt-2 max-w-md font-medium leading-relaxed">
                 This subordinate has not yet submitted their Key Performance Indicators (KPIs) for manager approval. Manager review is gated until the employee submits their performance scorecard.
               </p>
-              {isSystemDeveloper && plan?.items && plan.items.length > 0 && (
+              {plan?.items && plan.items.length > 0 && (
                 <button
                   type="button"
                   onClick={() => setShowAllKpis(true)}
                   className="mt-4 text-xs font-bold text-indigo-600 hover:text-indigo-800 underline cursor-pointer"
                 >
-                  Developer Override: View draft KPIs ({plan.items.length} items)
+                  View Subordinate KPIs ({plan.items.length} items)
                 </button>
               )}
             </div>
@@ -2240,13 +2285,22 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
 
             {visibleManagerItems
               .map((kpi: any, idx: number) => {
-              // Retrieve active selected quarter tab for auditing this specific KPI
-              const currentQuarterTab = activeKpiQuarter[kpi.id] || 'Q1';
               const isSelected = selectedKpiIdsForReview.includes(kpi.id);
-              
+              const legacyDocFallback = (!kpi.q1PoeDocs?.length && !kpi.q2PoeDocs?.length && !kpi.q3PoeDocs?.length && !kpi.q4PoeDocs?.length && !kpi.annualPoeDocs?.length && !kpi.midtermPoeDocs?.length && (kpi.poeFileBase64 || kpi.poeFileName))
+                ? [{
+                    id: `legacy-poe-${kpi.id || idx}`,
+                    name: kpi.poeFileName || 'Submitted_Portfolio_of_Evidence.pdf',
+                    dataUrl: kpi.poeFileBase64 || '',
+                    fileData: kpi.poeFileBase64 || '',
+                    mimeType: 'application/pdf',
+                    uploadedAt: kpi.updatedAt || new Date().toISOString(),
+                    uploadedBy: selectedPlan?.userId || 'Employee'
+                  }]
+                : [];
+
               // Map variables specifically
               const activeQuartersList = [
-                { id: 'Q1', label: 'Quarter 1', target: kpi.q1Target, actual: kpi.q1Actual, comment: kpi.q1Comment, textValue: kpi.q1Poe, docs: kpi.q1PoeDocs || [], status: kpi.q1PoeStatus || 'Pending Verification', feedback: kpi.q1PoeFeedback || '' },
+                { id: 'Q1', label: 'Quarter 1', target: kpi.q1Target, actual: kpi.q1Actual, comment: kpi.q1Comment, textValue: kpi.q1Poe, docs: (kpi.q1PoeDocs && kpi.q1PoeDocs.length > 0) ? kpi.q1PoeDocs : legacyDocFallback, status: kpi.q1PoeStatus || 'Pending Verification', feedback: kpi.q1PoeFeedback || '' },
                 { id: 'Q2', label: 'Quarter 2', target: kpi.q2Target, actual: kpi.q2Actual, comment: kpi.q2Comment, textValue: kpi.q2Poe, docs: kpi.q2PoeDocs || [], status: kpi.q2PoeStatus || 'Pending Verification', feedback: kpi.q2PoeFeedback || '' },
                 { id: 'Q3', label: 'Quarter 3', target: kpi.q3Target, actual: kpi.q3Actual, comment: kpi.q3Comment, textValue: kpi.q3Poe, docs: kpi.q3PoeDocs || [], status: kpi.q3PoeStatus || 'Pending Verification', feedback: kpi.q3PoeFeedback || '' },
                 { id: 'Q4', label: 'Quarter 4', target: kpi.q4Target, actual: kpi.q4Actual, comment: kpi.q4Comment, textValue: kpi.q4Poe, docs: kpi.q4PoeDocs || [], status: kpi.q4PoeStatus || 'Pending Verification', feedback: kpi.q4PoeFeedback || '' },
@@ -2254,6 +2308,9 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
                 { id: 'MIDTERM', label: 'Mid-Year Review', target: kpi.midtermTarget, actual: kpi.midtermActual, comment: kpi.midtermComment, textValue: kpi.midtermPoe, docs: kpi.midtermPoeDocs || [], status: kpi.midtermPoeStatus || 'Pending Verification', feedback: kpi.midtermPoeFeedback || '' }
               ];
 
+              // Retrieve active selected quarter tab for auditing this specific KPI (auto-select first quarter with uploaded POE docs if not manually selected)
+              const firstQuarterWithDocs = activeQuartersList.find(q => q.docs && q.docs.length > 0)?.id;
+              const currentQuarterTab = activeKpiQuarter[kpi.id] || firstQuarterWithDocs || 'Q1';
               const currentQuarterData = activeQuartersList.find(q => q.id === currentQuarterTab) || activeQuartersList[0];
 
               return (
