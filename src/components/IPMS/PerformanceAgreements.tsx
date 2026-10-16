@@ -2505,7 +2505,9 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
         </div>
 
         {activeTab === 'drafting_suite' ? (
-          <PADraftingSuite key={`pa_suite_${effectiveUser?.email || currentUser.email}_${activeTenantId}`} currentUser={effectiveUser as any} activeTenantId={activeTenantId} />
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <PADraftingSuite key={`pa_suite_${effectiveUser?.email || currentUser.email}_${activeTenantId}`} currentUser={effectiveUser as any} activeTenantId={activeTenantId} />
+          </div>
         ) : activeTab === 'drafting_suite_technical_services' ? (
           <DraftingSuiteTeam 
             key={`pa_tech_${effectiveUser?.email || currentUser.email}_${activeTenantId}`}
@@ -2538,7 +2540,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
         ) : activeTab === 'lead_fire_fighter' ? (
           <LeadFireFighterPADraftingSuite key={`pa_lff_${effectiveUser?.email || currentUser.email}_${activeTenantId}`} currentUser={effectiveUser as any} activeTenantId={activeTenantId} />
         ) : activeTab === 'templates' ? (
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 min-h-0 overflow-hidden">
             <PATemplates key={`pa_tpl_${effectiveUser?.email || currentUser.email}_${activeTenantId}`} currentUser={effectiveUser as any} activeTenantId={activeTenantId} />
           </div>
         ) : (

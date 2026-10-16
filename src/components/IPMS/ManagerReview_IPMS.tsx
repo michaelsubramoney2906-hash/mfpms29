@@ -706,47 +706,93 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
   const handleSelectPlan = async (tp: any, onLoaded?: () => void, targetKpiId?: string, targetKpiIds?: string[]) => {
     // We must fetch the individual plan to get the full documents (including dataUrl)
     // because dataUrl is stripped from the team-pplans endpoint.
-    setSelectedPlan(tp); // Set it initially for fast UI feedback
+    const isSameUser = selectedPlan && (selectedPlan.userId || '').toLowerCase().trim() === (tp.userId || '').toLowerCase().trim();
+    const basePlan = (isSameUser && selectedPlan?.plan?.items?.length) ? selectedPlan.plan : tp.plan;
+    setSelectedPlan({ ...tp, plan: basePlan }); // Keep latest local state if same user
     
+    const isItemActionable = (it: any) => {
+      if (!it) return true;
+      const rStat = it.reviewStatus || '';
+      const rApp = it.reviewApprovalStatus || '';
+      return rStat !== 'Approved' && rStat !== 'Reviewed' && rApp !== 'Approved' && rStat !== 'Revision Required' && rApp !== 'Rejected';
+    };
+
     const kpiIdsToFilter = targetKpiIds && targetKpiIds.length > 0 
       ? targetKpiIds 
-      : (targetKpiId ? [targetKpiId] : (tp.plan?.metadata?.submittedKpiIds && Array.isArray(tp.plan.metadata.submittedKpiIds) && tp.plan.metadata.submittedKpiIds.length > 0 ? tp.plan.metadata.submittedKpiIds : null));
+      : (targetKpiId ? [targetKpiId] : (basePlan?.metadata?.submittedKpiIds && Array.isArray(basePlan.metadata.submittedKpiIds) && basePlan.metadata.submittedKpiIds.length > 0 ? basePlan.metadata.submittedKpiIds : null));
     setFilterSubmittedKpiIds(kpiIdsToFilter);
     setShowAllKpis(false);
 
-    // Auto-select KPIs that are in Submitted for Approval/Review state
+    // Auto-select ONLY KPIs that are genuinely in Submitted for Approval/Review state (NEVER auto-select already Approved, Rejected, or Reviewed KPIs!)
     let autoSelectIds: string[] = [];
-    if (kpiIdsToFilter && kpiIdsToFilter.length > 0) {
-      autoSelectIds = kpiIdsToFilter;
-    } else if (tp.plan && Array.isArray(tp.plan.items)) {
-      autoSelectIds = tp.plan.items.filter((it: any) => 
-        it.reviewStatus === 'Submitted for Approval' || it.reviewStatus === 'Submitted for Review' || it.reviewStatus === 'Submitted'
+    if (basePlan && Array.isArray(basePlan.items)) {
+      autoSelectIds = basePlan.items.filter((it: any) => 
+        (it.reviewStatus === 'Submitted for Approval' || it.reviewStatus === 'Submitted for Review' || it.reviewStatus === 'Submitted') &&
+        isItemActionable(it)
       ).map((it: any) => it.id);
     }
-    if (targetKpiId && !autoSelectIds.includes(targetKpiId)) {
-      autoSelectIds.push(targetKpiId);
+    if (kpiIdsToFilter && kpiIdsToFilter.length > 0) {
+      // Only retain filter IDs if they have not yet been approved or rejected
+      const pendingFilters = kpiIdsToFilter.filter(fId => {
+        const it = basePlan?.items?.find((i: any) => matchesKpiIdentifier(i, fId));
+        return isItemActionable(it);
+      });
+      if (pendingFilters.length > 0) {
+        autoSelectIds = pendingFilters;
+      }
+    }
+    if (targetKpiId) {
+      const it = basePlan?.items?.find((i: any) => matchesKpiIdentifier(i, targetKpiId));
+      if (isItemActionable(it)) {
+        const canonicalId = it?.id || targetKpiId;
+        if (!autoSelectIds.includes(canonicalId)) autoSelectIds.push(canonicalId);
+      }
     }
     setSelectedKpiIdsForReview(autoSelectIds);
 
     try {
-      const res = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(tp.userId)}`);
+      const res = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(tp.userId)}&t=${Date.now()}`);
       if (res.ok) {
         const fullPlan = await safeJson(res) || {};
         if (fullPlan && fullPlan.items) {
           setSelectedPlan({ userId: tp.userId, plan: fullPlan });
+          setTeamPlans(prev => prev.map(p => 
+            (p.userId || '').toLowerCase().trim() === (tp.userId || '').toLowerCase().trim()
+              ? { ...p, plan: fullPlan }
+              : p
+          ));
           
           let fullAutoSelectIds: string[] = [];
-          const effectiveKpiFilter = kpiIdsToFilter || (fullPlan.metadata?.submittedKpiIds && Array.isArray(fullPlan.metadata.submittedKpiIds) && fullPlan.metadata.submittedKpiIds.length > 0 ? fullPlan.metadata.submittedKpiIds : null);
-          if (effectiveKpiFilter && effectiveKpiFilter.length > 0) {
-            fullAutoSelectIds = effectiveKpiFilter;
-            setFilterSubmittedKpiIds(effectiveKpiFilter);
-          } else if (Array.isArray(fullPlan.items)) {
+          if (Array.isArray(fullPlan.items)) {
+            // Filter strictly to items that actually require manager action
             fullAutoSelectIds = fullPlan.items.filter((it: any) => 
-              it.reviewStatus === 'Submitted for Approval' || it.reviewStatus === 'Submitted for Review' || it.reviewStatus === 'Submitted'
+              (it.reviewStatus === 'Submitted for Approval' || it.reviewStatus === 'Submitted for Review' || it.reviewStatus === 'Submitted') &&
+              isItemActionable(it)
             ).map((it: any) => it.id);
           }
-          if (targetKpiId && !fullAutoSelectIds.includes(targetKpiId)) {
-            fullAutoSelectIds.push(targetKpiId);
+          
+          const effectiveKpiFilter = kpiIdsToFilter || (fullPlan.metadata?.submittedKpiIds && Array.isArray(fullPlan.metadata.submittedKpiIds) && fullPlan.metadata.submittedKpiIds.length > 0 ? fullPlan.metadata.submittedKpiIds : null);
+          if (effectiveKpiFilter && effectiveKpiFilter.length > 0) {
+            const pendingFilterKpis = effectiveKpiFilter.filter((fId: any) => {
+              const it = fullPlan.items?.find((i: any) => matchesKpiIdentifier(i, fId));
+              return isItemActionable(it);
+            });
+            if (pendingFilterKpis.length > 0) {
+              fullAutoSelectIds = pendingFilterKpis.map((fId: any) => {
+                const it = fullPlan.items?.find((i: any) => matchesKpiIdentifier(i, fId));
+                return it?.id || fId;
+              });
+              setFilterSubmittedKpiIds(pendingFilterKpis);
+            } else if (!targetKpiId && (!targetKpiIds || targetKpiIds.length === 0)) {
+              setFilterSubmittedKpiIds(null);
+            }
+          }
+          if (targetKpiId) {
+            const it = fullPlan.items?.find((i: any) => matchesKpiIdentifier(i, targetKpiId));
+            if (isItemActionable(it)) {
+              const canonicalId = it?.id || targetKpiId;
+              if (!fullAutoSelectIds.includes(canonicalId)) fullAutoSelectIds.push(canonicalId);
+            }
           }
           setSelectedKpiIdsForReview(fullAutoSelectIds);
         }
@@ -773,37 +819,82 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
     }
   };
 
-  const updateReview = (id: string, field: string, value: any) => {
+  const updateReview = async (id: string, field: string, value: any) => {
     if (!selectedPlan) return;
+    const updatedItems = selectedPlan.plan.items.map((item: any) => 
+      matchesKpiIdentifier(item, id) ? { ...item, [field]: value } : item
+    );
+    const updatedPlan = {
+      ...selectedPlan.plan,
+      items: updatedItems
+    };
     setSelectedPlan({
       ...selectedPlan,
-      plan: {
-        ...selectedPlan.plan,
-        items: selectedPlan.plan.items.map((item: any) => 
-          item.id === id ? { ...item, [field]: value } : item
-        )
-      }
+      plan: updatedPlan
     });
+    setTeamPlans(prev => prev.map(tp => 
+      tp.userId === selectedPlan.userId ? { ...tp, plan: updatedPlan } : tp
+    ));
+    try {
+      await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(selectedPlan.userId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedPlan)
+      });
+      window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: selectedPlan.userId } }));
+    } catch (e) {
+      console.warn("Background auto-save of review note failed:", e);
+    }
   };
 
-  const updateQuarterlyStatus = (kpiId: string, quarter: string, status: string, notes: string) => {
+  const updateQuarterlyStatus = async (kpiId: string, quarter: string, status: string, notes: string) => {
     if (!selectedPlan) return;
+    const updatedItems = selectedPlan.plan.items.map((item: any) => {
+      if (matchesKpiIdentifier(item, kpiId)) {
+        return {
+          ...item,
+          [`${quarter}PoeStatus`]: status,
+          [`${quarter}PoeFeedback`]: notes,
+          // When a quarter is verified and approved, mirror into reviewApprovalStatus if applicable
+          reviewStatus: status === 'Approved' ? 'Approved' : (status === 'Revision Required' ? 'Revision Required' : item.reviewStatus),
+          reviewApprovalStatus: status === 'Approved' ? 'Approved' : (status === 'Revision Required' ? 'Rejected' : item.reviewApprovalStatus)
+        };
+      }
+      return item;
+    });
+
+    const updatedPlan = {
+      ...selectedPlan.plan,
+      items: updatedItems
+    };
+
     setSelectedPlan({
       ...selectedPlan,
-      plan: {
-        ...selectedPlan.plan,
-        items: selectedPlan.plan.items.map((item: any) => {
-          if (item.id === kpiId) {
-            return {
-              ...item,
-              [`${quarter}PoeStatus`]: status,
-              [`${quarter}PoeFeedback`]: notes
-            };
-          }
-          return item;
-        })
-      }
+      plan: updatedPlan
     });
+
+    setTeamPlans(prev => prev.map(tp => 
+      tp.userId === selectedPlan.userId ? { ...tp, plan: updatedPlan } : tp
+    ));
+
+    // Persistently save to server with zero data loss
+    try {
+      await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(selectedPlan.userId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedPlan)
+      });
+      // Also sync to /kpis so employee KPI tracker reflects immediately
+      fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(selectedPlan.userId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kpis: updatedItems })
+      }).catch(() => {});
+
+      window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: selectedPlan.userId } }));
+    } catch (err) {
+      console.warn("Background auto-save of quarterly status stamp:", err);
+    }
   };
 
   const createMockFileUrl = (name: string, mimeType: string, holderName: string) => {
@@ -1069,48 +1160,95 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
       const payload = { ...selectedPlan.plan };
       const allItems = payload.items || [];
       const isTargeted = targetIds && targetIds.length > 0;
-      const targetItems = isTargeted ? allItems.filter((i: any) => targetIds.includes(i.id)) : allItems;
+      const targetItems = isTargeted 
+        ? allItems.filter((i: any) => targetIds.some(tId => matchesKpiIdentifier(i, tId)))
+        : allItems;
       const kpiNosText = targetItems.map((i: any) => `#${i.kpiNo || i.id}`).join(', ');
 
       payload.items = allItems.map((item: any) => {
-        if (!isTargeted || targetIds.includes(item.id)) {
+        const isMatch = !isTargeted || targetIds.some(tId => matchesKpiIdentifier(item, tId));
+        if (isMatch) {
           const selfScore = getSelfScore(item);
           const mScore = item.managerScore || (selfScore !== 'N/A' ? selfScore : '3.0');
           return {
             ...item,
             myScore: item.myScore || (selfScore !== 'N/A' ? selfScore : ''),
             managerScore: mScore,
-            reviewStatus: 'Approved'
+            reviewStatus: 'Approved',
+            reviewApprovalStatus: 'Approved',
+            // Update quarterly PoE verification stamps to Approved
+            q1PoeStatus: item.q1PoeStatus === 'Revision Required' || item.q1PoeStatus === 'Rejected' ? 'Approved' : (item.q1PoeStatus || 'Approved'),
+            q2PoeStatus: item.q2PoeStatus === 'Revision Required' || item.q2PoeStatus === 'Rejected' ? 'Approved' : (item.q2PoeStatus || 'Approved'),
+            q3PoeStatus: item.q3PoeStatus === 'Revision Required' || item.q3PoeStatus === 'Rejected' ? 'Approved' : (item.q3PoeStatus || 'Approved'),
+            q4PoeStatus: item.q4PoeStatus === 'Revision Required' || item.q4PoeStatus === 'Rejected' ? 'Approved' : (item.q4PoeStatus || 'Approved')
           };
         }
         return item;
       });
 
-      if (!isTargeted || targetIds.length === allItems.length) {
+      if (!payload.metadata) payload.metadata = {};
+
+      // Remove approved KPIs from metadata.submittedKpiIds so they no longer appear as awaiting review
+      if (payload.metadata.submittedKpiIds && Array.isArray(payload.metadata.submittedKpiIds)) {
+        if (!isTargeted) {
+          payload.metadata.submittedKpiIds = [];
+        } else {
+          payload.metadata.submittedKpiIds = payload.metadata.submittedKpiIds.filter(
+            (sId: string) => !targetIds.some(tId => matchesKpiIdentifier({ id: sId, kpiNo: sId }, tId))
+          );
+        }
+      }
+
+      // Check if all submitted items or all plan items are now approved
+      const remainingPending = payload.items.filter((it: any) => 
+        it.reviewStatus === 'Submitted for Approval' || it.reviewStatus === 'Submitted for Review' || it.reviewStatus === 'Submitted'
+      );
+      if (remainingPending.length === 0) {
         payload.metadata.reviewStatus = 'Approved';
       }
 
-      if (!payload.metadata) payload.metadata = {};
       if (!payload.metadata.history) payload.metadata.history = [];
       payload.metadata.history.push({
         timestamp: new Date().toISOString(),
         userEmail: (currentUser?.email || '').toLowerCase().trim(),
-        userName: currentUser?.fullName || currentUser?.full_name || 'Manager Yena Khuboni',
+        userName: currentUser?.fullName || currentUser?.full_name || 'Line Manager',
         role: currentUser?.systemRole || currentUser?.role || 'Line Manager',
         action: isTargeted ? `Approved KPI(s) (${kpiNosText})` : 'Approved All KPIs',
         status: 'Approved',
         comment: `Manager reviewed and approved ${isTargeted ? `${targetItems.length} KPI(s) (${kpiNosText})` : 'all KPIs'}.`
       });
 
-      await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${selectedPlan.userId}`, {
+      // 1. Save to /pplan endpoint
+      await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(selectedPlan.userId)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
+
+      // 2. Synchronize to /kpis endpoint so employee's KPI tracker reflects Approved immediately with zero data loss!
+      try {
+        await fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(selectedPlan.userId)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kpis: payload.items })
+        });
+      } catch (kpiSyncErr) {
+        console.warn("Could not sync to /kpis endpoint:", kpiSyncErr);
+      }
+
       window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: selectedPlan.userId } }));
 
+      // Remove approved items from active review selection
+      if (isTargeted) {
+        setSelectedKpiIdsForReview(prev => 
+          prev.filter(pId => !targetIds.some(tId => matchesKpiIdentifier({ id: pId, kpiNo: pId }, tId)))
+        );
+      } else {
+        setSelectedKpiIdsForReview([]);
+      }
+
       const managerEmail = currentUser.email || '';
-      const managerName = currentUser.fullName || currentUser.full_name || 'Manager Yena Khuboni';
+      const managerName = currentUser.fullName || currentUser.full_name || 'Line Manager';
       const submitterEmail = selectedPlan.userId;
       const submitterName = selectedPlan.plan?.metadata?.name || submitterEmail;
 
@@ -1151,7 +1289,9 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
       alert(`KPI review approval saved! Notification sent to submitter (${submitterEmail}).`);
       
       const updatedPlans = teamPlans.map(tp => 
-        tp.userId === selectedPlan.userId ? { ...tp, plan: payload } : tp
+        (tp.userId || '').toLowerCase().trim() === (selectedPlan.userId || '').toLowerCase().trim() 
+          ? { ...tp, plan: payload } 
+          : tp
       );
       setTeamPlans(updatedPlans);
       setSelectedPlan({ ...selectedPlan, plan: payload });
@@ -1170,39 +1310,83 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
       const payload = { ...selectedPlan.plan };
       const allItems = payload.items || [];
       const isTargeted = targetIds && targetIds.length > 0;
-      const targetItems = isTargeted ? allItems.filter((i: any) => targetIds.includes(i.id)) : allItems;
+      const targetItems = isTargeted 
+        ? allItems.filter((i: any) => targetIds.some(tId => matchesKpiIdentifier(i, tId)))
+        : allItems;
       const kpiNosText = targetItems.map((i: any) => `#${i.kpiNo || i.id}`).join(', ');
 
       payload.items = allItems.map((item: any) => {
-        if (!isTargeted || targetIds.includes(item.id)) {
-          return { ...item, reviewStatus: 'Revision Required' };
+        const isMatch = !isTargeted || targetIds.some(tId => matchesKpiIdentifier(item, tId));
+        if (isMatch) {
+          return { 
+            ...item, 
+            reviewStatus: 'Revision Required',
+            reviewApprovalStatus: 'Rejected',
+            q1PoeStatus: 'Revision Required',
+            q2PoeStatus: 'Revision Required',
+            q3PoeStatus: 'Revision Required',
+            q4PoeStatus: 'Revision Required'
+          };
         }
         return item;
       });
 
+      if (!payload.metadata) payload.metadata = {};
       payload.metadata.reviewStatus = 'Revision Required';
 
-      if (!payload.metadata) payload.metadata = {};
+      // Remove rejected KPIs from metadata.submittedKpiIds so they no longer appear as awaiting initial review
+      if (payload.metadata.submittedKpiIds && Array.isArray(payload.metadata.submittedKpiIds)) {
+        if (!isTargeted) {
+          payload.metadata.submittedKpiIds = [];
+        } else {
+          payload.metadata.submittedKpiIds = payload.metadata.submittedKpiIds.filter(
+            (sId: string) => !targetIds.some(tId => matchesKpiIdentifier({ id: sId, kpiNo: sId }, tId))
+          );
+        }
+      }
+
       if (!payload.metadata.history) payload.metadata.history = [];
       payload.metadata.history.push({
         timestamp: new Date().toISOString(),
         userEmail: (currentUser?.email || '').toLowerCase().trim(),
-        userName: currentUser?.fullName || currentUser?.full_name || 'Manager Yena Khuboni',
+        userName: currentUser?.fullName || currentUser?.full_name || 'Line Manager',
         role: currentUser?.systemRole || currentUser?.role || 'Line Manager',
         action: isTargeted ? `Revision Requested on KPI(s) (${kpiNosText})` : 'Revision Required / Rejected',
         status: 'Revision Required',
         comment: `Manager requested revisions for ${isTargeted ? `${targetItems.length} KPI(s) (${kpiNosText})` : 'the performance plan'}.`
       });
 
-      await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${selectedPlan.userId}`, {
+      // 1. Save to /pplan
+      await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(selectedPlan.userId)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
+
+      // 2. Synchronize to /kpis endpoint
+      try {
+        await fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(selectedPlan.userId)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kpis: payload.items })
+        });
+      } catch (kpiSyncErr) {
+        console.warn("Could not sync to /kpis endpoint:", kpiSyncErr);
+      }
+
       window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: selectedPlan.userId } }));
 
+      // Remove rejected items from active review selection
+      if (isTargeted) {
+        setSelectedKpiIdsForReview(prev => 
+          prev.filter(pId => !targetIds.some(tId => matchesKpiIdentifier({ id: pId, kpiNo: pId }, tId)))
+        );
+      } else {
+        setSelectedKpiIdsForReview([]);
+      }
+
       const managerEmail = currentUser.email || '';
-      const managerName = currentUser.fullName || currentUser.full_name || 'Manager Yena Khuboni';
+      const managerName = currentUser.fullName || currentUser.full_name || 'Line Manager';
       const submitterEmail = selectedPlan.userId;
       const submitterName = selectedPlan.plan?.metadata?.name || submitterEmail;
 
@@ -1243,7 +1427,9 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
       alert(`KPI revision request sent! Notification dispatched to submitter (${submitterEmail}).`);
       
       const updatedPlans = teamPlans.map(tp => 
-        tp.userId === selectedPlan.userId ? { ...tp, plan: payload } : tp
+        (tp.userId || '').toLowerCase().trim() === (selectedPlan.userId || '').toLowerCase().trim() 
+          ? { ...tp, plan: payload } 
+          : tp
       );
       setTeamPlans(updatedPlans);
       setSelectedPlan({ ...selectedPlan, plan: payload });
@@ -1402,18 +1588,19 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
       const kpiNosText = targetItems.map((i: any) => `#${i.kpiNo || i.id}`).join(', ');
 
       payload.items = allItems.map((item: any) => {
-        if (!isTargeted || targetIds.includes(item.id)) {
+        if (!isTargeted || targetIds.some(tId => matchesKpiIdentifier(item, tId))) {
           return {
             ...item,
             reviewStatus: 'Draft / Resubmitting',
+            reviewApprovalStatus: 'Pending',
             internalAuditStatus: ''
           };
         }
         return item;
       });
 
-      payload.metadata.reviewStatus = 'Draft / Resubmitting';
       if (!payload.metadata) payload.metadata = {};
+      payload.metadata.reviewStatus = 'Draft / Resubmitting';
       if (!payload.metadata.history) payload.metadata.history = [];
       payload.metadata.history.push({
         timestamp: new Date().toISOString(),
@@ -1425,11 +1612,18 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
         comment: `Manager unlocked ${isTargeted ? `${targetItems.length} KPI(s) (${kpiNosText})` : 'performance plan'} to redo approval or rejection decisions.`
       });
 
-      await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${selectedPlan.userId}`, {
+      await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(selectedPlan.userId)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
+      try {
+        await fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(selectedPlan.userId)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kpis: payload.items })
+        });
+      } catch (e) {}
       window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: selectedPlan.userId } }));
 
       alert(isTargeted 
@@ -1438,7 +1632,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
       );
 
       const updatedPlans = teamPlans.map(tp => 
-        tp.userId === selectedPlan.userId ? { ...tp, plan: payload } : tp
+        (tp.userId || '').toLowerCase().trim() === (selectedPlan.userId || '').toLowerCase().trim() ? { ...tp, plan: payload } : tp
       );
       setTeamPlans(updatedPlans);
       setSelectedPlan({ ...selectedPlan, plan: payload });
@@ -1631,13 +1825,20 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
                   const resolvedKpiId = kpiId || (kpiIdsToFilter && kpiIdsToFilter[0]);
                   if (resolvedKpiId) {
                     setActiveKpiQuarter(prev => ({ ...prev, [resolvedKpiId]: targetQuarter }));
-                    setSelectedKpiIdsForReview(prev => prev.includes(resolvedKpiId) ? prev : [...prev, resolvedKpiId]);
+                    const matchingItem = matchingPlan.plan?.items?.find((i: any) => matchesKpiIdentifier(i, resolvedKpiId));
+                    const isAlreadyActioned = matchingItem && (
+                      matchingItem.reviewStatus === 'Approved' ||
+                      matchingItem.reviewApprovalStatus === 'Approved' ||
+                      matchingItem.reviewStatus === 'Revision Required' ||
+                      matchingItem.reviewApprovalStatus === 'Rejected'
+                    );
+                    if (!isAlreadyActioned) {
+                      const canonicalId = matchingItem?.id || resolvedKpiId;
+                      setSelectedKpiIdsForReview(prev => prev.includes(canonicalId) ? prev : [...prev, canonicalId]);
+                    }
                   }
 
                   handleSelectPlan(matchingPlan, () => {
-                    if (kpiIdsToFilter) {
-                      setFilterSubmittedKpiIds(kpiIdsToFilter);
-                    }
                     // Try to scroll and highlight with interval retries to handle async react rendering
                     const targetId = resolvedKpiId ? `kpi-card-${resolvedKpiId}` : 'manager-review-detail';
                     let attempts = 0;
@@ -1705,11 +1906,11 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
                   </thead>
                   <tbody>
                     {teamPlans.map((tp, idx) => {
-                      const isApproved = tp.plan.metadata?.reviewStatus === 'Reviewed';
+                      const isApproved = tp.plan.metadata?.reviewStatus === 'Reviewed' || tp.plan.metadata?.reviewStatus === 'Approved' || (Array.isArray(tp.plan?.items) && tp.plan.items.length > 0 && tp.plan.items.every((it: any) => it.reviewStatus === 'Approved' || it.reviewApprovalStatus === 'Approved'));
                       let submittedKpisCount = 0;
                       if (Array.isArray(tp.plan?.items)) {
                         tp.plan.items.forEach((it: any) => {
-                          if (it.reviewStatus === 'Submitted for Approval' || it.reviewStatus === 'Submitted for Review') {
+                          if ((it.reviewStatus === 'Submitted for Approval' || it.reviewStatus === 'Submitted for Review') && it.reviewApprovalStatus !== 'Approved') {
                             submittedKpisCount++;
                           }
                         });
@@ -1781,7 +1982,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
 
   // DETAIL VIEW: Reviewing a specific employee's plan
   const { plan } = selectedPlan;
-  const isReviewed = plan.metadata?.reviewStatus === 'Reviewed';
+  const isReviewed = plan.metadata?.reviewStatus === 'Reviewed' || plan.metadata?.reviewStatus === 'Approved';
 
   return (
     <div id="manager-review-detail" className="flex flex-col h-full bg-slate-50 border border-gray-200 rounded-3xl overflow-hidden shadow-2xl relative text-stone-900">

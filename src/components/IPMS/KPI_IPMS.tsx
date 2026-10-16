@@ -475,7 +475,12 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
 
   useEffect(() => {
     loadKpiAndPlanData();
-  }, [activeTenantId]);
+    const handlePplanSync = () => {
+      loadKpiAndPlanData();
+    };
+    window.addEventListener('pplan-updated', handlePplanSync);
+    return () => window.removeEventListener('pplan-updated', handlePplanSync);
+  }, [activeTenantId, targetEmail]);
 
   const loadKpiAndPlanData = async () => {
     setLoading(true);
@@ -488,27 +493,62 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
         }
       }
 
-      // 1. Fetch KPI register
-      const kpiRes = await fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(targetEmail)}&t=${Date.now()}`);
+      // 1. Fetch KPI register and Performance Plan in parallel
+      const [kpiRes, planRes] = await Promise.all([
+        fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(targetEmail)}&t=${Date.now()}`),
+        fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(targetEmail)}&t=${Date.now()}`)
+      ]);
+
+      let loadedKpis: any[] = [];
+      let loadedPlanData: { metadata: any; items: any[] } = { metadata: {}, items: [] };
+
       if (kpiRes.ok) {
         const data = await kpiRes.json();
         if (data && Array.isArray(data.kpis)) {
-          setKpis(data.kpis);
-        } else {
-          setKpis([]);
+          loadedKpis = data.kpis;
         }
       }
 
-      // 2. Fetch Performance Plan
-      const planRes = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${targetEmail}&t=${Date.now()}`);
       if (planRes.ok) {
         const data = await planRes.json();
         if (data && Array.isArray(data.items)) {
-          setPplanData(data);
+          loadedPlanData = data;
         } else {
-          setPplanData({ metadata: data.metadata || {}, items: [] });
+          loadedPlanData = { metadata: data?.metadata || {}, items: [] };
+        }
+        setPplanData(loadedPlanData);
+      }
+
+      // Merge latest reviewStatus / reviewApprovalStatus / managerScore / reviewComment from pplan into kpis
+      if (loadedPlanData.items.length > 0) {
+        if (loadedKpis.length === 0) {
+          loadedKpis = loadedPlanData.items;
+        } else {
+          loadedKpis = loadedKpis.map((k: any) => {
+            const kId = String(k.id || '').toLowerCase().trim();
+            const kNo = String(k.kpiNo || '').toLowerCase().trim();
+            const matchedPlanItem = loadedPlanData.items.find((pIt: any) => {
+              const pId = String(pIt.id || '').toLowerCase().trim();
+              const pNo = String(pIt.kpiNo || '').toLowerCase().trim();
+              return (kId && pId === kId) || (kNo && pNo === kNo);
+            });
+            if (matchedPlanItem) {
+              const revStatus = matchedPlanItem.reviewStatus || k.reviewStatus;
+              const revApproval = matchedPlanItem.reviewApprovalStatus || (revStatus === 'Approved' ? 'Approved' : (revStatus === 'Revision Required' || revStatus === 'Rejected' ? 'Rejected' : k.reviewApprovalStatus));
+              return {
+                ...k,
+                ...(revStatus ? { reviewStatus: revStatus } : {}),
+                ...(revApproval ? { reviewApprovalStatus: revApproval } : {}),
+                ...(matchedPlanItem.managerScore ? { managerScore: matchedPlanItem.managerScore } : {}),
+                ...(matchedPlanItem.reviewComment || matchedPlanItem.review ? { reviewComment: matchedPlanItem.reviewComment || matchedPlanItem.review } : {})
+              };
+            }
+            return k;
+          });
         }
       }
+
+      setKpis(loadedKpis);
     } catch (err) {
       console.error("Failed to load KPI page data:", err);
     } finally {
@@ -530,23 +570,44 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
     // 1. Update list of KPIs in memory
     const updatedKpis = kpis.map(k => {
       if (k.id === id) {
-        return { ...k, [field]: value };
+        const extra: any = {};
+        if (field === 'reviewApprovalStatus') {
+          extra.reviewStatus = value === 'Approved' ? 'Approved' : (value === 'Rejected' ? 'Revision Required' : (k as any).reviewStatus);
+        }
+        return { ...k, [field]: value, ...extra };
       }
       return k;
     });
     setKpis(updatedKpis);
 
-      // 2. Synchronize to performance agreements / pplan
+    // Save to /kpis endpoint as well
+    fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(targetEmail)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kpis: updatedKpis })
+    }).catch(() => {});
+
+    // 2. Synchronize to performance agreements / pplan
     const targetKpi = updatedKpis.find(k => k.id === id);
     if (targetKpi) {
       const existingPlanItems = [...pplanData.items];
-      const matchIndex = existingPlanItems.findIndex(item => item.kpiNo && item.kpiNo.toLowerCase().trim() === targetKpi.kpiNo.toLowerCase().trim());
+      const matchIndex = existingPlanItems.findIndex(item => 
+        (item.id && targetKpi.id && String(item.id).toLowerCase().trim() === String(targetKpi.id).toLowerCase().trim()) ||
+        (item.kpiNo && targetKpi.kpiNo && String(item.kpiNo).toLowerCase().trim() === String(targetKpi.kpiNo).toLowerCase().trim())
+      );
       
       const selectedKpaObj = availableKpas.find(k => k.title === targetKpi.kpa);
       const fallbackStrategicGoal = selectedKpaObj?.parentObjective || "Aspirant Local Municipal Aligned Performance objective";
 
+      const resolvedApprovalStatus = targetKpi.reviewApprovalStatus || (matchIndex >= 0 ? existingPlanItems[matchIndex].reviewApprovalStatus : 'Pending') || 'Pending';
+      const resolvedReviewStatus = resolvedApprovalStatus === 'Approved'
+        ? 'Approved'
+        : resolvedApprovalStatus === 'Rejected'
+          ? 'Revision Required'
+          : ((targetKpi as any).reviewStatus || (matchIndex >= 0 ? existingPlanItems[matchIndex].reviewStatus : 'Draft'));
+
       const planRowData = {
-        id: matchIndex >= 0 ? existingPlanItems[matchIndex].id : `kpi-${Date.now()}`,
+        id: matchIndex >= 0 ? existingPlanItems[matchIndex].id : (targetKpi.id || `kpi-${Date.now()}`),
         strategicGoal: matchIndex >= 0 ? existingPlanItems[matchIndex].strategicGoal : fallbackStrategicGoal,
         priorityIssue: matchIndex >= 0 ? existingPlanItems[matchIndex].priorityIssue : "Local Statutory Priority Target",
         kpiNo: targetKpi.kpiNo,
@@ -564,7 +625,8 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
         q4Poe: targetKpi.q4Poe,
         evaluationComment: targetKpi.q1Comment || targetKpi.q2Comment || targetKpi.q3Comment || targetKpi.q4Comment || '',
         reviewComment: targetKpi.reviewComment || '',
-        reviewApprovalStatus: targetKpi.reviewApprovalStatus || 'Pending',
+        reviewApprovalStatus: resolvedApprovalStatus,
+        reviewStatus: resolvedReviewStatus,
         evaluationUsername: targetEmail,
         reviewManagerName: currentUser.manager || 'Line Manager',
         poe: `Q1: ${targetKpi.q1Poe}\nQ2: ${targetKpi.q2Poe}\nQ3: ${targetKpi.q3Poe}\nQ4: ${targetKpi.q4Poe}`,
@@ -591,7 +653,7 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
       setPplanData(updatedPlanData);
 
       // Save updated Plan array
-      await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${targetEmail}`, {
+      await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(targetEmail)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedPlanData)
@@ -1734,7 +1796,7 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
                                     console.error("Error sending approval notification:", err);
                                   }
                                 }}
-                                className={`flex-1 py-1.5 px-2.5 font-black uppercase text-[9px] tracking-widest rounded-lg transition text-white cursor-pointer ${k.reviewApprovalStatus === 'Approved' ? 'bg-emerald-600 border border-emerald-500 font-black shadow-lg' : 'bg-slate-800 border border-slate-700 hover:bg-emerald-700 hover:border-emerald-600'}`}
+                                className={`flex-1 py-1.5 px-2.5 font-black uppercase text-[9px] tracking-widest rounded-lg transition text-white cursor-pointer ${(k.reviewApprovalStatus === 'Approved' || (k as any).reviewStatus === 'Approved') ? 'bg-emerald-600 border border-emerald-500 font-black shadow-lg' : 'bg-slate-800 border border-slate-700 hover:bg-emerald-700 hover:border-emerald-600'}`}
                               >
                                 Approve
                               </button>
@@ -1773,16 +1835,16 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
                                     console.error("Error sending rejection notification:", err);
                                   }
                                 }}
-                                className={`flex-1 py-1.5 px-2.5 font-black uppercase text-[9px] tracking-widest rounded-lg transition text-white cursor-pointer ${k.reviewApprovalStatus === 'Rejected' ? 'bg-rose-600 border border-rose-500 font-black shadow-lg' : 'bg-slate-800 border border-slate-700 hover:bg-rose-700 hover:border-rose-600'}`}
+                                className={`flex-1 py-1.5 px-2.5 font-black uppercase text-[9px] tracking-widest rounded-lg transition text-white cursor-pointer ${(k.reviewApprovalStatus === 'Rejected' || (k as any).reviewStatus === 'Revision Required' || (k as any).reviewStatus === 'Rejected') ? 'bg-rose-600 border border-rose-500 font-black shadow-lg' : 'bg-slate-800 border border-slate-700 hover:bg-rose-700 hover:border-rose-600'}`}
                               >
                                 Reject
                               </button>
                             </div>
                             
-                            {k.reviewApprovalStatus && (
+                            {(k.reviewApprovalStatus || (k as any).reviewStatus) && (
                               <div className="text-center pt-2 border-t border-white/5">
-                                <span className={`inline-block text-[8.5px] font-black font-mono tracking-widest uppercase px-3 py-1 rounded-full ${k.reviewApprovalStatus === 'Approved' ? 'bg-green-950/80 text-green-400 border border-green-500/30' : k.reviewApprovalStatus === 'Rejected' ? 'bg-rose-950/80 text-rose-400 border border-rose-500/30' : 'bg-slate-900 border border-white/5 text-gray-400'}`}>
-                                  STATUS: {k.reviewApprovalStatus}
+                                <span className={`inline-block text-[8.5px] font-black font-mono tracking-widest uppercase px-3 py-1 rounded-full ${(k.reviewApprovalStatus === 'Approved' || (k as any).reviewStatus === 'Approved') ? 'bg-green-950/80 text-green-400 border border-green-500/30' : (k.reviewApprovalStatus === 'Rejected' || (k as any).reviewStatus === 'Revision Required' || (k as any).reviewStatus === 'Rejected') ? 'bg-rose-950/80 text-rose-400 border border-rose-500/30' : 'bg-slate-900 border border-white/5 text-gray-400'}`}>
+                                  STATUS: {(k.reviewApprovalStatus === 'Approved' || (k as any).reviewStatus === 'Approved') ? 'Approved' : (k.reviewApprovalStatus === 'Rejected' || (k as any).reviewStatus === 'Revision Required' || (k as any).reviewStatus === 'Rejected') ? 'Revision Required / Rejected' : (k.reviewApprovalStatus || (k as any).reviewStatus)}
                                 </span>
                               </div>
                             )}

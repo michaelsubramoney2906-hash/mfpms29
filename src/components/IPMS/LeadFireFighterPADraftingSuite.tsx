@@ -819,7 +819,7 @@ export function LeadFireFighterPADraftingSuite({ currentUser, activeTenantId }: 
         }
       `}</style>
       {/* Left Pane - Editor */}
-      <div className="w-1/2 h-full overflow-y-auto hide-scrollbar p-6 space-y-6">
+      <div className="w-1/2 h-full overflow-y-auto overscroll-contain hide-scrollbar p-6 space-y-6">
         <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex-wrap gap-2">
           <div className="flex items-center gap-2 flex-wrap">
             <h2 className="font-bold text-slate-800 mr-2">Drafting Suite Tools</h2>
@@ -1184,7 +1184,7 @@ export function LeadFireFighterPADraftingSuite({ currentUser, activeTenantId }: 
       </div>
 
       {/* Right Pane - Compiler */}
-      <div className="w-1/2 h-full overflow-y-auto hide-scrollbar bg-slate-200 p-8">
+      <div className="w-1/2 h-full overflow-y-auto overscroll-contain hide-scrollbar bg-slate-200 p-8">
         <div className="bg-white w-full max-w-3xl mx-auto shadow-2xl min-h-[1100px] border border-slate-300 relative">
           {/* Printable Area */}
           <div id="pa-printable-area" className="p-12 space-y-8 text-black font-serif print:p-0">

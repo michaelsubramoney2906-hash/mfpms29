@@ -2385,7 +2385,7 @@ export function DraftingSuiteTeam({
       `}</style>
 
       {/* LEFT PANE - Team Management & Section Editors */}
-      <div className="w-1/2 h-full overflow-y-auto hide-scrollbar p-6 space-y-6">
+      <div className="w-1/2 h-full overflow-y-auto overscroll-contain hide-scrollbar p-6 space-y-6">
         
         {/* Notification Toast */}
         {notification && (
@@ -5145,7 +5145,7 @@ export function DraftingSuiteTeam({
       </div>
 
       {/* RIGHT PANE - Live Document Preview & Export Controls */}
-      <div className="w-1/2 h-full overflow-y-auto hide-scrollbar p-6 bg-slate-200/60 relative">
+      <div className="w-1/2 h-full overflow-y-auto overscroll-contain hide-scrollbar p-6 bg-slate-200/60 relative">
         
         {/* Floating Export & Print Bar */}
         <div className="sticky top-0 z-20 mb-4 bg-white/95 backdrop-blur-xs p-3 rounded-xl shadow-md border border-slate-200 flex justify-between items-center">
