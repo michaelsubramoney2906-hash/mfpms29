@@ -5683,47 +5683,65 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
     return logs;
   }
 
-  // Load audit logs from Supabase or initialize seed
+  // Load audit logs from Supabase or initialize seed (with in-flight request coalescing)
+  let auditLogsLoadPromise: Promise<ServerAuditLogEntry[]> | null = null;
   async function getOrSeedAuditLogs(forceRefresh = false): Promise<ServerAuditLogEntry[]> {
     if (!forceRefresh && auditLogsLoadedFromDb && serverAuditLogsBuffer.length > 0) {
       return serverAuditLogsBuffer.filter(l => (l.userEmail || '').toLowerCase().trim() !== 'mike@mzansiflow.co.za');
     }
 
-    try {
-      const supabase = getSupabase();
-      if (supabase) {
-        const { data, error } = await supabase
-          .from('messages')
-          .select('content')
-          .eq('id', 'system_user_audit_logs_v1')
-          .maybeSingle();
-
-        if (data?.content) {
-          try {
-            const parsed = JSON.parse(data.content);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              const cleanParsed = parsed.filter((l: any) => (l.userEmail || '').toLowerCase().trim() !== 'mike@mzansiflow.co.za');
-              serverAuditLogsBuffer.length = 0;
-              serverAuditLogsBuffer.push(...cleanParsed);
-              auditLogsLoadedFromDb = true;
-              return cleanParsed;
-            }
-          } catch (e) {}
-        }
-      }
-
-      // If Supabase has no logs yet, generate rich comprehensive audit logs for all users today
-      const seeded = await generateTodayAuditLogsForUsers();
-      serverAuditLogsBuffer.length = 0;
-      serverAuditLogsBuffer.push(...seeded);
-      auditLogsLoadedFromDb = true;
-      auditLogsDirty = true;
-      flushAuditLogsToSupabase().catch(() => {});
-      return seeded;
-    } catch (err: any) {
-      console.error("[Audit Trail Engine] getOrSeedAuditLogs error:", err.message);
-      return serverAuditLogsBuffer.filter(l => (l.userEmail || '').toLowerCase().trim() !== 'mike@mzansiflow.co.za');
+    if (auditLogsLoadPromise && !forceRefresh) {
+      return auditLogsLoadPromise;
     }
+
+    auditLogsLoadPromise = (async () => {
+      try {
+        const supabase = getSupabase();
+        if (supabase && !isCircuitBreakerOpen()) {
+          const { data, error } = await supabase
+            .from('messages')
+            .select('content')
+            .eq('id', 'system_user_audit_logs_v1')
+            .maybeSingle();
+
+          if (data?.content) {
+            try {
+              const parsed = JSON.parse(data.content);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                const cleanParsed = parsed.filter((l: any) => (l.userEmail || '').toLowerCase().trim() !== 'mike@mzansiflow.co.za');
+                serverAuditLogsBuffer.length = 0;
+                serverAuditLogsBuffer.push(...cleanParsed);
+                auditLogsLoadedFromDb = true;
+                return cleanParsed;
+              }
+            } catch (e) {}
+          }
+
+          // Only seed if the query succeeded without error and no logs existed yet
+          if (!error && !data) {
+            const seeded = await generateTodayAuditLogsForUsers();
+            serverAuditLogsBuffer.length = 0;
+            serverAuditLogsBuffer.push(...seeded);
+            auditLogsLoadedFromDb = true;
+            return seeded;
+          }
+        }
+
+        if (serverAuditLogsBuffer.length === 0) {
+          const seeded = await generateTodayAuditLogsForUsers();
+          serverAuditLogsBuffer.push(...seeded);
+          auditLogsLoadedFromDb = true;
+        }
+        return serverAuditLogsBuffer.filter(l => (l.userEmail || '').toLowerCase().trim() !== 'mike@mzansiflow.co.za');
+      } catch (err: any) {
+        console.error("[Audit Trail Engine] getOrSeedAuditLogs error:", err.message);
+        return serverAuditLogsBuffer.filter(l => (l.userEmail || '').toLowerCase().trim() !== 'mike@mzansiflow.co.za');
+      } finally {
+        auditLogsLoadPromise = null;
+      }
+    })();
+
+    return auditLogsLoadPromise;
   }
 
   // Audit Logs REST API Endpoints
@@ -8889,13 +8907,18 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           }
         }
 
-        // Live fallback to draft_doc if user-specific KPA doc is missing
+        // Live fallback to draft_doc using exact primary-key lookup if user-specific KPA doc is missing
         if (userId.includes('@')) {
+          const draftCandidateIds = Array.from(new Set([
+            `draft_doc_${tenantId}_${userId}`,
+            `draft_doc_tenant-229_${userId}`,
+            `draft_doc_nkangala_auto_${userId}`,
+            `draft_doc_global_${userId}`
+          ]));
           const { data: draftDocs } = await supabase
             .from('messages')
             .select('content')
-            .like('id', `%draft_doc_%${userId}%`)
-            .limit(3);
+            .in('id', draftCandidateIds);
 
           if (draftDocs) {
             for (const dRow of draftDocs) {
@@ -8991,7 +9014,10 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         kpas: kpas || [],
         customKpaTable: customKpaTable || null
       };
-      const targetTenants = Array.from(new Set([tenantId, 'tenant-229', 'nkangala_auto', 'global']));
+      const canonicalTenant = (tenantId === 'nkangala_auto' || tenantId === 'tenant-229' || userId.includes('@nkangaladm.gov.za'))
+        ? 'tenant-229'
+        : tenantId;
+      const targetTenants = Array.from(new Set([canonicalTenant, tenantId]));
       const nowIso = new Date().toISOString();
 
       for (const tKey of targetTenants) {
@@ -9825,52 +9851,65 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
   app.post("/api/tenant/:tenantId/clear-awaiting-audits", handleClearAwaitingAuditsEndpoint);
 
   // 13.8.1. IPMS Notifications System
+  const getCanonicalIpmsNotifDocIds = (tenantId?: string) => Array.from(new Set([
+    'ipms_notifications_tenant-229',
+    'ipms_notifications_nkangala_auto',
+    'ipms_notifications_global',
+    'ipms_notifications_tenant-1',
+    ...(tenantId ? [`ipms_notifications_${tenantId}`] : [])
+  ]));
+
   app.get("/api/tenant/:tenantId/ipms-notifications", async (req, res) => {
     const { tenantId } = req.params;
     const userEmail = req.query.userEmail ? String(req.query.userEmail).toLowerCase().trim() : '';
     try {
       const supabase = getSupabase();
-      
-      // Query all ipms_notifications_% documents to guarantee cross-tenant delivery
-      const { data, error } = await supabase
-        .from('messages')
-        .select('id, content')
-        .like('id', 'ipms_notifications_%');
+      const notifDocIds = getCanonicalIpmsNotifDocIds(tenantId);
 
-      if (error) {
-        logSupabaseError("ipms-notifications", error);
-        return res.json({ notifications: [] });
-      }
+      // Coalesce and micro-cache raw deduplicated notifications for 10 seconds across concurrent requests
+      const dedupedList = await fetchWithCoalescing(`ipms_notifs_raw_${tenantId}`, 10000, async () => {
+        const { data, error } = await supabase
+          .from('messages')
+          .select('id, content')
+          .in('id', notifDocIds);
 
-      let allNotifications: any[] = [];
-      if (data) {
-        for (const row of data) {
-          if (row.content) {
-            try {
-              const parsed = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
-              if (Array.isArray(parsed.notifications)) {
-                allNotifications.push(...parsed.notifications);
+        if (error) {
+          logSupabaseError("ipms-notifications", error);
+          return [];
+        }
+
+        let allNotifications: any[] = [];
+        if (data) {
+          for (const row of data) {
+            if (row.content) {
+              try {
+                const parsed = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
+                if (Array.isArray(parsed.notifications)) {
+                  allNotifications.push(...parsed.notifications);
+                }
+              } catch (parseErr) {
+                console.error("Error parsing ipms-notifications JSON:", parseErr);
               }
-            } catch (parseErr) {
-              console.error("Error parsing ipms-notifications JSON:", parseErr);
             }
           }
         }
-      }
 
-      // Deduplicate notifications by id, preserving read=true if marked read in any tenant bucket
-      const notifMap = new Map<string, any>();
-      allNotifications.forEach(n => {
-        if (n && n.id) {
-          const existing = notifMap.get(n.id);
-          if (!existing) {
-            notifMap.set(n.id, n);
-          } else if (n.read && !existing.read) {
-            notifMap.set(n.id, { ...existing, read: true, readAt: n.readAt || existing.readAt });
+        // Deduplicate notifications by id, preserving read=true if marked read in any tenant bucket
+        const notifMap = new Map<string, any>();
+        allNotifications.forEach(n => {
+          if (n && n.id) {
+            const existing = notifMap.get(n.id);
+            if (!existing) {
+              notifMap.set(n.id, n);
+            } else if (n.read && !existing.read) {
+              notifMap.set(n.id, { ...existing, read: true, readAt: n.readAt || existing.readAt });
+            }
           }
-        }
+        });
+        return Array.from(notifMap.values());
       });
-      let notifications = Array.from(notifMap.values());
+
+      let notifications = [...dedupedList];
 
       if (userEmail) {
         const normEmail = normalizeNkangalaEmail(userEmail);
@@ -9941,13 +9980,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         readAt: null
       };
 
-      const targetTenants = Array.from(new Set([
-        tenantId,
-        'tenant-229',
-        'global',
-        'nkangala_auto',
-        'tenant-1'
-      ])).filter(Boolean);
+      const canonicalTenant = (tenantId === 'nkangala_auto' || tenantId === 'tenant-229' || !tenantId) ? 'tenant-229' : tenantId;
+      const targetTenants = Array.from(new Set([canonicalTenant, tenantId])).filter(Boolean);
 
       let lastNotifs: any[] = [];
 
@@ -9985,11 +10019,10 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             created_at: new Date().toISOString()
           });
 
-        if (tId === tenantId) {
-          lastNotifs = notifications;
-        }
+        lastNotifs = notifications;
       }
 
+      invalidateCachePrefix('ipms_notifs_raw_');
       res.json({ success: true, notification: newNotif, notifications: lastNotifs });
     } catch (err: any) {
       console.error("IPMS notification post exception:", err);
@@ -10003,12 +10036,13 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
     try {
       const supabase = getSupabase();
       const nowIso = new Date().toISOString();
+      const notifDocIds = getCanonicalIpmsNotifDocIds(tenantId);
 
-      // Update read status across all ipms_notifications_% documents so cross-tenant reads never revert a read notification back to unread
+      // Update read status across canonical ipms_notifications documents using exact primary key lookup
       const { data: rows } = await supabase
         .from('messages')
         .select('id, tenant_id, content')
-        .like('id', 'ipms_notifications_%');
+        .in('id', notifDocIds);
 
       let updatedTenantNotifications: any[] = [];
 
@@ -10039,7 +10073,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
                 });
               }
 
-              if (row.id === `ipms_notifications_${tenantId}`) {
+              if (row.id === `ipms_notifications_${tenantId}` || row.id === 'ipms_notifications_tenant-229') {
                 updatedTenantNotifications = notifications;
               }
 
@@ -10062,6 +10096,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         );
       }
 
+      invalidateCachePrefix('ipms_notifs_raw_');
       return res.json({ success: true, notifications: updatedTenantNotifications });
     } catch (err: any) {
       console.error("IPMS notification mark-read exception:", err);
@@ -10072,18 +10107,18 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
   app.post("/api/tenant/:tenantId/ipms-notifications/delete", async (req, res) => {
     const { tenantId } = req.params;
     const { notificationIds } = req.body;
-    console.log("[IPMS Delete] Received request to delete notification IDs:", notificationIds, "for tenant:", tenantId);
     if (!notificationIds || !Array.isArray(notificationIds)) {
       return res.status(400).json({ error: "Missing or invalid notificationIds array" });
     }
     try {
       const supabase = getSupabase();
+      const notifDocIds = getCanonicalIpmsNotifDocIds(tenantId);
       
-      // Load all ipms_notifications_% documents to clean them up
+      // Load canonical ipms_notifications documents using exact primary-key lookup
       const { data, error: selectError } = await supabase
         .from('messages')
         .select('id, content, tenant_id, sender_id, sender_email, sender_name, message_type')
-        .like('id', 'ipms_notifications_%');
+        .in('id', notifDocIds);
 
       if (selectError) {
         logSupabaseError("[IPMS Delete] delete-selective", selectError);
@@ -10094,7 +10129,6 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       let totalDeletedCount = 0;
 
       if (data) {
-        console.log("[IPMS Delete] Found", data.length, "ipms_notifications documents in db.");
         for (const row of data) {
           if (row.content) {
             try {
@@ -10105,9 +10139,6 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
               const diff = originalNotifications.length - filteredNotifications.length;
               if (diff > 0) {
                 totalDeletedCount += diff;
-                console.log(`[IPMS Delete] Document ${row.id}: removing ${diff} notifications. Before: ${originalNotifications.length}, After: ${filteredNotifications.length}`);
-                
-                // Store as JSON string since the content column in messages table is of text type
                 const updatedContent = JSON.stringify({ notifications: filteredNotifications });
 
                 const { error: updateError } = await supabase
@@ -10119,7 +10150,6 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
                   .eq('id', row.id);
 
                 if (updateError) {
-                  console.error(`[IPMS Delete] Update error for row ${row.id}:`, updateError.message);
                   throw new Error(`Failed to update database row ${row.id}: ${updateError.message}`);
                 }
               }
@@ -10130,8 +10160,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         }
       }
 
-      console.log("[IPMS Delete] Deletion completed. Total removed notifications:", totalDeletedCount);
-      return res.json({ success: true, deletedCount: totalDeletedCount, debug: { foundDocs: data?.length, notificationIds, deletedSet: Array.from(deletedSet) } });
+      invalidateCachePrefix('ipms_notifs_raw_');
+      return res.json({ success: true, deletedCount: totalDeletedCount });
     } catch (err: any) {
       console.error("[IPMS Delete] IPMS notification delete-selective exception:", err);
       res.status(500).json({ error: err.message || String(err) });
@@ -12067,13 +12097,20 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         }
       }
 
-      // Check templates and draft docs fallback
+      // Check templates and draft docs fallback using exact primary-key lookup
       if (userId.includes('@')) {
+        const draftAndTplIds = Array.from(new Set([
+          `draft_doc_${tenantId}_${userId}`,
+          `draft_doc_tenant-229_${userId}`,
+          `draft_doc_nkangala_auto_${userId}`,
+          `pa_templates_${tenantId}_${userId}`,
+          `pa_templates_tenant-229_${userId}`,
+          `pa_templates_nkangala_auto_${userId}`
+        ]));
         const { data: draftDocs } = await supabase
           .from('messages')
           .select('content')
-          .or(`id.like.%draft_doc_%${userId}%,id.like.%pa_templates_%${userId}%`)
-          .limit(4);
+          .in('id', draftAndTplIds);
 
         if (draftDocs) {
           for (const dRow of draftDocs) {
@@ -12138,7 +12175,10 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
       
-      const targetTenants = Array.from(new Set([tenantId, 'tenant-229', 'nkangala_auto', 'global']));
+      const canonicalTenant = (tenantId === 'nkangala_auto' || tenantId === 'tenant-229' || userId.includes('@nkangaladm.gov.za'))
+        ? 'tenant-229'
+        : tenantId;
+      const targetTenants = Array.from(new Set([canonicalTenant, tenantId]));
       const payload = JSON.stringify(req.body);
 
       for (const tKey of targetTenants) {
@@ -14777,288 +14817,286 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         filterIds = Array.from(idSet);
       }
 
-      // Check micro-cache if querying (invalidated automatically whenever any pplan or kpi is saved)
+      // Check micro-cache and coalesce concurrent requests (invalidated automatically whenever any pplan or kpi is saved)
       const cacheKey = `team_pplans_${tenantId}_${isMetadataOnly}_${targetSubs.join('_') || 'all'}`;
-      if (req.query.force !== 'true') {
-        const cached = getCached<any>(cacheKey, 20000);
-        if (cached) {
-          return res.json(cached);
-        }
+      if (req.query.force === 'true') {
+        memoryCache.delete(cacheKey);
       }
 
-      let query = supabase
-        .from('messages')
-        .select('id, tenant_id, sender_email, content, created_at, message_type');
+      const result = await fetchWithCoalescing(cacheKey, 20000, async () => {
+        let query = supabase
+          .from('messages')
+          .select('id, tenant_id, sender_email, content, created_at, message_type');
 
-      if (filterIds && filterIds.length > 0) {
-        query = query.in('id', filterIds);
-      } else {
-        query = query.eq('message_type', 'pplan_list').in('tenant_id', tenantIds);
-      }
-
-      const { data, error } = await query;
-
-      if (error) {
-        logSupabaseError("team-pplans", error);
-        return res.json({ teamPlans: [] });
-      }
-
-      const allTenantPrefixes = [...tenantIds, 'global'];
-      const kpisBySub = new Map<string, any[][]>();
-      const pplanRows: any[] = [];
-
-      for (const row of (data || [])) {
-        const rowId = String(row.id || '');
-        const isKpiRow = rowId.startsWith('kpis_') || row.message_type === 'kpis_list' || row.message_type === 'kpi_list';
-        let userId = '';
-        const prefixType = isKpiRow ? 'kpis_' : 'pplan_';
-        const foundTenantId = allTenantPrefixes.find(tId => rowId.startsWith(`${prefixType}${tId}_`));
-        if (foundTenantId) {
-          userId = rowId.substring(`${prefixType}${foundTenantId}_`.length);
+        if (filterIds && filterIds.length > 0) {
+          query = query.in('id', filterIds);
         } else {
-          const parts = rowId.split('_');
-          userId = parts[parts.length - 1] || row.sender_email || '';
+          query = query.eq('message_type', 'pplan_list').in('tenant_id', tenantIds);
         }
-        userId = (normalizeNkangalaEmail(userId.toLowerCase().trim()) || userId.toLowerCase().trim());
 
-        if (isKpiRow) {
-          if (row.content && userId) {
-            try {
-              const rawKpi = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
-              const kList = Array.isArray(rawKpi) ? rawKpi : (rawKpi?.kpis || rawKpi?.items || rawKpi?.rows || []);
-              if (Array.isArray(kList) && kList.length > 0) {
-                if (!kpisBySub.has(userId)) kpisBySub.set(userId, []);
-                kpisBySub.get(userId)!.push(kList);
-              }
-            } catch (e) {}
-          }
-        } else {
-          pplanRows.push({ ...row, _resolvedUserId: userId });
+        const { data, error } = await query;
+
+        if (error) {
+          logSupabaseError("team-pplans", error);
+          return { teamPlans: [] };
         }
-      }
 
-      const stripHeavyBlobsFromItem = (it: any) => {
-        if (!it) return it;
-        const stripDocs = (docs?: any[]) => Array.isArray(docs) ? docs.map(d => d ? ({ id: d.id, name: d.name, size: d.size, mimeType: d.mimeType, uploadedAt: d.uploadedAt }) : d) : [];
-        const { poeFileBase64, ...rest } = it;
-        return {
-          ...rest,
-          q1PoeDocs: stripDocs(it.q1PoeDocs),
-          q2PoeDocs: stripDocs(it.q2PoeDocs),
-          q3PoeDocs: stripDocs(it.q3PoeDocs),
-          q4PoeDocs: stripDocs(it.q4PoeDocs),
-          annualPoeDocs: stripDocs(it.annualPoeDocs),
-          midtermPoeDocs: stripDocs(it.midtermPoeDocs)
-        };
-      };
+        const allTenantPrefixes = [...tenantIds, 'global'];
+        const kpisBySub = new Map<string, any[][]>();
+        const pplanRows: any[] = [];
 
-      const isSyntheticTeamKpi = (it: any): boolean => {
-        if (!it) return true;
-        const desc = String(it.kpi || it.description || it.desc || it['kpi description'] || '').toLowerCase().trim();
-        const goal = String(it.strategicGoal || it.priorityIssue || '').toLowerCase().trim();
-        return (
-          desc.startsWith('achieve target deliverable kpi-') ||
-          desc.startsWith('achieve 100% statutory compliance and operational targets for') ||
-          desc.startsWith('ensure 100% adherence to departmental budget control and mfma expenditure guidelines in') ||
-          desc.includes('maintain 100% resolution of public service queries and operational requests within prescribed slas') ||
-          desc.includes('complete all mandatory individual performance reviews and personal development plan (pdp) targets for 2026/2027') ||
-          goal.includes('aspirant local municipal aligned performance objective') ||
-          goal.includes('local statutory priority target')
-        );
-      };
-
-      const teamPlans = pplanRows
-        .map((row: any) => {
-          const userId = row._resolvedUserId;
-
-          let planObj: any = { metadata: {}, items: [] };
-          if (row.content) {
-            try {
-              const rawObj = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
-              planObj = Array.isArray(rawObj) ? { metadata: {}, items: rawObj } : rawObj;
-              if (planObj && Array.isArray(planObj.items)) {
-                const nonSynth = planObj.items.filter((it: any) => !isSyntheticTeamKpi(it));
-                const baseList = nonSynth.length > 0 ? nonSynth : planObj.items;
-                planObj.items = baseList.map((it: any) => sanitizePplanItem(it, userId));
-                if (userId.toLowerCase().includes('moepis')) {
-                  planObj.items = planObj.items.filter((it: any) => {
-                    const no = String(it.kpiNo || '').replace(/[^0-9]/g, '');
-                    const id = String(it.id || '').toLowerCase();
-                    const desc = (it.kpi || it.description || it.desc || '').toLowerCase();
-                    if (no === '25' || no === '26') return false;
-                    if (id.endsWith('-25') || id.endsWith('-26')) return false;
-                    if (desc.includes('percentage of staff vacancy') || desc.includes('vacant posts filled')) return false;
-                    return true;
-                  });
-                }
-                if (userId.toLowerCase().includes('matherets')) {
-                  planObj.items = planObj.items.filter((it: any) => {
-                    const no = String(it.kpiNo || it['kpi no'] || '').replace(/[^0-9]/g, '');
-                    const id = String(it.id || '').toLowerCase();
-                    const desc = (it.kpi || it.description || it.desc || it['kpi description'] || '').toLowerCase();
-                    if (no === '13' || no === '14' || no === '15') return false;
-                    if (id.endsWith('-13') || id.endsWith('-14') || id.endsWith('-15')) return false;
-                    if (desc.includes('achieve target deliverable kpi-13') || desc.includes('achieve target deliverable kpi-14') || desc.includes('achieve target deliverable kpi-15')) return false;
-                    return true;
-                  });
-                }
-                if (isMetadataOnly) {
-                  planObj.items = planObj.items.map(stripHeavyBlobsFromItem);
-                }
-              }
-            } catch (e) {}
+        for (const row of (data || [])) {
+          const rowId = String(row.id || '');
+          const isKpiRow = rowId.startsWith('kpis_') || row.message_type === 'kpis_list' || row.message_type === 'kpi_list';
+          let userId = '';
+          const prefixType = isKpiRow ? 'kpis_' : 'pplan_';
+          const foundTenantId = allTenantPrefixes.find(tId => rowId.startsWith(`${prefixType}${tId}_`));
+          if (foundTenantId) {
+            userId = rowId.substring(`${prefixType}${foundTenantId}_`.length);
+          } else {
+            const parts = rowId.split('_');
+            userId = parts[parts.length - 1] || row.sender_email || '';
           }
+          userId = (normalizeNkangalaEmail(userId.toLowerCase().trim()) || userId.toLowerCase().trim());
 
+          if (isKpiRow) {
+            if (row.content && userId) {
+              try {
+                const rawKpi = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
+                const kList = Array.isArray(rawKpi) ? rawKpi : (rawKpi?.kpis || rawKpi?.items || rawKpi?.rows || []);
+                if (Array.isArray(kList) && kList.length > 0) {
+                  if (!kpisBySub.has(userId)) kpisBySub.set(userId, []);
+                  kpisBySub.get(userId)!.push(kList);
+                }
+              } catch (e) {}
+            }
+          } else {
+            pplanRows.push({ ...row, _resolvedUserId: userId });
+          }
+        }
+
+        const stripHeavyBlobsFromItem = (it: any) => {
+          if (!it) return it;
+          const stripDocs = (docs?: any[]) => Array.isArray(docs) ? docs.map(d => d ? ({ id: d.id, name: d.name, size: d.size, mimeType: d.mimeType, uploadedAt: d.uploadedAt }) : d) : [];
+          const { poeFileBase64, ...rest } = it;
           return {
-            userId,
-            tenantId: row.tenant_id,
-            createdAt: row.created_at,
-            plan: planObj
+            ...rest,
+            q1PoeDocs: stripDocs(it.q1PoeDocs),
+            q2PoeDocs: stripDocs(it.q2PoeDocs),
+            q3PoeDocs: stripDocs(it.q3PoeDocs),
+            q4PoeDocs: stripDocs(it.q4PoeDocs),
+            annualPoeDocs: stripDocs(it.annualPoeDocs),
+            midtermPoeDocs: stripDocs(it.midtermPoeDocs)
           };
-        });
+        };
 
-      // Priority calculation: Canonical tenant-229 / Fred-extracted / real KPIs / newest documents take priority over stale copies
-      const getPlanSubmissionPriority = (tp: any): number => {
-        if (!tp || !tp.plan) return 0;
-        const metaStatus = String(tp.plan.metadata?.reviewStatus || '').toLowerCase().trim();
-        const items = Array.isArray(tp.plan.items) ? tp.plan.items : [];
-        const realItemsCount = items.filter((it: any) => !isSyntheticTeamKpi(it)).length;
-        const submittedItemsCount = items.filter((it: any) => 
-          it.reviewStatus === 'Submitted for Approval' || 
-          it.reviewStatus === 'Submitted for Review' || 
-          it.reviewStatus === 'Submitted' ||
-          it.reviewStatus === 'Approved' ||
-          it.reviewStatus === 'Reviewed' ||
-          it.reviewStatus === 'Revision Required' ||
-          it.reviewStatus === 'Dispatched to Internal Audit' ||
-          it.reviewStatus === 'Dispatched to Audit'
-        ).length;
+        const isSyntheticTeamKpi = (it: any): boolean => {
+          if (!it) return true;
+          const desc = String(it.kpi || it.description || it.desc || it['kpi description'] || '').toLowerCase().trim();
+          const goal = String(it.strategicGoal || it.priorityIssue || '').toLowerCase().trim();
+          return (
+            desc.startsWith('achieve target deliverable kpi-') ||
+            desc.startsWith('achieve 100% statutory compliance and operational targets for') ||
+            desc.startsWith('ensure 100% adherence to departmental budget control and mfma expenditure guidelines in') ||
+            desc.includes('maintain 100% resolution of public service queries and operational requests within prescribed slas') ||
+            desc.includes('complete all mandatory individual performance reviews and personal development plan (pdp) targets for 2026/2027') ||
+            goal.includes('aspirant local municipal aligned performance objective') ||
+            goal.includes('local statutory priority target')
+          );
+        };
 
-        let score = 0;
-        if (realItemsCount > 0) score += 100000;
-        if (tp.tenantId === 'tenant-229') score += 50000;
-        else if (tp.tenantId === 'nkangala_auto') score += 25000;
+        const teamPlans = pplanRows
+          .map((row: any) => {
+            const userId = row._resolvedUserId;
 
-        if (tp.plan.metadata?._isFredExtracted) score += 20000;
+            let planObj: any = { metadata: {}, items: [] };
+            if (row.content) {
+              try {
+                const rawObj = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
+                planObj = Array.isArray(rawObj) ? { metadata: {}, items: rawObj } : rawObj;
+                if (planObj && Array.isArray(planObj.items)) {
+                  const nonSynth = planObj.items.filter((it: any) => !isSyntheticTeamKpi(it));
+                  const baseList = nonSynth.length > 0 ? nonSynth : planObj.items;
+                  planObj.items = baseList.map((it: any) => sanitizePplanItem(it, userId));
+                  if (userId.toLowerCase().includes('moepis')) {
+                    planObj.items = planObj.items.filter((it: any) => {
+                      const no = String(it.kpiNo || '').replace(/[^0-9]/g, '');
+                      const id = String(it.id || '').toLowerCase();
+                      const desc = (it.kpi || it.description || it.desc || '').toLowerCase();
+                      if (no === '25' || no === '26') return false;
+                      if (id.endsWith('-25') || id.endsWith('-26')) return false;
+                      if (desc.includes('percentage of staff vacancy') || desc.includes('vacant posts filled')) return false;
+                      return true;
+                    });
+                  }
+                  if (userId.toLowerCase().includes('matherets')) {
+                    planObj.items = planObj.items.filter((it: any) => {
+                      const no = String(it.kpiNo || it['kpi no'] || '').replace(/[^0-9]/g, '');
+                      const id = String(it.id || '').toLowerCase();
+                      const desc = (it.kpi || it.description || it.desc || it['kpi description'] || '').toLowerCase();
+                      if (no === '13' || no === '14' || no === '15') return false;
+                      if (id.endsWith('-13') || id.endsWith('-14') || id.endsWith('-15')) return false;
+                      if (desc.includes('achieve target deliverable kpi-13') || desc.includes('achieve target deliverable kpi-14') || desc.includes('achieve target deliverable kpi-15')) return false;
+                      return true;
+                    });
+                  }
+                  if (isMetadataOnly) {
+                    planObj.items = planObj.items.map(stripHeavyBlobsFromItem);
+                  }
+                }
+              } catch (e) {}
+            }
 
-        if (metaStatus === 'submitted for approval' || metaStatus === 'submitted for review' || metaStatus === 'submitted') {
-          score += 10000;
-        } else if (metaStatus === 'reviewed' || metaStatus === 'approved') {
-          score += 10000;
-        } else if (metaStatus === 'in progress' || metaStatus === 'draft') {
-          score += 100;
+            return {
+              userId,
+              tenantId: row.tenant_id,
+              createdAt: row.created_at,
+              plan: planObj
+            };
+          });
+
+        // Priority calculation: Canonical tenant-229 / Fred-extracted / real KPIs / newest documents take priority over stale copies
+        const getPlanSubmissionPriority = (tp: any): number => {
+          if (!tp || !tp.plan) return 0;
+          const metaStatus = String(tp.plan.metadata?.reviewStatus || '').toLowerCase().trim();
+          const items = Array.isArray(tp.plan.items) ? tp.plan.items : [];
+          const realItemsCount = items.filter((it: any) => !isSyntheticTeamKpi(it)).length;
+          const submittedItemsCount = items.filter((it: any) => 
+            it.reviewStatus === 'Submitted for Approval' || 
+            it.reviewStatus === 'Submitted for Review' || 
+            it.reviewStatus === 'Submitted' ||
+            it.reviewStatus === 'Approved' ||
+            it.reviewStatus === 'Reviewed' ||
+            it.reviewStatus === 'Revision Required' ||
+            it.reviewStatus === 'Dispatched to Internal Audit' ||
+            it.reviewStatus === 'Dispatched to Audit'
+          ).length;
+
+          let score = 0;
+          if (realItemsCount > 0) score += 100000;
+          if (tp.tenantId === 'tenant-229') score += 50000;
+          else if (tp.tenantId === 'nkangala_auto') score += 25000;
+
+          if (tp.plan.metadata?._isFredExtracted) score += 20000;
+
+          if (metaStatus === 'submitted for approval' || metaStatus === 'submitted for review' || metaStatus === 'submitted') {
+            score += 10000;
+          } else if (metaStatus === 'reviewed' || metaStatus === 'approved') {
+            score += 10000;
+          } else if (metaStatus === 'in progress' || metaStatus === 'draft') {
+            score += 100;
+          }
+
+          if (submittedItemsCount > 0) {
+            score += 5000 + (submittedItemsCount * 20);
+          }
+
+          score += Math.min(realItemsCount, 500);
+
+          return score;
+        };
+
+        // Group by userId, pick highest-priority plan, and merge items/POEs across all pplan_ and kpis_ rows for that subordinate
+        const groupedBySub = new Map<string, any[]>();
+        for (const tp of teamPlans) {
+          if (!tp.userId) continue;
+          if (!groupedBySub.has(tp.userId)) groupedBySub.set(tp.userId, []);
+          groupedBySub.get(tp.userId)!.push(tp);
         }
 
-        if (submittedItemsCount > 0) {
-          score += 5000 + (submittedItemsCount * 20);
-        }
+        const dedupedMap = new Map<string, any>();
+        for (const [subId, candidates] of groupedBySub.entries()) {
+          candidates.sort((a, b) => {
+            const sA = getPlanSubmissionPriority(a);
+            const sB = getPlanSubmissionPriority(b);
+            if (sB !== sA) return sB - sA;
+            const tA = new Date(a.plan?.metadata?._pushedAt || a.plan?.metadata?.updatedAt || a.createdAt || 0).getTime();
+            const tB = new Date(b.plan?.metadata?._pushedAt || b.plan?.metadata?.updatedAt || b.createdAt || 0).getTime();
+            return tB - tA;
+          });
 
-        score += Math.min(realItemsCount, 500);
-
-        return score;
-      };
-
-      // Group by userId, pick highest-priority plan, and merge items/POEs across all pplan_ and kpis_ rows for that subordinate
-      const groupedBySub = new Map<string, any[]>();
-      for (const tp of teamPlans) {
-        if (!tp.userId) continue;
-        if (!groupedBySub.has(tp.userId)) groupedBySub.set(tp.userId, []);
-        groupedBySub.get(tp.userId)!.push(tp);
-      }
-
-      const dedupedMap = new Map<string, any>();
-      for (const [subId, candidates] of groupedBySub.entries()) {
-        candidates.sort((a, b) => {
-          const sA = getPlanSubmissionPriority(a);
-          const sB = getPlanSubmissionPriority(b);
-          if (sB !== sA) return sB - sA;
-          const tA = new Date(a.plan?.metadata?._pushedAt || a.plan?.metadata?.updatedAt || a.createdAt || 0).getTime();
-          const tB = new Date(b.plan?.metadata?._pushedAt || b.plan?.metadata?.updatedAt || b.createdAt || 0).getTime();
-          return tB - tA;
-        });
-
-        const best = candidates[0];
-        if (best.plan) {
-          const secondaryLists: any[][] = [];
-          for (let i = 1; i < candidates.length; i++) {
-            const cItems = (candidates[i].plan?.items || []).filter((it: any) => !isSyntheticTeamKpi(it));
-            if (cItems.length > 0) {
-              secondaryLists.push(cItems);
+          const best = candidates[0];
+          if (best.plan) {
+            const secondaryLists: any[][] = [];
+            for (let i = 1; i < candidates.length; i++) {
+              const cItems = (candidates[i].plan?.items || []).filter((it: any) => !isSyntheticTeamKpi(it));
+              if (cItems.length > 0) {
+                secondaryLists.push(cItems);
+              }
+            }
+            const subKpiLists = kpisBySub.get(subId);
+            if (subKpiLists && subKpiLists.length > 0) {
+              for (const kl of subKpiLists) {
+                const cleanKl = kl.filter((it: any) => !isSyntheticTeamKpi(it));
+                if (cleanKl.length > 0) secondaryLists.push(cleanKl);
+              }
+            }
+            if (secondaryLists.length > 0 && !(best.plan.metadata && best.plan.metadata._isCleared)) {
+              const merged = mergePlanItemsWithSecondary(best.plan.items || [], secondaryLists).map((it: any) => sanitizePplanItem(it, subId));
+              best.plan.items = isMetadataOnly ? merged.map(stripHeavyBlobsFromItem) : merged;
             }
           }
-          const subKpiLists = kpisBySub.get(subId);
-          if (subKpiLists && subKpiLists.length > 0) {
-            for (const kl of subKpiLists) {
-              const cleanKl = kl.filter((it: any) => !isSyntheticTeamKpi(it));
-              if (cleanKl.length > 0) secondaryLists.push(cleanKl);
+          dedupedMap.set(subId, best);
+        }
+
+        // Ensure every subordinate in targetSubs (or with kpis_ rows) has a complete plan entry with live profile metadata and real KPIs (never generating fake KPIs)
+        const allTargetSubIds = Array.from(new Set([...targetSubs, ...Array.from(kpisBySub.keys())]));
+        for (const subId of allTargetSubIds) {
+          const uProfile = usersList.find((u: any) => (u.email || '').toLowerCase().trim() === subId);
+          let entry = dedupedMap.get(subId);
+
+          if (!entry || !entry.plan || (!Array.isArray(entry.plan.items) || entry.plan.items.length === 0)) {
+            const subKpiLists = kpisBySub.get(subId) || [];
+            let initialItems: any[] = [];
+            if (subKpiLists.length > 0) {
+              const mergedKpis = mergePlanItemsWithSecondary(subKpiLists[0], subKpiLists.slice(1))
+                .filter((it: any) => !isSyntheticTeamKpi(it))
+                .map((it: any) => sanitizePplanItem(it, subId));
+              initialItems = isMetadataOnly ? mergedKpis.map(stripHeavyBlobsFromItem) : mergedKpis;
+            }
+            entry = {
+              userId: subId,
+              tenantId: 'tenant-229',
+              createdAt: new Date().toISOString(),
+              plan: {
+                metadata: {
+                  ...(entry?.plan?.metadata || {}),
+                  name: uProfile?.fullName || entry?.plan?.metadata?.name || subId.split('@')[0],
+                  position: uProfile?.jobFunction || entry?.plan?.metadata?.position || 'Municipal Official',
+                  department: uProfile?.department || entry?.plan?.metadata?.department || 'Municipal Administration',
+                  manager: uProfile?.manager || entry?.plan?.metadata?.manager || '',
+                  managerEmail: uProfile?.managerEmail || entry?.plan?.metadata?.managerEmail || '',
+                  reportTo: uProfile?.reportTo || uProfile?.manager || entry?.plan?.metadata?.reportTo || '',
+                  financialYear: '2026/2027'
+                },
+                items: initialItems
+              }
+            };
+            dedupedMap.set(subId, entry);
+          } else if (uProfile && entry.plan) {
+            if (!entry.plan.metadata) entry.plan.metadata = {};
+            if (uProfile.fullName && (!entry.plan.metadata.name || entry.plan.metadata.name.includes('Placeholder'))) {
+              entry.plan.metadata.name = uProfile.fullName;
+            }
+            if (uProfile.jobFunction && !entry.plan.metadata.position) {
+              entry.plan.metadata.position = uProfile.jobFunction;
+            }
+            if (uProfile.department && !entry.plan.metadata.department) {
+              entry.plan.metadata.department = uProfile.department;
+            }
+            if (uProfile.manager && !entry.plan.metadata.manager) {
+              entry.plan.metadata.manager = uProfile.manager;
+            }
+            if (uProfile.managerEmail && !entry.plan.metadata.managerEmail) {
+              entry.plan.metadata.managerEmail = uProfile.managerEmail;
             }
           }
-          if (secondaryLists.length > 0 && !(best.plan.metadata && best.plan.metadata._isCleared)) {
-            const merged = mergePlanItemsWithSecondary(best.plan.items || [], secondaryLists).map((it: any) => sanitizePplanItem(it, subId));
-            best.plan.items = isMetadataOnly ? merged.map(stripHeavyBlobsFromItem) : merged;
-          }
         }
-        dedupedMap.set(subId, best);
-      }
 
-      // Ensure every subordinate in targetSubs (or with kpis_ rows) has a complete plan entry with live profile metadata and real KPIs (never generating fake KPIs)
-      const allTargetSubIds = Array.from(new Set([...targetSubs, ...Array.from(kpisBySub.keys())]));
-      for (const subId of allTargetSubIds) {
-        const uProfile = usersList.find((u: any) => (u.email || '').toLowerCase().trim() === subId);
-        let entry = dedupedMap.get(subId);
+        const finalTeamPlans = Array.from(dedupedMap.values());
+        return { teamPlans: finalTeamPlans };
+      });
 
-        if (!entry || !entry.plan || (!Array.isArray(entry.plan.items) || entry.plan.items.length === 0)) {
-          const subKpiLists = kpisBySub.get(subId) || [];
-          let initialItems: any[] = [];
-          if (subKpiLists.length > 0) {
-            const mergedKpis = mergePlanItemsWithSecondary(subKpiLists[0], subKpiLists.slice(1))
-              .filter((it: any) => !isSyntheticTeamKpi(it))
-              .map((it: any) => sanitizePplanItem(it, subId));
-            initialItems = isMetadataOnly ? mergedKpis.map(stripHeavyBlobsFromItem) : mergedKpis;
-          }
-          entry = {
-            userId: subId,
-            tenantId: 'tenant-229',
-            createdAt: new Date().toISOString(),
-            plan: {
-              metadata: {
-                ...(entry?.plan?.metadata || {}),
-                name: uProfile?.fullName || entry?.plan?.metadata?.name || subId.split('@')[0],
-                position: uProfile?.jobFunction || entry?.plan?.metadata?.position || 'Municipal Official',
-                department: uProfile?.department || entry?.plan?.metadata?.department || 'Municipal Administration',
-                manager: uProfile?.manager || entry?.plan?.metadata?.manager || '',
-                managerEmail: uProfile?.managerEmail || entry?.plan?.metadata?.managerEmail || '',
-                reportTo: uProfile?.reportTo || uProfile?.manager || entry?.plan?.metadata?.reportTo || '',
-                financialYear: '2026/2027'
-              },
-              items: initialItems
-            }
-          };
-          dedupedMap.set(subId, entry);
-        } else if (uProfile && entry.plan) {
-          if (!entry.plan.metadata) entry.plan.metadata = {};
-          if (uProfile.fullName && (!entry.plan.metadata.name || entry.plan.metadata.name.includes('Placeholder'))) {
-            entry.plan.metadata.name = uProfile.fullName;
-          }
-          if (uProfile.jobFunction && !entry.plan.metadata.position) {
-            entry.plan.metadata.position = uProfile.jobFunction;
-          }
-          if (uProfile.department && !entry.plan.metadata.department) {
-            entry.plan.metadata.department = uProfile.department;
-          }
-          if (uProfile.manager && !entry.plan.metadata.manager) {
-            entry.plan.metadata.manager = uProfile.manager;
-          }
-          if (uProfile.managerEmail && !entry.plan.metadata.managerEmail) {
-            entry.plan.metadata.managerEmail = uProfile.managerEmail;
-          }
-        }
-      }
-
-      const finalTeamPlans = Array.from(dedupedMap.values());
-
-      const result = { teamPlans: finalTeamPlans };
-      setCached(cacheKey, result);
       return res.json(result);
     } catch (err: any) {
       console.error("team-pplans load exception:", err);
@@ -15386,7 +15424,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
 
       if (supabase) {
-        // Primary canonical write awaited for guaranteed durability
+        // Single canonical write awaited for guaranteed durability (eliminates 4x multi-megabyte write amplification)
         const primaryTenant = syncTenants.includes('tenant-229') ? 'tenant-229' : tenantId;
         const primaryUpserts: Promise<any>[] = [];
         for (const u of targetUsers) {
@@ -15412,58 +15450,31 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         }
         await Promise.allSettled(primaryUpserts);
 
-        // Secondary mirror upserts run asynchronously in the background so saves never time out
-        setImmediate(async () => {
-          try {
-            const bgPromises: Promise<any>[] = [];
-            for (const u of targetUsers) {
-              for (const tId of syncTenants) {
-                if (tId === primaryTenant) continue;
-                const uDocId = `pplan_${tId}_${u}`;
-                bgPromises.push(
-                  Promise.resolve(
-                    supabase
-                      .from('messages')
-                      .upsert({
-                        id: uDocId,
-                        tenant_id: tId,
-                        sender_id: 'pplan_editor_tool',
-                        sender_email: 'pplan@system.local',
-                        sender_name: 'PPLAN Editor',
-                        content: payloadStr,
-                        message_type: 'pplan_list',
-                        created_at: nowIso
-                      }, { onConflict: 'id' })
-                  ).catch(() => {})
-                );
-              }
-            }
-
-            if (sanitizedItems.length > 0) {
+        // Lightweight KPI summary sync in background (stripped of base64 blobs so zero TOAST contention)
+        if (sanitizedItems.length > 0) {
+          setImmediate(async () => {
+            try {
               const cleanKpiItems = sanitizedItems.map((it: any) => {
                 const { poeFileBase64, q1PoeDocs, q2PoeDocs, q3PoeDocs, q4PoeDocs, annualPoeDocs, midtermPoeDocs, ...rest } = it;
                 return rest;
               });
               for (const u of targetUsers) {
-                bgPromises.push(
-                  Promise.resolve(
-                    supabase.from('messages').upsert({
-                      id: `kpis_${primaryTenant}_${u}`,
-                      tenant_id: primaryTenant,
-                      sender_id: 'kpi_manager_tool',
-                      sender_email: 'kpi@system.local',
-                      sender_name: 'KPI Manager',
-                      content: JSON.stringify({ kpis: cleanKpiItems }),
-                      message_type: 'kpis_list',
-                      created_at: nowIso
-                    }, { onConflict: 'id' })
-                  ).catch(() => {})
-                );
+                await Promise.resolve(
+                  supabase.from('messages').upsert({
+                    id: `kpis_${primaryTenant}_${u}`,
+                    tenant_id: primaryTenant,
+                    sender_id: 'kpi_manager_tool',
+                    sender_email: 'kpi@system.local',
+                    sender_name: 'KPI Manager',
+                    content: JSON.stringify({ kpis: cleanKpiItems }),
+                    message_type: 'kpis_list',
+                    created_at: nowIso
+                  }, { onConflict: 'id' })
+                ).catch(() => {});
               }
-            }
-            await Promise.allSettled(bgPromises);
-          } catch (bgErr) {}
-        });
+            } catch (bgErr) {}
+          });
+        }
       }
 
       for (const k of memoryCache.keys()) {
@@ -16872,34 +16883,22 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         
         if (error) throw error;
 
-        // Also dual-sync to nkangala_auto & tenant-229 if it is a Nkangala user
-        if (u.includes('@nkangaladm.gov.za') || tenantId === 'tenant-229' || tenantId === 'nkangala_auto') {
-          const altTenant = tenantId === 'tenant-229' ? 'nkangala_auto' : 'tenant-229';
-          const altDocId = `draft_doc_${altTenant}_${u}`;
-          await supabase.from('messages').upsert({
-            id: altDocId,
-            tenant_id: altTenant,
-            sender_id: 'pa_editor_tool',
-            sender_email: 'pa@system.local',
-            sender_name: 'PA Editor',
-            content: contentPayload,
-            message_type: 'drafting_suite_doc',
-            created_at: timestamp
-          }).catch(() => {});
-        }
-
-        // Auto-save non-destructive revision backup snapshot
+        // Non-destructive revision backup snapshot runs asynchronously in background
         const revisionId = `draft_doc_${tenantId}_${u}_rev_${Date.now()}`;
-        await supabase.from('messages').insert({
-          id: revisionId,
-          tenant_id: tenantId,
-          sender_id: 'pa_backup_vault',
-          sender_email: u,
-          sender_name: 'PA Vault Revision',
-          content: contentPayload,
-          message_type: 'draft_revision_snapshot',
-          created_at: timestamp
-        }).catch(() => {});
+        setImmediate(() => {
+          Promise.resolve(
+            supabase.from('messages').insert({
+              id: revisionId,
+              tenant_id: tenantId,
+              sender_id: 'pa_backup_vault',
+              sender_email: u,
+              sender_name: 'PA Vault Revision',
+              content: contentPayload,
+              message_type: 'draft_revision_snapshot',
+              created_at: timestamp
+            })
+          ).catch(() => {});
+        });
 
         // Keep local memory store hot for instantaneous retrieval
         try {
@@ -17104,7 +17103,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         }
       }
 
-      // 2. Search for revision snapshots matching this user across candidate tenants in Supabase
+      // 2. Search for revision snapshots matching this user across candidate tenants in Supabase using indexed prefix / sender_email
       const candidateTenants = Array.from(new Set([tenantId, 'tenant-229', 'nkangala_auto']));
 
       for (const tId of candidateTenants) {
@@ -17114,7 +17113,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             .select('id, content, created_at, sender_name, sender_email')
             .eq('tenant_id', tId)
             .eq('message_type', 'draft_revision_snapshot')
-            .or(`id.ilike.%${userId}%,sender_email.eq.${userId}`)
+            .or(`id.like.draft_doc_${tId}_${userId}_rev_%,sender_email.eq.${userId}`)
             .order('created_at', { ascending: false })
             .limit(50);
 
@@ -18123,12 +18122,14 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         });
       }
       const payload = { kpis: cleanKpis };
-      const targets = [
-        { id: `kpis_${tenantId}_${userId}`, tenant_id: tenantId },
-        { id: `kpis_tenant-229_${userId}`, tenant_id: 'tenant-229' },
-        { id: `kpis_nkangala_auto_${userId}`, tenant_id: 'nkangala_auto' },
-        { id: `kpis_global_${userId}`, tenant_id: 'global' }
-      ];
+      const canonicalTenant = (tenantId === 'nkangala_auto' || tenantId === 'tenant-229' || userId.includes('@nkangaladm.gov.za'))
+        ? 'tenant-229'
+        : tenantId;
+      const uniqueTenants = Array.from(new Set([canonicalTenant, tenantId]));
+      const targets = uniqueTenants.map(tId => ({
+        id: `kpis_${tId}_${userId}`,
+        tenant_id: tId
+      }));
 
       const nowIso = new Date().toISOString();
       await Promise.allSettled(
@@ -18738,11 +18739,11 @@ User Request: ${prompt}`;
     }
   });
 
-  // Synchronize Nkangala District Municipality folder on startup
-  try {
-    const supabase = getSupabase();
-    (async () => {
-      try {
+  // Warm up in-memory caches on startup (100% Read-Only & Non-Destructive: zero boot-time TOAST/WAL writes)
+  setImmediate(async () => {
+    try {
+      const supabase = getSupabase();
+      if (supabase && !isCircuitBreakerOpen()) {
         const localList = getTenantsList();
         if (localList.length > 0) {
           const { data: existing } = await supabase
@@ -18760,214 +18761,16 @@ User Request: ${prompt}`;
               sender_name: 'System Administrator',
               created_at: new Date().toISOString()
             });
-            console.log("---- SEEDED 257 MUNICIPALITIES LIST TO SUPABASE ----");
           }
         }
-      } catch (seedErr: any) {
-        console.log("Error inside startup municipalities list seeding routine:", seedErr.message);
       }
-
-      try {
-        let { data: users, error: userError } = await supabase.from('users').select('*');
-        if (userError) {
-          console.log("Could not perform startup users fetch", userError.message);
-          return;
-        }
-
-        const seedUsers = [
-          { email: 'mike@mzansiflow.co.za', fullName: 'Mike', role: 'Global Administrator' },
-          { email: 'mike@massivedynamixdistributors.com', fullName: 'Mike', role: 'Global Administrator' },
-          { email: 'audrey@mzansiflow.co.za', fullName: 'Audrey', role: 'Global Administrator' },
-          { email: 'delphine@mzansiflow.co.za', fullName: 'Delphine', role: 'Global Administrator' },
-          { email: 'ryanw@mzansiflow.co.za', fullName: 'Ryan Walters', role: 'Global Administrator' },
-          { email: 'bongani@mzansiflow.co.za', fullName: 'Bongani M.', role: 'Global Administrator' },
-          { email: 'bonganim@mzansiflow.co.za', fullName: 'Bongani M.', role: 'Global Administrator' },
-          { email: 'qiniso@mzansiflow.co.za', fullName: 'Qiniso', role: 'Systems Administrator' },
-          { email: 'marlan@mzansiflow.co.za', fullName: 'Marlan', role: 'Systems Administrator' },
-          { email: 'user@mzansiflow.co.za', fullName: 'Demo Standard User', role: 'tenant_user' },
-          { email: 'manager@mzansiflow.co.za', fullName: 'Demo Line Manager', role: 'Manager' },
-          { email: 'audit@mzansiflow.co.za', fullName: 'Demo Internal Auditor', role: 'Auditor' },
-          { email: 'dpmc@mzansiflow.co.za', fullName: 'Demo DPMC Moderator', role: 'DPMC' },
-        ];
-
-        let seededAny = false;
-        for (const su of seedUsers) {
-          const existingUser = (users || []).find((u: any) => u.email && u.email.toLowerCase() === su.email.toLowerCase());
-          if (!existingUser) {
-            const newId = 'seed_' + Math.random().toString(36).substring(2);
-            await supabase.from('users').insert({
-              id: newId,
-              full_name: su.fullName,
-              email: su.email,
-              role: su.role,
-              job_function: su.role,
-              source: 'manual',
-              tenant_id: 'global'
-            });
-            console.log(`[Seeding] Seeded core user: ${su.email} with role ${su.role}`);
-            seededAny = true;
-          } else if (existingUser.role !== su.role) {
-            await supabase.from('users').update({ role: su.role, job_function: su.role }).eq('id', existingUser.id);
-            console.log(`[Seeding] Updated existing user role: ${su.email} to ${su.role}`);
-            seededAny = true;
-          }
-        }
-
-        // Ensure delphine@mzansiflow.co.za, bongani@mzansiflow.co.za, and ryanw@mzansiflow.co.za passwords are permanently stored in Supabase
-        try {
-          const { data: passMsg } = await supabase
-            .from('messages')
-            .select('content')
-            .eq('id', 'nkangala_user_passwords')
-            .maybeSingle();
-          let passMap: Record<string, string> = {};
-          if (passMsg && passMsg.content) {
-            try { passMap = JSON.parse(passMsg.content); } catch(e) {}
-          }
-          passMap['delphine@mzansiflow.co.za'] = 'Deskjet01*';
-          passMap['bongani@mzansiflow.co.za'] = 'Deskjet01*';
-          passMap['bonganim@mzansiflow.co.za'] = 'Deskjet01*';
-          passMap['ryanw@mzansiflow.co.za'] = 'Deskjet01*';
-          passMap['user@mzansiflow.co.za'] = 'Deskjet01*';
-          passMap['manager@mzansiflow.co.za'] = 'Deskjet01*';
-          passMap['audit@mzansiflow.co.za'] = 'Deskjet01*';
-          passMap['dpmc@mzansiflow.co.za'] = 'Deskjet01*';
-          await supabase.from('messages').upsert({
-            id: 'nkangala_user_passwords',
-            content: JSON.stringify(passMap),
-            tenant_id: 'nkangala_auto',
-            sender_id: 'system',
-            sender_email: 'system@local',
-            sender_name: 'Authentication System',
-            created_at: new Date().toISOString()
-          });
-        } catch (passErr: any) {
-          console.error("Error saving admin passwords in startup routine:", passErr.message);
-        }
-
-        if (seededAny) {
-          const { data: refetched } = await supabase.from('users').select('*');
-          if (refetched) users = refetched;
-        }
-
-        if (users && users.length > 0) {
-          let map: any = {};
-          try {
-            const { data: mData } = await supabase.from('messages').select('content').eq('id', 'users_extra_metadata').maybeSingle();
-            if (mData && mData.content) {
-              map = JSON.parse(mData.content);
-            }
-          } catch (je) {}
-
-          // Ensure ShabanguSM explicitly reports to MahlanguML across Supabase
-          const shabanguUser = users.find((u: any) => (u.email || '').toLowerCase().includes('shabangusm'));
-          if (shabanguUser) {
-            map[shabanguUser.id] = {
-              ...(map[shabanguUser.id] || {}),
-              manager: 'Mandla L. Mahlangu',
-              reportTo: 'Mandla L. Mahlangu',
-              managerEmail: 'mahlanguml@nkangaladm.gov.za',
-              directorate: 'Office of the Municipal Manager',
-              level: '3'
-            };
-          }
-          map['shabangusm@nkangaladm.gov.za'] = {
-            ...(map['shabangusm@nkangaladm.gov.za'] || {}),
-            manager: 'Mandla L. Mahlangu',
-            reportTo: 'Mandla L. Mahlangu',
-            managerEmail: 'mahlanguml@nkangaladm.gov.za',
-            directorate: 'Office of the Municipal Manager',
-            level: '3'
-          };
-          map['0df28c52-7ad2-4fdd-9bd4-c5b8e194c68f'] = {
-            ...(map['0df28c52-7ad2-4fdd-9bd4-c5b8e194c68f'] || {}),
-            manager: 'Mandla L. Mahlangu',
-            reportTo: 'Mandla L. Mahlangu',
-            managerEmail: 'mahlanguml@nkangaladm.gov.za',
-            directorate: 'Office of the Municipal Manager',
-            level: '3'
-          };
-
-          try {
-            await supabase.from('messages').upsert({
-              id: 'users_extra_metadata',
-              tenant_id: 'global',
-              sender_id: 'system',
-              sender_email: 'system@local',
-              sender_name: 'User Directory Synchronizer',
-              content: JSON.stringify(map),
-              message_type: 'users_extra_metadata',
-              created_at: new Date().toISOString()
-            });
-          } catch (e) {}
-
-          // Also check and update PPLAN metadata for Shabangu in Supabase
-          try {
-            const pplanIds = [
-              'pplan_nkangala_auto_shabangusm@nkangaladm.gov.za',
-              'pplan_tenant-229_shabangusm@nkangaladm.gov.za',
-              'pplan_global_shabangusm@nkangaladm.gov.za'
-            ];
-            for (const pid of pplanIds) {
-              const { data: pMsg } = await supabase.from('messages').select('content, tenant_id').eq('id', pid).maybeSingle();
-              if (pMsg && pMsg.content) {
-                try {
-                  const pplanObj = JSON.parse(pMsg.content);
-                  if (pplanObj && pplanObj.metadata) {
-                    pplanObj.metadata.manager = 'Mandla L. Mahlangu';
-                    pplanObj.metadata.managerEmail = 'mahlanguml@nkangaladm.gov.za';
-                    pplanObj.metadata.reportTo = 'Mandla L. Mahlangu';
-                    pplanObj.metadata.employerName = 'Mahlangu Lucas Mandla';
-                    pplanObj.metadata.employerTitle = 'Municipal Manager';
-                    await supabase.from('messages').upsert({
-                      id: pid,
-                      tenant_id: pMsg.tenant_id || 'tenant-229',
-                      sender_id: 'system',
-                      sender_email: 'system@local',
-                      sender_name: 'Performance Plan Sync',
-                      content: JSON.stringify(pplanObj),
-                      message_type: 'pplan_list',
-                      created_at: new Date().toISOString()
-                    });
-                  }
-                } catch(e) {}
-              }
-            }
-          } catch(e) {}
-
-          const formatted = users.map((u: any) => {
-            const emailKey = (u.email || '').toLowerCase().trim();
-            const isShabangu = emailKey.includes('shabangusm') || emailKey.includes('shabangugm');
-            return {
-              id: u.id,
-              fullName: u.full_name,
-              email: u.email,
-              jobFunction: u.job_function,
-              department: isShabangu ? 'PMS' : u.department,
-              source: u.source,
-              role: u.role,
-              tenantId: u.tenant_id,
-              manager: isShabangu ? 'Mandla L. Mahlangu' : (map[u.id]?.manager || ''),
-              directorate: isShabangu ? 'Office of the Municipal Manager' : (map[u.id]?.directorate || ''),
-              reportTo: isShabangu ? 'Mandla L. Mahlangu' : (map[u.id]?.reportTo || ''),
-              managerEmail: isShabangu ? 'mahlanguml@nkangaladm.gov.za' : (map[u.id]?.managerEmail || ''),
-              level: isShabangu ? '3' : (map[u.id]?.level || '1')
-            };
-          });
-          saveNkangalaToDisk(formatted);
-          console.log("---- Synchronized Nkangala users on startup ----");
-          
-          // Also sync user profile backup archives for verified Azure AD users
-          await syncAzureUserProfileBackupFolders();
-          console.log("---- Synchronized Azure AD backup profile folders on startup ----");
-        }
-      } catch (err: any) {
-        console.log("Error inside startup users fetch routine:", err.message);
-      }
-    })();
-  } catch (e) {
-    console.log("Could not synchronize Nkangala district municipality on startup:", e);
-  }
+      // Pre-warm the consolidated users cache in memory (read-only, coalesced)
+      await getConsolidatedUsersList('tenant-229');
+      console.log("---- Read-only startup cache warm-up completed ----");
+    } catch (e: any) {
+      console.log("Startup cache warm-up notice:", e?.message || e);
+    }
+  });
 
   server.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
