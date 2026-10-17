@@ -90,15 +90,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
       if (filtered.length > 0) return filtered;
     }
 
-    // 2. Metadata submittedKpiIds
-    if (plan.metadata?.submittedKpiIds && Array.isArray(plan.metadata.submittedKpiIds) && plan.metadata.submittedKpiIds.length > 0) {
-      const filtered = plan.items.filter((item: any) => 
-        plan.metadata.submittedKpiIds.some((f: any) => matchesKpiIdentifier(item, f))
-      );
-      if (filtered.length > 0) return filtered;
-    }
-
-    // 3. Items currently in Submitted for Approval/Review state (or Approved/Reviewed/Revision Required/Dispatched)
+    // 2. Items currently in Submitted for Approval/Review state (or Approved/Reviewed/Revision Required/Dispatched)
     const submittedItems = plan.items.filter((it: any) => 
       it.reviewStatus === 'Submitted for Approval' || 
       it.reviewStatus === 'Submitted for Review' || 
@@ -115,14 +107,22 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
       return submittedItems;
     }
 
+    // 3. Metadata submittedKpiIds fallback
+    if (plan.metadata?.submittedKpiIds && Array.isArray(plan.metadata.submittedKpiIds) && plan.metadata.submittedKpiIds.length > 0) {
+      const filtered = plan.items.filter((item: any) => 
+        plan.metadata.submittedKpiIds.some((f: any) => matchesKpiIdentifier(item, f))
+      );
+      if (filtered.length > 0) return filtered;
+    }
+
     // 4. If target KPI is explicitly selected
     if (selectedKpiIdsForReview.length === 1) {
       const targeted = plan.items.filter((item: any) => matchesKpiIdentifier(item, selectedKpiIdsForReview[0]));
       if (targeted.length > 0) return targeted;
     }
 
-    // 5. Universal Manager Visibility: Always allow managers to view all of their subordinate's KPIs and POEs
-    return plan.items;
+    // Default: Only show KPIs once submitted by the subordinate (unless manager toggles "Show All KPIs")
+    return [];
   }, [selectedPlan, filterSubmittedKpiIds, showAllKpis, selectedKpiIdsForReview]);
 
   const toggleSelectKpiForReview = (id: string) => {

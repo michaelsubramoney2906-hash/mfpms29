@@ -693,7 +693,13 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
 
       const updatedMetadata = {
         ...metadata,
+        email: metadata.email || currentUser.email,
+        manager: metadata.manager || currentUser.manager || '',
+        managerEmail: metadata.managerEmail || currentUser.managerEmail || '',
+        reportTo: metadata.reportTo || currentUser.reportTo || currentUser.manager || '',
+        _isFredExtracted: true,
         ...(submitForReview ? {
+          reviewStatus: 'Submitted for Approval',
           submittedKpiIds: Array.from(new Set([...(metadata.submittedKpiIds || []), kpiId])),
           lastSubmittedKpiId: undefined
         } : {})
@@ -715,10 +721,10 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
 
       if (submitForReview) {
         const isShabanguUser = (currentUser.email || '').toLowerCase().includes('shabangusm');
-        const managerEmail = isShabanguUser ? 'mahlanguml@nkangaladm.gov.za' : (metadata.managerEmail || 'KhuboniY@nkangaladm.gov.za');
-        const managerName = isShabanguUser ? 'Mandla L. Mahlangu' : (metadata.manager || 'Yena Khuboni');
+        const managerEmail = isShabanguUser ? 'mahlanguml@nkangaladm.gov.za' : (updatedMetadata.managerEmail || currentUser.managerEmail || metadata.managerEmail || 'KhuboniY@nkangaladm.gov.za');
+        const managerName = isShabanguUser ? 'Mandla L. Mahlangu' : (updatedMetadata.manager || currentUser.manager || metadata.manager || 'Line Manager');
         const submitterEmail = currentUser.email;
-        const submitterName = currentUser.fullName || currentUser.full_name || (currentUser.email?.toLowerCase() === 'nsibandenp@nkangaladm.gov.za' ? 'Nompumelelo P. Nsibande' : 'Noluthando Zulu');
+        const submitterName = currentUser.fullName || currentUser.full_name || currentUser.email?.split('@')[0] || 'Official';
 
         let poeCount = 0;
         const targetItem = updatedItems.find(i => i.id === kpiId);
@@ -829,10 +835,11 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
       const metadata = { 
         ...pplanData.metadata,
         email: pplanData.metadata?.email || currentUser.email,
-        manager: isLinksReportUser ? 'Solly Links' : (isShabanguUser ? 'Mandla L. Mahlangu' : (pplanData.metadata?.manager || currentUser.manager || defaultMgrName)),
-        managerEmail: isLinksReportUser ? 'linkss@nkangaladm.gov.za' : (isShabanguUser ? 'mahlanguml@nkangaladm.gov.za' : (pplanData.metadata?.managerEmail || currentUser.managerEmail || defaultMgrEmail)),
-        reportTo: isLinksReportUser ? 'Solly Links' : (isShabanguUser ? 'Mandla L. Mahlangu' : (pplanData.metadata?.reportTo || currentUser.reportTo || (isDemoUser ? 'Demo Line Manager' : ''))),
+        manager: isLinksReportUser ? 'Solly Links' : (isShabanguUser ? 'Mandla L. Mahlangu' : (currentUser.manager || pplanData.metadata?.manager || defaultMgrName)),
+        managerEmail: isLinksReportUser ? 'linkss@nkangaladm.gov.za' : (isShabanguUser ? 'mahlanguml@nkangaladm.gov.za' : (currentUser.managerEmail || pplanData.metadata?.managerEmail || defaultMgrEmail)),
+        reportTo: isLinksReportUser ? 'Solly Links' : (isShabanguUser ? 'Mandla L. Mahlangu' : (currentUser.reportTo || pplanData.metadata?.reportTo || currentUser.manager || (isDemoUser ? 'Demo Line Manager' : ''))),
         reviewStatus: submitForReview ? 'Submitted for Approval' : (pplanData.metadata?.reviewStatus || 'Draft'),
+        _isFredExtracted: true,
         ...(submitForReview ? {
           submittedKpiIds: Array.from(new Set([...(pplanData.metadata?.submittedKpiIds || []), ...targetIds])),
           lastSubmittedKpiId: undefined

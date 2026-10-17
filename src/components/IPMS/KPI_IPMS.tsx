@@ -587,9 +587,9 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
       body: JSON.stringify({ kpis: updatedKpis })
     }).catch(() => {});
 
-    // 2. Synchronize to performance agreements / pplan
+    // 2. Synchronize to performance agreements / pplan only if pplanData has loaded
     const targetKpi = updatedKpis.find(k => k.id === id);
-    if (targetKpi) {
+    if (targetKpi && !loading && Array.isArray(pplanData.items) && pplanData.items.length > 0) {
       const existingPlanItems = [...pplanData.items];
       const matchIndex = existingPlanItems.findIndex(item => 
         (item.id && targetKpi.id && String(item.id).toLowerCase().trim() === String(targetKpi.id).toLowerCase().trim()) ||
@@ -597,7 +597,7 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
       );
       
       const selectedKpaObj = availableKpas.find(k => k.title === targetKpi.kpa);
-      const fallbackStrategicGoal = selectedKpaObj?.parentObjective || "Aspirant Local Municipal Aligned Performance objective";
+      const fallbackStrategicGoal = selectedKpaObj?.parentObjective || targetKpi.kpa || '';
 
       const resolvedApprovalStatus = targetKpi.reviewApprovalStatus || (matchIndex >= 0 ? existingPlanItems[matchIndex].reviewApprovalStatus : 'Pending') || 'Pending';
       const resolvedReviewStatus = resolvedApprovalStatus === 'Approved'
@@ -608,18 +608,19 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
 
       const existingRow = matchIndex >= 0 ? existingPlanItems[matchIndex] : ({} as any);
       const planRowData = {
+        ...existingRow,
         id: matchIndex >= 0 ? existingRow.id : (targetKpi.id || `kpi-${Date.now()}`),
-        strategicGoal: matchIndex >= 0 ? existingRow.strategicGoal : fallbackStrategicGoal,
-        priorityIssue: matchIndex >= 0 ? existingRow.priorityIssue : "Local Statutory Priority Target",
-        kpiNo: targetKpi.kpiNo,
-        kpi: targetKpi.kpi,
-        baseline: targetKpi.baseline,
-        baselineYear: targetKpi.baselineYear,
-        annualTarget: targetKpi.annualTarget,
-        q1Target: targetKpi.q1Target,
-        q2Target: targetKpi.q2Target,
-        q3Target: targetKpi.q3Target,
-        q4Target: targetKpi.q4Target,
+        strategicGoal: matchIndex >= 0 ? (existingRow.strategicGoal || fallbackStrategicGoal) : fallbackStrategicGoal,
+        priorityIssue: matchIndex >= 0 ? (existingRow.priorityIssue || '') : '',
+        kpiNo: targetKpi.kpiNo || existingRow.kpiNo,
+        kpi: targetKpi.kpi || existingRow.kpi,
+        baseline: targetKpi.baseline ?? existingRow.baseline,
+        baselineYear: targetKpi.baselineYear ?? existingRow.baselineYear,
+        annualTarget: targetKpi.annualTarget ?? existingRow.annualTarget,
+        q1Target: targetKpi.q1Target ?? existingRow.q1Target,
+        q2Target: targetKpi.q2Target ?? existingRow.q2Target,
+        q3Target: targetKpi.q3Target ?? existingRow.q3Target,
+        q4Target: targetKpi.q4Target ?? existingRow.q4Target,
         q1Actual: targetKpi.q1Actual ?? existingRow.q1Actual ?? '',
         q2Actual: targetKpi.q2Actual ?? existingRow.q2Actual ?? '',
         q3Actual: targetKpi.q3Actual ?? existingRow.q3Actual ?? '',
@@ -632,10 +633,10 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
         q2Comment: targetKpi.q2Comment ?? existingRow.q2Comment ?? '',
         q3Comment: targetKpi.q3Comment ?? existingRow.q3Comment ?? '',
         q4Comment: targetKpi.q4Comment ?? existingRow.q4Comment ?? '',
-        q1Poe: targetKpi.q1Poe,
-        q2Poe: targetKpi.q2Poe,
-        q3Poe: targetKpi.q3Poe,
-        q4Poe: targetKpi.q4Poe,
+        q1Poe: targetKpi.q1Poe ?? existingRow.q1Poe,
+        q2Poe: targetKpi.q2Poe ?? existingRow.q2Poe,
+        q3Poe: targetKpi.q3Poe ?? existingRow.q3Poe,
+        q4Poe: targetKpi.q4Poe ?? existingRow.q4Poe,
         q1PoeDocs: (Array.isArray(targetKpi.q1PoeDocs) && targetKpi.q1PoeDocs.length > 0) ? targetKpi.q1PoeDocs : (existingRow.q1PoeDocs || []),
         q2PoeDocs: (Array.isArray(targetKpi.q2PoeDocs) && targetKpi.q2PoeDocs.length > 0) ? targetKpi.q2PoeDocs : (existingRow.q2PoeDocs || []),
         q3PoeDocs: (Array.isArray(targetKpi.q3PoeDocs) && targetKpi.q3PoeDocs.length > 0) ? targetKpi.q3PoeDocs : (existingRow.q3PoeDocs || []),
@@ -650,8 +651,8 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
         reviewStatus: resolvedReviewStatus,
         evaluationUsername: targetEmail,
         reviewManagerName: currentUser.manager || 'Line Manager',
-        poe: `Q1: ${targetKpi.q1Poe}\nQ2: ${targetKpi.q2Poe}\nQ3: ${targetKpi.q3Poe}\nQ4: ${targetKpi.q4Poe}`,
-        weighting: targetKpi.weighting,
+        poe: existingRow.poe || `Q1: ${targetKpi.q1Poe}\nQ2: ${targetKpi.q2Poe}\nQ3: ${targetKpi.q3Poe}\nQ4: ${targetKpi.q4Poe}`,
+        weighting: targetKpi.weighting ?? existingRow.weighting,
         kpa: targetKpi.kpa || (matchIndex >= 0 ? existingRow.kpa : ''),
         bsd: selectedKpaObj ? selectedKpaObj.nationalKpa === 'Basic Service Delivery' : (matchIndex >= 0 ? !!existingRow.bsd : true),
         led: selectedKpaObj ? selectedKpaObj.nationalKpa === 'Local Economic Development' : (matchIndex >= 0 ? !!existingRow.led : false),
@@ -669,6 +670,10 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
 
       const updatedPlanData = {
         ...pplanData,
+        metadata: {
+          ...(pplanData.metadata || {}),
+          _isFredExtracted: true
+        },
         items: existingPlanItems
       };
       setPplanData(updatedPlanData);
