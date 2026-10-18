@@ -873,20 +873,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
                }).catch(() => {});
             }
           } else {
-            const isMahlanguTarget = targetEmail.toLowerCase().includes('mahlanguml') || targetEmail.toLowerCase().includes('mahlangulm') || targetEmail.toLowerCase().includes('mandlaml');
-            if (isMahlanguTarget && !isTeamPlan && !isTeamPlan2) {
-              const full97 = generateAll97KPIs(allCustomKpas);
-              setItems(full97);
-              const metaWithExtracted = { ...(data.metadata || metadata), _isFredExtracted: true, _isCleared: false };
-              setMetadata(metaWithExtracted);
-              fetch(`/api/tenant/${activeTenantId}/${apiEndpoint}?userId=${encodeURIComponent(targetEmail)}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ metadata: metaWithExtracted, items: full97 })
-              }).catch(() => {});
-            } else {
-              setItems([]);
-            }
+            setItems([]);
           }
         }
       } catch (err) {
@@ -914,10 +901,13 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
     setIsSaving(true);
     try {
       const targetEmail = selectedUserEmail || currentUser.email;
+      const isClearing = customItems.length === 0;
       const metaToSave = {
         ...customMetadata,
-        _isCleared: customItems.length === 0,
-        ...(customItems.length > 0 ? { _isFredExtracted: true } : {})
+        _isCleared: isClearing,
+        _allowItemDeletion: true,
+        _replacePlan: true,
+        ...(isClearing ? { _isFredExtracted: false } : { _isFredExtracted: true })
       };
       const res = await fetch(`/api/tenant/${activeTenantId}/${apiEndpoint}?userId=${encodeURIComponent(targetEmail)}`, {
         method: "POST",
@@ -925,6 +915,13 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
         body: JSON.stringify({ metadata: metaToSave, items: customItems, rows: customItems })
       });
       if (!res.ok) throw new Error("Failed to post payload to database");
+      if (!isTeamPlan && !isTeamPlan2) {
+        fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(targetEmail)}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ kpis: customItems })
+        }).catch(() => {});
+      }
       setHasSavedOnce(true);
       window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: targetEmail } }));
       if (showFeedback) {
@@ -1175,7 +1172,13 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
   const confirmClearGrid = async () => {
     setItems([]);
     setShowClearConfirm(false);
-    const updatedMetadata = { ...metadata, _isCleared: true, _isFredExtracted: false };
+    const updatedMetadata = {
+      ...metadata,
+      _isCleared: true,
+      _isFredExtracted: false,
+      _allowItemDeletion: true,
+      _replacePlan: true
+    };
     setMetadata(updatedMetadata);
     await handleSaveToDatabase(updatedMetadata, [], false);
   };
@@ -2509,36 +2512,46 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
             <PADraftingSuite key={`pa_suite_${effectiveUser?.email || currentUser.email}_${activeTenantId}`} currentUser={effectiveUser as any} activeTenantId={activeTenantId} />
           </div>
         ) : activeTab === 'drafting_suite_technical_services' ? (
-          <DraftingSuiteTeam 
-            key={`pa_tech_${effectiveUser?.email || currentUser.email}_${activeTenantId}`}
-            currentUser={effectiveUser as any} 
-            activeTenantId={activeTenantId} 
-            teamTitle="Technical Services Team"
-            documentIdSuffix="technical_services"
-            defaultRows={DEFAULT_TECHNICAL_SERVICES_ROWS}
-          />
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <DraftingSuiteTeam 
+              key={`pa_tech_${effectiveUser?.email || currentUser.email}_${activeTenantId}`}
+              currentUser={effectiveUser as any} 
+              activeTenantId={activeTenantId} 
+              teamTitle="Technical Services Team"
+              documentIdSuffix="technical_services"
+              defaultRows={DEFAULT_TECHNICAL_SERVICES_ROWS}
+            />
+          </div>
         ) : activeTab === 'drafting_suite_corporate_services' ? (
-          <DraftingSuiteTeam 
-            key={`pa_corp_${effectiveUser?.email || currentUser.email}_${activeTenantId}`}
-            currentUser={effectiveUser as any} 
-            activeTenantId={activeTenantId} 
-            teamTitle="Corporate Services Team"
-            documentIdSuffix="corporate_services"
-            defaultRows={DEFAULT_CORPORATE_SERVICES_ROWS}
-          />
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <DraftingSuiteTeam 
+              key={`pa_corp_${effectiveUser?.email || currentUser.email}_${activeTenantId}`}
+              currentUser={effectiveUser as any} 
+              activeTenantId={activeTenantId} 
+              teamTitle="Corporate Services Team"
+              documentIdSuffix="corporate_services"
+              defaultRows={DEFAULT_CORPORATE_SERVICES_ROWS}
+            />
+          </div>
         ) : activeTab === 'drafting_suite_pms_team' ? (
-          <DraftingSuiteTeam 
-            key={`pa_pms_${effectiveUser?.email || currentUser.email}_${activeTenantId}`}
-            currentUser={effectiveUser as any} 
-            activeTenantId={activeTenantId} 
-            teamTitle="PMS Team"
-            documentIdSuffix="pms_team"
-            defaultRows={DEFAULT_PMS_TEAM_ROWS}
-          />
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <DraftingSuiteTeam 
+              key={`pa_pms_${effectiveUser?.email || currentUser.email}_${activeTenantId}`}
+              currentUser={effectiveUser as any} 
+              activeTenantId={activeTenantId} 
+              teamTitle="PMS Team"
+              documentIdSuffix="pms_team"
+              defaultRows={DEFAULT_PMS_TEAM_ROWS}
+            />
+          </div>
         ) : activeTab === 'drafting_suite_firefighters' ? (
-          <DraftingSuiteFirefighters key={`pa_ff_${effectiveUser?.email || currentUser.email}_${activeTenantId}`} currentUser={effectiveUser as any} activeTenantId={activeTenantId} />
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <DraftingSuiteFirefighters key={`pa_ff_${effectiveUser?.email || currentUser.email}_${activeTenantId}`} currentUser={effectiveUser as any} activeTenantId={activeTenantId} />
+          </div>
         ) : activeTab === 'lead_fire_fighter' ? (
-          <LeadFireFighterPADraftingSuite key={`pa_lff_${effectiveUser?.email || currentUser.email}_${activeTenantId}`} currentUser={effectiveUser as any} activeTenantId={activeTenantId} />
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <LeadFireFighterPADraftingSuite key={`pa_lff_${effectiveUser?.email || currentUser.email}_${activeTenantId}`} currentUser={effectiveUser as any} activeTenantId={activeTenantId} />
+          </div>
         ) : activeTab === 'templates' ? (
           <div className="flex-1 min-h-0 overflow-hidden">
             <PATemplates key={`pa_tpl_${effectiveUser?.email || currentUser.email}_${activeTenantId}`} currentUser={effectiveUser as any} activeTenantId={activeTenantId} />
@@ -2941,17 +2954,6 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
               >
                 {isExpanded ? <Minimize2 className="w-3.5 h-3.5 text-white" /> : <Maximize2 className="w-3.5 h-3.5 text-green-450" />}
                 <span>{isExpanded ? 'Exit Full Screen' : 'Expand Table'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handlePullFredExtraction}
-                disabled={isPullingFred}
-                className="bg-emerald-700 hover:bg-emerald-650 text-white font-bold px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-wide flex items-center gap-1.5 transition cursor-pointer border border-emerald-600 shadow-xs disabled:opacity-50"
-                title="Restore / Import all 97 Statutory KPIs (M_01 to M_92 and U_01 to U_05)"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                <span>{isPullingFred ? 'Importing 97 KPIs...' : 'Import 97 KPIs'}</span>
               </button>
 
               <button

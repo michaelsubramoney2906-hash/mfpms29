@@ -1077,6 +1077,12 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
       const remainingPlanItems = pplanData.items.filter(item => (item.kpiNo || '').toLowerCase() !== codeStr.toLowerCase());
       const updatedPlanData = {
         ...pplanData,
+        metadata: {
+          ...(pplanData.metadata || {}),
+          _allowItemDeletion: true,
+          _replacePlan: true,
+          _isCleared: remainingPlanItems.length === 0
+        },
         items: remainingPlanItems
       };
       setPplanData(updatedPlanData);

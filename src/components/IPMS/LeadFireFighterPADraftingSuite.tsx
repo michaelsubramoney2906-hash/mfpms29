@@ -797,29 +797,52 @@ export function LeadFireFighterPADraftingSuite({ currentUser, activeTenantId }: 
   });
 
   return (
-    <div className="flex flex-1 min-h-0 w-full h-[calc(100vh-270px)] bg-slate-50 overflow-hidden divide-x divide-slate-200">
+    <div id="lff-pa-drafting-workspace" className="flex min-h-0 w-full h-[calc(100vh-195px)] max-h-[calc(100vh-195px)] bg-slate-50 overflow-hidden divide-x divide-slate-200">
       <style>{`
         /* Force dashboard's main container to fit the viewport and hide outer overflow when PADraftingSuite is loaded */
         main > div.overflow-auto,
         main > div.hide-scrollbar,
-        div.max-w-\[1600px\].overflow-auto {
+        div.max-w-\\[1600px\\].overflow-auto {
           overflow: hidden !important;
           height: calc(100vh - 110px) !important;
           padding-bottom: 0 !important;
         }
-
-        /* Fully hide scrollbar for Chrome, Safari and Opera across the column panes */
-        .hide-scrollbar::-webkit-scrollbar {
-          display: none !important;
+        #lff-pa-drafting-workspace {
+          isolation: isolate;
         }
-        /* Fully hide scrollbar for IE, Edge and Firefox across the column panes */
-        .hide-scrollbar {
-          -ms-overflow-style: none !important;  /* IE and Edge */
-          scrollbar-width: none !important;  /* Firefox */
+        #lff-pa-left-pane,
+        #lff-pa-right-pane {
+          overscroll-behavior: contain !important;
+          -webkit-overflow-scrolling: touch;
+        }
+        #lff-pa-left-pane::-webkit-scrollbar,
+        #lff-pa-right-pane::-webkit-scrollbar {
+          width: 8px;
+          height: 8px;
+        }
+        #lff-pa-left-pane::-webkit-scrollbar-track {
+          background: #f8fafc;
+        }
+        #lff-pa-right-pane::-webkit-scrollbar-track {
+          background: #e2e8f0;
+        }
+        #lff-pa-left-pane::-webkit-scrollbar-thumb {
+          background: #cbd5e1;
+          border-radius: 9999px;
+        }
+        #lff-pa-left-pane::-webkit-scrollbar-thumb:hover {
+          background: #94a3b8;
+        }
+        #lff-pa-right-pane::-webkit-scrollbar-thumb {
+          background: #94a3b8;
+          border-radius: 9999px;
+        }
+        #lff-pa-right-pane::-webkit-scrollbar-thumb:hover {
+          background: #64748b;
         }
       `}</style>
       {/* Left Pane - Editor */}
-      <div className="w-1/2 h-full overflow-y-auto overscroll-contain hide-scrollbar p-6 space-y-6">
+      <div id="lff-pa-left-pane" className="w-1/2 h-full overflow-y-auto overscroll-contain p-6 space-y-6 scroll-smooth">
         <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex-wrap gap-2">
           <div className="flex items-center gap-2 flex-wrap">
             <h2 className="font-bold text-slate-800 mr-2">Drafting Suite Tools</h2>
@@ -1184,7 +1207,7 @@ export function LeadFireFighterPADraftingSuite({ currentUser, activeTenantId }: 
       </div>
 
       {/* Right Pane - Compiler */}
-      <div className="w-1/2 h-full overflow-y-auto overscroll-contain hide-scrollbar bg-slate-200 p-8">
+      <div id="lff-pa-right-pane" className="w-1/2 h-full overflow-y-auto overscroll-contain bg-slate-200 p-8 scroll-smooth">
         <div className="bg-white w-full max-w-3xl mx-auto shadow-2xl min-h-[1100px] border border-slate-300 relative">
           {/* Printable Area */}
           <div id="pa-printable-area" className="p-12 space-y-8 text-black font-serif print:p-0">

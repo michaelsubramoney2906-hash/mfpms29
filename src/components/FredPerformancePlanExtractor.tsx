@@ -260,6 +260,8 @@ export function FredPerformancePlanExtractor({
           reportTo: 'Solly Links'
         } : {}),
         _isFredExtracted: true,
+        _replacePlan: true,
+        _allowItemDeletion: true,
         _isCleared: false,
         _extractedFrom: sourceFileName || 'Performance Agreement',
         _pushedAt: new Date().toISOString()

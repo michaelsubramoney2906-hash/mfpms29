@@ -2370,22 +2370,53 @@ export function DraftingSuiteTeam({
   };
 
   return (
-    <div className="flex flex-1 min-h-0 w-full h-[calc(100vh-270px)] bg-slate-50 overflow-hidden divide-x divide-slate-200">
+    <div id="team-pa-drafting-workspace" className="flex min-h-0 w-full h-[calc(100vh-195px)] max-h-[calc(100vh-195px)] bg-slate-50 overflow-hidden divide-x divide-slate-200">
       <style>{`
-        /* Fit viewport and hide outer scrolling */
+        /* Fit viewport and lock outer dashboard scrolling for independent 2-pane scrolling */
         main > div.overflow-auto,
         main > div.hide-scrollbar,
-        div.max-w-\[1600px\].overflow-auto {
+        div.max-w-\\[1600px\\].overflow-auto {
           overflow: hidden !important;
           height: calc(100vh - 110px) !important;
           padding-bottom: 0 !important;
         }
-        .hide-scrollbar::-webkit-scrollbar { display: none !important; }
-        .hide-scrollbar { -ms-overflow-style: none !important; scrollbar-width: none !important; }
+        #team-pa-drafting-workspace {
+          isolation: isolate;
+        }
+        #team-pa-left-editor-pane,
+        #team-pa-right-preview-pane {
+          overscroll-behavior: contain !important;
+          -webkit-overflow-scrolling: touch;
+        }
+        #team-pa-left-editor-pane::-webkit-scrollbar,
+        #team-pa-right-preview-pane::-webkit-scrollbar {
+          width: 8px;
+          height: 8px;
+        }
+        #team-pa-left-editor-pane::-webkit-scrollbar-track {
+          background: #f8fafc;
+        }
+        #team-pa-right-preview-pane::-webkit-scrollbar-track {
+          background: #e2e8f0;
+        }
+        #team-pa-left-editor-pane::-webkit-scrollbar-thumb {
+          background: #cbd5e1;
+          border-radius: 9999px;
+        }
+        #team-pa-left-editor-pane::-webkit-scrollbar-thumb:hover {
+          background: #94a3b8;
+        }
+        #team-pa-right-preview-pane::-webkit-scrollbar-thumb {
+          background: #94a3b8;
+          border-radius: 9999px;
+        }
+        #team-pa-right-preview-pane::-webkit-scrollbar-thumb:hover {
+          background: #64748b;
+        }
       `}</style>
 
       {/* LEFT PANE - Team Management & Section Editors */}
-      <div className="w-1/2 h-full overflow-y-auto overscroll-contain hide-scrollbar p-6 space-y-6">
+      <div id="team-pa-left-editor-pane" className="w-1/2 h-full overflow-y-auto overscroll-contain p-6 space-y-6 scroll-smooth">
         
         {/* Notification Toast */}
         {notification && (
@@ -5145,7 +5176,7 @@ export function DraftingSuiteTeam({
       </div>
 
       {/* RIGHT PANE - Live Document Preview & Export Controls */}
-      <div className="w-1/2 h-full overflow-y-auto overscroll-contain hide-scrollbar p-6 bg-slate-200/60 relative">
+      <div id="team-pa-right-preview-pane" className="w-1/2 h-full overflow-y-auto overscroll-contain p-6 bg-slate-200/60 relative scroll-smooth">
         
         {/* Floating Export & Print Bar */}
         <div className="sticky top-0 z-20 mb-4 bg-white/95 backdrop-blur-xs p-3 rounded-xl shadow-md border border-slate-200 flex justify-between items-center">

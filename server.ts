@@ -14031,7 +14031,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
   };
 
   // Helper to merge POE documents, actuals, scores, and custom KPIs from secondary pplan_ or kpis_ rows into a primary plan's items
-  const mergePlanItemsWithSecondary = (primaryItems: any[], secondaryItemLists: any[][]): any[] => {
+  const mergePlanItemsWithSecondary = (primaryItems: any[], secondaryItemLists: any[][], appendUnmatched: boolean = false): any[] => {
     const result = Array.isArray(primaryItems) ? primaryItems.map(it => ({ ...it })) : [];
     if (!secondaryItemLists || secondaryItemLists.length === 0) return result;
 
@@ -14130,7 +14130,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             annualPoeDocs: mergeDocArrays(base.annualPoeDocs, secItem.annualPoeDocs),
             midtermPoeDocs: mergeDocArrays(base.midtermPoeDocs, secItem.midtermPoeDocs)
           };
-        } else if (secItem.kpi || secItem.description || secItem.kpiNo) {
+        } else if (appendUnmatched && (secItem.kpi || secItem.description || secItem.kpiNo)) {
           result.push({ ...secItem });
         }
       }
@@ -14221,14 +14221,16 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           const scorePlanCandidate = (row: any) => {
             try {
               const p = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
-              if (!p) return { valid: false, ts: 0, reviewCount: 0, itemCount: 0, realItemCount: 0, parsed: null };
+              if (!p) return { valid: false, isCleared: false, isReplacePlan: false, isCanonical: false, ts: 0, reviewCount: 0, itemCount: 0, realItemCount: 0, parsed: null };
               const list = Array.isArray(p) ? p : (p.items || p.rows || p.kpis || []);
-              const isCleared = p.metadata && p.metadata._isCleared === true;
-              const tsStr = (p.metadata && p.metadata.updatedAt) || row.created_at || '';
+              const isCleared = Boolean(p.metadata && p.metadata._isCleared === true);
+              const isReplacePlan = Boolean(p.metadata && (p.metadata._replacePlan === true || p.metadata._allowItemDeletion === true || p.metadata._isFredExtracted === true));
+              const isCanonical = String(row.id || '') === `pplan_tenant-229_${userId}` || String(row.id || '') === documentId;
+              const tsStr = (p.metadata && (p.metadata._pushedAt || p.metadata.updatedAt)) || row.created_at || '';
               const ts = tsStr ? (new Date(tsStr).getTime() || 0) : 0;
               let reviewCount = 0;
               let realItemCount = 0;
-              if (Array.isArray(list)) {
+              if (!isCleared && Array.isArray(list)) {
                 list.forEach((it: any) => {
                   if (!isSyntheticKpiItem(it)) {
                     realItemCount += 1;
@@ -14245,15 +14247,18 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
               }
               return {
                 valid: isCleared || (Array.isArray(list) && list.length > 0),
+                isCleared,
+                isReplacePlan,
+                isCanonical,
                 ts,
                 reviewCount,
-                itemCount: Array.isArray(list) ? list.length : 0,
+                itemCount: isCleared ? 0 : (Array.isArray(list) ? list.length : 0),
                 realItemCount,
                 parsed: Array.isArray(p) ? { metadata: {}, items: p, rows: p } : p,
                 raw: typeof row.content === 'string' ? row.content : JSON.stringify(row.content)
               };
             } catch (e) {
-              return { valid: false, ts: 0, reviewCount: 0, itemCount: 0, realItemCount: 0, parsed: null, raw: '' };
+              return { valid: false, isCleared: false, isReplacePlan: false, isCanonical: false, ts: 0, reviewCount: 0, itemCount: 0, realItemCount: 0, parsed: null, raw: '' };
             }
           };
 
@@ -14262,36 +14267,50 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           const candidates = pplanCandidates.length > 0 ? pplanCandidates : kpiCandidates;
 
           if (candidates.length > 0) {
-            // Prioritize plans with real (non-synthetic) KPIs first, then newest timestamp, then higher reviewCount
+            // Prioritize explicitly cleared or real (non-synthetic) plans, sorting by newest timestamp first for canonical/replaced/cleared plans
             candidates.sort((a, b) => {
-              const aHasReal = a.realItemCount > 0 ? 1 : 0;
-              const bHasReal = b.realItemCount > 0 ? 1 : 0;
-              if (bHasReal !== aHasReal) return bHasReal - aHasReal;
-              if (b.realItemCount !== a.realItemCount && (a.realItemCount <= 4 || b.realItemCount <= 4)) {
-                return b.realItemCount - a.realItemCount;
+              const aHasRealOrCleared = (a.isCleared || a.realItemCount > 0) ? 1 : 0;
+              const bHasRealOrCleared = (b.isCleared || b.realItemCount > 0) ? 1 : 0;
+              if (bHasRealOrCleared !== aHasRealOrCleared) return bHasRealOrCleared - aHasRealOrCleared;
+
+              // If either candidate was explicitly cleared or authoritatively replaced/saved, newest timestamp wins immediately
+              if (a.isCleared || b.isCleared || a.isReplacePlan || b.isReplacePlan) {
+                if (b.ts !== a.ts) return b.ts - a.ts;
+                if (b.isCanonical !== a.isCanonical) return (b.isCanonical ? 1 : 0) - (a.isCanonical ? 1 : 0);
               }
+
+              if (b.isCanonical !== a.isCanonical && b.ts >= a.ts) return (b.isCanonical ? 1 : 0) - (a.isCanonical ? 1 : 0);
               if (b.ts !== a.ts) return b.ts - a.ts;
-              return b.reviewCount - a.reviewCount;
+              if (b.reviewCount !== a.reviewCount) return b.reviewCount - a.reviewCount;
+              return b.realItemCount - a.realItemCount;
             });
 
             const best = candidates[0];
-            const baseItems = best.parsed?.items || best.parsed?.rows || best.parsed?.kpis || [];
-            const secondaryLists: any[][] = [];
-            for (let i = 1; i < candidates.length; i++) {
-              const cItems = (candidates[i].parsed?.items || candidates[i].parsed?.rows || candidates[i].parsed?.kpis || []).filter((it: any) => !isSyntheticKpiItem(it));
-              if (Array.isArray(cItems) && cItems.length > 0) secondaryLists.push(cItems);
-            }
-            if (pplanCandidates.length > 0 && kpiCandidates.length > 0) {
-              for (const kc of kpiCandidates) {
-                const kItems = (kc.parsed?.items || kc.parsed?.rows || kc.parsed?.kpis || []).filter((it: any) => !isSyntheticKpiItem(it));
-                if (Array.isArray(kItems) && kItems.length > 0) secondaryLists.push(kItems);
+            if (best.isCleared && best.parsed) {
+              best.parsed.items = [];
+              best.parsed.rows = [];
+            } else {
+              const baseItems = best.parsed?.items || best.parsed?.rows || best.parsed?.kpis || [];
+              const secondaryLists: any[][] = [];
+              for (let i = 1; i < candidates.length; i++) {
+                if (candidates[i].isCleared) continue;
+                const cItems = (candidates[i].parsed?.items || candidates[i].parsed?.rows || candidates[i].parsed?.kpis || []).filter((it: any) => !isSyntheticKpiItem(it));
+                if (Array.isArray(cItems) && cItems.length > 0) secondaryLists.push(cItems);
               }
-            }
+              if (pplanCandidates.length > 0 && kpiCandidates.length > 0) {
+                for (const kc of kpiCandidates) {
+                  if (kc.isCleared) continue;
+                  const kItems = (kc.parsed?.items || kc.parsed?.rows || kc.parsed?.kpis || []).filter((it: any) => !isSyntheticKpiItem(it));
+                  if (Array.isArray(kItems) && kItems.length > 0) secondaryLists.push(kItems);
+                }
+              }
 
-            if (secondaryLists.length > 0 && best.parsed && !(best.parsed.metadata && best.parsed.metadata._isCleared)) {
-              const merged = mergePlanItemsWithSecondary(baseItems, secondaryLists);
-              best.parsed.items = merged;
-              best.parsed.rows = merged;
+              if (secondaryLists.length > 0 && best.parsed && !(best.parsed.metadata && best.parsed.metadata._isCleared)) {
+                // Only enrich matching KPIs (appendUnmatched = false when baseItems already has real KPIs) so stale secondary rows never inflate KPI counts
+                const merged = mergePlanItemsWithSecondary(baseItems, secondaryLists, baseItems.length === 0);
+                best.parsed.items = merged;
+                best.parsed.rows = merged;
+              }
             }
 
             const finalRaw = JSON.stringify(best.parsed);
@@ -15007,33 +15026,42 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         const dedupedMap = new Map<string, any>();
         for (const [subId, candidates] of groupedBySub.entries()) {
           candidates.sort((a, b) => {
+            const tA = new Date(a.plan?.metadata?._pushedAt || a.plan?.metadata?.updatedAt || a.createdAt || 0).getTime();
+            const tB = new Date(b.plan?.metadata?._pushedAt || b.plan?.metadata?.updatedAt || b.createdAt || 0).getTime();
+            const aExplicit = Boolean(a.plan?.metadata?._isCleared || a.plan?.metadata?._replacePlan || a.plan?.metadata?._allowItemDeletion);
+            const bExplicit = Boolean(b.plan?.metadata?._isCleared || b.plan?.metadata?._replacePlan || b.plan?.metadata?._allowItemDeletion);
+            if ((aExplicit || bExplicit) && tB !== tA) return tB - tA;
             const sA = getPlanSubmissionPriority(a);
             const sB = getPlanSubmissionPriority(b);
             if (sB !== sA) return sB - sA;
-            const tA = new Date(a.plan?.metadata?._pushedAt || a.plan?.metadata?.updatedAt || a.createdAt || 0).getTime();
-            const tB = new Date(b.plan?.metadata?._pushedAt || b.plan?.metadata?.updatedAt || b.createdAt || 0).getTime();
             return tB - tA;
           });
 
           const best = candidates[0];
           if (best.plan) {
-            const secondaryLists: any[][] = [];
-            for (let i = 1; i < candidates.length; i++) {
-              const cItems = (candidates[i].plan?.items || []).filter((it: any) => !isSyntheticTeamKpi(it));
-              if (cItems.length > 0) {
-                secondaryLists.push(cItems);
+            if (best.plan.metadata && best.plan.metadata._isCleared) {
+              best.plan.items = [];
+            } else {
+              const secondaryLists: any[][] = [];
+              for (let i = 1; i < candidates.length; i++) {
+                if (candidates[i].plan?.metadata?._isCleared) continue;
+                const cItems = (candidates[i].plan?.items || []).filter((it: any) => !isSyntheticTeamKpi(it));
+                if (cItems.length > 0) {
+                  secondaryLists.push(cItems);
+                }
               }
-            }
-            const subKpiLists = kpisBySub.get(subId);
-            if (subKpiLists && subKpiLists.length > 0) {
-              for (const kl of subKpiLists) {
-                const cleanKl = kl.filter((it: any) => !isSyntheticTeamKpi(it));
-                if (cleanKl.length > 0) secondaryLists.push(cleanKl);
+              const subKpiLists = kpisBySub.get(subId);
+              if (subKpiLists && subKpiLists.length > 0) {
+                for (const kl of subKpiLists) {
+                  const cleanKl = kl.filter((it: any) => !isSyntheticTeamKpi(it));
+                  if (cleanKl.length > 0) secondaryLists.push(cleanKl);
+                }
               }
-            }
-            if (secondaryLists.length > 0 && !(best.plan.metadata && best.plan.metadata._isCleared)) {
-              const merged = mergePlanItemsWithSecondary(best.plan.items || [], secondaryLists).map((it: any) => sanitizePplanItem(it, subId));
-              best.plan.items = isMetadataOnly ? merged.map(stripHeavyBlobsFromItem) : merged;
+              if (secondaryLists.length > 0) {
+                const baseList = best.plan.items || [];
+                const merged = mergePlanItemsWithSecondary(baseList, secondaryLists, baseList.length === 0).map((it: any) => sanitizePplanItem(it, subId));
+                best.plan.items = isMetadataOnly ? merged.map(stripHeavyBlobsFromItem) : merged;
+              }
             }
           }
           dedupedMap.set(subId, best);
@@ -15044,12 +15072,13 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         for (const subId of allTargetSubIds) {
           const uProfile = usersList.find((u: any) => (u.email || '').toLowerCase().trim() === subId);
           let entry = dedupedMap.get(subId);
+          const isSubCleared = Boolean(entry?.plan?.metadata?._isCleared);
 
-          if (!entry || !entry.plan || (!Array.isArray(entry.plan.items) || entry.plan.items.length === 0)) {
-            const subKpiLists = kpisBySub.get(subId) || [];
+          if (!entry || !entry.plan || (!isSubCleared && (!Array.isArray(entry.plan.items) || entry.plan.items.length === 0))) {
+            const subKpiLists = isSubCleared ? [] : (kpisBySub.get(subId) || []);
             let initialItems: any[] = [];
             if (subKpiLists.length > 0) {
-              const mergedKpis = mergePlanItemsWithSecondary(subKpiLists[0], subKpiLists.slice(1))
+              const mergedKpis = mergePlanItemsWithSecondary(subKpiLists[0], subKpiLists.slice(1), false)
                 .filter((it: any) => !isSyntheticTeamKpi(it))
                 .map((it: any) => sanitizePplanItem(it, subId));
               initialItems = isMetadataOnly ? mergedKpis.map(stripHeavyBlobsFromItem) : mergedKpis;
@@ -15304,8 +15333,10 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
 
       // Zero-Data-Loss Merge Protection: if the user already has a full real KPI plan in cache or Supabase,
-      // never allow a partial or synthetic payload to wipe out their other real KPIs or POE attachments
+      // never allow an accidental partial/synthetic payload to wipe out their other real KPIs or POE attachments,
+      // while honoring explicit Clear Grid (_isCleared) and authoritative Fred / Planner Grid saves (_replacePlan / _allowItemDeletion).
       const isExplicitlyClearedPost = Boolean(metadata && metadata._isCleared === true);
+      const isAuthoritativeReplacePost = Boolean(metadata && (metadata._replacePlan === true || metadata._allowItemDeletion === true));
       let existingParsedPlan: any = null;
       if (!isExplicitlyClearedPost) {
         const candidateKeys = [`pplan_tenant-229_${userId}`, `pplan_${tenantId}_${userId}`, `pplan_nkangala_auto_${userId}`];
@@ -15342,18 +15373,26 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         }
       }
 
-      if (existingParsedPlan && Array.isArray(existingParsedPlan.items) && existingParsedPlan.items.length > 0 && !isExplicitlyClearedPost) {
+      if (isExplicitlyClearedPost) {
+        sanitizedItems = [];
+      } else if (existingParsedPlan && Array.isArray(existingParsedPlan.items) && existingParsedPlan.items.length > 0) {
         const existingRealItems = existingParsedPlan.items.filter((it: any) => !isSyntheticPostItem(it));
         if (existingRealItems.length > 0) {
-          if (sanitizedItems.length === 0 || sanitizedItems.every((it: any) => isSyntheticPostItem(it))) {
-            // Reject overwriting real KPIs with empty or synthetic KPIs
+          if (isAuthoritativeReplacePost) {
+            // Authoritative replace from Fred Performance Plan Extractor or Annual Performance Planner Grid:
+            // Keep ONLY the incoming KPIs (e.g. 15 extracted KPIs), while preserving any existing POE docs/scores on matching KPIs (appendUnmatched = false)
+            if (sanitizedItems.length > 0) {
+              sanitizedItems = mergePlanItemsWithSecondary(sanitizedItems, [existingRealItems], false).map((it: any) => sanitizePplanItem(it, userId));
+            }
+          } else if (sanitizedItems.length === 0 || sanitizedItems.every((it: any) => isSyntheticPostItem(it))) {
+            // Reject accidental overwriting of real KPIs with empty or synthetic KPIs during evaluations
             sanitizedItems = existingRealItems;
-          } else if (sanitizedItems.length < existingRealItems.length && !(metadata && metadata._allowItemDeletion === true)) {
-            // Merge incoming updated KPIs into the existing full real KPI list so no unsubmitted KPIs are lost
-            sanitizedItems = mergePlanItemsWithSecondary(sanitizedItems, [existingRealItems]).map((it: any) => sanitizePplanItem(it, userId));
+          } else if (sanitizedItems.length < existingRealItems.length) {
+            // Partial self-evaluation update: merge incoming updated KPIs into the existing full real KPI list (appendUnmatched = true)
+            sanitizedItems = mergePlanItemsWithSecondary(sanitizedItems, [existingRealItems], true).map((it: any) => sanitizePplanItem(it, userId));
           } else {
-            // Even when full list is sent, preserve any existing POE docs if missing on incoming items
-            sanitizedItems = mergePlanItemsWithSecondary(sanitizedItems, [existingRealItems]).map((it: any) => sanitizePplanItem(it, userId));
+            // Full list sent: preserve any existing POE docs on matching KPIs (appendUnmatched = false)
+            sanitizedItems = mergePlanItemsWithSecondary(sanitizedItems, [existingRealItems], false).map((it: any) => sanitizePplanItem(it, userId));
           }
         }
       }
@@ -15403,7 +15442,10 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         if (uProfile.managerEmail) updatedMeta.managerEmail = uProfile.managerEmail;
         if (uProfile.reportTo || uProfile.manager) updatedMeta.reportTo = uProfile.reportTo || uProfile.manager;
       }
-      if (sanitizedItems.length > 0) {
+      if (isExplicitlyClearedPost || sanitizedItems.length === 0) {
+        updatedMeta._isCleared = true;
+        updatedMeta._isFredExtracted = false;
+      } else {
         updatedMeta._isFredExtracted = true;
         updatedMeta._isCleared = false;
       }
@@ -15450,31 +15492,44 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         }
         await Promise.allSettled(primaryUpserts);
 
-        // Lightweight KPI summary sync in background (stripped of base64 blobs so zero TOAST contention)
-        if (sanitizedItems.length > 0) {
-          setImmediate(async () => {
-            try {
-              const cleanKpiItems = sanitizedItems.map((it: any) => {
-                const { poeFileBase64, q1PoeDocs, q2PoeDocs, q3PoeDocs, q4PoeDocs, annualPoeDocs, midtermPoeDocs, ...rest } = it;
-                return rest;
-              });
-              for (const u of targetUsers) {
-                await Promise.resolve(
-                  supabase.from('messages').upsert({
-                    id: `kpis_${primaryTenant}_${u}`,
-                    tenant_id: primaryTenant,
-                    sender_id: 'kpi_manager_tool',
-                    sender_email: 'kpi@system.local',
-                    sender_name: 'KPI Manager',
-                    content: JSON.stringify({ kpis: cleanKpiItems }),
-                    message_type: 'kpis_list',
-                    created_at: nowIso
-                  }, { onConflict: 'id' })
-                ).catch(() => {});
+        // Lightweight KPI summary sync and cleanup of stale secondary buckets in background
+        setImmediate(async () => {
+          try {
+            const cleanKpiItems = sanitizedItems.map((it: any) => {
+              const { poeFileBase64, q1PoeDocs, q2PoeDocs, q3PoeDocs, q4PoeDocs, annualPoeDocs, midtermPoeDocs, ...rest } = it;
+              return rest;
+            });
+            for (const u of targetUsers) {
+              await Promise.resolve(
+                supabase.from('messages').upsert({
+                  id: `kpis_${primaryTenant}_${u}`,
+                  tenant_id: primaryTenant,
+                  sender_id: 'kpi_manager_tool',
+                  sender_email: 'kpi@system.local',
+                  sender_name: 'KPI Manager',
+                  content: JSON.stringify({ kpis: cleanKpiItems }),
+                  message_type: 'kpis_list',
+                  created_at: nowIso
+                }, { onConflict: 'id' })
+              ).catch(() => {});
+
+              // If plan was explicitly cleared or authoritatively replaced, delete stale secondary pplan_ and kpis_ rows so old KPIs never resurface
+              if (isExplicitlyClearedPost || isAuthoritativeReplacePost) {
+                const staleSecondaryIds = [
+                  `pplan_nkangala_auto_${u}`,
+                  `pplan_global_${u}`,
+                  `kpis_nkangala_auto_${u}`,
+                  `kpis_global_${u}`
+                ].filter(id => id !== `pplan_${primaryTenant}_${u}` && id !== `kpis_${primaryTenant}_${u}`);
+                if (staleSecondaryIds.length > 0) {
+                  await Promise.resolve(
+                    supabase.from('messages').delete().in('id', staleSecondaryIds)
+                  ).catch(() => {});
+                }
               }
-            } catch (bgErr) {}
-          });
-        }
+            }
+          } catch (bgErr) {}
+        });
       }
 
       for (const k of memoryCache.keys()) {
@@ -17949,11 +18004,15 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         `pplan_global_${userId}`
       ]));
       const pplanStatusOverlay = new Map<string, any>();
+      let isPlanExplicitlyCleared = false;
       for (const pKey of pplanLookupKeys) {
         const cachedP = pplanCache.get(pKey);
         if (cachedP && cachedP.raw) {
           try {
             const pp = JSON.parse(cachedP.raw);
+            if (pp?.metadata?._isCleared === true) {
+              isPlanExplicitlyCleared = true;
+            }
             const pItems = pp.items || pp.rows || [];
             if (Array.isArray(pItems)) {
               pItems.forEach((it: any) => {
@@ -17965,6 +18024,9 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             }
           } catch (e) {}
         }
+      }
+      if (isPlanExplicitlyCleared) {
+        return res.json({ kpis: [] });
       }
 
       const { data: kpiRows } = await supabase
@@ -18002,6 +18064,10 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
                   return true;
                 });
               }
+              // If the newest kpis_ record was explicitly saved as empty, return empty rather than falling back to stale older buckets
+              if (row.id === `kpis_tenant-229_${userId}` && Array.isArray(kpiList) && kpiList.length === 0) {
+                return res.json({ kpis: [] });
+              }
               if (kpiList.length > 0) {
                 kpiList = kpiList.map((it: any) => {
                   const kId = String(it.id || '').toLowerCase().trim();
@@ -18032,6 +18098,9 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       if (pData && pData.content) {
         try {
           const pp = JSON.parse(pData.content);
+          if (pp?.metadata?._isCleared === true) {
+            return res.json({ kpis: [] });
+          }
           let pList = pp.rows || pp.items || pp.kpis || [];
           if (userId.toLowerCase().includes('moepis')) {
             pList = pList.filter((it: any) => {
@@ -18125,31 +18194,37 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       const canonicalTenant = (tenantId === 'nkangala_auto' || tenantId === 'tenant-229' || userId.includes('@nkangaladm.gov.za'))
         ? 'tenant-229'
         : tenantId;
-      const uniqueTenants = Array.from(new Set([canonicalTenant, tenantId]));
-      const targets = uniqueTenants.map(tId => ({
-        id: `kpis_${tId}_${userId}`,
-        tenant_id: tId
-      }));
-
+      const primaryId = `kpis_${canonicalTenant}_${userId}`;
       const nowIso = new Date().toISOString();
-      await Promise.allSettled(
-        targets.map(t =>
-          Promise.resolve(
-            supabase
-              .from('messages')
-              .upsert({ 
-                id: t.id,
-                tenant_id: t.tenant_id,
-                sender_id: 'kpi_manager_tool',
-                sender_email: 'kpi@system.local',
-                sender_name: 'KPI Manager',
-                content: JSON.stringify(payload),
-                message_type: 'kpis_list',
-                created_at: nowIso
-              })
-          )
-        )
+
+      await Promise.resolve(
+        supabase
+          .from('messages')
+          .upsert({ 
+            id: primaryId,
+            tenant_id: canonicalTenant,
+            sender_id: 'kpi_manager_tool',
+            sender_email: 'kpi@system.local',
+            sender_name: 'KPI Manager',
+            content: JSON.stringify(payload),
+            message_type: 'kpis_list',
+            created_at: nowIso
+          }, { onConflict: 'id' })
       );
+
+      // Delete stale secondary kpis_ buckets in background so old KPIs never resurface
+      setImmediate(async () => {
+        try {
+          const staleIds = [
+            `kpis_nkangala_auto_${userId}`,
+            `kpis_global_${userId}`
+          ].filter(id => id !== primaryId);
+          if (staleIds.length > 0) {
+            await Promise.resolve(supabase.from('messages').delete().in('id', staleIds)).catch(() => {});
+          }
+        } catch (e) {}
+      });
+
       for (const k of memoryCache.keys()) {
         if (k.startsWith('team_pplans_')) memoryCache.delete(k);
       }
