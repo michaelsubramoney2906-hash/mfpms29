@@ -398,6 +398,14 @@ export const modules: Module[] = [
     ]
   },
   {
+    id: 'support',
+    name: 'Support',
+    icon: HelpCircle,
+    subModules: [
+      { id: 'support-tickets', name: 'Support Ticketing', icon: Ticket },
+    ]
+  },
+  {
     id: 'admin',
     name: 'Administrator',
     icon: Shield,

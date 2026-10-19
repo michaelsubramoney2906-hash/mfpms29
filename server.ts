@@ -13,6 +13,7 @@ https.globalAgent.maxSockets = Infinity;
 
 import { createClient } from "@supabase/supabase-js";
 import { GoogleGenAI, Type } from "@google/genai";
+import nodemailer from "nodemailer";
 import mammoth from "mammoth";
 import * as XLSX from "xlsx";
 import { jsonrepair } from "jsonrepair";
@@ -749,6 +750,16 @@ async function startServer() {
       if (userEmail) {
          socketUsers.set(socket.id, userEmail);
          io.emit("presence", getOnlineEmails());
+      }
+    });
+
+    socket.on("support_join", ({ userEmail }) => {
+      const cleanEmail = String(userEmail || '').toLowerCase().trim();
+      socket.join("support_global");
+      if (cleanEmail) {
+        socket.join(`support_user_${cleanEmail}`);
+        socketUsers.set(socket.id, cleanEmail);
+        io.emit("presence", getOnlineEmails());
       }
     });
 
@@ -18939,6 +18950,707 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       res.json({ success: true });
     } catch (err: any) {
       console.error(`NEDA ${key} save exception:`, err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // =========================================================================
+  // SUPPORT MODULE: STREAM 1 (INSTANT MESSAGING) & STREAM 2 (SUPPORT TICKETING)
+  // =========================================================================
+
+  // Helper to resolve all @mzansiflow.co.za and @nkangaladm.gov.za contacts
+  async function getSupportDirectoryContacts(tenantId: string = 'tenant-229') {
+    const allUsers = await getConsolidatedUsersList(tenantId || 'tenant-229');
+    const coreMzansiAdmins = [
+      { email: 'mike@mzansiflow.co.za', fullName: 'Mike (Mzansi Flow Lead)', jobFunction: 'Global Administrator & Support Lead', department: 'Mzansi Flow Executive Support' },
+      { email: 'audrey@mzansiflow.co.za', fullName: 'Audrey (Mzansi Flow)', jobFunction: 'Senior Support & PMS Specialist', department: 'Mzansi Flow Support' },
+      { email: 'delphine@mzansiflow.co.za', fullName: 'Delphine (Mzansi Flow)', jobFunction: 'Global Administrator & Support Specialist', department: 'Mzansi Flow Support' },
+      { email: 'ryanw@mzansiflow.co.za', fullName: 'Ryan W. (Mzansi Flow)', jobFunction: 'Technical Support Engineer', department: 'Mzansi Flow Engineering' },
+      { email: 'bongani@mzansiflow.co.za', fullName: 'Bongani (Mzansi Flow)', jobFunction: 'Global Administrator & Support', department: 'Mzansi Flow Support' },
+      { email: 'bonganim@mzansiflow.co.za', fullName: 'Bongani M. (Mzansi Flow)', jobFunction: 'Global Administrator & Support', department: 'Mzansi Flow Support' },
+      { email: 'qiniso@mzansiflow.co.za', fullName: 'Qiniso (Mzansi Flow)', jobFunction: 'Support & Operations Specialist', department: 'Mzansi Flow Support' },
+      { email: 'marlan@mzansiflow.co.za', fullName: 'Marlan (Mzansi Flow)', jobFunction: 'Systems & Support Specialist', department: 'Mzansi Flow Support' },
+      { email: 'sivend@mzansiflow.co.za', fullName: 'Siven D. (Mzansi Flow)', jobFunction: 'Read-Only Support Observer', department: 'Mzansi Flow Administration' }
+    ];
+
+    const contactMap = new Map<string, any>();
+
+    for (const admin of coreMzansiAdmins) {
+      contactMap.set(admin.email.toLowerCase(), {
+        id: `mf-${admin.email.toLowerCase()}`,
+        fullName: admin.fullName,
+        email: admin.email.toLowerCase(),
+        jobFunction: admin.jobFunction,
+        department: admin.department,
+        domain: 'mzansiflow.co.za'
+      });
+    }
+
+    for (const u of allUsers) {
+      const email = String(u.email || '').toLowerCase().trim();
+      if (!email || email.includes('demo') || email.startsWith('test.')) continue;
+      if (email.endsWith('@mzansiflow.co.za') || email.endsWith('@nkangaladm.gov.za')) {
+        const existing = contactMap.get(email);
+        const domain = email.endsWith('@mzansiflow.co.za') ? 'mzansiflow.co.za' : 'nkangaladm.gov.za';
+        contactMap.set(email, {
+          id: u.id || existing?.id || email,
+          fullName: existing?.fullName || u.fullName || u.full_name || email.split('@')[0],
+          email,
+          jobFunction: u.jobFunction || u.job_function || existing?.jobFunction || (domain === 'mzansiflow.co.za' ? 'Mzansi Flow Specialist' : 'Municipal Official'),
+          department: u.department || existing?.department || (domain === 'mzansiflow.co.za' ? 'Mzansi Flow' : 'Nkangala District Municipality'),
+          domain
+        });
+      }
+    }
+
+    return Array.from(contactMap.values());
+  }
+
+  // Stream 1: Get Support Instant Messaging Contacts (@nkangaladm.gov.za & @mzansiflow.co.za)
+  app.get("/api/support/chat/contacts", async (req, res) => {
+    try {
+      const tenantId = String(req.query.tenantId || 'tenant-229');
+      const contacts = await getSupportDirectoryContacts(tenantId);
+      res.json({ contacts });
+    } catch (err: any) {
+      console.error("GET /api/support/chat/contacts error:", err);
+      res.status(500).json({ error: err.message, contacts: [] });
+    }
+  });
+
+  // Stream 1: Get Support Instant Messages from Supabase
+  app.get("/api/support/chat/messages", async (req, res) => {
+    try {
+      const userEmail = String(req.query.userEmail || '').toLowerCase().trim();
+      const supabase = getSupabase();
+      const msgMap = new Map<string, any>();
+
+      // 1. Read aggregated store in Supabase
+      const { data: storeRow } = await supabase
+        .from('messages')
+        .select('content')
+        .eq('id', 'support_chat_messages_store')
+        .maybeSingle();
+
+      if (storeRow?.content) {
+        try {
+          const parsed = JSON.parse(storeRow.content);
+          if (Array.isArray(parsed)) {
+            for (const m of parsed) {
+              if (m && m.id) msgMap.set(m.id, m);
+            }
+          }
+        } catch (_) {}
+      }
+
+      // 2. Also read individual support_chat_message rows from Supabase
+      const { data: rows } = await supabase
+        .from('messages')
+        .select('id, content, created_at')
+        .eq('message_type', 'support_chat_message')
+        .order('created_at', { ascending: false })
+        .limit(500);
+
+      if (Array.isArray(rows)) {
+        for (const r of rows) {
+          try {
+            const parsed = typeof r.content === 'string' ? JSON.parse(r.content) : r.content;
+            if (parsed && parsed.id && !msgMap.has(parsed.id)) {
+              msgMap.set(parsed.id, parsed);
+            }
+          } catch (_) {}
+        }
+      }
+
+      const allMsgs = Array.from(msgMap.values());
+      const isMzansi = userEmail.endsWith('@mzansiflow.co.za') || userEmail.includes('@mzansiflow.co.za');
+
+      const filtered = allMsgs.filter(m => {
+        if (!userEmail) return true;
+        const sender = String(m.senderEmail || '').toLowerCase().trim();
+        const recipient = String(m.recipientEmail || '').toLowerCase().trim();
+        if (isMzansi) {
+          // @mzansiflow.co.za users can view all messages sent to all@mzansiflow.co.za or to/from any @nkangaladm.gov.za user or their direct messages
+          return (
+            recipient === 'all@mzansiflow.co.za' ||
+            m.roomId === 'support_global_bridge' ||
+            sender === userEmail ||
+            recipient === userEmail ||
+            sender.endsWith('@nkangaladm.gov.za') ||
+            recipient.endsWith('@nkangaladm.gov.za')
+          );
+        }
+        // @nkangaladm.gov.za users see messages they sent/received or messages in the shared support bridge
+        return (
+          sender === userEmail ||
+          recipient === userEmail ||
+          recipient === 'all@mzansiflow.co.za' ||
+          m.roomId === 'support_global_bridge'
+        );
+      });
+
+      filtered.sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
+      res.json({ messages: filtered });
+    } catch (err: any) {
+      console.error("GET /api/support/chat/messages error:", err);
+      res.status(500).json({ error: err.message, messages: [] });
+    }
+  });
+
+  // Stream 1: Send Support Instant Message & Persist to Supabase
+  app.post("/api/support/chat/messages", async (req, res) => {
+    try {
+      const {
+        roomId,
+        senderEmail,
+        senderName,
+        senderJobTitle,
+        recipientEmail,
+        recipientName,
+        content,
+        attachment
+      } = req.body;
+
+      if (!senderEmail || (!content && !attachment)) {
+        return res.status(400).json({ error: "Sender email and message content or attachment are required." });
+      }
+
+      const supabase = getSupabase();
+      const createdAt = new Date().toISOString();
+      const msgId = `sup_chat_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+      const newMsg = {
+        id: msgId,
+        roomId: roomId || 'support_global_bridge',
+        senderEmail: String(senderEmail).toLowerCase().trim(),
+        senderName: senderName || String(senderEmail).split('@')[0],
+        senderJobTitle: senderJobTitle || 'Official',
+        recipientEmail: String(recipientEmail || 'all@mzansiflow.co.za').toLowerCase().trim(),
+        recipientName: recipientName || 'Mzansi Flow Support',
+        content: String(content || '').trim(),
+        attachment: attachment || null,
+        createdAt,
+        readBy: [String(senderEmail).toLowerCase().trim()]
+      };
+
+      // 1. Insert individual row in Supabase messages table
+      await supabase.from('messages').upsert({
+        id: msgId,
+        tenant_id: 'tenant-229',
+        sender_id: newMsg.senderEmail,
+        sender_email: newMsg.senderEmail,
+        sender_name: newMsg.senderName,
+        content: JSON.stringify(newMsg),
+        message_type: 'support_chat_message',
+        created_at: createdAt
+      }, { onConflict: 'id' });
+
+      // 2. Update aggregated store in Supabase
+      const { data: storeData } = await supabase
+        .from('messages')
+        .select('content')
+        .eq('id', 'support_chat_messages_store')
+        .maybeSingle();
+
+      let existingList: any[] = [];
+      if (storeData?.content) {
+        try {
+          existingList = JSON.parse(storeData.content);
+          if (!Array.isArray(existingList)) existingList = [];
+        } catch (_) {
+          existingList = [];
+        }
+      }
+      existingList.push(newMsg);
+      if (existingList.length > 1000) {
+        existingList = existingList.slice(existingList.length - 1000);
+      }
+
+      await supabase.from('messages').upsert({
+        id: 'support_chat_messages_store',
+        tenant_id: 'global',
+        sender_id: 'support_chat_bridge',
+        sender_email: newMsg.senderEmail,
+        sender_name: 'Support Instant Messaging Store',
+        content: JSON.stringify(existingList),
+        message_type: 'support_chat_store',
+        created_at: createdAt
+      }, { onConflict: 'id' });
+
+      // Broadcast in real time via Socket.IO
+      io.emit("support_receive_message", newMsg);
+
+      res.json({ success: true, message: newMsg });
+    } catch (err: any) {
+      console.error("POST /api/support/chat/messages error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Helper to load all support tickets from Supabase
+  async function loadAllSupportTicketsFromSupabase(): Promise<any[]> {
+    const supabase = getSupabase();
+    const ticketMap = new Map<string, any>();
+
+    const { data: storeRow } = await supabase
+      .from('messages')
+      .select('content')
+      .eq('id', 'support_tickets_store')
+      .maybeSingle();
+
+    if (storeRow?.content) {
+      try {
+        const parsed = JSON.parse(storeRow.content);
+        if (Array.isArray(parsed)) {
+          for (const t of parsed) {
+            if (t && t.id) ticketMap.set(t.id, t);
+          }
+        }
+      } catch (_) {}
+    }
+
+    const { data: itemRows } = await supabase
+      .from('messages')
+      .select('id, content, created_at')
+      .eq('message_type', 'support_ticket_item')
+      .order('created_at', { ascending: false })
+      .limit(500);
+
+    if (Array.isArray(itemRows)) {
+      for (const r of itemRows) {
+        try {
+          const parsed = typeof r.content === 'string' ? JSON.parse(r.content) : r.content;
+          if (parsed && parsed.id && !ticketMap.has(parsed.id)) {
+            ticketMap.set(parsed.id, parsed);
+          }
+        } catch (_) {}
+      }
+    }
+
+    const list = Array.from(ticketMap.values());
+    list.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+    return list;
+  }
+
+  // Helper to dispatch support ticket email to all @mzansiflow.co.za users
+  async function dispatchSupportTicketEmailsToMzansiFlow(ticket: any, mzansiEmails: string[]) {
+    const supabase = getSupabase();
+    const createdAt = new Date().toISOString();
+
+    const emailSubject = `[Support Ticket ${ticket.ticketNumber}] [${ticket.priority} Priority] ${ticket.subject}`;
+    const emailTextBody = [
+      `MZANSI FLOW ENTERPRISE SUPPORT TICKET NOTIFICATION`,
+      `===================================================`,
+      `Support Ticket Number : ${ticket.ticketNumber}`,
+      `Priority Level        : ${ticket.priority}`,
+      `Affected Category     : ${ticket.category}`,
+      `Status                : ${ticket.status}`,
+      `Logged By             : ${ticket.reporterName} (${ticket.reporterEmail})`,
+      `Department / Role     : ${ticket.reporterDepartment} — ${ticket.reporterJobTitle}`,
+      `Timestamp             : ${new Date(ticket.createdAt).toLocaleString()}`,
+      ``,
+      `REPORTED ISSUE DETAILS:`,
+      `-----------------------`,
+      `${ticket.issue}`,
+      ``,
+      ticket.document
+        ? `UPLOADED DOCUMENT ATTACHED: ${ticket.document.name} (${Math.round((ticket.document.size || 0) / 1024)} KB)`
+        : `UPLOADED DOCUMENT: None attached`
+    ].join('\n');
+
+    const emailHtmlBody = `
+      <div style="font-family: Arial, sans-serif; max-width: 680px; margin: 0 auto; background: #0f172a; color: #f8fafc; padding: 24px; border-radius: 12px; border: 1px solid #1e293b;">
+        <div style="border-bottom: 1px solid #1e293b; padding-bottom: 16px; margin-bottom: 16px;">
+          <span style="background: #059669; color: #ffffff; font-size: 11px; font-weight: bold; padding: 4px 10px; border-radius: 4px; text-transform: uppercase;">
+            Support Ticket ${ticket.ticketNumber}
+          </span>
+          <span style="background: #334155; color: #f8fafc; font-size: 11px; font-weight: bold; padding: 4px 10px; border-radius: 4px; text-transform: uppercase; margin-left: 8px;">
+            Priority: ${ticket.priority}
+          </span>
+          <h2 style="margin: 12px 0 4px; color: #ffffff; font-size: 18px;">${ticket.subject}</h2>
+          <p style="margin: 0; color: #94a3b8; font-size: 12px;">
+            Logged by <strong>${ticket.reporterName}</strong> (${ticket.reporterEmail}) • ${ticket.reporterDepartment}
+          </p>
+        </div>
+        <div style="background: #020617; border: 1px solid #1e293b; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+          <p style="margin: 0 0 8px; font-size: 11px; text-transform: uppercase; color: #10b981; font-weight: bold;">Issue Description</p>
+          <p style="margin: 0; font-size: 13px; line-height: 1.6; color: #e2e8f0; white-space: pre-wrap;">${ticket.issue}</p>
+        </div>
+        ${
+          ticket.document
+            ? `<div style="background: #064e3b; border: 1px solid #059669; border-radius: 8px; padding: 12px; font-size: 12px; color: #ecfdf5;">
+                <strong>Attached Uploaded Document:</strong> ${ticket.document.name} (${Math.round((ticket.document.size || 0) / 1024)} KB)
+              </div>`
+            : ''
+        }
+      </div>
+    `;
+
+    // 1. Deliver directly into the IPMS Inbox of all @mzansiflow.co.za users so it is immediately accessible with the uploaded document inside the platform
+    try {
+      const inboxMsgId = `ipms_msg_ticket_${ticket.ticketNumber}_${Date.now()}`;
+      const inboxAttachments = ticket.document
+        ? [
+            {
+              id: `att_${Date.now()}`,
+              name: ticket.document.name,
+              type: ticket.document.mimeType || 'application/octet-stream',
+              size: ticket.document.size || 0,
+              url: ticket.document.dataUrl,
+              dataUrl: ticket.document.dataUrl
+            }
+          ]
+        : [];
+
+      const inboxMsgObj = {
+        id: inboxMsgId,
+        threadId: `thread_ticket_${ticket.ticketNumber}`,
+        replyToId: null,
+        tenantId: ticket.tenantId || 'tenant-229',
+        senderEmail: ticket.reporterEmail,
+        senderName: `${ticket.reporterName} (Support Ticket ${ticket.ticketNumber})`,
+        senderJobTitle: ticket.reporterJobTitle || 'Municipal Official',
+        recipientEmails: [...mzansiEmails, 'all@mzansiflow.co.za'],
+        recipientNames: mzansiEmails.map(e => e.split('@')[0]),
+        subject: emailSubject,
+        body: emailTextBody,
+        attachments: inboxAttachments,
+        createdAt,
+        readBy: [ticket.reporterEmail],
+        starredBy: [],
+        trashedBy: []
+      };
+
+      await supabase.from('messages').upsert({
+        id: inboxMsgId,
+        tenant_id: ticket.tenantId || 'tenant-229',
+        sender_id: ticket.reporterEmail,
+        sender_email: ticket.reporterEmail,
+        sender_name: ticket.reporterName,
+        content: JSON.stringify(inboxMsgObj),
+        message_type: 'ipms_inbox_item',
+        created_at: createdAt
+      }, { onConflict: 'id' });
+
+      const targetStores = ['tenant-229', 'global', 'nkangala_auto'];
+      for (const tId of targetStores) {
+        const { data: storeData } = await supabase
+          .from('messages')
+          .select('content')
+          .eq('id', `ipms_inbox_store_${tId}`)
+          .maybeSingle();
+
+        let existingMessages: any[] = [];
+        if (storeData?.content) {
+          try {
+            existingMessages = JSON.parse(storeData.content);
+            if (!Array.isArray(existingMessages)) existingMessages = [];
+          } catch (_) {
+            existingMessages = [];
+          }
+        }
+        existingMessages.unshift(inboxMsgObj);
+        if (existingMessages.length > 1000) existingMessages = existingMessages.slice(0, 1000);
+
+        await supabase.from('messages').upsert({
+          id: `ipms_inbox_store_${tId}`,
+          tenant_id: tId,
+          sender_id: 'support_ticket_mailer',
+          sender_email: ticket.reporterEmail,
+          sender_name: 'Support Ticket Email Dispatcher',
+          content: JSON.stringify(existingMessages),
+          message_type: 'ipms_inbox_store',
+          created_at: createdAt
+        }, { onConflict: 'id' });
+      }
+    } catch (inboxErr) {
+      console.warn("Support ticket IPMS inbox mirror notice:", inboxErr);
+    }
+
+    // 2. If SMTP or Resend credentials are provided in environment variables, dispatch external emails with the uploaded document attachment
+    try {
+      const smtpHost = process.env.SMTP_HOST;
+      const smtpUser = process.env.SMTP_USER;
+      const smtpPass = process.env.SMTP_PASS;
+      if (smtpHost && smtpUser && smtpPass) {
+        const transporter = nodemailer.createTransport({
+          host: smtpHost,
+          port: Number(process.env.SMTP_PORT || 587),
+          secure: Number(process.env.SMTP_PORT) === 465,
+          auth: { user: smtpUser, pass: smtpPass }
+        });
+
+        const mailAttachments: any[] = [];
+        if (ticket.document?.dataUrl) {
+          const base64Match = String(ticket.document.dataUrl).match(/^data:([^;]+);base64,(.+)$/);
+          if (base64Match) {
+            mailAttachments.push({
+              filename: ticket.document.name || 'support_attachment',
+              content: Buffer.from(base64Match[2], 'base64'),
+              contentType: base64Match[1]
+            });
+          }
+        }
+
+        await transporter.sendMail({
+          from: process.env.SMTP_FROM || `"Mzansi Flow Support Desk" <${smtpUser}>`,
+          to: mzansiEmails.join(', '),
+          replyTo: ticket.reporterEmail,
+          subject: emailSubject,
+          text: emailTextBody,
+          html: emailHtmlBody,
+          attachments: mailAttachments
+        });
+      }
+    } catch (smtpErr) {
+      console.warn("External SMTP dispatch notice (internal inbox & Supabase email log completed):", smtpErr);
+    }
+
+    // 3. Persist email dispatch audit record in Supabase
+    try {
+      await supabase.from('messages').upsert({
+        id: `support_email_dispatch_${ticket.ticketNumber}`,
+        tenant_id: 'global',
+        sender_id: ticket.reporterEmail,
+        sender_email: ticket.reporterEmail,
+        sender_name: ticket.reporterName,
+        content: JSON.stringify({
+          ticketNumber: ticket.ticketNumber,
+          recipients: mzansiEmails,
+          subject: emailSubject,
+          priority: ticket.priority,
+          issue: ticket.issue,
+          hasDocument: Boolean(ticket.document),
+          documentName: ticket.document?.name || null,
+          dispatchedAt: createdAt
+        }),
+        message_type: 'support_ticket_email_dispatch',
+        created_at: createdAt
+      }, { onConflict: 'id' });
+    } catch (_) {}
+  }
+
+  // Stream 2: Get Support Tickets
+  app.get("/api/support/tickets", async (req, res) => {
+    try {
+      const userEmail = String(req.query.userEmail || '').toLowerCase().trim();
+      const allTickets = await loadAllSupportTicketsFromSupabase();
+      const isMzansi = userEmail.endsWith('@mzansiflow.co.za') || userEmail.includes('@mzansiflow.co.za');
+
+      const visibleTickets = isMzansi || !userEmail
+        ? allTickets
+        : allTickets.filter(t => String(t.reporterEmail || '').toLowerCase().trim() === userEmail);
+
+      res.json({ tickets: visibleTickets });
+    } catch (err: any) {
+      console.error("GET /api/support/tickets error:", err);
+      res.status(500).json({ error: err.message, tickets: [] });
+    }
+  });
+
+  // Stream 2: Create Support Ticket, Generate Ticket Number & Email All @mzansiflow.co.za Users
+  app.post("/api/support/tickets", async (req, res) => {
+    try {
+      const {
+        tenantId,
+        reporterEmail,
+        reporterName,
+        reporterDepartment,
+        reporterJobTitle,
+        subject,
+        category,
+        priority,
+        issue,
+        document
+      } = req.body;
+
+      if (!reporterEmail || !subject || !issue) {
+        return res.status(400).json({ error: "Reporter email, ticket subject, and issue description are required." });
+      }
+
+      const supabase = getSupabase();
+      const existingTickets = await loadAllSupportTicketsFromSupabase();
+      const nextSeq = existingTickets.length + 1;
+      const year = new Date().getFullYear();
+      const ticketNumber = `TKT-NDM-${year}-${String(nextSeq).padStart(4, '0')}`;
+      const ticketId = `ticket_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const createdAt = new Date().toISOString();
+
+      // Gather all @mzansiflow.co.za users so every @mzansiflow.co.za account receives the email
+      const contacts = await getSupportDirectoryContacts(tenantId || 'tenant-229');
+      const mzansiEmails = Array.from(
+        new Set(
+          contacts
+            .filter(c => String(c.email || '').toLowerCase().endsWith('@mzansiflow.co.za'))
+            .map(c => String(c.email).toLowerCase().trim())
+        )
+      );
+
+      const newTicket = {
+        id: ticketId,
+        ticketNumber,
+        tenantId: tenantId || 'tenant-229',
+        reporterEmail: String(reporterEmail).toLowerCase().trim(),
+        reporterName: reporterName || String(reporterEmail).split('@')[0],
+        reporterDepartment: reporterDepartment || 'Nkangala District Municipality',
+        reporterJobTitle: reporterJobTitle || 'Municipal Official',
+        subject: String(subject).trim(),
+        category: category || 'General System Support',
+        priority: priority || 'High',
+        issue: String(issue).trim(),
+        status: 'Open',
+        document: document || null,
+        notifiedRecipients: mzansiEmails,
+        emailDispatchedAt: createdAt,
+        createdAt,
+        updatedAt: createdAt,
+        comments: []
+      };
+
+      // 1. Persist individual ticket row in Supabase
+      await supabase.from('messages').upsert({
+        id: ticketId,
+        tenant_id: newTicket.tenantId,
+        sender_id: newTicket.reporterEmail,
+        sender_email: newTicket.reporterEmail,
+        sender_name: newTicket.reporterName,
+        content: JSON.stringify(newTicket),
+        message_type: 'support_ticket_item',
+        created_at: createdAt
+      }, { onConflict: 'id' });
+
+      // 2. Persist in aggregated support_tickets_store in Supabase
+      const updatedTickets = [newTicket, ...existingTickets.filter(t => t.id !== ticketId)];
+      await supabase.from('messages').upsert({
+        id: 'support_tickets_store',
+        tenant_id: 'global',
+        sender_id: 'support_ticketing_system',
+        sender_email: newTicket.reporterEmail,
+        sender_name: 'Support Ticketing System',
+        content: JSON.stringify(updatedTickets),
+        message_type: 'support_tickets_store',
+        created_at: createdAt
+      }, { onConflict: 'id' });
+
+      // 3. Dispatch emails with Support Ticket Number, Issue, Priority, and Uploaded Document to all @mzansiflow.co.za users
+      await dispatchSupportTicketEmailsToMzansiFlow(newTicket, mzansiEmails);
+
+      // 4. Emit real-time Socket.IO notification
+      io.emit("support_ticket_created", newTicket);
+
+      res.json({ success: true, ticket: newTicket });
+    } catch (err: any) {
+      console.error("POST /api/support/tickets error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Stream 2: Update Support Ticket Status
+  app.put("/api/support/tickets/:ticketId/status", async (req, res) => {
+    try {
+      const { ticketId } = req.params;
+      const { status } = req.body;
+      const supabase = getSupabase();
+      const allTickets = await loadAllSupportTicketsFromSupabase();
+      const idx = allTickets.findIndex(t => t.id === ticketId || t.ticketNumber === ticketId);
+      if (idx === -1) {
+        return res.status(404).json({ error: "Support ticket not found." });
+      }
+
+      const updatedTicket = {
+        ...allTickets[idx],
+        status: status || allTickets[idx].status,
+        updatedAt: new Date().toISOString()
+      };
+      allTickets[idx] = updatedTicket;
+
+      await supabase.from('messages').upsert({
+        id: updatedTicket.id,
+        tenant_id: updatedTicket.tenantId || 'tenant-229',
+        sender_id: updatedTicket.reporterEmail,
+        sender_email: updatedTicket.reporterEmail,
+        sender_name: updatedTicket.reporterName,
+        content: JSON.stringify(updatedTicket),
+        message_type: 'support_ticket_item',
+        created_at: updatedTicket.updatedAt
+      }, { onConflict: 'id' });
+
+      await supabase.from('messages').upsert({
+        id: 'support_tickets_store',
+        tenant_id: 'global',
+        sender_id: 'support_ticketing_system',
+        sender_email: updatedTicket.reporterEmail,
+        sender_name: 'Support Ticketing System',
+        content: JSON.stringify(allTickets),
+        message_type: 'support_tickets_store',
+        created_at: updatedTicket.updatedAt
+      }, { onConflict: 'id' });
+
+      io.emit("support_ticket_updated", updatedTicket);
+      res.json({ success: true, ticket: updatedTicket });
+    } catch (err: any) {
+      console.error("PUT /api/support/tickets/:ticketId/status error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Stream 2: Add Comment / Reply to Support Ticket
+  app.post("/api/support/tickets/:ticketId/comment", async (req, res) => {
+    try {
+      const { ticketId } = req.params;
+      const { authorEmail, authorName, body } = req.body;
+      if (!body || !String(body).trim()) {
+        return res.status(400).json({ error: "Comment body is required." });
+      }
+
+      const supabase = getSupabase();
+      const allTickets = await loadAllSupportTicketsFromSupabase();
+      const idx = allTickets.findIndex(t => t.id === ticketId || t.ticketNumber === ticketId);
+      if (idx === -1) {
+        return res.status(404).json({ error: "Support ticket not found." });
+      }
+
+      const newComment = {
+        id: `tkt_cmt_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        authorEmail: String(authorEmail || '').toLowerCase().trim(),
+        authorName: authorName || String(authorEmail || 'Support').split('@')[0],
+        body: String(body).trim(),
+        createdAt: new Date().toISOString()
+      };
+
+      const updatedTicket = {
+        ...allTickets[idx],
+        comments: [...(allTickets[idx].comments || []), newComment],
+        updatedAt: newComment.createdAt
+      };
+      allTickets[idx] = updatedTicket;
+
+      await supabase.from('messages').upsert({
+        id: updatedTicket.id,
+        tenant_id: updatedTicket.tenantId || 'tenant-229',
+        sender_id: updatedTicket.reporterEmail,
+        sender_email: updatedTicket.reporterEmail,
+        sender_name: updatedTicket.reporterName,
+        content: JSON.stringify(updatedTicket),
+        message_type: 'support_ticket_item',
+        created_at: updatedTicket.updatedAt
+      }, { onConflict: 'id' });
+
+      await supabase.from('messages').upsert({
+        id: 'support_tickets_store',
+        tenant_id: 'global',
+        sender_id: 'support_ticketing_system',
+        sender_email: updatedTicket.reporterEmail,
+        sender_name: 'Support Ticketing System',
+        content: JSON.stringify(allTickets),
+        message_type: 'support_tickets_store',
+        created_at: updatedTicket.updatedAt
+      }, { onConflict: 'id' });
+
+      io.emit("support_ticket_updated", updatedTicket);
+      res.json({ success: true, ticket: updatedTicket });
+    } catch (err: any) {
+      console.error("POST /api/support/tickets/:ticketId/comment error:", err);
       res.status(500).json({ error: err.message });
     }
   });

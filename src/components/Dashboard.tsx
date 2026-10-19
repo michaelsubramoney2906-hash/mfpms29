@@ -76,6 +76,7 @@ import { GuidedIPMSWorkflow, GUIDE_STEPS } from './IPMS/GuidedIPMSWorkflow';
 import { FinancialYearModal } from './FinancialYearModal';
 import { FinancialYearSwitcher } from './FinancialYearSwitcher';
 import { useFinancialYear } from '../context/FinancialYearContext';
+import { SupportModule } from './Support/SupportModule';
 
 const fetchWithRetry = async (url: string, options?: RequestInit, retries = 3, delay = 1000): Promise<Response> => {
   try {
@@ -1387,6 +1388,14 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
              <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
                 <RiskManagement currentUser={fullUserProfile} activeTenantId={activeTenantId} />
              </div>
+          ) : activeSubModule.id === 'support-chat' || activeSubModule.id === 'support-tickets' || activeSubModule.id === 'tl' ? (
+             <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
+                <SupportModule
+                  currentUser={fullUserProfile}
+                  activeTenantId={activeTenantId}
+                  initialSubModuleId={activeSubModule.id}
+                />
+             </div>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center border border-dashed border-white/20 rounded-2xl bg-white/5 py-32 relative z-10">
                <activeSubModule.icon className="w-12 h-12 text-gray-400 mb-4 opacity-50" />
@@ -1395,6 +1404,14 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
             </div>
           )}
         </RestrictedModuleWrapper>
+        ) : activeModule.id === 'support' ? (
+          <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
+            <SupportModule
+              currentUser={fullUserProfile}
+              activeTenantId={activeTenantId}
+              initialSubModuleId={null}
+            />
+          </div>
         ) : activeModule.id === 'sharepoint' ? (
           <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
             <SharePoint currentUser={fullUserProfile} activeTenantId={activeTenantId} />

@@ -38,7 +38,10 @@ const SUBMODULE_TO_PARENT_MAP: Record<string, string> = {
   // More
   'fred': 'more', 'fred-ipp': 'more', 'fred-performance-plan': 'more', 'fred-sdbip': 'more', 'fred-gm': 'more', 'fred-ccomp': 'more', 'fred-core-competencies': 'more',
   'ce': 'more', 'ear': 'more', 'fbi': 'more', 'fea': 'more',
-  'ia': 'more', 'psa': 'more', 'mfa': 'more', 'slat': 'more'
+  'ia': 'more', 'psa': 'more', 'mfa': 'more', 'slat': 'more',
+
+  // Support
+  'support-chat': 'support', 'support-tickets': 'support'
 };
 
 export function RestrictedModuleWrapper({ currentUser, item, unlockedModules, onUnlock, onClose, children }: RestrictedModuleWrapperProps) {
@@ -154,8 +157,8 @@ export function RestrictedModuleWrapper({ currentUser, item, unlockedModules, on
     return <>{children}</>;
   }
 
-  // IPMS module is permanently unlocked with all maintenance locks removed
-  if (parentId === 'ipms') {
+  // IPMS and Support modules are permanently unlocked with all maintenance locks removed
+  if (parentId === 'ipms' || parentId === 'support') {
     return <>{children}</>;
   }
 
