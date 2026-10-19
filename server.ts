@@ -14007,6 +14007,67 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
     }
   });
 
+  // Helper to verify whether a KPI has genuine submission evidence (PoE files, actuals, scores, or manager review)
+  const hasGenuineSubmissionEvidence = (item: any): boolean => {
+    if (!item) return false;
+    const docsCount =
+      (Array.isArray(item.q1PoeDocs) ? item.q1PoeDocs.length : 0) +
+      (Array.isArray(item.q2PoeDocs) ? item.q2PoeDocs.length : 0) +
+      (Array.isArray(item.q3PoeDocs) ? item.q3PoeDocs.length : 0) +
+      (Array.isArray(item.q4PoeDocs) ? item.q4PoeDocs.length : 0) +
+      (Array.isArray(item.annualPoeDocs) ? item.annualPoeDocs.length : 0) +
+      (Array.isArray(item.midtermPoeDocs) ? item.midtermPoeDocs.length : 0);
+    if (docsCount > 0 || item.poeFileBase64 || item.poeFileName) return true;
+
+    const hasNonEmptyVal = (v: any) => {
+      if (v === undefined || v === null) return false;
+      const s = String(v).trim();
+      return s !== '' && s.toUpperCase() !== 'N/A';
+    };
+    const hasScoreVal = (v: any) => {
+      if (v === undefined || v === null) return false;
+      const n = parseFloat(String(v));
+      return !isNaN(n) && n > 0;
+    };
+
+    if (
+      hasNonEmptyVal(item.q1Actual) ||
+      hasNonEmptyVal(item.q2Actual) ||
+      hasNonEmptyVal(item.q3Actual) ||
+      hasNonEmptyVal(item.q4Actual) ||
+      hasNonEmptyVal(item.midtermActual) ||
+      hasNonEmptyVal(item.annualActual) ||
+      hasNonEmptyVal(item.q1Comment) ||
+      hasNonEmptyVal(item.q2Comment) ||
+      hasNonEmptyVal(item.q3Comment) ||
+      hasNonEmptyVal(item.q4Comment) ||
+      hasNonEmptyVal(item.evaluationComment) ||
+      hasScoreVal(item.myScore) ||
+      hasScoreVal(item.q1Score) ||
+      hasScoreVal(item.q2Score) ||
+      hasScoreVal(item.q3Score) ||
+      hasScoreVal(item.q4Score) ||
+      hasScoreVal(item.midtermScore)
+    ) {
+      return true;
+    }
+
+    const st = item.reviewStatus || item.reviewApprovalStatus || '';
+    if (
+      st === 'Approved' ||
+      st === 'Reviewed' ||
+      st === 'Revision Required' ||
+      st === 'Rejected' ||
+      st === 'Dispatched to Audit' ||
+      st === 'Dispatched to Internal Audit' ||
+      hasScoreVal(item.managerScore)
+    ) {
+      return true;
+    }
+
+    return false;
+  };
+
   // Performance Plan (PPLAN) Helper to propagate and lock unique POE descriptions per KPI across all 4 quarters
   const sanitizePplanItem = (item: any, userEmail?: string): any => {
     if (!item) return item;
@@ -14075,8 +14136,16 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
     }
 
-    const syncedReviewStatus = item.reviewStatus || (item.reviewApprovalStatus === 'Approved' ? 'Approved' : (item.reviewApprovalStatus === 'Rejected' ? 'Revision Required' : undefined));
+    let syncedReviewStatus = item.reviewStatus || (item.reviewApprovalStatus === 'Approved' ? 'Approved' : (item.reviewApprovalStatus === 'Rejected' ? 'Revision Required' : undefined));
     const syncedReviewApprovalStatus = item.reviewApprovalStatus || (item.reviewStatus === 'Approved' ? 'Approved' : (item.reviewStatus === 'Revision Required' || item.reviewStatus === 'Rejected' ? 'Rejected' : undefined));
+
+    // Prevent blank template KPIs (no PoE files, no actuals, no scores, no manager review) from ever being locked as Submitted for Approval
+    if (
+      (syncedReviewStatus === 'Submitted for Approval' || syncedReviewStatus === 'Submitted for Review' || syncedReviewStatus === 'Submitted') &&
+      !hasGenuineSubmissionEvidence(item)
+    ) {
+      syncedReviewStatus = 'Draft';
+    }
 
     // Ensure legacy single-file POE attachments (poeFileBase64 / poeFileName) are surfaced in q1PoeDocs if quarter doc arrays are empty
     let q1Docs = Array.isArray(item.q1PoeDocs) ? item.q1PoeDocs : [];
@@ -14148,6 +14217,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       st === 'Approved' || st === 'Revision Required' || st === 'Rejected' || st === 'Reviewed' || st === 'Dispatched to Audit' || st === 'Dispatched to Internal Audit';
     const isSubmittedStatus = (st?: string) =>
       st === 'Submitted for Approval' || st === 'Submitted for Review' || st === 'Submitted';
+    const isExplicitDraftStatus = (st?: string) =>
+      st === 'Draft' || st === 'In Progress' || st === 'Draft / Resubmitting';
 
     for (const secList of secondaryItemLists) {
       if (!Array.isArray(secList)) continue;
@@ -14173,11 +14244,11 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
 
           let resolvedReviewStatus = base.reviewStatus;
           let resolvedApprovalStatus = base.reviewApprovalStatus;
-          if (!isActionedStatus(baseSt)) {
-            if (isActionedStatus(secSt)) {
+          if (!isActionedStatus(baseSt) && !isExplicitDraftStatus(base.reviewStatus)) {
+            if (isActionedStatus(secSt) && hasGenuineSubmissionEvidence(secItem)) {
               resolvedReviewStatus = secItem.reviewStatus || (secItem.reviewApprovalStatus === 'Approved' ? 'Approved' : 'Revision Required');
               resolvedApprovalStatus = secItem.reviewApprovalStatus || (secItem.reviewStatus === 'Approved' ? 'Approved' : 'Rejected');
-            } else if (!isSubmittedStatus(baseSt) && isSubmittedStatus(secSt)) {
+            } else if (!isSubmittedStatus(baseSt) && isSubmittedStatus(secSt) && hasGenuineSubmissionEvidence(secItem)) {
               resolvedReviewStatus = secItem.reviewStatus;
             }
           }
@@ -14674,6 +14745,37 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           }
         }
 
+        // Reconcile metadata.submittedKpiIds and metadata.reviewStatus with sanitizedItems so unsubmitted plans never report as Submitted for Approval
+        if (parsed.metadata) {
+          const genuinelySubmittedIds = new Set(
+            sanitizedItems
+              .filter((it: any) =>
+                it.reviewStatus === 'Submitted for Approval' ||
+                it.reviewStatus === 'Submitted for Review' ||
+                it.reviewStatus === 'Submitted' ||
+                it.reviewStatus === 'Approved' ||
+                it.reviewStatus === 'Reviewed' ||
+                it.reviewStatus === 'Revision Required' ||
+                it.reviewStatus === 'Dispatched to Audit' ||
+                it.reviewStatus === 'Dispatched to Internal Audit'
+              )
+              .map((it: any) => String(it.id || ''))
+          );
+          if (Array.isArray(parsed.metadata.submittedKpiIds)) {
+            parsed.metadata.submittedKpiIds = parsed.metadata.submittedKpiIds.filter((id: any) =>
+              genuinelySubmittedIds.has(String(id || ''))
+            );
+          }
+          if (
+            (parsed.metadata.reviewStatus === 'Submitted for Approval' ||
+              parsed.metadata.reviewStatus === 'Submitted for Review' ||
+              parsed.metadata.reviewStatus === 'Submitted') &&
+            genuinelySubmittedIds.size === 0
+          ) {
+            parsed.metadata.reviewStatus = 'Draft';
+          }
+        }
+
         // Filter items dynamically to prevent transferring unnecessary historical data structure
         if (req.query.kpiId) {
           const targetKpiId = String(req.query.kpiId).trim().toLowerCase();
@@ -15069,19 +15171,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         // Priority calculation: Canonical tenant-229 / Fred-extracted / real KPIs / newest documents take priority over stale copies
         const getPlanSubmissionPriority = (tp: any): number => {
           if (!tp || !tp.plan) return 0;
-          const metaStatus = String(tp.plan.metadata?.reviewStatus || '').toLowerCase().trim();
           const items = Array.isArray(tp.plan.items) ? tp.plan.items : [];
           const realItemsCount = items.filter((it: any) => !isSyntheticTeamKpi(it)).length;
-          const submittedItemsCount = items.filter((it: any) => 
-            it.reviewStatus === 'Submitted for Approval' || 
-            it.reviewStatus === 'Submitted for Review' || 
-            it.reviewStatus === 'Submitted' ||
-            it.reviewStatus === 'Approved' ||
-            it.reviewStatus === 'Reviewed' ||
-            it.reviewStatus === 'Revision Required' ||
-            it.reviewStatus === 'Dispatched to Internal Audit' ||
-            it.reviewStatus === 'Dispatched to Audit'
-          ).length;
 
           let score = 0;
           if (realItemsCount > 0) score += 100000;
@@ -15090,24 +15181,12 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
 
           if (tp.plan.metadata?._isFredExtracted) score += 20000;
 
-          if (metaStatus === 'submitted for approval' || metaStatus === 'submitted for review' || metaStatus === 'submitted') {
-            score += 10000;
-          } else if (metaStatus === 'reviewed' || metaStatus === 'approved') {
-            score += 10000;
-          } else if (metaStatus === 'in progress' || metaStatus === 'draft') {
-            score += 100;
-          }
-
-          if (submittedItemsCount > 0) {
-            score += 5000 + (submittedItemsCount * 20);
-          }
-
           score += Math.min(realItemsCount, 500);
 
           return score;
         };
 
-        // Group by userId, pick highest-priority plan, and merge items/POEs across all pplan_ and kpis_ rows for that subordinate
+        // Group by userId, pick newest/canonical plan, and merge items/POEs across all pplan_ and kpis_ rows for that subordinate
         const groupedBySub = new Map<string, any[]>();
         for (const tp of teamPlans) {
           if (!tp.userId) continue;
@@ -15120,13 +15199,13 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           candidates.sort((a, b) => {
             const tA = new Date(a.plan?.metadata?._pushedAt || a.plan?.metadata?.updatedAt || a.createdAt || 0).getTime();
             const tB = new Date(b.plan?.metadata?._pushedAt || b.plan?.metadata?.updatedAt || b.createdAt || 0).getTime();
-            const aExplicit = Boolean(a.plan?.metadata?._isCleared || a.plan?.metadata?._replacePlan || a.plan?.metadata?._allowItemDeletion);
-            const bExplicit = Boolean(b.plan?.metadata?._isCleared || b.plan?.metadata?._replacePlan || b.plan?.metadata?._allowItemDeletion);
-            if ((aExplicit || bExplicit) && tB !== tA) return tB - tA;
+            const aHasReal = (Array.isArray(a.plan?.items) && a.plan.items.some((it: any) => !isSyntheticTeamKpi(it))) ? 1 : 0;
+            const bHasReal = (Array.isArray(b.plan?.items) && b.plan.items.some((it: any) => !isSyntheticTeamKpi(it))) ? 1 : 0;
+            if (bHasReal !== aHasReal) return bHasReal - aHasReal;
+            if (tB !== tA) return tB - tA;
             const sA = getPlanSubmissionPriority(a);
             const sB = getPlanSubmissionPriority(b);
-            if (sB !== sA) return sB - sA;
-            return tB - tA;
+            return sB - sA;
           });
 
           const best = candidates[0];
@@ -15153,6 +15232,35 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
                 const baseList = best.plan.items || [];
                 const merged = mergePlanItemsWithSecondary(baseList, secondaryLists, baseList.length === 0).map((it: any) => sanitizePplanItem(it, subId));
                 best.plan.items = isMetadataOnly ? merged.map(stripHeavyBlobsFromItem) : merged;
+              }
+              if (best.plan.metadata && Array.isArray(best.plan.items)) {
+                const genuinelySubmittedIds = new Set(
+                  best.plan.items
+                    .filter((it: any) =>
+                      it.reviewStatus === 'Submitted for Approval' ||
+                      it.reviewStatus === 'Submitted for Review' ||
+                      it.reviewStatus === 'Submitted' ||
+                      it.reviewStatus === 'Approved' ||
+                      it.reviewStatus === 'Reviewed' ||
+                      it.reviewStatus === 'Revision Required' ||
+                      it.reviewStatus === 'Dispatched to Audit' ||
+                      it.reviewStatus === 'Dispatched to Internal Audit'
+                    )
+                    .map((it: any) => String(it.id || ''))
+                );
+                if (Array.isArray(best.plan.metadata.submittedKpiIds)) {
+                  best.plan.metadata.submittedKpiIds = best.plan.metadata.submittedKpiIds.filter((id: any) =>
+                    genuinelySubmittedIds.has(String(id || ''))
+                  );
+                }
+                if (
+                  (best.plan.metadata.reviewStatus === 'Submitted for Approval' ||
+                    best.plan.metadata.reviewStatus === 'Submitted for Review' ||
+                    best.plan.metadata.reviewStatus === 'Submitted') &&
+                  genuinelySubmittedIds.size === 0
+                ) {
+                  best.plan.metadata.reviewStatus = 'Draft';
+                }
               }
             }
           }
@@ -15237,26 +15345,28 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
 
       let updatedCount = 0;
       let tenantId = routeTenantId || 'nkangala_auto';
-      let tenantIds = [tenantId];
+      let tenantIds = [tenantId, 'global'];
       if (tenantId === 'nkangala_auto' || tenantId === 'tenant-229') {
-        tenantIds = ['nkangala_auto', 'tenant-229'];
+        tenantIds = ['nkangala_auto', 'tenant-229', 'global'];
       }
 
-      // Query messages of type pplan_list for the relevant tenants
+      // Query messages of type pplan_list and kpis_list for the relevant tenants
       const { data, error } = await supabase
         .from('messages')
-        .select('id, tenant_id, sender_email, content')
-        .eq('message_type', 'pplan_list')
+        .select('id, tenant_id, sender_email, content, message_type')
+        .in('message_type', ['pplan_list', 'kpis_list'])
         .in('tenant_id', tenantIds);
 
       if (error) throw error;
 
+      const nowIso = new Date().toISOString();
       for (const row of data || []) {
         // Extract userId/email
         let userId = '';
-        const foundTenantId = tenantIds.find(tId => row.id.startsWith(`pplan_${tId}_`));
+        const prefix = row.id.startsWith('kpis_') ? 'kpis_' : 'pplan_';
+        const foundTenantId = tenantIds.find(tId => row.id.startsWith(`${prefix}${tId}_`));
         if (foundTenantId) {
-          userId = row.id.substring(`pplan_${foundTenantId}_`.length);
+          userId = row.id.substring(`${prefix}${foundTenantId}_`.length);
         } else {
           const parts = row.id.split('_');
           userId = parts[parts.length - 1] || row.sender_email || '';
@@ -15272,16 +15382,19 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           let content = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
           if (content) {
             let changed = false;
-            if (!content.metadata) content.metadata = {};
-            
-            // Unconditionally reset metadata and items' statuses to make sure they are cleared
-            content.metadata.reviewStatus = 'In Progress';
-            content.metadata.internalAuditStatus = 'Draft';
-            changed = true;
-            
-            if (Array.isArray(content.items)) {
-              content.items.forEach((item: any) => {
-                item.reviewStatus = 'In Progress';
+            if (content.metadata) {
+              content.metadata.reviewStatus = 'Draft';
+              content.metadata.internalAuditStatus = 'Draft';
+              content.metadata.submittedKpiIds = [];
+              delete content.metadata.lastSubmittedKpiId;
+              content.metadata.updatedAt = nowIso;
+              changed = true;
+            }
+            const itemList = Array.isArray(content.items) ? content.items : (Array.isArray(content.kpis) ? content.kpis : null);
+            if (Array.isArray(itemList)) {
+              itemList.forEach((item: any) => {
+                item.reviewStatus = 'Draft';
+                delete item.reviewApprovalStatus;
                 delete item.internalAuditStatus;
                 delete item.internalAuditRating;
                 delete item.internalAuditComment;
@@ -15290,8 +15403,9 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             }
             if (changed) {
               const updatedContentStr = typeof row.content === 'string' ? JSON.stringify(content) : content;
-              await supabase.from('messages').update({ content: updatedContentStr }).eq('id', row.id);
+              await supabase.from('messages').update({ content: updatedContentStr, created_at: nowIso }).eq('id', row.id);
               pplanCache.delete(row.id);
+              kpisCache.delete(row.id);
               updatedCount++;
             }
           }
@@ -15299,6 +15413,10 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
 
       pplanCache.clear();
+      kpisCache.clear();
+      for (const k of memoryCache.keys()) {
+        if (k.startsWith('team_pplans_') || k.startsWith('reports_unlock_')) memoryCache.delete(k);
+      }
       return res.json({ success: true, updatedCount });
     } catch (err: any) {
       console.error("clear-subordinates-ledger exception:", err);
@@ -15318,26 +15436,28 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
 
       let updatedCount = 0;
       let tenantId = routeTenantId || 'nkangala_auto';
-      let tenantIds = [tenantId];
+      let tenantIds = [tenantId, 'global'];
       if (tenantId === 'nkangala_auto' || tenantId === 'tenant-229') {
-        tenantIds = ['nkangala_auto', 'tenant-229'];
+        tenantIds = ['nkangala_auto', 'tenant-229', 'global'];
       }
 
-      // Query messages of type pplan_list for the relevant tenants
+      // Query messages of type pplan_list and kpis_list for the relevant tenants
       const { data, error } = await supabase
         .from('messages')
-        .select('id, tenant_id, sender_email, content')
-        .eq('message_type', 'pplan_list')
+        .select('id, tenant_id, sender_email, content, message_type')
+        .in('message_type', ['pplan_list', 'kpis_list'])
         .in('tenant_id', tenantIds);
 
       if (error) throw error;
 
+      const nowIso = new Date().toISOString();
       for (const row of data || []) {
         // Extract userId/email
         let userId = '';
-        const foundTenantId = tenantIds.find(tId => row.id.startsWith(`pplan_${tId}_`));
+        const prefix = row.id.startsWith('kpis_') ? 'kpis_' : 'pplan_';
+        const foundTenantId = tenantIds.find(tId => row.id.startsWith(`${prefix}${tId}_`));
         if (foundTenantId) {
-          userId = row.id.substring(`pplan_${foundTenantId}_`.length);
+          userId = row.id.substring(`${prefix}${foundTenantId}_`.length);
         } else {
           const parts = row.id.split('_');
           userId = parts[parts.length - 1] || row.sender_email || '';
@@ -15353,23 +15473,29 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           let content = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
           if (content) {
             let changed = false;
-            if (Array.isArray(content.items)) {
-              content.items.forEach((item: any) => {
+            const itemList = Array.isArray(content.items) ? content.items : (Array.isArray(content.kpis) ? content.kpis : null);
+            if (Array.isArray(itemList)) {
+              itemList.forEach((item: any) => {
                 if (item.reviewStatus === 'Submitted for Approval' || item.reviewStatus === 'Submitted for Review' || item.reviewStatus === 'Submitted' || item.reviewStatus === 'Approved' || item.reviewStatus === 'Reviewed') {
-                  item.reviewStatus = 'In Progress';
+                  item.reviewStatus = 'Draft';
+                  delete item.reviewApprovalStatus;
                   changed = true;
                 }
               });
             }
-            if (changed || (content.metadata && content.metadata.reviewStatus !== 'In Progress')) {
+            if (changed || (content.metadata && content.metadata.reviewStatus !== 'Draft')) {
               if (!content.metadata) content.metadata = {};
-              content.metadata.reviewStatus = 'In Progress';
+              content.metadata.reviewStatus = 'Draft';
+              content.metadata.submittedKpiIds = [];
+              delete content.metadata.lastSubmittedKpiId;
+              content.metadata.updatedAt = nowIso;
               changed = true;
             }
             if (changed) {
               const updatedContentStr = typeof row.content === 'string' ? JSON.stringify(content) : content;
-              await supabase.from('messages').update({ content: updatedContentStr }).eq('id', row.id);
+              await supabase.from('messages').update({ content: updatedContentStr, created_at: nowIso }).eq('id', row.id);
               pplanCache.delete(row.id);
+              kpisCache.delete(row.id);
               updatedCount++;
             }
           }
@@ -15377,6 +15503,10 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
 
       pplanCache.clear();
+      kpisCache.clear();
+      for (const k of memoryCache.keys()) {
+        if (k.startsWith('team_pplans_') || k.startsWith('reports_unlock_')) memoryCache.delete(k);
+      }
       return res.json({ success: true, updatedCount });
     } catch (err: any) {
       console.error("clear-subordinates-review exception:", err);

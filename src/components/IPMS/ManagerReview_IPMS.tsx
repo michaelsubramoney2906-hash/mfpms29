@@ -74,6 +74,63 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
            cleanKpiNo.replace(/[^a-z0-9]/g, '') === cleanTarget.replace(/[^a-z0-9]/g, '');
   };
 
+  const isGenuinelySubmittedKpi = (it: any): boolean => {
+    if (!it) return false;
+    const isSubmittedOrReviewed =
+      it.reviewStatus === 'Submitted for Approval' ||
+      it.reviewStatus === 'Submitted for Review' ||
+      it.reviewStatus === 'Submitted' ||
+      it.reviewStatus === 'Approved' ||
+      it.reviewStatus === 'Reviewed' ||
+      it.reviewStatus === 'Revision Required' ||
+      it.reviewStatus === 'Dispatched to Internal Audit' ||
+      it.reviewStatus === 'Dispatched to Audit' ||
+      it.reviewApprovalStatus === 'Approved' ||
+      it.reviewApprovalStatus === 'Rejected';
+    if (!isSubmittedOrReviewed) return false;
+
+    const docsCount =
+      (Array.isArray(it.q1PoeDocs) ? it.q1PoeDocs.length : 0) +
+      (Array.isArray(it.q2PoeDocs) ? it.q2PoeDocs.length : 0) +
+      (Array.isArray(it.q3PoeDocs) ? it.q3PoeDocs.length : 0) +
+      (Array.isArray(it.q4PoeDocs) ? it.q4PoeDocs.length : 0) +
+      (Array.isArray(it.annualPoeDocs) ? it.annualPoeDocs.length : 0) +
+      (Array.isArray(it.midtermPoeDocs) ? it.midtermPoeDocs.length : 0);
+    if (docsCount > 0 || it.poeFileBase64 || it.poeFileName) return true;
+
+    const hasVal = (v: any) => v !== undefined && v !== null && String(v).trim() !== '' && String(v).trim().toUpperCase() !== 'N/A';
+    const hasScore = (v: any) => v !== undefined && v !== null && !isNaN(parseFloat(String(v))) && parseFloat(String(v)) > 0;
+    if (
+      hasVal(it.q1Actual) ||
+      hasVal(it.q2Actual) ||
+      hasVal(it.q3Actual) ||
+      hasVal(it.q4Actual) ||
+      hasVal(it.midtermActual) ||
+      hasVal(it.annualActual) ||
+      hasVal(it.q1Comment) ||
+      hasVal(it.q2Comment) ||
+      hasVal(it.q3Comment) ||
+      hasVal(it.q4Comment) ||
+      hasVal(it.evaluationComment) ||
+      hasScore(it.myScore) ||
+      hasScore(it.q1Score) ||
+      hasScore(it.q2Score) ||
+      hasScore(it.q3Score) ||
+      hasScore(it.q4Score) ||
+      hasScore(it.midtermScore) ||
+      hasScore(it.managerScore) ||
+      it.reviewStatus === 'Approved' ||
+      it.reviewStatus === 'Reviewed' ||
+      it.reviewStatus === 'Revision Required' ||
+      it.reviewApprovalStatus === 'Approved' ||
+      it.reviewApprovalStatus === 'Rejected'
+    ) {
+      return true;
+    }
+
+    return false;
+  };
+
   const visibleManagerItems = useMemo(() => {
     const plan = selectedPlan?.plan;
     if (!plan || !Array.isArray(plan.items)) return [];
@@ -90,27 +147,16 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
       if (filtered.length > 0) return filtered;
     }
 
-    // 2. Items currently in Submitted for Approval/Review state (or Approved/Reviewed/Revision Required/Dispatched)
-    const submittedItems = plan.items.filter((it: any) => 
-      it.reviewStatus === 'Submitted for Approval' || 
-      it.reviewStatus === 'Submitted for Review' || 
-      it.reviewStatus === 'Submitted' ||
-      it.reviewStatus === 'Approved' ||
-      it.reviewStatus === 'Reviewed' ||
-      it.reviewStatus === 'Revision Required' ||
-      it.reviewStatus === 'Dispatched to Internal Audit' ||
-      it.reviewStatus === 'Dispatched to Audit' ||
-      it.reviewApprovalStatus === 'Approved' ||
-      it.reviewApprovalStatus === 'Rejected'
-    );
+    // 2. Items genuinely in Submitted for Approval/Review state (or Approved/Reviewed/Revision Required/Dispatched)
+    const submittedItems = plan.items.filter((it: any) => isGenuinelySubmittedKpi(it));
     if (submittedItems.length > 0) {
       return submittedItems;
     }
 
-    // 3. Metadata submittedKpiIds fallback
+    // 3. Metadata submittedKpiIds fallback (only for items with genuine submission evidence)
     if (plan.metadata?.submittedKpiIds && Array.isArray(plan.metadata.submittedKpiIds) && plan.metadata.submittedKpiIds.length > 0) {
       const filtered = plan.items.filter((item: any) => 
-        plan.metadata.submittedKpiIds.some((f: any) => matchesKpiIdentifier(item, f))
+        plan.metadata.submittedKpiIds.some((f: any) => matchesKpiIdentifier(item, f)) && isGenuinelySubmittedKpi(item)
       );
       if (filtered.length > 0) return filtered;
     }
@@ -1955,7 +2001,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
                       let submittedKpisCount = 0;
                       if (Array.isArray(tp.plan?.items)) {
                         tp.plan.items.forEach((it: any) => {
-                          if ((it.reviewStatus === 'Submitted for Approval' || it.reviewStatus === 'Submitted for Review') && it.reviewApprovalStatus !== 'Approved') {
+                          if ((it.reviewStatus === 'Submitted for Approval' || it.reviewStatus === 'Submitted for Review' || it.reviewStatus === 'Submitted') && it.reviewApprovalStatus !== 'Approved' && isGenuinelySubmittedKpi(it)) {
                             submittedKpisCount++;
                           }
                         });

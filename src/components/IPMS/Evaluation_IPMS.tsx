@@ -824,20 +824,41 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
       alert("Please select at least one KPI to submit.");
       return;
     }
+    if (submitForReview) {
+      for (const kId of targetIds) {
+        const item = pplanData.items.find((i: any) => i.id === kId);
+        const docsCount = item ? ((item.q1PoeDocs?.length || 0) + (item.q2PoeDocs?.length || 0) + (item.q3PoeDocs?.length || 0) + (item.q4PoeDocs?.length || 0) + (item.annualPoeDocs?.length || 0) + (item.midtermPoeDocs?.length || 0)) : 0;
+        const hasActualOrScore = item && (
+          (item.q1Actual && String(item.q1Actual).trim() !== '' && String(item.q1Actual).trim().toUpperCase() !== 'N/A') ||
+          (item.q2Actual && String(item.q2Actual).trim() !== '' && String(item.q2Actual).trim().toUpperCase() !== 'N/A') ||
+          (item.q3Actual && String(item.q3Actual).trim() !== '' && String(item.q3Actual).trim().toUpperCase() !== 'N/A') ||
+          (item.q4Actual && String(item.q4Actual).trim() !== '' && String(item.q4Actual).trim().toUpperCase() !== 'N/A') ||
+          (item.midtermActual && String(item.midtermActual).trim() !== '' && String(item.midtermActual).trim().toUpperCase() !== 'N/A') ||
+          (item.annualActual && String(item.annualActual).trim() !== '' && String(item.annualActual).trim().toUpperCase() !== 'N/A') ||
+          item.poeFileName ||
+          item.poeFileBase64
+        );
+        if (docsCount === 0 && !hasActualOrScore) {
+          alert(`Portfolio of Evidence (PoE) and/or quarterly actuals are MANDATORY prior to submitting KPI #${item?.kpiNo || kId} for manager review! Please attach a PoE document or capture your actual performance first.`);
+          return;
+        }
+      }
+    }
     setSaving(true);
     try {
       const isDemoUser = (currentUser.email || '').toLowerCase() === 'user@mzansiflow.co.za';
       const userEmailForBatch = (pplanData.metadata?.email || currentUser.email || '').toLowerCase().trim();
       const isShabanguUser = userEmailForBatch.includes('shabangusm');
       const isLinksReportUser = userEmailForBatch === 'joubertm@nkangaladm.gov.za' || userEmailForBatch === 'tloujmt@nkangaladm.gov.za';
-      const defaultMgrName = isLinksReportUser ? 'Solly Links' : (isShabanguUser ? 'Mandla L. Mahlangu' : (isDemoUser ? 'Demo Line Manager' : 'Yena Khuboni'));
-      const defaultMgrEmail = isLinksReportUser ? 'linkss@nkangaladm.gov.za' : (isShabanguUser ? 'mahlanguml@nkangaladm.gov.za' : (isDemoUser ? 'manager@mzansiflow.co.za' : 'KhuboniY@nkangaladm.gov.za'));
+      const isSinghSubUser = ['marxc@nkangaladm.gov.za', 'nakapm@nkangaladm.gov.za', 'rachidimb@nkangaladm.gov.za', 'mokhabelagg@nkangaladm.gov.za'].includes(userEmailForBatch) || userEmailForBatch.includes('marxc') || userEmailForBatch.includes('nakapm') || userEmailForBatch.includes('rachidimb') || userEmailForBatch.includes('mokhabelagg');
+      const defaultMgrName = isSinghSubUser ? 'Nirisha Singh' : (isLinksReportUser ? 'Solly Links' : (isShabanguUser ? 'Mandla L. Mahlangu' : (isDemoUser ? 'Demo Line Manager' : 'Yena Khuboni')));
+      const defaultMgrEmail = isSinghSubUser ? 'singhn@nkangaladm.gov.za' : (isLinksReportUser ? 'linkss@nkangaladm.gov.za' : (isShabanguUser ? 'mahlanguml@nkangaladm.gov.za' : (isDemoUser ? 'manager@mzansiflow.co.za' : 'KhuboniY@nkangaladm.gov.za')));
       const metadata = { 
         ...pplanData.metadata,
         email: pplanData.metadata?.email || currentUser.email,
-        manager: isLinksReportUser ? 'Solly Links' : (isShabanguUser ? 'Mandla L. Mahlangu' : (currentUser.manager || pplanData.metadata?.manager || defaultMgrName)),
-        managerEmail: isLinksReportUser ? 'linkss@nkangaladm.gov.za' : (isShabanguUser ? 'mahlanguml@nkangaladm.gov.za' : (currentUser.managerEmail || pplanData.metadata?.managerEmail || defaultMgrEmail)),
-        reportTo: isLinksReportUser ? 'Solly Links' : (isShabanguUser ? 'Mandla L. Mahlangu' : (currentUser.reportTo || pplanData.metadata?.reportTo || currentUser.manager || (isDemoUser ? 'Demo Line Manager' : ''))),
+        manager: isSinghSubUser ? 'Nirisha Singh' : (isLinksReportUser ? 'Solly Links' : (isShabanguUser ? 'Mandla L. Mahlangu' : (currentUser.manager || pplanData.metadata?.manager || defaultMgrName))),
+        managerEmail: isSinghSubUser ? 'singhn@nkangaladm.gov.za' : (isLinksReportUser ? 'linkss@nkangaladm.gov.za' : (isShabanguUser ? 'mahlanguml@nkangaladm.gov.za' : (currentUser.managerEmail || pplanData.metadata?.managerEmail || defaultMgrEmail))),
+        reportTo: isSinghSubUser ? 'Nirisha Singh' : (isLinksReportUser ? 'Solly Links' : (isShabanguUser ? 'Mandla L. Mahlangu' : (currentUser.reportTo || pplanData.metadata?.reportTo || currentUser.manager || (isDemoUser ? 'Demo Line Manager' : '')))),
         reviewStatus: submitForReview ? 'Submitted for Approval' : (pplanData.metadata?.reviewStatus || 'Draft'),
         _isFredExtracted: true,
         ...(submitForReview ? {
@@ -901,19 +922,6 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
       setPplanData(payload);
       setSelectedKpiIds([]);
       window.dispatchEvent(new CustomEvent(isTeamEvaluation ? 'team-pplan-updated' : 'pplan-updated', { detail: { tenantId: activeTenantId, userId: currentUser.email } }));
-      
-      if (submitForReview) {
-        for (const kId of targetIds) {
-          const item = pplanData.items.find((i: any) => i.id === kId);
-          const docsCount = item ? ((item.q1PoeDocs?.length || 0) + (item.q2PoeDocs?.length || 0) + (item.q3PoeDocs?.length || 0) + (item.q4PoeDocs?.length || 0) + (item.annualPoeDocs?.length || 0) + (item.midtermPoeDocs?.length || 0)) : 0;
-          const hasTextPoe = item && (item.poe || item.q1Poe || item.q2Poe || item.q3Poe || item.q4Poe || item.poeFileName);
-          if (docsCount === 0 && !hasTextPoe) {
-            alert(`Portfolio of Evidence (PoE) is MANDATORY prior to submitting KPI #${item?.kpiNo || kId} for manager review! Please attach a PoE document or description.`);
-            setSaving(false);
-            return;
-          }
-        }
-      }
 
       if (submitForReview) {
         try {
@@ -1014,18 +1022,20 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
     try {
       const metadata = { 
         ...pplanData.metadata,
-        reviewStatus: 'Draft / Resubmitting'
+        reviewStatus: 'Draft',
+        submittedKpiIds: [],
+        lastSubmittedKpiId: undefined
       };
 
       const updatedItems = pplanData.items.map(item => ({
         ...item,
-        reviewStatus: 'Draft / Resubmitting',
-        q1PoeStatus: 'Draft / Resubmitting',
-        q2PoeStatus: 'Draft / Resubmitting',
-        q3PoeStatus: 'Draft / Resubmitting',
-        q4PoeStatus: 'Draft / Resubmitting',
-        annualPoeStatus: 'Draft / Resubmitting',
-        midtermPoeStatus: 'Draft / Resubmitting'
+        reviewStatus: 'Draft',
+        q1PoeStatus: 'Draft',
+        q2PoeStatus: 'Draft',
+        q3PoeStatus: 'Draft',
+        q4PoeStatus: 'Draft',
+        annualPoeStatus: 'Draft',
+        midtermPoeStatus: 'Draft'
       }));
 
       const payload = {
@@ -1062,9 +1072,13 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
   const handleRedoKpi = async (kpiId: string) => {
     setSaving(true);
     try {
+      const remainingSubmitted = Array.isArray(pplanData.metadata?.submittedKpiIds)
+        ? pplanData.metadata.submittedKpiIds.filter((id: string) => id !== kpiId)
+        : [];
       const metadata = { 
         ...pplanData.metadata,
-        reviewStatus: 'Draft / Resubmitting'
+        reviewStatus: remainingSubmitted.length > 0 ? pplanData.metadata?.reviewStatus : 'Draft',
+        submittedKpiIds: remainingSubmitted
       };
 
       const targetItem = pplanData.items.find(i => i.id === kpiId);
@@ -1073,13 +1087,13 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
         if (item.id === kpiId) {
           return {
             ...item,
-            reviewStatus: 'Draft / Resubmitting',
-            q1PoeStatus: 'Draft / Resubmitting',
-            q2PoeStatus: 'Draft / Resubmitting',
-            q3PoeStatus: 'Draft / Resubmitting',
-            q4PoeStatus: 'Draft / Resubmitting',
-            annualPoeStatus: 'Draft / Resubmitting',
-            midtermPoeStatus: 'Draft / Resubmitting'
+            reviewStatus: 'Draft',
+            q1PoeStatus: 'Draft',
+            q2PoeStatus: 'Draft',
+            q3PoeStatus: 'Draft',
+            q4PoeStatus: 'Draft',
+            annualPoeStatus: 'Draft',
+            midtermPoeStatus: 'Draft'
           };
         }
         return item;
@@ -1152,6 +1166,25 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
         reportTo: resolvedMgr.reportTo
       };
       if (submitForReview) {
+        for (const kId of selectedKpiIds) {
+          const item = pplanData.items.find((i: any) => i.id === kId);
+          const docsCount = item ? ((item.q1PoeDocs?.length || 0) + (item.q2PoeDocs?.length || 0) + (item.q3PoeDocs?.length || 0) + (item.q4PoeDocs?.length || 0) + (item.annualPoeDocs?.length || 0) + (item.midtermPoeDocs?.length || 0)) : 0;
+          const hasActualOrScore = item && (
+            (item.q1Actual && String(item.q1Actual).trim() !== '' && String(item.q1Actual).trim().toUpperCase() !== 'N/A') ||
+            (item.q2Actual && String(item.q2Actual).trim() !== '' && String(item.q2Actual).trim().toUpperCase() !== 'N/A') ||
+            (item.q3Actual && String(item.q3Actual).trim() !== '' && String(item.q3Actual).trim().toUpperCase() !== 'N/A') ||
+            (item.q4Actual && String(item.q4Actual).trim() !== '' && String(item.q4Actual).trim().toUpperCase() !== 'N/A') ||
+            (item.midtermActual && String(item.midtermActual).trim() !== '' && String(item.midtermActual).trim().toUpperCase() !== 'N/A') ||
+            (item.annualActual && String(item.annualActual).trim() !== '' && String(item.annualActual).trim().toUpperCase() !== 'N/A') ||
+            item.poeFileName ||
+            item.poeFileBase64
+          );
+          if (docsCount === 0 && !hasActualOrScore) {
+            alert(`Portfolio of Evidence (PoE) and/or quarterly actuals are MANDATORY prior to submitting KPI #${item?.kpiNo || kId} for manager review! Please attach a PoE document or capture your actual performance first.`);
+            setSaving(false);
+            return;
+          }
+        }
         metadata.reviewStatus = 'Submitted for Approval';
       } else if (!metadata.reviewStatus) {
         metadata.reviewStatus = 'Draft';
@@ -1191,15 +1224,16 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
           : (qScores.length > 0 ? (qScores.reduce((a, b) => a + b, 0) / qScores.length).toFixed(1) : '');
 
         const shouldSubmitItem = submitForReview && selectedKpiIds.includes(item.id);
+        const nextStatus = shouldSubmitItem ? 'Submitted for Approval' : (item.reviewStatus || 'Draft');
 
-        if (shouldSubmitItem) {
+        if (nextStatus === 'Submitted for Approval' || nextStatus === 'Approved' || nextStatus === 'Reviewed') {
           submittedIds.push(item.id);
         }
 
         return {
           ...item,
           myScore: resolvedMyScore,
-          reviewStatus: shouldSubmitItem ? 'Submitted for Approval' : (item.reviewStatus || 'Draft'),
+          reviewStatus: nextStatus,
           poe: aggregatePoe || item.poe,
           poeFileBase64: firstDoc ? firstDoc.dataUrl : item.poeFileBase64,
           poeFileName: firstDoc ? firstDoc.name : item.poeFileName
@@ -1207,8 +1241,11 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
       });
 
       if (submitForReview) {
-        metadata.submittedKpiIds = submittedIds;
+        metadata.submittedKpiIds = Array.from(new Set(submittedIds));
         metadata.lastSubmittedKpiId = submittedIds.length === 1 ? submittedIds[0] : undefined;
+      } else if (submittedIds.length === 0) {
+        metadata.submittedKpiIds = [];
+        metadata.reviewStatus = 'Draft';
       }
 
       const payload = {
@@ -1582,7 +1619,18 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
                   setActiveTabs(prev => ({ ...prev, [kpi.id]: tab }));
                 };
                 const isUnrestricted = isUserUnrestricted(currentUser);
-                const kpiIsReadOnly = !isUnrestricted && (
+                const kpiDocsCount = (kpi.q1PoeDocs?.length || 0) + (kpi.q2PoeDocs?.length || 0) + (kpi.q3PoeDocs?.length || 0) + (kpi.q4PoeDocs?.length || 0) + (kpi.annualPoeDocs?.length || 0) + (kpi.midtermPoeDocs?.length || 0);
+                const kpiHasEvidence = kpiDocsCount > 0 || Boolean(
+                  kpi.poeFileBase64 ||
+                  kpi.poeFileName ||
+                  (kpi.q1Actual && String(kpi.q1Actual).trim() !== '' && String(kpi.q1Actual).trim().toUpperCase() !== 'N/A') ||
+                  (kpi.q2Actual && String(kpi.q2Actual).trim() !== '' && String(kpi.q2Actual).trim().toUpperCase() !== 'N/A') ||
+                  (kpi.q3Actual && String(kpi.q3Actual).trim() !== '' && String(kpi.q3Actual).trim().toUpperCase() !== 'N/A') ||
+                  (kpi.q4Actual && String(kpi.q4Actual).trim() !== '' && String(kpi.q4Actual).trim().toUpperCase() !== 'N/A') ||
+                  (kpi.midtermActual && String(kpi.midtermActual).trim() !== '' && String(kpi.midtermActual).trim().toUpperCase() !== 'N/A') ||
+                  (kpi.annualActual && String(kpi.annualActual).trim() !== '' && String(kpi.annualActual).trim().toUpperCase() !== 'N/A')
+                );
+                const kpiIsReadOnly = !isUnrestricted && kpiHasEvidence && (
                   kpi.reviewStatus === 'Submitted for Approval' || 
                   kpi.reviewStatus === 'Reviewed' || 
                   kpi.reviewStatus === 'Approved'
@@ -1620,7 +1668,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
                       )}
                       
                       {/* Review Status Badging */}
-                      {kpi.reviewStatus === 'Submitted for Approval' && (
+                      {kpi.reviewStatus === 'Submitted for Approval' && kpiHasEvidence && (
                         <span className="bg-amber-500 text-white font-black text-[9.5px] px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs">
                           ⚡ Submitted to Manager
                         </span>
@@ -1638,6 +1686,17 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
                     </div>
 
                     <div className="flex items-center gap-2">
+                      {kpiIsReadOnly && (
+                        <button
+                          type="button"
+                          onClick={() => handleRedoKpi(kpi.id)}
+                          disabled={saving}
+                          className="font-bold px-2.5 py-1 rounded-xl text-[10px] uppercase tracking-wider flex items-center gap-1 transition shadow-2xs bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 cursor-pointer"
+                          title="Unlock this KPI to edit actuals or attach/replace PoE and resubmit"
+                        >
+                          <span>Unlock / Redo</span>
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => handleBatchSubmitSelectedKpis([kpi.id], true)}
