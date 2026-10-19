@@ -53,15 +53,26 @@ interface CacheEntry<T = any> {
 const memoryCache = new Map<string, CacheEntry>();
 const inFlightRequests = new Map<string, Promise<any>>();
 
+const MAX_MEMORY_CACHE_ENTRIES = 200;
+
 export function getCached<T>(key: string, ttlMs: number): T | null {
   const entry = memoryCache.get(key);
   if (entry && (Date.now() - entry.timestamp < ttlMs)) {
     return entry.data as T;
   }
+  if (entry) {
+    memoryCache.delete(key);
+  }
   return null;
 }
 
 export function setCached<T>(key: string, data: T): void {
+  if (memoryCache.size >= MAX_MEMORY_CACHE_ENTRIES && !memoryCache.has(key)) {
+    const oldestKey = memoryCache.keys().next().value;
+    if (oldestKey !== undefined) {
+      memoryCache.delete(oldestKey);
+    }
+  }
   memoryCache.set(key, { data, timestamp: Date.now() });
 }
 

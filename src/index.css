@@ -7,20 +7,44 @@
   --font-display: "Space Grotesk", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-serif: "Playfair Display", Georgia, Cambria, "Times New Roman", Times, serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Vibrant Electric Green (shifted towards Lumo Green without being neon radioactive) */
+  --color-emerald-50: #ebfff3;
+  --color-emerald-100: #d1ffe3;
+  --color-emerald-200: #a6ffca;
+  --color-emerald-300: #6bffa8;
+  --color-emerald-400: #29ec7b;
+  --color-emerald-500: #00D65B;
+  --color-emerald-600: #00BD50;
+  --color-emerald-700: #009940;
+  --color-emerald-800: #007833;
+  --color-emerald-900: #005c27;
+  --color-emerald-950: #003314;
+
+  --color-green-400: #29ec7b;
+  --color-green-500: #00D65B;
+  --color-green-600: #00BD50;
+  --color-green-700: #009940;
+
+  /* Crisp Carbon Blacks instead of Navy Slate for dark surfaces */
+  --color-slate-950: #000000;
+  --color-slate-900: #0a0a0a;
+  --color-slate-800: #171717;
+  --color-slate-700: #262626;
 }
 
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
-  text-rendering: optimizeSpeed;
+  text-rendering: geometricPrecision;
   scroll-behavior: smooth;
   color-scheme: dark;
 }
 
 body {
-  @apply font-sans text-slate-100 bg-slate-950 antialiased;
-  background-color: #020617;
-  color: #f8fafc;
+  @apply font-sans antialiased;
+  background-color: #000000;
+  color: #ffffff;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
@@ -34,12 +58,12 @@ input, textarea, select {
 input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
 textarea,
 select {
-  caret-color: #34d399;
+  caret-color: #00D65B;
 }
 
 input::placeholder,
 textarea::placeholder {
-  color: #94a3b8;
+  color: #71717a;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -76,11 +100,11 @@ h1, h2, h3, h4, h5, h6 {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(100, 116, 139, 0.2);
+  background: rgba(113, 113, 122, 0.25);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(100, 116, 139, 0.4);
+  background: rgba(0, 214, 91, 0.5);
 }
 
 @media print {

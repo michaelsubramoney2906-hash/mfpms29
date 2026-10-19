@@ -4,7 +4,7 @@ import { modules, tenants } from '../data';
 import type { User, Module } from '../types';
 import { isUserUnrestricted, isGlobalAdminEmail } from '../utils/unrestrictedHelper';
 import { isUserMatch, isMasterAdminMike } from '../utils/sdbipWorkflowHelper';
-import { ChevronDown, LogOut, ShieldCheck, ChevronRight, LayoutGrid, Calendar as CalendarIcon, Bell, ArrowLeft, Layers, Lock, Award } from 'lucide-react';
+import { ChevronDown, LogOut, ShieldCheck, ChevronRight, LayoutGrid, Calendar as CalendarIcon, Bell, ArrowLeft, Layers, Lock, Award, Sun, Moon } from 'lucide-react';
 import { UserManagement } from './UserManagement';
 import { SharePoint } from './SharePoint';
 import { APR } from './APR/APR';
@@ -76,6 +76,7 @@ import { GuidedIPMSWorkflow, GUIDE_STEPS } from './IPMS/GuidedIPMSWorkflow';
 import { FinancialYearModal } from './FinancialYearModal';
 import { FinancialYearSwitcher } from './FinancialYearSwitcher';
 import { useFinancialYear } from '../context/FinancialYearContext';
+import { useTheme } from '../context/ThemeContext';
 import { SupportModule } from './Support/SupportModule';
 
 const fetchWithRetry = async (url: string, options?: RequestInit, retries = 3, delay = 1000): Promise<Response> => {
@@ -103,6 +104,7 @@ interface DashboardProps {
 
 export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
   const { financialYear, isPriorYear, getEffectiveYearForModule } = useFinancialYear();
+  const { isDark, toggleTheme } = useTheme();
   const userEmail = (user.email || '').toLowerCase().trim();
   
   // Check if session is currently impersonating another persona
@@ -838,11 +840,17 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
   }, [activeModule, activeSubModule, isCommandCenterAuthorized, canAccessAdministrator]);
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col font-sans overflow-hidden text-slate-100">
+    <div className={cn(
+      "min-h-screen flex flex-col font-sans overflow-hidden transition-colors duration-200",
+      isDark ? "bg-black text-white" : "bg-slate-50 text-black"
+    )}>
       {/* Top Header */}
-      <header className="flex items-center justify-between px-8 py-4 border-b border-slate-200 bg-white text-slate-900 z-50 shadow-xs">
+      <header className={cn(
+        "flex items-center justify-between px-8 py-4 border-b z-50 shadow-xs transition-colors duration-200",
+        isDark ? "bg-black border-neutral-800 text-white" : "bg-white border-neutral-200 text-black"
+      )}>
         <div className="flex items-center space-x-2">
-          <Logo isDashboardMenu={true} />
+          <Logo />
         </div>
 
         {/* Global Navigation */}
@@ -857,8 +865,12 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                 className={cn(
                   "flex items-center gap-1.5 px-4 py-2 border-b-2 cursor-pointer transition-colors text-sm font-bold relative",
                   activeModule.id === mod.id 
-                    ? "border-emerald-600 bg-emerald-50 text-emerald-800"
-                    : "border-transparent text-slate-600 hover:border-slate-300 hover:text-slate-900"
+                    ? (isDark
+                        ? "border-[#00D65B] bg-[#00D65B]/15 text-[#00D65B]"
+                        : "border-[#00BD50] bg-[#ebfff3] text-black")
+                    : (isDark
+                        ? "border-transparent text-neutral-300 hover:border-neutral-700 hover:text-white"
+                        : "border-transparent text-neutral-600 hover:border-neutral-300 hover:text-black")
                 )}
               >
                 {mod.name}
@@ -867,15 +879,23 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
 
               {/* Dropdown Menu */}
               {getFilteredSubModules(mod).length > 0 && (
-              <div className="absolute top-[100%] left-0 mt-1 w-72 border border-slate-200 bg-white shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 transform origin-top max-h-[60vh] overflow-y-auto hide-scrollbar p-1 pointer-events-none group-hover:pointer-events-auto group-hover:-translate-y-0.5 rounded-xl">
+              <div className={cn(
+                "absolute top-[100%] left-0 mt-1 w-72 border shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 transform origin-top max-h-[60vh] overflow-y-auto hide-scrollbar p-1 pointer-events-none group-hover:pointer-events-auto group-hover:-translate-y-0.5 rounded-xl",
+                isDark ? "border-neutral-800 bg-[#0a0a0a]" : "border-neutral-200 bg-white"
+              )}>
                 <div className="space-y-0.5">
                   {getFilteredSubModules(mod).map(sub => (
                     <button 
                       key={sub.id}
                       onClick={() => { setActiveModule(mod); handleSubModuleSelect(sub); }}
-                      className="w-full flex items-center gap-3 px-3 py-2 text-[13px] font-bold transition-colors text-left group/btn rounded-lg text-slate-700 hover:text-slate-900 hover:bg-slate-100 cursor-pointer"
+                      className={cn(
+                        "w-full flex items-center gap-3 px-3 py-2 text-[13px] font-bold transition-colors text-left group/btn rounded-lg cursor-pointer",
+                        isDark
+                          ? "text-neutral-200 hover:text-white hover:bg-neutral-900"
+                          : "text-neutral-700 hover:text-black hover:bg-neutral-100"
+                      )}
                     >
-                      <sub.icon className="w-4 h-4 transition-colors text-slate-500 group-hover/btn:text-emerald-600" />
+                      <sub.icon className={cn("w-4 h-4 transition-colors group-hover/btn:text-[#00D65B]", isDark ? "text-neutral-400" : "text-neutral-500")} />
                       <span className="flex-1 truncate uppercase tracking-tight">{sub.name}</span>
                     </button>
                   ))}
@@ -888,17 +908,22 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
 
         <div className="flex items-center space-x-3">
           <div className="text-right hidden sm:block mr-2">
-            <p className="text-[11px] font-black uppercase tracking-widest leading-none text-slate-900">
+            <p className={cn("text-[11px] font-black uppercase tracking-widest leading-none", isDark ? "text-white" : "text-black")}>
               {user.isReadOnly || user.email?.toLowerCase() === 'sivend@mzansiflow.co.za' ? 'READ-ONLY USER' : user.role.replace('_', ' ')}
             </p>
-            <p className="text-[10px] font-bold text-slate-500">{user.email}</p>
+            <p className={cn("text-[10px] font-bold", isDark ? "text-neutral-400" : "text-neutral-600")}>{user.email}</p>
           </div>
           <button 
             onClick={onLogout}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-colors text-[11px] uppercase tracking-wider shadow-xs cursor-pointer border bg-slate-100 border-slate-300 hover:bg-slate-200 text-slate-800"
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-colors text-[11px] uppercase tracking-wider shadow-xs cursor-pointer border",
+              isDark
+                ? "bg-[#0a0a0a] border-neutral-800 hover:bg-neutral-900 text-white"
+                : "bg-neutral-100 border-neutral-300 hover:bg-neutral-200 text-black"
+            )}
             title="Sign Out of Mzansi Flow"
           >
-            <LogOut className="w-3.5 h-3.5 text-slate-600" />
+            <LogOut className={cn("w-3.5 h-3.5", isDark ? "text-[#00D65B]" : "text-neutral-700")} />
             Sign Out
           </button>
         </div>
@@ -909,8 +934,8 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
 
       {/* Main Content Area */}
       <main className="relative flex-1 flex flex-col">
-        <div className="absolute inset-0 -z-10 bg-slate-950 opacity-100">
-          <div className="absolute inset-0 opacity-15" style={{ backgroundImage: 'radial-gradient(#10b981 0.5px, transparent 0.5px)', backgroundSize: '20px 20px' }}></div>
+        <div className={cn("absolute inset-0 -z-10 opacity-100 transition-colors", isDark ? "bg-black" : "bg-slate-50")}>
+          <div className="absolute inset-0 opacity-15" style={{ backgroundImage: 'radial-gradient(#00D65B 0.5px, transparent 0.5px)', backgroundSize: '20px 20px' }}></div>
         </div>
 
         <div className="flex-1 p-8 xl:p-10 max-w-[1600px] mx-auto w-full flex flex-col gap-8 relative z-10 overflow-auto hide-scrollbar">

@@ -4,12 +4,12 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx server.ts",
-    "build": "node scripts/generate-version.cjs && vite build && node scripts/generate-version.cjs --sync-dist && node -e \"const fs = require('fs'); const path = require('path'); const nested = path.join('dist', 'app', 'applet', 'index.html'); if (fs.existsSync(nested)) { fs.copyFileSync(nested, path.join('dist', 'index.html')); }\" && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
-    "start": "node dist/server.cjs",
+    "dev": "NODE_OPTIONS='--max-old-space-size=4096' tsx server.ts",
+    "build": "NODE_OPTIONS='--max-old-space-size=4096' node scripts/generate-version.cjs && NODE_OPTIONS='--max-old-space-size=4096' vite build && node scripts/generate-version.cjs --sync-dist && node -e \"const fs = require('fs'); const path = require('path'); const nested = path.join('dist', 'app', 'applet', 'index.html'); if (fs.existsSync(nested)) { fs.copyFileSync(nested, path.join('dist', 'index.html')); }\" && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --outfile=dist/server.cjs",
+    "start": "node --max-old-space-size=4096 dist/server.cjs",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "lint": "NODE_OPTIONS='--max-old-space-size=4096' tsc --noEmit"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

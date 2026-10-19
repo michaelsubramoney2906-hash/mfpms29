@@ -6,13 +6,14 @@ import {
   Layers, Database, Calendar, TrendingUp, AlertTriangle, ChevronRight, 
   Info, Check, HelpCircle, ArrowLeft, ArrowUpRight, DollarSign,
   PieChart as PieIcon, Eye, CheckCircle2, AlertCircle, RefreshCw, Download, FileSpreadsheet,
-  Bot, Users, KeyRound
+  Bot, Users, KeyRound, Sun, Moon
 } from 'lucide-react';
 import { 
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, 
   Tooltip, Legend, LineChart, Line, PieChart, Pie, Cell 
 } from 'recharts';
 import type { User } from '../types';
+import { useTheme } from '../context/ThemeContext';
 
 // Import main system components to replicate modules exactly as is
 import { APR } from './APR/APR';
@@ -64,6 +65,7 @@ interface Pillar {
 }
 
 export function NEDAPortal({ user, onLogout, onImpersonate }: NEDAPortalProps) {
+  const { isDark, toggleTheme } = useTheme();
   const [activePillar, setActivePillar] = useState<PillarId>('organisational');
   const [activeSub, setActiveSub] = useState<SubModuleId>('annual_report');
   const [loading, setLoading] = useState(false);

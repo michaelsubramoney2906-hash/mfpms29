@@ -1,47 +1,51 @@
 import React, { createContext, useContext, useEffect } from 'react';
 
-export type Theme = 'dark';
+type Theme = 'dark' | 'light';
 
 interface ThemeContextType {
-  theme: 'dark';
-  isDark: true;
-  setTheme: (theme?: any) => void;
+  theme: Theme;
   toggleTheme: () => void;
+  isDark: boolean;
 }
 
-const defaultValue: ThemeContextType = {
-  theme: 'dark',
-  isDark: true,
-  setTheme: () => {},
-  toggleTheme: () => {},
-};
+const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-const ThemeContext = createContext<ThemeContextType>(defaultValue);
+export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  const theme: Theme = 'dark';
 
-export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   useEffect(() => {
-    if (typeof document !== 'undefined') {
-      const root = document.documentElement;
-      const body = document.body;
-      root.classList.remove('light');
-      root.classList.add('dark');
-      root.setAttribute('data-theme', 'dark');
-      root.style.colorScheme = 'dark';
-      body.classList.remove('light-theme');
-      body.classList.add('dark-theme');
-      try {
-        localStorage.removeItem('mzansi_app_theme');
-      } catch (e) {}
+    const root = window.document.documentElement;
+    root.classList.remove('light', 'light-theme');
+    root.classList.add('dark');
+    root.setAttribute('data-theme', 'dark');
+    if (document.body) {
+      document.body.classList.remove('light', 'light-theme');
+      document.body.classList.add('dark');
+      document.body.setAttribute('data-theme', 'dark');
+    }
+    try {
+      localStorage.removeItem('mzansi_theme_mode');
+      localStorage.removeItem('mzansi_theme_preference');
+    } catch {
+      // ignore storage errors
     }
   }, []);
 
+  const toggleTheme = () => {
+    // Locked to Dark Mode
+  };
+
   return (
-    <ThemeContext.Provider value={defaultValue}>
+    <ThemeContext.Provider value={{ theme, toggleTheme, isDark: true }}>
       {children}
     </ThemeContext.Provider>
   );
-};
+}
 
-export const useTheme = (): ThemeContextType => {
-  return useContext(ThemeContext) || defaultValue;
-};
+export function useTheme() {
+  const context = useContext(ThemeContext);
+  if (context === undefined) {
+    throw new Error('useTheme must be used within a ThemeProvider');
+  }
+  return context;
+}

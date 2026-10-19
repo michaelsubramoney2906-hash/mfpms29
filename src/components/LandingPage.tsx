@@ -10,6 +10,7 @@ interface LandingPageProps {
 }
 
 export function LandingPage({ onLogin }: LandingPageProps) {
+  const isDark = true;
   const [portalMode, setPortalMode] = useState<'municipality' | 'neda'>(() => {
     return (sessionStorage.getItem('preferredPortalMode') as any) || 'municipality';
   });
@@ -153,31 +154,43 @@ export function LandingPage({ onLogin }: LandingPageProps) {
 
   return (
     <div 
-      className="min-h-screen relative flex font-sans overflow-hidden bg-[#070b14] text-slate-100"
+      className="min-h-screen relative flex font-sans overflow-hidden bg-black text-white"
       onMouseMove={handleMouseMove}
     >
+
       {/* Background Image / Gradient */}
       <motion.div 
-        className="absolute inset-[-50px] bg-cover bg-center z-0 opacity-10"
+        className={cn("absolute inset-[-50px] bg-cover bg-center z-0", isDark ? "opacity-[0.06]" : "opacity-[0.04]")}
         style={{ 
           backgroundImage: 'url("https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=2069&auto=format&fit=crop")',
           x: xOffset,
           y: yOffset
         }}
       ></motion.div>
-      <div className="absolute inset-0 z-0 pointer-events-none bg-[#070b14]/90">
-        <div className="absolute inset-0 opacity-[0.10]" style={{ backgroundImage: 'radial-gradient(rgba(255,255,255,0.2) 0.5px, transparent 0.5px)', backgroundSize: '30px 30px' }}></div>
+      <div className={cn("absolute inset-0 z-0 pointer-events-none", isDark ? "bg-black/95" : "bg-white/95")}>
+        <div
+          className="absolute inset-0 opacity-[0.12]"
+          style={{
+            backgroundImage: isDark
+              ? 'radial-gradient(rgba(255,255,255,0.22) 0.5px, transparent 0.5px)'
+              : 'radial-gradient(rgba(0,0,0,0.18) 0.5px, transparent 0.5px)',
+            backgroundSize: '30px 30px'
+          }}
+        ></div>
       </div>
 
       <div className="relative z-10 w-full flex flex-col md:flex-row h-screen">
         {/* Left Content - Selling Points */}
-        <div className="flex-1 border-r border-slate-800/80 bg-[#070b14] overflow-y-auto hide-scrollbar">
+        <div className={cn(
+          "flex-1 border-r overflow-y-auto hide-scrollbar transition-colors",
+          isDark ? "border-neutral-800 bg-black" : "border-neutral-200 bg-neutral-50"
+        )}>
           <div className="min-h-full p-12 lg:p-24 flex flex-col justify-center">
             <div className="max-w-2xl space-y-8">
-              <h1 className="text-4xl lg:text-5xl font-bold mb-4 leading-tight text-white">
-                The <span className="text-[#00A854] font-black drop-shadow-[0_0_10px_rgba(0,168,84,0.4)]">Flow</span> of Excellence
+              <h1 className={cn("text-4xl lg:text-5xl font-bold mb-4 leading-tight antialiased", isDark ? "text-white" : "text-black")}>
+                The <span className="text-[#00D65B] font-black" style={{ textShadow: 'none', filter: 'none' }}>Flow</span> of Excellence
               </h1>
-              <p className="text-sm leading-relaxed uppercase tracking-widest font-semibold mb-12 text-slate-400">
+              <p className={cn("text-sm leading-relaxed uppercase tracking-widest font-semibold mb-12", isDark ? "text-neutral-300" : "text-neutral-600")}>
                 Performance Management Perfected
               </p>
 
@@ -195,27 +208,27 @@ export function LandingPage({ onLogin }: LandingPageProps) {
             >
               {[
                 {
-                  icon: <ShieldCheck className="w-5 h-5 text-slate-950 stroke-[2.5]" />,
+                  icon: <ShieldCheck className="w-5 h-5 text-black stroke-[2.5]" />,
                   title: "Tenant Isolation",
                   desc: "Data is encrypted and isolated per municipality. Zero leak architecture with deep role-based access.",
                 },
                 {
-                  icon: <BarChart3 className="w-5 h-5 text-slate-950 stroke-[2.5]" />,
+                  icon: <BarChart3 className="w-5 h-5 text-black stroke-[2.5]" />,
                   title: "Real-time Reporting",
                   desc: "Automated SDBIP generation, interactive dashboards, and real-time tracking for predictive insights.",
                 },
                 {
-                  icon: <Target className="w-5 h-5 text-slate-950 stroke-[2.5]" />,
+                  icon: <Target className="w-5 h-5 text-black stroke-[2.5]" />,
                   title: "Global Oversight",
                   desc: "Integrated support for Global Admins with comprehensive audit logs and multi-tenant observability.",
                 },
                 {
-                  icon: <FileSignature className="w-5 h-5 text-slate-950 stroke-[2.5]" />,
+                  icon: <FileSignature className="w-5 h-5 text-black stroke-[2.5]" />,
                   title: "Automated Appraisals",
                   desc: "Automate APRs and bi-annual assessments integrated seamlessly with IPMS.",
                 },
                 {
-                  icon: <FileCheck className="w-5 h-5 text-slate-950 stroke-[2.5]" />,
+                  icon: <FileCheck className="w-5 h-5 text-black stroke-[2.5]" />,
                   title: "MSCOA Compliance",
                   desc: "Full statutory alignment with built-in metadata matching for National Treasury regulations.",
                 }
@@ -227,14 +240,19 @@ export function LandingPage({ onLogin }: LandingPageProps) {
                     visible: { opacity: 1, x: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
                   }}
                   whileHover={{ scale: 1.05, x: 10 }}
-                  className="group flex items-start space-x-5 p-4 rounded-2xl border transition-colors cursor-pointer bg-slate-900/60 border-slate-800 hover:border-[#00A854]/60 hover:bg-slate-800/80 text-white shadow-lg"
+                  className={cn(
+                    "group flex items-start space-x-5 p-4 rounded-2xl border transition-colors cursor-pointer shadow-lg",
+                    isDark
+                      ? "bg-[#0a0a0a] border-neutral-800 hover:border-[#00D65B] hover:bg-[#121212] text-white"
+                      : "bg-white border-neutral-200 hover:border-[#00D65B] hover:bg-neutral-50 text-black"
+                  )}
                 >
-                  <div className="bg-[#00A854] p-3 rounded-xl flex-shrink-0 transition-colors shadow-lg shadow-[rgba(0,168,84,0.25)] group-hover:shadow-[rgba(0,168,84,0.5)]">
+                  <div className="bg-[#00D65B] p-3 rounded-xl flex-shrink-0 transition-colors">
                     {pro.icon}
                   </div>
                   <div>
-                    <h4 className="font-extrabold text-lg mb-1 transition-colors text-white group-hover:text-[#00A854]">{pro.title}</h4>
-                    <p className="text-sm leading-relaxed font-medium text-slate-300">{pro.desc}</p>
+                    <h4 className={cn("font-extrabold text-lg mb-1 transition-colors group-hover:text-[#00D65B]", isDark ? "text-white" : "text-black")}>{pro.title}</h4>
+                    <p className={cn("text-sm leading-relaxed font-medium", isDark ? "text-neutral-300" : "text-neutral-600")}>{pro.desc}</p>
                   </div>
                 </motion.div>
               ))}
@@ -244,20 +262,26 @@ export function LandingPage({ onLogin }: LandingPageProps) {
         </div>
 
         {/* Right Content - Login Area */}
-        <div className="w-full md:w-[480px] overflow-y-auto hide-scrollbar border-l border-slate-800/80 bg-[#070b14] text-slate-100 relative">
+        <div className={cn(
+          "w-full md:w-[480px] overflow-y-auto hide-scrollbar border-l relative transition-colors",
+          isDark ? "border-neutral-800 bg-black text-white" : "border-neutral-200 bg-white text-black"
+        )}>
           <div className="min-h-full w-full px-12 py-12 flex flex-col justify-center">
             <div className="w-full">
               
               {/* Portal Mode Switcher */}
-              <div className="flex p-1 rounded-xl mb-8 bg-[#0b101d] border border-slate-800/80">
+              <div className={cn(
+                "flex p-1 rounded-xl mb-8 border",
+                isDark ? "bg-[#0a0a0a] border-neutral-800" : "bg-neutral-100 border-neutral-200"
+              )}>
                 <button
                   type="button"
                   onClick={() => setPortalMode('municipality')}
                   className={cn(
                     "flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all cursor-pointer text-center",
                     portalMode === 'municipality'
-                      ? 'bg-slate-800 text-white shadow-md'
-                      : 'text-slate-400 hover:text-white'
+                      ? (isDark ? 'bg-neutral-800 text-white shadow-md' : 'bg-black text-white shadow-md')
+                      : (isDark ? 'text-neutral-400 hover:text-white' : 'text-neutral-600 hover:text-black')
                   )}
                 >
                   Nkangala Municipality
@@ -268,8 +292,8 @@ export function LandingPage({ onLogin }: LandingPageProps) {
                   className={cn(
                     "flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all cursor-pointer text-center",
                     portalMode === 'neda'
-                      ? 'bg-emerald-600 text-white shadow-md'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-[#00D65B] text-black shadow-md'
+                      : (isDark ? 'text-neutral-400 hover:text-white' : 'text-neutral-600 hover:text-black')
                   )}
                 >
                   NEDA Subsidiary
@@ -409,7 +433,7 @@ export function LandingPage({ onLogin }: LandingPageProps) {
               <button 
                 type="submit"
                 disabled={isLoggingIn}
-                className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 text-white font-bold py-4 px-4 transition-all duration-200 text-xs tracking-widest mt-8 flex items-center justify-center gap-2 rounded-xl cursor-pointer shadow-lg shadow-emerald-950/50"
+                className="w-full bg-[#00D65B] hover:bg-[#00BD50] disabled:bg-neutral-800 text-black font-black py-4 px-4 transition-all duration-200 text-xs uppercase tracking-widest mt-8 flex items-center justify-center gap-2 rounded-xl cursor-pointer shadow-lg"
               >
                 <KeyRound className="w-4 h-4" /> {isLoggingIn ? 'Authenticating Credentials...' : 'Authenticate & Sign In'}
               </button>
@@ -417,7 +441,7 @@ export function LandingPage({ onLogin }: LandingPageProps) {
 
           </div>
 
-          <div className="pt-8 text-[10px] font-bold uppercase tracking-widest text-center mt-6 text-slate-500">
+          <div className="pt-8 text-[10px] font-bold uppercase tracking-widest text-center mt-6 text-neutral-500">
             &copy; {new Date().getFullYear()} Mzansi Flow PMS<br/>
             Secure Tenant Gateway
           </div>
