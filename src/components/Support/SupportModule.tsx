@@ -91,15 +91,34 @@ export function SupportModule({ currentUser, activeTenantId }: SupportModuleProp
   const ticketFileInputRef = useRef<HTMLInputElement | null>(null);
   const socketRef = useRef<Socket | null>(null);
 
+  const safeParseJson = async (res: Response): Promise<any | null> => {
+    try {
+      const text = await res.text();
+      if (!text) return null;
+      const trimmed = text.trim();
+      if (!trimmed || (!trimmed.startsWith('{') && !trimmed.startsWith('['))) {
+        return null;
+      }
+      return JSON.parse(trimmed);
+    } catch {
+      return null;
+    }
+  };
+
   const fetchTickets = async (silent = false) => {
     if (!silent) setLoadingTickets(true);
     try {
       const res = await fetch(
-        `/api/support/tickets?userEmail=${encodeURIComponent(userEmail)}&tenantId=${encodeURIComponent(activeTenantId || 'tenant-229')}`
+        `/api/support/tickets?userEmail=${encodeURIComponent(userEmail)}&tenantId=${encodeURIComponent(activeTenantId || 'tenant-229')}`,
+        {
+          headers: {
+            Accept: 'application/json'
+          }
+        }
       );
       if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data.tickets)) {
+        const data = await safeParseJson(res);
+        if (data && Array.isArray(data.tickets)) {
           setTickets(data.tickets);
           if (selectedTicket) {
             const updated = data.tickets.find((t: SupportTicketRecord) => t.id === selectedTicket.id);
@@ -107,8 +126,8 @@ export function SupportModule({ currentUser, activeTenantId }: SupportModuleProp
           }
         }
       }
-    } catch (err) {
-      console.error('Failed to load support tickets:', err);
+    } catch {
+      // Transient network or gateway reload; silently retain current tickets state
     } finally {
       if (!silent) setLoadingTickets(false);
     }
@@ -197,14 +216,15 @@ export function SupportModule({ currentUser, activeTenantId }: SupportModuleProp
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Accept: 'application/json',
           'x-user-email': userEmail
         },
         body: JSON.stringify(payload)
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to log support ticket.');
+      const data = await safeParseJson(res);
+      if (!res.ok || !data) {
+        throw new Error(data?.error || 'Failed to log support ticket. Please try again.');
       }
 
       if (data.ticket) {
@@ -234,6 +254,7 @@ export function SupportModule({ currentUser, activeTenantId }: SupportModuleProp
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          Accept: 'application/json',
           'x-user-email': userEmail
         },
         body: JSON.stringify({
@@ -243,16 +264,16 @@ export function SupportModule({ currentUser, activeTenantId }: SupportModuleProp
         })
       });
       if (res.ok) {
-        const data = await res.json();
-        if (data.ticket) {
+        const data = await safeParseJson(res);
+        if (data?.ticket) {
           setTickets(prev => prev.map(t => (t.id === data.ticket.id ? data.ticket : t)));
           if (selectedTicket?.id === data.ticket.id) {
             setSelectedTicket(data.ticket);
           }
         }
       }
-    } catch (err) {
-      console.error('Failed to update ticket status:', err);
+    } catch {
+      // Ignore transient status update error
     }
   };
 
@@ -265,6 +286,7 @@ export function SupportModule({ currentUser, activeTenantId }: SupportModuleProp
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Accept: 'application/json',
           'x-user-email': userEmail
         },
         body: JSON.stringify({
@@ -274,15 +296,15 @@ export function SupportModule({ currentUser, activeTenantId }: SupportModuleProp
         })
       });
       if (res.ok) {
-        const data = await res.json();
-        if (data.ticket) {
+        const data = await safeParseJson(res);
+        if (data?.ticket) {
           setTickets(prev => prev.map(t => (t.id === data.ticket.id ? data.ticket : t)));
           setSelectedTicket(data.ticket);
           setReplyBody('');
         }
       }
-    } catch (err) {
-      console.error('Failed to post ticket response:', err);
+    } catch {
+      // Ignore transient comment error
     } finally {
       setSubmittingReply(false);
     }

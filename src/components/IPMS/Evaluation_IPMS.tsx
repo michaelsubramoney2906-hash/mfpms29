@@ -501,7 +501,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
     setLoading(true);
     try {
       const res = await fetch(`/api/tenant/${activeTenantId}/${sourceApiEndpoint}?userId=${encodeURIComponent(currentUser.email)}&t=${Date.now()}`);
-      if (true) {
+      if (res.ok) {
         const data = await res.json();
         if (data && data.metadata) {
           const uEmail = (currentUser?.email || '').toLowerCase().trim();
@@ -546,7 +546,9 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
             }
           }
         }
-        setPplanData(data);
+        if (data && Array.isArray(data.items)) {
+          setPplanData(data);
+        }
       }
     } catch (e) {
       console.error(e);
@@ -566,9 +568,23 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
     setPplanData(prev => {
       const updatedItems = (prev.items || []).map(item => {
         if (item.id === kpiId) {
-          return {
+          const nextItem = {
             ...item,
             [quarterField]: updatedDocs
+          };
+          const allDocs = [
+            ...(nextItem.q1PoeDocs || []),
+            ...(nextItem.q2PoeDocs || []),
+            ...(nextItem.q3PoeDocs || []),
+            ...(nextItem.q4PoeDocs || []),
+            ...(nextItem.annualPoeDocs || []),
+            ...(nextItem.midtermPoeDocs || [])
+          ];
+          const firstDoc = allDocs[0];
+          return {
+            ...nextItem,
+            poeFileBase64: undefined,
+            poeFileName: firstDoc ? firstDoc.name : ''
           };
         }
         return item;
@@ -576,20 +592,18 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
 
       const updatedPayload = {
         ...prev,
+        metadata: {
+          ...(prev.metadata || {}),
+          _authoritativePoeUpdate: true
+        },
         items: updatedItems
       };
 
-      // Persistently save to server in background so no uploaded PoE is ever lost
+      // Persistently save to server in background without triggering a self-refresh race condition
       fetch(`/api/tenant/${activeTenantId}/${saveApiEndpoint}?userId=${encodeURIComponent(currentUser.email)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updatedPayload)
-      }).then(res => {
-        if (res.ok) {
-          window.dispatchEvent(new CustomEvent(isTeamEvaluation ? 'team-pplan-updated' : 'pplan-updated', { 
-            detail: { tenantId: activeTenantId, userId: currentUser.email } 
-          }));
-        }
       }).catch(err => {
         console.error("Auto-save PoE error:", err);
       });
@@ -681,8 +695,8 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
           ...item,
           myScore: resolvedMyScore,
           poe: aggregatePoe || item.poe,
-          poeFileBase64: firstDoc ? firstDoc.dataUrl : item.poeFileBase64,
-          poeFileName: firstDoc ? firstDoc.name : item.poeFileName
+          poeFileBase64: undefined,
+          poeFileName: firstDoc ? firstDoc.name : ''
         };
 
         if (item.id === kpiId && submitForReview) {
@@ -698,6 +712,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
         managerEmail: metadata.managerEmail || currentUser.managerEmail || '',
         reportTo: metadata.reportTo || currentUser.reportTo || currentUser.manager || '',
         _isFredExtracted: true,
+        _authoritativePoeUpdate: true,
         ...(submitForReview ? {
           reviewStatus: 'Submitted for Approval',
           submittedKpiIds: Array.from(new Set([...(metadata.submittedKpiIds || []), kpiId])),
@@ -861,6 +876,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
         reportTo: isSinghSubUser ? 'Nirisha Singh' : (isLinksReportUser ? 'Solly Links' : (isShabanguUser ? 'Mandla L. Mahlangu' : (currentUser.reportTo || pplanData.metadata?.reportTo || currentUser.manager || (isDemoUser ? 'Demo Line Manager' : '')))),
         reviewStatus: submitForReview ? 'Submitted for Approval' : (pplanData.metadata?.reviewStatus || 'Draft'),
         _isFredExtracted: true,
+        _authoritativePoeUpdate: true,
         ...(submitForReview ? {
           submittedKpiIds: Array.from(new Set([...(pplanData.metadata?.submittedKpiIds || []), ...targetIds])),
           lastSubmittedKpiId: undefined
@@ -898,8 +914,8 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
             ...item,
             reviewStatus: submitForReview ? 'Submitted for Approval' : (item.reviewStatus || 'Draft'),
             poe: aggregatePoe || item.poe,
-            poeFileBase64: firstDoc ? firstDoc.dataUrl : item.poeFileBase64,
-            poeFileName: firstDoc ? firstDoc.name : item.poeFileName
+            poeFileBase64: undefined,
+            poeFileName: firstDoc ? firstDoc.name : ''
           };
         }
         return item;
@@ -1235,11 +1251,12 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
           myScore: resolvedMyScore,
           reviewStatus: nextStatus,
           poe: aggregatePoe || item.poe,
-          poeFileBase64: firstDoc ? firstDoc.dataUrl : item.poeFileBase64,
-          poeFileName: firstDoc ? firstDoc.name : item.poeFileName
+          poeFileBase64: undefined,
+          poeFileName: firstDoc ? firstDoc.name : ''
         };
       });
 
+      metadata._authoritativePoeUpdate = true;
       if (submitForReview) {
         metadata.submittedKpiIds = Array.from(new Set(submittedIds));
         metadata.lastSubmittedKpiId = submittedIds.length === 1 ? submittedIds[0] : undefined;

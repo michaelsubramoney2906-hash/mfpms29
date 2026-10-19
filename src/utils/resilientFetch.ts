@@ -24,15 +24,30 @@ export async function resilientFetch(
     try {
       const response = await nativeFetch(input, init);
 
-      // Status 502 (Bad Gateway), 503 (Service Unavailable), 504 (Gateway Timeout), 408 (Request Timeout)
-      // or temporary 500 under heavy database load: retry automatically
-      const isTransientError = [408, 500, 502, 503, 504].includes(response.status);
+      const urlStr = typeof input === "string" ? input : input instanceof URL ? input.toString() : (input as Request)?.url || '';
+      const contentType = (response.headers.get('content-type') || '').toLowerCase();
+      const isUnexpectedHtmlForApi =
+        urlStr.includes('/api/') &&
+        !urlStr.includes('/api/proxy-image') &&
+        !urlStr.includes('/api/download/') &&
+        contentType.includes('text/html');
+
+      // Status 502 (Bad Gateway), 503 (Service Unavailable), 504 (Gateway Timeout), 408 (Request Timeout),
+      // temporary 500 under heavy database load, or gateway HTML splash during reload: retry automatically
+      const isTransientError = [408, 500, 502, 503, 504].includes(response.status) || isUnexpectedHtmlForApi;
 
       if (isTransientError && attempt < maxRetries) {
         attempt++;
         const delay = baseDelay * Math.pow(1.5, attempt - 1);
         await new Promise(r => setTimeout(r, delay));
         continue;
+      }
+
+      if (isUnexpectedHtmlForApi) {
+        return new Response(JSON.stringify({ error: 'Temporary gateway reload', tickets: [] }), {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' }
+        });
       }
 
       return response;

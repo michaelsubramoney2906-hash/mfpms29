@@ -637,14 +637,14 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
         q2Poe: targetKpi.q2Poe ?? existingRow.q2Poe,
         q3Poe: targetKpi.q3Poe ?? existingRow.q3Poe,
         q4Poe: targetKpi.q4Poe ?? existingRow.q4Poe,
-        q1PoeDocs: (Array.isArray(targetKpi.q1PoeDocs) && targetKpi.q1PoeDocs.length > 0) ? targetKpi.q1PoeDocs : (existingRow.q1PoeDocs || []),
-        q2PoeDocs: (Array.isArray(targetKpi.q2PoeDocs) && targetKpi.q2PoeDocs.length > 0) ? targetKpi.q2PoeDocs : (existingRow.q2PoeDocs || []),
-        q3PoeDocs: (Array.isArray(targetKpi.q3PoeDocs) && targetKpi.q3PoeDocs.length > 0) ? targetKpi.q3PoeDocs : (existingRow.q3PoeDocs || []),
-        q4PoeDocs: (Array.isArray(targetKpi.q4PoeDocs) && targetKpi.q4PoeDocs.length > 0) ? targetKpi.q4PoeDocs : (existingRow.q4PoeDocs || []),
-        annualPoeDocs: (Array.isArray((targetKpi as any).annualPoeDocs) && (targetKpi as any).annualPoeDocs.length > 0) ? (targetKpi as any).annualPoeDocs : (existingRow.annualPoeDocs || []),
-        midtermPoeDocs: (Array.isArray((targetKpi as any).midtermPoeDocs) && (targetKpi as any).midtermPoeDocs.length > 0) ? (targetKpi as any).midtermPoeDocs : (existingRow.midtermPoeDocs || []),
-        poeFileBase64: (targetKpi as any).poeFileBase64 || existingRow.poeFileBase64 || '',
-        poeFileName: (targetKpi as any).poeFileName || existingRow.poeFileName || '',
+        q1PoeDocs: Array.isArray(targetKpi.q1PoeDocs) ? targetKpi.q1PoeDocs : (existingRow.q1PoeDocs || []),
+        q2PoeDocs: Array.isArray(targetKpi.q2PoeDocs) ? targetKpi.q2PoeDocs : (existingRow.q2PoeDocs || []),
+        q3PoeDocs: Array.isArray(targetKpi.q3PoeDocs) ? targetKpi.q3PoeDocs : (existingRow.q3PoeDocs || []),
+        q4PoeDocs: Array.isArray(targetKpi.q4PoeDocs) ? targetKpi.q4PoeDocs : (existingRow.q4PoeDocs || []),
+        annualPoeDocs: Array.isArray((targetKpi as any).annualPoeDocs) ? (targetKpi as any).annualPoeDocs : (existingRow.annualPoeDocs || []),
+        midtermPoeDocs: Array.isArray((targetKpi as any).midtermPoeDocs) ? (targetKpi as any).midtermPoeDocs : (existingRow.midtermPoeDocs || []),
+        poeFileBase64: undefined,
+        poeFileName: (targetKpi as any).poeFileName ?? existingRow.poeFileName ?? '',
         evaluationComment: targetKpi.q1Comment || targetKpi.q2Comment || targetKpi.q3Comment || targetKpi.q4Comment || existingRow.evaluationComment || '',
         reviewComment: targetKpi.reviewComment || existingRow.reviewComment || '',
         reviewApprovalStatus: resolvedApprovalStatus,
@@ -672,7 +672,8 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
         ...pplanData,
         metadata: {
           ...(pplanData.metadata || {}),
-          _isFredExtracted: true
+          _isFredExtracted: true,
+          _authoritativePoeUpdate: true
         },
         items: existingPlanItems
       };
@@ -2048,16 +2049,65 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
                    const updatedKpis = [...kpis];
                    const kpiIdx = updatedKpis.findIndex(k => k.id === browseModalKpiId);
                    if (kpiIdx >= 0) {
-                     (updatedKpis[kpiIdx] as any)[`${browseModalQuarter.toLowerCase()}PoeComment`] = poeCommentInput.trim();
-                     (updatedKpis[kpiIdx] as any)[`${browseModalQuarter.toLowerCase()}PoeDocs`] = browseModalPoeDocs;
+                     const qFieldComment = `${browseModalQuarter.toLowerCase()}PoeComment`;
+                     const qFieldDocs = `${browseModalQuarter.toLowerCase()}PoeDocs`;
+                     const nextKpi: any = {
+                       ...updatedKpis[kpiIdx],
+                       [qFieldComment]: poeCommentInput.trim(),
+                       [qFieldDocs]: browseModalPoeDocs
+                     };
+                     const allDocs = [
+                       ...(nextKpi.q1PoeDocs || []),
+                       ...(nextKpi.q2PoeDocs || []),
+                       ...(nextKpi.q3PoeDocs || []),
+                       ...(nextKpi.q4PoeDocs || []),
+                       ...(nextKpi.annualPoeDocs || []),
+                       ...(nextKpi.midtermPoeDocs || [])
+                     ];
+                     nextKpi.poeFileBase64 = undefined;
+                     nextKpi.poeFileName = allDocs[0] ? allDocs[0].name : '';
+                     updatedKpis[kpiIdx] = nextKpi;
                      setKpis(updatedKpis);
+
+                     const updatedPlanItems = (pplanData.items || []).map((item: any) => {
+                       const matchById = item.id && nextKpi.id && String(item.id).toLowerCase().trim() === String(nextKpi.id).toLowerCase().trim();
+                       const matchByNo = item.kpiNo && nextKpi.kpiNo && String(item.kpiNo).toLowerCase().trim() === String(nextKpi.kpiNo).toLowerCase().trim();
+                       if (matchById || matchByNo) {
+                         return {
+                           ...item,
+                           [qFieldComment]: poeCommentInput.trim(),
+                           [qFieldDocs]: browseModalPoeDocs,
+                           poeFileBase64: undefined,
+                           poeFileName: allDocs[0] ? allDocs[0].name : ''
+                         };
+                       }
+                       return item;
+                     });
+                     const updatedPlanPayload = {
+                       ...pplanData,
+                       metadata: {
+                         ...(pplanData.metadata || {}),
+                         _isFredExtracted: true,
+                         _authoritativePoeUpdate: true
+                       },
+                       items: updatedPlanItems
+                     };
+                     setPplanData(updatedPlanPayload);
+
                      try {
-                        await fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(targetEmail)}`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ kpis: updatedKpis })
-                        });
-                        showNotification(`Saved comments and POE documents for ${browseModalQuarter}.`);
+                       await Promise.all([
+                         fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(targetEmail)}`, {
+                           method: 'POST',
+                           headers: { 'Content-Type': 'application/json' },
+                           body: JSON.stringify({ kpis: updatedKpis })
+                         }),
+                         fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(targetEmail)}`, {
+                           method: 'POST',
+                           headers: { 'Content-Type': 'application/json' },
+                           body: JSON.stringify(updatedPlanPayload)
+                         })
+                       ]);
+                       showNotification(`Saved comments and POE documents for ${browseModalQuarter}.`);
                      } catch(e) { console.error("Error saving POE comments and documents", e); }
                    }
                    setBrowseModalOpen(false);

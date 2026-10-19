@@ -14168,29 +14168,44 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       syncedReviewStatus = 'Draft';
     }
 
-    // Ensure legacy single-file POE attachments (poeFileBase64 / poeFileName) are surfaced in q1PoeDocs if quarter doc arrays are empty
-    let q1Docs = Array.isArray(item.q1PoeDocs) ? item.q1PoeDocs : [];
-    const q2Docs = Array.isArray(item.q2PoeDocs) ? item.q2PoeDocs : [];
-    const q3Docs = Array.isArray(item.q3PoeDocs) ? item.q3PoeDocs : [];
-    const q4Docs = Array.isArray(item.q4PoeDocs) ? item.q4PoeDocs : [];
-    const annualDocs = Array.isArray(item.annualPoeDocs) ? item.annualPoeDocs : [];
-    const midtermDocs = Array.isArray(item.midtermPoeDocs) ? item.midtermPoeDocs : [];
+    // Ensure legacy single-file POE attachments (poeFileBase64) are surfaced in q1PoeDocs ONLY if q1PoeDocs was never initialized as an array
+    const cleanDocList = (arr: any): any[] => {
+      if (!Array.isArray(arr)) return [];
+      return arr.filter(Boolean).map((d: any) => {
+        if (d && d.dataUrl && d.fileData) {
+          const { fileData: _dup, ...restDoc } = d;
+          return restDoc;
+        }
+        return d;
+      });
+    };
+
+    let q1Docs = cleanDocList(item.q1PoeDocs);
+    const q2Docs = cleanDocList(item.q2PoeDocs);
+    const q3Docs = cleanDocList(item.q3PoeDocs);
+    const q4Docs = cleanDocList(item.q4PoeDocs);
+    const annualDocs = cleanDocList(item.annualPoeDocs);
+    const midtermDocs = cleanDocList(item.midtermPoeDocs);
 
     const totalDocsCount = q1Docs.length + q2Docs.length + q3Docs.length + q4Docs.length + annualDocs.length + midtermDocs.length;
-    if (totalDocsCount === 0 && (item.poeFileBase64 || item.poeFileName)) {
+    if (totalDocsCount === 0 && item.poeFileBase64 && !Array.isArray(item.q1PoeDocs)) {
       q1Docs = [{
         id: `legacy-poe-${item.id || item.kpiNo || '1'}`,
         name: item.poeFileName || 'Submitted_Portfolio_of_Evidence.pdf',
-        dataUrl: item.poeFileBase64 || '',
-        fileData: item.poeFileBase64 || '',
+        dataUrl: item.poeFileBase64,
         mimeType: 'application/pdf',
         uploadedAt: item.updatedAt || item.createdAt || new Date().toISOString(),
         uploadedBy: userEmail || item.evaluationUsername || 'Employee'
       }];
     }
 
+    const allCleanDocs = [...q1Docs, ...q2Docs, ...q3Docs, ...q4Docs, ...annualDocs, ...midtermDocs];
+    const firstCleanDoc = allCleanDocs[0];
+    const { poeFileBase64: _removedRedundantBase64, ...restItem } = item;
+
     return {
-      ...item,
+      ...restItem,
+      poeFileName: firstCleanDoc ? firstCleanDoc.name : '',
       ...(syncedReviewStatus ? { reviewStatus: syncedReviewStatus } : {}),
       ...(syncedReviewApprovalStatus ? { reviewApprovalStatus: syncedReviewApprovalStatus } : {}),
       q1Target: q1TargetVal,
@@ -14213,12 +14228,18 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
   };
 
   // Helper to merge POE documents, actuals, scores, and custom KPIs from secondary pplan_ or kpis_ rows into a primary plan's items
-  const mergePlanItemsWithSecondary = (primaryItems: any[], secondaryItemLists: any[][], appendUnmatched: boolean = false): any[] => {
+  const mergePlanItemsWithSecondary = (
+    primaryItems: any[],
+    secondaryItemLists: any[][],
+    appendUnmatched: boolean = false,
+    authoritativePoe: boolean = false
+  ): any[] => {
     const result = Array.isArray(primaryItems) ? primaryItems.map(it => ({ ...it })) : [];
     if (!secondaryItemLists || secondaryItemLists.length === 0) return result;
 
     const mergeDocArrays = (a?: any[], b?: any[]) => {
       const listA = Array.isArray(a) ? a : [];
+      if (authoritativePoe) return listA;
       const listB = Array.isArray(b) ? b : [];
       if (listB.length === 0) return listA;
       if (listA.length === 0) return listB;
@@ -14274,6 +14295,14 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             }
           }
 
+          const mergedQ1Docs = mergeDocArrays(base.q1PoeDocs, secItem.q1PoeDocs);
+          const mergedQ2Docs = mergeDocArrays(base.q2PoeDocs, secItem.q2PoeDocs);
+          const mergedQ3Docs = mergeDocArrays(base.q3PoeDocs, secItem.q3PoeDocs);
+          const mergedQ4Docs = mergeDocArrays(base.q4PoeDocs, secItem.q4PoeDocs);
+          const mergedAnnualDocs = mergeDocArrays(base.annualPoeDocs, secItem.annualPoeDocs);
+          const mergedMidtermDocs = mergeDocArrays(base.midtermPoeDocs, secItem.midtermPoeDocs);
+          const allMergedDocs = [...mergedQ1Docs, ...mergedQ2Docs, ...mergedQ3Docs, ...mergedQ4Docs, ...mergedAnnualDocs, ...mergedMidtermDocs];
+
           result[matchIdx] = {
             ...base,
             ...(resolvedReviewStatus ? { reviewStatus: resolvedReviewStatus } : {}),
@@ -14305,14 +14334,14 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             q2PoeFeedback: base.q2PoeFeedback || secItem.q2PoeFeedback,
             q3PoeFeedback: base.q3PoeFeedback || secItem.q3PoeFeedback,
             q4PoeFeedback: base.q4PoeFeedback || secItem.q4PoeFeedback,
-            poeFileBase64: base.poeFileBase64 || secItem.poeFileBase64,
-            poeFileName: base.poeFileName || secItem.poeFileName,
-            q1PoeDocs: mergeDocArrays(base.q1PoeDocs, secItem.q1PoeDocs),
-            q2PoeDocs: mergeDocArrays(base.q2PoeDocs, secItem.q2PoeDocs),
-            q3PoeDocs: mergeDocArrays(base.q3PoeDocs, secItem.q3PoeDocs),
-            q4PoeDocs: mergeDocArrays(base.q4PoeDocs, secItem.q4PoeDocs),
-            annualPoeDocs: mergeDocArrays(base.annualPoeDocs, secItem.annualPoeDocs),
-            midtermPoeDocs: mergeDocArrays(base.midtermPoeDocs, secItem.midtermPoeDocs)
+            poeFileBase64: undefined,
+            poeFileName: allMergedDocs[0] ? allMergedDocs[0].name : (authoritativePoe ? '' : (base.poeFileName || secItem.poeFileName || '')),
+            q1PoeDocs: mergedQ1Docs,
+            q2PoeDocs: mergedQ2Docs,
+            q3PoeDocs: mergedQ3Docs,
+            q4PoeDocs: mergedQ4Docs,
+            annualPoeDocs: mergedAnnualDocs,
+            midtermPoeDocs: mergedMidtermDocs
           };
         } else if (appendUnmatched && (secItem.kpi || secItem.description || secItem.kpiNo)) {
           result.push({ ...secItem });
@@ -14357,7 +14386,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       let newestCached: { raw: string; timestamp: number } | null = null;
       for (const cKey of primaryCacheKeys) {
         const cached = pplanCache.get(cKey);
-        if (cached && cached.raw && (Date.now() - cached.timestamp < 2000)) {
+        if (cached && cached.raw && (Date.now() - cached.timestamp < 30000)) {
           if (!newestCached || cached.timestamp >= newestCached.timestamp) {
             newestCached = cached;
           }
@@ -14368,24 +14397,49 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
 
       if (!data) {
-        const kpiCandidateKeys = Array.from(new Set([
-          `kpis_${tenantId}_${userId}`,
-          `kpis_tenant-229_${userId}`,
-          `kpis_nkangala_auto_${userId}`,
-          `kpis_global_${userId}`
-        ]));
-        // Query all candidate pplan and kpis keys in one batch so we always pick the most recently updated plan and merge any KPIs/POEs captured in the KPI module
-        const batchRes = await supabase
+        // Fast Canonical Lookup First: query ONLY the canonical row (`pplan_tenant-229_${userId}` or `documentId`) first
+        // so users with large embedded POE documents never download 4x redundant 40MB-80MB rows on a single request!
+        const canonicalDocId = (tenantId === 'nkangala_auto' || tenantId === 'tenant-229' || userId.includes('@nkangaladm.gov.za'))
+          ? `pplan_tenant-229_${userId}`
+          : documentId;
+
+        const canonicalRes = await supabase
           .from('messages')
           .select('id, content, created_at')
-          .in('id', [...primaryCacheKeys, ...kpiCandidateKeys]);
+          .eq('id', canonicalDocId)
+          .maybeSingle();
 
-        if (batchRes.error) {
-          error = batchRes.error;
+        let batchRowsData: any[] = [];
+        if (canonicalRes.error) {
+          error = canonicalRes.error;
           hadQueryError = true;
-        } else if (Array.isArray(batchRes.data) && batchRes.data.length > 0) {
-          const pplanRows = batchRes.data.filter((r: any) => String(r.id || '').startsWith('pplan_'));
-          const kpiRows = batchRes.data.filter((r: any) => String(r.id || '').startsWith('kpis_'));
+        } else if (canonicalRes.data && canonicalRes.data.content) {
+          batchRowsData = [canonicalRes.data];
+        } else {
+          // Canonical row missing: fall back to querying secondary pplan and kpis keys
+          const kpiCandidateKeys = Array.from(new Set([
+            `kpis_${tenantId}_${userId}`,
+            `kpis_tenant-229_${userId}`,
+            `kpis_nkangala_auto_${userId}`,
+            `kpis_global_${userId}`
+          ]));
+          const secondaryKeys = [...primaryCacheKeys.filter(k => k !== canonicalDocId), ...kpiCandidateKeys];
+          const batchRes = await supabase
+            .from('messages')
+            .select('id, content, created_at')
+            .in('id', secondaryKeys);
+
+          if (batchRes.error) {
+            error = batchRes.error;
+            hadQueryError = true;
+          } else if (Array.isArray(batchRes.data)) {
+            batchRowsData = batchRes.data;
+          }
+        }
+
+        if (!hadQueryError && batchRowsData.length > 0) {
+          const pplanRows = batchRowsData.filter((r: any) => String(r.id || '').startsWith('pplan_'));
+          const kpiRows = batchRowsData.filter((r: any) => String(r.id || '').startsWith('kpis_'));
 
           const isSyntheticKpiItem = (it: any): boolean => {
             if (!it) return true;
@@ -14813,10 +14867,10 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         }
 
         parsed.items = sanitizedItems;
-        parsed.rows = sanitizedItems;
+        delete parsed.rows;
         return res.json(parsed);
       }
-      return res.json({ metadata: {}, items: [], rows: [] });
+      return res.json({ metadata: {}, items: [] });
     } catch (err: any) {
       console.error("pplan load exception:", err);
       res.status(500).json({ error: err.message });
@@ -15580,6 +15634,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       // while honoring explicit Clear Grid (_isCleared) and authoritative Fred / Planner Grid saves (_replacePlan / _allowItemDeletion).
       const isExplicitlyClearedPost = Boolean(metadata && metadata._isCleared === true);
       const isAuthoritativeReplacePost = Boolean(metadata && (metadata._replacePlan === true || metadata._allowItemDeletion === true));
+      const isAuthoritativePoePost = Boolean(metadata && metadata._authoritativePoeUpdate === true);
       let existingParsedPlan: any = null;
       if (!isExplicitlyClearedPost) {
         const candidateKeys = [`pplan_tenant-229_${userId}`, `pplan_${tenantId}_${userId}`, `pplan_nkangala_auto_${userId}`];
@@ -15597,23 +15652,23 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         }
         if (!existingParsedPlan && supabase && !(isAuthoritativeReplacePost && metadata && metadata._isFredExtracted === true)) {
           try {
+            const canonicalKey = (tenantId === 'nkangala_auto' || tenantId === 'tenant-229' || userId.includes('@nkangaladm.gov.za'))
+              ? `pplan_tenant-229_${userId}`
+              : `pplan_${tenantId}_${userId}`;
             const exResult: any = await Promise.race([
               supabase
                 .from('messages')
                 .select('id, content')
-                .in('id', candidateKeys),
-              new Promise(resolve => setTimeout(() => resolve({ data: null, timedOut: true }), 2000))
+                .eq('id', canonicalKey)
+                .maybeSingle(),
+              new Promise(resolve => setTimeout(() => resolve({ data: null, timedOut: true }), 4000))
             ]);
-            const exRows = exResult?.data;
-            if (Array.isArray(exRows)) {
-              for (const r of exRows) {
-                if (r && r.content) {
-                  const p = JSON.parse(r.content);
-                  const realList = Array.isArray(p?.items) ? p.items.filter((it: any) => !isSyntheticPostItem(it)) : [];
-                  if (realList.length > (existingParsedPlan?.items?.length || 0)) {
-                    existingParsedPlan = { ...p, items: realList };
-                  }
-                }
+            const exRow = exResult?.data;
+            if (exRow && exRow.content) {
+              const p = JSON.parse(exRow.content);
+              const realList = Array.isArray(p?.items) ? p.items.filter((it: any) => !isSyntheticPostItem(it)) : [];
+              if (realList.length > 0) {
+                existingParsedPlan = { ...p, items: realList };
               }
             }
           } catch (e) {}
@@ -15629,17 +15684,17 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             // Authoritative replace from Fred Performance Plan Extractor or Annual Performance Planner Grid:
             // Keep ONLY the incoming KPIs (e.g. 15 extracted KPIs), while preserving any existing POE docs/scores on matching KPIs (appendUnmatched = false)
             if (sanitizedItems.length > 0) {
-              sanitizedItems = mergePlanItemsWithSecondary(sanitizedItems, [existingRealItems], false).map((it: any) => sanitizePplanItem(it, userId));
+              sanitizedItems = mergePlanItemsWithSecondary(sanitizedItems, [existingRealItems], false, isAuthoritativePoePost).map((it: any) => sanitizePplanItem(it, userId));
             }
           } else if (sanitizedItems.length === 0 || sanitizedItems.every((it: any) => isSyntheticPostItem(it))) {
             // Reject accidental overwriting of real KPIs with empty or synthetic KPIs during evaluations
             sanitizedItems = existingRealItems;
           } else if (sanitizedItems.length < existingRealItems.length) {
             // Partial self-evaluation update: merge incoming updated KPIs into the existing full real KPI list (appendUnmatched = true)
-            sanitizedItems = mergePlanItemsWithSecondary(sanitizedItems, [existingRealItems], true).map((it: any) => sanitizePplanItem(it, userId));
+            sanitizedItems = mergePlanItemsWithSecondary(sanitizedItems, [existingRealItems], true, isAuthoritativePoePost).map((it: any) => sanitizePplanItem(it, userId));
           } else {
-            // Full list sent: preserve any existing POE docs on matching KPIs (appendUnmatched = false)
-            sanitizedItems = mergePlanItemsWithSecondary(sanitizedItems, [existingRealItems], false).map((it: any) => sanitizePplanItem(it, userId));
+            // Full list sent: when _authoritativePoeUpdate is true, honor POE deletions/replacements exactly without re-adding old POEs
+            sanitizedItems = mergePlanItemsWithSecondary(sanitizedItems, [existingRealItems], false, isAuthoritativePoePost).map((it: any) => sanitizePplanItem(it, userId));
           }
         }
       }
@@ -15707,12 +15762,14 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         updatedMeta.reportTo = 'Solly Links';
       }
 
-      const payloadStr = JSON.stringify({ metadata: updatedMeta, items: sanitizedItems, rows: sanitizedItems });
+      // Never duplicate `rows: sanitizedItems` inside the stored JSON payload (saves 50% storage & memory immediately)
+      const payloadStr = JSON.stringify({ metadata: updatedMeta, items: sanitizedItems });
       const cleanKpiItems = sanitizedItems.map((it: any) => {
         const { poeFileBase64, q1PoeDocs, q2PoeDocs, q3PoeDocs, q4PoeDocs, annualPoeDocs, midtermPoeDocs, ...rest } = it;
         return rest;
       });
       const kpiPayloadStr = JSON.stringify({ kpis: cleanKpiItems });
+      const lightweightMirrorPayloadStr = JSON.stringify({ metadata: updatedMeta, items: cleanKpiItems });
 
       // Always populate local in-memory caches across all candidate tenant buckets for immediate 0ms UI consistency
       const nowMs = Date.now();
@@ -15724,20 +15781,38 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
 
       if (supabase) {
-        const batchRows: any[] = [];
+        const canonicalTenant = (tenantId === 'nkangala_auto' || tenantId === 'tenant-229' || userId.includes('@nkangaladm.gov.za'))
+          ? 'tenant-229'
+          : tenantId;
+
+        const primaryRows: any[] = [];
+        const secondaryRows: any[] = [];
         for (const u of targetUsers) {
           for (const tId of syncTenants) {
-            batchRows.push({
-              id: `pplan_${tId}_${u}`,
-              tenant_id: tId,
-              sender_id: 'pplan_editor_tool',
-              sender_email: 'pplan@system.local',
-              sender_name: 'PPLAN Editor',
-              content: payloadStr,
-              message_type: 'pplan_list',
-              created_at: nowIso
-            });
-            batchRows.push({
+            if (tId === canonicalTenant) {
+              primaryRows.push({
+                id: `pplan_${tId}_${u}`,
+                tenant_id: tId,
+                sender_id: 'pplan_editor_tool',
+                sender_email: 'pplan@system.local',
+                sender_name: 'PPLAN Editor',
+                content: payloadStr,
+                message_type: 'pplan_list',
+                created_at: nowIso
+              });
+            } else {
+              secondaryRows.push({
+                id: `pplan_${tId}_${u}`,
+                tenant_id: tId,
+                sender_id: 'pplan_editor_tool',
+                sender_email: 'pplan@system.local',
+                sender_name: 'PPLAN Editor',
+                content: lightweightMirrorPayloadStr,
+                message_type: 'pplan_list',
+                created_at: nowIso
+              });
+            }
+            secondaryRows.push({
               id: `kpis_${tId}_${u}`,
               tenant_id: tId,
               sender_id: 'kpi_manager_tool',
@@ -15750,17 +15825,24 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           }
         }
 
-        // Single batched upsert across all canonical tenant keys so both AI Studio and the live website read the exact same updated plan
+        // Write canonical row first with full POE payload and generous timeout so large POE uploads never get cut off
         const primaryWritePromise = Promise.resolve(
-          supabase.from('messages').upsert(batchRows, { onConflict: 'id' })
+          supabase.from('messages').upsert(primaryRows, { onConflict: 'id' })
         ).catch((sErr: any) => {
-          console.warn(`[pplan primary batch save warning]:`, sErr?.message || sErr);
+          console.warn(`[pplan primary canonical save warning]:`, sErr?.message || sErr);
         });
 
         await Promise.race([
           primaryWritePromise,
-          new Promise(resolve => setTimeout(resolve, 6000))
+          new Promise(resolve => setTimeout(resolve, 15000))
         ]);
+
+        // Mirror lightweight KPI metadata to secondary keys in background without blocking or duplicating Base64 blobs
+        setImmediate(() => {
+          Promise.resolve(
+            supabase.from('messages').upsert(secondaryRows, { onConflict: 'id' })
+          ).catch(() => {});
+        });
       }
 
       for (const k of memoryCache.keys()) {
@@ -19258,19 +19340,26 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
 
   // Stream 2: Get Support Tickets
   app.get("/api/support/tickets", async (req, res) => {
+    res.setHeader("Content-Type", "application/json");
     try {
       const userEmail = String(req.query.userEmail || '').toLowerCase().trim();
-      const allTickets = await loadAllSupportTicketsFromSupabase();
-      const isMzansi = userEmail.endsWith('@mzansiflow.co.za') || userEmail.includes('@mzansiflow.co.za');
+      const allTickets = await Promise.race([
+        loadAllSupportTicketsFromSupabase(),
+        new Promise<any[]>(resolve => setTimeout(() => resolve([]), 7000))
+      ]);
+      const isMzansi =
+        userEmail.endsWith('@mzansiflow.co.za') ||
+        userEmail.includes('@mzansiflow.co.za') ||
+        userEmail === 'mike@massivedynamixdistributors.com';
 
       const visibleTickets = isMzansi || !userEmail
         ? allTickets
         : allTickets.filter(t => String(t.reporterEmail || '').toLowerCase().trim() === userEmail);
 
-      res.json({ tickets: visibleTickets });
+      return res.status(200).json({ tickets: Array.isArray(visibleTickets) ? visibleTickets : [] });
     } catch (err: any) {
       console.error("GET /api/support/tickets error:", err);
-      res.status(500).json({ error: err.message, tickets: [] });
+      return res.status(200).json({ tickets: [], error: err.message });
     }
   });
 
@@ -19591,6 +19680,28 @@ User Request: ${prompt}`;
       console.error("Fred generation error:", err);
       res.status(500).json({ error: err.message });
     }
+  });
+
+  // Ensure unmatched /api/* routes always return JSON and never fall through to Vite SPA index.html
+  app.all('/api/*', (req, res) => {
+    res.status(404).json({
+      success: false,
+      error: `API route not found: ${req.method} ${req.originalUrl}`,
+      tickets: []
+    });
+  });
+
+  // Global error handler for /api endpoints after all /api routes
+  app.use('/api', (err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error(`[API Handler Error] ${req.method} ${req.url}:`, err);
+    if (res.headersSent) {
+      return next(err);
+    }
+    res.status(err.status || 500).json({
+      success: false,
+      error: err.message || "Internal Server Error",
+      tickets: []
+    });
   });
 
   // Vite middleware for development
