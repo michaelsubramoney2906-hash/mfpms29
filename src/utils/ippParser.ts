@@ -3,13 +3,20 @@ import mammoth from 'mammoth';
 import JSZip from 'jszip';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Configure PDF.js worker
+// Configure PDF.js worker using local Vite bundle (with CDN fallback) so external websites with strict CSP/firewalls work seamlessly
 if (typeof window !== 'undefined') {
   try {
-    const version = (pdfjsLib as any).version || '3.11.174';
-    (pdfjsLib as any).GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${version}/build/pdf.worker.min.mjs`;
+    (pdfjsLib as any).GlobalWorkerOptions.workerSrc = new URL(
+      'pdfjs-dist/build/pdf.worker.min.mjs',
+      import.meta.url
+    ).toString();
   } catch (e) {
-    console.warn("[IPP Parser] PDF worker initialization:", e);
+    try {
+      const version = (pdfjsLib as any).version || '6.2.108';
+      (pdfjsLib as any).GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${version}/build/pdf.worker.min.mjs`;
+    } catch (err) {
+      console.warn("[IPP Parser] PDF worker initialization:", err);
+    }
   }
 }
 
@@ -998,25 +1005,52 @@ export async function extractIPPKPIsFromPDF(arrayBuffer: ArrayBuffer, fileName: 
 }
 
 /**
- * Helper to convert Mammoth HTML tables to TSV rows
+ * Helper to convert Mammoth HTML tables to clean single-line TSV rows
  */
 export function htmlTablesToTsv(html: string): string {
   if (!html) return '';
-  return html
-    .replace(/<\/tr>/gi, '\n')
-    .replace(/<\/td>\s*<td[^>]*>/gi, '\t')
-    .replace(/<td[^>]*>/gi, '')
-    .replace(/<\/td>/gi, '')
-    .replace(/<\/th>\s*<th[^>]*>/gi, '\t')
-    .replace(/<th[^>]*>/gi, '')
-    .replace(/<\/th>/gi, '')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&#39;/g, "'")
-    .replace(/&quot;/g, '"');
+  const decodeEntities = (str: string) =>
+    str
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/&#39;/gi, "'")
+      .replace(/&quot;/gi, '"');
+
+  const trMatches = html.match(/<tr[^>]*>[\s\S]*?<\/tr>/gi);
+  if (trMatches && trMatches.length > 0) {
+    const rows: string[] = [];
+    for (const tr of trMatches) {
+      const cellMatches = tr.match(/<t[dh][^>]*>[\s\S]*?<\/t[dh]>/gi);
+      if (cellMatches && cellMatches.length > 0) {
+        const cells = cellMatches.map(cell =>
+          decodeEntities(cell.replace(/<[^>]+>/g, ' '))
+            .replace(/[\r\n\t]+/g, ' ')
+            .replace(/\s{2,}/g, ' ')
+            .trim()
+        );
+        if (cells.some(Boolean)) {
+          rows.push(cells.join('\t'));
+        }
+      }
+    }
+    if (rows.length > 0) {
+      return rows.join('\n');
+    }
+  }
+
+  return decodeEntities(
+    html
+      .replace(/<\/tr>/gi, '\n')
+      .replace(/<\/td>\s*<td[^>]*>/gi, '\t')
+      .replace(/<td[^>]*>/gi, '')
+      .replace(/<\/td>/gi, '')
+      .replace(/<\/th>\s*<th[^>]*>/gi, '\t')
+      .replace(/<th[^>]*>/gi, '')
+      .replace(/<\/th>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+  );
 }
 
 /**

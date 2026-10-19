@@ -387,6 +387,11 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
   const [users, setUsers] = useState<any[]>([]);
   const [selectedUserEmail, setSelectedUserEmail] = useState<string>('');
   const [agreementScope, setAgreementScope] = useState<'individual' | 'team'>('individual');
+
+  useEffect(() => {
+    setSelectedUserEmail('');
+  }, [currentUser?.email]);
+
   const effectiveUser = React.useMemo(() => {
     if (selectedUserEmail) {
       const found = users.find(u => u.email?.toLowerCase() === selectedUserEmail.toLowerCase());

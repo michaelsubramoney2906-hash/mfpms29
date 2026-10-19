@@ -181,7 +181,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
     : (user.tenantId || tenants[0].id);
 
   const [activeTenantId, setActiveTenantId] = useState<string>(
-    user.role === 'admin' ? 'global' : resolvedUserTenant
+    (user.role === 'admin' && !isCurrentlyImpersonating && !isNkangalaUser) ? 'global' : resolvedUserTenant
   );
 
   const currentTenant = availableTenants.find(t => 
@@ -193,11 +193,14 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
 
   useEffect(() => {
     setFullUserProfile(user);
-    if (user && user.role !== 'admin') {
-      const targetTenant = (user.tenantId === 'nkangala_auto' || user.email?.toLowerCase().includes('nkangala') || user.email?.toLowerCase().includes('shabangu'))
-        ? 'tenant-229'
-        : (user.tenantId || tenants[0].id);
-      setActiveTenantId(targetTenant);
+    if (user) {
+      const isUserNkangala = Boolean(user.email?.toLowerCase().includes('nkangala') || user.email?.toLowerCase().includes('shabangu') || user.tenantId === 'nkangala_auto' || user.tenantId === 'tenant-229');
+      const isImpersonatedSession = typeof window !== 'undefined' && !!(localStorage.getItem('originalAdminUser') || sessionStorage.getItem('originalAdminUser'));
+      if (isUserNkangala) {
+        setActiveTenantId('tenant-229');
+      } else if (isImpersonatedSession || user.role !== 'admin') {
+        setActiveTenantId(user.tenantId || tenants[0].id);
+      }
     }
   }, [user]);
 
@@ -1333,7 +1336,8 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                     onNavigateToIPMS={(subId) => {
                       const ipmsModule = modules.find(m => m.id === 'ipms');
                       if (ipmsModule) {
-                        const targetSub = ipmsModule.subModules?.find(s => s.id === (subId || 'appg')) || { id: subId || 'appg', name: 'Annual Performance Planner Grid', icon: Layers };
+                        const normalizedSubId = (!subId || subId === 'appg') ? 'pplan' : subId;
+                        const targetSub = ipmsModule.subModules?.find(s => s.id === normalizedSubId) || { id: 'pplan', name: 'Performance Plan', icon: Layers };
                         setActiveModule(ipmsModule);
                         handleSubModuleSelect(targetSub);
                       }

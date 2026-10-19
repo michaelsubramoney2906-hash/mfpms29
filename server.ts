@@ -887,7 +887,46 @@ async function startServer() {
     try {
       const { documentText, fileName, fileBase64, mimeType } = req.body;
       
-      if (!documentText && !fileBase64) {
+      let effectiveDocumentText = documentText || '';
+      if ((!effectiveDocumentText || effectiveDocumentText.trim().length < 30) && fileBase64) {
+        try {
+          const buf = Buffer.from(fileBase64, 'base64');
+          const lowerFile = (fileName || '').toLowerCase();
+          if (lowerFile.endsWith('.docx') || (mimeType || '').includes('wordprocessingml')) {
+            const htmlRes = await mammoth.convertToHtml({ buffer: buf });
+            const rawRes = await mammoth.extractRawText({ buffer: buf });
+            const htmlStr = htmlRes.value || '';
+            const tableTsvLines: string[] = [];
+            const trMatches = htmlStr.match(/<tr[\s\S]*?<\/tr>/gi) || [];
+            for (const tr of trMatches) {
+              const tdMatches = tr.match(/<t[dh][\s\S]*?<\/t[dh]>/gi) || [];
+              const cells = tdMatches.map(td =>
+                td.replace(/<\/p>/gi, ' ').replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+              );
+              if (cells.some(Boolean)) {
+                tableTsvLines.push(cells.join('\t'));
+              }
+            }
+            effectiveDocumentText = [tableTsvLines.join('\n'), rawRes.value || ''].filter(Boolean).join('\n\n');
+          } else if (lowerFile.endsWith('.xlsx') || lowerFile.endsWith('.xls') || (mimeType || '').includes('spreadsheet') || (mimeType || '').includes('excel')) {
+            const wb = XLSX.read(buf, { type: 'buffer' });
+            const sheetsText: string[] = [];
+            for (const name of wb.SheetNames) {
+              const sheet = wb.Sheets[name];
+              const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+              for (const row of rows) {
+                const cells = row.map(c => String(c ?? '').replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim());
+                if (cells.some(Boolean)) sheetsText.push(cells.join('\t'));
+              }
+            }
+            effectiveDocumentText = sheetsText.join('\n');
+          }
+        } catch (docParseErr) {
+          console.warn("[IPP Server Binary Parse Fallback Warning]:", docParseErr);
+        }
+      }
+
+      if (!effectiveDocumentText && !fileBase64) {
         return res.status(400).json({ error: "Missing document text or file payload for IPP extraction." });
       }
 
@@ -943,7 +982,7 @@ async function startServer() {
         return { annexureAText };
       };
 
-      const { annexureAText } = sliceAnnexureABlock(documentText || '');
+      const { annexureAText } = sliceAnnexureABlock(effectiveDocumentText);
 
       // Helper to map text to one of the 7 National KPAs
       const resolveNationalKpaCode = (t: string): string => {
@@ -1242,7 +1281,7 @@ DATA TO EXTRACT FOR EVERY KPI ROW IN ANNEXURE A:
       let extractedArray: any[] = [];
       let extractedKpas: any[] = [];
       let agreementMetadata: any = {};
-      const apiKey = process.env.GEMINI_API_KEY || process.env.GEMINI || process.env.gemini;
+      const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.VITE_GEMINI_API_KEY || process.env.GEMINI || process.env.gemini;
 
       if (apiKey) {
         try {
@@ -1269,13 +1308,13 @@ DATA TO EXTRACT FOR EVERY KPI ROW IN ANNEXURE A:
                 ]
               }
             ];
-          } else if (documentText && documentText.trim().length > 30) {
+          } else if (effectiveDocumentText && effectiveDocumentText.trim().length > 30) {
             contents = [
               {
                 role: 'user',
                 parts: [
                   {
-                    text: `SOURCE DOCUMENT CONTENT (FILENAME: ${fileName || 'Performance Agreement'}):\n${documentText}\n\nCRITICAL INSTRUCTION: Locate "ANNEXURE A - PERFORMANCE PLAN". Extract ONLY the rows in the Annexure A Performance Plan table. Extract exactly 1:1: functional KPA, KPI number, key performance indicator, weight, baseline, annual target, 1st quarter planned target, 2nd quarter planned target, 3rd quarter planned target, 4th quarter planned target, poe, and total budget allocated R'000. Do NOT extract from legal clauses 1-13, rating scales, Annexure B PDP, or JSC competencies. Zero dreaming, zero adding data.`
+                    text: `SOURCE DOCUMENT CONTENT (FILENAME: ${fileName || 'Performance Agreement'}):\n${effectiveDocumentText}\n\nCRITICAL INSTRUCTION: Locate "ANNEXURE A - PERFORMANCE PLAN". Extract ONLY the rows in the Annexure A Performance Plan table. Extract exactly 1:1: functional KPA, KPI number, key performance indicator, weight, baseline, annual target, 1st quarter planned target, 2nd quarter planned target, 3rd quarter planned target, 4th quarter planned target, poe, and total budget allocated R'000. Do NOT extract from legal clauses 1-13, rating scales, Annexure B PDP, or JSC competencies. Zero dreaming, zero adding data.`
                   }
                 ]
               }
@@ -1318,7 +1357,7 @@ DATA TO EXTRACT FOR EVERY KPI ROW IN ANNEXURE A:
 
           if (contents.length > 0) {
             const response = await generateContentWithRetry(ai, {
-              model: "gemini-2.5-flash",
+              model: "gemini-3-flash-preview",
               contents,
               config: {
                 systemInstruction,
@@ -1408,7 +1447,7 @@ DATA TO EXTRACT FOR EVERY KPI ROW IN ANNEXURE A:
 
       // If AI extraction produced no items, fallback to heuristic extraction strictly on isolated Annexure A text
       if (!extractedArray || extractedArray.length === 0) {
-        const textToProcess = annexureAText && annexureAText.trim().length > 0 ? annexureAText : (documentText || '');
+        const textToProcess = annexureAText && annexureAText.trim().length > 0 ? annexureAText : effectiveDocumentText;
         if (textToProcess && textToProcess.trim()) {
           const heuristicResult = extractHeuristicItems(textToProcess);
           extractedArray = heuristicResult.items;
@@ -1418,38 +1457,9 @@ DATA TO EXTRACT FOR EVERY KPI ROW IN ANNEXURE A:
         }
       }
 
-      // If still no items found (e.g. unreadable binary or scanned document), provide baseline structured scorecard items
-      if (!extractedArray || extractedArray.length === 0) {
-        extractedArray = [
-          {
-            "kpi no": "KPI #1",
-            "kpi description": "Compliance with municipal performance management targets and statutory quarterly reporting",
-            "%wt": "20",
-            "baseline": "100% compliance in prior year",
-            "annual target": "100% statutory submission compliance",
-            "1st qtr target": "100%",
-            "2nd qtr target": "100%",
-            "3rd qtr target": "100%",
-            "4th qtr target": "100%",
-            "poe": "Quarterly Performance Reports & Submission Receipts",
-            "budget": "OPEX",
-            "functional kpa": "KPA 1: Good Governance and Public Participation"
-          },
-          {
-            "kpi no": "KPI #2",
-            "kpi description": "Execution and monitoring of operational SDBIP project milestones and departmental deliverables",
-            "%wt": "20",
-            "baseline": "85% milestone completion",
-            "annual target": "100% target milestone completion",
-            "1st qtr target": "25%",
-            "2nd qtr target": "50%",
-            "3rd qtr target": "75%",
-            "4th qtr target": "100%",
-            "poe": "SDBIP Quarter Evaluation Reports & Portfolio of Evidence",
-            "budget": "OPEX",
-            "functional kpa": "KPA 2: Municipal Financial Viability and Management"
-          }
-        ];
+      // Do NOT inject synthetic/mock placeholder KPIs when extraction yields 0 items so the client-side deterministic parser can run cleanly
+      if (!extractedArray) {
+        extractedArray = [];
       }
 
       // Helper for ensuring Functional KPA starts with "KPA"
@@ -1724,7 +1734,7 @@ DATA TO EXTRACT FOR EVERY KPI ROW IN ANNEXURE A:
         return res.status(400).json({ error: "Missing document text or file payload for GM extraction." });
       }
 
-      const apiKey = process.env.GEMINI_API_KEY || process.env.GEMINI || process.env.gemini;
+      const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.VITE_GEMINI_API_KEY || process.env.GEMINI || process.env.gemini;
       let extractedArray: any[] = [];
       let extractedKpas: any[] = [];
 
@@ -1783,7 +1793,7 @@ CRITICAL MAPPING & EXTRACTION RULES:
 
           if (contents.length > 0) {
             const response = await generateContentWithRetry(ai, {
-              model: "gemini-2.5-flash",
+              model: "gemini-3-flash-preview",
               contents,
               config: {
                 systemInstruction,
@@ -15492,44 +15502,63 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         }
         await Promise.allSettled(primaryUpserts);
 
-        // Lightweight KPI summary sync and cleanup of stale secondary buckets in background
-        setImmediate(async () => {
-          try {
-            const cleanKpiItems = sanitizedItems.map((it: any) => {
-              const { poeFileBase64, q1PoeDocs, q2PoeDocs, q3PoeDocs, q4PoeDocs, annualPoeDocs, midtermPoeDocs, ...rest } = it;
-              return rest;
-            });
-            for (const u of targetUsers) {
-              await Promise.resolve(
-                supabase.from('messages').upsert({
-                  id: `kpis_${primaryTenant}_${u}`,
-                  tenant_id: primaryTenant,
-                  sender_id: 'kpi_manager_tool',
-                  sender_email: 'kpi@system.local',
-                  sender_name: 'KPI Manager',
-                  content: JSON.stringify({ kpis: cleanKpiItems }),
-                  message_type: 'kpis_list',
-                  created_at: nowIso
-                }, { onConflict: 'id' })
-              ).catch(() => {});
-
-              // If plan was explicitly cleared or authoritatively replaced, delete stale secondary pplan_ and kpis_ rows so old KPIs never resurface
-              if (isExplicitlyClearedPost || isAuthoritativeReplacePost) {
-                const staleSecondaryIds = [
-                  `pplan_nkangala_auto_${u}`,
-                  `pplan_global_${u}`,
-                  `kpis_nkangala_auto_${u}`,
-                  `kpis_global_${u}`
-                ].filter(id => id !== `pplan_${primaryTenant}_${u}` && id !== `kpis_${primaryTenant}_${u}`);
-                if (staleSecondaryIds.length > 0) {
-                  await Promise.resolve(
-                    supabase.from('messages').delete().in('id', staleSecondaryIds)
-                  ).catch(() => {});
-                }
-              }
-            }
-          } catch (bgErr) {}
+        const cleanKpiItems = sanitizedItems.map((it: any) => {
+          const { poeFileBase64, q1PoeDocs, q2PoeDocs, q3PoeDocs, q4PoeDocs, annualPoeDocs, midtermPoeDocs, ...rest } = it;
+          return rest;
         });
+
+        // If plan was explicitly cleared or authoritatively replaced, synchronously update KPIs and delete stale secondary pplan_ and kpis_ rows so immediate navigation never reads stale KPIs
+        if (isExplicitlyClearedPost || isAuthoritativeReplacePost) {
+          for (const u of targetUsers) {
+            for (const tId of ['nkangala_auto', 'global']) {
+              pplanCache.delete(`pplan_${tId}_${u}`);
+            }
+            await Promise.resolve(
+              supabase.from('messages').upsert({
+                id: `kpis_${primaryTenant}_${u}`,
+                tenant_id: primaryTenant,
+                sender_id: 'kpi_manager_tool',
+                sender_email: 'kpi@system.local',
+                sender_name: 'KPI Manager',
+                content: JSON.stringify({ kpis: cleanKpiItems }),
+                message_type: 'kpis_list',
+                created_at: nowIso
+              }, { onConflict: 'id' })
+            ).catch(() => {});
+
+            const staleSecondaryIds = [
+              `pplan_nkangala_auto_${u}`,
+              `pplan_global_${u}`,
+              `kpis_nkangala_auto_${u}`,
+              `kpis_global_${u}`
+            ].filter(id => id !== `pplan_${primaryTenant}_${u}` && id !== `kpis_${primaryTenant}_${u}`);
+            if (staleSecondaryIds.length > 0) {
+              await Promise.resolve(
+                supabase.from('messages').delete().in('id', staleSecondaryIds)
+              ).catch(() => {});
+            }
+          }
+        } else {
+          // Lightweight KPI summary sync in background for normal incremental edits
+          setImmediate(async () => {
+            try {
+              for (const u of targetUsers) {
+                await Promise.resolve(
+                  supabase.from('messages').upsert({
+                    id: `kpis_${primaryTenant}_${u}`,
+                    tenant_id: primaryTenant,
+                    sender_id: 'kpi_manager_tool',
+                    sender_email: 'kpi@system.local',
+                    sender_name: 'KPI Manager',
+                    content: JSON.stringify({ kpis: cleanKpiItems }),
+                    message_type: 'kpis_list',
+                    created_at: nowIso
+                  }, { onConflict: 'id' })
+                ).catch(() => {});
+              }
+            } catch (bgErr) {}
+          });
+        }
       }
 
       for (const k of memoryCache.keys()) {

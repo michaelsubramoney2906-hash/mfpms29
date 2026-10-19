@@ -78,7 +78,10 @@ export function FredPerformancePlanExtractor({
       try {
         const targetEmail = targetEmployeeEmail || currentUser.email;
         if (!targetEmail) return;
-        const res = await fetch(`/api/tenant/${activeTenantId}/fred-extraction/performance_agreement?userId=${encodeURIComponent(targetEmail)}&t=${Date.now()}`);
+        const effectiveTenantId = (activeTenantId === 'global' || activeTenantId === 'nkangala_auto' || !activeTenantId) && targetEmail.toLowerCase().includes('nkangala')
+          ? 'tenant-229'
+          : activeTenantId;
+        const res = await fetch(`/api/tenant/${effectiveTenantId}/fred-extraction/performance_agreement?userId=${encodeURIComponent(targetEmail)}&t=${Date.now()}`);
         if (res.ok) {
           const data = await res.json();
           const items = data.items || data.data;
@@ -137,8 +140,11 @@ export function FredPerformancePlanExtractor({
 
       // Persist snapshot to server
       const targetEmail = targetEmployeeEmail || currentUser.email;
+      const effectiveTenantId = (activeTenantId === 'global' || activeTenantId === 'nkangala_auto' || !activeTenantId) && targetEmail.toLowerCase().includes('nkangala')
+        ? 'tenant-229'
+        : activeTenantId;
       try {
-        await fetch(`/api/tenant/${activeTenantId}/fred-extraction/performance_agreement?userId=${encodeURIComponent(targetEmail)}`, {
+        await fetch(`/api/tenant/${effectiveTenantId}/fred-extraction/performance_agreement?userId=${encodeURIComponent(targetEmail)}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -267,9 +273,13 @@ export function FredPerformancePlanExtractor({
         _pushedAt: new Date().toISOString()
       };
 
+      const effectiveTenantId = (activeTenantId === 'global' || activeTenantId === 'nkangala_auto' || !activeTenantId) && normTarget.includes('nkangala')
+        ? 'tenant-229'
+        : activeTenantId;
+
       // Push strictly to the target individual's pplan endpoint
       // Note: This saves strictly to pplan_${tenantId}_${targetEmail} in Supabase with ZERO SDBIP contamination.
-      const res = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(targetEmail)}`, {
+      const res = await fetch(`/api/tenant/${effectiveTenantId}/pplan?userId=${encodeURIComponent(targetEmail)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -284,10 +294,10 @@ export function FredPerformancePlanExtractor({
 
       // Also strictly align the user's KPIs and KPAs registers to prevent any legacy phantom injections
       try {
-        await fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(targetEmail)}`, {
+        await fetch(`/api/tenant/${effectiveTenantId}/kpis?userId=${encodeURIComponent(targetEmail)}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ kpis: planItems })
+          body: JSON.stringify({ kpis: planItems, replace: true })
         });
       } catch (e) {
         console.warn("KPI register sync warning:", e);
@@ -309,7 +319,7 @@ export function FredPerformancePlanExtractor({
             mscoaCode: 'Operational',
             weighting: ''
           }));
-          await fetch(`/api/tenant/${activeTenantId}/kpas?userId=${encodeURIComponent(targetEmail)}`, {
+          await fetch(`/api/tenant/${effectiveTenantId}/kpas?userId=${encodeURIComponent(targetEmail)}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ kpas: kpaPayload, customKpaTable: null })
@@ -319,7 +329,7 @@ export function FredPerformancePlanExtractor({
         console.warn("KPA register sync warning:", e);
       }
 
-      window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: targetEmail } }));
+      window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: effectiveTenantId, userId: targetEmail } }));
 
       // Clear the local state immediately so Fred forgets the extraction
       setExtractedItems([]);
@@ -331,8 +341,8 @@ export function FredPerformancePlanExtractor({
       // Clear the saved extraction snapshots from server/Supabase
       try {
         await Promise.allSettled([
-          fetch(`/api/tenant/${activeTenantId}/fred-extraction/performance_agreement?userId=${encodeURIComponent(targetEmail)}`, { method: 'DELETE' }),
-          fetch(`/api/tenant/${activeTenantId}/fred-extraction/ipp?userId=${encodeURIComponent(targetEmail)}`, { method: 'DELETE' })
+          fetch(`/api/tenant/${effectiveTenantId}/fred-extraction/performance_agreement?userId=${encodeURIComponent(targetEmail)}`, { method: 'DELETE' }),
+          fetch(`/api/tenant/${effectiveTenantId}/fred-extraction/ipp?userId=${encodeURIComponent(targetEmail)}`, { method: 'DELETE' })
         ]);
       } catch (e) {}
 
@@ -724,7 +734,7 @@ export function FredPerformancePlanExtractor({
           {onNavigateToIPMS && (
             <button
               type="button"
-              onClick={() => onNavigateToIPMS('appg')}
+              onClick={() => onNavigateToIPMS('pplan')}
               className="text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1 cursor-pointer transition"
             >
               <span>View Annual Performance Planner Grid</span>
