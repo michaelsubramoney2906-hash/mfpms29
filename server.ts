@@ -13,7 +13,6 @@ https.globalAgent.maxSockets = Infinity;
 
 import { createClient } from "@supabase/supabase-js";
 import { GoogleGenAI, Type } from "@google/genai";
-import nodemailer from "nodemailer";
 import mammoth from "mammoth";
 import * as XLSX from "xlsx";
 import { jsonrepair } from "jsonrepair";
@@ -19003,189 +19002,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
     }
 
-    return Array.from(contactMap.values());
+      return Array.from(contactMap.values());
   }
-
-  // Stream 1: Get Support Instant Messaging Contacts (@nkangaladm.gov.za & @mzansiflow.co.za)
-  app.get("/api/support/chat/contacts", async (req, res) => {
-    try {
-      const tenantId = String(req.query.tenantId || 'tenant-229');
-      const contacts = await getSupportDirectoryContacts(tenantId);
-      res.json({ contacts });
-    } catch (err: any) {
-      console.error("GET /api/support/chat/contacts error:", err);
-      res.status(500).json({ error: err.message, contacts: [] });
-    }
-  });
-
-  // Stream 1: Get Support Instant Messages from Supabase
-  app.get("/api/support/chat/messages", async (req, res) => {
-    try {
-      const userEmail = String(req.query.userEmail || '').toLowerCase().trim();
-      const supabase = getSupabase();
-      const msgMap = new Map<string, any>();
-
-      // 1. Read aggregated store in Supabase
-      const { data: storeRow } = await supabase
-        .from('messages')
-        .select('content')
-        .eq('id', 'support_chat_messages_store')
-        .maybeSingle();
-
-      if (storeRow?.content) {
-        try {
-          const parsed = JSON.parse(storeRow.content);
-          if (Array.isArray(parsed)) {
-            for (const m of parsed) {
-              if (m && m.id) msgMap.set(m.id, m);
-            }
-          }
-        } catch (_) {}
-      }
-
-      // 2. Also read individual support_chat_message rows from Supabase
-      const { data: rows } = await supabase
-        .from('messages')
-        .select('id, content, created_at')
-        .eq('message_type', 'support_chat_message')
-        .order('created_at', { ascending: false })
-        .limit(500);
-
-      if (Array.isArray(rows)) {
-        for (const r of rows) {
-          try {
-            const parsed = typeof r.content === 'string' ? JSON.parse(r.content) : r.content;
-            if (parsed && parsed.id && !msgMap.has(parsed.id)) {
-              msgMap.set(parsed.id, parsed);
-            }
-          } catch (_) {}
-        }
-      }
-
-      const allMsgs = Array.from(msgMap.values());
-      const isMzansi = userEmail.endsWith('@mzansiflow.co.za') || userEmail.includes('@mzansiflow.co.za');
-
-      const filtered = allMsgs.filter(m => {
-        if (!userEmail) return true;
-        const sender = String(m.senderEmail || '').toLowerCase().trim();
-        const recipient = String(m.recipientEmail || '').toLowerCase().trim();
-        if (isMzansi) {
-          // @mzansiflow.co.za users can view all messages sent to all@mzansiflow.co.za or to/from any @nkangaladm.gov.za user or their direct messages
-          return (
-            recipient === 'all@mzansiflow.co.za' ||
-            m.roomId === 'support_global_bridge' ||
-            sender === userEmail ||
-            recipient === userEmail ||
-            sender.endsWith('@nkangaladm.gov.za') ||
-            recipient.endsWith('@nkangaladm.gov.za')
-          );
-        }
-        // @nkangaladm.gov.za users see messages they sent/received or messages in the shared support bridge
-        return (
-          sender === userEmail ||
-          recipient === userEmail ||
-          recipient === 'all@mzansiflow.co.za' ||
-          m.roomId === 'support_global_bridge'
-        );
-      });
-
-      filtered.sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
-      res.json({ messages: filtered });
-    } catch (err: any) {
-      console.error("GET /api/support/chat/messages error:", err);
-      res.status(500).json({ error: err.message, messages: [] });
-    }
-  });
-
-  // Stream 1: Send Support Instant Message & Persist to Supabase
-  app.post("/api/support/chat/messages", async (req, res) => {
-    try {
-      const {
-        roomId,
-        senderEmail,
-        senderName,
-        senderJobTitle,
-        recipientEmail,
-        recipientName,
-        content,
-        attachment
-      } = req.body;
-
-      if (!senderEmail || (!content && !attachment)) {
-        return res.status(400).json({ error: "Sender email and message content or attachment are required." });
-      }
-
-      const supabase = getSupabase();
-      const createdAt = new Date().toISOString();
-      const msgId = `sup_chat_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-
-      const newMsg = {
-        id: msgId,
-        roomId: roomId || 'support_global_bridge',
-        senderEmail: String(senderEmail).toLowerCase().trim(),
-        senderName: senderName || String(senderEmail).split('@')[0],
-        senderJobTitle: senderJobTitle || 'Official',
-        recipientEmail: String(recipientEmail || 'all@mzansiflow.co.za').toLowerCase().trim(),
-        recipientName: recipientName || 'Mzansi Flow Support',
-        content: String(content || '').trim(),
-        attachment: attachment || null,
-        createdAt,
-        readBy: [String(senderEmail).toLowerCase().trim()]
-      };
-
-      // 1. Insert individual row in Supabase messages table
-      await supabase.from('messages').upsert({
-        id: msgId,
-        tenant_id: 'tenant-229',
-        sender_id: newMsg.senderEmail,
-        sender_email: newMsg.senderEmail,
-        sender_name: newMsg.senderName,
-        content: JSON.stringify(newMsg),
-        message_type: 'support_chat_message',
-        created_at: createdAt
-      }, { onConflict: 'id' });
-
-      // 2. Update aggregated store in Supabase
-      const { data: storeData } = await supabase
-        .from('messages')
-        .select('content')
-        .eq('id', 'support_chat_messages_store')
-        .maybeSingle();
-
-      let existingList: any[] = [];
-      if (storeData?.content) {
-        try {
-          existingList = JSON.parse(storeData.content);
-          if (!Array.isArray(existingList)) existingList = [];
-        } catch (_) {
-          existingList = [];
-        }
-      }
-      existingList.push(newMsg);
-      if (existingList.length > 1000) {
-        existingList = existingList.slice(existingList.length - 1000);
-      }
-
-      await supabase.from('messages').upsert({
-        id: 'support_chat_messages_store',
-        tenant_id: 'global',
-        sender_id: 'support_chat_bridge',
-        sender_email: newMsg.senderEmail,
-        sender_name: 'Support Instant Messaging Store',
-        content: JSON.stringify(existingList),
-        message_type: 'support_chat_store',
-        created_at: createdAt
-      }, { onConflict: 'id' });
-
-      // Broadcast in real time via Socket.IO
-      io.emit("support_receive_message", newMsg);
-
-      res.json({ success: true, message: newMsg });
-    } catch (err: any) {
-      console.error("POST /api/support/chat/messages error:", err);
-      res.status(500).json({ error: err.message });
-    }
-  });
 
   // Helper to load all support tickets from Supabase
   async function loadAllSupportTicketsFromSupabase(): Promise<any[]> {
@@ -19367,43 +19185,40 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       console.warn("Support ticket IPMS inbox mirror notice:", inboxErr);
     }
 
-    // 2. If SMTP or Resend credentials are provided in environment variables, dispatch external emails with the uploaded document attachment
+    // 2. If RESEND_API_KEY is configured in environment variables, dispatch external emails with the uploaded document attachment via native fetch
     try {
-      const smtpHost = process.env.SMTP_HOST;
-      const smtpUser = process.env.SMTP_USER;
-      const smtpPass = process.env.SMTP_PASS;
-      if (smtpHost && smtpUser && smtpPass) {
-        const transporter = nodemailer.createTransport({
-          host: smtpHost,
-          port: Number(process.env.SMTP_PORT || 587),
-          secure: Number(process.env.SMTP_PORT) === 465,
-          auth: { user: smtpUser, pass: smtpPass }
-        });
-
-        const mailAttachments: any[] = [];
+      const resendApiKey = process.env.RESEND_API_KEY;
+      if (resendApiKey && mzansiEmails.length > 0) {
+        const resendAttachments: any[] = [];
         if (ticket.document?.dataUrl) {
           const base64Match = String(ticket.document.dataUrl).match(/^data:([^;]+);base64,(.+)$/);
           if (base64Match) {
-            mailAttachments.push({
+            resendAttachments.push({
               filename: ticket.document.name || 'support_attachment',
-              content: Buffer.from(base64Match[2], 'base64'),
-              contentType: base64Match[1]
+              content: base64Match[2]
             });
           }
         }
 
-        await transporter.sendMail({
-          from: process.env.SMTP_FROM || `"Mzansi Flow Support Desk" <${smtpUser}>`,
-          to: mzansiEmails.join(', '),
-          replyTo: ticket.reporterEmail,
-          subject: emailSubject,
-          text: emailTextBody,
-          html: emailHtmlBody,
-          attachments: mailAttachments
+        await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${resendApiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            from: process.env.SMTP_FROM || 'Mzansi Flow Support Desk <support@mzansiflow.co.za>',
+            to: mzansiEmails,
+            reply_to: ticket.reporterEmail,
+            subject: emailSubject,
+            text: emailTextBody,
+            html: emailHtmlBody,
+            attachments: resendAttachments.length > 0 ? resendAttachments : undefined
+          })
         });
       }
-    } catch (smtpErr) {
-      console.warn("External SMTP dispatch notice (internal inbox & Supabase email log completed):", smtpErr);
+    } catch (emailErr) {
+      console.warn("External email API dispatch notice (internal inbox & Supabase email log completed):", emailErr);
     }
 
     // 3. Persist email dispatch audit record in Supabase
