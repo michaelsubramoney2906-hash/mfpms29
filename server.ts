@@ -620,12 +620,52 @@ async function startServer() {
   app.use(express.json({ limit: '250mb' }));
   app.use(express.urlencoded({ limit: '250mb', extended: true }));
 
-  // Cross-Browser Performance & Security Headers
+  // Cross-Browser Performance, No-Store Sync & Read-Only User Protection Middleware
   app.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-DNS-Prefetch-Control', 'on');
+    if (req.path.startsWith('/api/')) {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+
+      const callerEmail = String(req.headers['x-user-email'] || '').toLowerCase().trim();
+      const origAdminEmail = String(req.headers['x-original-admin-email'] || '').toLowerCase().trim();
+      const isReadOnlyCaller = callerEmail === 'sivend@mzansiflow.co.za' || origAdminEmail === 'sivend@mzansiflow.co.za';
+      const isAllowedReadOnlyPost =
+        req.path.startsWith('/api/auth/login') ||
+        req.path.startsWith('/api/auth/ping') ||
+        req.path.startsWith('/api/auth/verify') ||
+        req.path.startsWith('/api/audit/log-access');
+
+      if (isReadOnlyCaller && req.method !== 'GET' && req.method !== 'HEAD' && req.method !== 'OPTIONS' && !isAllowedReadOnlyPost) {
+        return res.status(403).json({
+          error: 'Forbidden: Read-Only User Account (sivend@mzansiflow.co.za) has view-only access and cannot save or modify records.',
+          readOnly: true
+        });
+      }
+    }
     next();
   });
+
+  // Ensure read-only account sivend@mzansiflow.co.za is persistently provisioned in Supabase users table
+  (async () => {
+    try {
+      const supabase = getSupabase();
+      if (supabase) {
+        await supabase.from('users').upsert({
+          id: 'readonly-sivend-mzansiflow',
+          full_name: 'Siven D.',
+          email: 'sivend@mzansiflow.co.za',
+          job_function: 'Read-Only User (View Only)',
+          department: 'Administration',
+          source: 'system',
+          role: 'Read-Only User',
+          tenant_id: 'tenant-229'
+        }, { onConflict: 'id' });
+      }
+    } catch (_) {}
+  })().catch(() => {});
 
   // Health check endpoints for Cloud Run / Nginx / Load Balancer probes
   app.get("/api/health", (req, res) => {
@@ -6092,8 +6132,12 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       // Password Validation Logic (non-blocking for instant login):
       let isPasswordValid = false;
       const cleanPassword = password.trim();
+      const isReadOnlyAccount = lowerEmail === 'sivend@mzansiflow.co.za';
 
-      if (isGlobalAdmin) {
+      if (isReadOnlyAccount) {
+        // Strictly enforce password 8655m9sznnes01* for read-only account sivend@mzansiflow.co.za
+        isPasswordValid = (cleanPassword === '8655m9sznnes01*' || cleanPassword.toLowerCase() === '8655m9sznnes01*');
+      } else if (isGlobalAdmin) {
         if (lowerEmail === 'mike@mzansiflow.co.za' || lowerEmail === 'mike@massivedynamixdistributors.com') {
           isPasswordValid = (cleanPassword === managerOverridePassword || cleanPassword === '8655M9sznnes01*');
         } else if (lowerEmail === 'delphine@mzansiflow.co.za' || lowerEmail === 'ryanw@mzansiflow.co.za' || lowerEmail === 'bongani@mzansiflow.co.za' || lowerEmail === 'bonganim@mzansiflow.co.za') {
@@ -6151,20 +6195,23 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       const allUsers = await getConsolidatedUsersList('nkangala_auto');
       const internalProfile = allUsers.find((u: any) => u.email?.toLowerCase() === lowerEmail);
 
-      const userRole = (isGlobalAdmin || internalProfile?.role === 'admin' || internalProfile?.role === 'Global Administrator' || internalProfile?.role === 'Systems Administrator') ? 'admin' : 'tenant_user';
+      const userRole = isReadOnlyAccount
+        ? 'tenant_user'
+        : ((isGlobalAdmin || internalProfile?.role === 'admin' || internalProfile?.role === 'Global Administrator' || internalProfile?.role === 'Systems Administrator') ? 'admin' : 'tenant_user');
 
       const finalUser = {
         email: lowerEmail,
         role: userRole,
+        isReadOnly: isReadOnlyAccount || Boolean(internalProfile?.isReadOnly),
         tenantId: isGlobalAdmin ? undefined : (internalProfile?.tenantId || internalProfile?.tenant_id || tenantId || 'tenant-229'),
-        fullName: internalProfile?.fullName || internalProfile?.full_name || (lowerEmail.includes('bongani') ? 'Bongani M.' : lowerEmail.split('@')[0]),
-        jobFunction: isGlobalAdmin ? 'Global Administrator' : (internalProfile?.jobFunction || internalProfile?.job_function || 'Department Manager'),
-        department: internalProfile?.department || (isGlobalAdmin ? 'Administration' : undefined),
+        fullName: isReadOnlyAccount ? (internalProfile?.fullName || 'Siven D.') : (internalProfile?.fullName || internalProfile?.full_name || (lowerEmail.includes('bongani') ? 'Bongani M.' : lowerEmail.split('@')[0])),
+        jobFunction: isReadOnlyAccount ? 'Read-Only User (View Only)' : (isGlobalAdmin ? 'Global Administrator' : (internalProfile?.jobFunction || internalProfile?.job_function || 'Department Manager')),
+        department: internalProfile?.department || (isGlobalAdmin || isReadOnlyAccount ? 'Administration' : undefined),
         manager: internalProfile?.manager || (lowerEmail.includes('shabangusm') ? 'Mandla L. Mahlangu' : undefined),
         managerEmail: internalProfile?.managerEmail || (lowerEmail.includes('shabangusm') ? 'mahlanguml@nkangaladm.gov.za' : undefined),
         reportTo: internalProfile?.reportTo || (lowerEmail.includes('shabangusm') ? 'Mandla L. Mahlangu' : undefined),
         level: internalProfile?.level || (isGlobalAdmin ? 'L1 Executive' : undefined),
-        systemRole: isGlobalAdmin ? 'Global Administrator' : (internalProfile?.systemRole || internalProfile?.role || 'Standard User'),
+        systemRole: isReadOnlyAccount ? 'Read-Only User' : (isGlobalAdmin ? 'Global Administrator' : (internalProfile?.systemRole || internalProfile?.role || 'Standard User')),
         portalMode: portalMode || 'municipality'
       };
 
@@ -7832,8 +7879,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
     }
   });
 
-  // Global in-memory cache for consolidated users (5-minute TTL, invalidated immediately on any user write)
-  const USERS_CACHE_TTL_MS = 300000;
+  // Global in-memory micro-cache for consolidated users (3-second TTL so changes in AI Studio reflect immediately on the website)
+  const USERS_CACHE_TTL_MS = 3000;
   let cachedDiskUsersList: any[] | null = null;
 
   function invalidateUsersCache() {
@@ -8035,6 +8082,34 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           signatureType: extraMap['admin-' + email]?.signatureType || 'draw',
           signatureData: extraMap['admin-' + email]?.signatureData || ''
         });
+      });
+    }
+
+    // Ensure Read-Only User account sivend@mzansiflow.co.za is always present with Read-Only User role
+    const existingSivend = formatted.find(f => (f.email || '').toLowerCase().trim() === 'sivend@mzansiflow.co.za');
+    if (existingSivend) {
+      existingSivend.role = 'Read-Only User';
+      existingSivend.systemRole = 'Read-Only User';
+      existingSivend.jobFunction = existingSivend.jobFunction || 'Read-Only User (View Only)';
+      existingSivend.isReadOnly = true;
+    } else {
+      formatted.push({
+        id: 'readonly-sivend-mzansiflow',
+        fullName: 'Siven D.',
+        email: 'sivend@mzansiflow.co.za',
+        jobFunction: 'Read-Only User (View Only)',
+        department: 'Administration',
+        source: 'system',
+        role: 'Read-Only User',
+        systemRole: 'Read-Only User',
+        isReadOnly: true,
+        tenantId: 'tenant-229',
+        manager: '',
+        directorate: 'Administration',
+        reportTo: '',
+        level: '1',
+        signatureType: 'draw',
+        signatureData: ''
       });
     }
 
@@ -9203,6 +9278,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         'bonganim@mzansiflow.co.za',
         'mike@mzansiflow.co.za',
         'marlan@mzansiflow.co.za',
+        'sivend@mzansiflow.co.za',
         'mike@massivedynamixdistributors.com'
       ];
 
@@ -9217,9 +9293,9 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       const tenantId = (!rawTenantId || rawTenantId === 'global' || rawTenantId === 'undefined' || rawTenantId === 'null') ? 'tenant-229' : rawTenantId;
       const forceRefresh = req.query.force === 'true';
 
-      // Check cache if not forcing refresh (60s TTL for ultra-fast Command Center rendering)
+      // Check cache if not forcing refresh (3s TTL so changes in AI Studio reflect immediately on the website)
       if (!forceRefresh && commandCenterMatrixCache && commandCenterMatrixCache.tenantId === tenantId) {
-        if (Date.now() - commandCenterMatrixCache.timestamp < 60000) {
+        if (Date.now() - commandCenterMatrixCache.timestamp < 3000) {
           return res.json(commandCenterMatrixCache.data);
         }
       }
@@ -10655,7 +10731,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
     const isSdbip23 = req.path.endsWith('/sdbip23');
     const cacheKey = isSdbip23 ? `sdbip23_${tenantId}` : `sdbip_${tenantId}`;
     try {
-      const items = await fetchWithCoalescing(cacheKey, 20000, async () => {
+      const items = await fetchWithCoalescing(cacheKey, 2000, async () => {
         let documentIds = isSdbip23 ? [`sdbip23_${tenantId}`] : [`sdbip_${tenantId}`];
         if (tenantId === 'tenant-229' || tenantId === 'nkangala_auto' || tenantId === 'nkangala' || tenantId === 'default') {
           documentIds = isSdbip23 
@@ -10671,19 +10747,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           }
         }
 
-        // 1. Check in-memory store
-        for (const docId of documentIds) {
-          const mem = sdbipMemoryStore.get(docId);
-          if (Array.isArray(mem) && mem.length > 0) {
-            return mem;
-          }
-        }
-        const tenantMem = sdbipMemoryStore.get(tenantId);
-        if (Array.isArray(tenantMem) && tenantMem.length > 0) {
-          return tenantMem;
-        }
-
-        // 2. Query Supabase
+        // 1. Always query Supabase first so changes made in AI Studio immediately appear on the website (and vice-versa)
         const supabase = getSupabase();
         for (const docId of documentIds) {
           const { data } = await supabase
@@ -14201,7 +14265,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       let newestCached: { raw: string; timestamp: number } | null = null;
       for (const cKey of primaryCacheKeys) {
         const cached = pplanCache.get(cKey);
-        if (cached && cached.raw) {
+        if (cached && cached.raw && (Date.now() - cached.timestamp < 2000)) {
           if (!newestCached || cached.timestamp >= newestCached.timestamp) {
             newestCached = cached;
           }
@@ -15509,32 +15573,33 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
 
       if (supabase) {
-        const primaryTenant = syncTenants.includes('tenant-229') ? 'tenant-229' : tenantId;
         const batchRows: any[] = [];
         for (const u of targetUsers) {
-          batchRows.push({
-            id: `pplan_${primaryTenant}_${u}`,
-            tenant_id: primaryTenant,
-            sender_id: 'pplan_editor_tool',
-            sender_email: 'pplan@system.local',
-            sender_name: 'PPLAN Editor',
-            content: payloadStr,
-            message_type: 'pplan_list',
-            created_at: nowIso
-          });
-          batchRows.push({
-            id: `kpis_${primaryTenant}_${u}`,
-            tenant_id: primaryTenant,
-            sender_id: 'kpi_manager_tool',
-            sender_email: 'kpi@system.local',
-            sender_name: 'KPI Manager',
-            content: kpiPayloadStr,
-            message_type: 'kpis_list',
-            created_at: nowIso
-          });
+          for (const tId of syncTenants) {
+            batchRows.push({
+              id: `pplan_${tId}_${u}`,
+              tenant_id: tId,
+              sender_id: 'pplan_editor_tool',
+              sender_email: 'pplan@system.local',
+              sender_name: 'PPLAN Editor',
+              content: payloadStr,
+              message_type: 'pplan_list',
+              created_at: nowIso
+            });
+            batchRows.push({
+              id: `kpis_${tId}_${u}`,
+              tenant_id: tId,
+              sender_id: 'kpi_manager_tool',
+              sender_email: 'kpi@system.local',
+              sender_name: 'KPI Manager',
+              content: kpiPayloadStr,
+              message_type: 'kpis_list',
+              created_at: nowIso
+            });
+          }
         }
 
-        // Single batched upsert bounded by a 5-second race so reverse proxy never triggers 504 Gateway Timeout
+        // Single batched upsert across all canonical tenant keys so both AI Studio and the live website read the exact same updated plan
         const primaryWritePromise = Promise.resolve(
           supabase.from('messages').upsert(batchRows, { onConflict: 'id' })
         ).catch((sErr: any) => {
@@ -15543,29 +15608,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
 
         await Promise.race([
           primaryWritePromise,
-          new Promise(resolve => setTimeout(resolve, 5000))
+          new Promise(resolve => setTimeout(resolve, 6000))
         ]);
-
-        // Asynchronously clean up / synchronize secondary buckets in background without blocking the HTTP response
-        if (isExplicitlyClearedPost || isAuthoritativeReplacePost) {
-          setImmediate(async () => {
-            try {
-              for (const u of targetUsers) {
-                const staleSecondaryIds = [
-                  `pplan_nkangala_auto_${u}`,
-                  `pplan_global_${u}`,
-                  `kpis_nkangala_auto_${u}`,
-                  `kpis_global_${u}`
-                ].filter(id => id !== `pplan_${primaryTenant}_${u}` && id !== `kpis_${primaryTenant}_${u}`);
-                if (staleSecondaryIds.length > 0) {
-                  await Promise.resolve(
-                    supabase.from('messages').delete().in('id', staleSecondaryIds)
-                  ).catch(() => {});
-                }
-              }
-            } catch (bgErr) {}
-          });
-        }
       }
 
       for (const k of memoryCache.keys()) {
@@ -16785,12 +16829,29 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         }
       }
       documentId = documentId.toLowerCase();
-      
-      let { data, error } = await supabase
+
+      const candidateDraftIds = Array.from(new Set([
+        documentId,
+        ...(userId && userId !== 'default' && !reqDocumentId ? [
+          `draft_doc_tenant-229_${userId}`.toLowerCase(),
+          `draft_doc_nkangala_auto_${userId}`.toLowerCase(),
+          `draft_doc_global_${userId}`.toLowerCase()
+        ] : [])
+      ]));
+
+      let data: any = null;
+      let error: any = null;
+      const draftBatchRes = await supabase
         .from('messages')
-        .select('content')
-        .eq('id', documentId)
-        .maybeSingle();
+        .select('id, content, created_at')
+        .in('id', candidateDraftIds);
+
+      if (draftBatchRes.error) {
+        error = draftBatchRes.error;
+      } else if (Array.isArray(draftBatchRes.data) && draftBatchRes.data.length > 0) {
+        draftBatchRes.data.sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+        data = draftBatchRes.data[0];
+      }
 
       // Fallback to global draft if user-specific draft doesn't exist
       if ((!data || !data.content) && userId && userId !== 'default') {
@@ -16975,19 +17036,39 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         const timestamp = new Date().toISOString();
         const contentPayload = JSON.stringify({ html: mergedHtml });
 
-        // Save to primary key
+        // Save to primary key and mirror across canonical Nkangala tenant buckets so AI Studio and the live website stay 100% in sync
+        const syncDraftRows: any[] = [{
+          id: documentId,
+          tenant_id: tenantId,
+          sender_id: 'pa_editor_tool',
+          sender_email: 'pa@system.local',
+          sender_name: 'PA Editor',
+          content: contentPayload,
+          message_type: 'drafting_suite_doc',
+          created_at: timestamp
+        }];
+
+        if (u && u !== 'default' && !htmlDocumentId) {
+          for (const altT of ['tenant-229', 'nkangala_auto', 'global']) {
+            const altDocId = `draft_doc_${altT}_${u}`.toLowerCase();
+            if (altDocId !== documentId) {
+              syncDraftRows.push({
+                id: altDocId,
+                tenant_id: altT,
+                sender_id: 'pa_editor_tool',
+                sender_email: 'pa@system.local',
+                sender_name: 'PA Editor',
+                content: contentPayload,
+                message_type: 'drafting_suite_doc',
+                created_at: timestamp
+              });
+            }
+          }
+        }
+
         const { error } = await supabase
           .from('messages')
-          .upsert({ 
-            id: documentId,
-            tenant_id: tenantId,
-            sender_id: 'pa_editor_tool',
-            sender_email: 'pa@system.local',
-            sender_name: 'PA Editor',
-            content: contentPayload,
-            message_type: 'drafting_suite_doc',
-            created_at: timestamp
-          });
+          .upsert(syncDraftRows, { onConflict: 'id' });
         
         if (error) throw error;
 
@@ -18082,11 +18163,11 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         return res.json({ kpis: [] });
       }
 
-      // Check in-memory kpisCache first for immediate 0ms consistency after saves/pushes
+      // Check in-memory kpisCache only for ultra-recent (< 2s) same-instance writes so cross-environment saves on AI Studio / Website always read fresh from Supabase
       let newestCachedKpi: { raw: string; timestamp: number } | null = null;
       for (const fId of fallbackDocIds) {
         const cachedK = kpisCache.get(fId);
-        if (cachedK && cachedK.raw) {
+        if (cachedK && cachedK.raw && (Date.now() - cachedK.timestamp < 2000)) {
           if (!newestCachedKpi || cachedK.timestamp >= newestCachedKpi.timestamp) {
             newestCachedKpi = cachedK;
           }
@@ -18286,44 +18367,34 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       const nowIso = new Date().toISOString();
       const nowMs = Date.now();
 
-      for (const tId of Array.from(new Set([canonicalTenant, tenantId, 'nkangala_auto', 'global']))) {
+      const syncKpiTenants = Array.from(new Set([canonicalTenant, tenantId, 'nkangala_auto', 'global']));
+      for (const tId of syncKpiTenants) {
         kpisCache.set(`kpis_${tId}_${userId}`, { raw: payloadStr, timestamp: nowMs });
       }
+
+      const kpiBatchRows = syncKpiTenants.map(tId => ({
+        id: `kpis_${tId}_${userId}`,
+        tenant_id: tId,
+        sender_id: 'kpi_manager_tool',
+        sender_email: 'kpi@system.local',
+        sender_name: 'KPI Manager',
+        content: payloadStr,
+        message_type: 'kpis_list',
+        created_at: nowIso
+      }));
 
       const kpiWritePromise = Promise.resolve(
         supabase
           .from('messages')
-          .upsert({ 
-            id: primaryId,
-            tenant_id: canonicalTenant,
-            sender_id: 'kpi_manager_tool',
-            sender_email: 'kpi@system.local',
-            sender_name: 'KPI Manager',
-            content: payloadStr,
-            message_type: 'kpis_list',
-            created_at: nowIso
-          }, { onConflict: 'id' })
+          .upsert(kpiBatchRows, { onConflict: 'id' })
       ).catch((err: any) => {
         console.warn("[kpis save warning]:", err?.message || err);
       });
 
       await Promise.race([
         kpiWritePromise,
-        new Promise(resolve => setTimeout(resolve, 5000))
+        new Promise(resolve => setTimeout(resolve, 6000))
       ]);
-
-      // Delete stale secondary kpis_ buckets in background so old KPIs never resurface
-      setImmediate(async () => {
-        try {
-          const staleIds = [
-            `kpis_nkangala_auto_${userId}`,
-            `kpis_global_${userId}`
-          ].filter(id => id !== primaryId);
-          if (staleIds.length > 0) {
-            await Promise.resolve(supabase.from('messages').delete().in('id', staleIds)).catch(() => {});
-          }
-        } catch (e) {}
-      });
 
       for (const k of memoryCache.keys()) {
         if (k.startsWith('team_pplans_')) memoryCache.delete(k);

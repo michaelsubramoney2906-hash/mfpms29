@@ -23,9 +23,47 @@ export const GLOBAL_ADMIN_EMAILS = [
   'marlan@mzansiflow'
 ];
 
+export const READ_ONLY_USER_EMAILS = [
+  'sivend@mzansiflow.co.za'
+];
+
+export function isReadOnlyEmail(email?: string | null): boolean {
+  if (!email) return false;
+  const clean = email.toLowerCase().trim();
+  return READ_ONLY_USER_EMAILS.includes(clean);
+}
+
+export function isReadOnlyUser(user?: User | { email?: string; role?: string; systemRole?: string; isReadOnly?: boolean } | null): boolean {
+  try {
+    if (typeof window !== 'undefined') {
+      const origStr = localStorage.getItem('originalAdminUser') || sessionStorage.getItem('originalAdminUser');
+      if (origStr && origStr !== 'undefined' && origStr !== 'null') {
+        const parsed = JSON.parse(origStr);
+        if (isReadOnlyEmail(parsed?.email) || parsed?.isReadOnly === true || String(parsed?.systemRole || '').toLowerCase().includes('read-only')) {
+          return true;
+        }
+      }
+    }
+  } catch (e) {}
+
+  if (!user) return false;
+  const email = (user.email || '').toLowerCase().trim();
+  const role = String(user.role || '').toLowerCase().trim();
+  const sysRole = String(user.systemRole || '').toLowerCase().trim();
+  return (
+    isReadOnlyEmail(email) ||
+    Boolean((user as any).isReadOnly) ||
+    role.includes('read-only') ||
+    role.includes('readonly') ||
+    sysRole.includes('read-only') ||
+    sysRole.includes('readonly')
+  );
+}
+
 export function isGlobalAdminEmail(email?: string | null): boolean {
   if (!email) return false;
   const clean = email.toLowerCase().trim();
+  if (isReadOnlyEmail(clean)) return false;
   return GLOBAL_ADMIN_EMAILS.some(adm => clean === adm || clean.startsWith(adm));
 }
 
@@ -34,9 +72,10 @@ export function isGlobalAdminEmail(email?: string | null): boolean {
  * When impersonating, strictly NO dual-role admin bleed:
  * The impersonated session adopts only the target user's true operational persona.
  */
-export function isUserUnrestricted(user?: User | { email?: string; role?: string; systemRole?: string; jobFunction?: string } | null): boolean {
+export function isUserUnrestricted(user?: User | { email?: string; role?: string; systemRole?: string; jobFunction?: string; isReadOnly?: boolean } | null): boolean {
   if (!user || !user.email) return false;
   const email = (user.email || '').toLowerCase().trim();
+  if (isReadOnlyEmail(email)) return true;
 
   if (email.includes('mahlanguen@nkangaladm.gov.za') || email.includes('mahlanguen')) {
     return true;

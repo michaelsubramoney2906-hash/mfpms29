@@ -37,6 +37,7 @@ export interface User {
   managerEmail?: string;
   reportTo?: string;
   systemRole?: string;
+  isReadOnly?: boolean;
   loginTime?: string;
   loginKickoffRef?: string;
   level?: string;

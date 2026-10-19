@@ -887,7 +887,9 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
 
         <div className="flex items-center space-x-3">
           <div className="text-right hidden sm:block mr-2">
-            <p className="text-[11px] font-black uppercase tracking-widest leading-none text-slate-900">{user.role.replace('_', ' ')}</p>
+            <p className="text-[11px] font-black uppercase tracking-widest leading-none text-slate-900">
+              {user.isReadOnly || user.email?.toLowerCase() === 'sivend@mzansiflow.co.za' ? 'READ-ONLY USER' : user.role.replace('_', ' ')}
+            </p>
             <p className="text-[10px] font-bold text-slate-500">{user.email}</p>
           </div>
           <button 

@@ -14,10 +14,12 @@ import { SystemUpdateNotification } from './components/SystemUpdateNotification'
 import { FinancialYearProvider } from './context/FinancialYearContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { performanceLogger } from './utils/performanceLogger';
+import { isReadOnlyUser } from './utils/unrestrictedHelper';
 import type { User } from './types';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
+  const [readOnlyNotice, setReadOnlyNotice] = useState<string | null>(null);
 
   // 1. Multi-Tier Persistent Storage Initialization (localStorage primary, sessionStorage fallback) + Cross-Tab Sync
   useEffect(() => {
@@ -300,7 +302,72 @@ export default function App() {
     }
   }, []);
 
+  // Global Fetch Interceptor:
+  // 1) Enforces Read-Only access for sivend@mzansiflow.co.za (blocks all mutating API calls)
+  // 2) Attaches X-User-Email / X-Original-Admin-Email and cache: 'no-store' so impersonation saves in AI Studio sync persistently with the website
+  useEffect(() => {
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const urlStr = typeof input === 'string' ? input : (input instanceof URL ? input.toString() : input.url);
+      if (urlStr.startsWith('/api/')) {
+        const method = (init?.method || (typeof input === 'object' && 'method' in input ? input.method : 'GET') || 'GET').toUpperCase();
+        const isSafeAuthOrAuditRoute =
+          urlStr.startsWith('/api/auth/login') ||
+          urlStr.startsWith('/api/auth/ping') ||
+          urlStr.startsWith('/api/auth/verify') ||
+          urlStr.startsWith('/api/audit/log-access');
+
+        let currentUserObj: any = null;
+        let origAdminObj: any = null;
+        try {
+          const curStr = localStorage.getItem('currentUser') || sessionStorage.getItem('currentUser');
+          if (curStr && curStr !== 'undefined') currentUserObj = JSON.parse(curStr);
+        } catch (e) {}
+        try {
+          const origStr = localStorage.getItem('originalAdminUser') || sessionStorage.getItem('originalAdminUser');
+          if (origStr && origStr !== 'undefined') origAdminObj = JSON.parse(origStr);
+        } catch (e) {}
+
+        const readOnlyActive = isReadOnlyUser(currentUserObj) || isReadOnlyUser(origAdminObj);
+        if (readOnlyActive && method !== 'GET' && method !== 'HEAD' && !isSafeAuthOrAuditRoute) {
+          setReadOnlyNotice('Read-Only Account: sivend@mzansiflow.co.za has view-only access. Saving and editing are disabled.');
+          setTimeout(() => setReadOnlyNotice(null), 4000);
+          return new Response(
+            JSON.stringify({
+              error: 'Read-Only Access: sivend@mzansiflow.co.za is a read-only account and cannot save or modify records.',
+              readOnly: true
+            }),
+            { status: 403, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const headers = new Headers(init?.headers || {});
+        if (currentUserObj?.email && !headers.has('X-User-Email')) {
+          headers.set('X-User-Email', String(currentUserObj.email).toLowerCase().trim());
+        }
+        if (origAdminObj?.email && !headers.has('X-Original-Admin-Email')) {
+          headers.set('X-Original-Admin-Email', String(origAdminObj.email).toLowerCase().trim());
+        }
+
+        return originalFetch(input, {
+          ...init,
+          headers,
+          cache: 'no-store'
+        });
+      }
+      return originalFetch(input, init);
+    };
+    return () => {
+      window.fetch = originalFetch;
+    };
+  }, []);
+
   const handleImpersonate = (targetUser: User | null) => {
+    if (isReadOnlyUser(user)) {
+      setReadOnlyNotice('Read-Only Account: Impersonation is disabled for read-only accounts.');
+      setTimeout(() => setReadOnlyNotice(null), 4000);
+      return;
+    }
     if (targetUser) {
       const originalAdminStr = localStorage.getItem('originalAdminUser') || sessionStorage.getItem('originalAdminUser');
       if (!originalAdminStr && user) {
@@ -337,17 +404,38 @@ export default function App() {
   };
 
   const isImpersonating = !!(localStorage.getItem('originalAdminUser') || sessionStorage.getItem('originalAdminUser'));
+  const isCurrentReadOnly = isReadOnlyUser(user);
 
   return (
     <ThemeProvider>
       {/* Real-time zero-data-loss System Update Notification */}
       <SystemUpdateNotification />
+      {readOnlyNotice && (
+        <div className="fixed bottom-6 right-6 z-[99999] bg-slate-900 border border-amber-500/60 text-amber-200 px-5 py-3.5 rounded-xl shadow-2xl flex items-center gap-3 text-xs font-bold">
+          <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0" />
+          <span>{readOnlyNotice}</span>
+          <button onClick={() => setReadOnlyNotice(null)} className="text-slate-400 hover:text-white ml-2 cursor-pointer">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
       {!user ? (
         <LandingPage onLogin={handleSetUser} />
       ) : (
         <FinancialYearProvider>
           <DataLossPreventionWrapper user={user}>
             <div className="flex flex-col min-h-screen">
+              {isCurrentReadOnly && (
+                <div className="bg-sky-900/95 text-sky-100 px-8 py-2 flex items-center justify-between text-xs font-bold uppercase tracking-wider z-[999] shadow-md border-b border-sky-700 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <ShieldAlert className="w-4 h-4 text-sky-300" />
+                    <span>Read-Only Access Mode: <span className="font-black text-white">{user?.email}</span> — View Only (Editing &amp; Saving Disabled)</span>
+                  </div>
+                  <span className="bg-sky-950 border border-sky-700 text-sky-300 px-2.5 py-0.5 rounded text-[10px] font-black tracking-widest">
+                    READ ONLY
+                  </span>
+                </div>
+              )}
 
               {isImpersonating && (
                 <div className="bg-amber-500 text-black px-8 py-2.5 flex items-center justify-between text-xs font-bold uppercase tracking-wider z-[999] shadow-md border-b border-amber-600 shrink-0">
@@ -369,13 +457,13 @@ export default function App() {
                     <NEDAPortal 
                       user={user} 
                       onLogout={handleLogout} 
-                      onImpersonate={handleImpersonate} 
+                      onImpersonate={isCurrentReadOnly ? undefined : handleImpersonate} 
                     />
                   ) : (
                     <Dashboard 
                       user={user} 
                       onLogout={handleLogout} 
-                      onImpersonate={handleImpersonate} 
+                      onImpersonate={isCurrentReadOnly ? undefined : handleImpersonate} 
                     />
                   )}
                 </SecurityShield>
