@@ -256,7 +256,12 @@ export function FredGmPerformancePlanExtractor({
         };
       });
 
-      const pushRes = await fetch(`/api/tenant/${activeTenantId}/ipms/gm-push-plan`, {
+      const normTarget = targetEmail.toLowerCase().trim();
+      const effectiveTenantId = (activeTenantId === 'global' || activeTenantId === 'nkangala_auto' || !activeTenantId) && normTarget.includes('nkangala')
+        ? 'tenant-229'
+        : activeTenantId;
+
+      let pushRes = await fetch(`/api/tenant/${effectiveTenantId}/ipms/gm-push-plan`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -266,13 +271,30 @@ export function FredGmPerformancePlanExtractor({
           sourceFileName
         })
       });
-
-      if (!pushRes.ok) {
-        const errData = await pushRes.json();
-        throw new Error(errData.error || 'Failed to push GM performance plan data.');
+      if (pushRes.status === 502 || pushRes.status === 503 || pushRes.status === 504) {
+        await new Promise(r => setTimeout(r, 800));
+        pushRes = await fetch(`/api/tenant/${effectiveTenantId}/ipms/gm-push-plan`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userEmail: targetEmail,
+            items: planItems,
+            kpas: extractedKpas,
+            sourceFileName
+          })
+        });
       }
 
-      window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: targetEmail } }));
+      if (!pushRes.ok) {
+        let errMsg = `Server returned error status ${pushRes.status}`;
+        try {
+          const errData = await pushRes.json();
+          if (errData?.error) errMsg = errData.error;
+        } catch (e) {}
+        throw new Error(errMsg);
+      }
+
+      window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: effectiveTenantId, userId: targetEmail } }));
 
       setStatusMessage({
         type: 'success',

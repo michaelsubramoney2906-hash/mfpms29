@@ -277,9 +277,30 @@ export function FredPerformancePlanExtractor({
         ? 'tenant-229'
         : activeTenantId;
 
+      // Helper to retry once on gateway timeouts (502/503/504)
+      const fetchWithRetry = async (url: string, options: RequestInit, retries = 1): Promise<Response> => {
+        for (let attempt = 0; attempt <= retries; attempt++) {
+          try {
+            const response = await fetch(url, options);
+            if ((response.status === 502 || response.status === 503 || response.status === 504) && attempt < retries) {
+              await new Promise(r => setTimeout(r, 800));
+              continue;
+            }
+            return response;
+          } catch (err) {
+            if (attempt < retries) {
+              await new Promise(r => setTimeout(r, 800));
+              continue;
+            }
+            throw err;
+          }
+        }
+        return fetch(url, options);
+      };
+
       // Push strictly to the target individual's pplan endpoint
       // Note: This saves strictly to pplan_${tenantId}_${targetEmail} in Supabase with ZERO SDBIP contamination.
-      const res = await fetch(`/api/tenant/${effectiveTenantId}/pplan?userId=${encodeURIComponent(targetEmail)}`, {
+      const res = await fetchWithRetry(`/api/tenant/${effectiveTenantId}/pplan?userId=${encodeURIComponent(targetEmail)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -289,45 +310,46 @@ export function FredPerformancePlanExtractor({
       });
 
       if (!res.ok) {
-        throw new Error(`Server returned error status ${res.status}`);
+        let errDetail = '';
+        try {
+          const errJson = await res.json();
+          if (errJson?.error) errDetail = ` (${errJson.error})`;
+        } catch (e) {}
+        throw new Error(`Server returned error status ${res.status}${errDetail}`);
       }
 
-      // Also strictly align the user's KPIs and KPAs registers to prevent any legacy phantom injections
-      try {
-        await fetch(`/api/tenant/${effectiveTenantId}/kpis?userId=${encodeURIComponent(targetEmail)}`, {
+      // Concurrently align the user's KPIs and KPAs registers and clear extraction snapshots
+      const uniqueKpaTitles = Array.from(new Set(
+        (extractedKpas.length > 0
+          ? extractedKpas.map((k: any) => k.kpa || k.functionalKpa || k.title || k.name || '')
+          : planItems.map(it => it.kpa)
+        ).map(s => String(s || '').trim()).filter(Boolean)
+      ));
+      const kpaPayload = uniqueKpaTitles.map((title, idx) => ({
+        id: `kpa-extracted-${idx + 1}`,
+        title,
+        nationalKpa: title,
+        parentObjective: 'To ensure sustainable service delivery and clean audit compliance',
+        mscoaCode: 'Operational',
+        weighting: ''
+      }));
+
+      await Promise.allSettled([
+        fetch(`/api/tenant/${effectiveTenantId}/kpis?userId=${encodeURIComponent(targetEmail)}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ kpis: planItems, replace: true })
-        });
-      } catch (e) {
-        console.warn("KPI register sync warning:", e);
-      }
-
-      try {
-        const uniqueKpaTitles = Array.from(new Set(
-          (extractedKpas.length > 0
-            ? extractedKpas.map((k: any) => k.kpa || k.functionalKpa || k.title || k.name || '')
-            : planItems.map(it => it.kpa)
-          ).map(s => String(s || '').trim()).filter(Boolean)
-        ));
-        if (uniqueKpaTitles.length > 0) {
-          const kpaPayload = uniqueKpaTitles.map((title, idx) => ({
-            id: `kpa-extracted-${idx + 1}`,
-            title,
-            nationalKpa: title,
-            parentObjective: 'To ensure sustainable service delivery and clean audit compliance',
-            mscoaCode: 'Operational',
-            weighting: ''
-          }));
-          await fetch(`/api/tenant/${effectiveTenantId}/kpas?userId=${encodeURIComponent(targetEmail)}`, {
+        }),
+        ...(kpaPayload.length > 0 ? [
+          fetch(`/api/tenant/${effectiveTenantId}/kpas?userId=${encodeURIComponent(targetEmail)}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ kpas: kpaPayload, customKpaTable: null })
-          });
-        }
-      } catch (e) {
-        console.warn("KPA register sync warning:", e);
-      }
+          })
+        ] : []),
+        fetch(`/api/tenant/${effectiveTenantId}/fred-extraction/performance_agreement?userId=${encodeURIComponent(targetEmail)}`, { method: 'DELETE' }),
+        fetch(`/api/tenant/${effectiveTenantId}/fred-extraction/ipp?userId=${encodeURIComponent(targetEmail)}`, { method: 'DELETE' })
+      ]);
 
       window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: effectiveTenantId, userId: targetEmail } }));
 
@@ -337,14 +359,6 @@ export function FredPerformancePlanExtractor({
       setSourceFileName('');
       setSelectedFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
-
-      // Clear the saved extraction snapshots from server/Supabase
-      try {
-        await Promise.allSettled([
-          fetch(`/api/tenant/${effectiveTenantId}/fred-extraction/performance_agreement?userId=${encodeURIComponent(targetEmail)}`, { method: 'DELETE' }),
-          fetch(`/api/tenant/${effectiveTenantId}/fred-extraction/ipp?userId=${encodeURIComponent(targetEmail)}`, { method: 'DELETE' })
-        ]);
-      } catch (e) {}
 
       setStatusMessage({
         type: 'success',
@@ -421,7 +435,12 @@ export function FredPerformancePlanExtractor({
         _pushedAt: new Date().toISOString()
       };
 
-      const res = await fetch(`/api/tenant/${activeTenantId}/team-pplan?userId=${encodeURIComponent(targetEmail)}`, {
+      const normTarget = targetEmail.toLowerCase().trim();
+      const effectiveTenantId = (activeTenantId === 'global' || activeTenantId === 'nkangala_auto' || !activeTenantId) && normTarget.includes('nkangala')
+        ? 'tenant-229'
+        : activeTenantId;
+
+      let res = await fetch(`/api/tenant/${effectiveTenantId}/team-pplan?userId=${encodeURIComponent(targetEmail)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -429,6 +448,17 @@ export function FredPerformancePlanExtractor({
           items: planItems
         })
       });
+      if (res.status === 502 || res.status === 503 || res.status === 504) {
+        await new Promise(r => setTimeout(r, 800));
+        res = await fetch(`/api/tenant/${effectiveTenantId}/team-pplan?userId=${encodeURIComponent(targetEmail)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            metadata: planMetadata,
+            items: planItems
+          })
+        });
+      }
 
       if (!res.ok) {
         throw new Error(`Server returned error status ${res.status}`);
@@ -444,8 +474,8 @@ export function FredPerformancePlanExtractor({
       // Clear saved extraction snapshots from server/Supabase
       try {
         await Promise.allSettled([
-          fetch(`/api/tenant/${activeTenantId}/fred-extraction/performance_agreement?userId=${encodeURIComponent(targetEmail)}`, { method: 'DELETE' }),
-          fetch(`/api/tenant/${activeTenantId}/fred-extraction/ipp?userId=${encodeURIComponent(targetEmail)}`, { method: 'DELETE' })
+          fetch(`/api/tenant/${effectiveTenantId}/fred-extraction/performance_agreement?userId=${encodeURIComponent(targetEmail)}`, { method: 'DELETE' }),
+          fetch(`/api/tenant/${effectiveTenantId}/fred-extraction/ipp?userId=${encodeURIComponent(targetEmail)}`, { method: 'DELETE' })
         ]);
       } catch (e) {}
 

@@ -106,6 +106,7 @@ export async function fetchWithCoalescing<T>(
 }
 
 const pplanCache = new Map<string, { raw: string; timestamp: number }>();
+const kpisCache = new Map<string, { raw: string; timestamp: number }>();
 const paVersionsMemoryStore = new Map<string, any[]>();
 const sdbipMemoryStore = new Map<string, any[]>();
 
@@ -2047,48 +2048,53 @@ CRITICAL MAPPING & EXTRACTION RULES:
           );
         }
 
+        const kpiPayloadStr = JSON.stringify({ kpis: formattedItems });
         for (const docId of targetDocIds) {
           if (docId.startsWith('pplan_')) {
             pplanCache.set(docId, { raw: pplanPayload, timestamp: Date.now() });
+          } else if (docId.startsWith('kpis_')) {
+            kpisCache.set(docId, { raw: kpiPayloadStr, timestamp: Date.now() });
           }
         }
 
-        try {
-          await Promise.all(
-            Array.from(new Set(targetDocIds)).map(docId =>
-              supabase.from('messages').upsert({
+        const gmWritePromise = (async () => {
+          try {
+            const primaryDocs = [
+              `pplan_tenant-229_${userId}`,
+              `kpis_tenant-229_${userId}`
+            ];
+            await supabase.from('messages').upsert(
+              primaryDocs.map(docId => ({
                 id: docId,
-                tenant_id: docId.includes('tenant-229') ? 'tenant-229' : (docId.includes('nkangala_auto') ? 'nkangala_auto' : (docId.includes('global') ? 'global' : tenantId)),
+                tenant_id: 'tenant-229',
                 sender_id: 'fred_gm_extractor',
                 sender_email: userEmail,
                 sender_name: 'FRED GM Extractor',
-                content: docId.startsWith('kpis_') ? JSON.stringify({ kpis: formattedItems }) : pplanPayload,
+                content: docId.startsWith('kpis_') ? kpiPayloadStr : pplanPayload,
                 message_type: docId.startsWith('kpis_') ? 'kpis_list' : 'pplan_list',
                 created_at: nowIso
-              }, { onConflict: 'id' })
-            )
-          );
+              })),
+              { onConflict: 'id' }
+            );
 
-          const uniqueKpaTitles = Array.from(new Set(
-            (Array.isArray(kpas) && kpas.length > 0
-              ? kpas.map((k: any) => typeof k === 'string' ? k : (k.kpa || k.title || k.nationalKpa || ''))
-              : formattedItems.map((it: any) => it.kpa || it.functionalKpa || it['functional kpa'] || '')
-            ).map((s: string) => String(s || '').trim()).filter(Boolean)
-          ));
-          if (uniqueKpaTitles.length > 0) {
-            const kpaObjs = uniqueKpaTitles.map((title, idx) => ({
-              id: `kpa-extracted-${idx + 1}`,
-              title,
-              nationalKpa: title,
-              parentObjective: 'To ensure sustainable service delivery and clean audit compliance',
-              mscoaCode: 'Operational',
-              weighting: ''
-            }));
-            const kpaTenants = Array.from(new Set([tenantId, 'tenant-229', 'nkangala_auto', 'global']));
-            for (const tKey of kpaTenants) {
+            const uniqueKpaTitles = Array.from(new Set(
+              (Array.isArray(kpas) && kpas.length > 0
+                ? kpas.map((k: any) => typeof k === 'string' ? k : (k.kpa || k.title || k.nationalKpa || ''))
+                : formattedItems.map((it: any) => it.kpa || it.functionalKpa || it['functional kpa'] || '')
+              ).map((s: string) => String(s || '').trim()).filter(Boolean)
+            ));
+            if (uniqueKpaTitles.length > 0) {
+              const kpaObjs = uniqueKpaTitles.map((title, idx) => ({
+                id: `kpa-extracted-${idx + 1}`,
+                title,
+                nationalKpa: title,
+                parentObjective: 'To ensure sustainable service delivery and clean audit compliance',
+                mscoaCode: 'Operational',
+                weighting: ''
+              }));
               await supabase.from('messages').upsert({
-                id: `kpas_${tKey}_${userId}`,
-                tenant_id: tKey,
+                id: `kpas_tenant-229_${userId}`,
+                tenant_id: 'tenant-229',
                 sender_id: 'kpa_capturing_tool',
                 sender_email: 'kpa@system.local',
                 sender_name: 'KPA Manager',
@@ -2097,12 +2103,18 @@ CRITICAL MAPPING & EXTRACTION RULES:
                 created_at: nowIso
               }, { onConflict: 'id' });
             }
+          } catch (msgErr) {
+            console.warn("[GM Push Plan] messages upsert error:", msgErr);
           }
-          for (const k of memoryCache.keys()) {
-            if (k.startsWith('team_pplans_')) memoryCache.delete(k);
-          }
-        } catch (msgErr) {
-          console.warn("[GM Push Plan] messages upsert error:", msgErr);
+        })();
+
+        await Promise.race([
+          gmWritePromise,
+          new Promise(resolve => setTimeout(resolve, 5000))
+        ]);
+
+        for (const k of memoryCache.keys()) {
+          if (k.startsWith('team_pplans_')) memoryCache.delete(k);
         }
       }
 
@@ -9030,22 +9042,28 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       const targetTenants = Array.from(new Set([canonicalTenant, tenantId]));
       const nowIso = new Date().toISOString();
 
-      for (const tKey of targetTenants) {
-        const documentId = `kpas_${tKey}_${userId}`;
-        const { error } = await supabase
-          .from('messages')
-          .upsert({ 
-            id: documentId,
-            tenant_id: tKey,
-            sender_id: 'kpa_capturing_tool',
-            sender_email: 'kpa@system.local',
-            sender_name: 'KPA Manager',
-            content: JSON.stringify(payload),
-            message_type: 'kpas_list',
-            created_at: nowIso
-          }, { onConflict: 'id' });
-        if (error) throw error;
-      }
+      const upsertRows = targetTenants.map(tKey => ({
+        id: `kpas_${tKey}_${userId}`,
+        tenant_id: tKey,
+        sender_id: 'kpa_capturing_tool',
+        sender_email: 'kpa@system.local',
+        sender_name: 'KPA Manager',
+        content: JSON.stringify(payload),
+        message_type: 'kpas_list',
+        created_at: nowIso
+      }));
+
+      const kpaSavePromise = Promise.resolve(
+        supabase.from('messages').upsert(upsertRows, { onConflict: 'id' })
+      ).catch((err: any) => {
+        console.warn("[kpas save warning]:", err?.message || err);
+      });
+
+      await Promise.race([
+        kpaSavePromise,
+        new Promise(resolve => setTimeout(resolve, 5000))
+      ]);
+
       invalidateCommandCenterCache();
       res.json({ success: true });
     } catch (err: any) {
@@ -15362,12 +15380,16 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             } catch (e) {}
           }
         }
-        if (!existingParsedPlan && supabase) {
+        if (!existingParsedPlan && supabase && !(isAuthoritativeReplacePost && metadata && metadata._isFredExtracted === true)) {
           try {
-            const { data: exRows } = await supabase
-              .from('messages')
-              .select('id, content')
-              .in('id', candidateKeys);
+            const exResult: any = await Promise.race([
+              supabase
+                .from('messages')
+                .select('id, content')
+                .in('id', candidateKeys),
+              new Promise(resolve => setTimeout(() => resolve({ data: null, timedOut: true }), 2000))
+            ]);
+            const exRows = exResult?.data;
             if (Array.isArray(exRows)) {
               for (const r of exRows) {
                 if (r && r.content) {
@@ -15430,11 +15452,16 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         });
       }
 
-      // Enrich manager metadata from consolidated directory so manager routing is always accurate
+      // Enrich manager metadata from in-memory consolidated directory cache (non-blocking 0ms lookup to prevent 504 gateway timeouts)
       let uProfile: any = null;
       try {
-        const consolidated = await getConsolidatedUsersList(tenantId);
-        uProfile = consolidated.find((u: any) => (u.email || '').toLowerCase().trim() === userId.toLowerCase().trim());
+        const cachedUsers = getCached<any[]>('consolidated_users_nkangala_master', 86400000) || cachedDiskUsersList || [];
+        uProfile = cachedUsers.find((u: any) => (u.email || '').toLowerCase().trim() === userId.toLowerCase().trim());
+        if (!cachedUsers.length) {
+          setImmediate(() => {
+            getConsolidatedUsersList(tenantId).catch(() => {});
+          });
+        }
       } catch (e) {}
 
       const nowIso = new Date().toISOString();
@@ -15466,95 +15493,75 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
 
       const payloadStr = JSON.stringify({ metadata: updatedMeta, items: sanitizedItems, rows: sanitizedItems });
+      const cleanKpiItems = sanitizedItems.map((it: any) => {
+        const { poeFileBase64, q1PoeDocs, q2PoeDocs, q3PoeDocs, q4PoeDocs, annualPoeDocs, midtermPoeDocs, ...rest } = it;
+        return rest;
+      });
+      const kpiPayloadStr = JSON.stringify({ kpis: cleanKpiItems });
 
-      // Always populate local in-memory cache for immediate UI persistence
+      // Always populate local in-memory caches across all candidate tenant buckets for immediate 0ms UI consistency
+      const nowMs = Date.now();
       for (const u of targetUsers) {
         for (const tId of syncTenants) {
-          const uDocId = `pplan_${tId}_${u}`;
-          pplanCache.set(uDocId, { raw: payloadStr, timestamp: Date.now() });
+          pplanCache.set(`pplan_${tId}_${u}`, { raw: payloadStr, timestamp: nowMs });
+          kpisCache.set(`kpis_${tId}_${u}`, { raw: kpiPayloadStr, timestamp: nowMs });
         }
       }
 
       if (supabase) {
-        // Single canonical write awaited for guaranteed durability (eliminates 4x multi-megabyte write amplification)
         const primaryTenant = syncTenants.includes('tenant-229') ? 'tenant-229' : tenantId;
-        const primaryUpserts: Promise<any>[] = [];
+        const batchRows: any[] = [];
         for (const u of targetUsers) {
-          const primaryDocId = `pplan_${primaryTenant}_${u}`;
-          primaryUpserts.push(
-            Promise.resolve(
-              supabase
-                .from('messages')
-                .upsert({
-                  id: primaryDocId,
-                  tenant_id: primaryTenant,
-                  sender_id: 'pplan_editor_tool',
-                  sender_email: 'pplan@system.local',
-                  sender_name: 'PPLAN Editor',
-                  content: payloadStr,
-                  message_type: 'pplan_list',
-                  created_at: nowIso
-                }, { onConflict: 'id' })
-            ).catch((sErr: any) => {
-              console.warn(`[pplan primary save warning] ${primaryDocId}:`, sErr?.message || sErr);
-            })
-          );
+          batchRows.push({
+            id: `pplan_${primaryTenant}_${u}`,
+            tenant_id: primaryTenant,
+            sender_id: 'pplan_editor_tool',
+            sender_email: 'pplan@system.local',
+            sender_name: 'PPLAN Editor',
+            content: payloadStr,
+            message_type: 'pplan_list',
+            created_at: nowIso
+          });
+          batchRows.push({
+            id: `kpis_${primaryTenant}_${u}`,
+            tenant_id: primaryTenant,
+            sender_id: 'kpi_manager_tool',
+            sender_email: 'kpi@system.local',
+            sender_name: 'KPI Manager',
+            content: kpiPayloadStr,
+            message_type: 'kpis_list',
+            created_at: nowIso
+          });
         }
-        await Promise.allSettled(primaryUpserts);
 
-        const cleanKpiItems = sanitizedItems.map((it: any) => {
-          const { poeFileBase64, q1PoeDocs, q2PoeDocs, q3PoeDocs, q4PoeDocs, annualPoeDocs, midtermPoeDocs, ...rest } = it;
-          return rest;
+        // Single batched upsert bounded by a 5-second race so reverse proxy never triggers 504 Gateway Timeout
+        const primaryWritePromise = Promise.resolve(
+          supabase.from('messages').upsert(batchRows, { onConflict: 'id' })
+        ).catch((sErr: any) => {
+          console.warn(`[pplan primary batch save warning]:`, sErr?.message || sErr);
         });
 
-        // If plan was explicitly cleared or authoritatively replaced, synchronously update KPIs and delete stale secondary pplan_ and kpis_ rows so immediate navigation never reads stale KPIs
-        if (isExplicitlyClearedPost || isAuthoritativeReplacePost) {
-          for (const u of targetUsers) {
-            for (const tId of ['nkangala_auto', 'global']) {
-              pplanCache.delete(`pplan_${tId}_${u}`);
-            }
-            await Promise.resolve(
-              supabase.from('messages').upsert({
-                id: `kpis_${primaryTenant}_${u}`,
-                tenant_id: primaryTenant,
-                sender_id: 'kpi_manager_tool',
-                sender_email: 'kpi@system.local',
-                sender_name: 'KPI Manager',
-                content: JSON.stringify({ kpis: cleanKpiItems }),
-                message_type: 'kpis_list',
-                created_at: nowIso
-              }, { onConflict: 'id' })
-            ).catch(() => {});
+        await Promise.race([
+          primaryWritePromise,
+          new Promise(resolve => setTimeout(resolve, 5000))
+        ]);
 
-            const staleSecondaryIds = [
-              `pplan_nkangala_auto_${u}`,
-              `pplan_global_${u}`,
-              `kpis_nkangala_auto_${u}`,
-              `kpis_global_${u}`
-            ].filter(id => id !== `pplan_${primaryTenant}_${u}` && id !== `kpis_${primaryTenant}_${u}`);
-            if (staleSecondaryIds.length > 0) {
-              await Promise.resolve(
-                supabase.from('messages').delete().in('id', staleSecondaryIds)
-              ).catch(() => {});
-            }
-          }
-        } else {
-          // Lightweight KPI summary sync in background for normal incremental edits
+        // Asynchronously clean up / synchronize secondary buckets in background without blocking the HTTP response
+        if (isExplicitlyClearedPost || isAuthoritativeReplacePost) {
           setImmediate(async () => {
             try {
               for (const u of targetUsers) {
-                await Promise.resolve(
-                  supabase.from('messages').upsert({
-                    id: `kpis_${primaryTenant}_${u}`,
-                    tenant_id: primaryTenant,
-                    sender_id: 'kpi_manager_tool',
-                    sender_email: 'kpi@system.local',
-                    sender_name: 'KPI Manager',
-                    content: JSON.stringify({ kpis: cleanKpiItems }),
-                    message_type: 'kpis_list',
-                    created_at: nowIso
-                  }, { onConflict: 'id' })
-                ).catch(() => {});
+                const staleSecondaryIds = [
+                  `pplan_nkangala_auto_${u}`,
+                  `pplan_global_${u}`,
+                  `kpis_nkangala_auto_${u}`,
+                  `kpis_global_${u}`
+                ].filter(id => id !== `pplan_${primaryTenant}_${u}` && id !== `kpis_${primaryTenant}_${u}`);
+                if (staleSecondaryIds.length > 0) {
+                  await Promise.resolve(
+                    supabase.from('messages').delete().in('id', staleSecondaryIds)
+                  ).catch(() => {});
+                }
               }
             } catch (bgErr) {}
           });
@@ -15695,6 +15702,15 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       const tenantId = await resolveTenantId(routeTenantId, userId);
       const documentId = `team_pplan_${tenantId}_${userId}`;
 
+      const cached = pplanCache.get(documentId);
+      if (cached && cached.raw) {
+        try {
+          const parsedCache = JSON.parse(cached.raw);
+          const rawListCache = parsedCache ? (parsedCache.items || parsedCache.rows || parsedCache.kpis || []) : [];
+          return res.json({ metadata: parsedCache.metadata || {}, items: rawListCache, rows: rawListCache });
+        } catch (e) {}
+      }
+
       let { data, error } = await supabase
         .from('messages')
         .select('content')
@@ -15713,19 +15729,21 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           `team_pplan_tenant-229_all`,
           `team_pplan_nkangala_auto_all`,
           `team_pplan_global_all`
-        ];
+        ].filter(k => k !== documentId);
 
-        for (const fKey of fallbackKeys) {
-          if (fKey === documentId) continue;
-          const fbRes = await supabase.from('messages').select('content').eq('id', fKey).maybeSingle();
-          if (fbRes.data && fbRes.data.content) {
-            try {
-              const fbParsed = JSON.parse(fbRes.data.content);
-              const fbList = Array.isArray(fbParsed) ? fbParsed : (fbParsed.items || fbParsed.rows || fbParsed.kpis || []);
-              if (Array.isArray(fbList) && fbList.length > 0) {
-                return res.json({ metadata: fbParsed.metadata || {}, items: fbList, rows: fbList });
-              }
-            } catch (e) {}
+        const fbRes = await supabase.from('messages').select('id, content').in('id', fallbackKeys);
+        if (fbRes.data && Array.isArray(fbRes.data)) {
+          for (const fKey of fallbackKeys) {
+            const matchRow = fbRes.data.find((r: any) => r.id === fKey);
+            if (matchRow && matchRow.content) {
+              try {
+                const fbParsed = JSON.parse(matchRow.content);
+                const fbList = Array.isArray(fbParsed) ? fbParsed : (fbParsed.items || fbParsed.rows || fbParsed.kpis || []);
+                if (Array.isArray(fbList) && fbList.length > 0) {
+                  return res.json({ metadata: fbParsed.metadata || {}, items: fbList, rows: fbList });
+                }
+              } catch (e) {}
+            }
           }
         }
       }
@@ -15735,7 +15753,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
 
       res.json({ metadata: parsed.metadata || {}, items: rawList, rows: rawList });
-    } catch (err) {
+    } catch (err: any) {
       console.error("team-pplan get exception:", err);
       res.status(500).json({ error: err.message, items: [] });
     }
@@ -15761,42 +15779,48 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         : [tenantId];
 
       const sanitizedItems = Array.isArray(items) ? items.map((it: any) => sanitizePplanItem(it, userId)) : [];
+      const payloadStr = JSON.stringify({ metadata: metadata || { name: 'Team Performance Plan' }, items: sanitizedItems });
+      const nowIso = new Date().toISOString();
+      const upsertRows: any[] = [];
 
       for (const u of targetUsers) {
         for (const tId of syncTenants) {
           const uDocId = `team_pplan_${tId}_${u}`;
-          await supabase
-            .from('messages')
-            .upsert({ 
-              id: uDocId,
-              tenant_id: tId,
-              sender_id: 'team_pplan_editor_tool',
-              sender_email: 'team_pplan@system.local',
-              sender_name: 'Team PPLAN Editor',
-              content: JSON.stringify({ metadata: metadata || { name: 'Team Performance Plan' }, items: sanitizedItems }),
-              message_type: 'team_pplan_list',
-              created_at: new Date().toISOString()
-            });
-
-          // Also save to generic team all snapshot for easy team-wide adoption
           const allDocId = `team_pplan_${tId}_all`;
-          await supabase
-            .from('messages')
-            .upsert({ 
-              id: allDocId,
-              tenant_id: tId,
-              sender_id: 'team_pplan_editor_tool',
-              sender_email: 'team_pplan@system.local',
-              sender_name: 'Team PPLAN Editor',
-              content: JSON.stringify({ metadata: metadata || { name: 'Team Performance Plan' }, items: sanitizedItems }),
-              message_type: 'team_pplan_list',
-              created_at: new Date().toISOString()
-            });
+          pplanCache.set(uDocId, { raw: payloadStr, timestamp: Date.now() });
+          pplanCache.set(allDocId, { raw: payloadStr, timestamp: Date.now() });
+          upsertRows.push({
+            id: uDocId,
+            tenant_id: tId,
+            sender_id: 'team_pplan_editor_tool',
+            sender_email: 'team_pplan@system.local',
+            sender_name: 'Team PPLAN Editor',
+            content: payloadStr,
+            message_type: 'team_pplan_list',
+            created_at: nowIso
+          });
+          upsertRows.push({
+            id: allDocId,
+            tenant_id: tId,
+            sender_id: 'team_pplan_editor_tool',
+            sender_email: 'team_pplan@system.local',
+            sender_name: 'Team PPLAN Editor',
+            content: payloadStr,
+            message_type: 'team_pplan_list',
+            created_at: nowIso
+          });
         }
       }
 
+      await Promise.race([
+        Promise.resolve(supabase.from('messages').upsert(upsertRows)).catch((err) => {
+          console.error("team-pplan batch upsert error:", err);
+        }),
+        new Promise((resolve) => setTimeout(resolve, 4500))
+      ]);
+
       res.json({ success: true, count: sanitizedItems.length });
-    } catch (err) {
+    } catch (err: any) {
       console.error("team-pplan save exception:", err);
       res.status(500).json({ error: err.message });
     }
@@ -18058,6 +18082,40 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         return res.json({ kpis: [] });
       }
 
+      // Check in-memory kpisCache first for immediate 0ms consistency after saves/pushes
+      let newestCachedKpi: { raw: string; timestamp: number } | null = null;
+      for (const fId of fallbackDocIds) {
+        const cachedK = kpisCache.get(fId);
+        if (cachedK && cachedK.raw) {
+          if (!newestCachedKpi || cachedK.timestamp >= newestCachedKpi.timestamp) {
+            newestCachedKpi = cachedK;
+          }
+        }
+      }
+      if (newestCachedKpi) {
+        try {
+          const parsedCached = JSON.parse(newestCachedKpi.raw);
+          let cachedList = Array.isArray(parsedCached) ? parsedCached : (parsedCached.kpis || parsedCached.items || []);
+          if (Array.isArray(cachedList)) {
+            cachedList = cachedList.map((it: any) => {
+              const kId = String(it.id || '').toLowerCase().trim();
+              const kNo = String(it.kpiNo || '').toLowerCase().trim();
+              const overlay = (kId && pplanStatusOverlay.get(`id:${kId}`)) || (kNo && pplanStatusOverlay.get(`no:${kNo}`));
+              const revStatus = overlay?.reviewStatus || it.reviewStatus;
+              const revApproval = overlay?.reviewApprovalStatus || it.reviewApprovalStatus || (revStatus === 'Approved' ? 'Approved' : (revStatus === 'Revision Required' || revStatus === 'Rejected' ? 'Rejected' : undefined));
+              return {
+                ...it,
+                ...(revStatus ? { reviewStatus: revStatus } : {}),
+                ...(revApproval ? { reviewApprovalStatus: revApproval } : {}),
+                ...(overlay?.managerScore ? { managerScore: overlay.managerScore } : {}),
+                ...(overlay?.reviewComment || overlay?.review ? { reviewComment: overlay.reviewComment || overlay.review } : {})
+              };
+            });
+            return res.json({ kpis: cachedList });
+          }
+        } catch (e) {}
+      }
+
       const { data: kpiRows } = await supabase
         .from('messages')
         .select('id, content, created_at')
@@ -18220,13 +18278,19 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         });
       }
       const payload = { kpis: cleanKpis };
+      const payloadStr = JSON.stringify(payload);
       const canonicalTenant = (tenantId === 'nkangala_auto' || tenantId === 'tenant-229' || userId.includes('@nkangaladm.gov.za'))
         ? 'tenant-229'
         : tenantId;
       const primaryId = `kpis_${canonicalTenant}_${userId}`;
       const nowIso = new Date().toISOString();
+      const nowMs = Date.now();
 
-      await Promise.resolve(
+      for (const tId of Array.from(new Set([canonicalTenant, tenantId, 'nkangala_auto', 'global']))) {
+        kpisCache.set(`kpis_${tId}_${userId}`, { raw: payloadStr, timestamp: nowMs });
+      }
+
+      const kpiWritePromise = Promise.resolve(
         supabase
           .from('messages')
           .upsert({ 
@@ -18235,11 +18299,18 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             sender_id: 'kpi_manager_tool',
             sender_email: 'kpi@system.local',
             sender_name: 'KPI Manager',
-            content: JSON.stringify(payload),
+            content: payloadStr,
             message_type: 'kpis_list',
             created_at: nowIso
           }, { onConflict: 'id' })
-      );
+      ).catch((err: any) => {
+        console.warn("[kpis save warning]:", err?.message || err);
+      });
+
+      await Promise.race([
+        kpiWritePromise,
+        new Promise(resolve => setTimeout(resolve, 5000))
+      ]);
 
       // Delete stale secondary kpis_ buckets in background so old KPIs never resurface
       setImmediate(async () => {
