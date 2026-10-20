@@ -909,7 +909,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
         <div className="flex items-center space-x-3">
           <div className="text-right hidden sm:block mr-2">
             <p className={cn("text-[11px] font-black uppercase tracking-widest leading-none", isDark ? "text-white" : "text-black")}>
-              {user.isReadOnly || user.email?.toLowerCase() === 'sivend@mzansiflow.co.za' ? 'READ-ONLY USER' : user.role.replace('_', ' ')}
+              {user.isReadOnly ? 'READ-ONLY USER' : user.role.replace('_', ' ')}
             </p>
             <p className={cn("text-[10px] font-bold", isDark ? "text-neutral-400" : "text-neutral-600")}>{user.email}</p>
           </div>

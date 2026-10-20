@@ -23,9 +23,7 @@ export const GLOBAL_ADMIN_EMAILS = [
   'marlan@mzansiflow'
 ];
 
-export const READ_ONLY_USER_EMAILS = [
-  'sivend@mzansiflow.co.za'
-];
+export const READ_ONLY_USER_EMAILS: string[] = [];
 
 export function isReadOnlyEmail(email?: string | null): boolean {
   if (!email) return false;

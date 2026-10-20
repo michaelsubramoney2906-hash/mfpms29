@@ -303,7 +303,7 @@ export default function App() {
   }, []);
 
   // Global Fetch Interceptor:
-  // 1) Enforces Read-Only access for sivend@mzansiflow.co.za (blocks all mutating API calls)
+  // 1) Enforces Read-Only access for read-only accounts (blocks all mutating API calls)
   // 2) Attaches X-User-Email / X-Original-Admin-Email and cache: 'no-store' so impersonation saves in AI Studio sync persistently with the website
   useEffect(() => {
     const originalFetch = window.fetch.bind(window);
@@ -330,11 +330,11 @@ export default function App() {
 
         const readOnlyActive = isReadOnlyUser(currentUserObj) || isReadOnlyUser(origAdminObj);
         if (readOnlyActive && method !== 'GET' && method !== 'HEAD' && !isSafeAuthOrAuditRoute) {
-          setReadOnlyNotice('Read-Only Account: sivend@mzansiflow.co.za has view-only access. Saving and editing are disabled.');
+          setReadOnlyNotice('Read-Only Account: View-only access enabled. Saving and editing are disabled.');
           setTimeout(() => setReadOnlyNotice(null), 4000);
           return new Response(
             JSON.stringify({
-              error: 'Read-Only Access: sivend@mzansiflow.co.za is a read-only account and cannot save or modify records.',
+              error: 'Read-Only Access: This account is read-only and cannot save or modify records.',
               readOnly: true
             }),
             { status: 403, headers: { 'Content-Type': 'application/json' } }

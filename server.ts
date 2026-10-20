@@ -642,38 +642,22 @@ async function startServer() {
 
       const callerEmail = String(req.headers['x-user-email'] || '').toLowerCase().trim();
       const origAdminEmail = String(req.headers['x-original-admin-email'] || '').toLowerCase().trim();
-      const isReadOnlyCaller = callerEmail === 'sivend@mzansiflow.co.za' || origAdminEmail === 'sivend@mzansiflow.co.za';
-      const isAllowedReadOnlyPost =
-        req.path.startsWith('/api/auth/login') ||
-        req.path.startsWith('/api/auth/ping') ||
-        req.path.startsWith('/api/auth/verify') ||
-        req.path.startsWith('/api/audit/log-access');
-
-      if (isReadOnlyCaller && req.method !== 'GET' && req.method !== 'HEAD' && req.method !== 'OPTIONS' && !isAllowedReadOnlyPost) {
+      if (callerEmail === 'sivend@mzansiflow.co.za' || origAdminEmail === 'sivend@mzansiflow.co.za') {
         return res.status(403).json({
-          error: 'Forbidden: Read-Only User Account (sivend@mzansiflow.co.za) has view-only access and cannot save or modify records.',
-          readOnly: true
+          error: 'Forbidden: User account sivend@mzansiflow.co.za has been removed.'
         });
       }
     }
     next();
   });
 
-  // Ensure read-only account sivend@mzansiflow.co.za is persistently provisioned in Supabase users table
+  // Ensure removed account sivend@mzansiflow.co.za is purged from Supabase users table
   (async () => {
     try {
       const supabase = getSupabase();
       if (supabase) {
-        await supabase.from('users').upsert({
-          id: 'readonly-sivend-mzansiflow',
-          full_name: 'Siven D.',
-          email: 'sivend@mzansiflow.co.za',
-          job_function: 'Read-Only User (View Only)',
-          department: 'Administration',
-          source: 'system',
-          role: 'Read-Only User',
-          tenant_id: 'tenant-229'
-        }, { onConflict: 'id' });
+        await supabase.from('users').delete().eq('id', 'readonly-sivend-mzansiflow');
+        await supabase.from('users').delete().ilike('email', 'sivend@mzansiflow.co.za');
       }
     } catch (_) {}
   })().catch(() => {});
@@ -6150,15 +6134,18 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
 
       const supabase = getSupabase();
 
+      // Block removed user sivend@mzansiflow.co.za
+      if (lowerEmail === 'sivend@mzansiflow.co.za') {
+        return res.status(403).json({
+          error: "This user account (sivend@mzansiflow.co.za) has been removed and is no longer authorized."
+        });
+      }
+
       // Password Validation Logic (non-blocking for instant login):
       let isPasswordValid = false;
       const cleanPassword = password.trim();
-      const isReadOnlyAccount = lowerEmail === 'sivend@mzansiflow.co.za';
 
-      if (isReadOnlyAccount) {
-        // Strictly enforce password 8655m9sznnes01* for read-only account sivend@mzansiflow.co.za
-        isPasswordValid = (cleanPassword === '8655m9sznnes01*' || cleanPassword.toLowerCase() === '8655m9sznnes01*');
-      } else if (isGlobalAdmin) {
+      if (isGlobalAdmin) {
         if (lowerEmail === 'mike@mzansiflow.co.za' || lowerEmail === 'mike@massivedynamixdistributors.com') {
           isPasswordValid = (cleanPassword === managerOverridePassword || cleanPassword === '8655M9sznnes01*');
         } else if (lowerEmail === 'delphine@mzansiflow.co.za' || lowerEmail === 'ryanw@mzansiflow.co.za' || lowerEmail === 'bongani@mzansiflow.co.za' || lowerEmail === 'bonganim@mzansiflow.co.za') {
@@ -6216,23 +6203,21 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       const allUsers = await getConsolidatedUsersList('nkangala_auto');
       const internalProfile = allUsers.find((u: any) => u.email?.toLowerCase() === lowerEmail);
 
-      const userRole = isReadOnlyAccount
-        ? 'tenant_user'
-        : ((isGlobalAdmin || internalProfile?.role === 'admin' || internalProfile?.role === 'Global Administrator' || internalProfile?.role === 'Systems Administrator') ? 'admin' : 'tenant_user');
+      const userRole = (isGlobalAdmin || internalProfile?.role === 'admin' || internalProfile?.role === 'Global Administrator' || internalProfile?.role === 'Systems Administrator') ? 'admin' : 'tenant_user';
 
       const finalUser = {
         email: lowerEmail,
         role: userRole,
-        isReadOnly: isReadOnlyAccount || Boolean(internalProfile?.isReadOnly),
+        isReadOnly: Boolean(internalProfile?.isReadOnly),
         tenantId: isGlobalAdmin ? undefined : (internalProfile?.tenantId || internalProfile?.tenant_id || tenantId || 'tenant-229'),
-        fullName: isReadOnlyAccount ? (internalProfile?.fullName || 'Siven D.') : (internalProfile?.fullName || internalProfile?.full_name || (lowerEmail.includes('bongani') ? 'Bongani M.' : lowerEmail.split('@')[0])),
-        jobFunction: isReadOnlyAccount ? 'Read-Only User (View Only)' : (isGlobalAdmin ? 'Global Administrator' : (internalProfile?.jobFunction || internalProfile?.job_function || 'Department Manager')),
-        department: internalProfile?.department || (isGlobalAdmin || isReadOnlyAccount ? 'Administration' : undefined),
+        fullName: internalProfile?.fullName || internalProfile?.full_name || (lowerEmail.includes('bongani') ? 'Bongani M.' : lowerEmail.split('@')[0]),
+        jobFunction: isGlobalAdmin ? 'Global Administrator' : (internalProfile?.jobFunction || internalProfile?.job_function || 'Department Manager'),
+        department: internalProfile?.department || (isGlobalAdmin ? 'Administration' : undefined),
         manager: internalProfile?.manager || (lowerEmail.includes('shabangusm') ? 'Mandla L. Mahlangu' : undefined),
         managerEmail: internalProfile?.managerEmail || (lowerEmail.includes('shabangusm') ? 'mahlanguml@nkangaladm.gov.za' : undefined),
         reportTo: internalProfile?.reportTo || (lowerEmail.includes('shabangusm') ? 'Mandla L. Mahlangu' : undefined),
         level: internalProfile?.level || (isGlobalAdmin ? 'L1 Executive' : undefined),
-        systemRole: isReadOnlyAccount ? 'Read-Only User' : (isGlobalAdmin ? 'Global Administrator' : (internalProfile?.systemRole || internalProfile?.role || 'Standard User')),
+        systemRole: isGlobalAdmin ? 'Global Administrator' : (internalProfile?.systemRole || internalProfile?.role || 'Standard User'),
         portalMode: portalMode || 'municipality'
       };
 
@@ -8106,32 +8091,11 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       });
     }
 
-    // Ensure Read-Only User account sivend@mzansiflow.co.za is always present with Read-Only User role
-    const existingSivend = formatted.find(f => (f.email || '').toLowerCase().trim() === 'sivend@mzansiflow.co.za');
-    if (existingSivend) {
-      existingSivend.role = 'Read-Only User';
-      existingSivend.systemRole = 'Read-Only User';
-      existingSivend.jobFunction = existingSivend.jobFunction || 'Read-Only User (View Only)';
-      existingSivend.isReadOnly = true;
-    } else {
-      formatted.push({
-        id: 'readonly-sivend-mzansiflow',
-        fullName: 'Siven D.',
-        email: 'sivend@mzansiflow.co.za',
-        jobFunction: 'Read-Only User (View Only)',
-        department: 'Administration',
-        source: 'system',
-        role: 'Read-Only User',
-        systemRole: 'Read-Only User',
-        isReadOnly: true,
-        tenantId: 'tenant-229',
-        manager: '',
-        directorate: 'Administration',
-        reportTo: '',
-        level: '1',
-        signatureType: 'draw',
-        signatureData: ''
-      });
+    // Ensure removed user sivend@mzansiflow.co.za is filtered out if present in legacy rows
+    for (let i = formatted.length - 1; i >= 0; i--) {
+      if ((formatted[i].email || '').toLowerCase().trim() === 'sivend@mzansiflow.co.za' || formatted[i].id === 'readonly-sivend-mzansiflow') {
+        formatted.splice(i, 1);
+      }
     }
 
     // Inject local evaluation test users to test specific module roles
@@ -9299,7 +9263,6 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         'bonganim@mzansiflow.co.za',
         'mike@mzansiflow.co.za',
         'marlan@mzansiflow.co.za',
-        'sivend@mzansiflow.co.za',
         'mike@massivedynamixdistributors.com'
       ];
 
@@ -19061,8 +19024,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       { email: 'bongani@mzansiflow.co.za', fullName: 'Bongani (Mzansi Flow)', jobFunction: 'Global Administrator & Support', department: 'Mzansi Flow Support' },
       { email: 'bonganim@mzansiflow.co.za', fullName: 'Bongani M. (Mzansi Flow)', jobFunction: 'Global Administrator & Support', department: 'Mzansi Flow Support' },
       { email: 'qiniso@mzansiflow.co.za', fullName: 'Qiniso (Mzansi Flow)', jobFunction: 'Support & Operations Specialist', department: 'Mzansi Flow Support' },
-      { email: 'marlan@mzansiflow.co.za', fullName: 'Marlan (Mzansi Flow)', jobFunction: 'Systems & Support Specialist', department: 'Mzansi Flow Support' },
-      { email: 'sivend@mzansiflow.co.za', fullName: 'Siven D. (Mzansi Flow)', jobFunction: 'Read-Only Support Observer', department: 'Mzansi Flow Administration' }
+      { email: 'marlan@mzansiflow.co.za', fullName: 'Marlan (Mzansi Flow)', jobFunction: 'Systems & Support Specialist', department: 'Mzansi Flow Support' }
     ];
 
     const contactMap = new Map<string, any>();

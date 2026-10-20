@@ -61,7 +61,7 @@ export function SupportModule({ currentUser, activeTenantId }: SupportModuleProp
     userEmail.endsWith('@mzansiflow.co.za') ||
     userEmail.includes('@mzansiflow.co.za') ||
     userEmail === 'mike@massivedynamixdistributors.com';
-  const isReadOnly = Boolean(currentUser?.isReadOnly || userEmail === 'sivend@mzansiflow.co.za');
+  const isReadOnly = Boolean(currentUser?.isReadOnly);
 
   const [tickets, setTickets] = useState<SupportTicketRecord[]>([]);
   const [loadingTickets, setLoadingTickets] = useState(true);

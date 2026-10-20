@@ -49,7 +49,7 @@ export const DEFAULT_COVER_TEXTS: CoverTextElement[] = [
     id: 'subtitle',
     type: 'subtitle',
     label: 'Financial Year / Subtitle',
-    text: '2025/2026 FINANCIAL YEAR',
+    text: '2026/2027 FINANCIAL YEAR',
     fontSize: 'lg',
     color: 'indigo-300',
     uppercase: true,
@@ -226,7 +226,13 @@ export function SDBIPDraftingSuite({ currentUser, activeTenantId, rows }: SDBIPD
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed)) {
+          return parsed.map((item: CoverTextElement) =>
+            item.id === 'subtitle' && item.text === '2025/2026 FINANCIAL YEAR'
+              ? { ...item, text: '2026/2027 FINANCIAL YEAR' }
+              : item
+          );
+        }
       } catch (e) {
         console.error(e);
       }
@@ -473,10 +479,10 @@ function SDBIPResearchTab() {
         
         <div className="space-y-3">
           <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-xl text-xs font-bold text-indigo-700 flex items-center gap-2 cursor-pointer hover:bg-indigo-100 transition">
-             <FileText className="w-4 h-4" /> 2024/2025 Annual Performance
+             <FileText className="w-4 h-4" /> 2025/2026 Annual Performance
           </div>
           <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-xl text-xs font-bold text-indigo-700 flex items-center gap-2 cursor-pointer hover:bg-indigo-100 transition">
-             <FileText className="w-4 h-4" /> 2023/2024 Audited Report
+             <FileText className="w-4 h-4" /> 2024/2025 Audited Report
           </div>
         </div>
       </div>
@@ -493,14 +499,17 @@ function SDBIPResearchTab() {
 }
 
 function PageFooter({ pageNumber, title }: { pageNumber: number, title: string }) {
+  const currentDateStr = new Date().toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' });
+  const currentYear = new Date().getFullYear();
   return (
     <div className="pt-10 border-t border-slate-200 flex flex-col items-center gap-4 text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mt-auto sticky bottom-0">
       <div className="flex justify-between w-full">
         <span>{title}</span>
+        <span>Report Date: {currentDateStr} &bull; FY 2026/2027</span>
         <span>Page {pageNumber}</span>
       </div>
       <div className="text-center font-bold normal-case text-slate-500 pb-4">
-        Prepared by Mzansi Flow Automated PMS System &copy; 2025 All Rights Reserved
+        Prepared by Mzansi Flow Automated PMS System &copy; {currentYear} All Rights Reserved
       </div>
     </div>
   );
@@ -710,15 +719,16 @@ function ReportDocument({
   onDeleteCoverText?: (id: string) => void
 }) {
   const quarterDates: Record<string, string> = {
-    q1: 'September 30, 2025',
-    q2: 'December 31, 2025',
-    midTerm: 'December 31, 2025',
-    q3: 'March 31, 2026',
-    q4: 'June 30, 2026',
-    annual: 'June 30, 2026'
+    q1: '30 September 2026',
+    q2: '31 December 2026',
+    midTerm: '31 December 2026',
+    q3: '31 March 2027',
+    q4: '30 June 2027',
+    annual: '30 June 2027'
   };
 
   const currentEndDate = quarterDates[selectedQuarter];
+  const currentReportDate = new Date().toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' });
 
   const kpaThemePalette: Record<string, {
     totalColor: string;
@@ -881,7 +891,15 @@ function ReportDocument({
   }, [rows, selectedQuarter]);
 
   const kpaPages = useMemo(() => {
-    const pagesList: { kpaName: string; kpaIdx: number; kpaKey: string; chunk: SdbipRow[]; chunkIdx: number; totalChunks: number }[] = [];
+    interface KpaSectionBlock {
+      kpaName: string;
+      kpaIdx: number;
+      kpaKey: string;
+      chunk: SdbipRow[];
+      chunkIdx: number;
+      totalChunks: number;
+    }
+
     const kpas = ['bsd', 'led', 'mfvm', 'ggpp', 'midt', 'sr'];
     const kpaNames: Record<string, string> = {
       bsd: 'Basic Service Delivery',
@@ -891,26 +909,122 @@ function ReportDocument({
       midt: 'Institutional Dev',
       sr: 'Spatial Transformation'
     };
-    
-    kpas.forEach((kpaKey, kpaIdx) => {
-      const kpaRows = rows.filter(r => (r as any)[kpaKey] === 'Y' || (r as any)[kpaKey] === 'X');
-      if (kpaRows.length > 0) {
-        const chunkSize = 3;
-        const chunksCount = Math.ceil(kpaRows.length / chunkSize);
-        for (let c = 0; c < chunksCount; c++) {
-          pagesList.push({
-            kpaName: kpaNames[kpaKey],
+
+    const targetRowsPerPage =
+      selectedQuarter === 'annual' ? 8 : selectedQuarter === 'midTerm' ? 9 : 11;
+    const firstPageTargetRows =
+      selectedQuarter === 'annual' ? 7 : selectedQuarter === 'midTerm' ? 8 : 9;
+
+    const kpaRowGroups = kpas.map((kpaKey, kpaIdx) => ({
+      kpaKey,
+      kpaIdx,
+      kpaName: kpaNames[kpaKey],
+      kpaRows: rows.filter(r => (r as any)[kpaKey] === 'Y' || (r as any)[kpaKey] === 'X')
+    })).filter(g => g.kpaRows.length > 0);
+
+    const rawSections: KpaSectionBlock[] = [];
+
+    kpaRowGroups.forEach((group, groupIdx) => {
+      const { kpaKey, kpaIdx, kpaName, kpaRows } = group;
+      const total = kpaRows.length;
+      const nextGroup = kpaRowGroups[groupIdx + 1];
+
+      // If this KPA has slightly more than targetRowsPerPage and the next KPA is very small (<= 4 rows, e.g. SR),
+      // split this KPA so its second chunk pairs with the next KPA to form a full page of 8+ KPIs.
+      if (
+        nextGroup &&
+        nextGroup.kpaRows.length <= 4 &&
+        total > targetRowsPerPage &&
+        total <= targetRowsPerPage + 4
+      ) {
+        const firstChunkCount = Math.min(targetRowsPerPage, Math.max(7, total - 5));
+        rawSections.push({
+          kpaName,
+          kpaIdx,
+          kpaKey,
+          chunk: kpaRows.slice(0, firstChunkCount),
+          chunkIdx: 0,
+          totalChunks: 2
+        });
+        rawSections.push({
+          kpaName,
+          kpaIdx,
+          kpaKey,
+          chunk: kpaRows.slice(firstChunkCount),
+          chunkIdx: 1,
+          totalChunks: 2
+        });
+        return;
+      }
+
+      if (groupIdx === 0 && total > firstPageTargetRows) {
+        const firstChunk = kpaRows.slice(0, firstPageTargetRows);
+        const remaining = kpaRows.slice(firstPageTargetRows);
+        const remPages = Math.max(1, Math.ceil(remaining.length / targetRowsPerPage));
+        const totalChunks = 1 + remPages;
+
+        rawSections.push({
+          kpaName,
+          kpaIdx,
+          kpaKey,
+          chunk: firstChunk,
+          chunkIdx: 0,
+          totalChunks
+        });
+
+        let cursor = 0;
+        for (let p = 0; p < remPages; p++) {
+          const itemsLeft = remaining.length - cursor;
+          const pagesLeft = remPages - p;
+          const count = Math.ceil(itemsLeft / pagesLeft);
+          rawSections.push({
+            kpaName,
             kpaIdx,
             kpaKey,
-            chunk: kpaRows.slice(c * chunkSize, (c + 1) * chunkSize),
-            chunkIdx: c,
-            totalChunks: chunksCount
+            chunk: remaining.slice(cursor, cursor + count),
+            chunkIdx: p + 1,
+            totalChunks
           });
+          cursor += count;
         }
+        return;
+      }
+
+      const chunksCount = Math.max(1, Math.ceil(total / targetRowsPerPage));
+      let cursor = 0;
+      for (let c = 0; c < chunksCount; c++) {
+        const itemsLeft = total - cursor;
+        const pagesLeft = chunksCount - c;
+        const count = Math.ceil(itemsLeft / pagesLeft);
+        rawSections.push({
+          kpaName,
+          kpaIdx,
+          kpaKey,
+          chunk: kpaRows.slice(cursor, cursor + count),
+          chunkIdx: c,
+          totalChunks: chunksCount
+        });
+        cursor += count;
       }
     });
-    return pagesList;
-  }, [rows]);
+
+    // Pack consecutive small KPA sections onto the same page when they fit together within targetRowsPerPage
+    const packedPages: { sections: KpaSectionBlock[] }[] = [];
+    rawSections.forEach((sec) => {
+      const lastPage = packedPages[packedPages.length - 1];
+      if (lastPage) {
+        const currentRows = lastPage.sections.reduce((sum, s) => sum + s.chunk.length, 0);
+        const headerOverhead = lastPage.sections.length; // ~1 row equivalent per extra KPA header
+        if (currentRows + sec.chunk.length + headerOverhead <= targetRowsPerPage) {
+          lastPage.sections.push(sec);
+          return;
+        }
+      }
+      packedPages.push({ sections: [sec] });
+    });
+
+    return packedPages;
+  }, [rows, selectedQuarter]);
 
   const quarterLabels: Record<string, string> = {
     q1: '1st Quarter',
@@ -921,7 +1035,7 @@ function ReportDocument({
     annual: 'Annual Consolidated'
   };
 
-  const reportTitle = `SDBIP ${quarterLabels[selectedQuarter]} REPORT 2025/2026`;
+  const reportTitle = `SDBIP ${quarterLabels[selectedQuarter]} REPORT 2026/2027`;
 
   const renderQuarterMiniCell = (row: any, qKey: 'q1' | 'q2' | 'q3' | 'q4') => {
     const target = row[qKey] || '-';
@@ -950,9 +1064,15 @@ function ReportDocument({
       {/* Page 1: Purpose */}
       <section className="relative w-[297mm] min-h-[210mm] p-12 flex flex-col page-break-after border-b border-gray-100 bg-white">
         <div className="flex-1 space-y-6">
-          <div className="inline-block px-4 py-1.5 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg">1. Purpose</div>
+          <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+            <div className="inline-block px-4 py-1.5 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg">1. Purpose</div>
+            <div className="flex items-center gap-3 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+              <span className="px-2.5 py-1 bg-slate-100 rounded-md border border-slate-200 text-slate-800">Financial Year: 2026/2027</span>
+              <span className="px-2.5 py-1 bg-indigo-50 rounded-md border border-indigo-100 text-indigo-700">Report Date: {currentReportDate}</span>
+            </div>
+          </div>
           <p className="text-[12px] leading-relaxed text-slate-800 text-justify font-medium">
-            The purpose of this report is to provide feedback on the performance of the Nkangala District Municipality, as mandated by Local Government: Municipal Systems Act No. 32 of 2000, section 41(e), and the Local Government: Municipal Finance Management Act 56 of 2003, section 52(d). The information presented in this report is founded on the Integrated Development Plan (IDP) for the fiscal year 2025/2026. The scorecard was designed to capture cumulative performance, thus indicating the overall level of performance achieved to date.
+            The purpose of this report is to provide feedback on the performance of the Nkangala District Municipality, as mandated by Local Government: Municipal Systems Act No. 32 of 2000, section 41(e), and the Local Government: Municipal Finance Management Act 56 of 2003, section 52(d). The information presented in this report is founded on the Integrated Development Plan (IDP) for the fiscal year 2026/2027. The scorecard was designed to capture cumulative performance, thus indicating the overall level of performance achieved to date.
           </p>
           
           <h3 className="text-xs font-black text-slate-900 uppercase tracking-tight border-b-2 border-indigo-100 pb-2">METHODOLOGY USED IN COMPILING THE REPORT</h3>
@@ -962,7 +1082,7 @@ function ReportDocument({
             (b) A comparison of the performances mentioned in (a) with the targets established for and performances in the preceding financial year.<br/>
             (c) Measures taken to enhance performance.<br/>
             As stipulated by the Municipal Systems Act, municipalities must track and gauge their performance progress by producing quarterly, and annual performance reports in accordance with Chapter 6 of the MSA. These quarterly reports form the Municipality's annual performance reports (Section 46 report), which are subject to auditing by the Auditor-General, along with the Annual financial statements.<br/>
-            This report is grounded in information obtained from each department, evaluating performance for the {quarterLabels[selectedQuarter]} of 2025/2026, concluding on {currentEndDate}. It is a comprehensive report that relies on scores derived from a process that compares actual information per Key Performance Area (KPA), Strategic Objective, Programme, and the corresponding Key Performance Indicators (KPIs) with the approved 2025/2026 IDP and SDBIP scorecards.<br/>
+            This report is grounded in information obtained from each department, evaluating performance for the {quarterLabels[selectedQuarter]} of 2026/2027, concluding on {currentEndDate} (compiled on {currentReportDate}). It is a comprehensive report that relies on scores derived from a process that compares actual information per Key Performance Area (KPA), Strategic Objective, Programme, and the corresponding Key Performance Indicators (KPIs) with the approved 2026/2027 IDP and SDBIP scorecards.<br/>
             The overall performance assessment for the Nkangala District Municipality is based on the Departmental Performance scorecard, which encompasses the IDP and SDBIP KPIs and projects relevant to each department based on their respective contributions.<br/>
             Details pertaining to the Key Performance Indicators (KPIs) are presented in individual tables within each department's performance section. The results are expressed as scores, as outlined below, and have been calculated using an automated system, adhering to the guidelines provided in Regulation 805, titled "Municipal Performance Regulations for Municipal Managers and Managers Directly Accountable to Municipal Managers" from the year 2006.
           </p>
@@ -975,10 +1095,10 @@ function ReportDocument({
         <div className="flex-1 space-y-6">
           <div className="inline-block px-4 py-1.5 bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg">2. Executive Summary</div>
           <p className="text-[12px] leading-relaxed text-slate-800 text-justify font-medium">
-            This report presents the {quarterLabels[selectedQuarter]} Institutional Performance Review for the 2025/2026 fiscal year, concluding on {currentEndDate}. It provides a thorough and insightful analysis of the Municipality’s performance against the targets set out in the Integrated Development Plan (IDP) and Service Delivery and Budget Implementation Plan (SDBIP) scorecards. Where performance has not met expectations, the report highlights areas of concern, offers contextual explanations, and outlines the remedial actions undertaken to address these challenges.<br/><br/>
+            This report presents the {quarterLabels[selectedQuarter]} Institutional Performance Review for the 2026/2027 fiscal year, concluding on {currentEndDate}. It provides a thorough and insightful analysis of the Municipality’s performance against the targets set out in the Integrated Development Plan (IDP) and Service Delivery and Budget Implementation Plan (SDBIP) scorecards. Where performance has not met expectations, the report highlights areas of concern, offers contextual explanations, and outlines the remedial actions undertaken to address these challenges.<br/><br/>
             The overall performance of the Nkangala District Municipality is assessed through a consolidated Performance Scorecard, which integrates departmental outcomes, key performance indicators, and project milestones as defined in the IDP and SDBIP.<br/><br/>
             <b>Institutional Performance Overview in comparison with same period of the previous year.</b><br/>
-            The 2025/2026 SDBIP was developed and approved in line with Section 53(1)(c)(ii) of the Local Government: Municipal Finance Management Act (MFMA). Performance was assessed against the planned targets set in the IDP and SDBIP scorecards across six Key Performance Areas (KPAs).
+            The 2026/2027 SDBIP was developed and approved in line with Section 53(1)(c)(ii) of the Local Government: Municipal Finance Management Act (MFMA). Performance was assessed against the planned targets set in the IDP and SDBIP scorecards across six Key Performance Areas (KPAs).
           </p>
         </div>
         <PageFooter pageNumber={2} title={reportTitle} />
@@ -1142,7 +1262,7 @@ function ReportDocument({
           <div className="space-y-4">
             <h3 className="text-xs font-black text-slate-900 uppercase">STRATEGIC LEKGOTLA AND STRATEGIC DIRECTION</h3>
             <p className="text-[11px] leading-relaxed text-slate-800 font-medium text-justify">
-              The district convened its Annual Strategic Lekgotla from 31 March to 2 April 2025. In accordance with the Local Government: Municipal Systems Act, No. 32 of 2000, Chapter 5, Section 25(1), (2) and (3)(b), the purpose of the Lekgotla was to evaluate the district’s developmental achievements and challenges, and to agree on corrective actions aligned with the Vision and Mission of the Municipality. During the Lekgotla, the Vision, Mission, Values, and Strategic Goals were reviewed and recommended as follows:
+              The district convened its Annual Strategic Lekgotla from 31 March to 2 April 2026. In accordance with the Local Government: Municipal Systems Act, No. 32 of 2000, Chapter 5, Section 25(1), (2) and (3)(b), the purpose of the Lekgotla was to evaluate the district’s developmental achievements and challenges, and to agree on corrective actions aligned with the Vision and Mission of the Municipality. During the Lekgotla, the Vision, Mission, Values, and Strategic Goals were reviewed and recommended as follows:
             </p>
           </div>
 
@@ -1189,290 +1309,311 @@ function ReportDocument({
         <PageFooter pageNumber={5 + kpaGraphPairs.length} title={reportTitle} />
       </section>
 
-      {/* Page 7: Intro to Performance Data */}
-      <section className="relative w-[297mm] min-h-[210mm] p-12 flex flex-col page-break-after border-b border-gray-100 bg-white">
-        <div className="flex-1 space-y-8">
-          <div className="inline-block px-4 py-1.5 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-lg">5. Institutional Performance Data</div>
-          <p className="text-[12px] leading-relaxed text-slate-800 font-medium text-justify">
-            The following tables illustrate the Institutional performance for each Key Performance Area (KPA). These tables encompass all the KPIs, and Projects outlined in the IDP and SDBIP scorecards for {quarterLabels[selectedQuarter]}. The relevant parameters per KPI are populated directly from the corresponding quarter and institutional database tables.
-          </p>
-        </div>
-        <PageFooter pageNumber={6 + kpaGraphPairs.length} title={reportTitle} />
-      </section>
-
-      {/* Pages 8+: Paginated Individual KPA Data Tables (Colour-Matched to KPA Graphs) */}
+      {/* Pages 7+: Paginated Full-Page KPA Scorecard Data Tables (Colour-Matched to KPA Graphs) */}
       {kpaPages.map((page, pageIndex) => {
-         const { kpaName, kpaIdx, chunk, chunkIdx, totalChunks } = page;
-         const kpa = kpaData[kpaIdx];
-         const pageNum = 7 + kpaGraphPairs.length + pageIndex;
-         const thMainStyle: React.CSSProperties = { backgroundColor: kpa.headerBgHex, borderColor: kpa.headerBorderHex, color: '#ffffff' };
-         const thTargetStyle: React.CSSProperties = { backgroundColor: kpa.headerSubBgHex, borderColor: kpa.headerBorderHex, color: '#ffffff' };
-         const thActualStyle: React.CSSProperties = { backgroundColor: kpa.achievedColor, borderColor: kpa.headerBorderHex, color: '#ffffff' };
-         
-         return (
-          <section key={`kpa-page-chunk-${pageIndex}`} className="relative w-[297mm] h-[210mm] p-12 flex flex-col page-break-after border-b border-gray-100 bg-white">
-            <div className="flex-1 space-y-4 overflow-hidden">
-              <div
-                className="flex items-center justify-between pb-2 border-b-2"
-                style={{ borderBottomColor: kpa.totalColor }}
-              >
-                <div className="flex items-center gap-2.5">
-                  <span
-                    className="w-3 h-5 rounded-sm shrink-0"
-                    style={{ backgroundColor: kpa.totalColor }}
-                  />
-                  <h3
-                    className="text-base font-black uppercase tracking-tight"
-                    style={{ color: kpa.titleTextHex }}
-                  >
-                    {kpaName}
-                  </h3>
-                  <span className="text-xs text-slate-500 font-bold">
-                    (Page {chunkIdx + 1} of {totalChunks})
-                  </span>
+        const pageNum = 6 + kpaGraphPairs.length + pageIndex;
+
+        return (
+          <section
+            key={`kpa-page-chunk-${pageIndex}`}
+            className="relative w-[297mm] min-h-[210mm] px-10 py-6 flex flex-col page-break-after border-b border-gray-100 bg-white"
+          >
+            <div className="flex-1 flex flex-col justify-between gap-3">
+              {pageIndex === 0 && (
+                <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 flex items-center gap-4 shrink-0">
+                  <div className="inline-block px-3 py-1 bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest rounded-md shrink-0">
+                    5. Institutional Performance Data
+                  </div>
+                  <p className="text-[9.5px] leading-snug text-slate-700 font-medium text-justify">
+                    The following tables illustrate the institutional performance across all Key Performance Areas (KPAs), KPIs, and projects in the 2026/2027 IDP and SDBIP scorecards for {quarterLabels[selectedQuarter]}.
+                  </p>
                 </div>
-                <div
-                  className="px-3.5 py-1 text-white text-[9px] font-black rounded-full uppercase tracking-wider shadow-xs flex items-center gap-1.5"
-                  style={{ backgroundColor: kpa.headerBgHex, border: `1px solid ${kpa.totalColor}` }}
-                >
-                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: kpa.achievedColor }} />
-                  {kpa.achieved}/{kpa.total} Achieved ({kpa.percentage}%)
-                </div>
-              </div>
-              
-              <div className="overflow-hidden w-full rounded-lg border" style={{ borderColor: kpa.tableBorderHex }}>
-                <table className="w-full table-fixed border-collapse text-[8px] shadow-sm text-black">
-                  <thead className="text-white uppercase text-left break-inside-avoid">
-                    {selectedQuarter === 'annual' ? (
-                      <tr>
-                        <th className="border p-1.5 font-black w-[5%] text-center" style={thMainStyle}>KPA</th>
-                        <th className="border p-1.5 font-black w-[5%] text-center" style={thMainStyle}>Ref</th>
-                        <th className="border p-1.5 font-black w-[22%]" style={thMainStyle}>Indicators (KPI)</th>
-                        <th className="border p-1.5 font-black w-[8%] text-center" style={thMainStyle}>Total Budget</th>
-                        <th className="border p-1.5 font-black text-center w-[4%]" style={thMainStyle}>RAG</th>
-                        <th className="border p-1.5 font-black w-[10%] text-center" style={thTargetStyle}>Q1-Q4 Targets</th>
-                        <th className="border p-1.5 font-black w-[10%] text-center" style={thActualStyle}>Q1-Q4 Actuals</th>
-                        <th className="border p-1.5 font-black w-[10%] text-center" style={thMainStyle}>Q1-Q4 Spend</th>
-                        <th className="border p-1.5 font-black w-[12%]" style={thTargetStyle}>Q1-Q4 POEs</th>
-                        <th className="border p-1.5 font-black w-[7%]" style={thMainStyle}>Variance</th>
-                        <th className="border p-1.5 font-black w-[7%]" style={thMainStyle}>Corrective</th>
-                      </tr>
-                    ) : selectedQuarter === 'midTerm' ? (
-                      <tr>
-                        <th className="border p-1.5 font-black w-[5%] text-center" style={thMainStyle}>KPA</th>
-                        <th className="border p-1.5 font-black w-[5%] text-center" style={thMainStyle}>Ref</th>
-                        <th className="border p-1.5 font-black w-[22%]" style={thMainStyle}>Indicator (KPI)</th>
-                        <th className="border p-1.5 font-black w-[8%] text-center" style={thMainStyle}>Total Budget</th>
-                        <th className="border p-1.5 font-black text-center w-[4%]" style={thMainStyle}>RAG</th>
-                        <th className="border p-1.5 font-black w-[10%] text-center" style={thTargetStyle}>Q1+Q2 Targets</th>
-                        <th className="border p-1.5 font-black w-[10%] text-center" style={thActualStyle}>Q1+Q2 Actuals</th>
-                        <th className="border p-1.5 font-black w-[10%] text-center" style={thMainStyle}>Q1+Q2 Spend</th>
-                        <th className="border p-1.5 font-black w-[12%]" style={thTargetStyle}>Q1+Q2 POEs</th>
-                        <th className="border p-1.5 font-black w-[7%]" style={thMainStyle}>Variance</th>
-                        <th className="border p-1.5 font-black w-[7%]" style={thMainStyle}>Corrective</th>
-                      </tr>
-                    ) : (
-                      <tr>
-                        <th className="border p-1.5 font-black w-[5%] text-center" style={thMainStyle}>KPA</th>
-                        <th className="border p-1.5 font-black w-[5%] text-center" style={thMainStyle}>Ref</th>
-                        <th className="border p-1.5 font-black w-[24%]" style={thMainStyle}>Indicator (KPI)</th>
-                        <th className="border p-1.5 font-black w-[8%] text-center" style={thMainStyle}>Total Budget</th>
-                        <th className="border p-1.5 font-black text-center w-[4%]" style={thMainStyle}>RAG</th>
-                        <th className="border p-1.5 font-black w-[9%] text-center" style={thTargetStyle}>{selectedQuarter.toUpperCase()} Target</th>
-                        <th className="border p-1.5 font-black w-[9%] text-center" style={thActualStyle}>{selectedQuarter.toUpperCase()} Actual</th>
-                        <th className="border p-1.5 font-black w-[9%] text-center" style={thMainStyle}>{selectedQuarter.toUpperCase()} Spend</th>
-                        <th className="border p-1.5 font-black w-[13%]" style={thTargetStyle}>{selectedQuarter.toUpperCase()} POE</th>
-                        <th className="border p-1.5 font-black w-[7%]" style={thMainStyle}>Variance</th>
-                        <th className="border p-1.5 font-black w-[7%]" style={thMainStyle}>Corrective</th>
-                      </tr>
-                    )}
-                  </thead>
-                  <tbody>
-                    {chunk.map((row, rIdx) => {
-                      const rag = getRagDetails(row);
-                      const kpaLabel = getRowKpa(row);
-                      const kpaBadgeCellStyle: React.CSSProperties = {
-                        backgroundColor: kpa.cellTintBgHex,
-                        color: kpa.cellTintTextHex,
-                        borderColor: kpa.tableBorderHex
-                      };
-                      const cellBorderStyle: React.CSSProperties = {
-                        borderColor: kpa.tableBorderHex
-                      };
-                      
-                      if (selectedQuarter === 'annual') {
-                        const variance = row.q4Variance || row.q3Variance || row.q2Variance || row.q1Variance || '-';
-                        const corrective = row.q4Corrective || row.q3Corrective || row.q2Corrective || row.q1Corrective || '-';
-                        const isAchieved = rag.status === 'green';
-                        const bgColor = isAchieved ? 'bg-emerald-50/60' : (rag.status === 'red' ? 'bg-rose-50/40' : 'bg-amber-50/40');
-                        
-                        return (
-                          <tr key={rIdx} className={`border-b break-inside-avoid text-black font-medium ${bgColor}`}>
-                            <td className="border p-1.5 font-black text-center text-[7px] break-words" style={kpaBadgeCellStyle}>{kpaLabel}</td>
-                            <td className="border p-1.5 font-bold font-mono text-center break-words" style={cellBorderStyle}>{row.refNum}</td>
-                            <td className="border p-1.5 font-bold leading-tight break-words text-justify" style={cellBorderStyle}>{row.kpi}</td>
-                            <td className="border p-1.5 font-bold text-slate-700 break-words text-center" style={cellBorderStyle}>{row.budgetAllocation || 'Opex'}</td>
-                            <td className="border p-1.5 text-center" style={cellBorderStyle}>
-                              <span className="text-xs" title={rag.tooltip}>{rag.face}</span>
-                            </td>
-                            <td className="border p-1.5 font-extrabold text-xs text-center break-words" style={{ ...cellBorderStyle, color: kpa.cellTintTextHex }}>
-                              {sumStringValues([row.q1, row.q2, row.q3, row.q4])}
-                            </td>
-                            <td className="border p-1.5 font-extrabold text-xs text-center break-words" style={{ ...cellBorderStyle, color: kpa.achievedColor }}>
-                              {sumStringValues([row.q1Actual, row.q2Actual, row.q3Actual, row.q4Actual])}
-                            </td>
-                            <td className="border p-1.5 font-medium text-slate-700 text-xs text-center break-words" style={cellBorderStyle}>
-                              {sumStringValues([row.q1Expenditure, row.q2Expenditure, row.q3Expenditure, row.q4Expenditure])}
-                            </td>
-                            <td className="border p-1 break-words text-justify" style={cellBorderStyle}>
-                              <div className="flex flex-col gap-0.5 text-[6px] leading-tight text-slate-600 text-justify">
-                                {[1, 2, 3, 4].map(q => {
-                                  const poeDesc = (row as any)[`q${q}PoeDesc`] || '';
-                                  const poes = (row as any)[`q${q}Poes`] || [];
-                                  if (!poeDesc && poes.length === 0) return null;
-                                  return (
-                                    <div key={q} className="border-b border-slate-100 last:border-0 pb-0.5 mb-0.5 last:pb-0 last:mb-0 break-words text-justify">
-                                      <span className="font-bold mr-0.5" style={{ color: kpa.cellTintTextHex }}>Q{q}:</span>
-                                      <span className="break-words" title={poeDesc}>{poeDesc || 'Submitted'}</span>
-                                      {poes.length > 0 && <span className="text-emerald-800 ml-1">📄</span>}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </td>
-                            <td className="border p-1.5 italic text-rose-900 font-bold leading-tight break-words text-justify" style={cellBorderStyle}>{variance}</td>
-                            <td className="border p-1.5 font-medium leading-tight break-words text-justify" style={cellBorderStyle}>{corrective}</td>
-                          </tr>
-                        );
-                      } else if (selectedQuarter === 'midTerm') {
-                        const target1 = row.q1 || '-';
-                        const actual1 = row.q1Actual || '-';
-                        const target2 = row.q2 || '-';
-                        const actual2 = row.q2Actual || '-';
-                        const variance = row.midTermVariance || row.q2Variance || row.q1Variance || '-';
-                        const corrective = row.midTermCorrective || row.q2Corrective || row.q1Corrective || '-';
-                        
-                        const isAchieved = (target1 === actual1) && (target2 === actual2);
-                        const bgColor = isAchieved ? 'bg-emerald-50/50' : 'bg-amber-50/30';
-                        
-                        return (
-                          <tr key={rIdx} className={`border-b break-inside-avoid text-black font-medium ${bgColor}`}>
-                            <td className="border p-1.5 font-black text-center text-[7px] break-words" style={kpaBadgeCellStyle}>{kpaLabel}</td>
-                            <td className="border p-1.5 font-bold font-mono text-center break-words" style={cellBorderStyle}>{row.refNum}</td>
-                            <td className="border p-1.5 font-bold leading-tight break-words text-justify" style={cellBorderStyle}>{row.kpi}</td>
-                            <td className="border p-1.5 font-bold text-slate-700 break-words text-center" style={cellBorderStyle}>{row.budgetAllocation || 'Opex'}</td>
-                            <td className="border p-1.5 text-center" style={cellBorderStyle}>
-                              <span className="text-xs" title={rag.tooltip}>{rag.face}</span>
-                            </td>
-                            <td className="border p-1.5 font-extrabold text-xs text-center break-words" style={{ ...cellBorderStyle, color: kpa.cellTintTextHex }}>
-                              {sumStringValues([row.q1, row.q2])}
-                            </td>
-                            <td className="border p-1.5 font-extrabold text-xs text-center break-words" style={{ ...cellBorderStyle, color: kpa.achievedColor }}>
-                              {sumStringValues([row.q1Actual, row.q2Actual])}
-                            </td>
-                            <td className="border p-1.5 font-medium text-slate-700 text-xs text-center break-words" style={cellBorderStyle}>
-                              {sumStringValues([row.q1Expenditure, row.q2Expenditure])}
-                            </td>
-                            <td className="border p-1.5 text-justify break-words" style={cellBorderStyle}>
-                              <div className="flex flex-col gap-0.5 text-[6px] leading-tight text-slate-600 text-justify">
-                                {[1, 2].map(q => {
-                                  const poeDesc = (row as any)[`q${q}PoeDesc`] || '';
-                                  const poes = (row as any)[`q${q}Poes`] || [];
-                                  if (!poeDesc && poes.length === 0) return null;
-                                  return (
-                                    <div key={q} className="border-b border-slate-100 last:border-0 pb-0.5 mb-0.5 last:pb-0 last:mb-0 break-words text-justify">
-                                      <span className="font-bold mr-0.5" style={{ color: kpa.cellTintTextHex }}>Q{q}:</span>
-                                      <span className="break-words" title={poeDesc}>{poeDesc || 'Submitted'}</span>
-                                      {poes.length > 0 && <span className="text-emerald-800 ml-1">📄</span>}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </td>
-                            <td className="border p-1.5 italic text-rose-900 font-bold leading-tight break-words text-justify" style={cellBorderStyle}>{variance}</td>
-                            <td className="border p-1.5 font-medium leading-tight break-words text-justify" style={cellBorderStyle}>{corrective}</td>
-                          </tr>
-                        );
-                      } else {
-                        // specific quarter
-                        const target = (row as any)[selectedQuarter] || '-';
-                        const actual = (row as any)[`${selectedQuarter}Actual`] || '-';
-                        const exp = (row as any)[`${selectedQuarter}Expenditure`] || '-';
-                        const variance = (row as any)[`${selectedQuarter}Variance`] || '-';
-                        const corrective = (row as any)[`${selectedQuarter}Corrective`] || '-';
-                        const poes = (row as any)[`${selectedQuarter}Poes`] || [];
-                        const poeDesc = (row as any)[`${selectedQuarter}PoeDesc`] || '';
-                        
-                        const isAchieved = target && actual && target === actual;
-                        const bgColor = isAchieved ? 'bg-emerald-50/60' : (actual && !isAchieved ? 'bg-rose-50/40' : '');
-                        
-                        return (
-                          <tr key={rIdx} className={`border-b break-inside-avoid text-black font-medium ${bgColor}`}>
-                            <td className="border p-1.5 font-black text-center text-[7px] break-words" style={kpaBadgeCellStyle}>{kpaLabel}</td>
-                            <td className="border p-1.5 font-bold font-mono text-center break-words" style={cellBorderStyle}>{row.refNum}</td>
-                            <td className="border p-1.5 font-bold leading-tight break-words text-justify" style={cellBorderStyle}>{row.kpi}</td>
-                            <td className="border p-1.5 font-bold text-slate-700 break-words text-center" style={cellBorderStyle}>{row.budgetAllocation || 'Opex'}</td>
-                            <td className="border p-1.5 text-center" style={cellBorderStyle}>
-                              <span className="text-xs" title={rag.tooltip}>{rag.face}</span>
-                            </td>
-                            <td className="border p-1.5 font-extrabold text-center break-words" style={{ ...cellBorderStyle, color: kpa.cellTintTextHex }}>{target}</td>
-                            <td className="border p-1.5 font-extrabold text-center break-words" style={{ ...cellBorderStyle, color: kpa.achievedColor }}>{actual}</td>
-                            <td className="border p-1.5 font-medium text-center break-words" style={cellBorderStyle}>{exp}</td>
-                            <td className="border p-1.5 break-words text-justify" style={cellBorderStyle}>
-                              {poeDesc && <div className="text-[8px] text-slate-600 leading-tight mb-1 break-words text-justify">{poeDesc}</div>}
-                              {poes && poes.length > 0 && (
-                                <div
-                                  className="text-[7px] px-1 py-0.5 rounded truncate font-semibold"
-                                  style={{ backgroundColor: kpa.cellTintBgHex, color: kpa.cellTintTextHex }}
-                                  title={poes.join(', ')}
-                                >
-                                  📄 {poes[poes.length - 1]}
-                                </div>
-                              )}
-                            </td>
-                            <td className="border p-1.5 italic text-rose-900 font-bold leading-tight break-words text-justify" style={cellBorderStyle}>{variance}</td>
-                            <td className="border p-1.5 font-medium leading-tight break-words text-justify" style={cellBorderStyle}>{corrective}</td>
-                          </tr>
-                        );
-                      }
-                    })}
-                  </tbody>
-                </table>
+              )}
+
+              <div className="flex-1 flex flex-col gap-3">
+                {page.sections.map((section, secIdx) => {
+                  const { kpaName, kpaIdx, chunk, chunkIdx, totalChunks } = section;
+                  const kpa = kpaData[kpaIdx];
+                  const thMainStyle: React.CSSProperties = { backgroundColor: kpa.headerBgHex, borderColor: kpa.headerBorderHex, color: '#ffffff' };
+                  const thTargetStyle: React.CSSProperties = { backgroundColor: kpa.headerSubBgHex, borderColor: kpa.headerBorderHex, color: '#ffffff' };
+                  const thActualStyle: React.CSSProperties = { backgroundColor: kpa.achievedColor, borderColor: kpa.headerBorderHex, color: '#ffffff' };
+
+                  return (
+                    <div key={`${kpa.key}-${chunkIdx}-${secIdx}`} className="flex-1 flex flex-col">
+                      <div
+                        className="flex items-center justify-between pb-1.5 mb-1.5 border-b-2 shrink-0"
+                        style={{ borderBottomColor: kpa.totalColor }}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="w-2.5 h-4 rounded-sm shrink-0"
+                            style={{ backgroundColor: kpa.totalColor }}
+                          />
+                          <h3
+                            className="text-sm font-black uppercase tracking-tight"
+                            style={{ color: kpa.titleTextHex }}
+                          >
+                            {kpaName}
+                          </h3>
+                          <span className="text-[10px] text-slate-500 font-bold">
+                            (Page {chunkIdx + 1} of {totalChunks} &bull; {chunk.length} KPIs)
+                          </span>
+                        </div>
+                        <div
+                          className="px-3 py-0.5 text-white text-[8.5px] font-black rounded-full uppercase tracking-wider shadow-xs flex items-center gap-1.5"
+                          style={{ backgroundColor: kpa.headerBgHex, border: `1px solid ${kpa.totalColor}` }}
+                        >
+                          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: kpa.achievedColor }} />
+                          {kpa.achieved}/{kpa.total} Achieved ({kpa.percentage}%)
+                        </div>
+                      </div>
+
+                      <div className="flex-1 flex flex-col w-full rounded-lg border overflow-hidden" style={{ borderColor: kpa.tableBorderHex }}>
+                        <table className="w-full flex-1 h-full table-fixed border-collapse text-[7.5px] leading-tight shadow-sm text-black">
+                          <thead className="text-white uppercase text-left break-inside-avoid">
+                            {selectedQuarter === 'annual' ? (
+                              <tr>
+                                <th className="border py-1 px-1.5 font-black w-[5%] text-center" style={thMainStyle}>KPA</th>
+                                <th className="border py-1 px-1.5 font-black w-[5%] text-center" style={thMainStyle}>Ref</th>
+                                <th className="border py-1 px-1.5 font-black w-[22%]" style={thMainStyle}>Indicators (KPI)</th>
+                                <th className="border py-1 px-1.5 font-black w-[8%] text-center" style={thMainStyle}>Total Budget</th>
+                                <th className="border py-1 px-1.5 font-black text-center w-[4%]" style={thMainStyle}>RAG</th>
+                                <th className="border py-1 px-1.5 font-black w-[10%] text-center" style={thTargetStyle}>Q1-Q4 Targets</th>
+                                <th className="border py-1 px-1.5 font-black w-[10%] text-center" style={thActualStyle}>Q1-Q4 Actuals</th>
+                                <th className="border py-1 px-1.5 font-black w-[10%] text-center" style={thMainStyle}>Q1-Q4 Spend</th>
+                                <th className="border py-1 px-1.5 font-black w-[12%]" style={thTargetStyle}>Q1-Q4 POEs</th>
+                                <th className="border py-1 px-1.5 font-black w-[7%]" style={thMainStyle}>Variance</th>
+                                <th className="border py-1 px-1.5 font-black w-[7%]" style={thMainStyle}>Corrective</th>
+                              </tr>
+                            ) : selectedQuarter === 'midTerm' ? (
+                              <tr>
+                                <th className="border py-1 px-1.5 font-black w-[5%] text-center" style={thMainStyle}>KPA</th>
+                                <th className="border py-1 px-1.5 font-black w-[5%] text-center" style={thMainStyle}>Ref</th>
+                                <th className="border py-1 px-1.5 font-black w-[22%]" style={thMainStyle}>Indicator (KPI)</th>
+                                <th className="border py-1 px-1.5 font-black w-[8%] text-center" style={thMainStyle}>Total Budget</th>
+                                <th className="border py-1 px-1.5 font-black text-center w-[4%]" style={thMainStyle}>RAG</th>
+                                <th className="border py-1 px-1.5 font-black w-[10%] text-center" style={thTargetStyle}>Q1+Q2 Targets</th>
+                                <th className="border py-1 px-1.5 font-black w-[10%] text-center" style={thActualStyle}>Q1+Q2 Actuals</th>
+                                <th className="border py-1 px-1.5 font-black w-[10%] text-center" style={thMainStyle}>Q1+Q2 Spend</th>
+                                <th className="border py-1 px-1.5 font-black w-[12%]" style={thTargetStyle}>Q1+Q2 POEs</th>
+                                <th className="border py-1 px-1.5 font-black w-[7%]" style={thMainStyle}>Variance</th>
+                                <th className="border py-1 px-1.5 font-black w-[7%]" style={thMainStyle}>Corrective</th>
+                              </tr>
+                            ) : (
+                              <tr>
+                                <th className="border py-1 px-1.5 font-black w-[5%] text-center" style={thMainStyle}>KPA</th>
+                                <th className="border py-1 px-1.5 font-black w-[5%] text-center" style={thMainStyle}>Ref</th>
+                                <th className="border py-1 px-1.5 font-black w-[24%]" style={thMainStyle}>Indicator (KPI)</th>
+                                <th className="border py-1 px-1.5 font-black w-[8%] text-center" style={thMainStyle}>Total Budget</th>
+                                <th className="border py-1 px-1.5 font-black text-center w-[4%]" style={thMainStyle}>RAG</th>
+                                <th className="border py-1 px-1.5 font-black w-[9%] text-center" style={thTargetStyle}>{selectedQuarter.toUpperCase()} Target</th>
+                                <th className="border py-1 px-1.5 font-black w-[9%] text-center" style={thActualStyle}>{selectedQuarter.toUpperCase()} Actual</th>
+                                <th className="border py-1 px-1.5 font-black w-[9%] text-center" style={thMainStyle}>{selectedQuarter.toUpperCase()} Spend</th>
+                                <th className="border py-1 px-1.5 font-black w-[13%]" style={thTargetStyle}>{selectedQuarter.toUpperCase()} POE</th>
+                                <th className="border py-1 px-1.5 font-black w-[7%]" style={thMainStyle}>Variance</th>
+                                <th className="border py-1 px-1.5 font-black w-[7%]" style={thMainStyle}>Corrective</th>
+                              </tr>
+                            )}
+                          </thead>
+                          <tbody>
+                            {chunk.map((row, rIdx) => {
+                              const rag = getRagDetails(row);
+                              const kpaLabel = getRowKpa(row);
+                              const kpaBadgeCellStyle: React.CSSProperties = {
+                                backgroundColor: kpa.cellTintBgHex,
+                                color: kpa.cellTintTextHex,
+                                borderColor: kpa.tableBorderHex
+                              };
+                              const cellBorderStyle: React.CSSProperties = {
+                                borderColor: kpa.tableBorderHex
+                              };
+
+                              if (selectedQuarter === 'annual') {
+                                const variance = row.q4Variance || row.q3Variance || row.q2Variance || row.q1Variance || '-';
+                                const corrective = row.q4Corrective || row.q3Corrective || row.q2Corrective || row.q1Corrective || '-';
+                                const isAchieved = rag.status === 'green';
+                                const bgColor = isAchieved ? 'bg-emerald-50/60' : (rag.status === 'red' ? 'bg-rose-50/40' : 'bg-amber-50/40');
+
+                                return (
+                                  <tr key={rIdx} className={`border-b break-inside-avoid text-black font-medium ${bgColor}`}>
+                                    <td className="border py-1 px-1.5 font-black text-center text-[7px] break-words" style={kpaBadgeCellStyle}>{kpaLabel}</td>
+                                    <td className="border py-1 px-1.5 font-bold font-mono text-center break-words" style={cellBorderStyle}>{row.refNum}</td>
+                                    <td className="border py-1 px-1.5 font-bold leading-tight break-words text-justify" style={cellBorderStyle}>{row.kpi}</td>
+                                    <td className="border py-1 px-1.5 font-bold text-slate-700 break-words text-center" style={cellBorderStyle}>{row.budgetAllocation || 'Opex'}</td>
+                                    <td className="border py-1 px-1.5 text-center" style={cellBorderStyle}>
+                                      <span className="text-[11px]" title={rag.tooltip}>{rag.face}</span>
+                                    </td>
+                                    <td className="border py-1 px-1.5 font-extrabold text-[8px] text-center break-words" style={{ ...cellBorderStyle, color: kpa.cellTintTextHex }}>
+                                      {sumStringValues([row.q1, row.q2, row.q3, row.q4])}
+                                    </td>
+                                    <td className="border py-1 px-1.5 font-extrabold text-[8px] text-center break-words" style={{ ...cellBorderStyle, color: kpa.achievedColor }}>
+                                      {sumStringValues([row.q1Actual, row.q2Actual, row.q3Actual, row.q4Actual])}
+                                    </td>
+                                    <td className="border py-1 px-1.5 font-medium text-slate-700 text-[8px] text-center break-words" style={cellBorderStyle}>
+                                      {sumStringValues([row.q1Expenditure, row.q2Expenditure, row.q3Expenditure, row.q4Expenditure])}
+                                    </td>
+                                    <td className="border py-1 px-1.5 break-words text-justify" style={cellBorderStyle}>
+                                      <div className="flex flex-col gap-0.5 text-[6px] leading-tight text-slate-600 text-justify">
+                                        {[1, 2, 3, 4].map(q => {
+                                          const poeDesc = (row as any)[`q${q}PoeDesc`] || '';
+                                          const poes = (row as any)[`q${q}Poes`] || [];
+                                          if (!poeDesc && poes.length === 0) return null;
+                                          return (
+                                            <div key={q} className="border-b border-slate-100 last:border-0 pb-0.5 mb-0.5 last:pb-0 last:mb-0 break-words text-justify">
+                                              <span className="font-bold mr-0.5" style={{ color: kpa.cellTintTextHex }}>Q{q}:</span>
+                                              <span className="break-words" title={poeDesc}>{poeDesc || 'Submitted'}</span>
+                                              {poes.length > 0 && <span className="text-emerald-800 ml-1">📄</span>}
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </td>
+                                    <td className="border py-1 px-1.5 italic text-rose-900 font-bold leading-tight break-words text-justify" style={cellBorderStyle}>{variance}</td>
+                                    <td className="border py-1 px-1.5 font-medium leading-tight break-words text-justify" style={cellBorderStyle}>{corrective}</td>
+                                  </tr>
+                                );
+                              } else if (selectedQuarter === 'midTerm') {
+                                const target1 = row.q1 || '-';
+                                const actual1 = row.q1Actual || '-';
+                                const target2 = row.q2 || '-';
+                                const actual2 = row.q2Actual || '-';
+                                const variance = row.midTermVariance || row.q2Variance || row.q1Variance || '-';
+                                const corrective = row.midTermCorrective || row.q2Corrective || row.q1Corrective || '-';
+
+                                const isAchieved = (target1 === actual1) && (target2 === actual2);
+                                const bgColor = isAchieved ? 'bg-emerald-50/50' : 'bg-amber-50/30';
+
+                                return (
+                                  <tr key={rIdx} className={`border-b break-inside-avoid text-black font-medium ${bgColor}`}>
+                                    <td className="border py-1 px-1.5 font-black text-center text-[7px] break-words" style={kpaBadgeCellStyle}>{kpaLabel}</td>
+                                    <td className="border py-1 px-1.5 font-bold font-mono text-center break-words" style={cellBorderStyle}>{row.refNum}</td>
+                                    <td className="border py-1 px-1.5 font-bold leading-tight break-words text-justify" style={cellBorderStyle}>{row.kpi}</td>
+                                    <td className="border py-1 px-1.5 font-bold text-slate-700 break-words text-center" style={cellBorderStyle}>{row.budgetAllocation || 'Opex'}</td>
+                                    <td className="border py-1 px-1.5 text-center" style={cellBorderStyle}>
+                                      <span className="text-[11px]" title={rag.tooltip}>{rag.face}</span>
+                                    </td>
+                                    <td className="border py-1 px-1.5 font-extrabold text-[8px] text-center break-words" style={{ ...cellBorderStyle, color: kpa.cellTintTextHex }}>
+                                      {sumStringValues([row.q1, row.q2])}
+                                    </td>
+                                    <td className="border py-1 px-1.5 font-extrabold text-[8px] text-center break-words" style={{ ...cellBorderStyle, color: kpa.achievedColor }}>
+                                      {sumStringValues([row.q1Actual, row.q2Actual])}
+                                    </td>
+                                    <td className="border py-1 px-1.5 font-medium text-slate-700 text-[8px] text-center break-words" style={cellBorderStyle}>
+                                      {sumStringValues([row.q1Expenditure, row.q2Expenditure])}
+                                    </td>
+                                    <td className="border py-1 px-1.5 text-justify break-words" style={cellBorderStyle}>
+                                      <div className="flex flex-col gap-0.5 text-[6px] leading-tight text-slate-600 text-justify">
+                                        {[1, 2].map(q => {
+                                          const poeDesc = (row as any)[`q${q}PoeDesc`] || '';
+                                          const poes = (row as any)[`q${q}Poes`] || [];
+                                          if (!poeDesc && poes.length === 0) return null;
+                                          return (
+                                            <div key={q} className="border-b border-slate-100 last:border-0 pb-0.5 mb-0.5 last:pb-0 last:mb-0 break-words text-justify">
+                                              <span className="font-bold mr-0.5" style={{ color: kpa.cellTintTextHex }}>Q{q}:</span>
+                                              <span className="break-words" title={poeDesc}>{poeDesc || 'Submitted'}</span>
+                                              {poes.length > 0 && <span className="text-emerald-800 ml-1">📄</span>}
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </td>
+                                    <td className="border py-1 px-1.5 italic text-rose-900 font-bold leading-tight break-words text-justify" style={cellBorderStyle}>{variance}</td>
+                                    <td className="border py-1 px-1.5 font-medium leading-tight break-words text-justify" style={cellBorderStyle}>{corrective}</td>
+                                  </tr>
+                                );
+                              } else {
+                                const target = (row as any)[selectedQuarter] || '-';
+                                const actual = (row as any)[`${selectedQuarter}Actual`] || '-';
+                                const exp = (row as any)[`${selectedQuarter}Expenditure`] || '-';
+                                const variance = (row as any)[`${selectedQuarter}Variance`] || '-';
+                                const corrective = (row as any)[`${selectedQuarter}Corrective`] || '-';
+                                const poes = (row as any)[`${selectedQuarter}Poes`] || [];
+                                const poeDesc = (row as any)[`${selectedQuarter}PoeDesc`] || row.poeDesc || '';
+
+                                const isAchieved = target && actual && target === actual;
+                                const bgColor = isAchieved ? 'bg-emerald-50/60' : (actual && !isAchieved ? 'bg-rose-50/40' : '');
+
+                                return (
+                                  <tr key={rIdx} className={`border-b break-inside-avoid text-black font-medium ${bgColor}`}>
+                                    <td className="border py-1 px-1.5 font-black text-center text-[7px] break-words" style={kpaBadgeCellStyle}>{kpaLabel}</td>
+                                    <td className="border py-1 px-1.5 font-bold font-mono text-center break-words" style={cellBorderStyle}>{row.refNum}</td>
+                                    <td className="border py-1 px-1.5 font-bold leading-tight break-words text-justify" style={cellBorderStyle}>{row.kpi}</td>
+                                    <td className="border py-1 px-1.5 font-bold text-slate-700 break-words text-center" style={cellBorderStyle}>{row.budgetAllocation || 'Opex'}</td>
+                                    <td className="border py-1 px-1.5 text-center" style={cellBorderStyle}>
+                                      <span className="text-[11px]" title={rag.tooltip}>{rag.face}</span>
+                                    </td>
+                                    <td className="border py-1 px-1.5 font-extrabold text-center break-words" style={{ ...cellBorderStyle, color: kpa.cellTintTextHex }}>{target}</td>
+                                    <td className="border py-1 px-1.5 font-extrabold text-center break-words" style={{ ...cellBorderStyle, color: kpa.achievedColor }}>{actual}</td>
+                                    <td className="border py-1 px-1.5 font-medium text-center break-words" style={cellBorderStyle}>{exp}</td>
+                                    <td className="border py-1 px-1.5 break-words text-justify" style={cellBorderStyle}>
+                                      {poeDesc && <div className="text-[7px] text-slate-600 leading-tight mb-0.5 break-words text-justify">{poeDesc}</div>}
+                                      {poes && poes.length > 0 && (
+                                        <div
+                                          className="text-[6.5px] px-1 py-0.5 rounded truncate font-semibold"
+                                          style={{ backgroundColor: kpa.cellTintBgHex, color: kpa.cellTintTextHex }}
+                                          title={poes.join(', ')}
+                                        >
+                                          📄 {poes[poes.length - 1]}
+                                        </div>
+                                      )}
+                                    </td>
+                                    <td className="border py-1 px-1.5 italic text-rose-900 font-bold leading-tight break-words text-justify" style={cellBorderStyle}>{variance}</td>
+                                    <td className="border py-1 px-1.5 font-medium leading-tight break-words text-justify" style={cellBorderStyle}>{corrective}</td>
+                                  </tr>
+                                );
+                              }
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
             <PageFooter pageNumber={pageNum} title={reportTitle} />
           </section>
-         );
+        );
       })}
 
       {/* Ratings Scale Page */}
-      <section className="relative w-[297mm] h-[210mm] p-12 flex flex-col page-break-after border-b border-gray-100 bg-white">
+      <section className="relative w-[297mm] min-h-[210mm] p-12 flex flex-col page-break-after border-b border-gray-100 bg-white">
         <div className="flex-1 space-y-6">
           <h3 className="text-base font-black text-black uppercase">Performance Rating Scale</h3>
           <table className="w-full border-collapse border border-slate-400 text-[11px] leading-snug">
             <thead className="bg-[#cbd5e1] text-black uppercase font-black text-left">
-              <tr><th className="border border-slate-400 p-3 w-20 text-center">Rating</th><th className="border border-slate-400 p-3 w-48">Terminology</th><th className="border border-slate-400 p-3">Description</th></tr>
+              <tr><th className="border border-slate-400 p-3 w-20 text-center">Rating</th><th className="border border-slate-400 p-3 w-56">Terminology</th><th className="border border-slate-400 p-3">Description</th></tr>
             </thead>
             <tbody>
               <tr>
                 <td className="border border-slate-400 p-3 text-center font-black text-xl bg-emerald-100 text-black">5</td>
                 <td className="border border-slate-400 p-3 font-black uppercase text-black bg-emerald-100">Outstanding Performance</td>
-                <td className="border border-slate-400 p-3 text-black font-medium text-justify">Performance far exceeds the standards expected of an institution at this level.</td>
+                <td className="border border-slate-400 p-3 text-black font-medium text-justify">Performance far exceeds the standards expected of an institution at this level. The appraisal indicates that the Municipality has achieved exceptionally admirable results in all areas of the scorecard.</td>
               </tr>
               <tr>
                 <td className="border border-slate-400 p-3 text-center font-black text-xl bg-blue-100 text-black">4</td>
                 <td className="border border-slate-400 p-3 font-black uppercase text-black bg-blue-100">Performance Significantly Above Expectations</td>
-                <td className="border border-slate-400 p-3 text-black font-medium text-justify">Performance is significantly higher than the standard expected in the job.</td>
+                <td className="border border-slate-400 p-3 text-black font-medium text-justify">Performance is significantly higher than the standard expected in the scorecard. The appraisal indicates that the Municipality has achieved better than expected results in all areas and exceeded targets in key areas.</td>
               </tr>
               <tr>
                 <td className="border border-slate-400 p-3 text-center font-black text-xl bg-emerald-50 text-black">3</td>
                 <td className="border border-slate-400 p-3 font-black uppercase text-black bg-emerald-50">Fully Effective</td>
-                <td className="border border-slate-400 p-3 text-black font-medium text-justify">Performance fully meets the standards expected in all areas of the job.</td>
+                <td className="border border-slate-400 p-3 text-black font-medium text-justify">Performance fully meets the standards expected in all areas of the scorecard. The appraisal indicates that the Municipality has met all planned quarterly and annual SDBIP targets.</td>
+              </tr>
+              <tr>
+                <td className="border border-slate-400 p-3 text-center font-black text-xl bg-amber-100 text-black">2</td>
+                <td className="border border-slate-400 p-3 font-black uppercase text-black bg-amber-100">Not Fully Effective</td>
+                <td className="border border-slate-400 p-3 text-black font-medium text-justify">Performance is below the standard required for the scorecard as a whole. Performance meets some of the standards expected, while targeted remedial interventions are required for unachieved indicators.</td>
+              </tr>
+              <tr>
+                <td className="border border-slate-400 p-3 text-center font-black text-xl bg-rose-100 text-black">1</td>
+                <td className="border border-slate-400 p-3 font-black uppercase text-black bg-rose-100">Unacceptable Performance</td>
+                <td className="border border-slate-400 p-3 text-black font-medium text-justify">Performance does not meet the standard expected for the scorecard. The Municipality has failed to demonstrate the commitment or capacity required to achieve the approved SDBIP targets.</td>
               </tr>
             </tbody>
           </table>
         </div>
-        <PageFooter pageNumber={7 + kpaGraphPairs.length + kpaPages.length} title={reportTitle} />
+        <PageFooter pageNumber={6 + kpaGraphPairs.length + kpaPages.length} title={reportTitle} />
       </section>
 
       {/* Back Cover */}
@@ -1497,7 +1638,8 @@ function ReportDocument({
             <div className="mt-8 w-16 h-1 bg-emerald-500 rounded-full"></div>
             <p className="mt-8 text-[10px] font-bold tracking-widest text-slate-400 uppercase leading-loose">
               Prepared by Mzansi Flow Automated PMS System<br />
-              &copy; 2025 All Rights Reserved
+              Financial Year 2026/2027 &bull; Report Date: {currentReportDate}<br />
+              &copy; {new Date().getFullYear()} All Rights Reserved
             </p>
          </div>
       </section>
@@ -1700,7 +1842,17 @@ function SDBIPReportsTab({
       };
 
       const qLabel = quarterLabels[period] || period.toUpperCase();
-      const reportTitle = `NKANGALA DISTRICT MUNICIPALITY - SDBIP ${qLabel.toUpperCase()} REPORT 2025/2026`;
+      const reportDateStr = new Date().toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' });
+      const quarterDates: Record<string, string> = {
+        q1: '30 September 2026',
+        q2: '31 December 2026',
+        midTerm: '31 December 2026',
+        q3: '31 March 2027',
+        q4: '30 June 2027',
+        annual: '30 June 2027'
+      };
+      const periodEndDate = quarterDates[period] || '30 June 2027';
+      const reportTitle = `NKANGALA DISTRICT MUNICIPALITY - SDBIP ${qLabel.toUpperCase()} REPORT 2026/2027`;
 
       // Build clean, native, rapid Word HTML document
       let docHtml = `
@@ -1733,17 +1885,18 @@ function SDBIPReportsTab({
   <div class="Section1">
     <h1>${reportTitle}</h1>
     <p style="text-align:center; font-size: 10pt; color: #475569; font-weight: bold; margin-bottom: 16pt;">
-      Official SDBIP Top Layer Institutional Scorecard & Performance Feedback
+      Official SDBIP Top Layer Institutional Scorecard &amp; Performance Feedback<br/>
+      Financial Year: 2026/2027 &bull; Period Ending: ${periodEndDate} &bull; Report Date: ${reportDateStr}
     </p>
 
-    <h2>1. Purpose & Statutory Framework</h2>
+    <h2>1. Purpose &amp; Statutory Framework</h2>
     <p>
-      The purpose of this report is to provide feedback on the performance of the Nkangala District Municipality, as mandated by Local Government: Municipal Systems Act No. 32 of 2000, section 41(e), and the Local Government: Municipal Finance Management Act 56 of 2003, section 52(d). The information presented in this report is founded on the Integrated Development Plan (IDP) for the fiscal year 2025/2026.
+      The purpose of this report is to provide feedback on the performance of the Nkangala District Municipality, as mandated by Local Government: Municipal Systems Act No. 32 of 2000, section 41(e), and the Local Government: Municipal Finance Management Act 56 of 2003, section 52(d). The information presented in this report is founded on the Integrated Development Plan (IDP) for the fiscal year 2026/2027.
     </p>
 
     <h2>2. Executive Summary</h2>
     <p>
-      This report presents the ${qLabel} Institutional Performance Review for the 2025/2026 fiscal year. During the period under review, the District Municipality recorded performance across several key service delivery and strategic focus areas, notably municipal transformation, infrastructure development, financial management, good governance, and spatial transformation.
+      This report presents the ${qLabel} Institutional Performance Review for the 2026/2027 fiscal year, concluding on ${periodEndDate} (compiled on ${reportDateStr}). During the period under review, the District Municipality recorded performance across several key service delivery and strategic focus areas, notably municipal transformation, infrastructure development, financial management, good governance, and spatial transformation.
     </p>
 
     <div class="page-break"></div>
@@ -1950,7 +2103,8 @@ function SDBIPReportsTab({
       sr: 'Spatial Transformation'
     };
 
-    excelRows.push([`NKANGALA DISTRICT MUNICIPALITY - SDBIP ${quarterLabels[period].toUpperCase()} REPORT 2025/2026`]);
+    const reportDateStr = new Date().toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' });
+    excelRows.push([`NKANGALA DISTRICT MUNICIPALITY - SDBIP ${quarterLabels[period].toUpperCase()} REPORT 2026/2027 (Report Date: ${reportDateStr})`]);
     excelRows.push([]); 
 
     kpas.forEach((kpa) => {
@@ -2015,7 +2169,7 @@ function SDBIPReportsTab({
     const worksheet = XLSX.utils.aoa_to_sheet(excelRows);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'SDBIP Performance');
-    XLSX.writeFile(workbook, `SDBIP_Report_${period.toUpperCase()}_2025_2026.xlsx`);
+    XLSX.writeFile(workbook, `SDBIP_Report_${period.toUpperCase()}_2026_2027.xlsx`);
   };
 
   const exportToMarkdown = () => {
@@ -2027,13 +2181,14 @@ function SDBIPReportsTab({
       q4: '4th Quarter',
       annual: 'Annual Consolidated'
     };
-    const reportTitle = `SDBIP ${quarterLabels[period]} REPORT 2025/2026`;
+    const reportDateStr = new Date().toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' });
+    const reportTitle = `SDBIP ${quarterLabels[period]} REPORT 2026/2027`;
 
     let md = `# ${reportTitle}\n\n`;
-    md += `**MZANSI FLOW AUTOMATED PMS SYSTEM**\n\n---\n\n`;
+    md += `**MZANSI FLOW AUTOMATED PMS SYSTEM** | **Financial Year:** 2026/2027 | **Report Date:** ${reportDateStr}\n\n---\n\n`;
     
     md += `## 1. Purpose\n\n`;
-    md += `The purpose of this report is to provide feedback on the performance of the Nkangala District Municipality, as mandated by Local Government: Municipal Systems Act No. 32 of 2000, section 41(e), and the Local Government: Municipal Finance Management Act 56 of 2003, section 52(d). The information presented in this report is founded on the Integrated Development Plan (IDP) for the fiscal year 2025/2026. The scorecard was designed to capture cumulative performance, thus indicating the overall level of performance achieved to date.\n\n`;
+    md += `The purpose of this report is to provide feedback on the performance of the Nkangala District Municipality, as mandated by Local Government: Municipal Systems Act No. 32 of 2000, section 41(e), and the Local Government: Municipal Finance Management Act 56 of 2003, section 52(d). The information presented in this report is founded on the Integrated Development Plan (IDP) for the fiscal year 2026/2027. The scorecard was designed to capture cumulative performance, thus indicating the overall level of performance achieved to date.\n\n`;
     md += `### METHODOLOGY USED IN COMPILING THE REPORT\n\n`;
     md += `In accordance with Section 46 of the Local Government: Municipal Systems Act 32 of 2000, municipalities are obligated to prepare an annual performance report for each fiscal year. This report must encompass:\n`;
     md += `(a) The performance of the Municipality and external service providers during the financial year.\n`;
@@ -2041,7 +2196,7 @@ function SDBIPReportsTab({
     md += `(c) Measures taken to enhance performance.\n\n`;
 
     md += `## 2. Executive Summary\n\n`;
-    md += `This report presents the ${quarterLabels[period]} Institutional Performance Review for the 2025/2026 fiscal year, concluding on the reporting date. It provides a thorough and insightful analysis of the Municipality’s performance against the targets set out in the Integrated Development Plan (IDP) and Service Delivery and Budget Implementation Plan (SDBIP) scorecards.\n\n`;
+    md += `This report presents the ${quarterLabels[period]} Institutional Performance Review for the 2026/2027 fiscal year, concluding on the reporting date (${reportDateStr}). It provides a thorough and insightful analysis of the Municipality’s performance against the targets set out in the Integrated Development Plan (IDP) and Service Delivery and Budget Implementation Plan (SDBIP) scorecards.\n\n`;
 
     md += `## 5. Institutional Performance Data\n\n`;
     
