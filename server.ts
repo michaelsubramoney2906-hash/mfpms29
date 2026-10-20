@@ -14104,19 +14104,68 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
 
     // Marianne Joubert's Clean Audit KPI: Quarter 1 MUST be locked as N/A because it is only applicable in Quarter 3
     const kpiDesc = (item.kpi || item.description || item.desc || '').toString().toLowerCase();
+    const kpiNoNorm = String(item.kpiNo || item['kpi no'] || '').toUpperCase().trim();
     const isCleanAudit = kpiDesc.includes('clean audit');
     const uClean = (userEmail || '').toLowerCase();
     const isJoubert = uClean.includes('joubertm') || uClean.includes('joubert');
+    const isMadihlaba = uClean.includes('madihlaba') || uClean.includes('madhilaba');
+    const isMasekoFm = uClean.includes('masekofm');
+    const isMotauAm = uClean.includes('motauam');
 
+    let kpiNoVal = item.kpiNo;
+    let annualTargetVal = item.annualTarget;
     let q1TargetVal = item.q1Target;
-    let q1LockedVal = item.q1Locked;
+    let q2TargetVal = item.q2Target;
     let q3TargetVal = item.q3Target;
+    let q4TargetVal = item.q4Target;
+    let q1LockedVal = item.q1Locked;
+    let q2LockedVal = item.q2Locked;
+    let q3LockedVal = item.q3Locked;
+    let q4LockedVal = item.q4Locked;
 
     if (isCleanAudit && isJoubert) {
       q1TargetVal = 'N/A';
       q1LockedVal = true;
       if (!q3TargetVal || q3TargetVal === 'N/A') {
         q3TargetVal = '1 (Clean audit)';
+      }
+    }
+
+    // Phaswana Madihlaba: Lock KPI M_21 ("Attain a clean audit opinion by 31 December 2026") for Q1, Q3, Q4 (applicable in Q2)
+    if (isMadihlaba && (kpiNoNorm === 'M_21' || kpiNoNorm === 'M-21' || isCleanAudit)) {
+      kpiNoVal = 'M_21';
+      q1TargetVal = 'N/A';
+      q1LockedVal = true;
+      if (!q2TargetVal || q2TargetVal === 'N/A') {
+        q2TargetVal = '1 (Clean audit)';
+      }
+      q2LockedVal = false;
+      q3TargetVal = 'N/A';
+      q3LockedVal = true;
+      q4TargetVal = 'N/A';
+      q4LockedVal = true;
+    }
+
+    // Fikile Maseko: Lock KPI M_49 ("Number of Tourism Expo convened by 30 April 2027") for Q1, Q2, Q3 (only applicable in Q4)
+    if (isMasekoFm && (kpiNoNorm === 'M_49' || kpiNoNorm === 'M-49' || kpiDesc.includes('tourism expo'))) {
+      kpiNoVal = 'M_49';
+      q1TargetVal = 'N/A';
+      q1LockedVal = true;
+      q2TargetVal = 'N/A';
+      q2LockedVal = true;
+      q3TargetVal = 'N/A';
+      q3LockedVal = true;
+      if (!q4TargetVal || q4TargetVal === 'N/A') {
+        q4TargetVal = '1';
+      }
+      q4LockedVal = false;
+    }
+
+    // Asnath Motau: KPI 3 annual target and Q1 target = "2"
+    if (isMotauAm && (kpiNoNorm === '3' || kpiDesc.includes('performance agreements signed with subordinates'))) {
+      annualTargetVal = '2';
+      if (!q1TargetVal || String(q1TargetVal).toLowerCase().includes('subordinate')) {
+        q1TargetVal = '2';
       }
     }
 
@@ -14168,12 +14217,19 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
 
     return {
       ...restItem,
+      kpiNo: kpiNoVal,
+      annualTarget: annualTargetVal,
       poeFileName: firstCleanDoc ? firstCleanDoc.name : '',
       ...(syncedReviewStatus ? { reviewStatus: syncedReviewStatus } : {}),
       ...(syncedReviewApprovalStatus ? { reviewApprovalStatus: syncedReviewApprovalStatus } : {}),
       q1Target: q1TargetVal,
-      q1Locked: q1LockedVal,
+      q2Target: q2TargetVal,
       q3Target: q3TargetVal,
+      q4Target: q4TargetVal,
+      q1Locked: q1LockedVal,
+      ...(q2LockedVal !== undefined ? { q2Locked: q2LockedVal } : {}),
+      ...(q3LockedVal !== undefined ? { q3Locked: q3LockedVal } : {}),
+      ...(q4LockedVal !== undefined ? { q4Locked: q4LockedVal } : {}),
       poe: cleanParentPoe,
       annualRequiredPoe: finalAnnual,
       q1Poe: finalQ1,
@@ -14762,6 +14818,37 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           });
 
           if (rawItems.length > sanitizedItems.length) {
+            try {
+              const updatePayload = JSON.stringify({ ...parsed, items: sanitizedItems, rows: sanitizedItems });
+              const syncTenants = ['tenant-229', 'nkangala_auto', 'global'];
+              for (const tId of syncTenants) {
+                const uDocId = `pplan_${tId}_${userId}`;
+                pplanCache.set(uDocId, { raw: updatePayload, timestamp: Date.now() });
+                supabase.from('messages').upsert({
+                  id: uDocId,
+                  tenant_id: tId,
+                  sender_id: 'pplan_editor_tool',
+                  sender_email: 'pplan@system.local',
+                  sender_name: 'PPLAN Editor',
+                  content: updatePayload,
+                  message_type: 'pplan_list',
+                  created_at: new Date().toISOString()
+                }).then(() => {}).catch(() => {});
+              }
+            } catch(e) {}
+          }
+        }
+
+        // Nonosi Xaba (xabang@nkangaladm.gov.za): KPI 11 ("Maximum acceptable percentage of staff vacancy rate (Circular 88) per quarter") removed from performance plan
+        if (userId.toLowerCase().includes('xabang')) {
+          const beforeLen = sanitizedItems.length;
+          sanitizedItems = sanitizedItems.filter((it: any) => {
+            const desc = String(it.kpi || it.description || it.desc || it['kpi description'] || '').toLowerCase();
+            if (desc.includes('staff vacancy rate')) return false;
+            return true;
+          });
+
+          if (beforeLen > sanitizedItems.length) {
             try {
               const updatePayload = JSON.stringify({ ...parsed, items: sanitizedItems, rows: sanitizedItems });
               const syncTenants = ['tenant-229', 'nkangala_auto', 'global'];
@@ -17251,6 +17338,27 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
               syncDraftRows.push({
                 id: altDocId,
                 tenant_id: altT,
+                sender_id: 'pa_editor_tool',
+                sender_email: 'pa@system.local',
+                sender_name: 'PA Editor',
+                content: contentPayload,
+                message_type: 'drafting_suite_doc',
+                created_at: timestamp
+              });
+            }
+          }
+        } else if (documentId.startsWith('draft_doc_pms_team_team_1')) {
+          const pmsTeamSyncIds = [
+            { id: 'draft_doc_pms_team_team_1', tenant_id: tenantId },
+            { id: 'draft_doc_pms_team_team_1_tenant-229_zulune@nkangaladm.gov.za', tenant_id: 'tenant-229' },
+            { id: 'draft_doc_pms_team_team_1_nkangala_auto_zulune@nkangaladm.gov.za', tenant_id: 'nkangala_auto' },
+            { id: 'draft_doc_pms_team_team_1_global_zulune@nkangaladm.gov.za', tenant_id: 'global' }
+          ];
+          for (const entry of pmsTeamSyncIds) {
+            if (entry.id !== documentId) {
+              syncDraftRows.push({
+                id: entry.id,
+                tenant_id: entry.tenant_id,
                 sender_id: 'pa_editor_tool',
                 sender_email: 'pa@system.local',
                 sender_name: 'PA Editor',

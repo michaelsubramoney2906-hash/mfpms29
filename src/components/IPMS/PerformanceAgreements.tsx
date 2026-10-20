@@ -624,7 +624,8 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
             });
 
             // Enforce Marianne Joubert Clean Audit KPI rule (Q1 locked as N/A, applicable in Q3)
-            const isJoubertTarget = targetEmail.toLowerCase().includes('joubert') || targetEmail.toLowerCase().includes('marianne');
+            const lowerTargetEmail = targetEmail.toLowerCase();
+            const isJoubertTarget = lowerTargetEmail.includes('joubert') || lowerTargetEmail.includes('marianne');
             if (isJoubertTarget) {
               currentItems = currentItems.map((item: any) => {
                 const kpiDesc = (item.kpi || item.description || item.kpiDescription || '').toLowerCase();
@@ -637,6 +638,79 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
                   };
                 }
                 return item;
+              });
+            }
+
+            // Enforce Phaswana Madihlaba M_21 Clean Audit KPI rule (locked in Q1, Q3, Q4; applicable in Q2)
+            if (lowerTargetEmail.includes('madihlaba') || lowerTargetEmail.includes('madhilaba')) {
+              currentItems = currentItems.map((item: any) => {
+                const kpiNoStr = String(item.kpiNo || '').toUpperCase().trim();
+                const kpiDesc = String(item.kpi || item.description || item.kpiDescription || '').toLowerCase();
+                if (kpiNoStr === 'M_21' || kpiNoStr === 'M-21' || kpiDesc.includes('clean audit')) {
+                  return {
+                    ...item,
+                    kpiNo: 'M_21',
+                    q1Target: 'N/A',
+                    q1Locked: true,
+                    q2Target: (!item.q2Target || item.q2Target === 'N/A') ? '1 (Clean audit)' : item.q2Target,
+                    q2Locked: false,
+                    q3Target: 'N/A',
+                    q3Locked: true,
+                    q4Target: 'N/A',
+                    q4Locked: true,
+                    lockedQuarters: { q1: true, q2: false, q3: true, q4: true }
+                  };
+                }
+                return item;
+              });
+            }
+
+            // Enforce Fikile Maseko M_49 Tourism Expo KPI rule (locked in Q1, Q2, Q3; only applicable in Q4)
+            if (lowerTargetEmail.includes('masekofm')) {
+              currentItems = currentItems.map((item: any) => {
+                const kpiNoStr = String(item.kpiNo || '').toUpperCase().trim();
+                const kpiDesc = String(item.kpi || item.description || item.kpiDescription || '').toLowerCase();
+                if (kpiNoStr === 'M_49' || kpiNoStr === 'M-49' || kpiDesc.includes('tourism expo')) {
+                  return {
+                    ...item,
+                    kpiNo: 'M_49',
+                    q1Target: 'N/A',
+                    q1Locked: true,
+                    q2Target: 'N/A',
+                    q2Locked: true,
+                    q3Target: 'N/A',
+                    q3Locked: true,
+                    q4Target: (!item.q4Target || item.q4Target === 'N/A') ? '1' : item.q4Target,
+                    q4Locked: false,
+                    lockedQuarters: { q1: true, q2: true, q3: true, q4: false }
+                  };
+                }
+                return item;
+              });
+            }
+
+            // Enforce Asnath Motau KPI 3 annual & Q1 target = "2"
+            if (lowerTargetEmail.includes('motauam')) {
+              currentItems = currentItems.map((item: any) => {
+                const kpiNoStr = String(item.kpiNo || '').trim();
+                const kpiDesc = String(item.kpi || item.description || item.kpiDescription || '').toLowerCase();
+                if (kpiNoStr === '3' || kpiDesc.includes('performance agreements signed with subordinates')) {
+                  return {
+                    ...item,
+                    annualTarget: '2',
+                    target: '2',
+                    q1Target: (String(item.q1Target || '').toLowerCase().includes('subordinate') || !item.q1Target) ? '2' : item.q1Target
+                  };
+                }
+                return item;
+              });
+            }
+
+            // Enforce Nonosi Xaba removal of HR KPI 11 (staff vacancy rate)
+            if (lowerTargetEmail.includes('xabang')) {
+              currentItems = currentItems.filter((item: any) => {
+                const kpiDesc = String(item.kpi || item.description || item.kpiDescription || '').toLowerCase();
+                return !kpiDesc.includes('staff vacancy rate');
               });
             }
           }
@@ -940,6 +1014,146 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
   };
 
   const [isPullingFred, setIsPullingFred] = useState(false);
+  const [isPushingToPmsTeamPa, setIsPushingToPmsTeamPa] = useState(false);
+  const [pushToPmsTeamPaBanner, setPushToPmsTeamPaBanner] = useState<string | null>(null);
+
+  const isNoluthandoOrTeamPlan = React.useMemo(() => {
+    const activeTargetEmail = (selectedUserEmail || currentUser?.email || metadata?.email || '').toLowerCase().trim();
+    const activeTargetName = (metadata?.name || currentUser?.fullName || '').toLowerCase().trim();
+    return Boolean(
+      isTeamPlan ||
+      activeTargetEmail.includes('zulune') ||
+      activeTargetName.includes('noluthando') ||
+      activeTargetName.includes('zulu')
+    );
+  }, [isTeamPlan, selectedUserEmail, currentUser?.email, currentUser?.fullName, metadata?.email, metadata?.name]);
+
+  const handlePushToPmsTeamPA = async () => {
+    setIsPushingToPmsTeamPa(true);
+    setPushToPmsTeamPaBanner(null);
+    try {
+      const targetEmail = (selectedUserEmail || currentUser?.email || 'zulune@nkangaladm.gov.za').toLowerCase().trim();
+      const zuluEmail = 'zulune@nkangaladm.gov.za';
+
+      // Build clean Filtered Team Performance Plan items (planning fields only)
+      const filteredTeamItems = items
+        .filter((item: any) => !(item.kpiNo && item.kpiNo.startsWith('KPI-KPA-') && item.kpi?.includes('Execution and operational oversight')))
+        .map((item: any, idx: number) => {
+          const rawPoe = (item.annualRequiredPoe || item.poe || item.q1Poe || '—').trim();
+          let cleanPoe = rawPoe;
+          const poeLines = rawPoe.split('\n').map((l: string) => l.replace(/^Q[1-4]:\s*/i, '').trim()).filter(Boolean);
+          if (poeLines.length > 1 && new Set(poeLines).size === 1) {
+            cleanPoe = poeLines[0];
+          }
+          return {
+            id: item.id || `pplan-team-${idx + 1}`,
+            kpiNo: item.kpiNo || String(idx + 1),
+            strategicGoal: item.strategicGoal || item.kpa || 'Operational KPA',
+            kpa: item.kpa || item.strategicGoal || 'Operational KPA',
+            kpi: item.kpi || '',
+            description: item.kpi || '',
+            baseline: item.baseline || '—',
+            baselineYear: item.baselineYear || '2025/2026',
+            budget: item.budget || 'OPEX',
+            annualTarget: item.annualTarget || '—',
+            q1Target: item.q1Target || '—',
+            q2Target: item.q2Target || '—',
+            q3Target: item.q3Target || '—',
+            q4Target: item.q4Target || '—',
+            q1: item.q1Target || '—',
+            q2: item.q2Target || '—',
+            q3: item.q3Target || '—',
+            q4: item.q4Target || '—',
+            midtermTarget: item.midtermTarget || '—',
+            poe: cleanPoe,
+            annualRequiredPoe: cleanPoe,
+            weighting: item.weighting || '—',
+            bsd: Boolean(item.bsd),
+            led: Boolean(item.led),
+            mfvm: Boolean(item.mfvm),
+            ggpp: Boolean(item.ggpp),
+            midt: Boolean(item.midt),
+            sr: Boolean(item.sr),
+            mscoaCode: item.mscoaCode || ''
+          };
+        });
+
+      // 1. Save current Team Performance Plan to DB first
+      await handleSaveToDatabase(metadata, items, false);
+      if (!isTeamPlan) {
+        await fetch(`/api/tenant/${activeTenantId}/team-pplan?userId=${encodeURIComponent(targetEmail)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ metadata, items, rows: items })
+        }).catch(() => {});
+      }
+
+      // 2. Fetch existing PMS Team PA draft document to preserve all sections, rosters, signatures, PDPs, JSCs
+      const docIdTeam1 = `draft_doc_pms_team_team_1_${activeTenantId}`;
+      const docIdLegacy = `draft_doc_pms_team_${activeTenantId}`;
+      let existingState: any = {};
+      try {
+        const getRes = await fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=${encodeURIComponent(targetEmail)}&documentId=${docIdTeam1}&t=${Date.now()}`);
+        if (getRes.ok) {
+          const getJson = await getRes.json();
+          if (getJson && getJson.html) {
+            existingState = typeof getJson.html === 'string' ? JSON.parse(getJson.html) : getJson.html;
+          }
+        }
+      } catch (e) {}
+
+      const updatedPmsTeamPaState = {
+        ...existingState,
+        annexureA: true,
+        isPPlanAdopted: true,
+        pulledFilteredPplanItems: filteredTeamItems,
+        headingPplanTable: existingState?.headingPplanTable || 'Annexure A: Filtered Team Performance Plan (KPA & KPI Matrix)',
+        pushedFromTeamPerformancePlanAt: new Date().toISOString(),
+        pushedByEmail: (currentUser?.email || targetEmail).toLowerCase().trim(),
+        updatedAt: new Date().toISOString()
+      };
+
+      // 3. Push to PMS Team PA across Noluthando Zulu, active user, PMS Team members, and global default
+      const recipientUsers = Array.from(new Set([
+        targetEmail,
+        zuluEmail,
+        (currentUser?.email || '').toLowerCase().trim(),
+        'nsibandenp@nkangaladm.gov.za',
+        'shabangusm@nkangaladm.gov.za',
+        'default'
+      ].filter(Boolean)));
+
+      await Promise.all(
+        recipientUsers.flatMap(u => [
+          fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=${encodeURIComponent(u)}&documentId=${docIdTeam1}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              html: updatedPmsTeamPaState,
+              htmlDocumentId: docIdTeam1
+            })
+          }),
+          fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=${encodeURIComponent(u)}&documentId=${docIdLegacy}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              html: updatedPmsTeamPaState,
+              htmlDocumentId: docIdLegacy
+            })
+          })
+        ])
+      );
+
+      window.dispatchEvent(new CustomEvent('pms-team-pa-updated', { detail: { items: filteredTeamItems } }));
+      setPushToPmsTeamPaBanner(`Successfully pushed ${filteredTeamItems.length} Filtered Team Performance Plan KPIs to PMS Team PA!`);
+      setTimeout(() => setPushToPmsTeamPaBanner(null), 6000);
+    } catch (err: any) {
+      console.error('Error pushing Filtered Team Performance Plan to PMS Team PA:', err);
+      setPushToPmsTeamPaBanner('Failed to push Filtered Team Performance Plan to PMS Team PA.');
+    } finally {
+      setIsPushingToPmsTeamPa(false);
+    }
+  };
 
   const generateAll97KPIs = (kpasList: any[]) => {
     const kpiList: PlanKPIItem[] = [];
@@ -2387,6 +2601,24 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
           Municipality Code: <b className="font-mono text-white uppercase">{activeTenantId}</b>
         </span>
         
+        {isPlan && isNoluthandoOrTeamPlan && (
+          <button
+            id="btn-header-push-to-pms-team-pa"
+            type="button"
+            onClick={handlePushToPmsTeamPA}
+            disabled={isPushingToPmsTeamPa}
+            className="bg-indigo-600 hover:bg-indigo-500 border border-indigo-400 text-white font-black px-3.5 py-1.5 rounded-xl text-[11px] uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer shadow-xs disabled:opacity-50"
+            title="Push Filtered Team Performance Plan directly into PMS Team PA (Annexure A)"
+          >
+            {isPushingToPmsTeamPa ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-200" />
+            ) : (
+              <Send className="w-3.5 h-3.5 text-indigo-200" />
+            )}
+            <span>{isPushingToPmsTeamPa ? "Pushing..." : "Push to PMS Team PA"}</span>
+          </button>
+        )}
+
         {isPlan && (
           <button 
             type="button"
@@ -2875,6 +3107,23 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
             </h3>
             
             <div className="grid grid-cols-1 gap-2 select-none">
+              {isNoluthandoOrTeamPlan && (
+                <button
+                  id="btn-toolbox-push-to-pms-team-pa"
+                  type="button"
+                  onClick={handlePushToPmsTeamPA}
+                  disabled={isPushingToPmsTeamPa}
+                  className="w-full bg-indigo-600 text-white hover:bg-indigo-700 border border-indigo-500 font-bold px-3 py-2 rounded-xl text-[10px] uppercase tracking-wide flex items-center justify-center gap-1.5 transition shadow-xs cursor-pointer text-center disabled:opacity-50"
+                >
+                  {isPushingToPmsTeamPa ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-white" />
+                  ) : (
+                    <Send className="w-3.5 h-3.5 text-indigo-200" />
+                  )}
+                  <span>{isPushingToPmsTeamPa ? "Pushing Filtered Plan..." : "Push to PMS Team PA"}</span>
+                </button>
+              )}
+
               <button 
                 type="button"
                 onClick={handleExportToExcel}
@@ -2961,6 +3210,24 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
                 <span>{isExpanded ? 'Exit Full Screen' : 'Expand Table'}</span>
               </button>
 
+              {isNoluthandoOrTeamPlan && (
+                <button
+                  id="btn-grid-push-to-pms-team-pa"
+                  type="button"
+                  onClick={handlePushToPmsTeamPA}
+                  disabled={isPushingToPmsTeamPa}
+                  className="bg-indigo-600 hover:bg-indigo-500 border border-indigo-400 text-white font-bold px-3.5 py-1.5 rounded-lg text-[10px] uppercase tracking-wide flex items-center gap-1.5 transition cursor-pointer shadow-xs disabled:opacity-50"
+                  title="Push Filtered Team Performance Plan directly into PMS Team PA (Annexure A)"
+                >
+                  {isPushingToPmsTeamPa ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-200" />
+                  ) : (
+                    <Send className="w-3.5 h-3.5 text-indigo-200" />
+                  )}
+                  <span>{isPushingToPmsTeamPa ? 'Pushing...' : 'Push to PMS Team PA'}</span>
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={handleExportToExcel}
@@ -2990,6 +3257,22 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
               </button>
             </div>
           </div>
+
+          {pushToPmsTeamPaBanner && (
+            <div className="bg-indigo-950 text-indigo-100 border-b border-indigo-800 px-6 py-2.5 text-xs font-bold flex items-center justify-between gap-2 shrink-0">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>{pushToPmsTeamPaBanner}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPushToPmsTeamPaBanner(null)}
+                className="text-[10px] text-indigo-300 hover:text-white uppercase font-black cursor-pointer"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
 
           {/* Interactive spreadsheet style scroll window */}
 

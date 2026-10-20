@@ -44,7 +44,8 @@ export const NKANGALA_USER_MASTER_REGISTRY: Record<string, UserRegistryCount> = 
   "linkss@nkangaladm.gov.za": { email: "linkss@nkangaladm.gov.za", kpis: 31, kpas: 5, jscs: 5, pdps: 6 },
   "lukhelema@nkangaladm.gov.za": { email: "lukhelema@nkangaladm.gov.za", kpis: 17, kpas: 5, jscs: 6, pdps: 0 },
   "mabenaam@nkangaladm.gov.za": { email: "mabenaam@nkangaladm.gov.za", kpis: 9, kpas: 5, jscs: 5, pdps: 0 },
-  "madhilabapk@nkangaladm.gov.za": { email: "madhilabapk@nkangaladm.gov.za", kpis: 37, kpas: 6, jscs: 5, pdps: 3 },
+  "madhilabapk@nkangaladm.gov.za": { email: "madhilabapk@nkangaladm.gov.za", kpis: 36, kpas: 6, jscs: 5, pdps: 3 },
+  "madihlabapk@nkangaladm.gov.za": { email: "madihlabapk@nkangaladm.gov.za", kpis: 36, kpas: 6, jscs: 5, pdps: 3 },
   "madlalacnn@nkangaladm.gov.za": { email: "madlalacnn@nkangaladm.gov.za", kpis: 12, kpas: 5, jscs: 5, pdps: 0 },
   "magagulayl@nkangaladm.gov.za": { email: "magagulayl@nkangaladm.gov.za", kpis: 15, kpas: 5, jscs: 5, pdps: 0 },
   "magampeas@nkangaladm.gov.za": { email: "magampeas@nkangaladm.gov.za", kpis: 36, kpas: 6, jscs: 5, pdps: 2 },
@@ -159,7 +160,7 @@ export const NKANGALA_USER_MASTER_REGISTRY: Record<string, UserRegistryCount> = 
   "vanniekerkt@nkangaladm.gov.za": { email: "vanniekerkt@nkangaladm.gov.za", kpis: 38, kpas: 6, jscs: 5, pdps: 0 },
   "vanzylr@nkangaladm.gov.za": { email: "vanzylr@nkangaladm.gov.za", kpis: 15, kpas: 5, jscs: 5, pdps: 0 },
   "wakenis@nkangaladm.gov.za": { email: "wakenis@nkangaladm.gov.za", kpis: 20, kpas: 5, jscs: 5, pdps: 0 },
-  "xabang@nkangaladm.gov.za": { email: "xabang@nkangaladm.gov.za", kpis: 11, kpas: 5, jscs: 5, pdps: 0 },
+  "xabang@nkangaladm.gov.za": { email: "xabang@nkangaladm.gov.za", kpis: 10, kpas: 5, jscs: 5, pdps: 0 },
   "zikhalibi@nkangaladm.gov.za": { email: "zikhalibi@nkangaladm.gov.za", kpis: 17, kpas: 5, jscs: 6, pdps: 3 },
   "rampedimr@nkangaladm.gov.za": { email: "rampedimr@nkangaladm.gov.za", kpis: 59, kpas: 7, jscs: 12, coreCompetencies: 5, pdps: 0 },
   "standeral@nkangaladm.gov.za": { email: "standeral@nkangaladm.gov.za", kpis: 51, kpas: 7, jscs: 12, coreCompetencies: 5, pdps: 0 },
@@ -198,7 +199,8 @@ export const ALIAS_MAP: Record<string, string> = {
   "mahlakwanalm": "mahlawanalm",
   "morarj": "morari",
   "nhlaphomj": "nhlapomj",
-  "sibanyonimj": "sibanyonimi"
+  "sibanyonimj": "sibanyonimi",
+  "madhilabapk": "madihlabapk"
 };
 
 // STRICT STATUTORY FACT: ONLY these 6 Section 57 Senior Managers have Core Competencies (5).

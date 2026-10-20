@@ -1070,15 +1070,22 @@ export function DraftingSuiteTeam({
   const handlePullFilteredTeamPA = async () => {
     setPullingFilteredTeamPA(true);
     try {
-      const emailToUse = getEmailScope(currentUser?.email || 'khuboniy@nkangaladm.gov.za');
-      const res = await fetch(`/api/tenant/${activeTenantId}/team-pplan?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data && Array.isArray(data.items) && data.items.length > 0) {
-          setPulledFilteredPplanItems(data.items);
-          setIsPPlanAdopted(true);
-          triggerNotification(`Successfully adopted ${data.items.length} Filtered Team Performance Plan items into Annexure A!`, "success");
-          return;
+      const emailToUse = getEmailScope(currentUser?.email || (documentIdSuffix === 'pms_team' ? 'zulune@nkangaladm.gov.za' : 'khuboniy@nkangaladm.gov.za'));
+      const candidateEmails = documentIdSuffix === 'pms_team'
+        ? Array.from(new Set(['zulune@nkangaladm.gov.za', emailToUse]))
+        : [emailToUse];
+
+      for (const candidateEmail of candidateEmails) {
+        const res = await fetch(`/api/tenant/${activeTenantId}/team-pplan?userId=${encodeURIComponent(candidateEmail)}&t=${Date.now()}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && Array.isArray(data.items) && data.items.length > 0) {
+            setPulledFilteredPplanItems(data.items);
+            setIsPPlanAdopted(true);
+            setAnnexureA(true);
+            triggerNotification(`Successfully adopted ${data.items.length} Filtered Team Performance Plan items into Annexure A!`, "success");
+            return;
+          }
         }
       }
       // Try tenant all fallback
@@ -1088,17 +1095,20 @@ export function DraftingSuiteTeam({
         if (allData && Array.isArray(allData.items) && allData.items.length > 0) {
           setPulledFilteredPplanItems(allData.items);
           setIsPPlanAdopted(true);
+          setAnnexureA(true);
           triggerNotification(`Successfully adopted ${allData.items.length} Filtered Team Performance Plan items into Annexure A!`, "success");
           return;
         }
       }
       setPulledFilteredPplanItems(DEFAULT_FILTERED_PPLAN_ITEMS);
       setIsPPlanAdopted(true);
+      setAnnexureA(true);
       triggerNotification("Adopted Filtered Team Performance Plan (KPA & KPI matrix) into Annexure A!", "success");
     } catch (err: any) {
       console.error(err);
       setPulledFilteredPplanItems(DEFAULT_FILTERED_PPLAN_ITEMS);
       setIsPPlanAdopted(true);
+      setAnnexureA(true);
       triggerNotification("Adopted Filtered Team Performance Plan (KPA & KPI matrix) into Annexure A!", "success");
     } finally {
       setPullingFilteredTeamPA(false);
@@ -1887,6 +1897,13 @@ export function DraftingSuiteTeam({
         }
       }
 
+      if ((!data || !data.html) && documentIdSuffix === 'pms_team' && teamIdx === 0) {
+        const zuluRes = await fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=zulune@nkangaladm.gov.za&documentId=${docId}&t=${Date.now()}`);
+        if (zuluRes.ok) {
+          data = await zuluRes.json();
+        }
+      }
+
       if (data && data.html) {
         let state: any = null;
         if (typeof data.html === 'string') {
@@ -2056,6 +2073,18 @@ export function DraftingSuiteTeam({
   useEffect(() => {
     loadDraftForTeam(activeTeamIndex);
   }, [activeTeamIndex, documentIdSuffix, activeTenantId]);
+
+  useEffect(() => {
+    const handlePmsTeamPaUpdated = (e: any) => {
+      if (documentIdSuffix === 'pms_team' && e?.detail?.items && Array.isArray(e.detail.items)) {
+        setPulledFilteredPplanItems(e.detail.items);
+        setIsPPlanAdopted(true);
+        setAnnexureA(true);
+      }
+    };
+    window.addEventListener('pms-team-pa-updated', handlePmsTeamPaUpdated);
+    return () => window.removeEventListener('pms-team-pa-updated', handlePmsTeamPaUpdated);
+  }, [documentIdSuffix]);
 
   // Save Current Team to Supabase
   const saveToProfile = async () => {
@@ -5743,7 +5772,7 @@ export function DraftingSuiteTeam({
                     <tbody>
                       {pulledFilteredPplanItems.map((item, idx) => (
                         <tr key={item.id || idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'}>
-                          <td className="border border-slate-300 p-1.5 text-center font-bold text-slate-600">{idx + 1}</td>
+                          <td className="border border-slate-300 p-1.5 text-center font-bold text-slate-600">{item.kpiNo || idx + 1}</td>
                           <td className="border border-slate-300 p-1.5 font-bold text-slate-800">{item.kpa || item.strategicGoal || 'Operational KPA'}</td>
                           <td className="border border-slate-300 p-1.5 text-slate-700">{item.kpi || item.description}</td>
                           <td className="border border-slate-300 p-1.5 text-center">{item.baseline || '—'}</td>
@@ -5752,7 +5781,7 @@ export function DraftingSuiteTeam({
                           <td className="border border-slate-300 p-1.5 text-center">{item.q2Target || item.q2 || '—'}</td>
                           <td className="border border-slate-300 p-1.5 text-center">{item.q3Target || item.q3 || '—'}</td>
                           <td className="border border-slate-300 p-1.5 text-center">{item.q4Target || item.q4 || '—'}</td>
-                          <td className="border border-slate-300 p-1.5 text-slate-600 text-[9px]">{item.poe || item.annualRequiredPoe || '—'}</td>
+                          <td className="border border-slate-300 p-1.5 text-slate-600 text-[9px]">{item.annualRequiredPoe || item.poe || '—'}</td>
                           <td className="border border-slate-300 p-1.5 text-center font-bold text-slate-700">{item.weighting || '—'}</td>
                         </tr>
                       ))}

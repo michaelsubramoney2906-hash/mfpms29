@@ -530,6 +530,11 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
             const uEmail = (currentUser?.email || '').toLowerCase().trim();
             const metaEmail = (data.metadata?.email || '').toLowerCase().trim();
             const isJoubert = uEmail.includes('joubert') || uEmail.includes('marianne') || metaEmail.includes('joubert') || metaEmail.includes('marianne');
+            const isMadihlaba = uEmail.includes('madihlaba') || uEmail.includes('madhilaba') || metaEmail.includes('madihlaba') || metaEmail.includes('madhilaba');
+            const isMasekoFm = uEmail.includes('masekofm') || metaEmail.includes('masekofm');
+            const isMotauAm = uEmail.includes('motauam') || metaEmail.includes('motauam');
+            const isXabaNg = uEmail.includes('xabang') || metaEmail.includes('xabang');
+
             if (isJoubert) {
               data.items = data.items.map((it: any) => {
                 const kpiDesc = (it.kpi || it.description || it.kpiDescription || '').toLowerCase();
@@ -542,6 +547,71 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
                   };
                 }
                 return it;
+              });
+            }
+            if (isMadihlaba) {
+              data.items = data.items.map((it: any) => {
+                const kpiNoStr = String(it.kpiNo || '').toUpperCase().trim();
+                const kpiDesc = String(it.kpi || it.description || it.kpiDescription || '').toLowerCase();
+                if (kpiNoStr === 'M_21' || kpiNoStr === 'M-21' || kpiDesc.includes('clean audit')) {
+                  return {
+                    ...it,
+                    kpiNo: 'M_21',
+                    q1Target: 'N/A',
+                    q1Locked: true,
+                    q2Target: (!it.q2Target || it.q2Target === 'N/A') ? '1 (Clean audit)' : it.q2Target,
+                    q2Locked: false,
+                    q3Target: 'N/A',
+                    q3Locked: true,
+                    q4Target: 'N/A',
+                    q4Locked: true,
+                    lockedQuarters: { q1: true, q2: false, q3: true, q4: true }
+                  };
+                }
+                return it;
+              });
+            }
+            if (isMasekoFm) {
+              data.items = data.items.map((it: any) => {
+                const kpiNoStr = String(it.kpiNo || '').toUpperCase().trim();
+                const kpiDesc = String(it.kpi || it.description || it.kpiDescription || '').toLowerCase();
+                if (kpiNoStr === 'M_49' || kpiNoStr === 'M-49' || kpiDesc.includes('tourism expo')) {
+                  return {
+                    ...it,
+                    kpiNo: 'M_49',
+                    q1Target: 'N/A',
+                    q1Locked: true,
+                    q2Target: 'N/A',
+                    q2Locked: true,
+                    q3Target: 'N/A',
+                    q3Locked: true,
+                    q4Target: (!it.q4Target || it.q4Target === 'N/A') ? '1' : it.q4Target,
+                    q4Locked: false,
+                    lockedQuarters: { q1: true, q2: true, q3: true, q4: false }
+                  };
+                }
+                return it;
+              });
+            }
+            if (isMotauAm) {
+              data.items = data.items.map((it: any) => {
+                const kpiNoStr = String(it.kpiNo || '').trim();
+                const kpiDesc = String(it.kpi || it.description || it.kpiDescription || '').toLowerCase();
+                if (kpiNoStr === '3' || kpiDesc.includes('performance agreements signed with subordinates')) {
+                  return {
+                    ...it,
+                    annualTarget: '2',
+                    target: '2',
+                    q1Target: (String(it.q1Target || '').toLowerCase().includes('subordinate') || !it.q1Target) ? '2' : it.q1Target
+                  };
+                }
+                return it;
+              });
+            }
+            if (isXabaNg) {
+              data.items = data.items.filter((it: any) => {
+                const kpiDesc = String(it.kpi || it.description || it.kpiDescription || '').toLowerCase();
+                return !kpiDesc.includes('staff vacancy rate');
               });
             }
           }
