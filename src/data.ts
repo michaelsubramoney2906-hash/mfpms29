@@ -358,6 +358,7 @@ export const modules: Module[] = [
       { id: 'pa-technical-services', name: 'Technical Services Team PA', icon: Layers },
       { id: 'pa-corporate-services', name: 'Corporate Services Team PA', icon: Briefcase },
       { id: 'pa-pms-team', name: 'PMS Team PA', icon: Users },
+      { id: 'nsibande-team-self-eval-readonly', name: 'Nsibande Team Self-Eval (Read-Only)', icon: Users },
       { id: 'pa-templates', name: 'PA Templates', icon: LayoutTemplate },
       { id: 'ipms-evaluation', name: 'Self Evaluation', icon: MessageCircle },
       { id: 'team-evaluation', name: 'Team Evaluation', icon: MessageCircle },

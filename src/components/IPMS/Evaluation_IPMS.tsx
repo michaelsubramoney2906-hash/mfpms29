@@ -391,15 +391,21 @@ interface Props {
   currentUser: any;
   activeTenantId: string;
   isTeamEvaluation?: boolean;
+  readOnly?: boolean;
+  readOnlyOwnerLabel?: string;
 }
 
-export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }: Props) {
+export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, readOnly = false, readOnlyOwnerLabel }: Props) {
   const sourceApiEndpoint = isTeamEvaluation ? 'team-pplan' : 'pplan';
   const saveApiEndpoint = isTeamEvaluation ? 'team-evaluation' : 'pplan';
-  const headingTitle = isTeamEvaluation ? 'Team Evaluation' : 'Employee Self-Evaluation';
-  const subTitle = isTeamEvaluation 
-    ? 'Capture actual team quarterly deliverables, portfolios of evidence (POE), & collective assessments'
-    : 'Capture actual quarterly deliverables, portfolios of evidence (POE), & assessments';
+  const headingTitle = readOnly
+    ? (readOnlyOwnerLabel || `${currentUser?.fullName || currentUser?.email}'s Team Self-Evaluation (Live Read-Only)`)
+    : (isTeamEvaluation ? 'Team Evaluation' : 'Employee Self-Evaluation');
+  const subTitle = readOnly
+    ? 'Live read-only mirror — automatically updates as Nompumelelo Nsibande captures actual deliverables, scores, & Portfolios of Evidence (PoE)'
+    : (isTeamEvaluation 
+      ? 'Capture actual team quarterly deliverables, portfolios of evidence (POE), & collective assessments'
+      : 'Capture actual quarterly deliverables, portfolios of evidence (POE), & assessments');
   const currentMonth = new Date().getMonth(); // 0-11
   const isUnrestrictedUser = true; // Fully unlocked reporting for all users
   const isQ1TimeLocked = false;
@@ -497,8 +503,10 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
     }
   };
 
-  const fetchMyPlan = async () => {
-    setLoading(true);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string>(new Date().toLocaleTimeString());
+
+  const fetchMyPlan = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await fetch(`/api/tenant/${activeTenantId}/${sourceApiEndpoint}?userId=${encodeURIComponent(currentUser.email)}&t=${Date.now()}`);
       if (res.ok) {
@@ -618,16 +626,26 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
         }
         if (data && Array.isArray(data.items)) {
           setPplanData(data);
+          setLastSyncedAt(new Date().toLocaleTimeString());
         }
       }
     } catch (e) {
       console.error(e);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
+  useEffect(() => {
+    if (!readOnly) return;
+    const pollTimer = setInterval(() => {
+      fetchMyPlan(true);
+    }, 6000);
+    return () => clearInterval(pollTimer);
+  }, [readOnly, activeTenantId, currentUser?.email, sourceApiEndpoint]);
+
   const updateItem = (id: string, field: string, value: any) => {
+    if (readOnly) return;
     setPplanData(prev => ({
       ...prev,
       items: prev.items.map(item => item.id === id ? { ...item, [field]: value } : item)
@@ -635,6 +653,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
   };
 
   const handleAutoSavePoeDocs = (kpiId: string, quarterField: string, updatedDocs: PoeDocument[]) => {
+    if (readOnly) return;
     setPplanData(prev => {
       const updatedItems = (prev.items || []).map(item => {
         if (item.id === kpiId) {
@@ -1402,10 +1421,34 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
   }
 
   const { items, metadata } = pplanData;
-  const isReadOnly = false;
+  const isReadOnly = Boolean(readOnly);
 
   return (
     <div id="self-evaluation-dashboard" className="flex flex-col h-full bg-slate-50 border border-gray-200 rounded-3xl overflow-hidden shadow-2xl text-stone-900">
+      {isReadOnly && (
+        <div className="bg-gradient-to-r from-indigo-900 via-blue-900 to-slate-900 text-white px-6 py-3 flex flex-wrap items-center justify-between gap-3 border-b border-indigo-700 shrink-0">
+          <div className="flex items-center gap-3">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-400 text-slate-950 shadow-xs">
+              🔒 Read-Only Live Mirror
+            </span>
+            <span className="text-xs font-bold text-indigo-100">
+              Viewing <strong className="text-white">{currentUser?.fullName || 'Nompumelelo Nsibande'} ({currentUser?.email})</strong> — PMS Team Performance Plan & Self-Evaluation. Your own profile records remain 100% separate.
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] font-mono text-indigo-200 bg-indigo-950/80 px-2.5 py-1 rounded-lg border border-indigo-700">
+              Last Synced: {lastSyncedAt} (Auto-Refreshes Live)
+            </span>
+            <button
+              type="button"
+              onClick={() => fetchMyPlan(false)}
+              className="bg-white/10 hover:bg-white/20 text-white font-bold px-3 py-1 rounded-lg text-[10px] uppercase tracking-wider border border-white/20 transition cursor-pointer"
+            >
+              ↻ Sync Now
+            </button>
+          </div>
+        </div>
+      )}
       <div className="px-6 py-6 pb-4 bg-white border-b border-gray-250 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shrink-0 relative z-10">
         <div>
           <h1 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tight flex items-center gap-3">
@@ -1425,44 +1468,48 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
             <span>{metadata.reviewStatus || 'Draft'}</span>
           </div>
 
-          <button 
-            type="button"
-            onClick={() => setShowClearKpiModal(true)}
-            className="bg-white border border-slate-300 text-slate-700 hover:bg-indigo-50 font-bold px-4 py-2 rounded-xl text-[10px] uppercase tracking-wide flex items-center gap-2 transition shadow-sm cursor-pointer"
-          >
-            <Eye className="w-4 h-4 text-indigo-600" />
-            <span>📋 See / Clear KPIs</span>
-          </button>
+          {!isReadOnly && (
+            <>
+              <button 
+                type="button"
+                onClick={() => setShowClearKpiModal(true)}
+                className="bg-white border border-slate-300 text-slate-700 hover:bg-indigo-50 font-bold px-4 py-2 rounded-xl text-[10px] uppercase tracking-wide flex items-center gap-2 transition shadow-sm cursor-pointer"
+              >
+                <Eye className="w-4 h-4 text-indigo-600" />
+                <span>📋 See / Clear KPIs</span>
+              </button>
 
-          <button 
-            type="button"
-            onClick={handleRedoSelfEvaluation}
-            disabled={saving}
-            className="bg-amber-600 text-white hover:bg-amber-500 font-bold px-4 py-2 rounded-xl text-[10px] uppercase tracking-wide flex items-center gap-2 transition disabled:opacity-50 shadow-sm cursor-pointer"
-            title="Re-open evaluation to update quarterly actuals, upload new/additional Portfolios of Evidence (PoE), and resubmit to manager"
-          >
-            <AlertCircle className="w-4 h-4" />
-            <span>{isTeamEvaluation ? 'Redo & Resubmit Team Evaluation' : 'Redo & Resubmit Self-Evaluation'}</span>
-          </button>
+              <button 
+                type="button"
+                onClick={handleRedoSelfEvaluation}
+                disabled={saving}
+                className="bg-amber-600 text-white hover:bg-amber-500 font-bold px-4 py-2 rounded-xl text-[10px] uppercase tracking-wide flex items-center gap-2 transition disabled:opacity-50 shadow-sm cursor-pointer"
+                title="Re-open evaluation to update quarterly actuals, upload new/additional Portfolios of Evidence (PoE), and resubmit to manager"
+              >
+                <AlertCircle className="w-4 h-4" />
+                <span>{isTeamEvaluation ? 'Redo & Resubmit Team Evaluation' : 'Redo & Resubmit Self-Evaluation'}</span>
+              </button>
 
-          <button 
-            type="button"
-            onClick={() => handleSave(false)}
-            disabled={saving}
-            className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 font-bold px-4 py-2 rounded-xl text-[10px] uppercase tracking-wide flex items-center gap-2 transition disabled:opacity-50 shadow-sm cursor-pointer"
-          >
-            <ClipboardList className="w-4 h-4" />
-            <span>{isTeamEvaluation ? 'Push to Team Performance Planner Grid' : 'Push to Annual Performance Planner Grid'}</span>
-          </button>
-          <button 
-            type="button"
-            onClick={() => handleSave(true)}
-            disabled={saving}
-            className="bg-emerald-600 text-white hover:bg-emerald-500 font-bold px-4 py-2 rounded-xl text-[10px] uppercase tracking-wide flex items-center gap-2 transition disabled:opacity-50 shadow-sm cursor-pointer"
-          >
-            <Send className="w-4 h-4" />
-            <span>Push to Manager for Approval</span>
-          </button>
+              <button 
+                type="button"
+                onClick={() => handleSave(false)}
+                disabled={saving}
+                className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 font-bold px-4 py-2 rounded-xl text-[10px] uppercase tracking-wide flex items-center gap-2 transition disabled:opacity-50 shadow-sm cursor-pointer"
+              >
+                <ClipboardList className="w-4 h-4" />
+                <span>{isTeamEvaluation ? 'Push to Team Performance Planner Grid' : 'Push to Annual Performance Planner Grid'}</span>
+              </button>
+              <button 
+                type="button"
+                onClick={() => handleSave(true)}
+                disabled={saving}
+                className="bg-emerald-600 text-white hover:bg-emerald-500 font-bold px-4 py-2 rounded-xl text-[10px] uppercase tracking-wide flex items-center gap-2 transition disabled:opacity-50 shadow-sm cursor-pointer"
+              >
+                <Send className="w-4 h-4" />
+                <span>Push to Manager for Approval</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -1632,49 +1679,51 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
             })()}
 
             {/* Selection & Multi-KPI Submission Toolbar */}
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={toggleSelectAllKpis}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-300 text-slate-700 bg-slate-50 hover:bg-slate-100 font-bold text-xs cursor-pointer transition"
-                >
-                  {selectedKpiIds.length === items.length ? (
-                    <CheckSquare className="w-4 h-4 text-emerald-600" />
+            {!isReadOnly && (
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={toggleSelectAllKpis}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-300 text-slate-700 bg-slate-50 hover:bg-slate-100 font-bold text-xs cursor-pointer transition"
+                  >
+                    {selectedKpiIds.length === items.length ? (
+                      <CheckSquare className="w-4 h-4 text-emerald-600" />
+                    ) : (
+                      <Square className="w-4 h-4 text-slate-400" />
+                    )}
+                    <span>{selectedKpiIds.length === items.length ? 'Deselect All' : 'Select All KPIs'}</span>
+                  </button>
+
+                  <span className="text-xs text-slate-500 font-bold">
+                    {selectedKpiIds.length} of {items.length} KPI(s) selected
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {selectedKpiIds.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => handleBatchSubmitSelectedKpis(selectedKpiIds, true)}
+                      disabled={saving}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-xl text-xs uppercase tracking-wider flex items-center gap-2 shadow-sm cursor-pointer transition disabled:opacity-50"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      <span>Submit {selectedKpiIds.length} Selected KPI(s) to Manager</span>
+                    </button>
                   ) : (
-                    <Square className="w-4 h-4 text-slate-400" />
+                    <button
+                      type="button"
+                      onClick={() => alert("Please check the checkbox next to the KPI card(s) you wish to submit.")}
+                      className="bg-slate-300 text-slate-500 font-bold px-4 py-2 rounded-xl text-xs uppercase tracking-wider flex items-center gap-2 border border-slate-200 cursor-pointer"
+                    >
+                      <Send className="w-3.5 h-3.5 text-slate-400" />
+                      <span>Select KPIs via Checkbox to Submit</span>
+                    </button>
                   )}
-                  <span>{selectedKpiIds.length === items.length ? 'Deselect All' : 'Select All KPIs'}</span>
-                </button>
-
-                <span className="text-xs text-slate-500 font-bold">
-                  {selectedKpiIds.length} of {items.length} KPI(s) selected
-                </span>
+                </div>
               </div>
-
-              <div className="flex items-center gap-2">
-                {selectedKpiIds.length > 0 ? (
-                  <button
-                    type="button"
-                    onClick={() => handleBatchSubmitSelectedKpis(selectedKpiIds, true)}
-                    disabled={saving}
-                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-xl text-xs uppercase tracking-wider flex items-center gap-2 shadow-sm cursor-pointer transition disabled:opacity-50"
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                    <span>Submit {selectedKpiIds.length} Selected KPI(s) to Manager</span>
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => alert("Please check the checkbox next to the KPI card(s) you wish to submit.")}
-                    className="bg-slate-300 text-slate-500 font-bold px-4 py-2 rounded-xl text-xs uppercase tracking-wider flex items-center gap-2 border border-slate-200 cursor-pointer"
-                  >
-                    <Send className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Select KPIs via Checkbox to Submit</span>
-                  </button>
-                )}
-              </div>
-            </div>
+            )}
 
             {selectedKpiIdFilter && (
               <div className="bg-indigo-50 border border-indigo-200 p-4 rounded-2xl flex items-center justify-between text-xs text-indigo-900 shadow-sm animate-fade-in mb-4">
@@ -1717,11 +1766,11 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
                   (kpi.midtermActual && String(kpi.midtermActual).trim() !== '' && String(kpi.midtermActual).trim().toUpperCase() !== 'N/A') ||
                   (kpi.annualActual && String(kpi.annualActual).trim() !== '' && String(kpi.annualActual).trim().toUpperCase() !== 'N/A')
                 );
-                const kpiIsReadOnly = !isUnrestricted && kpiHasEvidence && (
+                const kpiIsReadOnly = isReadOnly || (!isUnrestricted && kpiHasEvidence && (
                   kpi.reviewStatus === 'Submitted for Approval' || 
                   kpi.reviewStatus === 'Reviewed' || 
                   kpi.reviewStatus === 'Approved'
-                );
+                ));
                 const isSelected = selectedKpiIds.includes(kpi.id);
 
                 return (
@@ -1773,7 +1822,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
                     </div>
 
                     <div className="flex items-center gap-2">
-                      {kpiIsReadOnly && (
+                      {!isReadOnly && kpiIsReadOnly && (
                         <button
                           type="button"
                           onClick={() => handleRedoKpi(kpi.id)}
@@ -1784,20 +1833,22 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
                           <span>Unlock / Redo</span>
                         </button>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => handleBatchSubmitSelectedKpis([kpi.id], true)}
-                        disabled={saving || kpiIsReadOnly}
-                        className={`font-bold px-3 py-1 rounded-xl text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition shadow-2xs ${
-                          kpiIsReadOnly
-                            ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
-                            : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 cursor-pointer'
-                        }`}
-                        title={kpiIsReadOnly ? "Already submitted or approved" : "Submit ONLY this single KPI and its attached PoE files for Manager approval"}
-                      >
-                        <Send className="w-3 h-3 text-emerald-600" />
-                        <span>{kpiIsReadOnly ? 'Already Submitted' : `Submit Single KPI #${kpi.kpiNo || idx + 1}`}</span>
-                      </button>
+                      {!isReadOnly && (
+                        <button
+                          type="button"
+                          onClick={() => handleBatchSubmitSelectedKpis([kpi.id], true)}
+                          disabled={saving || kpiIsReadOnly}
+                          className={`font-bold px-3 py-1 rounded-xl text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition shadow-2xs ${
+                            kpiIsReadOnly
+                              ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
+                              : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 cursor-pointer'
+                          }`}
+                          title={kpiIsReadOnly ? "Already submitted or approved" : "Submit ONLY this single KPI and its attached PoE files for Manager approval"}
+                        >
+                          <Send className="w-3 h-3 text-emerald-600" />
+                          <span>{kpiIsReadOnly ? 'Already Submitted' : `Submit Single KPI #${kpi.kpiNo || idx + 1}`}</span>
+                        </button>
+                      )}
 
                       <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-100 px-3 py-1 rounded-full text-xs font-black">
                         <span className="text-[10px] font-bold uppercase text-emerald-600/80">Weighting:</span>
@@ -2146,7 +2197,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
                              files={kpi.q1PoeDocs || []}
                              setFiles={(docs) => updateItem(kpi.id, 'q1PoeDocs', docs)}
                              currentUser={currentUser}
-                             disabled={isEffectiveQ1Locked}
+                             disabled={kpiIsReadOnly || isEffectiveQ1Locked}
                              poeStatus={kpi.q1PoeStatus}
                              poeFeedback={kpi.q1PoeFeedback}
                              onAutoSave={(docs) => handleAutoSavePoeDocs(kpi.id, 'q1PoeDocs', docs)}
@@ -2801,36 +2852,38 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation }
                   </div>
 
                   {/* Actions per KPI */}
-                  <div className="flex flex-wrap items-center justify-end gap-3 pt-3 mt-2 border-t border-slate-100">
-                    <button 
-                      type="button"
-                      onClick={() => handleSaveKpi(kpi.id, false)}
-                      disabled={saving}
-                      className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 font-bold px-3 py-1.5 rounded-lg text-[9px] uppercase tracking-wide flex items-center gap-1.5 transition disabled:opacity-50 shadow-sm cursor-pointer"
-                    >
-                      <ClipboardList className="w-3.5 h-3.5" />
-                      <span>Push to Annual Performance Planner Grid</span>
-                    </button>
-                    <button 
-                      type="button"
-                      onClick={() => handleSaveKpi(kpi.id, true)}
-                      disabled={saving}
-                      className="bg-emerald-600 text-white hover:bg-emerald-500 font-bold px-3 py-1.5 rounded-lg text-[9px] uppercase tracking-wide flex items-center gap-1.5 transition disabled:opacity-50 shadow-sm cursor-pointer"
-                    >
-                      <Send className="w-3.5 h-3.5" />
-                      <span>Push to Manager for Approval</span>
-                    </button>
-                    <button 
-                      type="button"
-                      onClick={() => handleRedoKpi(kpi.id)}
-                      disabled={saving}
-                      className="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 font-bold px-3 py-1.5 rounded-lg text-[9px] uppercase tracking-wide flex items-center gap-1.5 transition shadow-xs cursor-pointer"
-                      title="Unlock this KPI to edit actuals, upload/replace Portfolios of Evidence (PoE), and resubmit to manager"
-                    >
-                      <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
-                      <span>Redo & Resubmit KPI</span>
-                    </button>
-                  </div>
+                  {!isReadOnly && (
+                    <div className="flex flex-wrap items-center justify-end gap-3 pt-3 mt-2 border-t border-slate-100">
+                      <button 
+                        type="button"
+                        onClick={() => handleSaveKpi(kpi.id, false)}
+                        disabled={saving}
+                        className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 font-bold px-3 py-1.5 rounded-lg text-[9px] uppercase tracking-wide flex items-center gap-1.5 transition disabled:opacity-50 shadow-sm cursor-pointer"
+                      >
+                        <ClipboardList className="w-3.5 h-3.5" />
+                        <span>Push to Annual Performance Planner Grid</span>
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => handleSaveKpi(kpi.id, true)}
+                        disabled={saving}
+                        className="bg-emerald-600 text-white hover:bg-emerald-500 font-bold px-3 py-1.5 rounded-lg text-[9px] uppercase tracking-wide flex items-center gap-1.5 transition disabled:opacity-50 shadow-sm cursor-pointer"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                        <span>Push to Manager for Approval</span>
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => handleRedoKpi(kpi.id)}
+                        disabled={saving}
+                        className="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 font-bold px-3 py-1.5 rounded-lg text-[9px] uppercase tracking-wide flex items-center gap-1.5 transition shadow-xs cursor-pointer"
+                        title="Unlock this KPI to edit actuals, upload/replace Portfolios of Evidence (PoE), and resubmit to manager"
+                      >
+                        <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                        <span>Redo & Resubmit KPI</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })})()}

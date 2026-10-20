@@ -255,6 +255,65 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
     fetchProfile();
   }, [activeTenantId, user.email]);
 
+  // Dual-Position Capacity State for Thandiwe M. Lengwate (lengwatetm@nkangaladm.gov.za / lengwatertm@nkangaladm.gov.za)
+  const rawUserEmailLower = (fullUserProfile?.email || user?.email || '').toLowerCase().trim();
+  const isLengwateDualUser = rawUserEmailLower === 'lengwatetm@nkangaladm.gov.za' || rawUserEmailLower === 'lengwatertm@nkangaladm.gov.za' || rawUserEmailLower === 'lengwatetm_gm_cds@nkangaladm.gov.za' || rawUserEmailLower === 'lengwatertm_gm_cds@nkangaladm.gov.za';
+  const [lengwateRoleCapacity, setLengwateRoleCapacity] = useState<'accountant' | 'acting_gm_cds'>(() => {
+    if (rawUserEmailLower.includes('_gm_cds')) return 'acting_gm_cds';
+    const saved = localStorage.getItem('mzansi_lengwate_active_capacity');
+    return saved === 'acting_gm_cds' ? 'acting_gm_cds' : 'accountant';
+  });
+
+  useEffect(() => {
+    if (rawUserEmailLower.includes('_gm_cds')) {
+      setLengwateRoleCapacity('acting_gm_cds');
+    } else if (rawUserEmailLower === 'lengwatetm@nkangaladm.gov.za' || rawUserEmailLower === 'lengwatertm@nkangaladm.gov.za') {
+      const saved = localStorage.getItem('mzansi_lengwate_active_capacity');
+      if (saved === 'acting_gm_cds' || saved === 'accountant') {
+        setLengwateRoleCapacity(saved);
+      }
+    }
+  }, [rawUserEmailLower]);
+
+  const handleSwitchLengwateCapacity = (nextCap: 'accountant' | 'acting_gm_cds') => {
+    setLengwateRoleCapacity(nextCap);
+    localStorage.setItem('mzansi_lengwate_active_capacity', nextCap);
+    if (nextCap === 'acting_gm_cds' && activeSubModule && (activeSubModule.id === 'jsc' || activeSubModule.id === 'pdp' || activeSubModule.id === 'ipms-evaluation')) {
+      setActiveSubModule(null);
+    }
+    if (nextCap === 'accountant' && activeSubModule && activeSubModule.id === 'ccomp') {
+      setActiveSubModule(null);
+    }
+  };
+
+  const effectiveIpmsUser = isLengwateDualUser
+    ? (lengwateRoleCapacity === 'acting_gm_cds'
+        ? {
+            ...fullUserProfile,
+            id: 'nk-user-lengwatetm-gm-cds',
+            email: 'lengwatetm_gm_cds@nkangaladm.gov.za',
+            fullName: 'Thandiwe M. Lengwate (Acting GM: CDS)',
+            jobFunction: 'Acting General Manager: Community Development Services',
+            department: 'Community Development Services',
+            directorate: 'Community Development Services',
+            role: 'Senior Management' as any,
+            manager: 'Mandla L. Mahlangu',
+            reportTo: 'Mandla L. Mahlangu',
+            managerEmail: 'mahlanguml@nkangaladm.gov.za'
+          }
+        : {
+            ...fullUserProfile,
+            email: 'lengwatetm@nkangaladm.gov.za',
+            fullName: 'Thandiwe M. Lengwate',
+            jobFunction: 'Municipal Accountant',
+            department: 'Finance',
+            directorate: 'Finance',
+            manager: 'Alice L. Stander',
+            reportTo: 'Alice L. Stander',
+            managerEmail: 'standeral@nkangaladm.gov.za'
+          })
+    : fullUserProfile;
+
   useEffect(() => {
     const fetchUnlocks = async () => {
       try {
@@ -577,7 +636,24 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
       });
     }
 
-    if (isUnrestricted || isUserUnrestricted(fullUserProfile || user)) return mod.subModules;
+    if (isUnrestricted || isUserUnrestricted(fullUserProfile || user)) {
+      if (mod.id === 'ipms') {
+        return mod.subModules.filter(sub => {
+          if (sub.id === 'nsibande-team-self-eval-readonly') {
+            return email === 'zulune@nkangaladm.gov.za' || email.includes('zulune') || isMasterAdmin;
+          }
+          if (isLengwateDualUser) {
+            if (lengwateRoleCapacity === 'acting_gm_cds') {
+              if (sub.id === 'jsc' || sub.id === 'pdp' || sub.id === 'ipms-evaluation') return false;
+            } else {
+              if (sub.id === 'ccomp') return false;
+            }
+          }
+          return true;
+        });
+      }
+      return mod.subModules;
+    }
 
     if (mod.id !== 'ipms') return mod.subModules;
 
@@ -636,6 +712,20 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
       // Specific 3 modules requested ONLY for dimpems@nkangaladm.gov.za profile
       if (sub.id === 'team-pplan-2' || sub.id === 'team-pdp-2' || sub.id === 'team-jsc-2') {
         return email === 'dimpems@nkangaladm.gov.za' || email.includes('dimpems');
+      }
+
+      if (sub.id === 'nsibande-team-self-eval-readonly') {
+        return email === 'zulune@nkangaladm.gov.za' || email.includes('zulune') || isMasterAdmin;
+      }
+
+      if (isLengwateDualUser) {
+        if (lengwateRoleCapacity === 'acting_gm_cds') {
+          if (sub.id === 'jsc' || sub.id === 'pdp' || sub.id === 'ipms-evaluation') return false;
+          if (sub.id === 'ccomp' || sub.id === 'pa' || sub.id === 'pplan') return true;
+        } else {
+          if (sub.id === 'ccomp') return false;
+          if (sub.id === 'jsc' || sub.id === 'pdp' || sub.id === 'ipms-evaluation' || sub.id === 'pa' || sub.id === 'pplan') return true;
+        }
       }
 
       // Demo module is always directly visible to all users
@@ -747,7 +837,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                             isTargetManagerEmail ||
                             email.includes('mike@massivedynamixdistributors.com');
 
-      const isDirectAccess = sub.id === 'ipms-demo' || sub.id === 'ipms-evaluation' || sub.id === 'pplan' || sub.id === 'team-pplan' || sub.id === 'team-pplan-2' || sub.id === 'pdp' || sub.id === 'team-pdp' || sub.id === 'team-pdp-2' || sub.id === 'pa' || sub.id === 'pa-cds-team' || sub.id === 'pa-technical-services' || sub.id === 'pa-corporate-services' || sub.id === 'pa-pms-team' || sub.id === 'pa-templates' || sub.id === 'jsc' || sub.id === 'team-jsc' || sub.id === 'team-jsc-2' || sub.id === 'ccomp' || sub.id === 'fred-ccomp' || sub.id === 'fred-core-competencies' || sub.id === 'fred' || sub.id === 'fred-ipp' || sub.id === 'fred-gm' || sub.id === 'fred-sdbip' || sub.id === 'ipms-kpi' || sub.id === 'ipms-kpa' || sub.id === 'organogram' || sub.id === 'ipms-inbox' || sub.id === 'review-timetable' || sub.id === 'performance-assessment';
+      const isDirectAccess = sub.id === 'ipms-demo' || sub.id === 'ipms-evaluation' || sub.id === 'nsibande-team-self-eval-readonly' || sub.id === 'pplan' || sub.id === 'team-pplan' || sub.id === 'team-pplan-2' || sub.id === 'pdp' || sub.id === 'team-pdp' || sub.id === 'team-pdp-2' || sub.id === 'pa' || sub.id === 'pa-cds-team' || sub.id === 'pa-technical-services' || sub.id === 'pa-corporate-services' || sub.id === 'pa-pms-team' || sub.id === 'pa-templates' || sub.id === 'jsc' || sub.id === 'team-jsc' || sub.id === 'team-jsc-2' || sub.id === 'ccomp' || sub.id === 'fred-ccomp' || sub.id === 'fred-core-competencies' || sub.id === 'fred' || sub.id === 'fred-ipp' || sub.id === 'fred-gm' || sub.id === 'fred-sdbip' || sub.id === 'ipms-kpi' || sub.id === 'ipms-kpa' || sub.id === 'organogram' || sub.id === 'ipms-inbox' || sub.id === 'review-timetable' || sub.id === 'performance-assessment';
       const isBypassAll = isNkangalaUser || isUnrestricted || isUserUnrestricted(profileToUse) || isGlobalOrSystemAdmin || isPMSTeam || isManagerUser || isDirectAccess;
 
       if (!isBypassAll) {
@@ -999,11 +1089,72 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
             </div>
           </div>
 
+          {/* DUAL-POSITION ROLE CAPACITY SWITCHER FOR THANDIWE M. LENGWATE */}
+          {isLengwateDualUser && (
+            <div className={cn(
+              "p-4 rounded-2xl border shadow-lg flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 transition-all",
+              lengwateRoleCapacity === 'acting_gm_cds'
+                ? "bg-gradient-to-r from-amber-950 via-slate-900 to-indigo-950 border-amber-500/50 text-white"
+                : "bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 border-blue-500/50 text-white"
+            )}>
+              <div className="flex items-start sm:items-center gap-3">
+                <div className={cn(
+                  "p-2.5 rounded-xl font-black text-xs uppercase tracking-wider shrink-0 border",
+                  lengwateRoleCapacity === 'acting_gm_cds'
+                    ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                    : "bg-blue-500/20 text-blue-300 border-blue-500/40"
+                )}>
+                  {lengwateRoleCapacity === 'acting_gm_cds' ? '🏛️ Acting GM: CDS Capacity' : '💼 Municipal Accountant Capacity'}
+                </div>
+                <div>
+                  <h4 className="text-sm font-black uppercase tracking-wider text-white flex items-center gap-2">
+                    <span>Dual-Position Profile Switcher — Thandiwe M. Lengwate</span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/10 text-emerald-300 border border-white/15">
+                      100% Isolated Storage
+                    </span>
+                  </h4>
+                  <p className="text-xs text-slate-300 mt-0.5">
+                    {lengwateRoleCapacity === 'acting_gm_cds'
+                      ? 'Active Role: Acting General Manager: Community Development Services — Includes separate Performance Agreement, Performance Plan (56 KPIs), and Core Competencies (No JSCs, PDPs, or Self-Evaluation).'
+                      : 'Active Role: Municipal Accountant (Finance) — Includes separate Performance Agreement, Performance Plan, Job Specific Competencies (JSCs), Personal Development Plan (PDP), and Self-Evaluation (No Core Competencies).'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 bg-black/40 p-1.5 rounded-xl border border-white/10 shrink-0 self-stretch lg:self-auto">
+                <button
+                  type="button"
+                  onClick={() => handleSwitchLengwateCapacity('accountant')}
+                  className={cn(
+                    "px-3.5 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition cursor-pointer flex items-center gap-1.5",
+                    lengwateRoleCapacity === 'accountant'
+                      ? "bg-blue-600 text-white shadow-md"
+                      : "text-slate-300 hover:text-white hover:bg-white/5"
+                  )}
+                >
+                  <span>1. Municipal Accountant</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSwitchLengwateCapacity('acting_gm_cds')}
+                  className={cn(
+                    "px-3.5 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition cursor-pointer flex items-center gap-1.5",
+                    lengwateRoleCapacity === 'acting_gm_cds'
+                      ? "bg-amber-500 text-slate-950 shadow-md"
+                      : "text-slate-300 hover:text-white hover:bg-white/5"
+                  )}
+                >
+                  <span>2. Acting GM: CDS</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* IPMS GUIDED WORKFLOW WORKSPACE BAR */}
           {activeModule.id === 'ipms' && (
             <GuidedIPMSWorkflow
               activeTenantId={activeTenantId}
-              currentUser={fullUserProfile}
+              currentUser={effectiveIpmsUser}
               activeSubModule={activeSubModule}
               setActiveSubModule={handleSubModuleSelect}
               completedIPMSSteps={completedIPMSSteps}
@@ -1187,7 +1338,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
           ) : activeSubModule.id === 'jsc' || activeSubModule.id === 'team-jsc' || activeSubModule.id === 'team-jsc-2' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
                  <JobSpecificCompetencies 
-                   currentUser={fullUserProfile} 
+                   currentUser={effectiveIpmsUser} 
                    activeTenantId={activeTenantId} 
                    isTeamJSC={activeSubModule.id === 'team-jsc'} 
                    isTeamJSC2={activeSubModule.id === 'team-jsc-2'} 
@@ -1196,7 +1347,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
           ) : activeSubModule.id === 'ccomp' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
                  <CoreCompetencies 
-                   currentUser={fullUserProfile} 
+                   currentUser={effectiveIpmsUser} 
                    activeTenantId={activeTenantId} 
                    onNavigateToSubModule={(subId) => {
                      const ipmsModule = modules.find(m => m.id === 'ipms');
@@ -1211,7 +1362,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
           ) : activeSubModule.id === 'pdp' || activeSubModule.id === 'team-pdp' || activeSubModule.id === 'team-pdp-2' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
                  <PersonalDevelopmentPlan 
-                   currentUser={fullUserProfile} 
+                   currentUser={effectiveIpmsUser} 
                    activeTenantId={activeTenantId} 
                    isTeamPdp={activeSubModule.id === 'team-pdp'} 
                    isTeamPdp2={activeSubModule.id === 'team-pdp-2'} 
@@ -1220,7 +1371,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
           ) : activeSubModule.id === 'pplan' || activeSubModule.id === 'team-pplan' || activeSubModule.id === 'team-pplan-2' || activeSubModule.id === 'pa' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
                  <PerformanceAgreements 
-                   currentUser={fullUserProfile} 
+                   currentUser={effectiveIpmsUser} 
                    activeTenantId={activeTenantId} 
                    isPlan={activeSubModule.id === 'pplan' || activeSubModule.id === 'team-pplan' || activeSubModule.id === 'team-pplan-2'} 
                    isTeamPlan={activeSubModule.id === 'team-pplan'}
@@ -1229,12 +1380,12 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
               </div>
           ) : activeSubModule.id === 'pa-cds-team' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
-                 <DraftingSuiteFirefighters currentUser={fullUserProfile as any} activeTenantId={activeTenantId} />
+                 <DraftingSuiteFirefighters currentUser={effectiveIpmsUser as any} activeTenantId={activeTenantId} />
               </div>
           ) : activeSubModule.id === 'pa-technical-services' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
                  <DraftingSuiteTeam 
-                   currentUser={fullUserProfile as any} 
+                   currentUser={effectiveIpmsUser as any} 
                    activeTenantId={activeTenantId} 
                    teamTitle="Technical Services Team"
                    documentIdSuffix="technical_services"
@@ -1244,7 +1395,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
           ) : activeSubModule.id === 'pa-corporate-services' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
                  <DraftingSuiteTeam 
-                   currentUser={fullUserProfile as any} 
+                   currentUser={effectiveIpmsUser as any} 
                    activeTenantId={activeTenantId} 
                    teamTitle="Corporate Services Team"
                    documentIdSuffix="corporate_services"
@@ -1254,44 +1405,61 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
           ) : activeSubModule.id === 'pa-pms-team' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
                  <DraftingSuiteTeam 
-                   currentUser={fullUserProfile as any} 
+                   currentUser={effectiveIpmsUser as any} 
                    activeTenantId={activeTenantId} 
                    teamTitle="PMS Team"
                    documentIdSuffix="pms_team"
                    defaultRows={DEFAULT_PMS_TEAM_ROWS}
                  />
               </div>
+          ) : activeSubModule.id === 'nsibande-team-self-eval-readonly' ? (
+              <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
+                 <EvaluationIPMS 
+                   currentUser={{
+                     id: 'nk-user-nsibandenp',
+                     email: 'nsibandenp@nkangaladm.gov.za',
+                     fullName: 'Nompumelelo Nsibande',
+                     jobFunction: 'Manager: Performance Management System (PMS)',
+                     department: 'PMS',
+                     role: 'Manager'
+                   }} 
+                   activeTenantId={activeTenantId} 
+                   isTeamEvaluation={true}
+                   readOnly={true}
+                   readOnlyOwnerLabel="Nompumelelo Nsibande — PMS Team Self-Evaluation (Live Read-Only)"
+                 />
+              </div>
           ) : activeSubModule.id === 'pa-templates' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
-                 <PATemplates currentUser={fullUserProfile} activeTenantId={activeTenantId} />
+                 <PATemplates currentUser={effectiveIpmsUser} activeTenantId={activeTenantId} />
               </div>
           ) : activeSubModule.id === 'performance-assessment' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
-                 <PerformanceAssessment currentUser={fullUserProfile} activeTenantId={activeTenantId} />
+                 <PerformanceAssessment currentUser={effectiveIpmsUser} activeTenantId={activeTenantId} />
               </div>
           ) : activeSubModule.id === 'review-timetable' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
-                 <ReviewTimetable currentUser={fullUserProfile} activeTenantId={activeTenantId} />
+                 <ReviewTimetable currentUser={effectiveIpmsUser} activeTenantId={activeTenantId} />
               </div>
           ) : activeSubModule.id === 'ipms-team-dashboard' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
-                 <TeamDashboard currentUser={fullUserProfile} activeTenantId={activeTenantId} />
+                 <TeamDashboard currentUser={effectiveIpmsUser} activeTenantId={activeTenantId} />
               </div>
           ) : activeSubModule.id === 'organogram' || activeSubModule.id === 'ipms-organogram' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
-                 <Organogram currentUser={fullUserProfile} activeTenantId={activeTenantId} onClose={() => setActiveSubModule(null)} />
+                 <Organogram currentUser={effectiveIpmsUser} activeTenantId={activeTenantId} onClose={() => setActiveSubModule(null)} />
               </div>
           ) : activeSubModule.id === 'ipms-kpa' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
-                 <KPAIPMS currentUser={fullUserProfile} activeTenantId={activeTenantId} />
+                 <KPAIPMS currentUser={effectiveIpmsUser} activeTenantId={activeTenantId} />
               </div>
           ) : activeSubModule.id === 'ipms-kpi' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
-                 <KPIIPMS currentUser={fullUserProfile} activeTenantId={activeTenantId} />
+                 <KPIIPMS currentUser={effectiveIpmsUser} activeTenantId={activeTenantId} />
               </div>
           ) : activeSubModule.id === 'ipms-evaluation' || activeSubModule.id === 'team-evaluation' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
-                 <EvaluationIPMS currentUser={fullUserProfile} activeTenantId={activeTenantId} isTeamEvaluation={activeSubModule.id === 'team-evaluation'} />
+                 <EvaluationIPMS currentUser={effectiveIpmsUser} activeTenantId={activeTenantId} isTeamEvaluation={activeSubModule.id === 'team-evaluation'} />
               </div>
           ) : activeSubModule.id === 'ipms-manager-review' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">

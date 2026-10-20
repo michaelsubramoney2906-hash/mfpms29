@@ -144,12 +144,10 @@ export function matchOfficialCoreRole(user?: {
     };
   }
 
-  // Rule 3: Corporate Services -> rampedimr@nkangaladm.gov.za / lengwatetm@nkangaladm.gov.za / mahlangua@nkangaladm.gov.za
+  // Rule 3: Corporate Services -> rampedimr@nkangaladm.gov.za / mahlangua@nkangaladm.gov.za
   if (
     emailRaw === 'rampedimr@nkangaladm.gov.za' ||
     emailPrefix === 'rampedimr' ||
-    emailRaw === 'lengwatetm@nkangaladm.gov.za' ||
-    emailPrefix === 'lengwatetm' ||
     emailRaw === 'mahlangua@nkangaladm.gov.za' ||
     emailPrefix === 'mahlangua' ||
     emailRaw.startsWith('corporate@') ||
@@ -170,10 +168,14 @@ export function matchOfficialCoreRole(user?: {
     };
   }
 
-  // Rule 4: Community Development Services -> mahlangupt@nkangaladm.gov.za / cds / community
+  // Rule 4: Community Development Services -> mahlangupt@nkangaladm.gov.za / lengwatetm_gm_cds@nkangaladm.gov.za / cds / community
   if (
     emailRaw === 'mahlangupt@nkangaladm.gov.za' ||
     emailPrefix === 'mahlangupt' ||
+    emailRaw === 'lengwatetm_gm_cds@nkangaladm.gov.za' ||
+    emailPrefix === 'lengwatetm_gm_cds' ||
+    emailRaw === 'lengwatertm_gm_cds@nkangaladm.gov.za' ||
+    emailPrefix === 'lengwatertm_gm_cds' ||
     emailRaw.startsWith('community@') ||
     emailRaw.startsWith('cds@') ||
     jobLower.includes('community development') ||
@@ -185,10 +187,11 @@ export function matchOfficialCoreRole(user?: {
     deptLower.includes('community development') ||
     deptLower.includes('social services')
   ) {
+    const isActingGmCds = emailPrefix.includes('lengwatetm_gm_cds') || emailPrefix.includes('lengwatertm_gm_cds');
     return {
-      fullName: emailPrefix === 'mahlangupt' ? 'P.T. Mahlangu' : (fullName || 'General Manager: Community Development & Social Services'),
-      email: email || (emailPrefix === 'mahlangupt' ? 'mahlangupt@nkangaladm.gov.za' : 'community@nkangaladm.gov.za'),
-      jobFunction: emailPrefix === 'mahlangupt' ? 'General Manager: Community Development & Social Services' : (jobFunction || 'Community Development Director'),
+      fullName: isActingGmCds ? 'Thandiwe M. Lengwate (Acting GM: CDS)' : (emailPrefix === 'mahlangupt' ? 'P.T. Mahlangu' : (fullName || 'General Manager: Community Development & Social Services')),
+      email: isActingGmCds ? 'lengwatetm_gm_cds@nkangaladm.gov.za' : (email || (emailPrefix === 'mahlangupt' ? 'mahlangupt@nkangaladm.gov.za' : 'community@nkangaladm.gov.za')),
+      jobFunction: isActingGmCds ? 'Acting General Manager: Community Development Services' : (emailPrefix === 'mahlangupt' ? 'General Manager: Community Development & Social Services' : (jobFunction || 'Community Development Director')),
       department: 'Community Development & Social Services',
       refCode: refCode || 'SEC57-CDS-01',
       roleKey: 'community_services',

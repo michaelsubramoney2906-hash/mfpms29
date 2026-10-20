@@ -8554,6 +8554,40 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
     });
 
+    // Ensure Thandiwe M. Lengwate's primary profile reflects Municipal Accountant and add her separate Acting GM: CDS role profile
+    const primaryLengwate = sanitizedFormatted.find((u: any) => {
+      const em = (u.email || '').toLowerCase().trim();
+      return em === 'lengwatetm@nkangaladm.gov.za' || em === 'lengwatertm@nkangaladm.gov.za';
+    });
+    if (primaryLengwate) {
+      primaryLengwate.jobFunction = 'Municipal Accountant';
+      primaryLengwate.department = 'Finance';
+      primaryLengwate.directorate = primaryLengwate.directorate || 'Finance';
+    }
+    const hasGmCdsLengwate = sanitizedFormatted.some((u: any) => (u.email || '').toLowerCase().trim() === 'lengwatetm_gm_cds@nkangaladm.gov.za');
+    if (!hasGmCdsLengwate) {
+      sanitizedFormatted.push({
+        id: 'nk-user-lengwatetm-gm-cds',
+        fullName: 'Thandiwe M. Lengwate (Acting GM: CDS)',
+        email: 'lengwatetm_gm_cds@nkangaladm.gov.za',
+        jobFunction: 'Acting General Manager: Community Development Services',
+        department: 'Community Development Services',
+        source: 'manual',
+        role: 'Senior Management',
+        tenantId: normTenant === 'nkangala_master' ? 'tenant-229' : normTenant,
+        manager: 'Mandla L. Mahlangu',
+        directorate: 'Community Development Services',
+        reportTo: 'Mandla L. Mahlangu',
+        level: '1',
+        signatureType: primaryLengwate?.signatureType || 'draw',
+        signatureData: primaryLengwate?.signatureData || '',
+        managerEmail: 'mahlanguml@nkangaladm.gov.za',
+        hasSubordinates: true,
+        subordinateCount: 5,
+        subordinateEmails: []
+      });
+    }
+
     return sanitizedFormatted;
   });
 }
@@ -12015,6 +12049,9 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
     let clean = String(email).toLowerCase().trim();
     if (clean.includes('shabangugm')) {
       clean = clean.replace('shabangugm', 'shabangusm');
+    }
+    if (clean.includes('lengwatertm')) {
+      clean = clean.replace('lengwatertm', 'lengwatetm');
     }
     // Normalise domain typos
     if (

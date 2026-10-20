@@ -1328,9 +1328,18 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
       const res = await fetch(`/api/tenant/${activeTenantId}/core-competencies?userId=${currentUser.email}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
-        if (data && Array.isArray(data.items)) {
-          setPulledCompetencyRows(data.items);
-          triggerNotification(`Successfully pulled all ${data.items.length} Competencies!`, "success");
+        const emailLower = (currentUser?.email || '').toLowerCase().trim();
+        const isCdsGm = emailLower.includes('lengwatetm_gm_cds') || emailLower.includes('lengwatertm_gm_cds') || emailLower === 'mahlangupt@nkangaladm.gov.za';
+        const rowsToUse = isCdsGm
+          ? ((data?.communityServicesItems && data.communityServicesItems.length > 0)
+              ? data.communityServicesItems
+              : (data?.directorItems && data.directorItems.length > 0)
+                ? data.directorItems
+                : (data?.items || []))
+          : (data?.items || []);
+        if (Array.isArray(rowsToUse) && rowsToUse.length > 0) {
+          setPulledCompetencyRows(rowsToUse);
+          triggerNotification(`Successfully pulled all ${rowsToUse.length} Core Competencies!`, "success");
         } else {
           setPulledCompetencyRows([]);
           triggerNotification("No Competency rows found for this profile.", "error");
