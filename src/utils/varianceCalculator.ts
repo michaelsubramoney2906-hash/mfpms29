@@ -76,7 +76,7 @@ export const extractNumericValue = (val?: any): number | null => {
 };
 
 /**
- * IPMS Standard Variance: Target - Actual
+ * IPMS Standard Variance: Actual - Target (Positive when exceeded, negative when short)
  */
 export const calculateVariance = (target?: string, actual?: string): string => {
   if (!target || !actual || !target.toString().trim() || !actual.toString().trim()) return '0';
@@ -86,9 +86,10 @@ export const calculateVariance = (target?: string, actual?: string): string => {
   const aNum = extractNumericValue(actual);
 
   if (tNum !== null && aNum !== null) {
-    const diff = tNum - aNum;
+    const diff = aNum - tNum;
     if (Math.abs(diff) < 0.0001) return '0';
-    return Number(diff.toFixed(2)).toString();
+    const sign = diff > 0 ? '+' : '';
+    return `${sign}${Number(diff.toFixed(2)).toString()}`;
   }
 
   if (isCellNA(target) || isCellNA(actual)) return '0';
@@ -100,7 +101,7 @@ export const calculateVariance = (target?: string, actual?: string): string => {
 };
 
 /**
- * Top-Layer SDBIP Standard Variance: Target - Actual (formatted with % or R if applicable)
+ * Top-Layer SDBIP Standard Variance: Actual - Target (formatted with % or R if applicable, + when exceeded)
  */
 export const calcVar = (target: string | undefined, actual: string | undefined, uom?: string): string => {
   const tVal = (target || '').trim();
@@ -124,7 +125,7 @@ export const calcVar = (target: string | undefined, actual: string | undefined, 
     return '';
   }
 
-  const diff = nT - nA;
+  const diff = nA - nT;
   if (Math.abs(diff) < 0.0001) return '0';
 
   const isPercentage =
@@ -133,12 +134,13 @@ export const calcVar = (target: string | undefined, actual: string | undefined, 
     (uom && uom.toLowerCase().includes('percent')) ||
     (uom && uom.toLowerCase().includes('%'));
 
+  const sign = diff > 0 ? '+' : '';
   if (isPercentage) {
-    return `${Number(diff.toFixed(2))}%`;
+    return `${sign}${Number(diff.toFixed(2))}%`;
   }
 
   const prefix = tVal.startsWith('R') || aVal.startsWith('R') ? 'R ' : '';
-  return prefix + Number(diff.toFixed(2)).toLocaleString();
+  return `${sign}${prefix}${Number(diff.toFixed(2)).toLocaleString()}`;
 };
 
 /**

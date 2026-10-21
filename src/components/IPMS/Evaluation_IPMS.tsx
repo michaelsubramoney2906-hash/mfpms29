@@ -38,6 +38,21 @@ import {
   calculateVariance 
 } from '../../utils/varianceCalculator';
 
+export const renderVarianceBadge = (targetVal: any, actualVal: any) => {
+  const v = calculateVariance(targetVal, actualVal);
+  const isPos = String(v).startsWith('+') || (parseFloat(v) > 0);
+  const isZero = String(v) === '0' || String(v) === '0.00' || String(v) === '0%' || String(v) === 'N/A';
+  return (
+    <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${
+      isZero ? 'bg-slate-100 text-slate-600' :
+      isPos ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
+      'bg-rose-100 text-rose-700 border border-rose-200'
+    }`}>
+      {v}
+    </span>
+  );
+};
+
 export { 
   isCellNA, 
   extractNumericValue, 
@@ -2264,15 +2279,8 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
 
                           <div className="space-y-1.5">
                             <div className="flex items-center justify-between">
-                              <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider">2nd Qtr Variance (Auto: Target - Actual)</label>
-                              {(() => {
-                                const varVal = calculateVariance(kpi.q2Target, kpi.q2Actual);
-                                return (
-                                  <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${varVal !== '0' ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'}`}>
-                                    {varVal}
-                                  </span>
-                                );
-                              })()}
+                              <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider">2nd Qtr Variance (Auto: Actual - Target)</label>
+                              {renderVarianceBadge(kpi.q2Target, kpi.q2Actual)}
                             </div>
                             <textarea
                               rows={2}
@@ -2367,15 +2375,8 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
 
                           <div className="space-y-1.5">
                             <div className="flex items-center justify-between">
-                              <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider font-sans">Midterm Variance (Auto: Target - Actual)</label>
-                              {(() => {
-                                const varVal = calculateVariance(kpi.midtermTarget, kpi.midtermActual);
-                                return (
-                                  <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${varVal !== '0' ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'}`}>
-                                    {varVal}
-                                  </span>
-                                );
-                              })()}
+                              <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider font-sans">Midterm Variance (Auto: Actual - Target)</label>
+                              {renderVarianceBadge(kpi.midtermTarget, kpi.midtermActual)}
                             </div>
                             <textarea
                               rows={2}
@@ -2476,15 +2477,8 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
 
                           <div className="space-y-1.5">
                             <div className="flex items-center justify-between">
-                              <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider">3rd Qtr Variance (Auto: Target - Actual)</label>
-                              {(() => {
-                                const varVal = calculateVariance(kpi.q3Target, kpi.q3Actual);
-                                return (
-                                  <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${varVal !== '0' ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'}`}>
-                                    {varVal}
-                                  </span>
-                                );
-                              })()}
+                              <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider">3rd Qtr Variance (Auto: Actual - Target)</label>
+                              {renderVarianceBadge(kpi.q3Target, kpi.q3Actual)}
                             </div>
                             <textarea
                               rows={2}
@@ -2585,15 +2579,8 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
 
                           <div className="space-y-1.5">
                             <div className="flex items-center justify-between">
-                              <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider">4th Qtr Variance (Auto: Target - Actual)</label>
-                              {(() => {
-                                const varVal = calculateVariance(kpi.q4Target, kpi.q4Actual);
-                                return (
-                                  <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${varVal !== '0' ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'}`}>
-                                    {varVal}
-                                  </span>
-                                );
-                              })()}
+                              <label className="text-[9px] font-black text-slate-700 uppercase tracking-wider">4th Qtr Variance (Auto: Actual - Target)</label>
+                              {renderVarianceBadge(kpi.q4Target, kpi.q4Actual)}
                             </div>
                             <textarea
                               rows={2}
@@ -2651,10 +2638,8 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
                             </div>
                             <div className="space-y-1">
                               <div className="flex items-center justify-between">
-                                <label className="text-[9px] font-black text-amber-800 uppercase tracking-wider">Annual Variance</label>
-                                <span className="text-[9px] font-black text-rose-700 bg-rose-50 px-1 rounded">
-                                  {calculateVariance(kpi.annualTarget, kpi.annualActual || kpi.q4Actual)}
-                                </span>
+                                <label className="text-[9px] font-black text-amber-800 uppercase tracking-wider">Annual Variance (Auto: Actual - Target)</label>
+                                {renderVarianceBadge(kpi.annualTarget, kpi.annualActual || kpi.q4Actual)}
                               </div>
                               <textarea
                                 rows={1}
@@ -2742,15 +2727,8 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
 
                           <div className="space-y-1.5">
                             <div className="flex items-center justify-between">
-                              <label className="text-[9px] font-black text-amber-800 uppercase tracking-wider">Annual Variance (Auto: Annual Target - Annual Actual)</label>
-                              {(() => {
-                                const varVal = calculateVariance(kpi.annualTarget, kpi.annualActual || kpi.q4Actual);
-                                return (
-                                  <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${varVal !== '0' ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'}`}>
-                                    {varVal}
-                                  </span>
-                                );
-                              })()}
+                              <label className="text-[9px] font-black text-amber-800 uppercase tracking-wider">Annual Variance (Auto: Actual - Target)</label>
+                              {renderVarianceBadge(kpi.annualTarget, kpi.annualActual || kpi.q4Actual)}
                             </div>
                             <textarea
                               rows={2}

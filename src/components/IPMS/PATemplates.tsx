@@ -288,10 +288,7 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
   const [pdpCustomTable, setPdpCustomTable] = useState<{ title: string; headers: string[]; rows: string[][] }>({
     title: 'Additional Custom Framework Matrix (PDP Development Plan)',
     headers: ['Target Area / Development Focus', 'Resource & Budget Requirement', 'Q1 Deliverable', 'Q2 Deliverable', 'Responsible Mentor / Supervisor'],
-    rows: [
-      ['Municipal Finance GRAP Module', 'NSG Learning Portal & Coaching', 'Complete Core Assessment', 'Final POE Submission', 'Chief Financial Officer'],
-      ['Strategic IPMS Alignment & Auditing', 'Internal Performance System', 'Review Scorecards & Baselines', 'Moderation Sign-off', 'Municipal Manager']
-    ]
+    rows: []
   });
 
   // Signatures State
@@ -2524,105 +2521,153 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
         </div>
 
         {/* Standalone Editable Custom Table below PDP Table */}
-        <div className="mt-6 pt-5 border-t border-purple-200/60 space-y-3 break-inside-avoid font-sans">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 flex-1">
-              <Table2 className="w-4 h-4 text-purple-700 print:hidden shrink-0" />
-              <input
-                type="text"
-                value={pdpCustomTable.title}
-                onChange={(e) => setPdpCustomTable(prev => ({ ...prev, title: e.target.value }))}
-                className="font-extrabold text-[10.5px] uppercase tracking-wider text-purple-950 bg-transparent border-b border-purple-300 outline-none focus:border-purple-600 focus:bg-purple-50/50 px-1 py-0.5 rounded w-full print:border-none print:p-0"
-                placeholder="Enter Table Title..."
-              />
-            </div>
-            <div className="flex items-center gap-2 print:hidden ml-2 shrink-0">
-              <button
-                type="button"
-                onClick={addPdpCustomTableColumn}
-                className="px-2.5 py-1 text-[9px] font-bold bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 rounded-md flex items-center gap-1 transition cursor-pointer shadow-xs"
-              >
-                <Plus className="w-3 h-3 text-purple-600" />
-                Add Column
-              </button>
-              <button
-                type="button"
-                onClick={addPdpCustomTableRow}
-                className="px-2.5 py-1 text-[9px] font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-md flex items-center gap-1 transition cursor-pointer shadow-xs"
-              >
-                <Plus className="w-3 h-3 text-emerald-600" />
-                Add Row
-              </button>
-            </div>
-          </div>
+        {/* Standalone Editable Custom Table below PDP Table */}
+        {(() => {
+          const isCfoTable = (tbl: any) => {
+            if (!tbl || !tbl.rows || tbl.rows.length === 0) return false;
+            const s = JSON.stringify(tbl).toLowerCase();
+            return s.includes('municipal finance grap module') || s.includes('chief financial officer');
+          };
+          const userTitle = (currentUser?.title || currentUser?.jobTitle || currentUser?.position || '').toLowerCase();
+          const userIsFinance = userTitle.includes('cfo') || userTitle.includes('finance') || userTitle.includes('financial');
+          const shouldHideTable = (!pdpCustomTable || !pdpCustomTable.rows || pdpCustomTable.rows.length === 0 || (isCfoTable(pdpCustomTable) && !userIsFinance));
 
-          <div className="overflow-x-auto border rounded-xl bg-white shadow-2xs" style={{ borderColor }}>
-            <table className="w-full text-[8.5px] border-collapse text-left font-sans">
-              <thead>
-                <tr className="bg-purple-50/70 uppercase tracking-wider text-[7.5px] font-black border-b select-none" style={{ borderColor, color: headingColor }}>
-                  <th className="p-1.5 border-r text-center w-[28px] text-slate-500" style={{ borderColor }}>#</th>
-                  {pdpCustomTable.headers.map((header, colIdx) => (
-                    <th key={colIdx} className="p-1.5 border-r relative group" style={{ borderColor }}>
-                      <div className="flex items-center justify-between gap-1">
-                        <input
-                          type="text"
-                          value={header}
-                          onChange={(e) => updatePdpCustomTableHeader(colIdx, e.target.value)}
-                          className="w-full bg-transparent font-black uppercase text-[7.5px] outline-none focus:bg-white focus:px-1 focus:rounded text-purple-950 print:border-none print:p-0"
-                          placeholder={`Column ${colIdx + 1}`}
-                        />
-                        {pdpCustomTable.headers.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => removePdpCustomTableColumn(colIdx)}
-                            title="Remove Column"
-                            className="opacity-0 group-hover:opacity-100 p-0.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded print:hidden transition cursor-pointer"
-                          >
-                            <Trash2 className="w-2.5 h-2.5" />
-                          </button>
-                        )}
-                      </div>
-                    </th>
-                  ))}
-                  <th className="p-1.5 w-[30px] text-center print:hidden" style={{ borderColor }}></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y font-medium text-slate-700" style={{ borderColor }}>
-                {pdpCustomTable.rows.map((row, rowIdx) => (
-                  <tr key={rowIdx} className="hover:bg-slate-50/70 transition group">
-                    <td className="p-1.5 border-r font-mono font-bold text-slate-500 text-center text-[8px]" style={{ borderColor }}>
-                      {rowIdx + 1}
-                    </td>
-                    {row.map((cell, colIdx) => (
-                      <td key={colIdx} className="p-1.5 border-r" style={{ borderColor }}>
-                        <input
-                          type="text"
-                          value={cell}
-                          onChange={(e) => updatePdpCustomTableCell(rowIdx, colIdx, e.target.value)}
-                          onPaste={(e) => handlePdpTablePaste(e, rowIdx, colIdx)}
-                          className="w-full bg-transparent text-[8.5px] text-slate-800 outline-none focus:bg-purple-50/40 focus:px-1 focus:rounded font-normal leading-tight print:bg-transparent print:p-0"
-                          placeholder="Enter details..."
-                        />
-                      </td>
+          if (shouldHideTable) {
+            return (
+              <div className="mt-4 pt-4 border-t border-dashed border-slate-200 print:hidden">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPdpCustomTable({
+                      title: 'Additional Custom Framework Matrix (PDP Development Plan)',
+                      headers: ['Target Area / Development Focus', 'Resource & Budget Requirement', 'Q1 Deliverable', 'Q2 Deliverable', 'Responsible Mentor / Supervisor'],
+                      rows: [
+                        ['Key Focus Area', 'Internal Capacity & Mentorship', 'Baseline Assessment', 'Progress Deliverable', 'Supervisor']
+                      ]
+                    });
+                  }}
+                  className="px-3 py-1.5 text-[9px] font-bold bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 rounded-lg flex items-center gap-1.5 transition cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5 text-purple-600" />
+                  <span>Add Optional Custom PDP Framework Table</span>
+                </button>
+              </div>
+            );
+          }
+
+          return (
+            <div className="mt-6 pt-5 border-t border-purple-200/60 space-y-3 break-inside-avoid font-sans">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 flex-1">
+                  <Table2 className="w-4 h-4 text-purple-700 print:hidden shrink-0" />
+                  <input
+                    type="text"
+                    value={pdpCustomTable.title}
+                    onChange={(e) => setPdpCustomTable(prev => ({ ...prev, title: e.target.value }))}
+                    className="font-extrabold text-[10.5px] uppercase tracking-wider text-purple-950 bg-transparent border-b border-purple-300 outline-none focus:border-purple-600 focus:bg-purple-50/50 px-1 py-0.5 rounded w-full print:border-none print:p-0"
+                    placeholder="Enter Table Title..."
+                  />
+                </div>
+                <div className="flex items-center gap-2 print:hidden ml-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={addPdpCustomTableColumn}
+                    className="px-2.5 py-1 text-[9px] font-bold bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 rounded-md flex items-center gap-1 transition cursor-pointer shadow-xs"
+                  >
+                    <Plus className="w-3 h-3 text-purple-600" />
+                    Add Column
+                  </button>
+                  <button
+                    type="button"
+                    onClick={addPdpCustomTableRow}
+                    className="px-2.5 py-1 text-[9px] font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-md flex items-center gap-1 transition cursor-pointer shadow-xs"
+                  >
+                    <Plus className="w-3 h-3 text-emerald-600" />
+                    Add Row
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPdpCustomTable({ title: 'Additional Custom Framework Matrix (PDP Development Plan)', headers: [], rows: [] });
+                    }}
+                    className="px-2.5 py-1 text-[9px] font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-md flex items-center gap-1 transition cursor-pointer shadow-xs"
+                    title="Remove this custom table from PA"
+                  >
+                    <Trash2 className="w-3 h-3 text-rose-600" />
+                    Delete Table
+                  </button>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto border rounded-xl bg-white shadow-2xs" style={{ borderColor }}>
+                <table className="w-full text-[8.5px] border-collapse text-left font-sans">
+                  <thead>
+                    <tr className="bg-purple-50/70 uppercase tracking-wider text-[7.5px] font-black border-b select-none" style={{ borderColor, color: headingColor }}>
+                      <th className="p-1.5 border-r text-center w-[28px] text-slate-500" style={{ borderColor }}>#</th>
+                      {pdpCustomTable.headers.map((header, colIdx) => (
+                        <th key={colIdx} className="p-1.5 border-r relative group" style={{ borderColor }}>
+                          <div className="flex items-center justify-between gap-1">
+                            <input
+                              type="text"
+                              value={header}
+                              onChange={(e) => updatePdpCustomTableHeader(colIdx, e.target.value)}
+                              className="w-full bg-transparent font-black uppercase text-[7.5px] outline-none focus:bg-white focus:px-1 focus:rounded text-purple-950 print:border-none print:p-0"
+                              placeholder={`Column ${colIdx + 1}`}
+                            />
+                            {pdpCustomTable.headers.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => removePdpCustomTableColumn(colIdx)}
+                                title="Remove Column"
+                                className="opacity-0 group-hover:opacity-100 p-0.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded print:hidden transition cursor-pointer"
+                              >
+                                <Trash2 className="w-2.5 h-2.5" />
+                              </button>
+                            )}
+                          </div>
+                        </th>
+                      ))}
+                      <th className="p-1.5 w-[30px] text-center print:hidden" style={{ borderColor }}></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y font-medium text-slate-700" style={{ borderColor }}>
+                    {pdpCustomTable.rows.map((row, rowIdx) => (
+                      <tr key={rowIdx} className="hover:bg-slate-50/70 transition group">
+                        <td className="p-1.5 border-r font-mono font-bold text-slate-500 text-center text-[8px]" style={{ borderColor }}>
+                          {rowIdx + 1}
+                        </td>
+                        {row.map((cell, colIdx) => (
+                          <td key={colIdx} className="p-1.5 border-r" style={{ borderColor }}>
+                            <input
+                              type="text"
+                              value={cell}
+                              onChange={(e) => updatePdpCustomTableCell(rowIdx, colIdx, e.target.value)}
+                              onPaste={(e) => handlePdpTablePaste(e, rowIdx, colIdx)}
+                              className="w-full bg-transparent text-[8.5px] text-slate-800 outline-none focus:bg-purple-50/40 focus:px-1 focus:rounded font-normal leading-tight print:bg-transparent print:p-0"
+                              placeholder="Enter details..."
+                            />
+                          </td>
+                        ))}
+                        <td className="p-1.5 text-center print:hidden" style={{ borderColor }}>
+                          {pdpCustomTable.rows.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removePdpCustomTableRow(rowIdx)}
+                              title="Remove Row"
+                              className="opacity-0 group-hover:opacity-100 p-0.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded transition cursor-pointer"
+                            >
+                              <Trash2 className="w-2.5 h-2.5" />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
                     ))}
-                    <td className="p-1.5 text-center print:hidden" style={{ borderColor }}>
-                      {pdpCustomTable.rows.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removePdpCustomTableRow(rowIdx)}
-                          title="Remove Row"
-                          className="opacity-0 group-hover:opacity-100 p-0.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded transition cursor-pointer"
-                        >
-                          <Trash2 className="w-2.5 h-2.5" />
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        })()}
       </div>
     );
   };
@@ -2805,10 +2850,7 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
     pdpCustomTable: {
       title: 'Additional Custom Framework Matrix (PDP Development Plan)',
       headers: ['Target Area / Development Focus', 'Resource & Budget Requirement', 'Q1 Deliverable', 'Q2 Deliverable', 'Responsible Mentor / Supervisor'],
-      rows: [
-        ['Municipal Finance GRAP Module', 'NSG Learning Portal & Coaching', 'Complete Core Assessment', 'Final POE Submission', 'Chief Financial Officer'],
-        ['Strategic IPMS Alignment & Auditing', 'Internal Performance System', 'Review Scorecards & Baselines', 'Moderation Sign-off', 'Municipal Manager']
-      ]
+      rows: []
     }
   });
 
@@ -3077,7 +3119,26 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
     setEvaluation(tpl.evaluation);
     setAnnexureC(tpl.annexureC);
     setCustomTables(tpl.customTables || []);
-    if (tpl.pdpCustomTable) setPdpCustomTable(tpl.pdpCustomTable);
+    if (tpl.pdpCustomTable) {
+      const isCfoTbl = JSON.stringify(tpl.pdpCustomTable).toLowerCase().includes('municipal finance grap module');
+      const uTitle = (currentUser?.title || currentUser?.jobTitle || currentUser?.position || '').toLowerCase();
+      const isFin = uTitle.includes('cfo') || uTitle.includes('finance') || uTitle.includes('financial');
+      if (isCfoTbl && !isFin) {
+        setPdpCustomTable({
+          title: 'Additional Custom Framework Matrix (PDP Development Plan)',
+          headers: ['Target Area / Development Focus', 'Resource & Budget Requirement', 'Q1 Deliverable', 'Q2 Deliverable', 'Responsible Mentor / Supervisor'],
+          rows: []
+        });
+      } else {
+        setPdpCustomTable(tpl.pdpCustomTable);
+      }
+    } else {
+      setPdpCustomTable({
+        title: 'Additional Custom Framework Matrix (PDP Development Plan)',
+        headers: ['Target Area / Development Focus', 'Resource & Budget Requirement', 'Q1 Deliverable', 'Q2 Deliverable', 'Responsible Mentor / Supervisor'],
+        rows: []
+      });
+    }
 
     setMunicipalityName(tpl.municipalityName || 'NKANGALA DISTRICT MUNICIPALITY');
     setTemplateSubHeader(tpl.templateSubHeader || 'DRAFT REGULATORY DOCUMENT TEMPLATE');

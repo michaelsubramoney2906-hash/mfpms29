@@ -14926,6 +14926,39 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           }
         }
 
+        // Pheladi M. Naka (nakapm@nkangaladm.gov.za): Remove Circular 88 HR vacancy and suspension KPIs (items 26-32) that do not belong to EHP
+        if (userId.toLowerCase().includes('nakapm')) {
+          const beforeLen = sanitizedItems.length;
+          sanitizedItems = sanitizedItems.filter((it: any) => {
+            const id = String(it.id || '').toLowerCase();
+            const desc = String(it.kpi || it.description || it.desc || it['kpi description'] || '').toLowerCase();
+            if (id.startsWith('kpi-sync-178970925981')) return false;
+            if (desc.includes('staff vacancy rate') || desc.includes('vacant posts filled') || desc.includes('workplace skills plan') || desc.includes('suspended officials') || desc.includes('active suspensions') || desc.includes('declared their financial interests')) return false;
+            return true;
+          });
+
+          if (beforeLen > sanitizedItems.length) {
+            try {
+              const updatePayload = JSON.stringify({ ...parsed, items: sanitizedItems, rows: sanitizedItems });
+              const syncTenants = ['tenant-229', 'nkangala_auto', 'global'];
+              for (const tId of syncTenants) {
+                const uDocId = `pplan_${tId}_${userId}`;
+                pplanCache.set(uDocId, { raw: updatePayload, timestamp: Date.now() });
+                supabase.from('messages').upsert({
+                  id: uDocId,
+                  tenant_id: tId,
+                  sender_id: 'pplan_editor_tool',
+                  sender_email: 'pplan@system.local',
+                  sender_name: 'PPLAN Editor',
+                  content: updatePayload,
+                  message_type: 'pplan_list',
+                  created_at: new Date().toISOString()
+                }).then(() => {}).catch(() => {});
+              }
+            } catch(e) {}
+          }
+        }
+
         // Reconcile metadata.submittedKpiIds and metadata.reviewStatus with sanitizedItems so unsubmitted plans never report as Submitted for Approval
         if (parsed.metadata) {
           const genuinelySubmittedIds = new Set(
@@ -15331,6 +15364,15 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
                       if (no === '13' || no === '14' || no === '15') return false;
                       if (id.endsWith('-13') || id.endsWith('-14') || id.endsWith('-15')) return false;
                       if (desc.includes('achieve target deliverable kpi-13') || desc.includes('achieve target deliverable kpi-14') || desc.includes('achieve target deliverable kpi-15')) return false;
+                      return true;
+                    });
+                  }
+                  if (userId.toLowerCase().includes('nakapm')) {
+                    planObj.items = planObj.items.filter((it: any) => {
+                      const id = String(it.id || '').toLowerCase();
+                      const desc = (it.kpi || it.description || it.desc || '').toLowerCase();
+                      if (id.startsWith('kpi-sync-178970925981')) return false;
+                      if (desc.includes('staff vacancy rate') || desc.includes('vacant posts filled') || desc.includes('workplace skills plan') || desc.includes('suspended officials') || desc.includes('active suspensions') || desc.includes('declared their financial interests')) return false;
                       return true;
                     });
                   }

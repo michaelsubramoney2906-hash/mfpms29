@@ -4,9 +4,10 @@ import mammoth from 'mammoth';
 import { 
   FileText, FileSpreadsheet, Presentation, File, Download, X, Search, 
   CheckCircle2, AlertCircle, Calendar, User, Folder, ShieldCheck, 
-  ChevronLeft, ChevronRight, Sparkles, RefreshCw
+  ChevronLeft, ChevronRight, Sparkles, RefreshCw, Maximize2, Minimize2, Paperclip
 } from 'lucide-react';
 import { downloadOriginalFile } from '../../utils/documentBinaryHelper';
+import { PdfDocumentViewer } from './PdfDocumentViewer';
 
 export interface PoeDocument {
   id?: string;
@@ -14,6 +15,9 @@ export interface PoeDocument {
   mimeType: string;
   size?: number | string;
   dataUrl?: string;
+  fileData?: string;
+  url?: string;
+  fileType?: string;
   uploadedAt?: string | Date;
   uploadedBy?: string;
   kpiName?: string;
@@ -23,6 +27,8 @@ export interface PoeDocument {
 interface OfficeDocumentViewerProps {
   doc?: PoeDocument;
   document?: PoeDocument;
+  docList?: PoeDocument[];
+  initialIndex?: number;
   onClose: () => void;
 }
 
@@ -63,11 +69,39 @@ export interface ParsedSlide {
   elements: ParsedSlideElement[];
 }
 
-export function OfficeDocumentViewer({ doc, document: propDocument, onClose }: OfficeDocumentViewerProps) {
-  const rawDoc = doc || propDocument;
+export function OfficeDocumentViewer({ doc, document: propDocument, docList, initialIndex, onClose }: OfficeDocumentViewerProps) {
+  const [activeIdx, setActiveIdx] = useState<number>(initialIndex ?? 0);
+  const [isMaximized, setIsMaximized] = useState<boolean>(false);
+  const [pdfArrayBuffer, setPdfArrayBuffer] = useState<ArrayBuffer | null>(null);
+
+  // Sync activeIdx if initialIndex changes
+  useEffect(() => {
+    if (typeof initialIndex === 'number' && initialIndex >= 0) {
+      setActiveIdx(initialIndex);
+    }
+  }, [initialIndex]);
+
+  // Keyboard navigation (Left/Right to switch files, Escape to close)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      } else if (docList && docList.length > 1) {
+        if (e.key === 'ArrowLeft') {
+          setActiveIdx(prev => Math.max(prev - 1, 0));
+        } else if (e.key === 'ArrowRight') {
+          setActiveIdx(prev => Math.min(prev + 1, docList.length - 1));
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [docList, onClose]);
+
+  const rawDoc = (docList && docList.length > 0) ? (docList[activeIdx] || doc || propDocument) : (doc || propDocument);
   const targetDoc = rawDoc ? {
     ...rawDoc,
-    dataUrl: rawDoc.dataUrl || (rawDoc as any).fileData
+    dataUrl: rawDoc.dataUrl || (rawDoc as any).fileData || (rawDoc as any).url
   } : undefined;
   const extension = targetDoc?.name.split('.').pop()?.toLowerCase() || '';
   const isExcel = ['xls', 'xlsx', 'csv'].includes(extension);
@@ -427,6 +461,8 @@ export function OfficeDocumentViewer({ doc, document: propDocument, onClose }: O
 
           setRenderedPptSlides(parsedSlides);
           setActivePptSlideIdx(0);
+        } else if (isPdf) {
+          setPdfArrayBuffer(arrayBuffer);
         }
         setLoading(false);
       } catch (err: any) {
@@ -437,7 +473,7 @@ export function OfficeDocumentViewer({ doc, document: propDocument, onClose }: O
     };
 
     parseFile();
-  }, [targetDoc?.dataUrl, targetDoc?.name, isWord, isExcel, isPowerPoint, extension]);
+  }, [targetDoc?.dataUrl, targetDoc?.name, isWord, isExcel, isPowerPoint, isPdf, extension]);
 
   if (!targetDoc) return null;
 
@@ -488,39 +524,78 @@ export function OfficeDocumentViewer({ doc, document: propDocument, onClose }: O
   };
 
   return (
-    <div className="fixed inset-0 z-[110] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 lg:p-8 animate-fade-in text-slate-800" onClick={onClose}>
+    <div className="fixed inset-0 z-[110] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 lg:p-6 animate-fade-in text-slate-800" onClick={onClose}>
       <div 
-        className="bg-white w-full max-w-6xl h-[90vh] rounded-3xl overflow-hidden shadow-2xl flex flex-col border border-indigo-100"
+        className={`bg-white w-full ${isMaximized ? 'w-[99vw] h-[98vh] max-w-none rounded-xl' : 'max-w-6xl h-[90vh] rounded-3xl'} overflow-hidden shadow-2xl flex flex-col border border-indigo-100 transition-all duration-200`}
         onClick={e => e.stopPropagation()}
       >
         {/* Header Block */}
-        <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
-          <div className="flex items-center gap-3">
-            <div className={`p-2.5 rounded-xl ${
+        <div className="px-4 sm:px-6 py-3.5 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800 gap-2 flex-wrap sm:flex-nowrap">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className={`p-2.5 rounded-xl shrink-0 ${
               isWord ? 'bg-blue-500/10 text-blue-400' :
               isExcel ? 'bg-emerald-500/10 text-emerald-400' :
-              isPowerPoint ? 'bg-orange-500/10 text-orange-400' : 'bg-slate-500/10 text-slate-400'
+              isPowerPoint ? 'bg-orange-500/10 text-orange-400' : 
+              isPdf ? 'bg-indigo-500/10 text-indigo-400' : 'bg-slate-500/10 text-slate-400'
             }`}>
               {isWord ? <FileText className="w-5 h-5" /> :
                isExcel ? <FileSpreadsheet className="w-5 h-5" /> :
                isPowerPoint ? <Presentation className="w-5 h-5" /> :
                <File className="w-5 h-5" />}
             </div>
-            <div>
-              <h3 className="font-extrabold text-xs uppercase tracking-wider text-white m-0 max-w-[280px] sm:max-w-md truncate" title={targetDoc.name}>
+            <div className="min-w-0">
+              <h3 className="font-extrabold text-xs uppercase tracking-wider text-white m-0 max-w-[200px] sm:max-w-xs md:max-w-md truncate" title={targetDoc.name}>
                 {targetDoc.name}
               </h3>
-              <p className="text-[9px] text-slate-400 font-mono m-0 uppercase tracking-widest mt-0.5">
-                PORTFOLIO OF EVIDENCE • AUDITED READ-ONLY WORKSPACE
+              <p className="text-[9px] text-slate-400 font-mono m-0 uppercase tracking-widest mt-0.5 truncate">
+                PORTFOLIO EVIDENCE • AUDITED REVIEW WORKSPACE
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="hidden sm:inline-block text-[9.5px] font-mono text-slate-400 bg-slate-800 px-2.5 py-1 rounded-lg">
+          {/* Center: Multi-Attachment Prev/Next Navigation Controls */}
+          {docList && docList.length > 1 && (
+            <div className="flex items-center gap-1.5 bg-slate-800/90 px-3 py-1 rounded-xl border border-slate-700/80 shadow-inner">
+              <button
+                type="button"
+                onClick={() => setActiveIdx(prev => Math.max(prev - 1, 0))}
+                disabled={activeIdx <= 0}
+                className="p-1 rounded hover:bg-slate-700 disabled:opacity-25 disabled:hover:bg-transparent text-slate-300 transition cursor-pointer border-0 flex items-center gap-1 text-[9.5px] font-bold"
+                title="Previous Attachment (Left Arrow)"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">Prev File</span>
+              </button>
+              <span className="text-[10px] font-mono font-black text-indigo-300 px-1.5 min-w-[50px] text-center">
+                {activeIdx + 1} of {docList.length}
+              </span>
+              <button
+                type="button"
+                onClick={() => setActiveIdx(prev => Math.min(prev + 1, docList.length - 1))}
+                disabled={activeIdx >= docList.length - 1}
+                className="p-1 rounded hover:bg-slate-700 disabled:opacity-25 disabled:hover:bg-transparent text-slate-300 transition cursor-pointer border-0 flex items-center gap-1 text-[9.5px] font-bold"
+                title="Next Attachment (Right Arrow)"
+              >
+                <span className="hidden md:inline">Next File</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <span className="hidden lg:inline-block text-[9.5px] font-mono text-slate-400 bg-slate-800 px-2.5 py-1 rounded-lg">
               Size: {formatSize(targetDoc.size)}
             </span>
             <button
+              type="button"
+              onClick={() => setIsMaximized(!isMaximized)}
+              className="text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 p-2 rounded-xl transition cursor-pointer border-0 flex items-center gap-1"
+              title={isMaximized ? "Restore default window" : "Maximize view"}
+            >
+              {isMaximized ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+            </button>
+            <button
+              type="button"
               onClick={handleDownload}
               className="text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 p-2 rounded-xl transition cursor-pointer border-0 flex items-center gap-1.5"
               title="Download original file"
@@ -528,6 +603,7 @@ export function OfficeDocumentViewer({ doc, document: propDocument, onClose }: O
               <Download className="w-3.5 h-3.5" />
             </button>
             <button
+              type="button"
               onClick={onClose}
               className="text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 p-2 rounded-full cursor-pointer transition border-0"
               aria-label="Close Preview"
@@ -588,6 +664,33 @@ export function OfficeDocumentViewer({ doc, document: propDocument, onClose }: O
                   </div>
                 </div>
               </div>
+
+              {/* List of all attachments if multiple */}
+              {docList && docList.length > 1 && (
+                <div className="border-t border-slate-200 pt-3">
+                  <span className="text-[8px] font-black uppercase tracking-wider text-slate-400 block mb-1.5">
+                    Attached Evidence Files ({docList.length})
+                  </span>
+                  <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
+                    {docList.map((d, dIdx) => (
+                      <button
+                        key={d.id || dIdx}
+                        type="button"
+                        onClick={() => setActiveIdx(dIdx)}
+                        className={`w-full text-left p-1.5 rounded-lg text-[9px] font-bold truncate flex items-center gap-1.5 transition cursor-pointer border ${
+                          activeIdx === dIdx
+                            ? 'bg-indigo-600 text-white border-indigo-700 shadow-xs'
+                            : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200'
+                        }`}
+                        title={d.name}
+                      >
+                        <Paperclip className="w-2.5 h-2.5 shrink-0 opacity-70" />
+                        <span className="truncate">{dIdx + 1}. {d.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="pt-4 border-t border-slate-200 mt-4 text-[8px] font-mono text-slate-400 space-y-0.5 uppercase tracking-wider">
@@ -676,40 +779,19 @@ export function OfficeDocumentViewer({ doc, document: propDocument, onClose }: O
                 
                 {/* Fallback for other file types */}
                 {!isWord && !isExcel && !isPowerPoint && (
-                  <div className="flex-1 p-6 flex items-center justify-center overflow-hidden bg-slate-100">
+                  <div className="flex-1 p-3 sm:p-6 flex items-center justify-center overflow-hidden bg-slate-100">
                     {isImage && displayUrl ? (
                       <div className="bg-white p-4 rounded-2xl shadow-md max-h-full max-w-full overflow-auto flex items-center justify-center">
                         <img src={displayUrl} alt={targetDoc.name} className="max-h-[60vh] object-contain rounded-lg shadow-sm" referrerPolicy="no-referrer" />
                       </div>
-                    ) : isPdf && displayUrl ? (
+                    ) : isPdf ? (
                       <div className="w-full h-full flex flex-col rounded-2xl overflow-hidden bg-slate-900 border border-slate-700 shadow-xl">
-                        <div className="bg-slate-800 px-4 py-2 border-b border-slate-700 flex items-center justify-between text-xs text-slate-300">
-                          <span className="font-bold flex items-center gap-2">
-                            <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                            Official Municipal Evidence Document (PDF)
-                          </span>
-                          <button
-                            onClick={handleDownload}
-                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] uppercase tracking-wider px-3 py-1 rounded-lg flex items-center gap-1.5 cursor-pointer border-0 shadow-sm transition"
-                          >
-                            <Download className="w-3.5 h-3.5" /> Download / Save Original File
-                          </button>
-                        </div>
-                        <div className="flex-1 w-full h-full bg-slate-950 flex items-center justify-center p-1">
-                          <object data={displayUrl} type="application/pdf" className="w-full h-full rounded-xl bg-white shadow-inner">
-                            <iframe src={displayUrl} title={targetDoc.name} className="w-full h-full rounded-xl bg-white border-0">
-                              <div className="p-8 text-center bg-white rounded-2xl shadow">
-                                <p className="text-slate-800 font-bold mb-4">Official Evidence PDF File: {targetDoc.name}</p>
-                                <button
-                                  onClick={handleDownload}
-                                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs uppercase tracking-wider inline-flex items-center gap-2 cursor-pointer border-0"
-                                >
-                                  <Download className="w-4 h-4" /> Download / View Evidence
-                                </button>
-                              </div>
-                            </iframe>
-                          </object>
-                        </div>
+                        <PdfDocumentViewer 
+                          arrayBuffer={pdfArrayBuffer} 
+                          dataUrl={displayUrl} 
+                          fileName={targetDoc.name} 
+                          onDownload={handleDownload} 
+                        />
                       </div>
                     ) : (
                       <div className="text-center bg-white p-8 rounded-2xl shadow-xl border border-slate-200 max-w-md w-full">

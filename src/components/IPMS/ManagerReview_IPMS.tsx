@@ -48,6 +48,8 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
 
   // Advanced PoE state variables
   const [previewDoc, setPreviewDoc] = useState<any | null>(null);
+  const [previewDocList, setPreviewDocList] = useState<any[]>([]);
+  const [previewDocIndex, setPreviewDocIndex] = useState<number>(0);
   const [activeKpiQuarter, setActiveKpiQuarter] = useState<{ [kpiId: string]: string }>({});
   const [incomingNotifications, setIncomingNotifications] = useState<any[]>([]);
   const [activeDetailTab, setActiveDetailTab] = useState<'kpis' | 'history'>('kpis');
@@ -2614,15 +2616,28 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
                                   <div className="flex items-center gap-1.5 shrink-0">
                                     <button
                                       type="button"
-                                      onClick={() => setPreviewDoc({ 
-                                        ...doc, 
-                                        dataUrl: doc.dataUrl || doc.fileData || doc.url,
-                                        fileData: doc.fileData || doc.dataUrl || doc.url || createMockFileUrl(doc.name, doc.fileType || 'application/pdf', plan.metadata?.name || 'Employee'),
-                                        kpiName: kpi.kpi, 
-                                        quarter: currentQuarterTab 
-                                      })}
+                                      onClick={() => {
+                                        const currentDocs = currentQuarterData.docs || [];
+                                        const foundIdx = currentDocs.findIndex((d: any) => d.id === doc.id || d.name === doc.name);
+                                        const mappedList = currentDocs.map((d: any) => ({
+                                          ...d,
+                                          dataUrl: d.dataUrl || d.fileData || d.url,
+                                          fileData: d.fileData || d.dataUrl || d.url || createMockFileUrl(d.name, d.fileType || 'application/pdf', plan.metadata?.name || 'Employee'),
+                                          kpiName: kpi.kpi,
+                                          quarter: currentQuarterTab
+                                        }));
+                                        setPreviewDocList(mappedList);
+                                        setPreviewDocIndex(foundIdx >= 0 ? foundIdx : 0);
+                                        setPreviewDoc({ 
+                                          ...doc, 
+                                          dataUrl: doc.dataUrl || doc.fileData || doc.url,
+                                          fileData: doc.fileData || doc.dataUrl || doc.url || createMockFileUrl(doc.name, doc.fileType || 'application/pdf', plan.metadata?.name || 'Employee'),
+                                          kpiName: kpi.kpi, 
+                                          quarter: currentQuarterTab 
+                                        });
+                                      }}
                                       className="p-1 px-2 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-0 cursor-pointer flex items-center gap-1 text-[9px] font-bold tracking-tight uppercase transition"
-                                      title="Review in Office Document Viewer"
+                                      title="Review attachments in in-browser document viewer"
                                     >
                                       <Eye className="w-3 h-3" />
                                       <span>Review</span>
@@ -2716,7 +2731,16 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
                         </div>
                         <div>
                           <span className="font-extrabold text-amber-700 uppercase text-[8.5px] block">Annual Variance:</span>
-                          <span className="font-extrabold text-rose-700">{kpi.annualVariance || calculateVariance(kpi.annualTarget, kpi.annualActual || kpi.q4Actual)}</span>
+                          {(() => {
+                            const v = kpi.annualVariance || calculateVariance(kpi.annualTarget, kpi.annualActual || kpi.q4Actual);
+                            const isPos = String(v).startsWith('+') || (parseFloat(v) > 0);
+                            const isZero = String(v) === '0' || String(v) === '0.00' || String(v) === '0%' || String(v) === 'N/A';
+                            return (
+                              <span className={`font-extrabold ${isZero ? 'text-slate-600' : isPos ? 'text-emerald-700' : 'text-rose-700'}`}>
+                                {v}
+                              </span>
+                            );
+                          })()}
                         </div>
                         <div className="col-span-2 border-t border-slate-100 pt-1">
                           <span className="font-extrabold text-slate-600 uppercase text-[8.5px] block">Annual Corrective Measure:</span>
@@ -2932,7 +2956,15 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
 
       {/* DETAILED POE DOCUMENT PREVIEW LIGHTBOX MODAL */}
       {previewDoc && (
-        <OfficeDocumentViewer doc={previewDoc} onClose={() => setPreviewDoc(null)} />
+        <OfficeDocumentViewer 
+          doc={previewDoc} 
+          docList={previewDocList}
+          initialIndex={previewDocIndex}
+          onClose={() => {
+            setPreviewDoc(null);
+            setPreviewDocList([]);
+          }} 
+        />
       )}
       {previewDoc && false && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in">
