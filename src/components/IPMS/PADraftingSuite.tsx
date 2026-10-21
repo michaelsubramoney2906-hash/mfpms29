@@ -2434,7 +2434,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
             const s = JSON.stringify(tbl).toLowerCase();
             return s.includes('municipal finance grap module') || s.includes('chief financial officer');
           };
-          const userTitle = (currentUser?.title || currentUser?.jobTitle || currentUser?.position || '').toLowerCase();
+          const userTitle = ((currentUser as any)?.title || (currentUser as any)?.jobTitle || (currentUser as any)?.position || currentUser?.jobFunction || '').toLowerCase();
           const userIsFinance = userTitle.includes('cfo') || userTitle.includes('finance') || userTitle.includes('financial');
           const shouldHideTable = (!pdpCustomTable || !pdpCustomTable.rows || pdpCustomTable.rows.length === 0 || (isCfoTable(pdpCustomTable) && !userIsFinance));
 
@@ -3107,7 +3107,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
     setCustomTables(tpl.customTables || []);
     if (tpl.pdpCustomTable) {
       const isCfoTbl = JSON.stringify(tpl.pdpCustomTable).toLowerCase().includes('municipal finance grap module');
-      const uTitle = (currentUser?.title || currentUser?.jobTitle || currentUser?.position || '').toLowerCase();
+      const uTitle = ((currentUser as any)?.title || (currentUser as any)?.jobTitle || (currentUser as any)?.position || currentUser?.jobFunction || '').toLowerCase();
       const isFin = uTitle.includes('cfo') || uTitle.includes('finance') || uTitle.includes('financial');
       if (isCfoTbl && !isFin) {
         setPdpCustomTable({

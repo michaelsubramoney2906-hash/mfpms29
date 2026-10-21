@@ -1781,7 +1781,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
                   (kpi.midtermActual && String(kpi.midtermActual).trim() !== '' && String(kpi.midtermActual).trim().toUpperCase() !== 'N/A') ||
                   (kpi.annualActual && String(kpi.annualActual).trim() !== '' && String(kpi.annualActual).trim().toUpperCase() !== 'N/A')
                 );
-                const kpiIsReadOnly = isReadOnly || (!isUnrestricted && kpiHasEvidence && (
+                const kpiIsReadOnly = isReadOnly || (!isUnrestricted && (
                   kpi.reviewStatus === 'Submitted for Approval' || 
                   kpi.reviewStatus === 'Reviewed' || 
                   kpi.reviewStatus === 'Approved'

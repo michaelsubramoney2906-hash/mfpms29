@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import mammoth from 'mammoth';
+import { renderAsync } from 'docx-preview';
 import { 
   FileText, FileSpreadsheet, Presentation, File, Download, X, Search, 
   CheckCircle2, AlertCircle, Calendar, User, Folder, ShieldCheck, 
-  ChevronLeft, ChevronRight, Sparkles, RefreshCw, Maximize2, Minimize2, Paperclip
+  ChevronLeft, ChevronRight, Sparkles, RefreshCw, Maximize2, Minimize2, Paperclip,
+  Eye, Layout, FileCode
 } from 'lucide-react';
 import { downloadOriginalFile } from '../../utils/documentBinaryHelper';
 import { PdfDocumentViewer } from './PdfDocumentViewer';
@@ -73,6 +75,7 @@ export function OfficeDocumentViewer({ doc, document: propDocument, docList, ini
   const [activeIdx, setActiveIdx] = useState<number>(initialIndex ?? 0);
   const [isMaximized, setIsMaximized] = useState<boolean>(false);
   const [pdfArrayBuffer, setPdfArrayBuffer] = useState<ArrayBuffer | null>(null);
+  const [wordArrayBuffer, setWordArrayBuffer] = useState<ArrayBuffer | null>(null);
 
   // Sync activeIdx if initialIndex changes
   useEffect(() => {
@@ -116,7 +119,6 @@ export function OfficeDocumentViewer({ doc, document: propDocument, docList, ini
   const [renderedXlsxSheets, setRenderedXlsxSheets] = useState<{ name: string; html: string }[]>([]);
   const [activeXlsxSheetIdx, setActiveXlsxSheetIdx] = useState(0);
   const [renderedPptSlides, setRenderedPptSlides] = useState<ParsedSlide[]>([]);
-  const [activePptSlideIdx, setActivePptSlideIdx] = useState(0);
   const [displayUrl, setDisplayUrl] = useState<string>('');
 
   useEffect(() => {
@@ -126,8 +128,8 @@ export function OfficeDocumentViewer({ doc, document: propDocument, docList, ini
     }
     const dataUrlStr = targetDoc.dataUrl;
     const extLower = extension.toLowerCase();
-    const isImg = ['png', 'jpg', 'jpeg', 'webp', 'svg', 'gif'].includes(extLower);
-    const isPdfDoc = extLower === 'pdf';
+    const isImg = isImage || ['png', 'jpg', 'jpeg', 'webp', 'svg', 'gif'].includes(extLower);
+    const isPdfDoc = isPdf || extLower === 'pdf' || targetDoc?.mimeType?.includes('pdf') || targetDoc?.dataUrl?.startsWith('data:application/pdf');
 
     if (isImg || isPdfDoc) {
       try {
@@ -179,6 +181,7 @@ export function OfficeDocumentViewer({ doc, document: propDocument, docList, ini
     setLoading(true);
     setError(null);
     setRenderedWordHtml('');
+    setWordArrayBuffer(null);
     setRenderedXlsxSheets([]);
     setRenderedPptSlides([]);
 
@@ -202,12 +205,13 @@ export function OfficeDocumentViewer({ doc, document: propDocument, docList, ini
         }
 
         if (isWord) {
+          setWordArrayBuffer(arrayBuffer);
           if (extension === 'docx') {
             try {
               const result = await mammoth.convertToHtml({ arrayBuffer });
               setRenderedWordHtml(result.value || '<p class="text-slate-500 italic">This document is empty.</p>');
             } catch (err: any) {
-              console.warn("Mammoth docx parsing failed, using beautifully formatted compliance fallback view:", err);
+              console.warn("Mammoth docx parsing failed, fallback text view will be generated:", err);
               setRenderedWordHtml(`
                 <div class="space-y-4 p-4 text-slate-800 font-sans leading-relaxed select-text">
                   <h2 class="text-lg font-bold border-b pb-2 text-indigo-700 flex items-center gap-2">
@@ -234,7 +238,7 @@ export function OfficeDocumentViewer({ doc, document: propDocument, docList, ini
                 <div class="p-6 bg-white font-mono text-xs select-text">
                   <div class="flex items-center gap-2 mb-4 pb-2 border-b border-slate-200 text-slate-500 font-sans text-xs">
                     <span class="font-bold text-slate-800 text-sm">📝 ${targetDoc.name}</span>
-                    <span class="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono uppercase font-bold">Notepad Document</span>
+                    <span class="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono uppercase font-bold">Text Document</span>
                   </div>
                   <pre class="font-mono text-xs whitespace-pre-wrap text-slate-800 leading-relaxed font-normal">${textContent || '(Empty text document)'}</pre>
                 </div>
@@ -460,7 +464,6 @@ export function OfficeDocumentViewer({ doc, document: propDocument, docList, ini
           }
 
           setRenderedPptSlides(parsedSlides);
-          setActivePptSlideIdx(0);
         } else if (isPdf) {
           setPdfArrayBuffer(arrayBuffer);
         }
@@ -484,7 +487,6 @@ export function OfficeDocumentViewer({ doc, document: propDocument, docList, ini
       if (sizeVal.toLowerCase().includes('kb') || sizeVal.toLowerCase().includes('mb')) {
         return sizeVal;
       }
-      // If it has spaces/labels but is string
       if (sizeVal.trim().endsWith('B') || sizeVal.trim().endsWith('b')) {
         return sizeVal;
       }
@@ -493,7 +495,6 @@ export function OfficeDocumentViewer({ doc, document: propDocument, docList, ini
       sizeVal = parsed;
     }
     const bytes = sizeVal as number;
-    // If it is already small parsed float (like 0.09) from "0.09 MB", it represents MBs, not raw bytes!
     if (bytes < 100) {
       return `${bytes.toFixed(2)} MB`;
     }
@@ -526,7 +527,7 @@ export function OfficeDocumentViewer({ doc, document: propDocument, docList, ini
   return (
     <div className="fixed inset-0 z-[110] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 lg:p-6 animate-fade-in text-slate-800" onClick={onClose}>
       <div 
-        className={`bg-white w-full ${isMaximized ? 'w-[99vw] h-[98vh] max-w-none rounded-xl' : 'max-w-6xl h-[90vh] rounded-3xl'} overflow-hidden shadow-2xl flex flex-col border border-indigo-100 transition-all duration-200`}
+        className={`bg-white w-full ${isMaximized ? 'w-[99vw] h-[98vh] max-w-none rounded-xl' : 'max-w-6xl h-[92vh] rounded-3xl'} overflow-hidden shadow-2xl flex flex-col border border-indigo-100 transition-all duration-200`}
         onClick={e => e.stopPropagation()}
       >
         {/* Header Block */}
@@ -548,7 +549,7 @@ export function OfficeDocumentViewer({ doc, document: propDocument, docList, ini
                 {targetDoc.name}
               </h3>
               <p className="text-[9px] text-slate-400 font-mono m-0 uppercase tracking-widest mt-0.5 truncate">
-                PORTFOLIO EVIDENCE • AUDITED REVIEW WORKSPACE
+                PORTFOLIO EVIDENCE • ORIGINAL FORMAT DOCUMENT VIEWER
               </p>
             </div>
           </div>
@@ -659,8 +660,8 @@ export function OfficeDocumentViewer({ doc, document: propDocument, docList, ini
                 <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 flex gap-2 items-start">
                   <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                   <div className="text-[9.5px] leading-relaxed text-emerald-900 font-medium">
-                    <strong className="block uppercase text-emerald-950 font-black tracking-wide">Fiduciary Seal</strong>
-                    Audited compliance packet. This file has been verified with Nkangala IDP standards.
+                    <strong className="block uppercase text-emerald-950 font-black tracking-wide">Original Format Fidelity</strong>
+                    High-definition inline document view. Renders Word layout, spreadsheets & slides directly in browser.
                   </div>
                 </div>
               </div>
@@ -711,6 +712,8 @@ export function OfficeDocumentViewer({ doc, document: propDocument, docList, ini
               .word-docx-preview h1 { font-size: 1.5rem; }
               .word-docx-preview h2 { font-size: 1.25rem; }
               .word-docx-preview h3 { font-size: 1.1rem; }
+              .docx-rendered-wrapper .docx-wrapper { background: transparent !important; padding: 1.5rem 0 !important; display: flex !important; flex-direction: column !important; align-items: center !important; }
+              .docx-rendered-wrapper .docx-wrapper > section.docx { background: white !important; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.12), 0 8px 10px -6px rgba(0,0,0,0.1) !important; margin-bottom: 2rem !important; border-radius: 4px !important; border: 1px solid #cbd5e1 !important; color: #0f172a !important; }
             ` }} />
 
             {loading ? (
@@ -755,6 +758,8 @@ export function OfficeDocumentViewer({ doc, document: propDocument, docList, ini
                     uploader={uploader} 
                     date={uploadedDate}
                     renderedHtml={renderedWordHtml}
+                    arrayBuffer={wordArrayBuffer}
+                    extension={extension}
                   />
                 )}
                 {isExcel && (
@@ -782,7 +787,7 @@ export function OfficeDocumentViewer({ doc, document: propDocument, docList, ini
                   <div className="flex-1 p-3 sm:p-6 flex items-center justify-center overflow-hidden bg-slate-100">
                     {isImage && displayUrl ? (
                       <div className="bg-white p-4 rounded-2xl shadow-md max-h-full max-w-full overflow-auto flex items-center justify-center">
-                        <img src={displayUrl} alt={targetDoc.name} className="max-h-[60vh] object-contain rounded-lg shadow-sm" referrerPolicy="no-referrer" />
+                        <img src={displayUrl} alt={targetDoc.name} className="max-h-[70vh] object-contain rounded-lg shadow-sm" referrerPolicy="no-referrer" />
                       </div>
                     ) : isPdf ? (
                       <div className="w-full h-full flex flex-col rounded-2xl overflow-hidden bg-slate-900 border border-slate-700 shadow-xl">
@@ -796,15 +801,15 @@ export function OfficeDocumentViewer({ doc, document: propDocument, docList, ini
                     ) : (
                       <div className="text-center bg-white p-8 rounded-2xl shadow-xl border border-slate-200 max-w-md w-full">
                         <File className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                        <h4 className="text-lg font-black text-slate-800 mb-2">Pre-Render Fallback</h4>
+                        <h4 className="text-lg font-black text-slate-800 mb-2">Original Binary Storage</h4>
                         <p className="text-xs text-slate-600 mb-6">
-                          This specific format ({targetDoc.mimeType || 'unknown'}) was successfully audited. You can download the pristine byte-stream archive directly.
+                          This specific format ({targetDoc.mimeType || extension || 'file'}) was successfully verified in audit storage. You can save the original pristine byte file to your device.
                         </p>
                         <button
                           onClick={handleDownload}
-                          className="inline-flex items-center gap-2 px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs uppercase tracking-wider font-bold rounded-xl transition cursor-pointer border-0"
+                          className="inline-flex items-center gap-2 px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs uppercase tracking-wider font-bold rounded-xl transition cursor-pointer border-0 shadow-md"
                         >
-                          <Download className="w-4 h-4" /> Download Byte Stream
+                          <Download className="w-4 h-4" /> Download Original File
                         </button>
                       </div>
                     )}
@@ -819,67 +824,139 @@ export function OfficeDocumentViewer({ doc, document: propDocument, docList, ini
   );
 }
 
-// 1. WORD DOCUMENT INTERACTIVE VIEWER
-interface ViewerProps {
+// 1. WORD DOCUMENT HIGH-FIDELITY & TEXT VIEWER
+interface WordViewerProps {
   kpiName: string;
   quarter: string;
   fileName: string;
   uploader: string;
   date: string;
   renderedHtml?: string;
+  arrayBuffer?: ArrayBuffer | null;
+  extension?: string;
 }
 
-function WordDocumentViewer({ kpiName, quarter, fileName, uploader, date, renderedHtml }: ViewerProps) {
+function WordDocumentViewer({ kpiName, quarter, fileName, uploader, date, renderedHtml, arrayBuffer, extension }: WordViewerProps) {
+  const [viewMode, setViewMode] = useState<'layout' | 'text' | 'template'>('layout');
   const [currentPage, setCurrentPage] = useState(1);
-  const totalPages = renderedHtml ? 1 : 3;
+  const docxContainerRef = useRef<HTMLDivElement>(null);
+  const [docxRenderLoading, setDocxRenderLoading] = useState(false);
+  const [docxRenderError, setDocxRenderError] = useState<string | null>(null);
+
+  const isDocx = extension === 'docx';
+
+  // Render docx directly into DOM using docx-preview
+  useEffect(() => {
+    if (viewMode === 'layout' && isDocx && arrayBuffer && docxContainerRef.current) {
+      setDocxRenderLoading(true);
+      setDocxRenderError(null);
+      docxContainerRef.current.innerHTML = '';
+
+      renderAsync(arrayBuffer, docxContainerRef.current, undefined, {
+        className: 'docx-preview-content',
+        inWrapper: true,
+        breakPages: true,
+        ignoreWidth: false,
+        ignoreHeight: false,
+        useBase64URL: true,
+        experimental: true,
+      })
+        .then(() => {
+          setDocxRenderLoading(false);
+        })
+        .catch((err) => {
+          console.warn("docx-preview rendering failed, defaulting to HTML view:", err);
+          setDocxRenderError("Native page layout rendering failed. Switching to text view.");
+          setDocxRenderLoading(false);
+          setViewMode('text');
+        });
+    }
+  }, [arrayBuffer, isDocx, viewMode]);
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Word Toolbar UI */}
       <div className="bg-white border-b border-slate-300 px-4 py-2 flex items-center justify-between shadow-xs text-slate-700 text-[10.5px] select-none font-sans flex-wrap gap-2">
         <div className="flex items-center gap-3">
-          <span className="font-bold text-slate-900 uppercase text-[9px] tracking-wide border-r border-slate-200 pr-3">Nkangala Word Viewer</span>
-          {renderedHtml ? (
-            <span className="text-[10px] bg-indigo-50 text-indigo-700 px-2.5 py-0.5 rounded font-extrabold flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-indigo-500" /> Original File Contents Loaded
-            </span>
-          ) : (
-            <div className="flex items-center gap-1.5 font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
-              <span>Calibri (Body)</span>
-              <span className="text-[9px]">▼</span>
-            </div>
-          )}
+          <span className="font-extrabold text-slate-900 uppercase text-[9px] tracking-wider border-r border-slate-200 pr-3">
+            Word High-Fidelity Reader
+          </span>
+
+          {/* View Toggles */}
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200">
+            {isDocx && (
+              <button
+                type="button"
+                onClick={() => setViewMode('layout')}
+                className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition flex items-center gap-1 cursor-pointer border-0 ${
+                  viewMode === 'layout' 
+                    ? 'bg-blue-600 text-white shadow-xs' 
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+                }`}
+              >
+                <Layout className="w-3 h-3" />
+                <span>Original Layout View</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setViewMode('text')}
+              className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition flex items-center gap-1 cursor-pointer border-0 ${
+                viewMode === 'text' 
+                  ? 'bg-blue-600 text-white shadow-xs' 
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+              }`}
+            >
+              <FileCode className="w-3 h-3" />
+              <span>Extracted Text / HTML</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('template')}
+              className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition flex items-center gap-1 cursor-pointer border-0 ${
+                viewMode === 'template' 
+                  ? 'bg-blue-600 text-white shadow-xs' 
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+              }`}
+            >
+              <Sparkles className="w-3 h-3" />
+              <span>Official Letterhead Summary</span>
+            </button>
+          </div>
         </div>
 
-        {/* Pagination controls */}
-        {!renderedHtml && (
-          <div className="flex items-center gap-2">
-            <button 
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-              className="p-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer border-0"
-            >
-              <ChevronLeft className="w-3.5 h-3.5" />
-            </button>
-            <span className="font-bold font-mono text-[10px]">Page {currentPage} of {totalPages}</span>
-            <button 
-              disabled={currentPage === totalPages}
-              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-              className="p-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer border-0"
-            >
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        )}
+        {/* Status Indicator */}
+        <div className="flex items-center gap-2">
+          {viewMode === 'layout' && docxRenderLoading && (
+            <span className="text-[10px] text-blue-600 font-bold flex items-center gap-1 animate-pulse">
+              <RefreshCw className="w-3 h-3 animate-spin" /> Rendering Word Pages...
+            </span>
+          )}
+          {viewMode === 'layout' && !docxRenderLoading && (
+            <span className="text-[10px] bg-emerald-50 text-emerald-700 px-2.5 py-0.5 rounded-md font-extrabold flex items-center gap-1 border border-emerald-200">
+              <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Original Word Document
+            </span>
+          )}
+        </div>
       </div>
 
-      {/* Paginated Document Sheet Container */}
+      {/* Document View Area */}
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 flex justify-center bg-slate-200">
-        {renderedHtml ? (
-          <div className="bg-white max-w-[800px] w-full p-8 sm:p-12 shadow-md border border-slate-300 rounded-lg min-h-[75vh] select-text">
-            <div className="word-docx-preview" dangerouslySetInnerHTML={{ __html: renderedHtml }} />
+        {viewMode === 'layout' && isDocx ? (
+          <div className="w-full max-w-4xl docx-rendered-wrapper">
+            {docxRenderError && (
+              <div className="mb-4 p-3 bg-amber-50 text-amber-800 rounded-lg text-xs font-medium border border-amber-200">
+                {docxRenderError}
+              </div>
+            )}
+            <div ref={docxContainerRef} className="w-full" />
+          </div>
+        ) : viewMode === 'text' || (!isDocx && viewMode === 'layout') ? (
+          <div className="bg-white max-w-[850px] w-full p-8 sm:p-12 shadow-md border border-slate-300 rounded-lg min-h-[75vh] select-text">
+            <div className="word-docx-preview font-serif text-slate-800 text-xs leading-relaxed" dangerouslySetInnerHTML={{ __html: renderedHtml || '<p className="text-slate-500 italic">No text content parsed.</p>' }} />
           </div>
         ) : (
+          /* Official Letterhead Summary View Mode */
           <div className="bg-white max-w-[650px] w-full p-8 sm:p-12 shadow-md border border-slate-300 rounded-lg aspect-[1/1.41] flex flex-col justify-between font-serif text-slate-800 relative">
             {/* Watermark */}
             <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none select-none">
@@ -888,145 +965,58 @@ function WordDocumentViewer({ kpiName, quarter, fileName, uploader, date, render
               </div>
             </div>
 
-            {currentPage === 1 && (
-              <div className="space-y-6 flex-1">
-                {/* Cover Letterhead */}
-                <div className="text-center border-b-2 border-slate-900 pb-6">
-                  <h1 className="font-sans font-black tracking-widest text-slate-900 text-base uppercase leading-tight">
-                    NKANGALA DISTRICT MUNICIPALITY
-                  </h1>
-                  <p className="font-sans text-[8px] uppercase tracking-widest text-slate-500 mt-1">
-                    Directorate of Performance Audit & Compliance Monitoring
-                  </p>
-                  <p className="font-sans text-[8.5px] text-indigo-600 bg-indigo-50 border border-indigo-200 rounded px-2.5 py-0.5 mt-2.5 inline-block font-extrabold tracking-widest">
-                    PORTFOLIO OF EVIDENCE REPORT
-                  </p>
-                </div>
-
-                {/* Title Section */}
-                <div className="space-y-4 pt-4">
-                  <h2 className="font-sans text-sm font-black text-slate-900 uppercase tracking-wider text-center leading-relaxed">
-                    SUBMISSION DOSSIER FOR PERFORMANCE EVALUATION
-                  </h2>
-                  <div className="h-0.5 bg-slate-200 w-24 mx-auto" />
-                </div>
-
-                <div className="space-y-3 font-sans text-xs pt-4">
-                  <div className="grid grid-cols-3 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
-                    <div className="col-span-3 pb-1 border-b border-slate-200 mb-1">
-                      <span className="font-bold text-[9px] text-slate-400 uppercase tracking-wider">Target Objective</span>
-                      <p className="font-extrabold text-slate-900 leading-snug">{kpiName}</p>
-                    </div>
-                    <div>
-                      <span className="font-bold text-[9px] text-slate-400 uppercase tracking-wider">Evaluation Period</span>
-                      <p className="font-extrabold text-slate-800">{quarter}</p>
-                    </div>
-                    <div>
-                      <span className="font-bold text-[9px] text-slate-400 uppercase tracking-wider">Fiduciary Lead</span>
-                      <p className="font-extrabold text-slate-800">{uploader}</p>
-                    </div>
-                    <div>
-                      <span className="font-bold text-[9px] text-slate-400 uppercase tracking-wider">Date of Upload</span>
-                      <p className="font-extrabold text-slate-800">{date}</p>
-                    </div>
-                  </div>
-
-                  <div className="pt-6 space-y-3 text-[11.5px] leading-relaxed text-slate-700 font-serif">
-                    <p className="indent-8">
-                      This formal performance validation dossier is submitted to satisfy compliance directives under the Local Government: Municipal Systems Act, No. 32 of 2000. It presents structured audit trails, operational metrics, and substantiating documentation gathered by Directorate officers to prove performance targets have been fully, transparently, and cleanly achieved.
-                    </p>
-                    <p>
-                      Each outcome was logged in real-time, matching budget ledgers and capital project metrics within the authorized municipal mSCOA accounting database.
-                    </p>
-                  </div>
-                </div>
+            <div className="space-y-6 flex-1">
+              {/* Cover Letterhead */}
+              <div className="text-center border-b-2 border-slate-900 pb-6">
+                <h1 className="font-sans font-black tracking-widest text-slate-900 text-base uppercase leading-tight">
+                  NKANGALA DISTRICT MUNICIPALITY
+                </h1>
+                <p className="font-sans text-[8px] uppercase tracking-widest text-slate-500 mt-1">
+                  Directorate of Performance Audit & Compliance Monitoring
+                </p>
+                <p className="font-sans text-[8.5px] text-indigo-600 bg-indigo-50 border border-indigo-200 rounded px-2.5 py-0.5 mt-2.5 inline-block font-extrabold tracking-widest">
+                  PORTFOLIO OF EVIDENCE REPORT
+                </p>
               </div>
-            )}
 
-            {currentPage === 2 && (
-              <div className="space-y-5 flex-1">
-                <h3 className="font-sans font-black text-[11px] text-indigo-900 uppercase tracking-wider border-b pb-1">
-                  1. EXECUTIVE SUMMARY & TARGET COMPILATION
-                </h3>
-                <div className="space-y-3 text-[11px] leading-relaxed font-serif text-slate-700">
-                  <p>
-                    During the {quarter} audit cycle, specific tactical projects were coordinated under SDBIP reference ledgers. The objective, namely <strong>"{kpiName}"</strong>, was designed to achieve optimal municipal output. 
+              {/* Title Section */}
+              <div className="space-y-4 pt-4">
+                <h2 className="font-sans text-sm font-black text-slate-900 uppercase tracking-wider text-center leading-relaxed">
+                  SUBMISSION DOSSIER FOR PERFORMANCE EVALUATION
+                </h2>
+                <div className="h-0.5 bg-slate-200 w-24 mx-auto" />
+              </div>
+
+              <div className="space-y-3 font-sans text-xs pt-4">
+                <div className="grid grid-cols-3 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                  <div className="col-span-3 pb-1 border-b border-slate-200 mb-1">
+                    <span className="font-bold text-[9px] text-slate-400 uppercase tracking-wider">Target Objective</span>
+                    <p className="font-extrabold text-slate-900 leading-snug">{kpiName}</p>
+                  </div>
+                  <div>
+                    <span className="font-bold text-[9px] text-slate-400 uppercase tracking-wider">Evaluation Period</span>
+                    <p className="font-extrabold text-slate-800">{quarter}</p>
+                  </div>
+                  <div>
+                    <span className="font-bold text-[9px] text-slate-400 uppercase tracking-wider">Fiduciary Lead</span>
+                    <p className="font-extrabold text-slate-800">{uploader}</p>
+                  </div>
+                  <div>
+                    <span className="font-bold text-[9px] text-slate-400 uppercase tracking-wider">Date of Upload</span>
+                    <p className="font-extrabold text-slate-800">{date}</p>
+                  </div>
+                </div>
+
+                <div className="pt-6 space-y-3 text-[11.5px] leading-relaxed text-slate-700 font-serif">
+                  <p className="indent-8">
+                    This formal performance validation dossier is submitted to satisfy compliance directives under the Local Government: Municipal Systems Act, No. 32 of 2000. It presents structured audit trails, operational metrics, and substantiating documentation gathered by Directorate officers to prove performance targets have been fully, transparently, and cleanly achieved.
                   </p>
                   <p>
-                    The primary strategic vector involved verifying operational deliverables, coordinating cross-departmental oversight meetings, and validating compliance data packets with external CoGTA and provincial treasury systems.
-                  </p>
-                  <h4 className="font-sans font-black text-[10px] text-slate-900 uppercase tracking-wider mt-4">
-                    1.1 STRATEGIC DELIVERY MILESTONES
-                  </h4>
-                  <p>
-                    Our internal directorate task team monitored three critical milestones:
-                  </p>
-                  <ol className="list-decimal pl-5 font-sans text-[10.5px] space-y-1.5 text-slate-800 font-bold">
-                    <li>Formal execution of SDBIP ledger records corresponding to specific capital ledger sheets.</li>
-                    <li>Receipt of signed validation vouchers and executive reports from departmental directors.</li>
-                    <li>Consolidated audit review of municipal spend vs. actual physical milestones on the ground.</li>
-                  </ol>
-                  <p className="mt-3">
-                    All supporting documentation has been parsed and is securely archived in the municipal data vault.
+                    Each outcome was logged in real-time, matching budget ledgers and capital project metrics within the authorized municipal mSCOA accounting database.
                   </p>
                 </div>
               </div>
-            )}
-
-            {currentPage === 3 && (
-              <div className="space-y-4 flex-1">
-                <h3 className="font-sans font-black text-[11px] text-indigo-900 uppercase tracking-wider border-b pb-1">
-                  2. COMPLIANCE MATRIX & SIGN-OFF SHEET
-                </h3>
-                <div className="space-y-4">
-                  <table className="w-full text-left font-sans text-[9px] border-collapse border border-slate-300">
-                    <thead>
-                      <tr className="bg-slate-100 text-slate-700 border-b border-slate-300 font-black uppercase text-[8px] tracking-wider">
-                        <th className="p-2 border-r border-slate-300">Compliance Step</th>
-                        <th className="p-2 border-r border-slate-300">Regulatory Framework</th>
-                        <th className="p-2">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200">
-                      <tr>
-                        <td className="p-2 border-r border-slate-300 font-bold text-slate-850">mSCOA Treasury Codes Alignment</td>
-                        <td className="p-2 border-r border-slate-300">MFMA Circular 80/2016</td>
-                        <td className="p-2 font-bold text-emerald-700">COMPLIANT</td>
-                      </tr>
-                      <tr>
-                        <td className="p-2 border-r border-slate-300 font-bold text-slate-850">Directorate Physical Inspection</td>
-                        <td className="p-2 border-r border-slate-300">Municipal Systems Act Sec 56</td>
-                        <td className="p-2 font-bold text-emerald-700">PASSED & SIGNED</td>
-                      </tr>
-                      <tr>
-                        <td className="p-2 border-r border-slate-300 font-bold text-slate-850">Portfolio Audit Lock</td>
-                        <td className="p-2 border-r border-slate-300">Nkangala District Quality Code</td>
-                        <td className="p-2 font-bold text-emerald-700">LOCKED & SEALED</td>
-                      </tr>
-                    </tbody>
-                  </table>
-
-                  <div className="pt-8 space-y-4 font-sans">
-                    <p className="text-[9.5px] text-slate-500 italic text-center">
-                      Document compiled and digitally signed by authorized municipal actors.
-                    </p>
-                    
-                    <div className="grid grid-cols-2 gap-4 text-center pt-4">
-                      <div className="space-y-1">
-                        <div className="h-0.5 bg-slate-300 w-32 mx-auto" />
-                        <p className="text-[10px] font-extrabold text-slate-800">{uploader}</p>
-                        <p className="text-[8px] uppercase text-slate-400">Director: Compliance (Compiler)</p>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="h-0.5 bg-slate-300 w-32 mx-auto" />
-                        <p className="text-[10px] font-extrabold text-slate-800">Coun. K.H. Khuboni</p>
-                        <p className="text-[8px] uppercase text-slate-400">Executive Manager (Approver)</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+            </div>
 
             {/* Letterhead Footer */}
             <div className="font-sans text-[7.5px] text-slate-400 flex justify-between items-end border-t border-slate-200 pt-3 select-none">
@@ -1035,7 +1025,7 @@ function WordDocumentViewer({ kpiName, quarter, fileName, uploader, date, render
                 <p className="m-0 text-slate-400">MUNICIPAL PERFORMANCE ASSURANCE REGISTRY • FILE: {fileName}</p>
               </div>
               <div className="text-right">
-                <span className="font-mono text-slate-500">Page {currentPage} / {totalPages}</span>
+                <span className="font-mono text-slate-500">Official Document Packet</span>
               </div>
             </div>
           </div>
@@ -1098,7 +1088,6 @@ function ExcelSpreadsheetViewer({
 
   const totalBudget = metricsRows.reduce((acc, curr) => acc + curr.budget, 0);
   const totalSpent = metricsRows.reduce((acc, curr) => acc + curr.spent, 0);
-  const totalVariance = totalBudget - totalSpent;
   const burnRate = (totalSpent / totalBudget) * 100;
 
   return (
@@ -1178,7 +1167,7 @@ function ExcelSpreadsheetViewer({
         </div>
         <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-xs">
           <span className="text-[8px] font-black uppercase text-slate-400 block tracking-wide">Data Source</span>
-          <span className="text-xs font-black text-slate-950 font-mono">{hasRealData ? 'Live User Upload' : 'Simulated Ledger'}</span>
+          <span className="text-xs font-black text-slate-950 font-mono">{hasRealData ? 'Live Excel File' : 'Simulated Ledger'}</span>
         </div>
         <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-xs">
           <span className="text-[8px] font-black uppercase text-slate-400 block tracking-wide">Excel Engine</span>
@@ -1516,15 +1505,15 @@ function PowerPointPresentationViewer({ kpiName, quarter, fileName, uploader, re
                     <h3 className="text-xs font-black uppercase tracking-wider text-orange-400">
                       Compliance Audit Clearances
                     </h3>
-                    <p className="text-[10.5px] text-slate-305 font-bold leading-relaxed">
+                    <p className="text-[10.5px] text-slate-300 font-bold leading-relaxed">
                       This presentation validates the entire transaction trail for "{kpiName}".
                     </p>
                     <div className="flex gap-4 pt-2">
-                      <div className="flex items-center gap-1.5 bg-emerald-550/10 border border-emerald-500/20 px-3 py-1.5 rounded-xl">
+                      <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-xl">
                         <ShieldCheck className="w-4 h-4 text-emerald-400" />
                         <span className="text-[9px] font-black text-emerald-300 uppercase tracking-wide">AG Approved</span>
                       </div>
-                      <div className="flex items-center gap-1.5 bg-emerald-550/10 border border-emerald-500/20 px-3 py-1.5 rounded-xl">
+                      <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-xl">
                         <ShieldCheck className="w-4 h-4 text-emerald-400" />
                         <span className="text-[9px] font-black text-emerald-300 uppercase tracking-wide">mSCOA Compliant</span>
                       </div>
