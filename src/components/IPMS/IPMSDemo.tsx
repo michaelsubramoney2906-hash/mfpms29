@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { resilientFetch } from '../../utils/resilientFetch';
 import {
   Sparkles, UserCheck, ShieldCheck, FileText, CheckCircle2,
   AlertCircle, Clock, ArrowRight, ChevronRight, RefreshCw, Send,
@@ -159,11 +160,15 @@ export function IPMSDemo({ currentUser, activeTenantId, onImpersonate, onNavigat
         setDemoState(data);
       }
       
-      // Also fetch notifications
-      const notifRes = await fetch(`/api/tenant/${activeTenantId}/ipms-notifications?t=${Date.now()}`);
-      if (notifRes.ok) {
-        const nData = await notifRes.json();
-        setNotifications(nData.notifications || []);
+      // Also fetch notifications resiliently
+      try {
+        const notifRes = await resilientFetch(`/api/tenant/${activeTenantId}/ipms-notifications?t=${Date.now()}`);
+        if (notifRes && notifRes.ok) {
+          const nData = await notifRes.json().catch(() => ({}));
+          setNotifications(nData.notifications || []);
+        }
+      } catch (notifErr) {
+        console.warn('Silent recovery during IPMSDemo notification fetch:', notifErr);
       }
     } catch (e: any) {
       console.error('Error fetching demo data:', e);

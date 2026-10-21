@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { resilientFetch } from '../../utils/resilientFetch';
 import { 
   Inbox, 
   Bell, 
@@ -300,8 +301,9 @@ export function IPMSWorkflowInbox({
     fetchUsers();
   }, [activeTenantId, currentUser]);
 
-  const fetchInbox = async () => {
-    setLoading(true);
+  const fetchInbox = async (isBackground: boolean | unknown = false) => {
+    const isBg = isBackground === true;
+    if (!isBg) setLoading(true);
     try {
       const userEmail = (currentUser?.email || '').toLowerCase().trim();
       const isAuditor = role === 'auditor';
@@ -319,8 +321,8 @@ export function IPMSWorkflowInbox({
         ? activeTenantId
         : (currentUser?.tenantId || 'nkangala_auto');
 
-      const res = await fetch(`/api/tenant/${tenantToUse}/ipms-notifications?${queryParams.toString()}`);
-      if (res.ok) {
+      const res = await resilientFetch(`/api/tenant/${tenantToUse}/ipms-notifications?${queryParams.toString()}`);
+      if (res && res.ok) {
         const contentType = res.headers.get("content-type");
         if (contentType && contentType.includes("application/json")) {
           const data = await safeJson(res) || {};
@@ -338,15 +340,15 @@ export function IPMSWorkflowInbox({
         }
       }
     } catch (e) {
-      console.error("Error fetching inbox notifications:", e);
+      console.warn("Silent recovery during inbox notification fetch:", e);
     } finally {
-      setLoading(false);
+      if (!isBg) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchInbox();
-    const interval = setInterval(fetchInbox, 12000); // Poll every 12 seconds
+    fetchInbox(false);
+    const interval = setInterval(() => fetchInbox(true), 12000); // Poll silently every 12 seconds
     return () => clearInterval(interval);
   }, [currentUser?.email, activeTenantId, role]);
 
@@ -805,7 +807,7 @@ export function IPMSWorkflowInbox({
           {/* Refresh */}
           <button
             type="button"
-            onClick={fetchInbox}
+            onClick={() => fetchInbox(false)}
             disabled={loading}
             className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition text-xs flex items-center gap-1 border border-slate-700 cursor-pointer"
             title="Refresh Inbox"

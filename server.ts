@@ -10073,8 +10073,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
 
       return res.json({ notifications });
     } catch (err: any) {
-      console.error("IPMS notifications load exception:", err);
-      res.status(500).json({ error: err.message });
+      console.warn("IPMS notifications load exception:", err?.message || err);
+      return res.json({ notifications: [], warning: err?.message || 'Notifications temporary unavailable' });
     }
   });
 

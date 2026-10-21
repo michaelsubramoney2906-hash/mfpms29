@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { resilientFetch } from '../../utils/resilientFetch';
 import { 
   FileSignature, Send, User, Target, ClipboardList,
   Upload, X, File, FileSpreadsheet, Image, FileText, Check, AlertCircle, Info, CalendarCheck, HelpCircle, Presentation,
@@ -508,13 +509,13 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
 
   const fetchNotifications = async () => {
     try {
-      const res = await fetch(`/api/tenant/${activeTenantId}/ipms-notifications?userEmail=${encodeURIComponent(currentUser.email)}&t=${Date.now()}`);
-      if (true) {
-        const data = await res.json();
+      const res = await resilientFetch(`/api/tenant/${activeTenantId}/ipms-notifications?userEmail=${encodeURIComponent(currentUser.email || '')}&t=${Date.now()}`);
+      if (res && res.ok) {
+        const data = await res.json().catch(() => ({}));
         setNotifications(data.notifications || []);
       }
     } catch (e) {
-      console.error("Error fetching notifications:", e);
+      console.warn("Silent recovery during notifications fetch:", e);
     }
   };
 
