@@ -19,6 +19,8 @@ import { isUserUnrestricted } from '../../utils/unrestrictedHelper';
 import { downloadOriginalFile, viewOriginalFile } from '../../utils/documentBinaryHelper';
 
 
+const cachedMinimalUsersByTenant = new Map<string, any[]>();
+
 const DUAL_LAYER_USERS = [
   'hlezard@nkangaladm.gov.za',
   'dimpems@nkangaladm.gov.za',
@@ -539,28 +541,47 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
       try {
         const targetEmail = selectedUserEmail || currentUser?.email || '';
 
-        // Fetch users, kpas, kpis, and pplan concurrently in parallel
-        const [usersRes, kpaRes, kpisRes, res] = await Promise.all([
-          fetch(`/api/tenant/${activeTenantId}/users?minimal=true&t=${Date.now()}`),
-          fetch(`/api/tenant/${activeTenantId}/kpas?userId=${encodeURIComponent(targetEmail)}&t=${Date.now()}`),
-          fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(targetEmail)}&t=${Date.now()}`),
-          fetch(`/api/tenant/${activeTenantId}/${apiEndpoint}?userId=${encodeURIComponent(targetEmail)}&t=${Date.now()}`)
-        ]);
+        const applyMatchedUserToMeta = (uList: any[], metaObj: any) => {
+          const matchedUser = uList.find((u: any) => (u.email || '').toLowerCase().trim() === targetEmail.toLowerCase().trim());
+          if (!matchedUser) return metaObj;
+          const next = { ...metaObj };
+          if (matchedUser.fullName) next.name = matchedUser.fullName;
+          if (matchedUser.jobFunction) next.position = matchedUser.jobFunction;
+          if (matchedUser.department) next.department = matchedUser.department;
+          if (matchedUser.directorate) next.directorate = matchedUser.directorate;
+          if (matchedUser.manager) next.manager = matchedUser.manager;
+          if (matchedUser.reportTo || matchedUser.manager) next.reportTo = matchedUser.reportTo || matchedUser.manager;
+          if (matchedUser.managerEmail) next.managerEmail = matchedUser.managerEmail;
+          return next;
+        };
 
-        let usersData: any[] = [];
-        if (usersRes.ok) {
-          try {
-            const parsedUsers = await safeJson(usersRes);
-            if (Array.isArray(parsedUsers)) {
-              usersData = parsedUsers;
-              setUsers(usersData);
-            }
-          } catch (e) {}
+        // Load minimal users list from memory cache or non-blocking background fetch
+        let usersData: any[] = cachedMinimalUsersByTenant.get(activeTenantId) || [];
+        if (usersData.length > 0) {
+          setUsers(usersData);
+        } else {
+          fetch(`/api/tenant/${activeTenantId}/users?minimal=true`)
+            .then(r => r.ok ? safeJson(r) : null)
+            .then(parsedUsers => {
+              if (Array.isArray(parsedUsers) && parsedUsers.length > 0) {
+                cachedMinimalUsersByTenant.set(activeTenantId, parsedUsers);
+                setUsers(parsedUsers);
+                setMetadata((prev: any) => applyMatchedUserToMeta(parsedUsers, prev));
+              }
+            })
+            .catch(() => {});
         }
+
+        // When !isPlan (Performance Agreements mode), only fetch the plan metadata without blocking on KPAs/KPIs
+        const [kpaRes, kpisRes, res] = await Promise.all([
+          isPlan ? fetch(`/api/tenant/${activeTenantId}/kpas?userId=${encodeURIComponent(targetEmail)}`) : Promise.resolve(null),
+          isPlan ? fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(targetEmail)}`) : Promise.resolve(null),
+          fetch(`/api/tenant/${activeTenantId}/${apiEndpoint}?userId=${encodeURIComponent(targetEmail)}`)
+        ]);
 
         let fetchedKpas: any[] = [];
         let fetchedCustomKpaTable: any = null;
-        if (kpaRes.ok) {
+        if (kpaRes && kpaRes.ok) {
           try {
             const kpaJson = await safeJson(kpaRes) || {};
             if (kpaJson) {
@@ -576,7 +597,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
         }
 
         let fetchedKpis: any[] = [];
-        if (kpisRes.ok) {
+        if (kpisRes && kpisRes.ok) {
           try {
             const kpiJson = await safeJson(kpisRes) || {};
             if (kpiJson && Array.isArray(kpiJson.kpis)) {
@@ -599,29 +620,34 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
           };
 
           if (Array.isArray(usersData) && usersData.length > 0) {
-            const matchedUser = usersData.find((u: any) => (u.email || '').toLowerCase().trim() === targetEmail.toLowerCase().trim());
-            if (matchedUser) {
-              if (matchedUser.fullName) baseMeta.name = matchedUser.fullName;
-              if (matchedUser.jobFunction) baseMeta.position = matchedUser.jobFunction;
-              if (matchedUser.department) baseMeta.department = matchedUser.department;
-              if (matchedUser.directorate) baseMeta.directorate = matchedUser.directorate;
-              if (matchedUser.manager) baseMeta.manager = matchedUser.manager;
-              if (matchedUser.reportTo || matchedUser.manager) baseMeta.reportTo = matchedUser.reportTo || matchedUser.manager;
-              if (matchedUser.managerEmail) baseMeta.managerEmail = matchedUser.managerEmail;
-            }
+            baseMeta = applyMatchedUserToMeta(usersData, baseMeta);
           }
 
           setMetadata(baseMeta);
 
-          let currentItems = [];
+          let currentItems: any[] = [];
           if (data.items && Array.isArray(data.items) && data.items.length > 0) {
-            // Filter out accidentally saved dummy KPI-KPA rows
-            currentItems = data.items.filter((item: any) => {
+            // Filter out accidentally saved dummy KPI-KPA rows and deduplicate by ID
+            const seenItemIds = new Map<string, number>();
+            for (const item of data.items) {
+              if (!item) continue;
               if (item.kpiNo && item.kpiNo.startsWith('KPI-KPA-') && item.kpi?.includes('Execution and operational oversight')) {
-                return false;
+                continue;
               }
-              return true;
-            });
+              const itemId = item.id ? String(item.id).trim().toLowerCase() : '';
+              if (itemId && seenItemIds.has(itemId)) {
+                const existingIdx = seenItemIds.get(itemId)!;
+                const existing = currentItems[existingIdx];
+                for (const [k, v] of Object.entries(item)) {
+                  if (v !== undefined && v !== null && v !== '' && (existing[k] === undefined || existing[k] === null || existing[k] === '')) {
+                    existing[k] = v;
+                  }
+                }
+              } else {
+                if (itemId) seenItemIds.set(itemId, currentItems.length);
+                currentItems.push({ ...item });
+              }
+            }
 
             // Enforce Marianne Joubert Clean Audit KPI rule (Q1 locked as N/A, applicable in Q3)
             const lowerTargetEmail = targetEmail.toLowerCase();
@@ -757,10 +783,23 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
                 return item;
               });
 
-              // Append missing KPIs from fetchedKpis so no KPIs are omitted
-              const missingKpis = fetchedKpis.filter(
-                fk => fk.kpiNo && !existingKpiNos.has(String(fk.kpiNo).toLowerCase().trim())
+              // Append missing KPIs from fetchedKpis so no KPIs are omitted (checking id, kpiNo, and kpi description to prevent duplicates)
+              const existingItemIds = new Set(
+                currentItems.map((it: any) => String(it.id || '').toLowerCase().trim()).filter(Boolean)
               );
+              const existingItemDescs = new Set(
+                currentItems.map((it: any) => String(it.kpi || it.description || '').toLowerCase().trim()).filter((d: string) => d.length > 10)
+              );
+              const missingKpis = fetchedKpis.filter(fk => {
+                if (!fk || !fk.kpiNo) return false;
+                const noKey = String(fk.kpiNo).toLowerCase().trim();
+                const idKey = String(fk.id || '').toLowerCase().trim();
+                const descKey = String(fk.kpi || fk.description || '').toLowerCase().trim();
+                if (existingKpiNos.has(noKey)) return false;
+                if (idKey && existingItemIds.has(idKey)) return false;
+                if (descKey.length > 10 && existingItemDescs.has(descKey)) return false;
+                return true;
+              });
               if (missingKpis.length > 0) {
                 const appendedItems = missingKpis.map((fk, idx) => ({
                   id: fk.id || `kpi-${fk.kpiNo || idx}`,
@@ -923,6 +962,9 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
             });
           }
 
+          const prePoeNormalizeCount = currentItems.length;
+          const origCount = Array.isArray(data.items) ? data.items.length : 0;
+
           if (currentItems.length > 0) {
             // Propagate unique POE across all quarters and lock
             currentItems = currentItems.map(it => {
@@ -941,10 +983,8 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
 
             setItems(currentItems);
             
-            // Keep the database in perfect alignment
-            const originalDataStr = JSON.stringify(data.items || []);
-            const syncedDataStr = JSON.stringify(currentItems);
-            if (originalDataStr !== syncedDataStr) {
+            // Only write back to the database on load if items were genuinely added/deduplicated (prevents perpetual POST cache-wipe loop on every view)
+            if (isPlan && prePoeNormalizeCount !== origCount) {
                fetch(`/api/tenant/${activeTenantId}/${apiEndpoint}?userId=${encodeURIComponent(targetEmail)}`, {
                  method: "POST",
                  headers: { "Content-Type": "application/json" },

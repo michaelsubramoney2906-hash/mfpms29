@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { isUserUnrestricted } from '../../utils/unrestrictedHelper';
 
+const cachedDraftingUsersByTenant = new Map<string, any[]>();
+
 interface PADraftingSuiteProps {
   currentUser: {
     email: string;
@@ -349,12 +351,20 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
   const [customPushTitle, setCustomPushTitle] = useState('');
 
   const fetchUserManagementUsers = async () => {
+    const cached = cachedDraftingUsersByTenant.get(activeTenantId);
+    if (cached && cached.length > 0) {
+      setUserManagementUsers(cached);
+      return;
+    }
     setFetchingUsers(true);
     try {
       const res = await fetch(`/api/tenant/${activeTenantId}/users`);
       if (res.ok) {
         const data = await res.json();
-        setUserManagementUsers(data);
+        if (Array.isArray(data)) {
+          cachedDraftingUsersByTenant.set(activeTenantId, data);
+          setUserManagementUsers(data);
+        }
       }
     } catch (e) {
       console.error("Error fetching user management users:", e);
@@ -3074,9 +3084,32 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
     if (tpl.showPageNumbers !== undefined) setShowPageNumbers(tpl.showPageNumbers);
     if (tpl.footerText) setFooterText(tpl.footerText);
 
-    // Load pulled items states
-    setPulledPplanItems(tpl.pulledPplanItems !== undefined ? tpl.pulledPplanItems : null);
-    setPulledFilteredPplanItems(tpl.pulledFilteredPplanItems !== undefined ? tpl.pulledFilteredPplanItems : null);
+    const dedupePlanRows = (rows: any[] | null | undefined) => {
+      if (!Array.isArray(rows)) return null;
+      const seen = new Map<string, number>();
+      const out: any[] = [];
+      for (const r of rows) {
+        if (!r) continue;
+        const rId = r.id ? String(r.id).trim().toLowerCase() : '';
+        if (rId && seen.has(rId)) {
+          const idx = seen.get(rId)!;
+          const ex = out[idx];
+          for (const [k, v] of Object.entries(r)) {
+            if (v !== undefined && v !== null && v !== '' && (ex[k] === undefined || ex[k] === null || ex[k] === '')) {
+              ex[k] = v;
+            }
+          }
+        } else {
+          if (rId) seen.set(rId, out.length);
+          out.push({ ...r });
+        }
+      }
+      return out;
+    };
+
+    // Load pulled items states (deduplicated by ID)
+    setPulledPplanItems(tpl.pulledPplanItems !== undefined ? dedupePlanRows(tpl.pulledPplanItems) : null);
+    setPulledFilteredPplanItems(tpl.pulledFilteredPplanItems !== undefined ? dedupePlanRows(tpl.pulledFilteredPplanItems) : null);
     setPulledPdpItems(tpl.pulledPdpItems !== undefined ? tpl.pulledPdpItems : null);
     setPulledCompetencyRows(tpl.pulledCompetencyRows !== undefined ? tpl.pulledCompetencyRows : null);
     setPulledCfoCompetencyRows(tpl.pulledCfoCompetencyRows !== undefined ? tpl.pulledCfoCompetencyRows : null);
@@ -3102,7 +3135,10 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
   useEffect(() => {
     fetchTemplates();
     fetchUserManagementUsers();
-    fetchDocumentVersions();
+    const versionTimer = setTimeout(() => {
+      fetchDocumentVersions();
+    }, 1200);
+    return () => clearTimeout(versionTimer);
   }, [activeTenantId, currentUser?.email]);
 
   return (

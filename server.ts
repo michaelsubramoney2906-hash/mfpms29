@@ -118,6 +118,7 @@ export async function fetchWithCoalescing<T>(
 
 const pplanCache = new Map<string, { raw: string; timestamp: number }>();
 const kpisCache = new Map<string, { raw: string; timestamp: number }>();
+const draftDocCache = new Map<string, { raw: string; timestamp: number }>();
 const paVersionsMemoryStore = new Map<string, any[]>();
 const sdbipMemoryStore = new Map<string, any[]>();
 
@@ -14290,7 +14291,25 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
     appendUnmatched: boolean = false,
     authoritativePoe: boolean = false
   ): any[] => {
-    const result = Array.isArray(primaryItems) ? primaryItems.map(it => ({ ...it })) : [];
+    const rawPrimary = Array.isArray(primaryItems) ? primaryItems.map(it => ({ ...it })) : [];
+    const result: any[] = [];
+    const seenPrimaryIds = new Map<string, number>();
+    for (const item of rawPrimary) {
+      if (!item) continue;
+      const itemId = String(item.id || '').toLowerCase().trim();
+      if (itemId && seenPrimaryIds.has(itemId)) {
+        const existingIdx = seenPrimaryIds.get(itemId)!;
+        const existing = result[existingIdx];
+        for (const [k, v] of Object.entries(item)) {
+          if (v !== undefined && v !== null && v !== '' && (existing[k] === undefined || existing[k] === null || existing[k] === '')) {
+            existing[k] = v;
+          }
+        }
+      } else {
+        if (itemId) seenPrimaryIds.set(itemId, result.length);
+        result.push(item);
+      }
+    }
     if (!secondaryItemLists || secondaryItemLists.length === 0) return result;
 
     const mergeDocArrays = (a?: any[], b?: any[]) => {
@@ -17159,6 +17178,17 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         ] : [])
       ]));
 
+      if (req.query.force !== 'true') {
+        for (const cId of candidateDraftIds) {
+          const cached = draftDocCache.get(cId);
+          if (cached && cached.raw && (Date.now() - cached.timestamp < 300000)) {
+            try {
+              return res.json(JSON.parse(cached.raw));
+            } catch {}
+          }
+        }
+      }
+
       let data: any = null;
       let error: any = null;
       const draftBatchRes = await supabase
@@ -17201,6 +17231,11 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           const hasValidMeta = parsed?.metadata && Object.keys(parsed.metadata).length > 0;
 
           if (parsed && (hasValidHtml || hasValidItems || hasValidMeta)) {
+            const rawStr = typeof data.content === 'string' ? data.content : JSON.stringify(parsed);
+            const nowMs = Date.now();
+            for (const cId of candidateDraftIds) {
+              draftDocCache.set(cId, { raw: rawStr, timestamp: nowMs });
+            }
             return res.json(parsed);
           }
         } catch (parseErr) {
@@ -17404,6 +17439,13 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
                 created_at: timestamp
               });
             }
+          }
+        }
+
+        const nowCacheMs = Date.now();
+        for (const row of syncDraftRows) {
+          if (row.id) {
+            draftDocCache.set(String(row.id).toLowerCase(), { raw: contentPayload, timestamp: nowCacheMs });
           }
         }
 
@@ -17633,70 +17675,68 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         }
       }
 
-      // 2. Search for revision snapshots matching this user across candidate tenants in Supabase using indexed prefix / sender_email
+      // 2. Search for revision snapshots matching this user across candidate tenants in a single fast query
       const candidateTenants = Array.from(new Set([tenantId, 'tenant-229', 'nkangala_auto']));
 
-      for (const tId of candidateTenants) {
-        try {
-          const { data: revDocs, error } = await supabase
-            .from('messages')
-            .select('id, content, created_at, sender_name, sender_email')
-            .eq('tenant_id', tId)
-            .eq('message_type', 'draft_revision_snapshot')
-            .or(`id.like.draft_doc_${tId}_${userId}_rev_%,sender_email.eq.${userId}`)
-            .order('created_at', { ascending: false })
-            .limit(50);
+      try {
+        const { data: revDocs, error } = await supabase
+          .from('messages')
+          .select('id, tenant_id, content, created_at, sender_name, sender_email')
+          .in('tenant_id', candidateTenants)
+          .eq('message_type', 'draft_revision_snapshot')
+          .eq('sender_email', userId)
+          .order('created_at', { ascending: false })
+          .limit(15);
 
-          if (error) {
-            logSupabaseError("pa-versions query", error);
-          }
+        if (error) {
+          logSupabaseError("pa-versions query", error);
+        }
 
-          if (revDocs && Array.isArray(revDocs)) {
-            for (const doc of revDocs) {
-              if (seenIds.has(doc.id)) continue;
-              seenIds.add(doc.id);
-              try {
-                const parsed = typeof doc.content === 'string' ? JSON.parse(doc.content) : doc.content;
-                const tpl = parsed.html || parsed;
-                versionsList.push({
-                  id: doc.id,
-                  tenantId: tId,
-                  userId,
-                  createdAt: doc.created_at,
-                  senderName: doc.sender_name || 'PA Vault Revision',
-                  versionName: tpl.versionName || tpl.name || `Version ${new Date(doc.created_at).toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' })}`,
-                  versionTag: tpl.versionTag || 'Auto Snapshot',
-                  // Colours
-                  muniColor: tpl.muniColor || '#9f1239',
-                  subHeaderColor: tpl.subHeaderColor || '#6b7280',
-                  headingColor: tpl.headingColor || '#0f172a',
-                  textColor: tpl.textColor || '#334155',
-                  borderColor: tpl.borderColor || '#cbd5e1',
-                  // Typography & Logo
-                  muniLogo: tpl.muniLogo ? (String(tpl.muniLogo).startsWith('data:') ? 'Custom Logo Attached' : 'Standard Logo') : 'Default Nkangala Logo',
-                  muniLogoData: tpl.muniLogo || null,
-                  muniFontFamily: tpl.muniFontFamily || 'Inter',
-                  municipalityName: tpl.municipalityName || 'NKANGALA DISTRICT MUNICIPALITY',
-                  // Summary of words & content
-                  wordsSummary: {
-                    conditionsLength: (tpl.conditions || '').length,
-                    kpaTextLength: (tpl.kpaText || '').length,
-                    frameworkLength: (tpl.frameworkBelowJsc || '').length,
-                    dynamicSectionsCount: Array.isArray(tpl.dynamicSections) ? tpl.dynamicSections.length : 0,
-                    pplanItemsCount: Array.isArray(tpl.pulledPplanItems) ? tpl.pulledPplanItems.length : 0,
-                    pdpItemsCount: Array.isArray(tpl.pulledPdpItems) ? tpl.pulledPdpItems.length : 0,
-                    competenciesCount: Array.isArray(tpl.pulledCompetencyRows) ? tpl.pulledCompetencyRows.length : 0
-                  },
-                  fullData: tpl
-                });
-              } catch (pErr) {
-                // ignore parse errors
-              }
+        if (revDocs && Array.isArray(revDocs)) {
+          for (const doc of revDocs) {
+            if (seenIds.has(doc.id)) continue;
+            seenIds.add(doc.id);
+            try {
+              const parsed = typeof doc.content === 'string' ? JSON.parse(doc.content) : doc.content;
+              const tpl = parsed.html || parsed;
+              versionsList.push({
+                id: doc.id,
+                tenantId: doc.tenant_id || tenantId,
+                userId,
+                createdAt: doc.created_at,
+                senderName: doc.sender_name || 'PA Vault Revision',
+                versionName: tpl.versionName || tpl.name || `Version ${new Date(doc.created_at).toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' })}`,
+                versionTag: tpl.versionTag || 'Auto Snapshot',
+                // Colours
+                muniColor: tpl.muniColor || '#9f1239',
+                subHeaderColor: tpl.subHeaderColor || '#6b7280',
+                headingColor: tpl.headingColor || '#0f172a',
+                textColor: tpl.textColor || '#334155',
+                borderColor: tpl.borderColor || '#cbd5e1',
+                // Typography & Logo
+                muniLogo: tpl.muniLogo ? (String(tpl.muniLogo).startsWith('data:') ? 'Custom Logo Attached' : 'Standard Logo') : 'Default Nkangala Logo',
+                muniLogoData: tpl.muniLogo || null,
+                muniFontFamily: tpl.muniFontFamily || 'Inter',
+                municipalityName: tpl.municipalityName || 'NKANGALA DISTRICT MUNICIPALITY',
+                // Summary of words & content
+                wordsSummary: {
+                  conditionsLength: (tpl.conditions || '').length,
+                  kpaTextLength: (tpl.kpaText || '').length,
+                  frameworkLength: (tpl.frameworkBelowJsc || '').length,
+                  dynamicSectionsCount: Array.isArray(tpl.dynamicSections) ? tpl.dynamicSections.length : 0,
+                  pplanItemsCount: Array.isArray(tpl.pulledPplanItems) ? tpl.pulledPplanItems.length : 0,
+                  pdpItemsCount: Array.isArray(tpl.pulledPdpItems) ? tpl.pulledPdpItems.length : 0,
+                  competenciesCount: Array.isArray(tpl.pulledCompetencyRows) ? tpl.pulledCompetencyRows.length : 0
+                },
+                fullData: tpl
+              });
+            } catch (pErr) {
+              // ignore parse errors
             }
           }
-        } catch (queryErr) {
-          // Graceful fallback to cached memory versions
         }
+      } catch (queryErr) {
+        // Graceful fallback to cached memory versions
       }
 
       // Sort by createdAt descending
