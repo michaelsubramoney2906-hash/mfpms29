@@ -25,6 +25,11 @@ import {
   SHABANGUSM_OFFICIAL_JSCS, 
   SHABANGUSM_METADATA 
 } from "./src/data/shabanguAgreementData";
+import {
+  RAKAUJ_OFFICIAL_JSCS,
+  RAKAUJ_FULL_COMPETENCY_ROWS,
+  RAKAUJ_METADATA
+} from "./src/data/rakauAgreementData";
 import { NKANGALA_USER_MASTER_REGISTRY, getUserRegistryCounts } from "./src/data/nkangalaUserMasterRegistry";
 import { NKANGALA_LOGO_BASE64 } from "./src/components/IPMS/nkangala_logo_base64";
 
@@ -12088,6 +12093,10 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
   }
 
   function getGuaranteedUserJscs(userId: string): any[] {
+    const cleanUserId = (userId || '').toLowerCase();
+    if (cleanUserId.includes('rakauj')) {
+      return RAKAUJ_FULL_COMPETENCY_ROWS;
+    }
     const counts = getUserRegistryCounts(userId);
     const targetJscs = counts ? counts.jscs : 5;
 
@@ -12253,6 +12262,10 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           description: j.definition
         }));
         return res.json({ competencies: shabanguJscs });
+      }
+
+      if (userId.includes('rakauj')) {
+        return res.json({ competencies: RAKAUJ_FULL_COMPETENCY_ROWS });
       }
 
       // Fallback to global default ONLY if userId is default or global
@@ -16285,6 +16298,10 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             }
           } catch (parseErr) {}
         }
+      }
+
+      if (userId.includes('rakauj')) {
+        return res.json({ competencies: RAKAUJ_FULL_COMPETENCY_ROWS });
       }
 
       return res.json({ competencies: [] });
