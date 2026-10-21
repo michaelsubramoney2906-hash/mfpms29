@@ -5,7 +5,7 @@ import { renderAsync } from 'docx-preview';
 import { 
   FileText, FileSpreadsheet, Presentation, File, Download, X, Search, 
   CheckCircle2, AlertCircle, Calendar, User, Folder, ShieldCheck, 
-  ChevronLeft, ChevronRight, Sparkles, RefreshCw, Maximize2, Minimize2, Paperclip,
+  ChevronLeft, ChevronRight, Sparkles, RefreshCw, Maximize2, Minimize2, Paperclip, ExternalLink, Printer,
   Eye, Layout, FileCode
 } from 'lucide-react';
 import { downloadOriginalFile } from '../../utils/documentBinaryHelper';
@@ -512,6 +512,29 @@ export function OfficeDocumentViewer({ doc, document: propDocument, docList, ini
     : new Date().toLocaleDateString();
 
   // Safe file download using lightweight memory-safe Blob Object URLs
+  const handleOpenInNewTab = () => {
+    if (displayUrl) {
+      const win = window.open(displayUrl, "_blank", "noopener,noreferrer");
+      if (!win) {
+        const a = document.createElement("a");
+        a.href = displayUrl;
+        a.target = "_blank";
+        a.click();
+      }
+    } else if (targetDoc?.dataUrl) {
+      try {
+        const buf = dataURLToArrayBuffer(targetDoc.dataUrl);
+        const blob = new Blob([buf], { type: targetDoc.mimeType || "application/octet-stream" });
+        const bUrl = URL.createObjectURL(blob);
+        window.open(bUrl, "_blank");
+      } catch {
+        handleDownload();
+      }
+    } else {
+      handleDownload();
+    }
+  };
+
   const handleDownload = () => {
     if (!targetDoc || !targetDoc.dataUrl) {
       console.warn("No data available to download.");
@@ -594,6 +617,15 @@ export function OfficeDocumentViewer({ doc, document: propDocument, docList, ini
               title={isMaximized ? "Restore default window" : "Maximize view"}
             >
               {isMaximized ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+            </button>
+            <button
+              type="button"
+              onClick={handleOpenInNewTab}
+              className="text-indigo-300 hover:text-white bg-indigo-900/60 hover:bg-indigo-800 px-3 py-1.5 rounded-xl transition cursor-pointer border border-indigo-700/60 flex items-center gap-1.5 text-xs font-bold"
+              title="Open document in a separate browser tab for full native viewing"
+            >
+              <ExternalLink className="w-3.5 h-3.5 text-indigo-400" />
+              <span className="hidden sm:inline">Open in Browser Tab</span>
             </button>
             <button
               type="button"
