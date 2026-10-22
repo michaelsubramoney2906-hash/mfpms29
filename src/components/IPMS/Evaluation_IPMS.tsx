@@ -15,6 +15,7 @@ import {
   JSCAnalyticalReportingSection 
 } from './JSCModules';
 import { CoreCompetenciesSelfEvaluation } from './CoreCompetenciesSelfEvaluation';
+import { applyOfficialKpiRules } from '../../utils/officialKpiFixes';
 
 export interface PoeDocument {
   id: string;
@@ -641,6 +642,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
           }
         }
         if (data && Array.isArray(data.items)) {
+          data.items = applyOfficialKpiRules(currentUser?.email || '', data.items);
           setPplanData(data);
           setLastSyncedAt(new Date().toLocaleTimeString());
         }
