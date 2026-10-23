@@ -798,6 +798,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
           ? item.myScore
           : (qScores.length > 0 ? (qScores.reduce((a, b) => a + b, 0) / qScores.length).toFixed(1) : '');
 
+        const existingSubmittedIds = new Set(pplanData.metadata?.submittedKpiIds || []);
         let updatedItem = {
           ...item,
           myScore: resolvedMyScore,
@@ -806,7 +807,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
           poeFileName: firstDoc ? firstDoc.name : ''
         };
 
-        if (item.id === kpiId && submitForReview) {
+        if ((item.id === kpiId && submitForReview) || item.reviewStatus === 'Submitted for Approval' || existingSubmittedIds.has(item.id)) {
           updatedItem.reviewStatus = 'Submitted for Approval';
         }
         return updatedItem;
@@ -820,9 +821,12 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
         reportTo: metadata.reportTo || currentUser.reportTo || currentUser.manager || '',
         _isFredExtracted: true,
         _authoritativePoeUpdate: true,
+        submittedKpiIds: Array.from(new Set([
+          ...(pplanData.metadata?.submittedKpiIds || []),
+          ...(submitForReview ? [kpiId] : [])
+        ])),
         ...(submitForReview ? {
           reviewStatus: 'Submitted for Approval',
-          submittedKpiIds: Array.from(new Set([...(metadata.submittedKpiIds || []), kpiId])),
           lastSubmittedKpiId: undefined
         } : {})
       };
