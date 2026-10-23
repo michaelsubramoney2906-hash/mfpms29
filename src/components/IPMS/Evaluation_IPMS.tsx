@@ -15,7 +15,7 @@ import {
   JSCAnalyticalReportingSection 
 } from './JSCModules';
 import { CoreCompetenciesSelfEvaluation } from './CoreCompetenciesSelfEvaluation';
-import { applyOfficialKpiRules } from '../../utils/officialKpiFixes';
+import { applyOfficialKpiRules, resolveUserEmailAlias } from '../../utils/officialKpiFixes';
 
 export interface PoeDocument {
   id: string;
@@ -525,9 +525,19 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
   const fetchMyPlan = async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const res = await fetch(`/api/tenant/${activeTenantId}/${sourceApiEndpoint}?userId=${encodeURIComponent(currentUser.email)}&t=${Date.now()}`);
-      if (res.ok) {
-        const data = await res.json();
+      const primaryEmail = currentUser?.email || '';
+      const resolvedEmail = resolveUserEmailAlias(primaryEmail);
+      let res = await fetch(`/api/tenant/${activeTenantId}/${sourceApiEndpoint}?userId=${encodeURIComponent(primaryEmail)}&t=${Date.now()}`);
+      let data = res.ok ? await res.json() : null;
+
+      if ((!data || !Array.isArray(data.items) || data.items.length === 0) && resolvedEmail !== primaryEmail) {
+        const fallbackRes = await fetch(`/api/tenant/${activeTenantId}/${sourceApiEndpoint}?userId=${encodeURIComponent(resolvedEmail)}&t=${Date.now()}`);
+        if (fallbackRes.ok) {
+          data = await fallbackRes.json();
+        }
+      }
+
+      if (data) {
         if (data && data.metadata) {
           const uEmail = (currentUser?.email || '').toLowerCase().trim();
           const currMgrEmail = (currentUser?.managerEmail || '').toLowerCase().trim();

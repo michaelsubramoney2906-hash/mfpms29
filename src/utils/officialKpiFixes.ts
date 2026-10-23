@@ -24,6 +24,17 @@ export function isMxolisiBembe(email: string): boolean {
   return norm === 'bembem@nkangaladm.gov.za' || norm.includes('bembe');
 }
 
+export function resolveUserEmailAlias(email: string): string {
+  const norm = normalizeEmail(email);
+  if (norm === 'khumalobs@nkangaladm.gov.za') {
+    return 'nkosibs@nkangaladm.gov.za';
+  }
+  if (norm === 'morari@nkangaladm.gov.za' || norm === 'morarj@nkangaladm.gov.za') {
+    return 'morarj@nkangaladm.gov.za';
+  }
+  return norm;
+}
+
 /**
  * Transforms or filters KPIs according to specific official instructions.
  */
@@ -178,6 +189,15 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
       const ref = (kpi.kpiNo || kpi.refNum || kpi['kpi no'] || '').toString().trim().toUpperCase();
       const isUnwanted = ['25', '26', '27', '28', 'KPI 25', 'KPI 26', 'KPI 27', 'KPI 28', 'KPI_25', 'KPI_26', 'KPI_27', 'KPI_28'].includes(ref);
       return !isUnwanted;
+    });
+  }
+
+  // 6. Mr. David Mahlangu (mahlangude@nkangaladm.gov.za) - Remove KPI 29
+  if (normEmail === 'mahlangude@nkangaladm.gov.za' || normEmail.includes('mahlangude')) {
+    result = result.filter(kpi => {
+      const ref = (kpi.kpiNo || kpi.refNum || kpi['kpi no'] || kpi.id || '').toString().trim().toUpperCase();
+      const isKpi29 = ['29', 'KPI 29', 'KPI_29', 'M_29', 'M 29', 'M29', 'KPI-29'].includes(ref);
+      return !isKpi29;
     });
   }
 
