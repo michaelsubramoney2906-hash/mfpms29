@@ -56,7 +56,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
   const [activeDetailTab, setActiveDetailTab] = useState<'kpis' | 'history'>('kpis');
   const [selectedKpiIdsForReview, setSelectedKpiIdsForReview] = useState<string[]>([]);
   const [filterSubmittedKpiIds, setFilterSubmittedKpiIds] = useState<string[] | null>(null);
-  const [showAllKpis, setShowAllKpis] = useState(false);
+  const [showAllKpis, setShowAllKpis] = useState(true);
 
   const isSystemDeveloper = useMemo(() => {
     const curEmail = (currentUser?.email || '').toLowerCase().trim();
@@ -150,29 +150,36 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
       if (filtered.length > 0) return filtered;
     }
 
-    // 2. Items genuinely in Submitted for Approval/Review state (or Approved/Reviewed/Revision Required/Dispatched)
-    const submittedItems = plan.items.filter((it: any) => isGenuinelySubmittedKpi(it));
+    // 2. Gather all submitted KPI identifiers from plan metadata + incoming notifications
+    const metadataSubmittedSet = new Set<string>((plan.metadata?.submittedKpiIds || []).map((id: any) => String(id).toLowerCase().trim()));
+    if (Array.isArray(incomingNotifications) && incomingNotifications.length > 0) {
+      const subEmail = (selectedPlan?.userId || plan.metadata?.email || '').toLowerCase().trim();
+      incomingNotifications.forEach((n: any) => {
+        const notifSub = (n.employeeEmail || n.senderEmail || '').toLowerCase().trim();
+        if (notifSub === subEmail || (subEmail && notifSub && (subEmail.includes(notifSub) || notifSub.includes(subEmail)))) {
+          if (n.kpiId) metadataSubmittedSet.add(String(n.kpiId).toLowerCase().trim());
+          if (Array.isArray(n.kpiIds)) {
+            n.kpiIds.forEach((k: any) => metadataSubmittedSet.add(String(k).toLowerCase().trim()));
+          }
+        }
+      });
+    }
+
+    // 3. Filter items that are either genuinely submitted OR listed in metadataSubmittedSet
+    const submittedItems = plan.items.filter((it: any) => {
+      if (isGenuinelySubmittedKpi(it)) return true;
+      const cleanId = String(it.id || '').toLowerCase().trim();
+      const cleanNo = String(it.kpiNo || '').toLowerCase().trim();
+      return metadataSubmittedSet.has(cleanId) || metadataSubmittedSet.has(cleanNo);
+    });
+
     if (submittedItems.length > 0) {
       return submittedItems;
     }
 
-    // 3. Metadata submittedKpiIds fallback (only for items with genuine submission evidence)
-    if (plan.metadata?.submittedKpiIds && Array.isArray(plan.metadata.submittedKpiIds) && plan.metadata.submittedKpiIds.length > 0) {
-      const filtered = plan.items.filter((item: any) => 
-        plan.metadata.submittedKpiIds.some((f: any) => matchesKpiIdentifier(item, f)) && isGenuinelySubmittedKpi(item)
-      );
-      if (filtered.length > 0) return filtered;
-    }
-
-    // 4. If target KPI is explicitly selected
-    if (selectedKpiIdsForReview.length === 1) {
-      const targeted = plan.items.filter((item: any) => matchesKpiIdentifier(item, selectedKpiIdsForReview[0]));
-      if (targeted.length > 0) return targeted;
-    }
-
-    // Default: Only show KPIs once submitted by the subordinate (unless manager toggles "Show All KPIs")
-    return [];
-  }, [selectedPlan, filterSubmittedKpiIds, showAllKpis, selectedKpiIdsForReview]);
+    // Default: Return all plan items so line manager can review & report on any KPI without blockage
+    return plan.items;
+  }, [selectedPlan, filterSubmittedKpiIds, showAllKpis, selectedKpiIdsForReview, incomingNotifications]);
 
   const toggleSelectKpiForReview = (id: string) => {
     setSelectedKpiIdsForReview(prev => 
