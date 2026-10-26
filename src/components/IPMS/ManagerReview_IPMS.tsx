@@ -956,6 +956,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
           ...item,
           [`${quarter}PoeStatus`]: status,
           [`${quarter}PoeFeedback`]: notes,
+          resubmittedAt: '',
           // When a quarter is verified and approved, mirror into reviewApprovalStatus if applicable
           reviewStatus: status === 'Approved' ? 'Approved' : (status === 'Revision Required' ? 'Revision Required' : item.reviewStatus),
           reviewApprovalStatus: status === 'Approved' ? 'Approved' : (status === 'Revision Required' ? 'Rejected' : item.reviewApprovalStatus)
@@ -1277,6 +1278,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
             managerScore: mScore,
             reviewStatus: 'Approved',
             reviewApprovalStatus: 'Approved',
+            resubmittedAt: '',
             // Update quarterly PoE verification stamps to Approved
             q1PoeStatus: item.q1PoeStatus === 'Revision Required' || item.q1PoeStatus === 'Rejected' ? 'Approved' : (item.q1PoeStatus || 'Approved'),
             q2PoeStatus: item.q2PoeStatus === 'Revision Required' || item.q2PoeStatus === 'Rejected' ? 'Approved' : (item.q2PoeStatus || 'Approved'),
@@ -1423,6 +1425,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
             ...item, 
             reviewStatus: 'Revision Required',
             reviewApprovalStatus: 'Rejected',
+            resubmittedAt: '',
             q1PoeStatus: 'Revision Required',
             q2PoeStatus: 'Revision Required',
             q3PoeStatus: 'Revision Required',

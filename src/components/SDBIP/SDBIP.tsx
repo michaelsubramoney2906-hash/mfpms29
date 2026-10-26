@@ -15,6 +15,7 @@ import { isUserUnrestricted } from '../../utils/unrestrictedHelper';
 import { OfficeDocumentViewer } from '../IPMS/OfficeDocumentViewer';
 import { calcVar, extractNumericValue } from '../../utils/varianceCalculator';
 import { ensureAllSdbipKpis } from '../../sdbip_catalog';
+import { resilientFetch } from '../../utils/resilientFetch';
 
 export { isQuarter1UnlockedKpi };
 
@@ -981,46 +982,42 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
   const fetchSDBIPAll = (isBackground = false) => {
     if (!isBackground) setLoading(true);
 
-    const safeJson = async (res: Response, fallback: any) => {
-      if (!res || res.bodyUsed || !res.ok) {
-        if (res && !res.ok) console.warn(`Fetch to ${res.url} failed with status ${res.status}`);
-        return fallback;
-      }
-      const contentType = res.headers.get("content-type");
-      if (!contentType || !contentType.toLowerCase().includes("application/json")) {
-        console.warn(`Fetch to ${res.url} returned non-JSON content: ${contentType}`);
-        return fallback;
-      }
+    const safeFetchJson = async (url: string, fallback: any) => {
       try {
+        const res = await resilientFetch(url, undefined, { maxRetries: 3, retryDelayMs: 800 });
+        if (!res || !res.ok) {
+          return fallback;
+        }
+        const contentType = res.headers.get("content-type");
+        if (!contentType || !contentType.toLowerCase().includes("application/json")) {
+          return fallback;
+        }
         return await res.json();
       } catch (e) {
-        console.warn(`Error parsing JSON from ${res.url}:`, e);
+        console.warn(`Transient fetch issue for ${url} (using cached/fallback state):`, e);
         return fallback;
       }
     };
 
     Promise.all([
-      fetch(`/api/tenant/${activeTenantId}/sdbip?t=${Date.now()}`),
-      fetch(`/api/tenant/${activeTenantId}/sdbip-poes?t=${Date.now()}`),
-      fetch(`/api/tenant/${activeTenantId}/sdbip-notifications?t=${Date.now()}`),
-      fetch(`/api/tenant/${activeTenantId}/sdbip-officials?t=${Date.now()}`)
+      safeFetchJson(`/api/tenant/${activeTenantId}/sdbip?t=${Date.now()}`, { items: [] }),
+      safeFetchJson(`/api/tenant/${activeTenantId}/sdbip-poes?t=${Date.now()}`, { poes: [] }),
+      safeFetchJson(`/api/tenant/${activeTenantId}/sdbip-notifications?t=${Date.now()}`, { notifications: [] }),
+      safeFetchJson(`/api/tenant/${activeTenantId}/sdbip-officials?t=${Date.now()}`, { reviewers: [], internalAuditors: [] })
     ])
-      .then(async ([rowsRes, poesRes, notifRes, officialsRes]) => {
-        const rowsData = await safeJson(rowsRes, { items: [] });
-        const poesData = await safeJson(poesRes, { poes: [] });
-        const notifData = await safeJson(notifRes, { notifications: [] });
-        const officialsData = await safeJson(officialsRes, { reviewers: [], internalAuditors: [] });
-        
-        // Load rows from database
-        if (rowsData && Array.isArray(rowsData.items)) {
+      .then(([rowsData, poesData, notifData, officialsData]) => {
+        // Load rows from database without overwriting loaded data on empty fallback
+        if (rowsData && Array.isArray(rowsData.items) && rowsData.items.length > 0) {
           if (!isBackground || Date.now() - lastUserEditTimeRef.current >= 15000) {
             setRows(rowsData.items.map(sanitizeSdbipRow));
           }
-        } else if (!isBackground) {
-          setRows([]);
+        } else if (!isBackground && (!rows || rows.length === 0)) {
+          if (rowsData && Array.isArray(rowsData.items)) {
+            setRows(rowsData.items.map(sanitizeSdbipRow));
+          }
         }
 
-        if (poesData && Array.isArray(poesData.poes)) {
+        if (poesData && Array.isArray(poesData.poes) && poesData.poes.length > 0) {
           setPoes(poesData.poes);
         }
 
@@ -1043,7 +1040,7 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
           }
         }
       })
-      .catch(err => console.error("Error loading SDBIP data:", err))
+      .catch(err => console.warn("Notice: SDBIP fetch will retry on next poll cycle:", err))
       .finally(() => {
         if (!isBackground) setLoading(false);
       });

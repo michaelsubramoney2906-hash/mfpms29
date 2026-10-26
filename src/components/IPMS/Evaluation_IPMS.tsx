@@ -729,9 +729,11 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
   const handleAutoSavePoeDocs = (kpiId: string, quarterField: string, updatedDocs: PoeDocument[]) => {
     if (readOnly) return;
     setPplanData(prev => {
+      let wasRevisionCleared = false;
+      const nowIso = new Date().toISOString();
       const updatedItems = (prev.items || []).map(item => {
         if (item.id === kpiId) {
-          const nextItem = {
+          const nextItem: any = {
             ...item,
             [quarterField]: updatedDocs
           };
@@ -744,6 +746,35 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
             ...(nextItem.midtermPoeDocs || [])
           ];
           const firstDoc = allDocs[0];
+
+          const hadRevisionRequired =
+            item.reviewStatus === 'Revision Required' ||
+            item.reviewStatus === 'Rejected' ||
+            item.reviewApprovalStatus === 'Rejected' ||
+            item.q1PoeStatus === 'Revision Required' ||
+            item.q2PoeStatus === 'Revision Required' ||
+            item.q3PoeStatus === 'Revision Required' ||
+            item.q4PoeStatus === 'Revision Required';
+
+          if (updatedDocs.length > 0 && hadRevisionRequired) {
+            wasRevisionCleared = true;
+            nextItem.reviewStatus = 'Submitted for Approval';
+            nextItem.reviewApprovalStatus = '';
+            nextItem.resubmittedAt = nowIso;
+            if (nextItem.q1PoeStatus === 'Revision Required' || nextItem.q1PoeStatus === 'Rejected' || quarterField === 'q1PoeDocs') {
+              nextItem.q1PoeStatus = 'Pending Verification';
+            }
+            if (nextItem.q2PoeStatus === 'Revision Required' || nextItem.q2PoeStatus === 'Rejected' || quarterField === 'q2PoeDocs') {
+              nextItem.q2PoeStatus = 'Pending Verification';
+            }
+            if (nextItem.q3PoeStatus === 'Revision Required' || nextItem.q3PoeStatus === 'Rejected' || quarterField === 'q3PoeDocs') {
+              nextItem.q3PoeStatus = 'Pending Verification';
+            }
+            if (nextItem.q4PoeStatus === 'Revision Required' || nextItem.q4PoeStatus === 'Rejected' || quarterField === 'q4PoeDocs') {
+              nextItem.q4PoeStatus = 'Pending Verification';
+            }
+          }
+
           return {
             ...nextItem,
             poeFileBase64: undefined,
@@ -753,11 +784,16 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
         return item;
       });
 
+      const prevSubmittedIds = Array.isArray(prev.metadata?.submittedKpiIds) ? prev.metadata.submittedKpiIds : [];
       const updatedPayload = {
         ...prev,
         metadata: {
           ...(prev.metadata || {}),
-          _authoritativePoeUpdate: true
+          _authoritativePoeUpdate: true,
+          ...(wasRevisionCleared ? {
+            reviewStatus: 'Submitted for Approval',
+            submittedKpiIds: Array.from(new Set([...prevSubmittedIds, kpiId]))
+          } : {})
         },
         items: updatedItems
       };
@@ -855,7 +891,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
           : (qScores.length > 0 ? (qScores.reduce((a, b) => a + b, 0) / qScores.length).toFixed(1) : '');
 
         const existingSubmittedIds = new Set(pplanData.metadata?.submittedKpiIds || []);
-        let updatedItem = {
+        let updatedItem: any = {
           ...item,
           myScore: resolvedMyScore,
           poe: aggregatePoe || item.poe,
@@ -863,8 +899,16 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
           poeFileName: firstDoc ? firstDoc.name : ''
         };
 
-        if ((item.id === kpiId && submitForReview) || item.reviewStatus === 'Submitted for Approval' || existingSubmittedIds.has(item.id)) {
+        if ((item.id === kpiId && submitForReview) || item.reviewStatus === 'Submitted for Approval' || (existingSubmittedIds.has(item.id) && item.reviewStatus !== 'Revision Required' && item.reviewApprovalStatus !== 'Rejected')) {
           updatedItem.reviewStatus = 'Submitted for Approval';
+          if (item.id === kpiId && submitForReview) {
+            updatedItem.reviewApprovalStatus = '';
+            updatedItem.resubmittedAt = new Date().toISOString();
+            if (updatedItem.q1PoeStatus === 'Revision Required' || updatedItem.q1PoeStatus === 'Rejected') updatedItem.q1PoeStatus = 'Pending Verification';
+            if (updatedItem.q2PoeStatus === 'Revision Required' || updatedItem.q2PoeStatus === 'Rejected') updatedItem.q2PoeStatus = 'Pending Verification';
+            if (updatedItem.q3PoeStatus === 'Revision Required' || updatedItem.q3PoeStatus === 'Rejected') updatedItem.q3PoeStatus = 'Pending Verification';
+            if (updatedItem.q4PoeStatus === 'Revision Required' || updatedItem.q4PoeStatus === 'Rejected') updatedItem.q4PoeStatus = 'Pending Verification';
+          }
         }
         return updatedItem;
       });
@@ -1080,6 +1124,14 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
           return {
             ...item,
             reviewStatus: submitForReview ? 'Submitted for Approval' : (item.reviewStatus || 'Draft'),
+            ...(submitForReview ? {
+              reviewApprovalStatus: '',
+              resubmittedAt: new Date().toISOString(),
+              q1PoeStatus: (item.q1PoeStatus === 'Revision Required' || item.q1PoeStatus === 'Rejected') ? 'Pending Verification' : item.q1PoeStatus,
+              q2PoeStatus: (item.q2PoeStatus === 'Revision Required' || item.q2PoeStatus === 'Rejected') ? 'Pending Verification' : item.q2PoeStatus,
+              q3PoeStatus: (item.q3PoeStatus === 'Revision Required' || item.q3PoeStatus === 'Rejected') ? 'Pending Verification' : item.q3PoeStatus,
+              q4PoeStatus: (item.q4PoeStatus === 'Revision Required' || item.q4PoeStatus === 'Rejected') ? 'Pending Verification' : item.q4PoeStatus
+            } : {}),
             poe: aggregatePoe || item.poe,
             poeFileBase64: undefined,
             poeFileName: firstDoc ? firstDoc.name : ''
@@ -1417,6 +1469,14 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
           ...item,
           myScore: resolvedMyScore,
           reviewStatus: nextStatus,
+          ...(shouldSubmitItem ? {
+            reviewApprovalStatus: '',
+            resubmittedAt: new Date().toISOString(),
+            q1PoeStatus: (item.q1PoeStatus === 'Revision Required' || item.q1PoeStatus === 'Rejected') ? 'Pending Verification' : item.q1PoeStatus,
+            q2PoeStatus: (item.q2PoeStatus === 'Revision Required' || item.q2PoeStatus === 'Rejected') ? 'Pending Verification' : item.q2PoeStatus,
+            q3PoeStatus: (item.q3PoeStatus === 'Revision Required' || item.q3PoeStatus === 'Rejected') ? 'Pending Verification' : item.q3PoeStatus,
+            q4PoeStatus: (item.q4PoeStatus === 'Revision Required' || item.q4PoeStatus === 'Rejected') ? 'Pending Verification' : item.q4PoeStatus
+          } : {}),
           poe: aggregatePoe || item.poe,
           poeFileBase64: undefined,
           poeFileName: firstDoc ? firstDoc.name : ''

@@ -78,22 +78,10 @@ import { FinancialYearSwitcher } from './FinancialYearSwitcher';
 import { useFinancialYear } from '../context/FinancialYearContext';
 import { useTheme } from '../context/ThemeContext';
 import { SupportModule } from './Support/SupportModule';
+import { resilientFetch } from '../utils/resilientFetch';
 
 const fetchWithRetry = async (url: string, options?: RequestInit, retries = 3, delay = 1000): Promise<Response> => {
-  try {
-    const res = await fetch(url, options);
-    if (!res.ok && retries > 0) {
-      await new Promise(resolve => setTimeout(resolve, delay));
-      return fetchWithRetry(url, options, retries - 1, delay * 1.5);
-    }
-    return res;
-  } catch (err) {
-    if (retries > 0) {
-      await new Promise(resolve => setTimeout(resolve, delay));
-      return fetchWithRetry(url, options, retries - 1, delay * 1.5);
-    }
-    throw err;
-  }
+  return resilientFetch(url, options, { maxRetries: retries, retryDelayMs: delay });
 };
 
 interface DashboardProps {
@@ -223,7 +211,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
           }
         }
       } catch (err) {
-        console.error("Failed loading IPMS progress from database:", err);
+        console.warn("Notice: IPMS progress will retry on next poll cycle:", err);
       }
     };
     fetchProgress();
@@ -249,7 +237,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
           }
         }
       } catch (e) {
-        console.error("Failed to fetch full user profile:", e);
+        console.warn("Notice: Full user profile sync will retry:", e);
       }
     };
     fetchProfile();
@@ -320,15 +308,18 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
         const email = (fullUserProfile?.email || user?.email || '').trim().toLowerCase();
         if (!email) return;
         const tenantToQuery = activeTenantId === 'global' ? (tenants[0]?.id || 'tenant-229') : activeTenantId;
-        const res = await fetch(`/api/tenant/${tenantToQuery}/user-module-unlocks?userEmail=${encodeURIComponent(email)}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data.unlockedModuleIds) && data.unlockedModuleIds.length > 0) {
-            setUnlockedModules(prev => Array.from(new Set([...prev, ...data.unlockedModuleIds])));
+        const res = await resilientFetch(`/api/tenant/${tenantToQuery}/user-module-unlocks?userEmail=${encodeURIComponent(email)}`, undefined, { maxRetries: 3, retryDelayMs: 800 });
+        if (res && res.ok) {
+          const contentType = res.headers.get("content-type");
+          if (contentType && contentType.toLowerCase().includes("application/json")) {
+            const data = await res.json();
+            if (Array.isArray(data.unlockedModuleIds) && data.unlockedModuleIds.length > 0) {
+              setUnlockedModules(prev => Array.from(new Set([...prev, ...data.unlockedModuleIds])));
+            }
           }
         }
       } catch (e) {
-        console.error("Failed to load user module unlocks:", e);
+        console.warn("Notice: User module unlocks will retry on next sync cycle:", e);
       }
     };
     fetchUnlocks();
@@ -507,8 +498,10 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
     const fetchSdbipAssignments = async () => {
       try {
         const tenantToUse = activeTenantId || 'tenant-229';
-        const res = await fetch(`/api/tenant/${tenantToUse}/sdbip`);
-        if (!res.ok) return;
+        const res = await fetchWithRetry(`/api/tenant/${tenantToUse}/sdbip`);
+        if (!res || !res.ok) return;
+        const contentType = res.headers.get("content-type");
+        if (!contentType || !contentType.toLowerCase().includes("application/json")) return;
         const data = await res.json();
         const rows = Array.isArray(data) ? data : data.items || [];
         const subSet = new Set<string>();

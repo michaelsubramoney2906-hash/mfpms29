@@ -14248,8 +14248,19 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
     }
 
-    let syncedReviewStatus = item.reviewStatus || (item.reviewApprovalStatus === 'Approved' ? 'Approved' : (item.reviewApprovalStatus === 'Rejected' ? 'Revision Required' : undefined));
-    const syncedReviewApprovalStatus = item.reviewApprovalStatus || (item.reviewStatus === 'Approved' ? 'Approved' : (item.reviewStatus === 'Revision Required' || item.reviewStatus === 'Rejected' ? 'Rejected' : undefined));
+    const isNonRejectedReviewStatus =
+      item.reviewStatus === 'Submitted for Approval' ||
+      item.reviewStatus === 'Submitted for Review' ||
+      item.reviewStatus === 'Submitted' ||
+      item.reviewStatus === 'Draft / Resubmitting' ||
+      item.reviewStatus === 'Draft' ||
+      item.reviewStatus === 'In Progress';
+    let syncedReviewStatus = isNonRejectedReviewStatus
+      ? item.reviewStatus
+      : (item.reviewStatus || (item.reviewApprovalStatus === 'Approved' ? 'Approved' : (item.reviewApprovalStatus === 'Rejected' ? 'Revision Required' : undefined)));
+    const syncedReviewApprovalStatus = isNonRejectedReviewStatus
+      ? ''
+      : (item.reviewApprovalStatus || (item.reviewStatus === 'Approved' ? 'Approved' : (item.reviewStatus === 'Revision Required' || item.reviewStatus === 'Rejected' ? 'Rejected' : undefined)));
 
     // Prevent blank template KPIs (no PoE files, no actuals, no scores, no manager review) from ever being locked as Submitted for Approval
     if (
@@ -14294,13 +14305,30 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
     const firstCleanDoc = allCleanDocs[0];
     const { poeFileBase64: _removedRedundantBase64, ...restItem } = item;
 
+    const isResubmittedOrSubmitted =
+      syncedReviewStatus === 'Submitted for Approval' ||
+      syncedReviewStatus === 'Submitted for Review' ||
+      syncedReviewStatus === 'Submitted' ||
+      Boolean(item.resubmittedAt);
+
+    const normalizeQuarterPoeStatus = (st: any) => {
+      if (isResubmittedOrSubmitted && (st === 'Revision Required' || st === 'Rejected')) {
+        return 'Pending Verification';
+      }
+      return st;
+    };
+
     return {
       ...restItem,
       kpiNo: kpiNoVal,
       annualTarget: annualTargetVal,
       poeFileName: firstCleanDoc ? firstCleanDoc.name : '',
       ...(syncedReviewStatus ? { reviewStatus: syncedReviewStatus } : {}),
-      ...(syncedReviewApprovalStatus ? { reviewApprovalStatus: syncedReviewApprovalStatus } : {}),
+      reviewApprovalStatus: syncedReviewApprovalStatus || '',
+      ...(restItem.q1PoeStatus !== undefined ? { q1PoeStatus: normalizeQuarterPoeStatus(restItem.q1PoeStatus) } : {}),
+      ...(restItem.q2PoeStatus !== undefined ? { q2PoeStatus: normalizeQuarterPoeStatus(restItem.q2PoeStatus) } : {}),
+      ...(restItem.q3PoeStatus !== undefined ? { q3PoeStatus: normalizeQuarterPoeStatus(restItem.q3PoeStatus) } : {}),
+      ...(restItem.q4PoeStatus !== undefined ? { q4PoeStatus: normalizeQuarterPoeStatus(restItem.q4PoeStatus) } : {}),
       q1Target: q1TargetVal,
       q2Target: q2TargetVal,
       q3Target: q3TargetVal,
@@ -14660,9 +14688,47 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           const baseSt = base.reviewStatus || base.reviewApprovalStatus;
           const secSt = secItem.reviewStatus || secItem.reviewApprovalStatus;
 
+          const countDocs = (it: any) =>
+            (Array.isArray(it?.q1PoeDocs) ? it.q1PoeDocs.length : 0) +
+            (Array.isArray(it?.q2PoeDocs) ? it.q2PoeDocs.length : 0) +
+            (Array.isArray(it?.q3PoeDocs) ? it.q3PoeDocs.length : 0) +
+            (Array.isArray(it?.q4PoeDocs) ? it.q4PoeDocs.length : 0) +
+            (Array.isArray(it?.annualPoeDocs) ? it.annualPoeDocs.length : 0) +
+            (Array.isArray(it?.midtermPoeDocs) ? it.midtermPoeDocs.length : 0);
+
+          const getNewestDocUploadTs = (it: any) => {
+            const docs = [
+              ...(Array.isArray(it?.q1PoeDocs) ? it.q1PoeDocs : []),
+              ...(Array.isArray(it?.q2PoeDocs) ? it.q2PoeDocs : []),
+              ...(Array.isArray(it?.q3PoeDocs) ? it.q3PoeDocs : []),
+              ...(Array.isArray(it?.q4PoeDocs) ? it.q4PoeDocs : []),
+              ...(Array.isArray(it?.annualPoeDocs) ? it.annualPoeDocs : []),
+              ...(Array.isArray(it?.midtermPoeDocs) ? it.midtermPoeDocs : [])
+            ];
+            let maxTs = 0;
+            for (const d of docs) {
+              const t = d?.uploadedAt ? new Date(d.uploadedAt).getTime() : 0;
+              if (!isNaN(t) && t > maxTs) maxTs = t;
+            }
+            return maxTs;
+          };
+
+          const baseDocsCount = countDocs(base);
+          const secDocsCount = countDocs(secItem);
+          const baseNewestDocTs = getNewestDocUploadTs(base);
+          const secNewestDocTs = getNewestDocUploadTs(secItem);
+
+          const isEmployeeResubmission =
+            Boolean(base.resubmittedAt) ||
+            (authoritativePoe && isSubmittedStatus(base.reviewStatus) && (secSt === 'Revision Required' || secSt === 'Rejected')) ||
+            (authoritativePoe && baseDocsCount > 0 && (baseDocsCount > secDocsCount || baseNewestDocTs > secNewestDocTs) && (secSt === 'Revision Required' || secSt === 'Rejected' || baseSt === 'Revision Required' || baseSt === 'Rejected'));
+
           let resolvedReviewStatus = base.reviewStatus;
           let resolvedApprovalStatus = base.reviewApprovalStatus;
-          if (!isActionedStatus(baseSt) && !isExplicitDraftStatus(base.reviewStatus)) {
+          if (isEmployeeResubmission) {
+            resolvedReviewStatus = isSubmittedStatus(base.reviewStatus) ? base.reviewStatus : 'Submitted for Approval';
+            resolvedApprovalStatus = '';
+          } else if (!isActionedStatus(baseSt) && !isExplicitDraftStatus(base.reviewStatus)) {
             if (isActionedStatus(secSt) && hasGenuineSubmissionEvidence(secItem)) {
               resolvedReviewStatus = secItem.reviewStatus || (secItem.reviewApprovalStatus === 'Approved' ? 'Approved' : 'Revision Required');
               resolvedApprovalStatus = secItem.reviewApprovalStatus || (secItem.reviewStatus === 'Approved' ? 'Approved' : 'Rejected');
@@ -14679,10 +14745,23 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           const mergedMidtermDocs = mergeDocArrays(base.midtermPoeDocs, secItem.midtermPoeDocs);
           const allMergedDocs = [...mergedQ1Docs, ...mergedQ2Docs, ...mergedQ3Docs, ...mergedQ4Docs, ...mergedAnnualDocs, ...mergedMidtermDocs];
 
+          const resolveQuarterPoeStatus = (baseQSt?: string, secQSt?: string, qDocs?: any[]) => {
+            if (isEmployeeResubmission) {
+              if (baseQSt === 'Approved') return 'Approved';
+              if (Array.isArray(qDocs) && qDocs.length > 0) return 'Pending Verification';
+              if (baseQSt === 'Revision Required' || baseQSt === 'Rejected' || secQSt === 'Revision Required' || secQSt === 'Rejected') {
+                return 'Pending Verification';
+              }
+              return baseQSt || 'Pending Verification';
+            }
+            return (baseQSt && baseQSt !== 'Pending Verification') ? baseQSt : (secQSt || baseQSt);
+          };
+
           result[matchIdx] = {
             ...base,
             ...(resolvedReviewStatus ? { reviewStatus: resolvedReviewStatus } : {}),
-            ...(resolvedApprovalStatus ? { reviewApprovalStatus: resolvedApprovalStatus } : {}),
+            reviewApprovalStatus: resolvedApprovalStatus || '',
+            ...(base.resubmittedAt || secItem.resubmittedAt ? { resubmittedAt: base.resubmittedAt || secItem.resubmittedAt } : {}),
             managerScore: base.managerScore || secItem.managerScore,
             review: base.review || secItem.review,
             reviewComment: base.reviewComment || secItem.reviewComment,
@@ -14702,10 +14781,10 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             q2Poe: base.q2Poe || secItem.q2Poe,
             q3Poe: base.q3Poe || secItem.q3Poe,
             q4Poe: base.q4Poe || secItem.q4Poe,
-            q1PoeStatus: (base.q1PoeStatus && base.q1PoeStatus !== 'Pending Verification') ? base.q1PoeStatus : (secItem.q1PoeStatus || base.q1PoeStatus),
-            q2PoeStatus: (base.q2PoeStatus && base.q2PoeStatus !== 'Pending Verification') ? base.q2PoeStatus : (secItem.q2PoeStatus || base.q2PoeStatus),
-            q3PoeStatus: (base.q3PoeStatus && base.q3PoeStatus !== 'Pending Verification') ? base.q3PoeStatus : (secItem.q3PoeStatus || base.q3PoeStatus),
-            q4PoeStatus: (base.q4PoeStatus && base.q4PoeStatus !== 'Pending Verification') ? base.q4PoeStatus : (secItem.q4PoeStatus || base.q4PoeStatus),
+            q1PoeStatus: resolveQuarterPoeStatus(base.q1PoeStatus, secItem.q1PoeStatus, mergedQ1Docs),
+            q2PoeStatus: resolveQuarterPoeStatus(base.q2PoeStatus, secItem.q2PoeStatus, mergedQ2Docs),
+            q3PoeStatus: resolveQuarterPoeStatus(base.q3PoeStatus, secItem.q3PoeStatus, mergedQ3Docs),
+            q4PoeStatus: resolveQuarterPoeStatus(base.q4PoeStatus, secItem.q4PoeStatus, mergedQ4Docs),
             q1PoeFeedback: base.q1PoeFeedback || secItem.q1PoeFeedback,
             q2PoeFeedback: base.q2PoeFeedback || secItem.q2PoeFeedback,
             q3PoeFeedback: base.q3PoeFeedback || secItem.q3PoeFeedback,
@@ -18974,11 +19053,20 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
               const kNo = String(it.kpiNo || '').toLowerCase().trim();
               const overlay = (kId && pplanStatusOverlay.get(`id:${kId}`)) || (kNo && pplanStatusOverlay.get(`no:${kNo}`));
               const revStatus = overlay?.reviewStatus || it.reviewStatus;
-              const revApproval = overlay?.reviewApprovalStatus || it.reviewApprovalStatus || (revStatus === 'Approved' ? 'Approved' : (revStatus === 'Revision Required' || revStatus === 'Rejected' ? 'Rejected' : undefined));
+              const isNonActionedRevStatus =
+                revStatus === 'Submitted for Approval' ||
+                revStatus === 'Submitted for Review' ||
+                revStatus === 'Submitted' ||
+                revStatus === 'Draft' ||
+                revStatus === 'In Progress' ||
+                revStatus === 'Draft / Resubmitting';
+              const revApproval = isNonActionedRevStatus
+                ? ''
+                : (overlay?.reviewApprovalStatus || it.reviewApprovalStatus || (revStatus === 'Approved' ? 'Approved' : (revStatus === 'Revision Required' || revStatus === 'Rejected' ? 'Rejected' : undefined)));
               return {
                 ...it,
                 ...(revStatus ? { reviewStatus: revStatus } : {}),
-                ...(revApproval ? { reviewApprovalStatus: revApproval } : {}),
+                reviewApprovalStatus: revApproval || '',
                 ...(overlay?.managerScore ? { managerScore: overlay.managerScore } : {}),
                 ...(overlay?.reviewComment || overlay?.review ? { reviewComment: overlay.reviewComment || overlay.review } : {})
               };
@@ -19033,11 +19121,20 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
                   const kNo = String(it.kpiNo || '').toLowerCase().trim();
                   const overlay = (kId && pplanStatusOverlay.get(`id:${kId}`)) || (kNo && pplanStatusOverlay.get(`no:${kNo}`));
                   const revStatus = overlay?.reviewStatus || it.reviewStatus;
-                  const revApproval = overlay?.reviewApprovalStatus || it.reviewApprovalStatus || (revStatus === 'Approved' ? 'Approved' : (revStatus === 'Revision Required' || revStatus === 'Rejected' ? 'Rejected' : undefined));
+                  const isNonActionedRevStatus =
+                    revStatus === 'Submitted for Approval' ||
+                    revStatus === 'Submitted for Review' ||
+                    revStatus === 'Submitted' ||
+                    revStatus === 'Draft' ||
+                    revStatus === 'In Progress' ||
+                    revStatus === 'Draft / Resubmitting';
+                  const revApproval = isNonActionedRevStatus
+                    ? ''
+                    : (overlay?.reviewApprovalStatus || it.reviewApprovalStatus || (revStatus === 'Approved' ? 'Approved' : (revStatus === 'Revision Required' || revStatus === 'Rejected' ? 'Rejected' : undefined)));
                   return {
                     ...it,
                     ...(revStatus ? { reviewStatus: revStatus } : {}),
-                    ...(revApproval ? { reviewApprovalStatus: revApproval } : {}),
+                    reviewApprovalStatus: revApproval || '',
                     ...(overlay?.managerScore ? { managerScore: overlay.managerScore } : {}),
                     ...(overlay?.reviewComment || overlay?.review ? { reviewComment: overlay.reviewComment || overlay.review } : {})
                   };

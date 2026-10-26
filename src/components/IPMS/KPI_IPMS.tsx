@@ -599,12 +599,22 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
       const selectedKpaObj = availableKpas.find(k => k.title === targetKpi.kpa);
       const fallbackStrategicGoal = selectedKpaObj?.parentObjective || targetKpi.kpa || '';
 
-      const resolvedApprovalStatus = targetKpi.reviewApprovalStatus || (matchIndex >= 0 ? existingPlanItems[matchIndex].reviewApprovalStatus : 'Pending') || 'Pending';
-      const resolvedReviewStatus = resolvedApprovalStatus === 'Approved'
-        ? 'Approved'
-        : resolvedApprovalStatus === 'Rejected'
-          ? 'Revision Required'
-          : ((targetKpi as any).reviewStatus || (matchIndex >= 0 ? existingPlanItems[matchIndex].reviewStatus : 'Draft'));
+      const rawReviewStatus = (targetKpi as any).reviewStatus || (matchIndex >= 0 ? existingPlanItems[matchIndex].reviewStatus : 'Draft') || 'Draft';
+      const isSubmittedOrResubmitting =
+        rawReviewStatus === 'Submitted for Approval' ||
+        rawReviewStatus === 'Submitted for Review' ||
+        rawReviewStatus === 'Submitted' ||
+        rawReviewStatus === 'Draft / Resubmitting';
+      const resolvedApprovalStatus = isSubmittedOrResubmitting
+        ? ''
+        : (targetKpi.reviewApprovalStatus || (matchIndex >= 0 ? existingPlanItems[matchIndex].reviewApprovalStatus : 'Pending') || 'Pending');
+      const resolvedReviewStatus = isSubmittedOrResubmitting
+        ? rawReviewStatus
+        : resolvedApprovalStatus === 'Approved'
+          ? 'Approved'
+          : resolvedApprovalStatus === 'Rejected'
+            ? 'Revision Required'
+            : rawReviewStatus;
 
       const existingRow = matchIndex >= 0 ? existingPlanItems[matchIndex] : ({} as any);
       const planRowData = {
@@ -2051,10 +2061,30 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
                    if (kpiIdx >= 0) {
                      const qFieldComment = `${browseModalQuarter.toLowerCase()}PoeComment`;
                      const qFieldDocs = `${browseModalQuarter.toLowerCase()}PoeDocs`;
+                     const nowIso = new Date().toISOString();
+                     const currentKpi: any = updatedKpis[kpiIdx];
+                     const hadRevision =
+                       currentKpi.reviewStatus === 'Revision Required' ||
+                       currentKpi.reviewStatus === 'Rejected' ||
+                       currentKpi.reviewApprovalStatus === 'Rejected' ||
+                       currentKpi.q1PoeStatus === 'Revision Required' ||
+                       currentKpi.q2PoeStatus === 'Revision Required' ||
+                       currentKpi.q3PoeStatus === 'Revision Required' ||
+                       currentKpi.q4PoeStatus === 'Revision Required';
+
                      const nextKpi: any = {
-                       ...updatedKpis[kpiIdx],
+                       ...currentKpi,
                        [qFieldComment]: poeCommentInput.trim(),
-                       [qFieldDocs]: browseModalPoeDocs
+                       [qFieldDocs]: browseModalPoeDocs,
+                       ...(browseModalPoeDocs.length > 0 && hadRevision ? {
+                         reviewStatus: 'Submitted for Approval',
+                         reviewApprovalStatus: '',
+                         resubmittedAt: nowIso,
+                         q1PoeStatus: (currentKpi.q1PoeStatus === 'Revision Required' || currentKpi.q1PoeStatus === 'Rejected' || qFieldDocs === 'q1PoeDocs') ? 'Pending Verification' : currentKpi.q1PoeStatus,
+                         q2PoeStatus: (currentKpi.q2PoeStatus === 'Revision Required' || currentKpi.q2PoeStatus === 'Rejected' || qFieldDocs === 'q2PoeDocs') ? 'Pending Verification' : currentKpi.q2PoeStatus,
+                         q3PoeStatus: (currentKpi.q3PoeStatus === 'Revision Required' || currentKpi.q3PoeStatus === 'Rejected' || qFieldDocs === 'q3PoeDocs') ? 'Pending Verification' : currentKpi.q3PoeStatus,
+                         q4PoeStatus: (currentKpi.q4PoeStatus === 'Revision Required' || currentKpi.q4PoeStatus === 'Rejected' || qFieldDocs === 'q4PoeDocs') ? 'Pending Verification' : currentKpi.q4PoeStatus
+                       } : {})
                      };
                      const allDocs = [
                        ...(nextKpi.q1PoeDocs || []),
@@ -2069,26 +2099,53 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
                      updatedKpis[kpiIdx] = nextKpi;
                      setKpis(updatedKpis);
 
+                     let planRevisionCleared = false;
                      const updatedPlanItems = (pplanData.items || []).map((item: any) => {
                        const matchById = item.id && nextKpi.id && String(item.id).toLowerCase().trim() === String(nextKpi.id).toLowerCase().trim();
                        const matchByNo = item.kpiNo && nextKpi.kpiNo && String(item.kpiNo).toLowerCase().trim() === String(nextKpi.kpiNo).toLowerCase().trim();
                        if (matchById || matchByNo) {
+                         const itemHadRevision =
+                           hadRevision ||
+                           item.reviewStatus === 'Revision Required' ||
+                           item.reviewStatus === 'Rejected' ||
+                           item.reviewApprovalStatus === 'Rejected' ||
+                           item.q1PoeStatus === 'Revision Required' ||
+                           item.q2PoeStatus === 'Revision Required' ||
+                           item.q3PoeStatus === 'Revision Required' ||
+                           item.q4PoeStatus === 'Revision Required';
+                         if (browseModalPoeDocs.length > 0 && itemHadRevision) {
+                           planRevisionCleared = true;
+                         }
                          return {
                            ...item,
                            [qFieldComment]: poeCommentInput.trim(),
                            [qFieldDocs]: browseModalPoeDocs,
+                           ...(browseModalPoeDocs.length > 0 && itemHadRevision ? {
+                             reviewStatus: 'Submitted for Approval',
+                             reviewApprovalStatus: '',
+                             resubmittedAt: nowIso,
+                             q1PoeStatus: (item.q1PoeStatus === 'Revision Required' || item.q1PoeStatus === 'Rejected' || qFieldDocs === 'q1PoeDocs') ? 'Pending Verification' : item.q1PoeStatus,
+                             q2PoeStatus: (item.q2PoeStatus === 'Revision Required' || item.q2PoeStatus === 'Rejected' || qFieldDocs === 'q2PoeDocs') ? 'Pending Verification' : item.q2PoeStatus,
+                             q3PoeStatus: (item.q3PoeStatus === 'Revision Required' || item.q3PoeStatus === 'Rejected' || qFieldDocs === 'q3PoeDocs') ? 'Pending Verification' : item.q3PoeStatus,
+                             q4PoeStatus: (item.q4PoeStatus === 'Revision Required' || item.q4PoeStatus === 'Rejected' || qFieldDocs === 'q4PoeDocs') ? 'Pending Verification' : item.q4PoeStatus
+                           } : {}),
                            poeFileBase64: undefined,
                            poeFileName: allDocs[0] ? allDocs[0].name : ''
                          };
                        }
                        return item;
                      });
+                     const prevSubmitted = Array.isArray(pplanData.metadata?.submittedKpiIds) ? pplanData.metadata.submittedKpiIds : [];
                      const updatedPlanPayload = {
                        ...pplanData,
                        metadata: {
                          ...(pplanData.metadata || {}),
                          _isFredExtracted: true,
-                         _authoritativePoeUpdate: true
+                         _authoritativePoeUpdate: true,
+                         ...(planRevisionCleared ? {
+                           reviewStatus: 'Submitted for Approval',
+                           submittedKpiIds: Array.from(new Set([...prevSubmitted, nextKpi.id]))
+                         } : {})
                        },
                        items: updatedPlanItems
                      };

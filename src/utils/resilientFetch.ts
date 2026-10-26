@@ -84,14 +84,6 @@ export function installResilientNetworkInterceptor() {
   };
 
   try {
-    const descriptor = Object.getOwnPropertyDescriptor(window, 'fetch') || Object.getOwnPropertyDescriptor(Object.getPrototypeOf(window), 'fetch');
-    if (descriptor && !descriptor.writable && !descriptor.set) {
-      // Property is getter-only and non-writable; do not attempt direct assignment to prevent TypeError
-      isPatched = true;
-      return;
-    }
-
-    // Try standard assignment or defineProperty inside safe try-catch
     try {
       window.fetch = wrappedFetch;
       isPatched = true;
