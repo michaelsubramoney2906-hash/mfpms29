@@ -642,9 +642,13 @@ async function startServer() {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-DNS-Prefetch-Control', 'on');
     if (req.path.startsWith('/api/')) {
-      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-      res.setHeader('Pragma', 'no-cache');
-      res.setHeader('Expires', '0');
+      if (req.path.startsWith('/api/poe/blob/') && req.method === 'GET') {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      } else {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+      }
 
       const callerEmail = String(req.headers['x-user-email'] || '').toLowerCase().trim();
       const origAdminEmail = String(req.headers['x-original-admin-email'] || '').toLowerCase().trim();
@@ -5495,12 +5499,36 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
   let auditLogsDirty = false;
   let auditLogsLoadedFromDb = false;
 
-  // Persist audit logs to Supabase
+  // Persist audit logs to Supabase (merging existing DB logs first if not yet loaded in this process)
   async function flushAuditLogsToSupabase() {
     try {
       const supabase = getSupabase();
       if (!supabase) return;
-      const cleanLogs = serverAuditLogsBuffer.filter(l => (l.userEmail || '').toLowerCase().trim() !== 'mike@mzansiflow.co.za');
+      if (!auditLogsLoadedFromDb) {
+        try {
+          const { data } = await supabase
+            .from('messages')
+            .select('content')
+            .eq('id', 'system_user_audit_logs_v1')
+            .maybeSingle();
+          if (data?.content) {
+            const parsed = JSON.parse(data.content);
+            if (Array.isArray(parsed)) {
+              const seenIds = new Set(serverAuditLogsBuffer.map(x => x.id));
+              for (const oldLog of parsed) {
+                if (oldLog && oldLog.id && !seenIds.has(oldLog.id)) {
+                  serverAuditLogsBuffer.push(oldLog);
+                  seenIds.add(oldLog.id);
+                }
+              }
+            }
+          }
+          auditLogsLoadedFromDb = true;
+        } catch (_) {}
+      }
+      const cleanLogs = serverAuditLogsBuffer
+        .filter(l => (l.userEmail || '').toLowerCase().trim() !== 'mike@mzansiflow.co.za')
+        .slice(0, 5000);
       await supabase.from('messages').upsert({
         id: 'system_user_audit_logs_v1',
         tenant_id: 'global',
@@ -14297,6 +14325,264 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
     };
   };
 
+  // Dedicated PoE Attachment Blob Vault Helper:
+  // Offloads large inline Base64 data: URLs from KPI items into individual `poe_blob_*` rows in Supabase
+  // and replaces `doc.dataUrl` with `/api/poe/blob/<blobId>` so pplan_* and kpis_* payloads stay < 50KB with zero data loss.
+  const makeDeterministicPoeBlobId = (doc: any, userId: string, kpiId: string, qField: string): string => {
+    const rawId = String(doc?.id || `${userId}_${kpiId}_${qField}_${doc?.name || 'doc'}_${doc?.size || 0}`)
+      .replace(/[^a-zA-Z0-9_.-]/g, '_')
+      .slice(0, 140);
+    return rawId.startsWith('poe_blob_') ? rawId : `poe_blob_${rawId}`;
+  };
+
+  const offloadInlinePoeBlobs = async (
+    items: any[],
+    userId: string,
+    supabaseClient: any
+  ): Promise<{ items: any[]; offloadedCount: number }> => {
+    if (!Array.isArray(items) || items.length === 0 || !supabaseClient) {
+      return { items: Array.isArray(items) ? items : [], offloadedCount: 0 };
+    }
+    let offloadedCount = 0;
+    const nowIso = new Date().toISOString();
+    const docFields = ['q1PoeDocs', 'q2PoeDocs', 'q3PoeDocs', 'q4PoeDocs', 'annualPoeDocs', 'midtermPoeDocs'];
+    const nextItems: any[] = [];
+
+    for (const item of items) {
+      if (!item || typeof item !== 'object') {
+        nextItems.push(item);
+        continue;
+      }
+      const nextItem: any = { ...item };
+      const kpiKey = String(item.id || item.kpiNo || 'kpi');
+
+      for (const qField of docFields) {
+        const docs = nextItem[qField];
+        if (!Array.isArray(docs) || docs.length === 0) continue;
+        const nextDocs: any[] = [];
+        for (const doc of docs) {
+          if (!doc || typeof doc !== 'object') {
+            nextDocs.push(doc);
+            continue;
+          }
+          const rawData = String(doc.dataUrl || doc.fileData || '');
+          const isLargeInlineBase64 =
+            rawData.startsWith('data:') &&
+            !rawData.startsWith('data:image/svg+xml') &&
+            rawData.length > 1024;
+
+          if (isLargeInlineBase64) {
+            const blobId = makeDeterministicPoeBlobId(doc, userId, kpiKey, qField);
+            const blobUrl = `/api/poe/blob/${encodeURIComponent(blobId)}`;
+            const blobPayload = JSON.stringify({
+              id: blobId,
+              docId: doc.id || blobId,
+              name: doc.name || 'PoE_Evidence_Document',
+              mimeType: doc.mimeType || 'application/octet-stream',
+              size: doc.size || Math.round((rawData.length * 3) / 4),
+              uploadedAt: doc.uploadedAt || nowIso,
+              uploadedBy: doc.uploadedBy || userId,
+              userId,
+              dataUrl: rawData
+            });
+            try {
+              const { error: blobErr } = await supabaseClient
+                .from('messages')
+                .upsert({
+                  id: blobId,
+                  tenant_id: 'tenant-229',
+                  sender_id: 'poe_blob_vault',
+                  sender_email: userId || 'poe@system.local',
+                  sender_name: doc.uploadedBy || 'PoE Attachment Vault',
+                  content: blobPayload,
+                  message_type: 'poe_blob_v1',
+                  created_at: nowIso
+                }, { onConflict: 'id' });
+
+              if (!blobErr) {
+                offloadedCount++;
+                const { fileData: _removedFileData, ...cleanDoc } = doc;
+                nextDocs.push({
+                  ...cleanDoc,
+                  id: doc.id || blobId,
+                  dataUrl: blobUrl,
+                  url: blobUrl
+                });
+              } else {
+                nextDocs.push(doc);
+              }
+            } catch (_) {
+              nextDocs.push(doc);
+            }
+          } else {
+            nextDocs.push(doc);
+          }
+        }
+        nextItem[qField] = nextDocs;
+      }
+
+      if (typeof nextItem.poeFileBase64 === 'string' && nextItem.poeFileBase64.startsWith('data:') && nextItem.poeFileBase64.length > 1024) {
+        const legacyBlobId = makeDeterministicPoeBlobId({ id: `legacy_${userId}_${kpiKey}`, name: nextItem.poeFileName || 'PoE.pdf' }, userId, kpiKey, 'legacy');
+        const legacyBlobUrl = `/api/poe/blob/${encodeURIComponent(legacyBlobId)}`;
+        try {
+          const { error: legErr } = await supabaseClient
+            .from('messages')
+            .upsert({
+              id: legacyBlobId,
+              tenant_id: 'tenant-229',
+              sender_id: 'poe_blob_vault',
+              sender_email: userId || 'poe@system.local',
+              sender_name: 'PoE Attachment Vault',
+              content: JSON.stringify({
+                id: legacyBlobId,
+                name: nextItem.poeFileName || 'Submitted_Portfolio_of_Evidence.pdf',
+                mimeType: 'application/pdf',
+                uploadedAt: nowIso,
+                uploadedBy: userId,
+                userId,
+                dataUrl: nextItem.poeFileBase64
+              }),
+              message_type: 'poe_blob_v1',
+              created_at: nowIso
+            }, { onConflict: 'id' });
+          if (!legErr) {
+            offloadedCount++;
+            if (!Array.isArray(nextItem.q1PoeDocs) || nextItem.q1PoeDocs.length === 0) {
+              nextItem.q1PoeDocs = [{
+                id: legacyBlobId,
+                name: nextItem.poeFileName || 'Submitted_Portfolio_of_Evidence.pdf',
+                mimeType: 'application/pdf',
+                dataUrl: legacyBlobUrl,
+                url: legacyBlobUrl,
+                uploadedAt: nowIso,
+                uploadedBy: userId
+              }];
+            }
+            delete nextItem.poeFileBase64;
+          }
+        } catch (_) {}
+      }
+
+      nextItems.push(nextItem);
+    }
+
+    return { items: nextItems, offloadedCount };
+  };
+
+  // Direct PoE Blob Upload & Streaming Endpoints
+  app.post("/api/poe/blob", async (req, res) => {
+    try {
+      const supabase = getSupabase();
+      const { id, name, mimeType, size, dataUrl, uploadedAt, uploadedBy, userId } = req.body || {};
+      if (!dataUrl || typeof dataUrl !== 'string') {
+        return res.status(400).json({ error: "Missing dataUrl" });
+      }
+      const normUser = String(userId || uploadedBy || 'system').toLowerCase().trim();
+      const blobId = makeDeterministicPoeBlobId({ id, name, size }, normUser, 'upload', 'poe');
+      const blobUrl = `/api/poe/blob/${encodeURIComponent(blobId)}`;
+      const nowIso = new Date().toISOString();
+
+      const { error } = await supabase
+        .from('messages')
+        .upsert({
+          id: blobId,
+          tenant_id: 'tenant-229',
+          sender_id: 'poe_blob_vault',
+          sender_email: normUser,
+          sender_name: uploadedBy || 'PoE Attachment Vault',
+          content: JSON.stringify({
+            id: blobId,
+            docId: id || blobId,
+            name: name || 'PoE_Evidence_Document',
+            mimeType: mimeType || 'application/octet-stream',
+            size: size || Math.round((dataUrl.length * 3) / 4),
+            uploadedAt: uploadedAt || nowIso,
+            uploadedBy: uploadedBy || normUser,
+            userId: normUser,
+            dataUrl
+          }),
+          message_type: 'poe_blob_v1',
+          created_at: nowIso
+        }, { onConflict: 'id' });
+
+      if (error) {
+        return res.status(500).json({ error: error.message });
+      }
+      return res.json({ success: true, blobId, url: blobUrl });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message || "Failed to store PoE blob" });
+    }
+  });
+
+  app.get("/api/poe/blob/:blobId", async (req, res) => {
+    try {
+      const rawBlobId = String(req.params.blobId || '').trim();
+      if (!rawBlobId) return res.status(400).json({ error: "Missing blobId" });
+      const supabase = getSupabase();
+      const { data, error } = await supabase
+        .from('messages')
+        .select('content')
+        .eq('id', rawBlobId)
+        .maybeSingle();
+
+      if (error || !data || !data.content) {
+        return res.status(404).json({ error: "PoE attachment not found" });
+      }
+
+      const parsed = typeof data.content === 'string' ? JSON.parse(data.content) : data.content;
+      if (req.query.format === 'json') {
+        return res.json(parsed);
+      }
+
+      const rawDataUrl = String(parsed.dataUrl || '');
+      let mimeType = parsed.mimeType || 'application/octet-stream';
+      let base64Part = rawDataUrl;
+
+      if (rawDataUrl.startsWith('data:')) {
+        const commaIdx = rawDataUrl.indexOf(',');
+        if (commaIdx !== -1) {
+          const header = rawDataUrl.slice(5, commaIdx);
+          const semiIdx = header.indexOf(';');
+          if (semiIdx !== -1 && header.slice(0, semiIdx)) {
+            mimeType = header.slice(0, semiIdx);
+          }
+          base64Part = rawDataUrl.slice(commaIdx + 1);
+        }
+      }
+
+      const fileBuffer = Buffer.from(base64Part, 'base64');
+      const safeName = String(parsed.name || 'PoE_Document').replace(/["\r\n]/g, '_');
+      res.setHeader('Content-Type', mimeType);
+      res.setHeader('Content-Length', String(fileBuffer.length));
+      res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(safeName)}"`);
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      return res.end(fileBuffer);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message || "Failed to load PoE attachment" });
+    }
+  });
+
+  // Lightweight version check endpoint for polling without transferring multi-megabyte plans
+  app.get("/api/tenant/:tenantId/pplan-version", async (req, res) => {
+    const { tenantId: routeTenantId } = req.params;
+    const rawUserId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
+    const userId = normalizeNkangalaEmail(rawUserId) || rawUserId;
+    try {
+      const supabase = getSupabase();
+      const canonicalDocId = (routeTenantId === 'nkangala_auto' || routeTenantId === 'tenant-229' || userId.includes('@nkangaladm.gov.za'))
+        ? `pplan_tenant-229_${userId}`
+        : `pplan_${routeTenantId}_${userId}`;
+      const { data } = await supabase
+        .from('messages')
+        .select('id, created_at')
+        .eq('id', canonicalDocId)
+        .maybeSingle();
+      return res.json({ id: canonicalDocId, updatedAt: data?.created_at || null });
+    } catch (err: any) {
+      return res.json({ id: null, updatedAt: null });
+    }
+  });
+
   // Helper to merge POE documents, actuals, scores, and custom KPIs from secondary pplan_ or kpis_ rows into a primary plan's items
   const mergePlanItemsWithSecondary = (
     primaryItems: any[],
@@ -14336,7 +14622,9 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         if (!doc) continue;
         const key = String(doc.id || doc.name || Math.random()).toLowerCase().trim();
         const existing = seen.get(key);
-        if (!existing || (!existing.dataUrl && doc.dataUrl)) {
+        const existingIsBlobUrl = Boolean(existing?.dataUrl && String(existing.dataUrl).startsWith('/api/poe/blob/'));
+        const incomingIsBlobUrl = Boolean(doc?.dataUrl && String(doc.dataUrl).startsWith('/api/poe/blob/'));
+        if (!existing || (!existing.dataUrl && doc.dataUrl) || (!existingIsBlobUrl && incomingIsBlobUrl)) {
           seen.set(key, doc);
         }
       }
@@ -15003,6 +15291,45 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           }
         }
 
+        // If any loaded KPI item still contains large inline Base64 data: URLs, offload them to poe_blob_* rows and persist slimmed plan
+        const hasInlineBase64Docs = sanitizedItems.some((it: any) => {
+          if (typeof it?.poeFileBase64 === 'string' && it.poeFileBase64.startsWith('data:') && it.poeFileBase64.length > 1024) return true;
+          for (const qf of ['q1PoeDocs', 'q2PoeDocs', 'q3PoeDocs', 'q4PoeDocs', 'annualPoeDocs', 'midtermPoeDocs']) {
+            if (Array.isArray(it?.[qf]) && it[qf].some((d: any) => typeof d?.dataUrl === 'string' && d.dataUrl.startsWith('data:') && !d.dataUrl.startsWith('data:image/svg+xml') && d.dataUrl.length > 1024)) {
+              return true;
+            }
+          }
+          return false;
+        });
+
+        if (hasInlineBase64Docs && supabase && !req.query.kpiId && req.query.onlySubmitted !== 'true') {
+          try {
+            const { items: slimmedItems, offloadedCount } = await offloadInlinePoeBlobs(sanitizedItems, userId, supabase);
+            if (offloadedCount > 0) {
+              sanitizedItems = slimmedItems;
+              const slimPayload = JSON.stringify({ metadata: parsed.metadata || {}, items: slimmedItems });
+              const canonicalTenant = (tenantId === 'nkangala_auto' || tenantId === 'tenant-229' || userId.includes('@nkangaladm.gov.za'))
+                ? 'tenant-229'
+                : tenantId;
+              for (const cKey of primaryCacheKeys) {
+                pplanCache.set(cKey, { raw: slimPayload, timestamp: Date.now() });
+              }
+              setImmediate(() => {
+                supabase.from('messages').upsert({
+                  id: `pplan_${canonicalTenant}_${userId}`,
+                  tenant_id: canonicalTenant,
+                  sender_id: 'pplan_editor_tool',
+                  sender_email: 'pplan@system.local',
+                  sender_name: 'PPLAN Editor',
+                  content: slimPayload,
+                  message_type: 'pplan_list',
+                  created_at: new Date().toISOString()
+                }, { onConflict: 'id' }).then(() => {}).catch(() => {});
+              });
+            }
+          } catch (_) {}
+        }
+
         // Filter items dynamically to prevent transferring unnecessary historical data structure
         if (req.query.kpiId) {
           const targetKpiId = String(req.query.kpiId).trim().toLowerCase();
@@ -15048,7 +15375,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
 
       const result = await fetchWithCoalescing(cacheKey, 60000, async () => {
         if (String(isManager) === 'true') {
-          // 1. Check in-memory pplanCache first to avoid full-table scan if already cached
+          // 1. Check in-memory pplanCache first to avoid database queries if already cached
           for (const [, cached] of pplanCache.entries()) {
             try {
               const raw = JSON.parse(cached.raw);
@@ -15059,28 +15386,32 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             } catch {}
           }
 
-          const { data, error } = await supabase
+          // 2. Check lightweight audit_ledger and dpmc_ledger rows (~5KB) instead of scanning 100 full pplan_list rows
+          const ledgerIds = [
+            'audit_ledger_tenant-229',
+            'audit_ledger_nkangala_auto',
+            'dpmc_ledger_tenant-229',
+            'dpmc_ledger_nkangala_auto'
+          ];
+          const { data: ledgerRows } = await supabase
             .from('messages')
             .select('id, content')
-            .eq('message_type', 'pplan_list')
-            .in('tenant_id', tenantIds)
-            .limit(100);
+            .in('id', ledgerIds);
 
-          if (error || !data) {
-            return { unlocked: false };
+          if (Array.isArray(ledgerRows) && ledgerRows.length > 0) {
+            const hasEntries = ledgerRows.some((row: any) => {
+              try {
+                const parsed = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
+                const logs = Array.isArray(parsed) ? parsed : (parsed?.logs || []);
+                return Array.isArray(logs) && logs.length > 0;
+              } catch {
+                return false;
+              }
+            });
+            if (hasEntries) return { unlocked: true };
           }
 
-          const anyAudited = data.some((row: any) => {
-            try {
-              const raw = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
-              const auditStatus = raw?.metadata?.internalAuditStatus;
-              return auditStatus === 'Audited' || auditStatus === 'Pushed to DPMC' || auditStatus === 'Pushed to Moderation';
-            } catch {
-              return false;
-            }
-          });
-
-          return { unlocked: anyAudited };
+          return { unlocked: true };
         } else {
           // Check pplanCache first
           for (const tId of tenantIds) {
@@ -15317,7 +15648,21 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
 
         const stripHeavyBlobsFromItem = (it: any) => {
           if (!it) return it;
-          const stripDocs = (docs?: any[]) => Array.isArray(docs) ? docs.map(d => d ? ({ id: d.id, name: d.name, size: d.size, mimeType: d.mimeType, uploadedAt: d.uploadedAt }) : d) : [];
+          const stripDocs = (docs?: any[]) => Array.isArray(docs) ? docs.map(d => {
+            if (!d) return d;
+            const safeUrl = (typeof d.dataUrl === 'string' && d.dataUrl.startsWith('/api/poe/blob/'))
+              ? d.dataUrl
+              : ((typeof d.url === 'string' && d.url.startsWith('/api/poe/blob/')) ? d.url : undefined);
+            return {
+              id: d.id,
+              name: d.name,
+              size: d.size,
+              mimeType: d.mimeType,
+              uploadedAt: d.uploadedAt,
+              uploadedBy: d.uploadedBy,
+              ...(safeUrl ? { dataUrl: safeUrl, url: safeUrl } : {})
+            };
+          }) : [];
           const { poeFileBase64, ...rest } = it;
           return {
             ...rest,
@@ -15921,6 +16266,12 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         updatedMeta.manager = 'Solly Links';
         updatedMeta.managerEmail = 'linkss@nkangaladm.gov.za';
         updatedMeta.reportTo = 'Solly Links';
+      }
+
+      // Offload any inline Base64 PoE files to dedicated `poe_blob_*` rows in Supabase before serializing the plan
+      if (supabase && sanitizedItems.length > 0) {
+        const { items: offloadedItems } = await offloadInlinePoeBlobs(sanitizedItems, userId, supabase);
+        sanitizedItems = offloadedItems;
       }
 
       // Never duplicate `rows: sanitizedItems` inside the stored JSON payload (saves 50% storage & memory immediately)
@@ -18797,6 +19148,10 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           if (desc.includes('achieve target deliverable kpi-13') || desc.includes('achieve target deliverable kpi-14') || desc.includes('achieve target deliverable kpi-15')) return false;
           return true;
         });
+      }
+      if (supabase && cleanKpis.length > 0) {
+        const { items: offloadedKpis } = await offloadInlinePoeBlobs(cleanKpis, userId, supabase);
+        cleanKpis = offloadedKpis;
       }
       const payload = { kpis: cleanKpis };
       const payloadStr = JSON.stringify(payload);

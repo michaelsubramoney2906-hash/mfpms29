@@ -444,7 +444,13 @@ export async function downloadOriginalFile(
   };
 
   try {
-    if (rawPayload && isRealBase64(rawPayload) && !((ext === 'docx' || ext === 'xlsx' || ext === 'pptx' || ext === 'pdf') && rawPayload.includes('data:image/svg'))) {
+    if (rawPayload && (rawPayload.startsWith('/api/') || rawPayload.startsWith('http://') || rawPayload.startsWith('https://'))) {
+      const resp = await fetch(rawPayload);
+      if (resp.ok) {
+        const fetchedBlob = await resp.blob();
+        blob = new Blob([fetchedBlob], { type: targetMime || fetchedBlob.type || 'application/octet-stream' });
+      }
+    } else if (rawPayload && isRealBase64(rawPayload) && !((ext === 'docx' || ext === 'xlsx' || ext === 'pptx' || ext === 'pdf') && rawPayload.includes('data:image/svg'))) {
       let b64 = rawPayload;
       if (b64.startsWith('data:')) {
         const parts = b64.split(',');
@@ -588,7 +594,13 @@ export async function viewOriginalFile(
   };
 
   try {
-    if (rawPayload && isRealBase64(rawPayload) && !((ext === 'docx' || ext === 'xlsx' || ext === 'pptx' || ext === 'pdf') && rawPayload.includes('data:image/svg'))) {
+    if (rawPayload && (rawPayload.startsWith('/api/') || rawPayload.startsWith('http://') || rawPayload.startsWith('https://'))) {
+      const resp = await fetch(rawPayload);
+      if (resp.ok) {
+        const fetchedBlob = await resp.blob();
+        blob = new Blob([fetchedBlob], { type: targetMime || fetchedBlob.type || 'application/octet-stream' });
+      }
+    } else if (rawPayload && isRealBase64(rawPayload) && !((ext === 'docx' || ext === 'xlsx' || ext === 'pptx' || ext === 'pdf') && rawPayload.includes('data:image/svg'))) {
       let b64 = rawPayload;
       if (b64.startsWith('data:')) {
         const parts = b64.split(',');

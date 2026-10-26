@@ -192,7 +192,6 @@ export const NKANGALA_USER_MASTER_REGISTRY: Record<string, UserRegistryCount> = 
   // Common Active Directory / Exchange aliases for attached officials
   "mokgolomothome@nkangaladm.gov.za": { email: "mokgolomothome@nkangaladm.gov.za", kpis: 24, kpas: 5, jscs: 5, pdps: 2 },
   "mahlakwanalm@nkangaladm.gov.za": { email: "mahlakwanalm@nkangaladm.gov.za", kpis: 17, kpas: 5, jscs: 5, pdps: 0 },
-  "morarj@nkangaladm.gov.za": { email: "morarj@nkangaladm.gov.za", kpis: 19, kpas: 5, jscs: 5, pdps: 3 },
   "nhlaphomj@nkangaladm.gov.za": { email: "nhlaphomj@nkangaladm.gov.za", kpis: 46, kpas: 5, jscs: 6, pdps: 0 },
   "sibanyonimj@nkangaladm.gov.za": { email: "sibanyonimj@nkangaladm.gov.za", kpis: 25, kpas: 6, jscs: 5, pdps: 0 },
   "msizaas@nkangaladm.gov.za": { email: "msizaas@nkangaladm.gov.za", kpis: 42, kpas: 6, jscs: 5, pdps: 0 }

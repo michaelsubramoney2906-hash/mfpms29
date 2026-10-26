@@ -3079,9 +3079,9 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
                       {/* Live Document Preview Box if dataUrl exists */}
                       {previewDoc.dataUrl && (
                         <div className="my-3 border border-slate-200 rounded-xl overflow-hidden bg-slate-900 p-2 flex flex-col items-center justify-center">
-                          {previewDoc.mimeType?.startsWith('image/') || previewDoc.dataUrl.startsWith('data:image/') ? (
+                          {previewDoc.mimeType?.startsWith('image/') || previewDoc.dataUrl.startsWith('data:image/') || /\.(png|jpe?g|gif|webp|svg)$/i.test(previewDoc.name || '') ? (
                             <img src={previewDoc.dataUrl} alt={previewDoc.name} className="max-h-80 object-contain rounded-lg shadow-md" />
-                          ) : previewDoc.mimeType?.includes('pdf') || previewDoc.dataUrl.startsWith('data:application/pdf') ? (
+                          ) : previewDoc.mimeType?.includes('pdf') || previewDoc.dataUrl.startsWith('data:application/pdf') || /\.pdf$/i.test(previewDoc.name || '') ? (
                             <iframe src={previewDoc.dataUrl} title={previewDoc.name} className="w-full h-80 rounded-lg bg-white" />
                           ) : (
                             <div className="p-4 text-center text-white text-xs">

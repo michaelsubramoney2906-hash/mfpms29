@@ -142,15 +142,47 @@ export function QuarterPoeSelector({
 
       return new Promise<PoeDocument | null>((resolve) => {
         const reader = new FileReader();
-        reader.onload = () => {
+        reader.onload = async () => {
+          const docId = `poe_doc_${quarterName}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          const rawDataUrl = reader.result as string;
+          const uploadedAtIso = new Date().toISOString();
+          const uploadedByUser = currentUser?.email || 'System';
+          let resolvedUrl = rawDataUrl;
+
+          try {
+            const blobRes = await fetch('/api/poe/blob', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                id: docId,
+                name: file.name,
+                mimeType: file.type || 'application/octet-stream',
+                size: file.size,
+                dataUrl: rawDataUrl,
+                uploadedAt: uploadedAtIso,
+                uploadedBy: uploadedByUser,
+                userId: uploadedByUser
+              })
+            });
+            if (blobRes.ok) {
+              const blobJson = await blobRes.json();
+              if (blobJson?.url) {
+                resolvedUrl = blobJson.url;
+              }
+            }
+          } catch (_) {
+            // Fallback to inline dataUrl if offline; server will offload on save
+          }
+
           resolve({
-            id: `poe_doc_${quarterName}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            id: docId,
             name: file.name,
             mimeType: file.type || 'application/octet-stream',
             size: file.size,
-            dataUrl: reader.result as string,
-            uploadedAt: new Date().toISOString(),
-            uploadedBy: currentUser?.email || 'System'
+            dataUrl: resolvedUrl,
+            url: resolvedUrl,
+            uploadedAt: uploadedAtIso,
+            uploadedBy: uploadedByUser
           });
         };
         reader.onerror = () => {
@@ -666,9 +698,23 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
 
   useEffect(() => {
     if (!readOnly) return;
-    const pollTimer = setInterval(() => {
+    let lastKnownVersion: string | null = null;
+    const pollTimer = setInterval(async () => {
+      try {
+        const effectiveEmail = resolveUserEmailAlias(currentUser?.email || '');
+        const vRes = await fetch(`/api/tenant/${activeTenantId}/pplan-version?userId=${encodeURIComponent(effectiveEmail)}`);
+        if (vRes.ok) {
+          const vData = await vRes.json();
+          if (vData?.updatedAt && vData.updatedAt === lastKnownVersion) {
+            return;
+          }
+          if (vData?.updatedAt) {
+            lastKnownVersion = vData.updatedAt;
+          }
+        }
+      } catch (_) {}
       fetchMyPlan(true);
-    }, 6000);
+    }, 15000);
     return () => clearInterval(pollTimer);
   }, [readOnly, activeTenantId, currentUser?.email, sourceApiEndpoint]);
 
