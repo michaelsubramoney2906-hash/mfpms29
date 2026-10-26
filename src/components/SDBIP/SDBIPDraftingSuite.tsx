@@ -1045,13 +1045,13 @@ function ReportDocument({
     const poeDesc = row[`${qKey}PoeDesc`] || '';
     
     return (
-      <div className="flex flex-col gap-0.5 text-[7px] bg-slate-50 p-1 rounded border border-slate-100 min-w-[100px] leading-tight">
-        <div><span className="font-extrabold text-indigo-700">T:</span> {target}</div>
-        <div><span className="font-extrabold text-emerald-700">A:</span> {actual}</div>
-        <div><span className="font-extrabold text-amber-700">E:</span> {exp}</div>
-        {poeDesc && <div className="text-slate-500 italic truncate" title={poeDesc}><span className="font-semibold text-slate-700">P:</span> {poeDesc}</div>}
+      <div className="flex flex-col gap-0.5 text-[7px] bg-white text-black p-1 rounded border border-slate-200 min-w-[100px] leading-tight">
+        <div><span className="font-extrabold text-black">T:</span> {target}</div>
+        <div><span className="font-extrabold text-black">A:</span> {actual}</div>
+        <div><span className="font-extrabold text-black">E:</span> {exp}</div>
+        {poeDesc && <div className="text-black italic truncate" title={poeDesc}><span className="font-semibold text-black">P:</span> {poeDesc}</div>}
         {poes && poes.length > 0 && (
-          <div className="text-[6px] text-emerald-800 bg-emerald-50 px-1 py-0.5 rounded truncate" title={poes.join(', ')}>
+          <div className="text-[6px] text-black bg-white px-1 py-0.5 rounded truncate" title={poes.join(', ')}>
             📄 {poes[poes.length - 1]}
           </div>
         )}
@@ -1415,110 +1415,98 @@ function ReportDocument({
                               </tr>
                             )}
                           </thead>
-                          <tbody>
+                          <tbody className="bg-white text-black">
                             {chunk.map((row, rIdx) => {
                               const rag = getRagDetails(row);
                               const kpaLabel = getRowKpa(row);
-                              const kpaBadgeCellStyle: React.CSSProperties = {
-                                backgroundColor: kpa.cellTintBgHex,
-                                color: kpa.cellTintTextHex,
-                                borderColor: kpa.tableBorderHex
-                              };
                               const cellBorderStyle: React.CSSProperties = {
+                                backgroundColor: '#ffffff',
+                                color: '#000000',
                                 borderColor: kpa.tableBorderHex
                               };
 
                               if (selectedQuarter === 'annual') {
                                 const variance = row.q4Variance || row.q3Variance || row.q2Variance || row.q1Variance || '-';
                                 const corrective = row.q4Corrective || row.q3Corrective || row.q2Corrective || row.q1Corrective || '-';
-                                const isAchieved = rag.status === 'green';
-                                const bgColor = isAchieved ? 'bg-emerald-50/60' : (rag.status === 'red' ? 'bg-rose-50/40' : 'bg-amber-50/40');
 
                                 return (
-                                  <tr key={rIdx} className={`border-b break-inside-avoid text-black font-medium ${bgColor}`}>
-                                    <td className="border py-1 px-1.5 font-black text-center text-[7px] break-words" style={kpaBadgeCellStyle}>{kpaLabel}</td>
-                                    <td className="border py-1 px-1.5 font-bold font-mono text-center break-words" style={cellBorderStyle}>{row.refNum}</td>
-                                    <td className="border py-1 px-1.5 font-bold leading-tight break-words text-justify" style={cellBorderStyle}>{row.kpi}</td>
-                                    <td className="border py-1 px-1.5 font-bold text-slate-700 break-words text-center" style={cellBorderStyle}>{row.budgetAllocation || 'Opex'}</td>
-                                    <td className="border py-1 px-1.5 text-center" style={cellBorderStyle}>
+                                  <tr key={rIdx} className="border-b break-inside-avoid bg-white text-black font-medium">
+                                    <td className="border py-1 px-1.5 font-black text-center text-[7px] break-words bg-white text-black" style={cellBorderStyle}>{kpaLabel}</td>
+                                    <td className="border py-1 px-1.5 font-bold font-mono text-center break-words bg-white text-black" style={cellBorderStyle}>{row.refNum}</td>
+                                    <td className="border py-1 px-1.5 font-bold leading-tight break-words text-justify bg-white text-black" style={cellBorderStyle}>{row.kpi}</td>
+                                    <td className="border py-1 px-1.5 font-bold text-black bg-white break-words text-center" style={cellBorderStyle}>{row.budgetAllocation || 'Opex'}</td>
+                                    <td className="border py-1 px-1.5 text-center bg-white text-black" style={cellBorderStyle}>
                                       <span className="text-[11px]" title={rag.tooltip}>{rag.face}</span>
                                     </td>
-                                    <td className="border py-1 px-1.5 font-extrabold text-[8px] text-center break-words" style={{ ...cellBorderStyle, color: kpa.cellTintTextHex }}>
+                                    <td className="border py-1 px-1.5 font-extrabold text-[8px] text-center break-words bg-white text-black" style={cellBorderStyle}>
                                       {sumStringValues([row.q1, row.q2, row.q3, row.q4])}
                                     </td>
-                                    <td className="border py-1 px-1.5 font-extrabold text-[8px] text-center break-words" style={{ ...cellBorderStyle, color: kpa.achievedColor }}>
+                                    <td className="border py-1 px-1.5 font-extrabold text-[8px] text-center break-words bg-white text-black" style={cellBorderStyle}>
                                       {sumStringValues([row.q1Actual, row.q2Actual, row.q3Actual, row.q4Actual])}
                                     </td>
-                                    <td className="border py-1 px-1.5 font-medium text-slate-700 text-[8px] text-center break-words" style={cellBorderStyle}>
+                                    <td className="border py-1 px-1.5 font-medium text-black bg-white text-[8px] text-center break-words" style={cellBorderStyle}>
                                       {sumStringValues([row.q1Expenditure, row.q2Expenditure, row.q3Expenditure, row.q4Expenditure])}
                                     </td>
-                                    <td className="border py-1 px-1.5 break-words text-justify" style={cellBorderStyle}>
-                                      <div className="flex flex-col gap-0.5 text-[6px] leading-tight text-slate-600 text-justify">
+                                    <td className="border py-1 px-1.5 break-words text-justify bg-white text-black" style={cellBorderStyle}>
+                                      <div className="flex flex-col gap-0.5 text-[6px] leading-tight text-black bg-white text-justify">
                                         {[1, 2, 3, 4].map(q => {
                                           const poeDesc = (row as any)[`q${q}PoeDesc`] || '';
                                           const poes = (row as any)[`q${q}Poes`] || [];
                                           if (!poeDesc && poes.length === 0) return null;
                                           return (
-                                            <div key={q} className="border-b border-slate-100 last:border-0 pb-0.5 mb-0.5 last:pb-0 last:mb-0 break-words text-justify">
-                                              <span className="font-bold mr-0.5" style={{ color: kpa.cellTintTextHex }}>Q{q}:</span>
-                                              <span className="break-words" title={poeDesc}>{poeDesc || 'Submitted'}</span>
-                                              {poes.length > 0 && <span className="text-emerald-800 ml-1">📄</span>}
+                                            <div key={q} className="border-b border-slate-100 last:border-0 pb-0.5 mb-0.5 last:pb-0 last:mb-0 break-words text-justify text-black bg-white">
+                                              <span className="font-bold mr-0.5 text-black">Q{q}:</span>
+                                              <span className="break-words text-black" title={poeDesc}>{poeDesc || 'Submitted'}</span>
+                                              {poes.length > 0 && <span className="text-black ml-1">📄</span>}
                                             </div>
                                           );
                                         })}
                                       </div>
                                     </td>
-                                    <td className="border py-1 px-1.5 italic text-rose-900 font-bold leading-tight break-words text-justify" style={cellBorderStyle}>{variance}</td>
-                                    <td className="border py-1 px-1.5 font-medium leading-tight break-words text-justify" style={cellBorderStyle}>{corrective}</td>
+                                    <td className="border py-1 px-1.5 italic text-black bg-white font-bold leading-tight break-words text-justify" style={cellBorderStyle}>{variance}</td>
+                                    <td className="border py-1 px-1.5 font-medium leading-tight break-words text-justify bg-white text-black" style={cellBorderStyle}>{corrective}</td>
                                   </tr>
                                 );
                               } else if (selectedQuarter === 'midTerm') {
-                                const target1 = row.q1 || '-';
-                                const actual1 = row.q1Actual || '-';
-                                const target2 = row.q2 || '-';
-                                const actual2 = row.q2Actual || '-';
                                 const variance = row.midTermVariance || row.q2Variance || row.q1Variance || '-';
                                 const corrective = row.midTermCorrective || row.q2Corrective || row.q1Corrective || '-';
 
-                                const isAchieved = (target1 === actual1) && (target2 === actual2);
-                                const bgColor = isAchieved ? 'bg-emerald-50/50' : 'bg-amber-50/30';
-
                                 return (
-                                  <tr key={rIdx} className={`border-b break-inside-avoid text-black font-medium ${bgColor}`}>
-                                    <td className="border py-1 px-1.5 font-black text-center text-[7px] break-words" style={kpaBadgeCellStyle}>{kpaLabel}</td>
-                                    <td className="border py-1 px-1.5 font-bold font-mono text-center break-words" style={cellBorderStyle}>{row.refNum}</td>
-                                    <td className="border py-1 px-1.5 font-bold leading-tight break-words text-justify" style={cellBorderStyle}>{row.kpi}</td>
-                                    <td className="border py-1 px-1.5 font-bold text-slate-700 break-words text-center" style={cellBorderStyle}>{row.budgetAllocation || 'Opex'}</td>
-                                    <td className="border py-1 px-1.5 text-center" style={cellBorderStyle}>
+                                  <tr key={rIdx} className="border-b break-inside-avoid bg-white text-black font-medium">
+                                    <td className="border py-1 px-1.5 font-black text-center text-[7px] break-words bg-white text-black" style={cellBorderStyle}>{kpaLabel}</td>
+                                    <td className="border py-1 px-1.5 font-bold font-mono text-center break-words bg-white text-black" style={cellBorderStyle}>{row.refNum}</td>
+                                    <td className="border py-1 px-1.5 font-bold leading-tight break-words text-justify bg-white text-black" style={cellBorderStyle}>{row.kpi}</td>
+                                    <td className="border py-1 px-1.5 font-bold text-black bg-white break-words text-center" style={cellBorderStyle}>{row.budgetAllocation || 'Opex'}</td>
+                                    <td className="border py-1 px-1.5 text-center bg-white text-black" style={cellBorderStyle}>
                                       <span className="text-[11px]" title={rag.tooltip}>{rag.face}</span>
                                     </td>
-                                    <td className="border py-1 px-1.5 font-extrabold text-[8px] text-center break-words" style={{ ...cellBorderStyle, color: kpa.cellTintTextHex }}>
+                                    <td className="border py-1 px-1.5 font-extrabold text-[8px] text-center break-words bg-white text-black" style={cellBorderStyle}>
                                       {sumStringValues([row.q1, row.q2])}
                                     </td>
-                                    <td className="border py-1 px-1.5 font-extrabold text-[8px] text-center break-words" style={{ ...cellBorderStyle, color: kpa.achievedColor }}>
+                                    <td className="border py-1 px-1.5 font-extrabold text-[8px] text-center break-words bg-white text-black" style={cellBorderStyle}>
                                       {sumStringValues([row.q1Actual, row.q2Actual])}
                                     </td>
-                                    <td className="border py-1 px-1.5 font-medium text-slate-700 text-[8px] text-center break-words" style={cellBorderStyle}>
+                                    <td className="border py-1 px-1.5 font-medium text-black bg-white text-[8px] text-center break-words" style={cellBorderStyle}>
                                       {sumStringValues([row.q1Expenditure, row.q2Expenditure])}
                                     </td>
-                                    <td className="border py-1 px-1.5 text-justify break-words" style={cellBorderStyle}>
-                                      <div className="flex flex-col gap-0.5 text-[6px] leading-tight text-slate-600 text-justify">
+                                    <td className="border py-1 px-1.5 text-justify break-words bg-white text-black" style={cellBorderStyle}>
+                                      <div className="flex flex-col gap-0.5 text-[6px] leading-tight text-black bg-white text-justify">
                                         {[1, 2].map(q => {
                                           const poeDesc = (row as any)[`q${q}PoeDesc`] || '';
                                           const poes = (row as any)[`q${q}Poes`] || [];
                                           if (!poeDesc && poes.length === 0) return null;
                                           return (
-                                            <div key={q} className="border-b border-slate-100 last:border-0 pb-0.5 mb-0.5 last:pb-0 last:mb-0 break-words text-justify">
-                                              <span className="font-bold mr-0.5" style={{ color: kpa.cellTintTextHex }}>Q{q}:</span>
-                                              <span className="break-words" title={poeDesc}>{poeDesc || 'Submitted'}</span>
-                                              {poes.length > 0 && <span className="text-emerald-800 ml-1">📄</span>}
+                                            <div key={q} className="border-b border-slate-100 last:border-0 pb-0.5 mb-0.5 last:pb-0 last:mb-0 break-words text-justify text-black bg-white">
+                                              <span className="font-bold mr-0.5 text-black">Q{q}:</span>
+                                              <span className="break-words text-black" title={poeDesc}>{poeDesc || 'Submitted'}</span>
+                                              {poes.length > 0 && <span className="text-black ml-1">📄</span>}
                                             </div>
                                           );
                                         })}
                                       </div>
                                     </td>
-                                    <td className="border py-1 px-1.5 italic text-rose-900 font-bold leading-tight break-words text-justify" style={cellBorderStyle}>{variance}</td>
-                                    <td className="border py-1 px-1.5 font-medium leading-tight break-words text-justify" style={cellBorderStyle}>{corrective}</td>
+                                    <td className="border py-1 px-1.5 italic text-black bg-white font-bold leading-tight break-words text-justify" style={cellBorderStyle}>{variance}</td>
+                                    <td className="border py-1 px-1.5 font-medium leading-tight break-words text-justify bg-white text-black" style={cellBorderStyle}>{corrective}</td>
                                   </tr>
                                 );
                               } else {
@@ -1530,35 +1518,31 @@ function ReportDocument({
                                 const poes = (row as any)[`${selectedQuarter}Poes`] || [];
                                 const poeDesc = (row as any)[`${selectedQuarter}PoeDesc`] || row.poeDesc || '';
 
-                                const isAchieved = target && actual && target === actual;
-                                const bgColor = isAchieved ? 'bg-emerald-50/60' : (actual && !isAchieved ? 'bg-rose-50/40' : '');
-
                                 return (
-                                  <tr key={rIdx} className={`border-b break-inside-avoid text-black font-medium ${bgColor}`}>
-                                    <td className="border py-1 px-1.5 font-black text-center text-[7px] break-words" style={kpaBadgeCellStyle}>{kpaLabel}</td>
-                                    <td className="border py-1 px-1.5 font-bold font-mono text-center break-words" style={cellBorderStyle}>{row.refNum}</td>
-                                    <td className="border py-1 px-1.5 font-bold leading-tight break-words text-justify" style={cellBorderStyle}>{row.kpi}</td>
-                                    <td className="border py-1 px-1.5 font-bold text-slate-700 break-words text-center" style={cellBorderStyle}>{row.budgetAllocation || 'Opex'}</td>
-                                    <td className="border py-1 px-1.5 text-center" style={cellBorderStyle}>
+                                  <tr key={rIdx} className="border-b break-inside-avoid bg-white text-black font-medium">
+                                    <td className="border py-1 px-1.5 font-black text-center text-[7px] break-words bg-white text-black" style={cellBorderStyle}>{kpaLabel}</td>
+                                    <td className="border py-1 px-1.5 font-bold font-mono text-center break-words bg-white text-black" style={cellBorderStyle}>{row.refNum}</td>
+                                    <td className="border py-1 px-1.5 font-bold leading-tight break-words text-justify bg-white text-black" style={cellBorderStyle}>{row.kpi}</td>
+                                    <td className="border py-1 px-1.5 font-bold text-black bg-white break-words text-center" style={cellBorderStyle}>{row.budgetAllocation || 'Opex'}</td>
+                                    <td className="border py-1 px-1.5 text-center bg-white text-black" style={cellBorderStyle}>
                                       <span className="text-[11px]" title={rag.tooltip}>{rag.face}</span>
                                     </td>
-                                    <td className="border py-1 px-1.5 font-extrabold text-center break-words" style={{ ...cellBorderStyle, color: kpa.cellTintTextHex }}>{target}</td>
-                                    <td className="border py-1 px-1.5 font-extrabold text-center break-words" style={{ ...cellBorderStyle, color: kpa.achievedColor }}>{actual}</td>
-                                    <td className="border py-1 px-1.5 font-medium text-center break-words" style={cellBorderStyle}>{exp}</td>
-                                    <td className="border py-1 px-1.5 break-words text-justify" style={cellBorderStyle}>
-                                      {poeDesc && <div className="text-[7px] text-slate-600 leading-tight mb-0.5 break-words text-justify">{poeDesc}</div>}
+                                    <td className="border py-1 px-1.5 font-extrabold text-center break-words bg-white text-black" style={cellBorderStyle}>{target}</td>
+                                    <td className="border py-1 px-1.5 font-extrabold text-center break-words bg-white text-black" style={cellBorderStyle}>{actual}</td>
+                                    <td className="border py-1 px-1.5 font-medium text-center break-words bg-white text-black" style={cellBorderStyle}>{exp}</td>
+                                    <td className="border py-1 px-1.5 break-words text-justify bg-white text-black" style={cellBorderStyle}>
+                                      {poeDesc && <div className="text-[7px] text-black bg-white leading-tight mb-0.5 break-words text-justify">{poeDesc}</div>}
                                       {poes && poes.length > 0 && (
                                         <div
-                                          className="text-[6.5px] px-1 py-0.5 rounded truncate font-semibold"
-                                          style={{ backgroundColor: kpa.cellTintBgHex, color: kpa.cellTintTextHex }}
+                                          className="text-[6.5px] px-1 py-0.5 rounded truncate font-semibold bg-white text-black"
                                           title={poes.join(', ')}
                                         >
                                           📄 {poes[poes.length - 1]}
                                         </div>
                                       )}
                                     </td>
-                                    <td className="border py-1 px-1.5 italic text-rose-900 font-bold leading-tight break-words text-justify" style={cellBorderStyle}>{variance}</td>
-                                    <td className="border py-1 px-1.5 font-medium leading-tight break-words text-justify" style={cellBorderStyle}>{corrective}</td>
+                                    <td className="border py-1 px-1.5 italic text-black bg-white font-bold leading-tight break-words text-justify" style={cellBorderStyle}>{variance}</td>
+                                    <td className="border py-1 px-1.5 font-medium leading-tight break-words text-justify bg-white text-black" style={cellBorderStyle}>{corrective}</td>
                                   </tr>
                                 );
                               }
@@ -1584,31 +1568,31 @@ function ReportDocument({
             <thead className="bg-[#cbd5e1] text-black uppercase font-black text-left">
               <tr><th className="border border-slate-400 p-3 w-20 text-center">Rating</th><th className="border border-slate-400 p-3 w-56">Terminology</th><th className="border border-slate-400 p-3">Description</th></tr>
             </thead>
-            <tbody>
-              <tr>
-                <td className="border border-slate-400 p-3 text-center font-black text-xl bg-emerald-100 text-black">5</td>
-                <td className="border border-slate-400 p-3 font-black uppercase text-black bg-emerald-100">Outstanding Performance</td>
-                <td className="border border-slate-400 p-3 text-black font-medium text-justify">Performance far exceeds the standards expected of an institution at this level. The appraisal indicates that the Municipality has achieved exceptionally admirable results in all areas of the scorecard.</td>
+            <tbody className="bg-white text-black">
+              <tr className="bg-white text-black">
+                <td className="border border-slate-400 p-3 text-center font-black text-xl bg-white text-black">5</td>
+                <td className="border border-slate-400 p-3 font-black uppercase text-black bg-white">Outstanding Performance</td>
+                <td className="border border-slate-400 p-3 text-black bg-white font-medium text-justify">Performance far exceeds the standards expected of an institution at this level. The appraisal indicates that the Municipality has achieved exceptionally admirable results in all areas of the scorecard.</td>
               </tr>
-              <tr>
-                <td className="border border-slate-400 p-3 text-center font-black text-xl bg-blue-100 text-black">4</td>
-                <td className="border border-slate-400 p-3 font-black uppercase text-black bg-blue-100">Performance Significantly Above Expectations</td>
-                <td className="border border-slate-400 p-3 text-black font-medium text-justify">Performance is significantly higher than the standard expected in the scorecard. The appraisal indicates that the Municipality has achieved better than expected results in all areas and exceeded targets in key areas.</td>
+              <tr className="bg-white text-black">
+                <td className="border border-slate-400 p-3 text-center font-black text-xl bg-white text-black">4</td>
+                <td className="border border-slate-400 p-3 font-black uppercase text-black bg-white">Performance Significantly Above Expectations</td>
+                <td className="border border-slate-400 p-3 text-black bg-white font-medium text-justify">Performance is significantly higher than the standard expected in the scorecard. The appraisal indicates that the Municipality has achieved better than expected results in all areas and exceeded targets in key areas.</td>
               </tr>
-              <tr>
-                <td className="border border-slate-400 p-3 text-center font-black text-xl bg-emerald-50 text-black">3</td>
-                <td className="border border-slate-400 p-3 font-black uppercase text-black bg-emerald-50">Fully Effective</td>
-                <td className="border border-slate-400 p-3 text-black font-medium text-justify">Performance fully meets the standards expected in all areas of the scorecard. The appraisal indicates that the Municipality has met all planned quarterly and annual SDBIP targets.</td>
+              <tr className="bg-white text-black">
+                <td className="border border-slate-400 p-3 text-center font-black text-xl bg-white text-black">3</td>
+                <td className="border border-slate-400 p-3 font-black uppercase text-black bg-white">Fully Effective</td>
+                <td className="border border-slate-400 p-3 text-black bg-white font-medium text-justify">Performance fully meets the standards expected in all areas of the scorecard. The appraisal indicates that the Municipality has met all planned quarterly and annual SDBIP targets.</td>
               </tr>
-              <tr>
-                <td className="border border-slate-400 p-3 text-center font-black text-xl bg-amber-100 text-black">2</td>
-                <td className="border border-slate-400 p-3 font-black uppercase text-black bg-amber-100">Not Fully Effective</td>
-                <td className="border border-slate-400 p-3 text-black font-medium text-justify">Performance is below the standard required for the scorecard as a whole. Performance meets some of the standards expected, while targeted remedial interventions are required for unachieved indicators.</td>
+              <tr className="bg-white text-black">
+                <td className="border border-slate-400 p-3 text-center font-black text-xl bg-white text-black">2</td>
+                <td className="border border-slate-400 p-3 font-black uppercase text-black bg-white">Not Fully Effective</td>
+                <td className="border border-slate-400 p-3 text-black bg-white font-medium text-justify">Performance is below the standard required for the scorecard as a whole. Performance meets some of the standards expected, while targeted remedial interventions are required for unachieved indicators.</td>
               </tr>
-              <tr>
-                <td className="border border-slate-400 p-3 text-center font-black text-xl bg-rose-100 text-black">1</td>
-                <td className="border border-slate-400 p-3 font-black uppercase text-black bg-rose-100">Unacceptable Performance</td>
-                <td className="border border-slate-400 p-3 text-black font-medium text-justify">Performance does not meet the standard expected for the scorecard. The Municipality has failed to demonstrate the commitment or capacity required to achieve the approved SDBIP targets.</td>
+              <tr className="bg-white text-black">
+                <td className="border border-slate-400 p-3 text-center font-black text-xl bg-white text-black">1</td>
+                <td className="border border-slate-400 p-3 font-black uppercase text-black bg-white">Unacceptable Performance</td>
+                <td className="border border-slate-400 p-3 text-black bg-white font-medium text-justify">Performance does not meet the standard expected for the scorecard. The Municipality has failed to demonstrate the commitment or capacity required to achieve the approved SDBIP targets.</td>
               </tr>
             </tbody>
           </table>
@@ -1874,10 +1858,10 @@ function SDBIPReportsTab({
     p { font-size: 9.5pt; text-align: justify; margin-bottom: 6pt; }
     table { width: 100%; border-collapse: collapse; margin-top: 8pt; margin-bottom: 12pt; font-size: 8pt; }
     th { background-color: #0f172a; color: #ffffff; padding: 5pt 4pt; border: 1pt solid #334155; font-weight: bold; text-align: left; }
-    td { padding: 4pt 3pt; border: 1pt solid #cbd5e1; vertical-align: top; }
-    tr:nth-child(even) { background-color: #f8fafc; }
-    .rag-green { background-color: #dcfce7; color: #166534; font-weight: bold; text-align: center; }
-    .rag-red { background-color: #fee2e2; color: #991b1b; font-weight: bold; text-align: center; }
+    td { background-color: #ffffff; color: #000000; padding: 4pt 3pt; border: 1pt solid #cbd5e1; vertical-align: top; }
+    tbody tr { background-color: #ffffff; color: #000000; }
+    .rag-green { background-color: #ffffff; color: #000000; font-weight: bold; text-align: center; }
+    .rag-red { background-color: #ffffff; color: #000000; font-weight: bold; text-align: center; }
     .page-break { page-break-before: always; }
   </style>
 </head>
@@ -2320,16 +2304,16 @@ function EditableTable({ headers: initialHeaders, initialRows }: { headers: stri
               <th className="border border-slate-200 p-3 w-12 bg-slate-100"></th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="bg-white text-black">
             {rows.map((row, rIdx) => (
-              <tr key={rIdx} className="hover:bg-slate-50 transition-colors">
+              <tr key={rIdx} className="bg-white text-black">
                 {row.map((cell, cIdx) => (
-                  <td key={cIdx} className="border border-slate-200 p-0">
-                    <input value={cell} onChange={(e) => updateCell(rIdx, cIdx, e.target.value)} className="w-full p-3 bg-transparent outline-none focus:bg-indigo-50/50" />
+                  <td key={cIdx} className="border border-slate-200 p-0 bg-white text-black">
+                    <input value={cell} onChange={(e) => updateCell(rIdx, cIdx, e.target.value)} className="w-full p-3 bg-white text-black outline-none" />
                   </td>
                 ))}
-                <td className="border border-slate-200 p-1 text-center bg-slate-50/50">
-                  <button onClick={() => removeRow(rIdx)} className="text-slate-300 hover:text-rose-500 p-1 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                <td className="border border-slate-200 p-1 text-center bg-white text-black">
+                  <button onClick={() => removeRow(rIdx)} className="text-black hover:text-rose-500 p-1 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                 </td>
               </tr>
             ))}
