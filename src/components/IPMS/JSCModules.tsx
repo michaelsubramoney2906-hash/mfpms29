@@ -183,8 +183,10 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId, isTeamJS
         if (!res.ok) throw new Error("Failed to load server state");
         const data = await res.json();
         if (active && data) {
-          if (Array.isArray(data.competencies) && data.competencies.length > 0) {
+          if (Array.isArray(data.competencies)) {
             setRows(data.competencies.map(ensureQuarterlyData));
+          } else if (data.isCleared) {
+            setRows([]);
           }
         }
       } catch (err) {
@@ -766,8 +768,10 @@ export function JSCManagerApprovalSection({ currentUser, activeTenantId, default
         if (!res.ok) throw new Error("Failed to load server state");
         const data = await res.json();
         if (active && data) {
-          if (Array.isArray(data.competencies) && data.competencies.length > 0) {
+          if (Array.isArray(data.competencies)) {
             setRows(data.competencies.map(ensureQuarterlyData));
+          } else if (data.isCleared) {
+            setRows([]);
           } else {
             setRows(DEFAULT_COMPETENCY_ROWS);
           }
@@ -1447,8 +1451,10 @@ export function JSCInternalAuditorReviewSection({ currentUser, activeTenantId, d
         if (!res.ok) throw new Error("Failed to load server state");
         const data = await res.json();
         if (active && data) {
-          if (Array.isArray(data.competencies) && data.competencies.length > 0) {
+          if (Array.isArray(data.competencies)) {
             setRows(data.competencies.map(ensureQuarterlyData));
+          } else if (data.isCleared) {
+            setRows([]);
           } else {
             setRows(DEFAULT_COMPETENCY_ROWS);
           }
@@ -2044,8 +2050,10 @@ export function JSCDpmcReviewSection({ currentUser, activeTenantId, defaultEmplo
         if (!res.ok) throw new Error("Failed to load server state");
         const data = await res.json();
         if (active && data) {
-          if (Array.isArray(data.competencies) && data.competencies.length > 0) {
+          if (Array.isArray(data.competencies)) {
             setRows(data.competencies.map(ensureQuarterlyData));
+          } else if (data.isCleared) {
+            setRows([]);
           } else {
             setRows(DEFAULT_COMPETENCY_ROWS);
           }
@@ -2395,8 +2403,10 @@ export function JSCAllInOneCompetenciesTable({ currentUser, activeTenantId }: JS
         if (!res.ok) throw new Error("Failed to load server state");
         const data = await res.json();
         if (active && data) {
-          if (Array.isArray(data.competencies) && data.competencies.length > 0) {
+          if (Array.isArray(data.competencies)) {
             setRows(data.competencies.map(ensureQuarterlyData));
+          } else if (data.isCleared) {
+            setRows([]);
           }
         }
       } catch (err) {
@@ -2543,8 +2553,10 @@ export function JSCAnalyticalReportingSection({ currentUser, activeTenantId, isT
         if (!res.ok) throw new Error("Failed to load server state");
         const data = await res.json();
         if (active && data) {
-          if (Array.isArray(data.competencies) && data.competencies.length > 0) {
+          if (Array.isArray(data.competencies)) {
             setRows(data.competencies.map(ensureQuarterlyData));
+          } else if (data.isCleared) {
+            setRows([]);
           }
         }
       } catch (err) {
