@@ -276,7 +276,29 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
     });
   }
 
+  // 9. Mr. Sbusiso Skosana (SkosanaST@nkangaladm.gov.za) - Lock KPI M_21 ("Attain clean audit") for Quarter 1
+  if (normEmail === 'skosanast@nkangaladm.gov.za' || normEmail.includes('skosanast')) {
+    result = result.map(kpi => {
+      const ref = (kpi.kpiNo || kpi.refNum || kpi['kpi no'] || kpi.id || '').toString().trim().toUpperCase();
+      const desc = (kpi.kpiDescription || kpi['kpi description'] || kpi.kpi || kpi.description || '').toString().toLowerCase();
+
+      if (ref === 'M_21' || ref === 'M-21' || desc.includes('clean audit')) {
+        return {
+          ...kpi,
+          kpiNo: 'M_21',
+          q1Target: 'N/A',
+          q1Locked: true,
+          q1Applicable: false,
+          '1st qtr target': 'N/A',
+          lockedQuarters: Array.from(new Set([...(kpi.lockedQuarters || []), 'Q1', 'q1']))
+        };
+      }
+      return kpi;
+    });
+  }
+
   return result;
 }
+
 
 

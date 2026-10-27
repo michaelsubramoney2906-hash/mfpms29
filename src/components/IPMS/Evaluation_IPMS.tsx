@@ -1416,8 +1416,13 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
             item.poeFileName ||
             item.poeFileBase64
           );
-          if (docsCount === 0 && !hasActualOrScore) {
-            alert(`Portfolio of Evidence (PoE) and/or quarterly actuals are MANDATORY prior to submitting KPI #${item?.kpiNo || kId} for manager review! Please attach a PoE document or capture your actual performance first.`);
+          if (docsCount === 0) {
+            alert(`Portfolio of Evidence (PoE) document is MANDATORY prior to submitting KPI #${item?.kpiNo || kId} for manager review! Please attach a PoE file first.`);
+            setSaving(false);
+            return;
+          }
+          if (!hasActualOrScore) {
+            alert(`Quarterly actual deliverable reached is MANDATORY prior to submitting KPI #${item?.kpiNo || kId} for manager review! Please capture your actual performance achieved first.`);
             setSaving(false);
             return;
           }
